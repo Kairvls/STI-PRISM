@@ -11,7 +11,7 @@
         </div>
         <input type="date" name="from" value="{{ $filters['from'] }}" class="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
         <input type="date" name="to" value="{{ $filters['to'] }}" class="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
-        <button type="submit" class="rounded-lg bg-[#0037c7] px-3 py-2 text-sm font-semibold text-white">Filter</button>
+        <button type="submit" class="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white">Filter</button>
         <a href="{{ $action }}" class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600">Clear</a>
         <button type="button" onclick="window.print()" class="ml-auto rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700">Print</button>
     </form>

@@ -30,8 +30,8 @@
                             class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
                         ></textarea>
                     </div>
-                    <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                        <p class="text-xs text-amber-800">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs text-slate-700">
                             Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to Admin.
                         </p>
                     </div>
@@ -46,7 +46,7 @@
                     </button>
                     <button
                         type="submit"
-                        class="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-700"
+                        class="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-900"
                     >
                         Return to Purchaser
                     </button>

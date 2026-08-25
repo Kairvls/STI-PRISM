@@ -39,6 +39,9 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // New token each login so attention popups show again.
+        $request->session()->put('attention_popup_token', (string) \Illuminate\Support\Str::uuid());
+
 
         // =====================================================
         // GET AUTHENTICATED USER HERE

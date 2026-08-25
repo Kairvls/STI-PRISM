@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ManagesUserProfile;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -12,18 +14,48 @@ use App\Support\RisWorkflow;
 
 class AccountingController extends Controller
 {
+    use ManagesUserProfile;
     private const LIQ_INCOMING = ['Pending', 'Submitted', 'Under Review', 'Resubmitted'];
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $metrics = $this->metrics();
+        $financialSummary = $this->financialSummary();
+        $deadlines = $this->deadlines();
+        $chartYears = $this->fundsReleasedChartYears();
+        $chartYear = (int) $request->query('year', now()->year);
+        if (!in_array($chartYear, $chartYears, true)) {
+            $chartYear = (int) ($chartYears[0] ?? now()->year);
+        }
+        $fundsReleasedChart = $this->fundsReleasedChart($chartYear);
+        $nowMs = now()->getTimestampMs();
+        $recentIncomingDocs = collect();
+
+        $pushRecentIncoming = function (string $type, string $ref, ?float $amount, $whenValue, string $url) use (&$recentIncomingDocs, $nowMs) {
+            if (empty($whenValue)) {
+                $whenMs = 0;
+                $whenIso = '';
+            } else {
+                $whenMs = (int) \Carbon\Carbon::parse($whenValue)->getTimestampMs();
+                $whenIso = \Carbon\Carbon::createFromTimestampMs($whenMs)->toISOString();
+            }
+
+            $recentIncomingDocs->push((object) [
+                'type' => $type,
+                'ref' => $ref ?: '—',
+                'amount' => $amount,
+                'url' => $url,
+                'arrived_at_ms' => $whenMs,
+                'arrived_at_iso' => $whenIso,
+                'arrived_relative' => $this->relativeAgoMs($whenMs, $nowMs),
+            ]);
+        };
 
         $incomingAtp = Schema::hasTable('authority_to_purchase_table')
             ? $this->atpQuery()
                 ->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
                 ->whereNotNull('authority_to_purchase_table.authority_purchase_submitted_at')
                 ->orderByDesc('authority_to_purchase_table.authority_purchase_submitted_at')
-                ->limit(6)
                 ->get()
             : collect();
 
@@ -31,9 +63,27 @@ class AccountingController extends Controller
             ? $this->rfcQuery()
                 ->whereIn('request_check_table.request_check_status', $this->rfcIncomingStatuses())
                 ->orderByDesc($this->rfcSortColumn())
-                ->limit(6)
                 ->get()
             : collect();
+
+        foreach ($incomingAtp as $row) {
+            $pushRecentIncoming(
+                'ATP',
+                $row->authority_purchase_form_number ?: ('ATP-' . $row->authority_purchase_id),
+                $row->atp_total !== null ? (float) $row->atp_total : null,
+                $row->authority_purchase_submitted_at ?? $row->authority_purchase_created_at,
+                '/accounting/authority-to-purchase/' . $row->authority_purchase_id
+            );
+        }
+        foreach ($incomingRfc as $row) {
+            $pushRecentIncoming(
+                'Request Check',
+                $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
+                $row->request_check_amount_figures !== null ? (float) $row->request_check_amount_figures : null,
+                $row->request_check_submitted_at ?? $row->request_check_created_at ?? $row->request_check_date,
+                '/accounting/request-check/' . $row->request_check_id
+            );
+        }
 
         $awaitingFunds = collect();
         if (Schema::hasTable('request_check_table') && $this->rfcHas('request_check_funds_released_at')) {
@@ -43,16 +93,30 @@ class AccountingController extends Controller
             $fundsQuery->orderByDesc($this->rfcHas('request_check_approved_at')
                 ? 'request_check_table.request_check_approved_at'
                 : $this->rfcSortColumn());
-            $awaitingFunds = $fundsQuery->limit(6)->get();
+            $awaitingFunds = $fundsQuery->get();
         }
 
         $incomingLiq = Schema::hasTable('liquidation_reports_table')
             ? $this->liqQuery()
                 ->whereIn('liquidation_reports_table.liquidation_report_status', self::LIQ_INCOMING)
                 ->orderByDesc($this->liqSortColumn())
-                ->limit(6)
                 ->get()
             : collect();
+
+        foreach ($incomingLiq as $row) {
+            $pushRecentIncoming(
+                'Liquidation',
+                $row->liquidation_report_form_number ?? ('LIQ-' . $row->liquidation_report_id),
+                $row->liquidation_report_amount_advance !== null ? (float) $row->liquidation_report_amount_advance : null,
+                $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at,
+                '/accounting/liquidation-reports/' . $row->liquidation_report_id
+            );
+        }
+
+        $recentIncomingDocs = $recentIncomingDocs
+            ->sortByDesc('arrived_at_ms')
+            ->values()
+            ->take(5);
 
         $queue = collect();
         foreach ($incomingAtp as $row) {
@@ -109,6 +173,23 @@ class AccountingController extends Controller
         }
         $queue = $queue->sortByDesc('when')->values();
 
+        // Pending document requests: max 10 per page (pagination only when > 10).
+        $queueItems = $queue;
+        $queueTotal = $queueItems->count();
+        $queuePerPage = 10;
+        $queuePage = LengthAwarePaginator::resolveCurrentPage('queue_page');
+        $queue = new LengthAwarePaginator(
+            $queueItems->forPage($queuePage, $queuePerPage)->values(),
+            $queueTotal,
+            $queuePerPage,
+            $queuePage,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query(),
+                'pageName' => 'queue_page',
+            ]
+        );
+
         $recentActivity = collect();
         if (Schema::hasTable('approval_logs_table')) {
             try {
@@ -116,16 +197,53 @@ class AccountingController extends Controller
                     ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
                     ->where('approval_log_level', 'Accounting')
                     ->orderByDesc('approval_log_approved_at')
-                    ->limit(8)
                     ->select('approval_logs_table.*', 'users_table.user_full_name')
-                    ->get();
+                    ->paginate(10, ['*'], 'activity_page')
+                    ->withQueryString();
             } catch (\Throwable $e) {
-                $recentActivity = collect();
+                $recentActivity = new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 10, 1, ['pageName' => 'activity_page']);
             }
+        }
+
+        if ($request->ajax()) {
+            $recentIncomingDocsHtml = view('accounting._recent-incoming-docs-rows', compact('recentIncomingDocs'))->render();
+
+            if ($request->query('partial') === 'recent_incoming_docs') {
+                return response()->json([
+                    'recent_incoming_docs_html' => $recentIncomingDocsHtml,
+                ]);
+            }
+
+            if ($request->query('partial') === 'funds_chart') {
+                return response()->json([
+                    'year' => $fundsReleasedChart['year'],
+                    'months' => $fundsReleasedChart['months'],
+                    'total' => $fundsReleasedChart['total'],
+                    'releases' => $fundsReleasedChart['releases'],
+                ]);
+            }
+
+            return response()->json([
+                'queue_html' => view('accounting._queue-table', compact('queue'))->render(),
+                'queue_pagination_html' => $queue->hasPages()
+                    ? view('pagination.president', ['paginator' => $queue])->render()
+                    : '',
+                'activity_html' => view('accounting._activity-items', compact('recentActivity'))->render(),
+                'activity_pagination_html' => $recentActivity->hasPages()
+                    ? view('pagination.president', ['paginator' => $recentActivity])->render()
+                    : '',
+                'recent_incoming_docs_html' => $recentIncomingDocsHtml,
+            ]);
         }
 
         return view('accounting.dashboard', compact(
             'metrics',
+            'financialSummary',
+            'deadlines',
+            'recentIncomingDocs',
+            'fundsReleasedChart',
+            'chartYear',
+            'chartYears',
             'incomingAtp',
             'incomingRfc',
             'awaitingFunds',
@@ -137,7 +255,9 @@ class AccountingController extends Controller
 
     public function authorityToPurchase(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $this->resolveModuleFilter($request, 'accounting.atp_status', 'incoming', [
+            'all', 'incoming', 'revision', 'approved', 'rejected',
+        ]);
         $query = $this->atpQuery()->where(function ($q) {
             $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                 ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
@@ -159,24 +279,42 @@ class AccountingController extends Controller
         $this->applySearch($query, $request, [
             'authority_to_purchase_table.authority_purchase_form_number',
             'requisition_issue_slip_table.ris_form_number',
+            'requisition_issue_slip_table.ris_purpose_description',
+            'authority_to_purchase_table.authority_purchase_status',
             'physical_suppliers_table.company_name',
             'online_suppliers_table.shop_name',
         ]);
 
         $records = $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
-            ->paginate(12)
+            ->paginate(15)
             ->withQueryString();
 
         $counts = [
+            'all' => $this->countAtpAll(),
             'incoming' => $this->countAtpIncoming(),
             'revision' => $this->countAtpRevision(),
             'approved' => $this->countAtpApproved(),
         ];
 
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting.authority-to-purchase._rows', compact('records', 'filter'))->render(),
+                'counts' => $counts,
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'pagination_html' => $records->hasPages()
+                    ? view('pagination.president', ['paginator' => $records])->render()
+                    : '',
+            ]);
+        }
+
         return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts'));
     }
 
-    public function showAtp($id)
+    public function showAtp(Request $request, $id)
     {
         $atp = $this->atpQuery()
             ->where('authority_to_purchase_table.authority_purchase_id', $id)
@@ -190,8 +328,9 @@ class AccountingController extends Controller
         $chain = $this->chainFromAtp((int) $id);
         $history = $this->documentHistory('ATP', (int) $id);
         $reviewable = $atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at !== null;
+        $returnStatus = $this->resolveReturnStatus($request, 'accounting.atp_status', 'incoming');
 
-        return view('accounting.authority-to-purchase.show', compact('atp', 'items', 'chain', 'history', 'reviewable'));
+        return view('accounting.authority-to-purchase.show', compact('atp', 'items', 'chain', 'history', 'reviewable', 'returnStatus'));
     }
 
     public function approveAtp(Request $request, $id)
@@ -223,6 +362,9 @@ class AccountingController extends Controller
             '/purchaser/request-check?selected_atp=' . (int) $id
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'ATP approved. Purchaser has been notified.']);
+        }
         return redirect('/accounting/authority-to-purchase/' . $id)->with('success', 'ATP approved. Purchaser has been notified.');
         });
     }
@@ -254,12 +396,18 @@ class AccountingController extends Controller
             '/purchaser/authority-to-purchase'
         );
 
-        return redirect('/accounting/authority-to-purchase')->with('success', 'Revision requested. Purchaser has been notified.');
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
+        return redirect('/accounting/authority-to-purchase?status=' . urlencode(session('accounting.atp_status', 'incoming')))
+            ->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
     public function requestCheck(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $this->resolveModuleFilter($request, 'accounting.rfc_status', 'incoming', [
+            'all', 'incoming', 'funds', 'released', 'revision', 'approved',
+        ]);
         $query = $this->rfcQuery();
         if ($this->rfcHas('request_check_is_archived')) {
             $query->where(function ($q) {
@@ -287,25 +435,48 @@ class AccountingController extends Controller
             $query->where('request_check_table.request_check_status', 'Approved');
         }
 
-        $searchCols = ['request_check_table.request_check_payee'];
+        $searchCols = [
+            'request_check_table.request_check_payee',
+            'request_check_table.request_check_status',
+        ];
         if ($this->rfcHas('request_check_form_number')) {
             array_unshift($searchCols, 'request_check_table.request_check_form_number');
         }
         $searchCols[] = 'authority_to_purchase_table.authority_purchase_form_number';
         $searchCols[] = 'requisition_issue_slip_table.ris_form_number';
+        if ($this->rfcHas('request_check_amount_figures')) {
+            $searchCols[] = 'request_check_table.request_check_amount_figures';
+        }
         $this->applySearch($query, $request, $searchCols);
 
-        $records = $query->orderByDesc($this->rfcSortColumn())->paginate(12)->withQueryString();
+        $records = $query->orderByDesc($this->rfcSortColumn())->paginate(15)->withQueryString();
         $counts = [
             'incoming' => $this->countRfcIncoming(),
             'funds' => $this->countFundsAwaiting(),
             'released' => $this->countFundsReleased(),
+            'revision' => $this->countRfcRevision(),
+            'approved' => $this->countRfcApproved(),
         ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting.request-check._rows', compact('records', 'filter'))->render(),
+                'counts' => $counts,
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'pagination_html' => $records->hasPages()
+                    ? view('pagination.president', ['paginator' => $records])->render()
+                    : '',
+            ]);
+        }
 
         return view('accounting.request-check.index', compact('records', 'filter', 'counts'));
     }
 
-    public function showRequestCheck($id)
+    public function showRequestCheck(Request $request, $id)
     {
         $rfc = $this->rfcQuery()->where('request_check_table.request_check_id', $id)->first();
         abort_if(!$rfc, 404);
@@ -324,14 +495,33 @@ class AccountingController extends Controller
             ? DB::table('request_check_attachments_table')->where('request_check_id', $id)->orderBy('request_check_attachment_id')->get()
             : collect();
 
-        $chain = $this->chainFromAtp((int) ($rfc->request_check_authority_purchase_id ?? 0));
+        $atpItems = collect();
+        $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
+        if ($atpId > 0 && Schema::hasTable('authority_to_purchase_items_table')) {
+            $atpItems = DB::table('authority_to_purchase_items_table')
+                ->where('authority_purchase_id', $atpId)
+                ->orderBy('atp_item_id')
+                ->get();
+        }
+
+        $chain = $this->chainFromAtp($atpId);
         $history = $this->documentHistory('RFC', (int) $id);
         $reviewable = in_array($rfc->request_check_status, $this->rfcIncomingStatuses(), true);
         $releasable = $rfc->request_check_status === 'Approved'
             && $this->rfcHas('request_check_funds_released_at')
             && empty($rfc->request_check_funds_released_at);
+        $returnStatus = $this->resolveReturnStatus($request, 'accounting.rfc_status', 'incoming');
 
-        return view('accounting.request-check.show', compact('rfc', 'attachments', 'chain', 'history', 'reviewable', 'releasable'));
+        return view('accounting.request-check.show', compact(
+            'rfc',
+            'attachments',
+            'atpItems',
+            'chain',
+            'history',
+            'reviewable',
+            'releasable',
+            'returnStatus'
+        ));
     }
 
     public function approveRequestCheck(Request $request, $id)
@@ -368,6 +558,9 @@ class AccountingController extends Controller
             '/purchaser/request-check'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Request Check approved.']);
+        }
         return redirect('/accounting/request-check/' . $id)->with('success', 'Request Check approved.');
     }
 
@@ -400,7 +593,11 @@ class AccountingController extends Controller
             '/purchaser/request-check'
         );
 
-        return redirect('/accounting/request-check')->with('success', 'Revision requested. Purchaser has been notified.');
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
+        return redirect('/accounting/request-check?status=' . urlencode(session('accounting.rfc_status', 'incoming')))
+            ->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
     public function releaseFunds($id)
@@ -460,7 +657,20 @@ class AccountingController extends Controller
 
     public function liquidationReports(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $this->resolveModuleFilter($request, 'accounting.liq_status', 'incoming', [
+            'all', 'incoming', 'revision', 'approved',
+        ]);
+        $deadlineFilter = $request->query('deadline');
+        if (!in_array($deadlineFilter, ['overdue', 'due_today', 'this_week'], true)) {
+            $deadlineFilter = null;
+        }
+
+        // Deadline cards always mean incoming liquidations.
+        if ($deadlineFilter) {
+            $filter = 'incoming';
+            session(['accounting.liq_status' => 'incoming']);
+        }
+
         $query = $this->liqQuery();
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
             $query->where(function ($q) {
@@ -477,26 +687,76 @@ class AccountingController extends Controller
             $query->where('liquidation_reports_table.liquidation_report_status', 'Approved');
         }
 
-        $liqSearch = ['liquidation_reports_table.liquidation_report_employee_name'];
+        $hasDeadlineCol = Schema::hasColumn('liquidation_reports_table', 'liquidation_report_submission_deadline');
+        if ($deadlineFilter && $hasDeadlineCol) {
+            $today = now()->toDateString();
+            $weekEnd = now()->copy()->addDays(7)->toDateString();
+
+            if ($deadlineFilter === 'overdue') {
+                $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '<', $today);
+            } elseif ($deadlineFilter === 'due_today') {
+                $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '=', $today);
+            } else {
+                $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '>=', $today)
+                    ->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '<=', $weekEnd);
+            }
+        }
+
+        $liqSearch = [
+            'liquidation_reports_table.liquidation_report_employee_name',
+            'liquidation_reports_table.liquidation_report_status',
+        ];
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
             array_unshift($liqSearch, 'liquidation_reports_table.liquidation_report_form_number');
         }
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')) {
             $liqSearch[] = 'receiving_reports_table.receiving_report_form_number';
         }
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_amount_advance')) {
+            $liqSearch[] = 'liquidation_reports_table.liquidation_report_amount_advance';
+        }
         $this->applySearch($query, $request, $liqSearch);
 
-        $records = $query->orderByDesc($this->liqSortColumn())->paginate(12)->withQueryString();
+        if ($hasDeadlineCol) {
+            $query->orderByRaw('CASE
+                WHEN liquidation_report_submission_deadline IS NULL THEN 3
+                WHEN DATE(liquidation_report_submission_deadline) < ? THEN 0
+                WHEN DATE(liquidation_report_submission_deadline) = ? THEN 1
+                ELSE 2
+            END', [now()->toDateString(), now()->toDateString()]);
+        }
+        $records = $query->orderByDesc($this->liqSortColumn())->paginate(15)->withQueryString();
         $counts = [
+            'all' => $this->countLiqAll(),
             'incoming' => $this->countLiqIncoming(),
             'revision' => $this->countLiqRevision(),
             'approved' => $this->countLiqApproved(),
         ];
 
-        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts'));
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting.liquidation-reports._rows', [
+                    'records' => $records,
+                    'filter' => $filter,
+                    'deadlineFilter' => $deadlineFilter,
+                ])->render(),
+                'counts' => $counts,
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'pagination_html' => $records->hasPages()
+                    ? view('pagination.president', ['paginator' => $records])->render()
+                    : '',
+                'deadline_filter' => $deadlineFilter,
+            ]);
+        }
+
+        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts', 'deadlineFilter'));
     }
 
-    public function showLiquidation($id)
+    public function showLiquidation(Request $request, $id)
     {
         $liq = $this->liqQuery()->where('liquidation_reports_table.liquidation_report_id', $id)->first();
         abort_if(!$liq, 404);
@@ -527,14 +787,24 @@ class AccountingController extends Controller
                 $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
             } elseif ($rr && !empty($rr->receiving_report_atp_id)) {
                 $atpId = (int) $rr->receiving_report_atp_id;
+            } elseif ($rr) {
+                $atpId = (int) ($rr->receiving_report_authority_purchase_id ?? $rr->authority_purchase_id ?? 0);
             }
         }
-
         $chain = $this->chainFromAtp($atpId);
         $history = $this->documentHistory('LIQ', (int) $id);
         $reviewable = in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true);
+        $returnStatus = $this->resolveReturnStatus($request, 'accounting.liq_status', 'incoming');
 
-        return view('accounting.liquidation-reports.show', compact('liq', 'rows', 'attachments', 'chain', 'history', 'reviewable'));
+        return view('accounting.liquidation-reports.show', compact(
+            'liq',
+            'rows',
+            'attachments',
+            'chain',
+            'history',
+            'reviewable',
+            'returnStatus'
+        ));
     }
 
     public function approveLiquidation(Request $request, $id)
@@ -567,6 +837,9 @@ class AccountingController extends Controller
             '/purchaser/liquidation-reports'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Liquidation approved. Transaction completed.']);
+        }
         return redirect('/accounting/liquidation-reports/' . $id)->with('success', 'Liquidation approved. Transaction completed.');
     }
 
@@ -599,7 +872,11 @@ class AccountingController extends Controller
             '/purchaser/liquidation-reports'
         );
 
-        return redirect('/accounting/liquidation-reports')->with('success', 'Revision requested. Purchaser has been notified.');
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
+        return redirect('/accounting/liquidation-reports?status=' . urlencode(session('accounting.liq_status', 'incoming')))
+            ->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
     public function downloadLiqAttachment($id, $attachmentId)
@@ -632,7 +909,7 @@ class AccountingController extends Controller
                     'requisition_issue_slip_table.ris_form_number',
                 ]);
             }
-            foreach ($q->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')->limit(40)->get() as $row) {
+            foreach ($q->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')->get() as $row) {
                 $rows->push((object) [
                     'type' => 'ATP',
                     'ref' => $row->authority_purchase_form_number,
@@ -660,7 +937,7 @@ class AccountingController extends Controller
                 }
                 $this->applySearch($q, $request, $cols);
             }
-            foreach ($q->orderByDesc($this->rfcSortColumn())->limit(40)->get() as $row) {
+            foreach ($q->orderByDesc($this->rfcSortColumn())->get() as $row) {
                 $status = !empty($row->request_check_funds_released_at ?? null) ? 'Funds released' : $row->request_check_status;
                 $rows->push((object) [
                     'type' => 'Request Check',
@@ -683,7 +960,7 @@ class AccountingController extends Controller
                 }
                 $this->applySearch($q, $request, $liqCols);
             }
-            foreach ($q->orderByDesc($this->liqSortColumn())->limit(40)->get() as $row) {
+            foreach ($q->orderByDesc($this->liqSortColumn())->get() as $row) {
                 $rows->push((object) [
                     'type' => 'Liquidation',
                     'ref' => $row->liquidation_report_form_number ?? ('LIQ-' . $row->liquidation_report_id),
@@ -696,14 +973,37 @@ class AccountingController extends Controller
             }
         }
 
-        $records = $rows->sortByDesc('when')->values();
+        $merged = $rows->sortByDesc('when')->values();
+
+        // Paginate the merged records using the same pagination logic as the President module.
+        $perPage = 15;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $records = new LengthAwarePaginator(
+            $merged->forPage($page, $perPage),
+            $merged->count(),
+            $perPage,
+            $page,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
+
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting._history-rows', compact('records'))->render(),
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'pagination_html' => $records->hasPages()
+                    ? view('pagination.president', ['paginator' => $records])->render()
+                    : '',
+            ]);
+        }
 
         return view('accounting.history', compact('records', 'type', 'search'));
-    }
-
-    public function reports()
-    {
-        return view('accounting.reports.index', ['metrics' => $this->metrics()]);
     }
 
     public function financialRecords(Request $request)
@@ -711,22 +1011,79 @@ class AccountingController extends Controller
         return $this->history($request);
     }
 
-    public function notifications()
+    public function notifications(Request $request)
     {
+        $period = $request->get('period', 'today');
+        $allowedPeriods = ['today', 'week', 'month', 'year'];
+
+        if (! in_array($period, $allowedPeriods, true)) {
+            $period = 'today';
+        }
+
         $items = collect();
         try {
-            $items = DB::table('notifications_table')
+            $query = DB::table('notifications_table')
                 ->where(function ($q) {
                     $q->where('notification_user_id', Auth::id())
                         ->orWhere('notification_target_role', 'Accounting');
-                })
+                });
+
+            switch ($period) {
+                case 'week':
+                    $query->whereBetween(
+                        'notification_created_at',
+                        [now()->startOfWeek(), now()->endOfWeek()]
+                    );
+                    break;
+                case 'month':
+                    $query
+                        ->whereYear('notification_created_at', now()->year)
+                        ->whereMonth('notification_created_at', now()->month);
+                    break;
+                case 'year':
+                    $query->whereYear('notification_created_at', now()->year);
+                    break;
+                default:
+                    $query->whereDate('notification_created_at', today());
+                    break;
+            }
+
+            $items = $query
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->paginate(15)
+                ->withQueryString();
         } catch (\Throwable $e) {
+            $items = new LengthAwarePaginator(collect(), 0, 15);
         }
 
-        return view('accounting.notifications.index', compact('items'));
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting._notif-items', compact('items', 'period'))->render(),
+                'total' => $items->total(),
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'pagination_html' => $items->hasPages()
+                    ? view('pagination.president', ['paginator' => $items])->render()
+                    : '',
+            ]);
+        }
+
+        return view('accounting.notifications.index', compact('items', 'period'));
+    }
+
+    public function profile()
+    {
+        return $this->showUserProfile('accounting.profile');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        return $this->saveUserProfile($request, '/accounting/profile');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        return $this->saveUserPassword($request, '/accounting/profile');
     }
 
     private function metrics(): array
@@ -735,12 +1092,234 @@ class AccountingController extends Controller
             'atp_pending' => $this->countAtpIncoming(),
             'rfc_pending' => $this->countRfcIncoming(),
             'funds_awaiting' => $this->countFundsAwaiting(),
+            'funds_released' => $this->countFundsReleased(),
             'liq_pending' => $this->countLiqIncoming(),
+            'atp_revision' => $this->countAtpRevision(),
+            'rfc_revision' => $this->countRfcRevision(),
+            'liq_revision' => $this->countLiqRevision(),
             'atp_approved' => $this->countAtpApproved(),
             'rfc_approved' => $this->countRfcApproved(),
             'liq_approved' => $this->countLiqApproved(),
             'needs_revision' => $this->countAtpRevision() + $this->countRfcRevision() + $this->countLiqRevision(),
         ];
+    }
+
+    private function relativeAgoMs(int $timestampMs, int $nowMs): string
+    {
+        if ($timestampMs <= 0) {
+            return '—';
+        }
+
+        $diffSec = (int) floor(max(0, ($nowMs - $timestampMs)) / 1000);
+
+        if ($diffSec < 60) {
+            return 'now';
+        }
+
+        $diffMin = (int) floor($diffSec / 60);
+        if ($diffMin === 1) return 'one minute ago';
+        if ($diffMin < 60) return $diffMin . ' minutes ago';
+
+        $diffHr = (int) floor($diffMin / 60);
+        if ($diffHr === 1) return 'one hour ago';
+        if ($diffHr < 24) return $diffHr . ' hours ago';
+
+        $diffDays = (int) floor($diffHr / 24);
+        if ($diffDays === 1) return 'one day ago';
+        return $diffDays . ' days ago';
+    }
+
+    private function financialSummary(): array
+    {
+        $received = 0.0;
+        $released = 0.0;
+        $liquidated = 0.0;
+
+        if (Schema::hasTable('request_check_table') && $this->rfcHas('request_check_amount_figures')) {
+            $rfcBase = DB::table('request_check_table')->where('request_check_status', 'Approved');
+            $received = (float) (clone $rfcBase)->sum('request_check_amount_figures');
+
+            if ($this->rfcHas('request_check_funds_released_at')) {
+                $released = (float) (clone $rfcBase)
+                    ->whereNotNull('request_check_funds_released_at')
+                    ->sum('request_check_amount_figures');
+            }
+        }
+
+        if (Schema::hasTable('liquidation_reports_table')) {
+            $liqQuery = DB::table('liquidation_reports_table')
+                ->where('liquidation_report_status', 'Approved');
+
+            if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_summary_actual_expense')
+                && Schema::hasColumn('liquidation_reports_table', 'liquidation_report_amount_advance')) {
+                $liquidated = (float) $liqQuery->sum(DB::raw(
+                    'COALESCE(liquidation_report_summary_actual_expense, liquidation_report_amount_advance, 0)'
+                ));
+            } elseif (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_summary_actual_expense')) {
+                $liquidated = (float) $liqQuery->sum('liquidation_report_summary_actual_expense');
+            } elseif (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_amount_advance')) {
+                $liquidated = (float) $liqQuery->sum('liquidation_report_amount_advance');
+            }
+        }
+
+        $remaining = $received - $released;
+
+        return [
+            'received' => $received,
+            'released' => $released,
+            'liquidated' => $liquidated,
+            'remaining' => $remaining,
+        ];
+    }
+
+    private function fundsReleasedChartYears(): array
+    {
+        $current = (int) now()->year;
+        $years = [$current];
+
+        if (Schema::hasTable('request_check_table') && $this->rfcHas('request_check_funds_released_at')) {
+            try {
+                $fromDb = DB::table('request_check_table')
+                    ->whereNotNull('request_check_funds_released_at')
+                    ->selectRaw('DISTINCT YEAR(request_check_funds_released_at) as y')
+                    ->orderByDesc('y')
+                    ->pluck('y')
+                    ->map(fn ($y) => (int) $y)
+                    ->filter(fn ($y) => $y > 2000)
+                    ->all();
+                $years = array_values(array_unique(array_merge($fromDb, $years)));
+            } catch (\Throwable $e) {
+                // keep current year
+            }
+        }
+
+        rsort($years, SORT_NUMERIC);
+
+        // Always offer a short window around the current year for empty databases.
+        for ($y = $current; $y >= $current - 4; $y--) {
+            if (!in_array($y, $years, true)) {
+                $years[] = $y;
+            }
+        }
+        rsort($years, SORT_NUMERIC);
+
+        return $years;
+    }
+
+    private function fundsReleasedChart(int $year): array
+    {
+        $monthNames = [
+            1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+            5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
+            9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec',
+        ];
+
+        $months = [];
+        $yearTotal = 0.0;
+        $yearReleases = 0;
+
+        $hasAmount = Schema::hasTable('request_check_table')
+            && $this->rfcHas('request_check_funds_released_at')
+            && $this->rfcHas('request_check_amount_figures');
+
+        for ($m = 1; $m <= 12; $m++) {
+            $released = 0.0;
+            $count = 0;
+
+            if ($hasAmount) {
+                $base = DB::table('request_check_table')
+                    ->whereNotNull('request_check_funds_released_at')
+                    ->whereYear('request_check_funds_released_at', $year)
+                    ->whereMonth('request_check_funds_released_at', $m);
+
+                $released = (float) (clone $base)->sum('request_check_amount_figures');
+                $count = (int) (clone $base)->count();
+            }
+
+            $yearTotal += $released;
+            $yearReleases += $count;
+
+            $months[] = [
+                'month' => $m,
+                'month_label' => $monthNames[$m],
+                'released' => round($released, 2),
+                'count' => $count,
+                'average' => $count > 0 ? round($released / $count, 2) : 0.0,
+            ];
+        }
+
+        return [
+            'year' => $year,
+            'months' => $months,
+            'total' => round($yearTotal, 2),
+            'releases' => $yearReleases,
+        ];
+    }
+
+    private function deadlines(): array
+    {
+        if (!Schema::hasTable('liquidation_reports_table') || !Schema::hasColumn('liquidation_reports_table', 'liquidation_report_submission_deadline')) {
+            return [
+                'overdue' => 0,
+                'due_today' => 0,
+                'this_week' => 0,
+            ];
+        }
+
+        $today = now()->toDateString();
+        $weekEnd = now()->copy()->addDays(7)->toDateString();
+
+        $base = function () {
+            return DB::table('liquidation_reports_table')
+                ->whereIn('liquidation_report_status', self::LIQ_INCOMING);
+        };
+
+        $overdue = (int) $base()
+            ->whereDate('liquidation_report_submission_deadline', '<', $today)
+            ->count();
+
+        $dueToday = (int) $base()
+            ->whereDate('liquidation_report_submission_deadline', '=', $today)
+            ->count();
+
+        $thisWeek = (int) $base()
+            ->whereDate('liquidation_report_submission_deadline', '>=', $today)
+            ->whereDate('liquidation_report_submission_deadline', '<=', $weekEnd)
+            ->count();
+
+        return [
+            'overdue' => $overdue,
+            'due_today' => $dueToday,
+            'this_week' => $thisWeek,
+        ];
+    }
+
+    private function resolveModuleFilter(Request $request, string $sessionKey, string $default, array $allowed): string
+    {
+        $filter = $request->query('status');
+        if ($filter === null || $filter === '') {
+            // Fresh entry into the module (sidebar / no query) always opens Needs review.
+            $filter = $default;
+        }
+
+        if (!in_array($filter, $allowed, true)) {
+            $filter = $default;
+        }
+
+        session([$sessionKey => $filter]);
+
+        return $filter;
+    }
+
+    private function resolveReturnStatus(Request $request, string $sessionKey, string $default): string
+    {
+        $status = $request->query('return_status', session($sessionKey, $default));
+        if (!is_string($status) || $status === '') {
+            $status = $default;
+        }
+        session([$sessionKey => $status]);
+
+        return $status;
     }
 
     private function countAtpIncoming(): int
@@ -751,6 +1330,18 @@ class AccountingController extends Controller
         return (int) DB::table('authority_to_purchase_table')
             ->where('authority_purchase_status', 'Pending')
             ->whereNotNull('authority_purchase_submitted_at')
+            ->where(function ($q) {
+                $q->whereNull('authority_purchase_is_archived')->orWhere('authority_purchase_is_archived', 0);
+            })
+            ->count();
+    }
+
+    private function countAtpAll(): int
+    {
+        if (!Schema::hasTable('authority_to_purchase_table')) {
+            return 0;
+        }
+        return (int) DB::table('authority_to_purchase_table')
             ->where(function ($q) {
                 $q->whereNull('authority_purchase_is_archived')->orWhere('authority_purchase_is_archived', 0);
             })
@@ -826,6 +1417,20 @@ class AccountingController extends Controller
             return 0;
         }
         return (int) DB::table('liquidation_reports_table')->whereIn('liquidation_report_status', self::LIQ_INCOMING)->count();
+    }
+
+    private function countLiqAll(): int
+    {
+        if (!Schema::hasTable('liquidation_reports_table')) {
+            return 0;
+        }
+        $query = DB::table('liquidation_reports_table');
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
+            $query->where(function ($q) {
+                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+            });
+        }
+        return (int) $query->count();
     }
 
     private function countLiqRevision(): int

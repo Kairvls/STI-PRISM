@@ -13,6 +13,21 @@ class ReportGrouping
         return ['Pending', 'Processing'];
     }
 
+    public static function todayCount(): int
+    {
+        if (! Schema::hasTable('reports_table')) {
+            return 0;
+        }
+
+        return DB::table('reports_table')
+            ->where('report_is_archived', false)
+            ->whereBetween('report_submitted_at', [
+                now()->startOfDay(),
+                now()->endOfDay(),
+            ])
+            ->count();
+    }
+
     public static function groupedStatuses(): array
     {
         return ['Pending', 'Processing', 'Resolved', 'For Replacement'];
@@ -101,6 +116,21 @@ class ReportGrouping
             $updates['report_urgency_level'] = 'Urgent';
         }
 
+        if (
+            self::hasPreferredActionDateColumn()
+            && ($incoming['urgency'] ?? 'Non-Urgent') !== 'Urgent'
+            && ($openReport->report_urgency_level ?? 'Non-Urgent') !== 'Urgent'
+        ) {
+            $incomingDate = $incoming['preferred_action_date'] ?? null;
+            $existingDate = $openReport->report_preferred_action_date ?? null;
+
+            if ($incomingDate) {
+                if (!$existingDate || $incomingDate < $existingDate) {
+                    $updates['report_preferred_action_date'] = $incomingDate;
+                }
+            }
+        }
+
         if ($countColumn) {
             $updates['report_related_count'] = max(
                 1,
@@ -128,6 +158,62 @@ class ReportGrouping
             ->update($updates);
 
         return (int) $openReport->report_id;
+    }
+
+    public static function nonUrgentReminderGraceDays(): int
+    {
+        return 5;
+    }
+
+    public static function preferredActionDateColumn(): string
+    {
+        return 'report_preferred_action_date';
+    }
+
+    public static function hasPreferredActionDateColumn(): bool
+    {
+        return Schema::hasColumn('reports_table', self::preferredActionDateColumn());
+    }
+
+    public static function preferredActionDateRules(): array
+    {
+        return [
+            'nullable',
+            'date',
+            'after_or_equal:today',
+        ];
+    }
+
+    public static function resolvePreferredActionDate(?string $urgency, mixed $date): ?string
+    {
+        if ($urgency !== 'Non-Urgent' || !self::hasPreferredActionDateColumn()) {
+            return null;
+        }
+
+        $date = is_string($date) ? trim($date) : '';
+
+        return $date === '' ? null : $date;
+    }
+
+    public static function applyNonUrgentReminderWindow($query)
+    {
+        $undatedDueOn = today()->subDays(self::nonUrgentReminderGraceDays())->toDateString();
+
+        if (!self::hasPreferredActionDateColumn()) {
+            return $query->whereDate('report_submitted_at', '<=', $undatedDueOn);
+        }
+
+        return $query->where(function ($due) use ($undatedDueOn) {
+            $due->where(function ($dated) {
+                $dated
+                    ->whereNotNull('report_preferred_action_date')
+                    ->whereDate('report_preferred_action_date', '<=', today());
+            })->orWhere(function ($undated) use ($undatedDueOn) {
+                $undated
+                    ->whereNull('report_preferred_action_date')
+                    ->whereDate('report_submitted_at', '<=', $undatedDueOn);
+            });
+        });
     }
 
     public static function moveUnusableEquipmentToDisposal(int $equipmentId, ?string $reason = null): void

@@ -88,6 +88,7 @@ CREATE TABLE `audit_logs_table` (
   `audit_log_id` bigint NOT NULL AUTO_INCREMENT,
   `audit_log_user_id` bigint DEFAULT NULL,
   `audit_log_action` varchar(255) DEFAULT NULL,
+  `audit_log_module` varchar(255) DEFAULT NULL,
   `audit_log_table_name` varchar(255) DEFAULT NULL,
   `audit_log_reference_id` bigint DEFAULT NULL,
   `audit_log_description` text,

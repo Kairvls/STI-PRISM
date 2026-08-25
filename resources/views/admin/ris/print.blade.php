@@ -5,92 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RIS Preview</title>
     <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            padding: 16px;
-            background: #f3f4f6;
-            font-family: Arial, Helvetica, sans-serif;
-        }
-        .ris-original-form {
-            width: 100%;
-            max-width: 1095px;
-            min-height: 845px;
-            margin: 0 auto;
-            border: 2px solid #1f2937;
-            padding: 26px 24px 24px;
-            background: #fff;
-            color: #000;
+        * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+        body { margin: 0; padding: 0; background: transparent; }
+        .ris-document {
+            width: 11in;
+            min-height: 8.5in;
+            padding: 0.35in;
+            background: white;
             position: relative;
         }
-        .ris-document-header { position: relative; height: 120px; text-align: center; }
-        .ris-school-name { font-size: 19px; line-height: 1.2; font-weight: 700; }
-        .ris-document-title { margin-top: 9px; font-size: 15px; line-height: 1.2; font-weight: 700; }
-        .ris-number-area {
-            position: absolute; right: 0; bottom: 18px;
-            display: flex; align-items: flex-end; gap: 10px;
-        }
-        .ris-number-label { font-size: 15px; font-weight: 600; }
-        .ris-number-line {
-            display: block;
-            width: 160px;
-            border-bottom: 1px solid #1f2937;
-        }
-        .ris-items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .ris-items-table th, .ris-items-table td { border: 1px solid #1f2937; }
-        .ris-items-table th {
-            padding: 9px 5px; vertical-align: middle; text-align: center;
-            font-size: 12px; line-height: 1.2; font-weight: 700;
-        }
-        .ris-items-table tbody td {
-            height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
-        }
-        .ris-item-column { width: 40%; }
-        .ris-quantity-header { width: 23%; }
-        .ris-requested-column { width: 11%; font-size: 11px !important; }
-        .ris-issued-column { width: 12%; font-size: 11px !important; }
-        .ris-unit-cost-column { width: 17%; }
-        .ris-amount-column { width: 20%; }
-        .ris-purpose-area { margin-top: 31px; }
-        .ris-purpose-label { font-size: 13px; font-weight: 700; }
-        .ris-purpose-line-row { display: flex; margin-top: 29px; }
-        .ris-purpose-spacer { width: 80px; flex-shrink: 0; }
-        .ris-purpose-line {
-            flex: 1;
-            min-height: 40px;
-            border-bottom: 1px solid #1f2937;
-        }
-        .ris-signatures {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            column-gap: 32px;
-            margin-top: 40px;
-        }
-        .ris-signature-column { min-width: 0; }
-        .ris-signature-label { font-size: 12px; color: #374151; }
-        .ris-signature-line {
-            height: 49px;
-            border-bottom: 1px solid #1f2937;
+        .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
+        .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+        .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
+        .line { display: inline-block; min-width: 130px; border-bottom: 1px solid #111827; text-align: center; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
+        .ris-table th { text-align: center; font-weight: 700; }
+        .item-col { width: 32%; }
+        .supplier-col { width: 18%; }
+        .qty-col { width: 10%; }
+        .cost-col { width: 12%; }
+        .amount-col { width: 18%; }
+        .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
+        .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
+        .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; position: relative; z-index: 50; }
+        .signature-box { position: relative; z-index: 50; }
+        .signature-box p { margin: 0 0 6px; }
+        .signature-line {
+            border-bottom: 1px solid #111827;
+            min-height: 36px;
+            text-align: center;
+            font-size: 12px;
             position: relative;
-        }
-        .ris-date-label { margin-top: 16px; font-size: 12px; color: #374151; }
-        .ris-date-line {
-            height: 31px;
-            border-bottom: 1px solid #1f2937;
-        }
-        .ris-value-line {
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            min-height: 31px;
-            padding: 0 6px 4px;
-            font-size: 12px;
-            line-height: 1.35;
-            text-align: center;
+            padding-bottom: 2px;
         }
-        .ris-number-line.ris-value-line { min-height: 24px; }
-        .ris-signature-line.ris-value-line { min-height: 49px; }
-        .ris-signature-image {
+        .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
+        .signature-image {
             max-height: 36px;
             width: auto;
             position: absolute;
@@ -98,30 +53,20 @@
             transform: translateX(-50%);
             bottom: 100%;
             margin-bottom: -6px;
+            z-index: 10;
         }
-        .approval-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 72px;
-            font-weight: 900;
-            color: rgba(0, 0, 0, 0.07);
-            letter-spacing: 6px;
-            text-transform: uppercase;
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
-            user-select: none;
-        }
+        .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
+
         @media print {
-            body { background: #fff; padding: 0; }
-            .ris-original-form { border-width: 1px; max-width: none; }
-            .approval-watermark {
-                opacity: 0.12;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+            body { background: white; }
+            .ris-document {
+                width: 100%;
+                min-height: auto;
+                margin: 0;
+                padding: 0.2in;
+                position: relative;
             }
+            .header { margin-top: 140px; }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
@@ -137,6 +82,28 @@
     $hasPresidentSign = $hasPresidentImage || $hasPresidentText;
 
     $issuedDisplay = $rawIssued !== '' ? $rawIssued : ($legacyAdminInApproved ? $rawApproved : '');
+    $hasIssuedImage = $issuedDisplay !== '' && str_starts_with($issuedDisplay, 'data:image');
+    $adminIssuedName = null;
+    if ($hasIssuedImage || ($isDirectlyApproved && $issuedDisplay !== '')) {
+        try {
+            if (Schema::hasTable('approval_logs_table')) {
+                $adminLog = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', (int) ($ris->ris_id ?? 0))
+                    ->whereIn('approval_logs_table.approval_log_approval_status', ['Admin Approved', 'Co-signed', 'Directly Approved'])
+                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                    ->select('users_table.user_full_name')
+                    ->first();
+                $adminIssuedName = $adminLog->user_full_name ?? null;
+            }
+        } catch (\Throwable $e) {
+            $adminIssuedName = null;
+        }
+        if ($adminIssuedName === null && !$hasIssuedImage && $issuedDisplay !== '') {
+            $adminIssuedName = $issuedDisplay;
+        }
+    }
     $issuedDate = $ris->ris_issued_by_date
         ?: (($legacyAdminInApproved && $rawIssued === '') ? $ris->ris_approved_by_date : null);
 
@@ -146,105 +113,122 @@
         : ($hasPresidentText ? $rawApproved : '');
 @endphp
 
-    <div class="ris-original-form">
+    <main class="ris-document">
         @if ($isDirectlyApproved)
-            <div class="approval-watermark">ADMIN APPROVED</div>
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'ADMIN APPROVED'])
         @elseif ($hasPresidentSign && $issuedDisplay !== '')
-            <div class="approval-watermark">APPROVED</div>
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
         @endif
 
-        <div class="ris-document-header">
-            <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-            <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
-            <div class="ris-number-area">
-                <span class="ris-number-label">No.</span>
-                <span class="ris-number-line ris-value-line">{{ $ris->ris_form_number ?: ' ' }}</span>
+        <section class="header">
+            <div class="school">STI COLLEGE- ORMOC, INC.</div>
+            <div class="title">REQUISITION AND ISSUE SLIP</div>
+            <div class="number">
+                No.
+                <span class="line">{{ $ris->ris_form_number ?? $ris->ris_id }}</span>
             </div>
-        </div>
+        </section>
 
-        <table class="ris-items-table">
+        <table class="ris-table">
             <thead>
                 <tr>
-                    <th rowspan="2" class="ris-item-column">ITEM</th>
-                    <th colspan="2" class="ris-quantity-header">QUANTITY</th>
-                    <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
-                    <th rowspan="2" class="ris-amount-column">AMOUNT</th>
+                    <th rowspan="2" class="item-col">ITEM</th>
+                    <th rowspan="2" class="supplier-col">SUPPLIER</th>
+                    <th colspan="2">QUANTITY</th>
+                    <th rowspan="2" class="cost-col">UNIT COST</th>
+                    <th rowspan="2" class="amount-col">AMOUNT</th>
                 </tr>
                 <tr>
-                    <th class="ris-requested-column">REQUESTED</th>
-                    <th class="ris-issued-column">ISSUED</th>
+                    <th class="qty-col">REQUESTED</th>
+                    <th class="qty-col">ISSUED</th>
                 </tr>
             </thead>
             <tbody>
-                @for ($row = 0; $row < 8; $row++)
-                    @php $item = $risItems[$row] ?? null; @endphp
+                @for($row = 0; $row < 10; $row++)
+                    @php($item = $risItems[$row] ?? null)
                     <tr>
-                        <td>{{ $item->ris_item_name_description ?? ' ' }}</td>
-                        <td style="text-align:center;">{{ $item->ris_quantity_requested ?? ' ' }}</td>
-                        <td style="text-align:center;">{{ $item->ris_quantity_issued ?? ' ' }}</td>
-                        <td style="text-align:right;">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
-                        <td style="text-align:right;">{{ $item && $item->ris_total_amount !== null ? number_format((float) $item->ris_total_amount, 2) : ' ' }}</td>
+                        <td>
+                            {{ $item?->ris_item_name_description ?? '' }}
+                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
+                        </td>
+                        <td>{{ $item?->supplier_display_name ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
+                        <td style="text-align: right;">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
+                        <td style="text-align: right;">{{ $item && $item->ris_total_amount !== null ? number_format((float) $item->ris_total_amount, 2) : '' }}</td>
                     </tr>
                 @endfor
             </tbody>
         </table>
 
-        <div class="ris-purpose-area">
-            <div class="ris-purpose-label">PURPOSE</div>
-            <div class="ris-purpose-line-row">
-                <div class="ris-purpose-spacer"></div>
-                <div class="ris-purpose-line ris-value-line" style="justify-content:flex-start;">
-                    {{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? ' ') }}
-                </div>
-            </div>
-        </div>
+        <section class="purpose">
+            <div>PURPOSE</div>
+            <div class="purpose-lines">{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? '') }}</div>
+        </section>
 
-        <div class="ris-signatures">
-            <div class="ris-signature-column">
-                <div class="ris-signature-label">Requested by:</div>
-                <div class="ris-signature-line ris-value-line">{{ $ris->ris_requested_by_signature ?: ' ' }}</div>
-                <div class="ris-date-label">Date:</div>
-                <div class="ris-date-line ris-value-line">
-                    {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : ' ' }}
+        <section class="signatures">
+            <div class="signature-box">
+                <p>Requested by:</p>
+                <div class="signature-line">{{ $ris->ris_requested_by_signature ?: '' }}</div>
+                <div class="date-row">
+                    <span>Date:</span>
+                    <div class="signature-line">
+                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : '' }}
+                    </div>
                 </div>
             </div>
 
-            <div class="ris-signature-column">
-                <div class="ris-signature-label">Approved by:</div>
-                <div class="ris-signature-line ris-value-line">
+            <div class="signature-box">
+                <p>Approved by:</p>
+                <div class="signature-line">
                     @if ($hasPresidentImage)
-                        <img src="{{ $rawApproved }}" alt="Approved by signature" class="ris-signature-image" />
-                        <span>{{ $approvedName }}</span>
+                        <img src="{{ $rawApproved }}" alt="Approved by signature" class="signature-image" />
+                        <span class="signature-name">{{ $approvedName }}</span>
                     @elseif ($hasPresidentSign)
-                        {{ $approvedName }}
-                    @else
-                        {{ ' ' }}
+                        <span class="signature-name">{{ $approvedName }}</span>
                     @endif
                 </div>
-                <div class="ris-date-label">Date:</div>
-                <div class="ris-date-line ris-value-line">
-                    {{ $approvedDate ? \Carbon\Carbon::parse($approvedDate)->format('M d, Y') : ' ' }}
+                <div class="date-row">
+                    <span>Date:</span>
+                    <div class="signature-line">
+                        {{ $approvedDate ? \Carbon\Carbon::parse($approvedDate)->format('M d, Y') : '' }}
+                    </div>
                 </div>
             </div>
 
-            <div class="ris-signature-column">
-                <div class="ris-signature-label">Issued by:</div>
-                <div class="ris-signature-line ris-value-line">{{ $issuedDisplay !== '' ? $issuedDisplay : ' ' }}</div>
-                <div class="ris-date-label">Date:</div>
-                <div class="ris-date-line ris-value-line">
-                    {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('M d, Y') : ' ' }}
+            <div class="signature-box">
+                <p>Issued by:</p>
+                <div class="signature-line" style="flex-direction: column; align-items: center; justify-content: flex-end;">
+                    @if ($hasIssuedImage)
+                        <img src="{{ $issuedDisplay }}" alt="Issued by signature" class="signature-image" />
+                        @if (!empty($adminIssuedName))
+                            <span class="signature-name">{{ $adminIssuedName }}</span>
+                        @endif
+                        <span class="signature-position">Admin</span>
+                    @elseif ($issuedDisplay !== '')
+                        <span class="signature-name">{{ $issuedDisplay }}</span>
+                        <span class="signature-position">Admin</span>
+                    @endif
+                </div>
+                <div class="date-row">
+                    <span>Date:</span>
+                    <div class="signature-line">
+                        {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('M d, Y') : '' }}
+                    </div>
                 </div>
             </div>
 
-            <div class="ris-signature-column">
-                <div class="ris-signature-label">Received by:</div>
-                <div class="ris-signature-line ris-value-line">{{ $ris->ris_received_by_signature ?: ' ' }}</div>
-                <div class="ris-date-label">Date:</div>
-                <div class="ris-date-line ris-value-line">
-                    {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('M d, Y') : ' ' }}
+            <div class="signature-box">
+                <p>Received by:</p>
+                <div class="signature-line">{{ $ris->ris_received_by_signature ?: '' }}</div>
+                <div class="date-row">
+                    <span>Date:</span>
+                    <div class="signature-line">
+                        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('M d, Y') : '' }}
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 </body>
 </html>

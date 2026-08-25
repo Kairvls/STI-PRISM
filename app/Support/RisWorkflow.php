@@ -97,6 +97,23 @@ class RisWorkflow
         return in_array((string) ($ris->ris_status ?? ''), self::presidentRejectedStatuses(), true);
     }
 
+    /**
+     * President approved, Issued by still blank — Admin must sign on Sign RIS.
+     */
+    public static function needsAdminIssuedBy(object $ris): bool
+    {
+        return self::isPresidentApproved($ris) && !self::hasIssuedBy($ris);
+    }
+
+    /**
+     * Can Admin return this RIS to Purchaser for Minor Revision from Sign RIS.
+     */
+    public static function canReturnForRevision(object $ris): bool
+    {
+        return self::isPresidentRejected($ris)
+            || (string) ($ris->ris_status ?? '') === 'Rejected';
+    }
+
     public static function statusLabel(object $ris): string
     {
         $status = (string) ($ris->ris_status ?? '');

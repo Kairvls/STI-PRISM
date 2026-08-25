@@ -46,12 +46,13 @@
     .admin-da-ris-form .ris-items-table tbody td {
         height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
     }
-    .admin-da-ris-form .ris-item-column { width: 40%; }
-    .admin-da-ris-form .ris-quantity-header { width: 23%; }
-    .admin-da-ris-form .ris-requested-column { width: 11%; font-size: 11px !important; }
-    .admin-da-ris-form .ris-issued-column { width: 12%; font-size: 11px !important; }
-    .admin-da-ris-form .ris-unit-cost-column { width: 17%; }
-    .admin-da-ris-form .ris-amount-column { width: 20%; }
+    .admin-da-ris-form .ris-item-column { width: 30%; }
+    .admin-da-ris-form .ris-supplier-column { width: 16%; font-size: 11px !important; }
+    .admin-da-ris-form .ris-quantity-header { width: 20%; }
+    .admin-da-ris-form .ris-requested-column { width: 10%; font-size: 11px !important; }
+    .admin-da-ris-form .ris-issued-column { width: 10%; font-size: 11px !important; }
+    .admin-da-ris-form .ris-unit-cost-column { width: 14%; }
+    .admin-da-ris-form .ris-amount-column { width: 16%; }
     .admin-da-ris-form .ris-purpose-area { margin-top: 31px; }
     .admin-da-ris-form .ris-purpose-label { font-size: 13px; font-weight: 700; }
     .admin-da-ris-form .ris-purpose-line-row { display: flex; margin-top: 29px; }
@@ -100,7 +101,7 @@
     .admin-da-ris-form .ris-editable-hint {
         margin-top: 4px;
         font-size: 10px;
-        color: #d97706;
+        color: #64748b;
         text-align: center;
         font-weight: 600;
     }
@@ -114,6 +115,7 @@
     id="directApproveForm"
     method="POST"
     action="{{ $formAction }}"
+    enctype="multipart/form-data"
     class="flex min-h-0 flex-1 flex-col"
     data-mode="{{ $mode }}"
 >
@@ -122,9 +124,10 @@
         <input type="hidden" name="target_id" value="{{ $ris->ris_id }}">
         <input type="hidden" name="decision" value="Approved">
     @endif
+    <input type="hidden" name="ris_issued_by_signature_image" id="ris_issued_by_signature_image" value="">
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
             @if ($isForward)
                 All RIS details are locked. Confirming will forward this RIS to the <strong>President</strong> without an Issued by signature. You sign Issued by later on Sign RIS after the President approves.
             @elseif ($isCosign)
@@ -134,6 +137,31 @@
                 Confirming will mark this RIS as <strong>Admin Approved</strong> and return it to the Purchaser.
             @endif
         </div>
+
+        @if (!$isForward)
+        <div class="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-sm font-semibold text-slate-900">Issued by signature</h4>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Type your name below and/or upload a handwritten signature. Both are saved on <strong>Issued by</strong> only.
+                    </p>
+                </div>
+            </div>
+            <div class="mt-3 max-w-sm">
+                <label class="block text-xs text-slate-600">
+                    Handwritten signature image (optional)
+                    <input
+                        type="file"
+                        id="sigUploadIssued"
+                        name="ris_issued_by_signature_file"
+                        accept="image/*"
+                        class="mt-1 block w-full text-xs"
+                    >
+                </label>
+            </div>
+        </div>
+        @endif
 
         <div class="overflow-x-auto bg-gray-100 p-4 md:p-6">
             <div class="admin-da-ris-form mx-auto">
@@ -150,6 +178,7 @@
                     <thead>
                         <tr>
                             <th rowspan="2" class="ris-item-column">ITEM</th>
+                            <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                             <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                             <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                             <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -164,7 +193,11 @@
                         @for($i = 0; $i < $rowCount; $i++)
                             @php $item = $items->get($i); @endphp
                             <tr>
-                                <td>{{ $item->ris_item_name_description ?? '' }}</td>
+                                <td>
+                                    {{ $item->ris_item_name_description ?? '' }}
+                                    @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
+                                </td>
+                                <td>{{ $item->supplier_display_name ?? '' }}</td>
                                 <td class="text-center">{{ $item->ris_quantity_requested ?? '' }}</td>
                                 <td class="text-center">{{ $item->ris_quantity_issued ?? '' }}</td>
                                 <td class="text-right">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
@@ -185,7 +218,7 @@
                 <div class="ris-signatures">
                     <div class="ris-signature-column admin-da-locked">
                         <div class="ris-signature-label">Requested by:</div>
-                        <div class="ris-signature-line">{{ $ris->ris_requested_by_signature ?: ' ' }}</div>
+                        <div class="ris-signature-line" id="sigLineRequested">{{ $ris->ris_requested_by_signature ?: ' ' }}</div>
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line">
                             {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -194,7 +227,7 @@
 
                     <div class="ris-signature-column admin-da-locked">
                         <div class="ris-signature-label">Approved by:</div>
-                        <div class="ris-signature-line">
+                        <div class="ris-signature-line" id="sigLineApproved">
                             @if ($isCosign && $approvedIsImage)
                                 <img src="{{ $approvedRaw }}" alt="Approved by" style="max-height: 36px; width: auto;">
                             @elseif ($isCosign && $approvedRaw !== '')
@@ -220,6 +253,7 @@
                             <div class="ris-date-label">Date:</div>
                             <div class="ris-date-line">dd/mm/yyyy</div>
                         @else
+                        <div id="sigLineIssuedPreview" class="ris-signature-line" style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px;"></div>
                         <input
                             type="text"
                             name="ris_issued_by"
@@ -231,7 +265,7 @@
                             class="ris-signature-input"
                             title="Admin name for Issued by"
                         >
-                        <div class="ris-editable-hint">Editable</div>
+                        <div class="ris-editable-hint">Name is required · signature image optional</div>
                         <div class="ris-date-label">Date:</div>
                         <input
                             type="text"
@@ -275,10 +309,81 @@
         </button>
         <button
             type="submit"
-            class="rounded-lg {{ $isForward ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 hover:bg-slate-800' }} px-4 py-2.5 text-sm font-medium text-white transition"
+            class="rounded-lg {{ $isForward ? 'bg-slate-800 hover:bg-slate-900' : 'bg-slate-900 hover:bg-slate-800' }} px-4 py-2.5 text-sm font-medium text-white transition"
             title="{{ $isForward ? 'Forward this RIS to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Mark as Admin Approved and return to Purchaser') }}"
         >
             {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm Admin Approval') }}
         </button>
     </div>
 </form>
+
+@if (!$isForward)
+<script>
+(function () {
+    var nameInput = document.getElementById('da_issued_by');
+    var fileInput = document.getElementById('sigUploadIssued');
+    var hidden = document.getElementById('ris_issued_by_signature_image');
+    var preview = document.getElementById('sigLineIssuedPreview');
+    var form = document.getElementById('directApproveForm');
+
+    function syncIssuedPreview() {
+        if (!preview) return;
+        var name = nameInput ? String(nameInput.value || '').trim() : '';
+        var dataUrl = hidden ? String(hidden.value || '').trim() : '';
+        var html = '';
+        if (dataUrl.indexOf('data:image/') === 0) {
+            html += '<img src="' + dataUrl + '" alt="Issued by signature" style="max-height:36px;width:auto;">';
+            if (name !== '') {
+                html += '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">' + name.replace(/</g, '&lt;') + '</span>';
+                html += '<span style="font-size:10px;color:#4b5563;">Admin</span>';
+            }
+            preview.innerHTML = html;
+            preview.style.display = 'flex';
+            if (nameInput) nameInput.style.display = 'none';
+            return;
+        }
+        preview.innerHTML = '';
+        preview.style.display = 'none';
+        if (nameInput) nameInput.style.display = '';
+    }
+
+    function readFileAsDataUrl(file) {
+        return new Promise(function (resolve, reject) {
+            if (!file) return resolve(null);
+            var reader = new FileReader();
+            reader.onload = function () { resolve(reader.result); };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (nameInput) {
+        nameInput.addEventListener('input', syncIssuedPreview);
+        syncIssuedPreview();
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function () {
+            readFileAsDataUrl(fileInput.files && fileInput.files[0]).then(function (url) {
+                if (hidden) hidden.value = url || '';
+                syncIssuedPreview();
+            }).catch(function () {});
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            if (!fileInput || !fileInput.files || !fileInput.files[0] || !hidden) return;
+            if (String(hidden.value || '').indexOf('data:image/') === 0) return;
+            event.preventDefault();
+            readFileAsDataUrl(fileInput.files[0]).then(function (url) {
+                if (url) hidden.value = url;
+                form.submit();
+            }).catch(function () {
+                form.submit();
+            });
+        });
+    }
+})();
+</script>
+@endif

@@ -258,7 +258,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/admin/profile') }}"
+                        href="{{ route('admin.profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -270,7 +270,7 @@
                     </a>
 
                     <a
-                        href="{{ url('/admin/security') }}"
+                        href="{{ route('admin.security') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i

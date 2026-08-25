@@ -1,5 +1,6 @@
 @php
     $editable = $editable ?? false;
+    $signSecondCount = $signSecondCount ?? false;
     $rr = $rr ?? null;
     $rows = $rows ?? collect();
     $dateValue = old('receiving_report_date', $rr?->receiving_report_date ?? '');
@@ -10,6 +11,8 @@
     $deliveryValue = old('receiving_report_delivery_date', $rr?->receiving_report_delivery_date ?? '');
     $receivedBy = old('receiving_report_received_by_signature', $rr?->receiving_report_received_by_signature ?? (auth()->user()->user_full_name ?? ''));
     $secondCount = $rr?->receiving_report_second_count_signature ?? $rr?->receiving_report_second_count_by ?? '';
+    $officerName = $officerName ?? (auth()->user()->user_full_name ?? 'Receiving Officer');
+    $signSuffix = $signSuffix ?? (string) ($rr?->receiving_report_id ?? 'sc');
     $formNo = $rr?->receiving_report_form_number ?? '';
     $oldItems = old('items');
 @endphp
@@ -134,9 +137,33 @@
     <div class="mt-16 grid grid-cols-2 gap-16">
         <div class="text-center">
             <div class="font-semibold">Second Count:</div>
-            <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
-                @include('partials.drawn-signature', ['value' => $secondCount])
-            </div>
+            @if($signSecondCount)
+                <div
+                    id="scSigPreview-{{ $signSuffix }}"
+                    class="mx-auto mt-6 flex min-h-[2.5rem] w-56 flex-col items-center justify-end gap-0.5 border-b border-black pb-1"
+                    style="display:none;"
+                ></div>
+                <input
+                    type="text"
+                    name="second_count_by"
+                    id="scName-{{ $signSuffix }}"
+                    value="{{ old('second_count_by', $officerName) }}"
+                    required
+                    maxlength="255"
+                    autocomplete="off"
+                    class="mx-auto mt-6 block w-56 border-0 border-b border-black bg-transparent text-center text-sm font-semibold uppercase tracking-wide outline-none"
+                    title="Receiving Officer name for Second Count"
+                >
+                <div class="mt-1 text-[10px] font-semibold text-slate-500">Name is required · signature image optional</div>
+                <div class="mt-3 text-xs font-semibold">Date:</div>
+                <div class="mx-auto mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
+                    {{ now()->format('d/m/Y') }}
+                </div>
+            @else
+                <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
+                    @include('partials.drawn-signature', ['value' => $secondCount])
+                </div>
+            @endif
         </div>
         <div class="text-center">
             <div class="font-semibold">Received by:</div>

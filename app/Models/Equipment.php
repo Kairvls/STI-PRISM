@@ -18,6 +18,14 @@ class Equipment extends Model
 
         'equipment_name',
 
+        'equipment_asset_tag',
+
+        'equipment_brand_name',
+
+        'equipment_model',
+
+        'equipment_serial_number',
+
         'equipment_quantity',
 
         'equipment_tracking_mode',
@@ -25,6 +33,10 @@ class Equipment extends Model
         'equipment_condition_status',
 
         'equipment_inventory_status',
+
+        'equipment_purchase_date',
+
+        'equipment_warranty_expiration',
 
         'equipment_current_location',
 

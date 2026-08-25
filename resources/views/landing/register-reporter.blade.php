@@ -212,7 +212,7 @@
             <p class="text-xs font-bold tracking-[0.16em] uppercase mb-2" style="color:var(--blue);">Reporter details</p>
             <h1 class="text-2xl font-extrabold mb-2">Who is submitting this report?</h1>
             <p class="text-sm leading-relaxed mb-6" style="color:var(--muted);">
-                    Faculty and staff fill this once. After that you can submit reports with your employee ID.
+                    Faculty and staff fill this once. Maintenance personnel will confirm you are faculty or staff before you can submit reports with your employee ID.
             </p>
 
             @if ($errors->any())
@@ -293,7 +293,7 @@
 
                 <div class="flex items-center justify-between gap-3 pt-2">
                     <a href="{{ url('/') }}" class="text-sm font-semibold no-underline" style="color:var(--muted);">Back to home</a>
-                    <button type="submit" class="btn-blue text-sm">Save reporter details</button>
+                    <button type="submit" class="btn-blue text-sm">Submit & wait for approval</button>
                 </div>
             </form>
         </div>
@@ -436,7 +436,7 @@
                     if (!/^09[0-9]{9}$/.test(full.value)) {
                         e.preventDefault();
                         rest.setCustomValidity('Enter a complete 11-digit mobile number.');
-                        rest.reportValidity();
+                        rest.reportValidity(); 
                         return;
                     }
                     rest.setCustomValidity('');

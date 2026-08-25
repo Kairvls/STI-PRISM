@@ -3,17 +3,18 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ManagesUserProfile;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use App\Support\WorkflowNotifier;
 
 class PresidentController extends Controller
 {
+    use ManagesUserProfile;
     // =====================================================
     // DASHBOARD
     // =====================================================
@@ -49,9 +50,9 @@ class PresidentController extends Controller
         // ================================
         $monthlyStats = [];
         $monthNames = [
-            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
-            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
-            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+            1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+            5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
+            9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec',
         ];
 
         for ($i = 5; $i >= 0; $i--) {
@@ -59,9 +60,20 @@ class PresidentController extends Controller
             $m = (int) date('m', strtotime("-$i months"));
 
             $approved = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereYear('ris_created_at', $y)
-                ->whereMonth('ris_created_at', $m)
+                ->where(function ($q) {
+                    $this->scopePresidentApproved($q);
+                })
+                ->where(function ($q) use ($y, $m) {
+                    $q->where(function ($byApprovedDate) use ($y, $m) {
+                        $byApprovedDate->whereNotNull('ris_approved_by_date')
+                            ->whereYear('ris_approved_by_date', $y)
+                            ->whereMonth('ris_approved_by_date', $m);
+                    })->orWhere(function ($byCreated) use ($y, $m) {
+                        $byCreated->whereNull('ris_approved_by_date')
+                            ->whereYear('ris_created_at', $y)
+                            ->whereMonth('ris_created_at', $m);
+                    });
+                })
                 ->count();
 
             $rejected = DB::table('requisition_issue_slip_table')
@@ -70,28 +82,94 @@ class PresidentController extends Controller
                 ->whereMonth('ris_created_at', $m)
                 ->count();
 
+            $pending = DB::table('requisition_issue_slip_table')
+                ->where(function ($q) {
+                    $this->scopeAwaitingPresident($q);
+                })
+                ->whereYear('ris_created_at', $y)
+                ->whereMonth('ris_created_at', $m)
+                ->count();
+
             $monthlyStats[] = [
                 'year_month' => sprintf('%04d-%02d', $y, $m),
-                'month_label' => $monthNames[$m] . ' ' . $y,
+                'month_label' => $monthNames[$m],
                 'approved' => $approved,
                 'rejected' => $rejected,
+                'pending' => $pending,
             ];
         }
 
         // ================================
-        // Recent activity (last 5 RIS)
+        // Top 3 most recent RIS awaiting decision
         // ================================
-        $recentRis = DB::table('requisition_issue_slip_table')
+        $recentRis = DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'ris.ris_requested_by_signature',
+                'ris.ris_approved_by_signature',
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
+            )
+            ->where(function ($q) {
+                $this->scopeAwaitingPresident($q, 'ris.');
+            })
+            ->groupBy(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'ris.ris_requested_by_signature',
+                'ris.ris_approved_by_signature'
+            )
+            ->orderByDesc('ris.ris_created_at')
+            ->orderByDesc('ris.ris_id')
+            ->limit(3)
+            ->get();
+
+        // ================================
+        // Recently approved RIS (for dashboard panel)
+        // ================================
+        $recentlyApprovedRis = DB::table('requisition_issue_slip_table')
             ->select(
                 'ris_id',
                 'ris_form_number',
                 'ris_status',
-                'ris_created_at',
-                'ris_purpose_description'
+                'ris_approved_by_date',
+                'ris_approved_by_signature',
+                'ris_purpose_description',
+                'ris_issued_by_signature'
             )
-            ->orderByDesc('ris_created_at')
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q);
+            })
+            ->orderByDesc('ris_approved_by_date')
+            ->orderByDesc('ris_id')
             ->limit(5)
-            ->get();
+            ->get()
+            ->map(function ($ris) {
+                $ris->admin_notified = $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
+                $ris->awaiting_notify = !$ris->admin_notified
+                    && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
+
+                return $ris;
+            });
+
+        $awaitingNotifyCount = DB::table('requisition_issue_slip_table')
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q);
+            })
+            ->where(function ($q) {
+                $q->whereNull('ris_issued_by_signature')
+                    ->orWhere('ris_issued_by_signature', '');
+            })
+            ->get()
+            ->filter(fn ($ris) => !$this->presidentHasNotifiedAdmin((int) $ris->ris_id))
+            ->count();
 
         // ================================
         // Notifications count (for current user)
@@ -113,9 +191,11 @@ class PresidentController extends Controller
             'pendingApprovalsCount' => $pendingApprovalsCount,
             'approvedDecisionsCount' => $approvedDecisionsCount,
             'rejectedDecisionsCount' => $rejectedDecisionsCount,
+            'awaitingNotifyCount' => $awaitingNotifyCount,
             'notificationsCount' => $notificationsCount,
             'monthlyStats' => $monthlyStats,
             'recentRis' => $recentRis,
+            'recentlyApprovedRis' => $recentlyApprovedRis,
         ]);
     }
 
@@ -199,15 +279,64 @@ class PresidentController extends Controller
         }
 
         // ================================
-        // Order & paginate
+        // Order & paginate (oldest / first-in first)
         // ================================
         $pendingRis = $query
-            ->orderByDesc('ris.ris_id')
+            ->orderBy('ris.ris_created_at')
+            ->orderBy('ris.ris_id')
             ->paginate(10)
             ->withQueryString();
 
         // ================================
-        // Recent decisions (approved or rejected by President)
+        // Approved but not yet notified (eligible to pin / stay in queue)
+        // ================================
+        $awaitingNotifyRis = DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_purpose_description',
+                'ris.ris_status',
+                'ris.ris_approved_by_date',
+                'ris.ris_approved_by_signature',
+                'ris.ris_requested_by_signature',
+                'ris.ris_issued_by_signature',
+                'ris.ris_created_at',
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
+            )
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q, 'ris.');
+            })
+            ->where(function ($q) {
+                $q->whereNull('ris.ris_issued_by_signature')
+                    ->orWhere('ris.ris_issued_by_signature', '');
+            })
+            ->groupBy(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_purpose_description',
+                'ris.ris_status',
+                'ris.ris_approved_by_date',
+                'ris.ris_approved_by_signature',
+                'ris.ris_requested_by_signature',
+                'ris.ris_issued_by_signature',
+                'ris.ris_created_at'
+            )
+            ->orderBy('ris.ris_approved_by_date')
+            ->orderBy('ris.ris_id')
+            ->get()
+            ->filter(fn ($ris) => !$this->presidentHasNotifiedAdmin((int) $ris->ris_id))
+            ->values()
+            ->map(function ($ris) {
+                $ris->is_president_approved = true;
+                $ris->awaiting_notify = true;
+                $ris->queue_kind = 'awaiting_notify';
+
+                return $ris;
+            });
+
+        // ================================
+        // Recent decisions (oldest first, paginated)
         // ================================
         $recentRis = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
@@ -219,6 +348,7 @@ class PresidentController extends Controller
                 'ris.ris_purpose_description',
                 'ris.ris_approved_by_date',
                 'ris.ris_approved_by_signature',
+                'ris.ris_issued_by_signature',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
             ->whereIn('ris.ris_status', [
@@ -237,21 +367,55 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature'
+                'ris.ris_approved_by_signature',
+                'ris.ris_issued_by_signature'
             )
-            ->orderByDesc('ris.ris_approved_by_date')
-            ->orderByDesc('ris.ris_created_at')
-            ->limit(10)
-            ->get();
+            ->orderBy('ris.ris_approved_by_date')
+            ->orderBy('ris.ris_created_at')
+            ->orderBy('ris.ris_id')
+            ->paginate(10, ['*'], 'recent_page')
+            ->withQueryString();
+
+        $recentRis->setCollection(
+            $recentRis->getCollection()->map(function ($ris) {
+                $isApproved = RisWorkflow::isPresidentApproved($ris);
+                $ris->is_president_approved = $isApproved;
+                $ris->admin_notified = $isApproved && $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
+                $ris->awaiting_notify = $isApproved && !$ris->admin_notified
+                    && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
+
+                return $ris;
+            })
+        );
 
         // ================================
         // AJAX response: return JSON with rendered partial
         // ================================
         if ($request->ajax()) {
-            $tableHtml = view('president.approvals._table', compact('pendingRis'))->render();
+            if ($request->get('section') === 'recent') {
+                $listHtml = view('president.approvals._recent-list', [
+                    'recentRis' => $recentRis,
+                ])->render();
+
+                return response()->json([
+                    'list_html' => $listHtml,
+                    'total' => $recentRis->total(),
+                    'from' => $recentRis->firstItem(),
+                    'to' => $recentRis->lastItem(),
+                    'current_page' => $recentRis->currentPage(),
+                    'last_page' => $recentRis->lastPage(),
+                ]);
+            }
+
+            $tableHtml = view('president.approvals._table', [
+                'pendingRis' => $pendingRis,
+                'awaitingNotifyRis' => $awaitingNotifyRis,
+            ])->render();
+
             return response()->json([
                 'table_html' => $tableHtml,
                 'total' => $pendingRis->total(),
+                'awaiting_review' => $totalPendingRis,
                 'from' => $pendingRis->firstItem(),
                 'to' => $pendingRis->lastItem(),
                 'current_page' => $pendingRis->currentPage(),
@@ -270,6 +434,7 @@ class PresidentController extends Controller
 
         return view('president.approvals.index', [
             'pendingRis' => $pendingRis,
+            'awaitingNotifyRis' => $awaitingNotifyRis,
             'totalRisCount' => $totalRisCount,
             'totalPendingRis' => $totalPendingRis,
             'totalApprovedRis' => $totalApprovedRis,
@@ -433,18 +598,10 @@ class PresidentController extends Controller
             // ignore logging failures to not break testing
         }
 
-        $form = $target->ris_form_number ?: ('RIS #' . $targetId);
-        if ($decision === 'Approved') {
-            WorkflowNotifier::toRole(
-                WorkflowNotifier::ROLE_ADMIN,
-                'President approved an RIS',
-                $form . ' was approved by the President. Return the result to the Purchaser.',
-                'ris_president_approved',
-                'RIS',
-                (int) $targetId,
-                '/admin/digital-signatures/sign-ris'
-            );
-        } else {
+        // Reject still notifies Admin immediately. Approve only persists the
+        // decision — Admin is notified when President clicks "Notify Admin".
+        if ($decision === 'Rejected') {
+            $form = $target->ris_form_number ?: ('RIS #' . $targetId);
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_ADMIN,
                 'President rejected an RIS',
@@ -461,8 +618,12 @@ class PresidentController extends Controller
                 'ok' => true,
                 'decision' => $decision,
                 'ris_id' => (int) $targetId,
+                'approved_by_date' => $decision === 'Approved'
+                    ? ($updateValues['ris_approved_by_date'] ?? null)
+                    : null,
+                'admin_notified' => false,
                 'message' => $decision === 'Approved'
-                    ? 'RIS approved successfully.'
+                    ? 'RIS approved successfully. Notify Admin when ready.'
                     : 'RIS rejected successfully.',
             ]);
         }
@@ -519,17 +680,23 @@ class PresidentController extends Controller
     public function approvedReports(Request $request)
     {
         $filter = $request->filled('filter') ? $request->filter : 'all';
-        
+
         if (!in_array($filter, ['all', 'approved', 'rejected', 'pending'], true)) {
             $filter = 'all';
         }
 
+        // Latest President approval-log per RIS (avoids duplicate table rows)
+        $latestPresidentLog = DB::table('approval_logs_table')
+            ->select('approval_log_reference_id', DB::raw('MAX(approval_log_id) as latest_log_id'))
+            ->where('approval_log_reference_type', 'RIS')
+            ->where('approval_log_level', 'President')
+            ->groupBy('approval_log_reference_id');
+
         $query = DB::table('requisition_issue_slip_table as ris')
-            ->leftJoin('approval_logs_table as log', function ($join) {
-                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
-                    ->where('log.approval_log_reference_type', '=', 'RIS')
-                    ->where('log.approval_log_level', '=', 'President');
+            ->leftJoinSub($latestPresidentLog, 'latest_log', function ($join) {
+                $join->on('latest_log.approval_log_reference_id', '=', 'ris.ris_id');
             })
+            ->leftJoin('approval_logs_table as log', 'log.approval_log_id', '=', 'latest_log.latest_log_id')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
             ->select(
                 'ris.ris_id',
@@ -538,6 +705,9 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
+                'ris.ris_approved_by_signature',
+                'ris.ris_approved_by_date',
+                'ris.ris_issued_by_signature',
                 'log.approval_log_approval_remarks as remarks',
                 'log.approval_log_approved_at as decided_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
@@ -549,14 +719,15 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
+                'ris.ris_approved_by_signature',
+                'ris.ris_approved_by_date',
+                'ris.ris_issued_by_signature',
                 'log.approval_log_approval_remarks',
                 'log.approval_log_approved_at'
             );
 
-        if ($filter !== 'all') {
-            $status = $filter === 'approved' ? 'Approved' : ($filter === 'rejected' ? 'Rejected' : 'Pending');
-            $query->where('ris.ris_status', $status);
-        }
+        // Same buckets for table filters and KPI cards
+        $this->applyDecisionHistoryFilter($query, $filter);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -572,17 +743,23 @@ class PresidentController extends Controller
         }
 
         $outcomeRecords = $query
-            ->orderByDesc('ris.ris_created_at')
+            ->orderByDesc(DB::raw('COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date, ris.ris_created_at)'))
+            ->orderByDesc('ris.ris_id')
             ->paginate(10)
             ->withQueryString();
 
-        $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
-        $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])->count();
-        $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
+        // Card totals = same scopes as the All / Approved / Rejected / Pending lists
+        $totalApproved = $this->countDecisionHistoryBucket('approved');
+        $totalRejected = $this->countDecisionHistoryBucket('rejected');
+        $totalPending = $this->countDecisionHistoryBucket('pending');
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
-            $tableHtml = view('president.reports._approved-table', ['approvedOutcomeRecords' => $outcomeRecords, 'type' => $filter])->render();
+            $tableHtml = view('president.reports._approved-table', [
+                'approvedOutcomeRecords' => $outcomeRecords,
+                'type' => $filter,
+            ])->render();
+
             return response()->json([
                 'table_html' => $tableHtml,
                 'total' => $outcomeRecords->total(),
@@ -590,6 +767,10 @@ class PresidentController extends Controller
                 'to' => $outcomeRecords->lastItem(),
                 'current_page' => $outcomeRecords->currentPage(),
                 'last_page' => $outcomeRecords->lastPage(),
+                'total_approved' => $totalApproved,
+                'total_rejected' => $totalRejected,
+                'total_pending' => $totalPending,
+                'total_decisions' => $totalDecisions,
             ]);
         }
 
@@ -602,6 +783,53 @@ class PresidentController extends Controller
             'totalPending' => $totalPending,
             'totalDecisions' => $totalDecisions,
         ]);
+    }
+
+    /**
+     * Apply the Decision History status bucket used by both the table and KPI cards.
+     */
+    private function applyDecisionHistoryFilter($query, string $filter, string $prefix = 'ris.')
+    {
+        if ($filter === 'approved') {
+            return $this->scopePresidentApproved($query, $prefix);
+        }
+
+        if ($filter === 'rejected') {
+            return $this->scopeDecisionHistoryRejected($query, $prefix);
+        }
+
+        if ($filter === 'pending') {
+            return $this->scopeAwaitingPresident($query, $prefix);
+        }
+
+        // "all" = union of the three buckets (matches Total Decisions card)
+        return $query->where(function ($q) use ($prefix) {
+            $q->where(function ($approved) use ($prefix) {
+                $this->scopePresidentApproved($approved, $prefix);
+            })->orWhere(function ($rejected) use ($prefix) {
+                $this->scopeDecisionHistoryRejected($rejected, $prefix);
+            })->orWhere(function ($pending) use ($prefix) {
+                $this->scopeAwaitingPresident($pending, $prefix);
+            });
+        });
+    }
+
+    private function scopeDecisionHistoryRejected($query, string $prefix = '')
+    {
+        $status = $prefix . 'ris_status';
+
+        return $query->where(function ($q) use ($status) {
+            $q->whereIn($status, RisWorkflow::presidentRejectedStatuses())
+                ->orWhere($status, 'Rejected');
+        });
+    }
+
+    private function countDecisionHistoryBucket(string $filter): int
+    {
+        $query = DB::table('requisition_issue_slip_table as ris');
+        $this->applyDecisionHistoryFilter($query, $filter, 'ris.');
+
+        return (int) $query->count();
     }
 
     public function monthlySummary(Request $request): View
@@ -968,45 +1196,171 @@ class PresidentController extends Controller
     // NOTIFICATIONS
     // =====================================================
 
-    public function notifications(): View
+    public function notifications(Request $request): View
     {
-        // Fetch the 3 most recent RIS records forwarded to the President
-        $recentRis = DB::table('requisition_issue_slip_table')
-            ->select(
-                'ris_id',
-                'ris_form_number',
-                'ris_status',
-                'ris_created_at',
-                'ris_purpose_description'
-            )
-            ->whereNotNull('ris_requested_by_date')
-            ->whereNotNull('ris_approved_by_date')
-            ->orderByDesc('ris_created_at')
-            ->limit(3)
-            ->get();
+        $userId = Auth::id();
+        $category = $request->get('category', 'all');
+        $allowedCategories = ['all', 'Approvals', 'Rejections', 'workflow'];
 
-        $allRis = DB::table('requisition_issue_slip_table')
-            ->select(
-                'ris_id',
-                'ris_form_number',
-                'ris_status',
-                'ris_created_at',
-                'ris_purpose_description'
-            )
-            ->whereNotNull('ris_requested_by_date')
-            ->whereNotNull('ris_approved_by_date')
-            ->orderByDesc('ris_created_at')
-            ->get();
+        if (!in_array($category, $allowedCategories, true)) {
+            $category = 'all';
+        }
+
+        $notifications = collect();
+        $unreadCount = 0;
+
+        if ($userId && Schema::hasTable('notifications_table')) {
+            $query = DB::table('notifications_table');
+
+            if (Schema::hasTable('notification_reads_table')) {
+                $query->leftJoin('notification_reads_table', function ($join) use ($userId) {
+                    $join->on(
+                        'notifications_table.notification_id',
+                        '=',
+                        'notification_reads_table.notification_id'
+                    )->where('notification_reads_table.user_id', '=', $userId);
+                })
+                    ->select('notifications_table.*')
+                    ->selectRaw(
+                        'CASE
+                            WHEN notification_reads_table.notification_read_id IS NULL
+                            THEN 0
+                            ELSE 1
+                        END AS is_read'
+                    );
+            } else {
+                $query->select('notifications_table.*')
+                    ->selectRaw('0 AS is_read');
+            }
+
+            $query = $this->applyPresidentNotificationAccess($query, $userId);
+
+            if ($category !== 'all') {
+                $query->where('notifications_table.notification_category', $category);
+            }
+
+            $notifications = $query
+                ->orderByDesc('notifications_table.notification_created_at')
+                ->limit(100)
+                ->get();
+
+            $unreadQuery = $this->applyPresidentNotificationAccess(
+                DB::table('notifications_table'),
+                $userId
+            );
+
+            if (Schema::hasTable('notification_reads_table')) {
+                $unreadCount = $unreadQuery
+                    ->whereNotExists(function ($sub) use ($userId) {
+                        $sub->select(DB::raw(1))
+                            ->from('notification_reads_table')
+                            ->whereColumn(
+                                'notification_reads_table.notification_id',
+                                'notifications_table.notification_id'
+                            )
+                            ->where('notification_reads_table.user_id', $userId);
+                    })
+                    ->count();
+            } else {
+                $unreadCount = $unreadQuery->count();
+            }
+        }
 
         return view('president.notifications.index', [
-            'recentRis' => $recentRis,
-            'allRis' => $allRis,
+            'notifications' => $notifications,
+            'unreadCount' => $unreadCount,
+            'activeCategory' => $category,
         ]);
+    }
+
+    public function openNotification($id)
+    {
+        $userId = Auth::id();
+        if (!$userId) {
+            abort(401);
+        }
+
+        $notification = $this->applyPresidentNotificationAccess(
+            DB::table('notifications_table')->where('notifications_table.notification_id', $id),
+            $userId
+        )->first();
+
+        if (!$notification) {
+            abort(404);
+        }
+
+        if (Schema::hasTable('notification_reads_table')) {
+            DB::table('notification_reads_table')->insertOrIgnore([
+                'notification_id' => $notification->notification_id,
+                'user_id' => $userId,
+                'notification_read_at' => now(),
+            ]);
+        }
+
+        $destination = $notification->notification_url;
+        if (!$destination || !str_starts_with($destination, '/president/')) {
+            return redirect('/president/notifications');
+        }
+
+        return redirect($destination);
+    }
+
+    public function markAllNotificationsAsRead()
+    {
+        $userId = Auth::id();
+        if (!$userId) {
+            abort(401);
+        }
+
+        if (!Schema::hasTable('notifications_table') || !Schema::hasTable('notification_reads_table')) {
+            return back()->with('success', 'All notifications are already read.');
+        }
+
+        $notificationIds = $this->applyPresidentNotificationAccess(
+            DB::table('notifications_table'),
+            $userId
+        )
+            ->whereNotExists(function ($query) use ($userId) {
+                $query->select(DB::raw(1))
+                    ->from('notification_reads_table')
+                    ->whereColumn(
+                        'notification_reads_table.notification_id',
+                        'notifications_table.notification_id'
+                    )
+                    ->where('notification_reads_table.user_id', $userId);
+            })
+            ->pluck('notifications_table.notification_id');
+
+        if ($notificationIds->isEmpty()) {
+            return back()->with('success', 'All notifications are already read.');
+        }
+
+        $now = now();
+        $readRows = $notificationIds->map(fn ($notificationId) => [
+            'notification_id' => $notificationId,
+            'user_id' => $userId,
+            'notification_read_at' => $now,
+        ])->all();
+
+        DB::table('notification_reads_table')->insertOrIgnore($readRows);
+
+        return back()->with('success', 'All notifications marked as read.');
     }
 
     public function rejectionHistory(): View
     {
         return view('president.notifications.rejection-history');
+    }
+
+    private function applyPresidentNotificationAccess($query, $userId)
+    {
+        return $query->where(function ($query) use ($userId) {
+            $query->where('notifications_table.notification_user_id', $userId)
+                ->orWhere(function ($query) {
+                    $query->whereNull('notifications_table.notification_user_id')
+                        ->where('notifications_table.notification_target_role', 'President');
+                });
+        });
     }
 
     // =====================================================
@@ -1015,7 +1369,17 @@ class PresidentController extends Controller
 
     public function profile(): View
     {
-        return view('president.profile.index');
+        return $this->showUserProfile('president.profile.index');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        return $this->saveUserProfile($request, '/president/profile');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        return $this->saveUserPassword($request, '/president/profile');
     }
 
     // =====================================================
@@ -1074,6 +1438,9 @@ class PresidentController extends Controller
                 ->get();
         }
 
+        $isPresidentApproved = RisWorkflow::isPresidentApproved($record);
+        $adminNotified = $isPresidentApproved && $this->presidentHasNotifiedAdmin((int) $record->ris_id);
+
         return response()->json([
             'ris_id' => $record->ris_id,
             'form_number' => $record->ris_form_number,
@@ -1091,6 +1458,10 @@ class PresidentController extends Controller
                 'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
             ]),
             'has_president_signature' => trim((string) ($record->ris_approved_by_signature ?? '')) !== '',
+            'is_president_approved' => $isPresidentApproved,
+            'admin_notified' => $adminNotified,
+            'awaiting_notify' => $isPresidentApproved && !$adminNotified
+                && trim((string) ($record->ris_issued_by_signature ?? '')) === '',
         ]);
     }
 
@@ -1105,8 +1476,17 @@ class PresidentController extends Controller
         if (!RisWorkflow::isPresidentApproved($record)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Only an approved RIS can be sent back to Admin.',
+                'message' => 'Only an approved RIS can notify Admin.',
             ], 422);
+        }
+
+        if ($this->presidentHasNotifiedAdmin((int) $record->ris_id)) {
+            return response()->json([
+                'ok' => true,
+                'ris_id' => (int) $record->ris_id,
+                'already_notified' => true,
+                'message' => 'Admin was already notified for this RIS.',
+            ]);
         }
 
         try {
@@ -1116,34 +1496,28 @@ class PresidentController extends Controller
                 'approval_log_level' => 'President',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Approved',
-                'approval_log_approval_remarks' => 'Forwarded to Admin for co-sign',
+                'approval_log_approval_remarks' => 'Notified Admin for co-sign',
                 'approval_log_approved_at' => now(),
             ]);
         } catch (\Throwable $e) {
         }
 
-        try {
-            DB::table('notifications_table')->insert([
-                'notification_user_id' => null,
-                'notification_target_role' => 'Admin',
-                'notification_title' => 'RIS approved by President',
-                'notification_message' => ($record->ris_form_number ?: ('RIS #' . $record->ris_id))
-                    . ' was approved by the President and sent back to Admin.',
-                'notification_type' => 'ris_president_approved',
-                'notification_category' => 'approvals',
-                'notification_reference_type' => 'RIS',
-                'notification_reference_id' => (int) $record->ris_id,
-                'notification_url' => '/admin/digital-signatures/sign-ris',
-                'notification_event_key' => Str::uuid()->toString(),
-                'notification_created_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-        }
+        $form = $record->ris_form_number ?: ('RIS #' . $record->ris_id);
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_ADMIN,
+            'President approved an RIS',
+            $form . ' was approved by the President and is ready for Admin co-sign.',
+            'ris_president_approved',
+            'RIS',
+            (int) $record->ris_id,
+            '/admin/digital-signatures/sign-ris'
+        );
 
         return response()->json([
             'ok' => true,
             'ris_id' => (int) $record->ris_id,
-            'message' => 'Approved RIS sent back to Admin.',
+            'already_notified' => false,
+            'message' => 'Admin has been notified.',
         ]);
     }
 
@@ -1224,6 +1598,23 @@ class PresidentController extends Controller
                 }
             }
         });
+    }
+
+    private function presidentHasNotifiedAdmin(int $risId): bool
+    {
+        try {
+            return DB::table('approval_logs_table')
+                ->where('approval_log_reference_type', 'RIS')
+                ->where('approval_log_reference_id', $risId)
+                ->where('approval_log_level', 'President')
+                ->where(function ($q) {
+                    $q->where('approval_log_approval_remarks', 'Notified Admin for co-sign')
+                        ->orWhere('approval_log_approval_remarks', 'Forwarded to Admin for co-sign');
+                })
+                ->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function risIsAwaitingPresident(object $ris): bool

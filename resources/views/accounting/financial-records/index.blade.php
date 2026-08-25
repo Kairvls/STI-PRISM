@@ -4,14 +4,12 @@
 
 @section('content')
 <div class="acc-page fade-in">
-    <div class="acc-page-header">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="acc-page-kicker">Records</p>
-            <h1 class="acc-page-title">Financial Records</h1>
-            <p class="acc-page-subtitle">Processed Accounting documents live under History.</p>
+            <p class="text-sm leading-6 text-gray-500">Processed Accounting documents live under History.</p>
         </div>
         <a href="/accounting/history" class="acc-btn acc-btn-primary">Open History</a>
     </div>
-    <div class="acc-empty">This page redirects to History in the live routes. Use History for processed ATP, Request Checks, and liquidations.</div>
+    <div class="mt-4 acc-empty">Use History for processed ATP, Request Checks, and liquidations.</div>
 </div>
 @endsection

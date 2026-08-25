@@ -12,7 +12,9 @@ window.initReceivingTableFilters = function () {
         var search = root.querySelector('.receiving-live-search');
         var countEl = root.querySelector('.receiving-total-count');
         var rows = Array.prototype.slice.call(root.querySelectorAll('tbody tr[data-ro-status]'));
+        var cardItems = Array.prototype.slice.call(root.querySelectorAll('[data-ro-card-item]'));
         var emptyRow = root.querySelector('.receiving-empty-row');
+        var emptyCards = root.querySelector('.receiving-empty-cards');
         var pager = root.querySelector('.receiving-pager');
         var showingEl = root.querySelector('.receiving-showing');
         var prevBtn = root.querySelector('.receiving-page-prev');
@@ -60,31 +62,40 @@ window.initReceivingTableFilters = function () {
             });
         }
 
-        function matchedRows() {
+        function itemMatches(el, needle) {
+            var status = el.getAttribute('data-ro-status') || 'all';
+            var hay = (el.getAttribute('data-ro-search') || el.textContent || '').toLowerCase();
+            var statusOk = currentFilter === 'all' || status === currentFilter;
+            var searchOk = !needle || hay.indexOf(needle) !== -1;
+            return statusOk && searchOk;
+        }
+
+        function matched(list) {
             var needle = search ? search.value.trim().toLowerCase() : '';
-            return rows.filter(function (row) {
-                var status = row.getAttribute('data-ro-status') || 'all';
-                var hay = (row.getAttribute('data-ro-search') || row.textContent || '').toLowerCase();
-                var statusOk = currentFilter === 'all' || status === currentFilter;
-                var searchOk = !needle || hay.indexOf(needle) !== -1;
-                return statusOk && searchOk;
-            });
+            return list.filter(function (el) { return itemMatches(el, needle); });
         }
 
         function apply() {
-            var matched = matchedRows();
-            var total = matched.length;
+            var matchedRows = matched(rows);
+            var matchedCards = matched(cardItems);
+            var total = Math.max(matchedRows.length, matchedCards.length);
+            if (!cardItems.length) total = matchedRows.length;
+            if (!rows.length && cardItems.length) total = matchedCards.length;
+
             var pageCount = Math.max(1, Math.ceil(total / pageSize));
             if (currentPage > pageCount) currentPage = pageCount;
             var start = (currentPage - 1) * pageSize;
             var end = start + pageSize;
-            var pageRows = matched.slice(start, end);
 
             rows.forEach(function (row) { row.style.display = 'none'; });
-            pageRows.forEach(function (row) { row.style.display = ''; });
+            matchedRows.slice(start, end).forEach(function (row) { row.style.display = ''; });
+
+            cardItems.forEach(function (card) { card.style.display = 'none'; });
+            matchedCards.slice(start, end).forEach(function (card) { card.style.display = ''; });
 
             if (countEl) countEl.textContent = total + ' total';
             if (emptyRow) emptyRow.style.display = total ? 'none' : '';
+            if (emptyCards) emptyCards.style.display = total ? 'none' : '';
 
             if (pager) {
                 pager.style.display = total ? 'flex' : 'none';

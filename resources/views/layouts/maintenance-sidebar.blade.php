@@ -123,20 +123,39 @@
         </a>
 
         <div class="menu-title" id="reports-section">REPORTS & REPORTERS</div>
+        @php
+            $todayReportsCount = \App\Support\ReportGrouping::todayCount();
+        @endphp
         <a
             href="/maintenance/reports"
             class="menu-item {{ request()->is('maintenance/reports') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="file-text"></i>
             <span>Reports</span>
+            @if ($todayReportsCount > 0)
+                <span class="menu-count">{{ $todayReportsCount }}</span>
+            @endif
         </a>
 
         <a
             href="/maintenance/reporters"
-            class="menu-item {{ request()->is('maintenance/reporters*') ? 'active' : '' }} mt-2"
+            class="menu-item {{ request()->is('maintenance/reporters') ? 'active' : '' }} mt-2"
         >
             <i class="h-5 w-5" data-lucide="users"></i>
             <span>Reporters</span>
+        </a>
+        @php
+            $pendingReporterApprovals = \App\Support\ReporterApprovals::pendingCount();
+        @endphp
+        <a
+            href="/maintenance/reporters/approvals"
+            class="menu-item {{ request()->is('maintenance/reporters/approvals*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="user-check"></i>
+            <span>Approvals</span>
+            @if ($pendingReporterApprovals > 0)
+                <span class="menu-count">{{ $pendingReporterApprovals }}</span>
+            @endif
         </a>
 
         <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
@@ -145,7 +164,7 @@
             class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="building-2"></i>
-            <span>Buildings Layout</span>
+            <span>Building Layout</span>
         </a>
         <a
             href="/maintenance/rooms"
@@ -495,6 +514,26 @@
 
 .menu-item span {
     color: inherit;
+}
+
+.menu-count {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #fff !important;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-item.active .menu-count {
+    background: #fff;
+    color: #0f172a !important;
 }
 
 

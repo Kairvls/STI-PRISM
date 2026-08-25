@@ -18,14 +18,14 @@
     <div class="flex flex-wrap items-center justify-end gap-2">
             <form method="POST" action="{{ route('maintenance.rooms.merge') }}">
                 @csrf
-                <button type="submit" class="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
                     Merge duplicates
                 </button>
             </form>
             <button
                 type="button"
                 onclick="openAddRoomModal()"
-                class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
             >
                 <i data-lucide="plus" class="h-4 w-4"></i>
                 Add room
@@ -43,20 +43,22 @@
         <p class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</p>
     @endif
 
-    <form method="GET" class="flex flex-wrap items-center gap-2">
-        <input
-            type="text"
-            name="search"
-            value="{{ request('search') }}"
-            placeholder="Search room or floor"
-            class="h-10 w-full max-w-xs rounded-xl border-0 bg-slate-50 px-3.5 text-sm ring-1 ring-slate-200/80 outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-        />
-        <input type="hidden" name="sort" value="{{ $sort }}" />
-        <input type="hidden" name="dir" value="{{ $dir }}" />
-        <button class="h-10 rounded-xl bg-neutral-100 px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-200/80">Search</button>
-    </form>
+    
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <form method="GET" class="flex flex-wrap items-center gap-2 m-5">
+            <input
+                type="text"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Search room or floor"
+                class="h-10 w-full max-w-xs rounded-xl border-0 bg-slate-50 px-3.5 text-sm ring-1 ring-slate-200/80 outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+            />
+            <input type="hidden" name="sort" value="{{ $sort }}" />
+            <input type="hidden" name="dir" value="{{ $dir }}" />
+            <button class="h-10 rounded-xl bg-neutral-100 px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-200/80">Search</button>
+        </form>
+
         <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-50 text-[12px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
@@ -64,7 +66,8 @@
                     <th class="px-5 py-3">{!! $sortLink('type', 'Room type') !!}</th>
                     <th class="px-5 py-3">{!! $sortLink('floor', 'Floor') !!}</th>
                     <th class="px-5 py-3">{!! $sortLink('equipment', 'Equipment') !!}</th>
-                    <th class="px-5 py-3 text-right">Location</th>
+                    
+                    <th class="px-5 py-3 text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -84,6 +87,7 @@
                         </td>
                         <td class="px-5 py-4 text-slate-600">{{ $room->floor_level ?: '—' }}</td>
                         <td class="px-5 py-4 text-slate-900">{{ number_format($room->equipment_count) }}</td>
+                        
                         <td class="px-5 py-4 text-right">
                             <div class="flex justify-end gap-2">
                                 <button
@@ -122,9 +126,12 @@
                 @endforelse
             </tbody>
         </table>
+        <div class="m-5">
+        {{ $rooms->links() }}
+        </div>
     </div>
 
-    {{ $rooms->links() }}
+    
 </div>
 
 @if ($errors->any())

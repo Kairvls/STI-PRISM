@@ -1,5 +1,6 @@
 {{-- Admin design tokens (Inter/Outfit + STI blue) — matches Maintenance Personnel --}}
 @include('layouts.partials.admin-design')
+@include('layouts.partials.admin-grayscale-theme')
 
 <div id="sidebar">
 
@@ -167,7 +168,12 @@
             class="menu-item {{ request()->is('admin/procurement-review*') ? 'active' : '' }}"
         >
 
-            <i data-lucide="clipboard-check"></i>
+            <span class="menu-icon-wrap">
+                <i data-lucide="clipboard-check"></i>
+                @if(($adminSidebarPendingRis ?? 0) > 0)
+                    <span class="menu-notif-dot" title="{{ $adminSidebarPendingRis }} pending RIS"></span>
+                @endif
+            </span>
 
             <span>Procurement Requests</span>
 
@@ -187,7 +193,12 @@
             class="menu-item {{ request()->is('admin/digital-signatures/sign-ris') ? 'active' : '' }}"
         >
 
-            <i data-lucide="pen-tool"></i>
+            <span class="menu-icon-wrap">
+                <i data-lucide="pen-tool"></i>
+                @if(($adminSidebarAwaitingCosign ?? 0) > 0)
+                    <span class="menu-notif-dot" title="{{ $adminSidebarAwaitingCosign }} awaiting signature"></span>
+                @endif
+            </span>
 
             <span>Sign RIS</span>
 
@@ -240,7 +251,12 @@
             class="menu-item {{ request()->is('admin/reports*') ? 'active' : '' }}"
         >
 
-            <i data-lucide="file-text"></i>
+            <span class="menu-icon-wrap">
+                <i data-lucide="file-text"></i>
+                @if(($adminSidebarAmendRis ?? 0) > 0)
+                    <span class="menu-notif-dot" title="{{ $adminSidebarAmendRis }} amendment(s)"></span>
+                @endif
+            </span>
 
             <span>System Reports</span>
 
@@ -255,6 +271,17 @@
             SYSTEM
 
         </div>
+
+        <a
+            href="/admin/profile"
+            class="menu-item {{ request()->is('admin/profile') || request()->is('admin/security') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="user-cog"></i>
+
+            <span>Account settings</span>
+
+        </a>
 
         <a
             href="/admin/settings/campus-setup-pin"
@@ -327,7 +354,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -351,18 +378,18 @@
         position: relative;
         background: #111827;
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         padding: 0;
-        height: 38px;
-        margin-bottom: 18px;
-        font-size: 14px;
+        height: 30px;
+        margin-bottom: 14px;
+        font-size: 12px;
     }
     .sidebar-search i {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         color: #64748b;
     }
 
@@ -391,13 +418,13 @@
     }
     .quick-card:hover {
         background: #182235;
-        border-color: #2563eb;
+        border-color: #93c5fd;
         transform: translateY(-2px);
     }
     .quick-card i {
         width: 16px;
         height: 16px;
-        color: #60a5fa;
+        color: #93c5fd;
         transition: all 0.2s ease;
     }
     .quick-card span {
@@ -405,15 +432,15 @@
         font-weight: 500;
     }
 
-    /* NEW BLUE ACTIVE STATE STATE FOR QUICK ACTIONS */
+    /* NEW ACTIVE STATE FOR QUICK ACTIONS */
     .quick-card.active {
-        border: 1.5px solid #2563eb !important;
+        border: 1.5px solid #60a5fa !important;
         color: #cbd5e1;
         font-weight: 600;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 0 12px rgba(96, 165, 250, 0.22);
     }
     .quick-card.active i {
-        color: #3b82f6;
+        color: #93c5fd;
     }
 
     /* ======================================
@@ -500,6 +527,28 @@
    LUCIDE CONVERTS <i> INTO <svg>
 ====================================== */
 
+.menu-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+}
+
+.menu-notif-dot {
+    position: absolute;
+    top: -3px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #fbbf24;
+    border: 1.5px solid #0d1120;
+    pointer-events: none;
+}
+
 .menu-item svg {
     width: 18px;
 
@@ -585,7 +634,7 @@
     height: 32px;
 
 
-    background: #fff200;
+    background: #fbbf24;
 
 
     border-radius: 0 5px 5px 0;
@@ -599,9 +648,9 @@
 ====================================== */
 
 .menu-item.active svg {
-    color: #fff200 !important;
+    color: #fde68a !important;
 
-    stroke: #fff200 !important;
+    stroke: #fde68a !important;
 }
 
 
@@ -631,7 +680,7 @@
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -648,8 +697,8 @@
     }
 
     .section-highlight {
-        color: #fff200 !important;
-        text-shadow: 0 0 10px rgba(255, 242, 0, 0.5);
+        color: #fde68a !important;
+        text-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
     }
 
     .sidebar-dropdown {
@@ -658,17 +707,17 @@
     }
     .dropdown-trigger {
         width: 100%;
-        height: 38px;
+        height: 30px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         cursor: pointer;
-        padding: 0 12px;
+        padding: 0 10px;
     }
     .dropdown-menu {
         display: none;
         position: absolute;
-        top: 45px;
+        top: 34px;
         left: 0;
         width: 100%;
         background: #111827;
@@ -686,7 +735,7 @@
     }
     .dropdown-item:hover {
         background: #1f2937;
-        color: #fff200;
+        color: #e2e8f0;
     }
 </style>
 

@@ -72,6 +72,8 @@ class MicrosoftController extends Controller
             */
 
             Auth::login($user);
+            request()->session()->regenerate();
+            request()->session()->put('attention_popup_token', (string) \Illuminate\Support\Str::uuid());
 
             /*
             |--------------------------------------------------------------------------

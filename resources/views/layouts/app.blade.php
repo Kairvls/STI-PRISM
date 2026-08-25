@@ -138,6 +138,8 @@
 
     </style>
 
+    @stack('styles')
+
 </head>
 
 <body class="text-black h-screen overflow-hidden @yield('body-class')">

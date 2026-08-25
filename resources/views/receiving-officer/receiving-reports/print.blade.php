@@ -14,15 +14,26 @@
         .meta { width: 100%; border-collapse: collapse; margin-top: 8px; }
         .meta td { border: none; padding: 4px 0; }
         .actions { margin-bottom: 20px; }
-        .btn { display: inline-block; padding: 8px 14px; background: #0037c7; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; border: 0; cursor: pointer; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; background: #64748b; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; border: 0; cursor: pointer; }
+        .btn-icon { width: 36px; height: 36px; padding: 0; }
+        .btn-icon svg { width: 18px; height: 18px; }
         .btn-ghost { background: #fff; color: #111; border: 1px solid #ccc; margin-left: 8px; }
         ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+        /* Preview modal already has Print / Close — hide chrome inside the iframe. */
+        html.embedded-preview .actions { display: none !important; }
         @media print { .actions { display: none; } body { margin: 12mm; } }
     </style>
+    <script>
+        if (window.self !== window.top) {
+            document.documentElement.classList.add('embedded-preview');
+        }
+    </script>
 </head>
 <body>
     <div class="actions">
-        <button type="button" class="btn" onclick="window.print()">Print</button>
+        <button type="button" class="btn btn-icon" onclick="window.print()" title="Print" aria-label="Print">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        </button>
         <a class="btn btn-ghost" href="/receiving/delivered-items">Back to delivered items</a>
     </div>
 
@@ -44,9 +55,9 @@
         <tr><td width="180"><strong>RR No.</strong></td><td>{{ $row->receiving_report_form_number ?: 'RR-'.$row->receiving_report_id }}</td></tr>
         <tr><td><strong>ATP</strong></td><td>{{ $row->authority_purchase_form_number ?: '—' }}</td></tr>
         <tr><td><strong>RIS</strong></td><td>{{ $row->ris_form_number ?: '—' }}</td></tr>
-        <tr><td><strong>Status</strong></td><td>{{ in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Accepted' : $row->receiving_report_status }}</td></tr>
+        <tr><td><strong>Status</strong></td><td>{{ in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? (!empty($row->store_location) ? 'Delivered · '.$row->store_location : 'Delivered') : $row->receiving_report_status }}</td></tr>
         <tr><td><strong>Supplier</strong></td><td>{{ $row->supplier_name }}</td></tr>
-        <tr><td><strong>PO / OR</strong></td><td>{{ $row->authority_purchase_reference_po_no ?: '—' }} / {{ $row->official_receipt ?: '—' }}</td></tr>
+        <tr><td><strong>PO / OR</strong></td><td>{{ $row->authority_purchase_reference_po_no ?? '—' }} / {{ $row->official_receipt ?? '—' }}</td></tr>
         <tr><td><strong>Received by</strong></td><td>{{ $officerName }}</td></tr>
         <tr><td><strong>Date</strong></td><td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('F d, Y g:i A') : '—' }}</td></tr>
         @if(!empty($row->receiving_report_remarks))
@@ -85,6 +96,24 @@
                 <li>{{ $item }}</li>
             @endforeach
         </ul>
+    @endif
+
+    @php
+        $photos = [];
+        if (!empty($row->receiving_report_verification_photos)) {
+            $decoded = json_decode((string) $row->receiving_report_verification_photos, true);
+            $photos = is_array($decoded) ? $decoded : [];
+        }
+    @endphp
+    @if(count($photos))
+        <h2 style="font-size:15px;margin:24px 0 8px;">Verification photos</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            @foreach($photos as $photo)
+                <a href="{{ asset('storage/'.$photo) }}" target="_blank" rel="noopener">
+                    <img src="{{ asset('storage/'.$photo) }}" alt="Verification photo" style="width:96px;height:96px;object-fit:cover;border:1px solid #ccc;border-radius:6px;">
+                </a>
+            @endforeach
+        </div>
     @endif
 </body>
 </html>

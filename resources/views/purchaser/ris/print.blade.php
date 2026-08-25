@@ -38,23 +38,7 @@
         .signature-image { max-height: 36px; width: auto; position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: -8px; z-index: 10; }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
-        .approval-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
-            font-weight: 900;
-            color: rgba(0, 0, 0, 0.08);
-            letter-spacing: 8px;
-            text-transform: uppercase;
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
-            user-select: none;
-        }
-
-@media print {
+        @media print {
             body { background: white; }
             .ris-document {
                 width: 100%;
@@ -64,11 +48,6 @@
                 position: relative;
             }
             .header { margin-top: 140px; }
-            .approval-watermark {
-                opacity: 0.12;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
@@ -87,7 +66,7 @@
             );
         @endphp
         @if ($fullyReleased)
-            <div class="approval-watermark">APPROVED</div>
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
         @endif
 
         <section class="header">

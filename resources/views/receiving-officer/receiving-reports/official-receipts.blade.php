@@ -13,12 +13,16 @@
     <div data-ro-table data-ro-default-filter="all" class="overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
         <div class="border-b border-gray-100 px-5 py-4">
             <div class="flex flex-col gap-4">
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900">Official receipts</h2>
                         <p class="mt-1 text-xs text-gray-500">Receipt numbers captured during inspection.</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'roOrViewSwitcher',
+                            'btnClass' => 'ro-or-view-btn',
+                        ])
                         @include('layouts.partials.receiving-export-pdf', ['exportSection' => 'receipts'])
                         <div class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
                             {{ $rows->count() }} total
@@ -30,7 +34,8 @@
                 </div>
             </div>
         </div>
-        <div class="overflow-x-auto">
+
+        <div id="roOrTable" class="overflow-x-auto">
             <table class="w-full text-left">
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
@@ -49,10 +54,11 @@
                                 $row->authority_purchase_form_number ?? '',
                                 $row->supplier_name ?? '',
                             ]));
+                            $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number);
                         @endphp
                         <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->official_receipt }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $ref }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
                             <td class="px-5 py-4 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
                         </tr>
@@ -64,8 +70,51 @@
                 </tbody>
             </table>
         </div>
+
+        <div id="roOrCards" class="hidden space-y-3 px-5 py-4">
+            @forelse($rows as $row)
+                @php
+                    $rowSearch = trim(implode(' ', [
+                        $row->official_receipt ?? '',
+                        $row->ris_form_number ?? '',
+                        $row->authority_purchase_form_number ?? '',
+                        $row->supplier_name ?? '',
+                    ]));
+                    $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number);
+                @endphp
+                @include('receiving-officer.partials.list-info-card', [
+                    'title' => $row->official_receipt,
+                    'subtitle' => $ref,
+                    'roStatus' => 'all',
+                    'roSearch' => $rowSearch,
+                    'fields' => [
+                        ['label' => 'Supplier', 'value' => $row->supplier_name ?: '—'],
+                        ['label' => 'Date', 'value' => $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—'],
+                    ],
+                ])
+            @empty
+            @endforelse
+            <div class="receiving-empty-cards px-2 py-10 text-center text-sm text-gray-400" @if($rows->count()) style="display:none" @endif>
+                Waiting for an accepted delivery with an official receipt number.
+            </div>
+        </div>
+
         @include('layouts.partials.receiving-table-pager')
     </div>
 </div>
+
+@include('admin.partials.view-mode-script')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.bindAdminViewMode === 'function') {
+        window.bindAdminViewMode({
+            tableId: 'roOrTable',
+            cardsId: 'roOrCards',
+            buttonSelector: '.ro-or-view-btn',
+            storageKey: 'ro_or_view',
+        });
+    }
+});
+</script>
 
 @endsection

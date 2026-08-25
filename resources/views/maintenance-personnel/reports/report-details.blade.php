@@ -456,6 +456,20 @@
                                         @endif
                                 </div>
 
+                                @if (!empty($report->report_preferred_action_date))
+                                    <div>
+                                        <dt class="text-sm text-gray-500">
+                                            Preferred date
+                                        </dt>
+                                        <dd class="mt-1 text-sm font-semibold text-gray-900">
+                                            {{ \Carbon\Carbon::parse($report->report_preferred_action_date)->format('M d, Y') }}
+                                            <span class="block text-xs font-normal text-gray-400">
+                                                Requested by reporter — not a confirmed schedule
+                                            </span>
+                                        </dd>
+                                    </div>
+                                @endif
+
                             </dl>
 
                         </div>

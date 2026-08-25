@@ -43,6 +43,22 @@ class ReceivingController extends Controller
             }
         }
 
+        $todayStart = now()->startOfDay();
+        $yesterdayLeftoverCount = $queueRows->filter(function ($row) use ($todayStart) {
+            $raw = $row->receiving_report_submitted_at
+                ?? $row->receiving_report_created_at
+                ?? $row->receiving_report_date
+                ?? null;
+            if (empty($raw)) {
+                return false;
+            }
+            try {
+                return \Carbon\Carbon::parse($raw)->lt($todayStart);
+            } catch (\Throwable $e) {
+                return false;
+            }
+        })->count();
+
         return view('receiving-officer.dashboard', $this->withQueryError([
             'pendingCount' => $queueRows->count(),
             'pendingAmount' => (float) $queueRows->sum(fn ($row) => (float) ($row->total_amount ?? 0)),
@@ -54,6 +70,7 @@ class ReceivingController extends Controller
             'historyCount' => $acceptedRows->count() + $returnedRows->count(),
             'supplierCount' => $suppliers->count(),
             'logCount' => $logCount,
+            'yesterdayLeftoverCount' => $yesterdayLeftoverCount,
             'pendingRows' => $pendingRows->take(8),
             'acceptedRows' => $acceptedRows->take(6),
             'returnedRows' => $returnedRows->take(5),
@@ -117,6 +134,7 @@ class ReceivingController extends Controller
                 'items' => collect(),
                 'filter' => $filter,
                 'counts' => ['queue' => 0, 'completed' => 0, 'returned' => 0],
+                'dateFilter' => trim((string) $request->query('date', '')),
             ]);
         }
 
@@ -124,6 +142,7 @@ class ReceivingController extends Controller
         $this->applyRrActiveScope($query);
         $this->applyRrStatusFilter($query, $filter);
         $this->applyRrSearch($query, $request);
+        $this->applyRrDateFilter($query, $request);
 
         $sortColumn = 'receiving_reports_table.receiving_report_id';
         foreach (['receiving_report_submitted_at', 'receiving_report_created_at', 'receiving_report_date'] as $column) {
@@ -159,7 +178,9 @@ class ReceivingController extends Controller
             'returned' => $this->countReceivingReports('returned'),
         ];
 
-        return view('receiving-officer.receiving-reports.index', compact('reports', 'items', 'filter', 'counts'));
+        $dateFilter = trim((string) $request->query('date', ''));
+
+        return view('receiving-officer.receiving-reports.index', compact('reports', 'items', 'filter', 'counts', 'dateFilter'));
     }
 
     private function emptyRrPager(Request $request): LengthAwarePaginator
@@ -251,6 +272,31 @@ class ReceivingController extends Controller
         });
     }
 
+    private function applyRrDateFilter($query, Request $request): void
+    {
+        $date = trim((string) $request->query('date', ''));
+        if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return;
+        }
+
+        $dateColumns = array_values(array_filter([
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_submitted_at') ? 'receiving_reports_table.receiving_report_submitted_at' : null,
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_created_at') ? 'receiving_reports_table.receiving_report_created_at' : null,
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_date') ? 'receiving_reports_table.receiving_report_date' : null,
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_second_count_at') ? 'receiving_reports_table.receiving_report_second_count_at' : null,
+        ]));
+
+        if ($dateColumns === []) {
+            return;
+        }
+
+        $query->where(function ($q) use ($date, $dateColumns) {
+            foreach ($dateColumns as $column) {
+                $q->orWhereDate($column, $date);
+            }
+        });
+    }
+
     private function receivingReference(object $row): string
     {
         foreach (['receiving_report_form_number', 'ris_form_number', 'authority_purchase_form_number'] as $field) {
@@ -303,16 +349,30 @@ class ReceivingController extends Controller
 
     public function secondCount(Request $request, $id)
     {
+        $request->validate([
+            'second_count_by' => ['nullable', 'string', 'max:255'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+            'signature_data' => ['nullable', 'string', 'max:2000000'],
+            'verification_photos' => ['nullable', 'array'],
+            'verification_photos.*' => ['nullable', 'image', 'max:5120'],
+        ]);
+
         return DB::transaction(function () use ($request, $id) {
             $rr = $this->lockQueueRr($id);
             if (!is_object($rr)) {
                 return $rr;
             }
 
-            $name = Auth::user()->user_full_name ?? 'Receiving Officer';
-            $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
+            $name = trim((string) $request->input('second_count_by', ''));
+            if ($name === '') {
+                $name = Auth::user()->user_full_name ?? 'Receiving Officer';
+            }
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
+            $signature = $this->resolveSecondCountSignature($request, $name);
+            $photoPaths = $this->storeVerificationPhotos($request, (int) $id);
+
+            $update = [
                 'receiving_report_status' => 'Completed',
                 'receiving_report_second_count_by' => $name,
                 'receiving_report_second_count_by_user_id' => Auth::id(),
@@ -320,7 +380,18 @@ class ReceivingController extends Controller
                 'receiving_report_second_count_signature' => $signature,
                 'receiving_report_return_reason' => null,
                 'receiving_report_updated_at' => now(),
-            ]));
+            ];
+
+            if ($photoPaths !== []) {
+                $existing = [];
+                if (!empty($rr->receiving_report_verification_photos)) {
+                    $decoded = json_decode((string) $rr->receiving_report_verification_photos, true);
+                    $existing = is_array($decoded) ? $decoded : [];
+                }
+                $update['receiving_report_verification_photos'] = json_encode(array_values(array_merge($existing, $photoPaths)));
+            }
+
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', $update));
 
             $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first() ?? $rr;
             $this->fillRisReceivedBy($rr, $name);
@@ -329,13 +400,14 @@ class ReceivingController extends Controller
                 (int) $rr->receiving_report_id,
                 !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Second count completed',
-                'Items accepted. Inventory updated.',
-                Auth::id()
+                'Items delivered. Inventory updated.',
+                Auth::id(),
+                'Delivered'
             );
 
             $this->notifyPurchaserRr($rr, 'Receiving completed', 'Items were accepted. You may create a Liquidation Report.', 'rr_completed');
 
-            return back()->with('success', 'Second Count confirmed. Inventory updated. Purchaser may create a Liquidation Report.');
+            return back()->with('success', 'Successfully sent to Purchaser for Liquidation.');
         });
     }
 
@@ -361,10 +433,11 @@ class ReceivingController extends Controller
                 !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Returned for correction',
                 $request->input('remarks'),
-                Auth::id()
+                Auth::id(),
+                'Returned'
             );
 
-            return back()->with('success', 'Receiving Report returned. Items were not accepted.');
+            return back()->with('success', 'Successfully returned to Purchaser.');
         });
     }
 
@@ -390,7 +463,8 @@ class ReceivingController extends Controller
                 !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Returned for revision',
                 $request->input('remarks'),
-                Auth::id()
+                Auth::id(),
+                'Minor Revision'
             );
 
             return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
@@ -399,8 +473,20 @@ class ReceivingController extends Controller
 
     public function deliveredItems(Request $request): View
     {
+        $rows = $this->acceptedRows();
+        $lineItems = collect();
+        $ids = $rows->pluck('receiving_report_id')->filter()->values();
+        if ($ids->isNotEmpty() && Schema::hasTable('receiving_report_items_table')) {
+            $itemsQuery = DB::table('receiving_report_items_table')->whereIn('receiving_report_id', $ids);
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_id')) {
+                $itemsQuery->orderBy('receiving_report_item_id');
+            }
+            $lineItems = $itemsQuery->get()->groupBy('receiving_report_id');
+        }
+
         return view('receiving-officer.receiving-reports.delivered-items', $this->withQueryError([
-            'rows' => $this->acceptedRows(),
+            'rows' => $rows,
+            'lineItems' => $lineItems,
         ]));
     }
 
@@ -446,8 +532,8 @@ class ReceivingController extends Controller
 
         return view('receiving-officer.receiving-reports.receiving-logs', $this->withQueryError([
             'logs' => $logs,
-            'acceptedCount' => $logs->filter(fn ($log) => str_contains(strtolower((string) $log->receiving_log_action), 'return') === false && str_contains(strtolower((string) $log->receiving_log_action), 'accept'))->count(),
-            'returnedCount' => $logs->filter(fn ($log) => str_contains(strtolower((string) $log->receiving_log_action), 'return'))->count(),
+            'acceptedCount' => $logs->filter(fn ($log) => $this->logFilterBucket($log) === 'accepted')->count(),
+            'returnedCount' => $logs->filter(fn ($log) => $this->logFilterBucket($log) === 'returned')->count(),
             'allCount' => $logs->count(),
         ]));
     }
@@ -456,9 +542,22 @@ class ReceivingController extends Controller
     {
         abort_unless(Schema::hasTable('receiving_reports_table'), 404);
 
-        $row = $this->acceptedRows()->firstWhere('receiving_report_id', $reportId)
-            ?? $this->returnedRows()->firstWhere('receiving_report_id', $reportId)
-            ?? $this->pendingRows()->firstWhere('receiving_report_id', $reportId);
+        // Load by id regardless of queue status (Completed, Returned, Minor Revision, etc.).
+        $row = null;
+        try {
+            $row = $this->reportBaseQuery()
+                ->where('receiving_reports_table.receiving_report_id', $reportId)
+                ->first();
+        } catch (\Throwable $e) {
+            $row = null;
+        }
+
+        if (!$row) {
+            // Fallback when reportBaseQuery excludes archived / join edge cases.
+            $row = DB::table('receiving_reports_table')
+                ->where('receiving_report_id', $reportId)
+                ->first();
+        }
 
         abort_if(!$row, 404, 'Receiving report not found.');
 
@@ -479,11 +578,17 @@ class ReceivingController extends Controller
             $checklist = is_array($decoded) ? $decoded : [];
         }
 
+        $officerName = $row->officer_name
+            ?? $row->receiving_report_second_count_by
+            ?? $row->officer_signature
+            ?? $row->receiving_report_received_by_signature
+            ?? 'Receiving Officer';
+
         return view('receiving-officer.receiving-reports.print', [
             'row' => $row,
             'items' => $items,
             'checklist' => $checklist,
-            'officerName' => $row->officer_name ?: ($row->officer_signature ?? 'Receiving Officer'),
+            'officerName' => $officerName,
         ]);
     }
 
@@ -533,7 +638,7 @@ class ReceivingController extends Controller
                     !empty($row->received_at) ? \Carbon\Carbon::parse($row->received_at)->format('Y-m-d') : '—',
                     $this->receivingReference($row),
                     $row->supplier_name ?: '—',
-                    in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Accepted' : 'Returned',
+                    in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : 'Returned',
                     $row->officer_name ?: '—',
                 ]),
                 'delivery-history.pdf'
@@ -552,10 +657,11 @@ class ReceivingController extends Controller
             ),
             'logs' => $this->receivingExportPack(
                 'Receiving Logs',
-                ['Timestamp', 'Action', 'Reference', 'Officer', 'Remarks'],
+                ['Timestamp', 'Action', 'Status', 'Reference', 'Officer', 'Remarks'],
                 $this->logRows(500)->map(fn ($log) => [
                     !empty($log->receiving_log_created_at) ? \Carbon\Carbon::parse($log->receiving_log_created_at)->format('Y-m-d H:i') : '—',
                     $log->receiving_log_action ?: '—',
+                    $this->logStatusLabel($log),
                     $this->receivingReference($log),
                     $log->officer_name ?: 'Receiving Officer',
                     $log->receiving_log_remarks ?: '—',
@@ -564,12 +670,12 @@ class ReceivingController extends Controller
             ),
             'suppliers' => $this->receivingExportPack(
                 'Supplier Lookup',
-                ['Supplier', 'Type', 'Contact', 'Phone', 'Accepted'],
+                ['Supplier', 'Type', 'Contact', 'Telephone number', 'Delivered'],
                 $this->supplierRows()->map(fn ($supplier) => [
                     $supplier->supplier_name ?: '—',
                     $supplier->supplier_store_type ?: '—',
                     $supplier->contact_person ?: '—',
-                    $supplier->contact_number ?: '—',
+                    '—',
                     (string) ($supplier->delivery_count ?? 0),
                 ]),
                 'supplier-lookup.pdf'
@@ -627,7 +733,7 @@ class ReceivingController extends Controller
         }
         foreach ($acceptedRows as $row) {
             $ref = $this->receivingReference($row);
-            $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? null, $ref.' · Accepted');
+            $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? null, $ref.' · Delivered');
         }
         foreach ($returnedRows as $row) {
             $ref = $this->receivingReference($row);
@@ -668,13 +774,40 @@ class ReceivingController extends Controller
 
         $query = DB::table('receiving_reports_table');
 
-        if (Schema::hasTable('authority_to_purchase_table') && Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
-            $query->leftJoin(
-                'authority_to_purchase_table',
-                'authority_to_purchase_table.authority_purchase_id',
-                '=',
-                'receiving_reports_table.receiving_report_atp_id'
-            );
+        $joinedAtp = false;
+        $joinedRis = false;
+        $joinedPhysical = false;
+        $joinedOnline = false;
+
+        // Prefer direct ATP FK; otherwise RR → Request Check → ATP.
+        if (Schema::hasTable('authority_to_purchase_table')) {
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
+                $query->leftJoin(
+                    'authority_to_purchase_table',
+                    'authority_to_purchase_table.authority_purchase_id',
+                    '=',
+                    'receiving_reports_table.receiving_report_atp_id'
+                );
+                $joinedAtp = true;
+            } elseif (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+                && Schema::hasTable('request_check_table')
+                && Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id')
+            ) {
+                $query->leftJoin(
+                    'request_check_table',
+                    'request_check_table.request_check_id',
+                    '=',
+                    'receiving_reports_table.receiving_report_request_check_id'
+                );
+                $query->leftJoin(
+                    'authority_to_purchase_table',
+                    'authority_to_purchase_table.authority_purchase_id',
+                    '=',
+                    'request_check_table.request_check_authority_purchase_id'
+                );
+                $joinedAtp = true;
+            }
         }
 
         if (Schema::hasTable('requisition_issue_slip_table')) {
@@ -685,29 +818,35 @@ class ReceivingController extends Controller
                     '=',
                     'receiving_reports_table.receiving_report_ris_id'
                 );
-            } elseif (Schema::hasTable('authority_to_purchase_table')) {
+                $joinedRis = true;
+            } elseif ($joinedAtp && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_ris_id')) {
                 $query->leftJoin(
                     'requisition_issue_slip_table',
                     'requisition_issue_slip_table.ris_id',
                     '=',
                     'authority_to_purchase_table.authority_purchase_ris_id'
                 );
+                $joinedRis = true;
             }
         }
 
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_supplier_id')) {
             if (Schema::hasTable('physical_suppliers_table')) {
                 $query->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+                $joinedPhysical = true;
             }
             if (Schema::hasTable('online_suppliers_table')) {
                 $query->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+                $joinedOnline = true;
             }
-        } elseif (Schema::hasTable('authority_to_purchase_table')) {
+        } elseif ($joinedAtp && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_supplier_id')) {
             if (Schema::hasTable('physical_suppliers_table')) {
                 $query->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id');
+                $joinedPhysical = true;
             }
             if (Schema::hasTable('online_suppliers_table')) {
                 $query->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id');
+                $joinedOnline = true;
             }
         }
 
@@ -733,17 +872,21 @@ class ReceivingController extends Controller
             ? 'receiving_reports_table.receiving_report_form_number'
             : DB::raw('NULL as receiving_report_form_number');
 
-        if (Schema::hasTable('authority_to_purchase_table')) {
+        if ($joinedAtp) {
             $select[] = 'authority_to_purchase_table.authority_purchase_id';
             $select[] = 'authority_to_purchase_table.authority_purchase_form_number';
             $select[] = 'authority_to_purchase_table.authority_purchase_ris_id';
+            $select[] = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_reference_po_no')
+                ? 'authority_to_purchase_table.authority_purchase_reference_po_no'
+                : DB::raw('NULL as authority_purchase_reference_po_no');
         } else {
             $select[] = DB::raw('NULL as authority_purchase_id');
             $select[] = DB::raw('NULL as authority_purchase_form_number');
             $select[] = DB::raw('NULL as authority_purchase_ris_id');
+            $select[] = DB::raw('NULL as authority_purchase_reference_po_no');
         }
 
-        if (Schema::hasTable('requisition_issue_slip_table')) {
+        if ($joinedRis) {
             $select[] = 'requisition_issue_slip_table.ris_id';
             $select[] = 'requisition_issue_slip_table.ris_form_number';
         } else {
@@ -755,10 +898,10 @@ class ReceivingController extends Controller
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_from')) {
             array_unshift($supplierParts, 'receiving_reports_table.receiving_report_received_from');
         }
-        if (Schema::hasTable('online_suppliers_table')) {
+        if ($joinedOnline) {
             array_unshift($supplierParts, 'online_suppliers_table.shop_name');
         }
-        if (Schema::hasTable('physical_suppliers_table')) {
+        if ($joinedPhysical) {
             array_unshift($supplierParts, 'physical_suppliers_table.company_name');
         }
         $select[] = DB::raw('COALESCE('.implode(', ', $supplierParts).') as supplier_name');
@@ -800,8 +943,20 @@ class ReceivingController extends Controller
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_created_at')) {
             $select[] = 'receiving_reports_table.receiving_report_created_at';
         }
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_submitted_at')) {
+            $select[] = 'receiving_reports_table.receiving_report_submitted_at';
+        }
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_date')) {
             $select[] = 'receiving_reports_table.receiving_report_date';
+        }
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_verification_photos')) {
+            $select[] = 'receiving_reports_table.receiving_report_verification_photos';
+        }
+
+        if ($joinedPhysical) {
+            $select[] = 'physical_suppliers_table.company_address as store_location';
+        } else {
+            $select[] = DB::raw('NULL as store_location');
         }
 
         return $query->select($select);
@@ -862,18 +1017,21 @@ class ReceivingController extends Controller
         }
 
         return $this->safeQuery(function () use ($limit) {
+            $select = [
+                'receiving_logs_table.*',
+                'users_table.user_full_name as officer_name',
+                'receiving_reports_table.receiving_report_form_number',
+                'receiving_reports_table.receiving_report_status',
+                'authority_to_purchase_table.authority_purchase_form_number',
+                'requisition_issue_slip_table.ris_form_number',
+            ];
+
             return DB::table('receiving_logs_table')
                 ->leftJoin('users_table', 'users_table.user_id', '=', 'receiving_logs_table.receiving_log_officer_id')
                 ->leftJoin('receiving_reports_table', 'receiving_reports_table.receiving_report_id', '=', 'receiving_logs_table.receiving_report_id')
                 ->leftJoin('authority_to_purchase_table', 'authority_to_purchase_table.authority_purchase_id', '=', 'receiving_logs_table.receiving_log_atp_id')
                 ->leftJoin('requisition_issue_slip_table', 'requisition_issue_slip_table.ris_id', '=', 'authority_to_purchase_table.authority_purchase_ris_id')
-                ->select(
-                    'receiving_logs_table.*',
-                    'users_table.user_full_name as officer_name',
-                    'receiving_reports_table.receiving_report_form_number',
-                    'authority_to_purchase_table.authority_purchase_form_number',
-                    'requisition_issue_slip_table.ris_form_number'
-                )
+                ->select($select)
                 ->orderByDesc('receiving_logs_table.receiving_log_id')
                 ->limit($limit)
                 ->get();
@@ -907,7 +1065,6 @@ class ReceivingController extends Controller
                     'suppliers_table.supplier_store_type',
                     'physical_suppliers_table.company_name',
                     'physical_suppliers_table.contact_person',
-                    'physical_suppliers_table.contact_number',
                     'physical_suppliers_table.company_address',
                     'online_suppliers_table.shop_name',
                     DB::raw("COALESCE(physical_suppliers_table.company_name, online_suppliers_table.shop_name, 'Unnamed supplier') as supplier_name"),
@@ -919,7 +1076,6 @@ class ReceivingController extends Controller
                     'suppliers_table.supplier_store_type',
                     'physical_suppliers_table.company_name',
                     'physical_suppliers_table.contact_person',
-                    'physical_suppliers_table.contact_number',
                     'physical_suppliers_table.company_address',
                     'online_suppliers_table.shop_name'
                 )
@@ -1015,7 +1171,8 @@ class ReceivingController extends Controller
                 !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Inventory updated',
                 'Stock records created from second count.',
-                $officerId
+                $officerId,
+                'Delivered'
             );
             $this->notifyMaintenanceUntaggedStock($rr, $created);
         }
@@ -1068,7 +1225,64 @@ class ReceivingController extends Controller
         return collect($payload)->filter(fn ($value, $column) => Schema::hasColumn($table, $column))->all();
     }
 
-    private function writeLog(?int $reportId, ?int $atpId, string $action, ?string $remarks, $officerId): void
+    private function storeVerificationPhotos(Request $request, int $reportId): array
+    {
+        if (!$request->hasFile('verification_photos')) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ((array) $request->file('verification_photos') as $file) {
+            if (!$file || !$file->isValid()) {
+                continue;
+            }
+            $mime = (string) $file->getMimeType();
+            if (!str_starts_with($mime, 'image/')) {
+                continue;
+            }
+            $paths[] = $file->store('receiving-verifications/'.$reportId, 'public');
+        }
+
+        return array_values(array_filter($paths));
+    }
+
+    /**
+     * Prefer uploaded/drawn signature image; otherwise store the typed officer name.
+     */
+    private function resolveSecondCountSignature(Request $request, string $typedName): string
+    {
+        $dataUrl = trim((string) $request->input('signature_image', ''));
+        if (
+            $dataUrl !== ''
+            && str_starts_with($dataUrl, 'data:image/')
+            && strlen($dataUrl) <= 2000000
+        ) {
+            return $dataUrl;
+        }
+
+        // Legacy pad draw still supported if present.
+        $legacy = RisWorkflow::drawnOrName($request->input('signature_data'), '');
+        if ($legacy !== '' && RisWorkflow::isDrawnSignature($legacy)) {
+            return $legacy;
+        }
+
+        if ($request->hasFile('signature_file')) {
+            $file = $request->file('signature_file');
+            if ($file && $file->isValid()) {
+                $mime = (string) $file->getMimeType();
+                if (str_starts_with($mime, 'image/')) {
+                    $binary = @file_get_contents($file->getRealPath());
+                    if ($binary !== false && strlen($binary) <= 1500000) {
+                        return 'data:'.$mime.';base64,'.base64_encode($binary);
+                    }
+                }
+            }
+        }
+
+        return $typedName;
+    }
+
+    private function writeLog(?int $reportId, ?int $atpId, string $action, ?string $remarks, $officerId, ?string $status = null): void
     {
         if (!Schema::hasTable('receiving_logs_table')) {
             return;
@@ -1078,10 +1292,65 @@ class ReceivingController extends Controller
             'receiving_report_id' => $reportId,
             'receiving_log_atp_id' => $atpId,
             'receiving_log_action' => $action,
+            'receiving_log_status' => $status,
             'receiving_log_remarks' => $remarks,
             'receiving_log_officer_id' => $officerId,
             'receiving_log_created_at' => now(),
         ]));
+    }
+
+    /**
+     * Filter bucket used by Receiving Logs Delivered / Returned cards.
+     */
+    private function logFilterBucket(object $log): string
+    {
+        $status = strtolower(trim((string) ($log->receiving_log_status ?? '')));
+        $action = strtolower(trim((string) ($log->receiving_log_action ?? '')));
+        $rrStatus = strtolower(trim((string) ($log->receiving_report_status ?? '')));
+
+        if (
+            $status === 'returned'
+            || str_contains($action, 'return')
+            || $rrStatus === 'returned'
+        ) {
+            return 'returned';
+        }
+
+        if (
+            in_array($status, ['delivered', 'completed', 'accepted'], true)
+            || str_contains($action, 'second count')
+            || str_contains($action, 'deliver')
+            || str_contains($action, 'accept')
+            || str_contains($action, 'inventory')
+            || in_array($rrStatus, ['completed', 'accepted'], true)
+        ) {
+            return 'accepted';
+        }
+
+        return 'all';
+    }
+
+    private function logStatusLabel(object $log): string
+    {
+        $status = trim((string) ($log->receiving_log_status ?? ''));
+        if ($status !== '') {
+            return $status === 'Completed' ? 'Delivered' : $status;
+        }
+
+        $bucket = $this->logFilterBucket($log);
+        if ($bucket === 'accepted') {
+            return 'Delivered';
+        }
+        if ($bucket === 'returned') {
+            return 'Returned';
+        }
+
+        $rrStatus = trim((string) ($log->receiving_report_status ?? ''));
+        if ($rrStatus === 'Completed' || $rrStatus === 'Accepted') {
+            return 'Delivered';
+        }
+
+        return $rrStatus !== '' ? $rrStatus : '—';
     }
 
     private function safeQuery(callable $callback)
@@ -1291,5 +1560,19 @@ class ReceivingController extends Controller
             (int) $rr->receiving_report_id,
             '/maintenance/equipment/qr-tools'
         );
+    }
+
+    public function profile(): View
+    {
+        return view('receiving-officer.profile.index', [
+            'user' => Auth::user(),
+        ]);
+    }
+
+    public function security(): View
+    {
+        return view('receiving-officer.security.index', [
+            'user' => Auth::user(),
+        ]);
     }
 }

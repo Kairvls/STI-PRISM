@@ -1,4 +1,4 @@
-﻿@extends('layouts.admin-layout')
+@extends('layouts.admin-layout')
 
 @section('title', 'User Management')
 
@@ -12,10 +12,10 @@
     </div>
 
     @if(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ session('success') }}</div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{{ session('success') }}</div>
     @endif
     @if(session('error'))
-        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ session('error') }}</div>
+        <div class="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-800">{{ session('error') }}</div>
     @endif
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -81,12 +81,12 @@
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $user->user_full_name }}</td>
                             <td class="px-5 py-4 text-sm text-gray-600">{{ $user->user_username }}</td>
                             <td class="px-5 py-4">
-                                <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-[#0037c7] ring-1 ring-inset ring-blue-200">{{ $user->role_name ?: '-' }}</span>
+                                <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">{{ $user->role_name ?: '-' }}</span>
                             </td>
                             <td class="px-5 py-4">
                                 @if($isActive)
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
                                         Active
                                     </span>
                                 @else
@@ -133,7 +133,7 @@
             <p class="text-xs text-gray-500">
                 Showing
                 <span id="usersShowingFrom" class="font-semibold text-gray-700">0</span>
-                –
+                �
                 <span id="usersShowingTo" class="font-semibold text-gray-700">0</span>
                 of
                 <span id="usersVisibleCount" class="font-semibold text-gray-700">{{ $totalUsers }}</span>

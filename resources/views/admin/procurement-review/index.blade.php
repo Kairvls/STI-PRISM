@@ -76,6 +76,7 @@
 
 </div>
 
+@include('admin.partials.view-mode-script')
 
 {{-- ===================================================== --}}
 {{-- RIS PAGE JAVASCRIPT --}}
@@ -275,6 +276,33 @@
         }, 230);
     }
 
+    function applyAdminPrView(mode, animate) {
+        if (typeof window.applyAdminViewMode === 'function') {
+            window.applyAdminViewMode({
+                mode: mode,
+                tableId: 'risTableContainer',
+                cardsId: 'risCardsContainer',
+                buttonSelector: '.admin-pr-view-btn',
+                storageKey: 'admin_pr_view',
+                animate: animate !== false,
+            });
+            return;
+        }
+        var table = document.getElementById('risTableContainer');
+        var cards = document.getElementById('risCardsContainer');
+        var buttons = document.querySelectorAll('.admin-pr-view-btn');
+        if (!table || !cards) return;
+        var useCards = mode === 'cards';
+        table.classList.toggle('hidden', useCards);
+        cards.classList.toggle('hidden', !useCards);
+        buttons.forEach(function (btn) {
+            var active = (btn.getAttribute('data-view-mode') || btn.getAttribute('data-pr-view')) === mode;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        try { /* do not persist cards/table across navigation */ } catch (e) {}
+    }
+
 
     function bindRisEventListeners() {
 
@@ -342,6 +370,20 @@
         });
 
         updateRisFilterSlider(currentFilter, false);
+
+
+        // =====================================================
+        // CARDS / TABLE VIEW SWITCHER
+        // =====================================================
+
+        document.querySelectorAll('.admin-pr-view-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                applyAdminPrView(btn.getAttribute('data-view-mode') || btn.getAttribute('data-pr-view') || 'table', true);
+            });
+        });
+
+        // Always reopen in table view when navigating / reloading content.
+        applyAdminPrView('table', false);
 
 
         // =====================================================
@@ -439,6 +481,23 @@
 
         modal.classList.remove('hidden');
         modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        requestAnimationFrame(function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('risPreviewIframe');
+            } else if (typeof window.scaleRisPreviewToFit === 'function') {
+                window.scaleRisPreviewToFit();
+            }
+        });
+
+        iframe.onload = function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('risPreviewIframe');
+            } else if (typeof window.scaleRisPreviewToFit === 'function') {
+                window.scaleRisPreviewToFit();
+            }
+        };
 
     };
 
@@ -477,6 +536,8 @@
             modal.style.display = '';
         }
 
+        document.body.style.overflow = '';
+
     };
 
 
@@ -485,59 +546,10 @@
     // =====================================================
 
     window.scaleRisPreviewToFit = function () {
-
-        const iframe =
-            document.getElementById('risPreviewIframe');
-
-        if (!iframe) {
-
+        if (typeof window.scaleRisPreviewIframe === 'function') {
+            window.scaleRisPreviewIframe('risPreviewIframe');
             return;
-
         }
-
-
-        // =====================================================
-        // DOCUMENT DIMENSIONS IN INCHES (LANDSCAPE)
-        // =====================================================
-
-        const docWidthInches = 11;
-        const docHeightInches = 8.5;
-
-
-        // =====================================================
-        // CONVERT TO PIXELS (96 DPI)
-        // =====================================================
-
-        const docWidthPx = docWidthInches * 96;
-        const docHeightPx = docHeightInches * 96;
-
-
-        // =====================================================
-        // CALCULATE AVAILABLE VIEWPORT (WITH MARGINS)
-        // =====================================================
-
-        const viewportWidth = window.innerWidth - 64;
-        const viewportHeight = window.innerHeight - 64;
-
-
-        // =====================================================
-        // CALCULATE SCALE TO FIT
-        // =====================================================
-
-        const scaleX = viewportWidth / docWidthPx;
-        const scaleY = viewportHeight / docHeightPx;
-
-        const scale = Math.min(scaleX, scaleY, 1);
-
-
-        // =====================================================
-        // APPLY CSS TRANSFORM TO THE IFRAME
-        // =====================================================
-
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.width = docWidthPx + 'px';
-        iframe.style.height = docHeightPx + 'px';
-
     };
 
 
@@ -613,7 +625,7 @@
             }
         })
         .catch(function() {
-            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-rose-600">Failed to load RIS form. Please try again.</div>';
+            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-slate-600">Failed to load RIS form. Please try again.</div>';
         });
     };
 

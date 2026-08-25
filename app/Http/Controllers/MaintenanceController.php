@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ReportGrouping;
+use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
@@ -125,23 +126,81 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // URGENT REPORTS SUBMITTED TODAY
-        // Used by the once-per-day login reminder modal
+        // MARK OPEN REPORTS AS OVERDUE
+        // Submitted before today and still Pending / Processing
         // =====================================================
 
-        $urgentReportsToday = DB::table('reports_table')
+        $closedReportStatuses = [
+            'Resolved',
+            'Rejected',
+            'For Replacement',
+        ];
+
+        DB::table('reports_table')
+            ->whereIn('report_current_status', $closedReportStatuses)
+            ->where('report_is_overdue', true)
+            ->update(['report_is_overdue' => false]);
+
+        DB::table('reports_table')
             ->where('report_urgency_level', 'Urgent')
-            ->whereDate('report_submitted_at', today())
+            ->whereIn('report_current_status', ['Pending', 'Processing'])
             ->where('report_is_archived', false)
-            ->whereNotIn(
-                'report_current_status',
-                [
-                    'Resolved',
-                    'Rejected',
-                    'For Replacement',
-                ]
-            )
+            ->whereDate('report_submitted_at', '<', today())
+            ->where('report_is_overdue', false)
+            ->update(['report_is_overdue' => true]);
+
+        DB::table('reports_table')
+            ->where('report_urgency_level', 'Non-Urgent')
+            ->whereIn('report_current_status', ['Pending', 'Processing'])
+            ->where('report_is_overdue', true)
+            ->update(['report_is_overdue' => false]);
+
+        ReportGrouping::applyNonUrgentReminderWindow(
+            DB::table('reports_table')
+                ->where('report_urgency_level', 'Non-Urgent')
+                ->whereIn('report_current_status', ['Pending', 'Processing'])
+                ->where('report_is_archived', false)
+                ->where('report_is_overdue', false)
+        )->update(['report_is_overdue' => true]);
+
+
+        // =====================================================
+        // DAILY REMINDER COUNTS
+        // Urgent: pending or overdue
+        // Non-urgent: remind from preferred date, or after 5 days if none
+        // =====================================================
+
+        $urgentReportsNeedingAction = DB::table('reports_table')
+            ->where('report_urgency_level', 'Urgent')
+            ->where('report_is_archived', false)
+            ->where(function ($query) {
+                $query
+                    ->where('report_current_status', 'Pending')
+                    ->orWhere(function ($overdue) {
+                        $overdue
+                            ->whereIn(
+                                'report_current_status',
+                                ['Pending', 'Processing']
+                            )
+                            ->where(function ($due) {
+                                $due
+                                    ->where('report_is_overdue', true)
+                                    ->orWhereDate(
+                                        'report_submitted_at',
+                                        '<',
+                                        today()
+                                    );
+                            });
+                    });
+            })
             ->count();
+
+        $nonUrgentReportsNeedingAction = ReportGrouping::applyNonUrgentReminderWindow(
+            DB::table('reports_table')
+                ->where('report_urgency_level', 'Non-Urgent')
+                ->where('report_is_archived', false)
+                ->where('report_current_status', 'Pending')
+        )->count();
 
 
         // =====================================================
@@ -2336,7 +2395,9 @@ class MaintenanceController extends Controller
 
                 'pendingReportsToday',
 
-                'urgentReportsToday',
+                'urgentReportsNeedingAction',
+
+                'nonUrgentReportsNeedingAction',
 
                 'urgentReports',
 
@@ -2693,7 +2754,7 @@ class MaintenanceController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            ->select(
+            ->select(array_values(array_filter([
 
                 'reports_table.*',
 
@@ -2720,11 +2781,13 @@ class MaintenanceController extends Controller
                 'assigned_purchaser.user_full_name
                     as assigned_purchaser_name',
 
-                DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count'),
+                Schema::hasColumn('reports_table', 'report_related_count')
+                    ? DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count')
+                    : DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
 
-                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency")
+                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency"),
 
-            );
+            ])));
     }
 
     // =====================================================
@@ -5052,14 +5115,20 @@ class MaintenanceController extends Controller
         $equipment = $query
 
             ->orderBy(
-                'equipment_table.equipment_name',
-                'asc'
+                'equipment_table.equipment_created_at',
+                'desc'
             )
 
             ->paginate(10)
 
             ->withQueryString();
 
+
+        $usedAssetTags = DB::table('equipment_table')
+            ->whereNotNull('equipment_asset_tag')
+            ->where('equipment_asset_tag', '!=', '')
+            ->whereNotIn('equipment_inventory_status', ['Disposed'])
+            ->pluck('equipment_asset_tag');
 
         /*
         |--------------------------------------------------------------------------
@@ -5074,6 +5143,7 @@ class MaintenanceController extends Controller
                 'equipment',
                 'categories',
                 'rooms',
+                'usedAssetTags',
 
                 // =====================================================
                 // EQUIPMENT DASHBOARD COUNTS
@@ -6378,126 +6448,249 @@ class MaintenanceController extends Controller
         // VALIDATE EQUIPMENT
         // =====================================================
 
-        $request->validate([
+        $validated = $request->validate([
 
-            'equipment_name' => 'required',
+            'equipment_name' => 'required|string|max:255',
 
             'equipment_category_id' => 'required',
 
             'equipment_room_id' => 'required',
 
-            'equipment_quantity' => 'required'
+            'equipment_quantity' => 'required|integer|min:1|max:200',
+
+            'equipment_tracking_mode' => 'nullable|in:Bulk,Individual',
+
+            'equipment_condition_status' => 'nullable|string',
+
+            'equipment_inventory_status' => 'nullable|string',
+
+            'equipment_asset_tag' => 'nullable|string|max:255',
+
+            'equipment_brand_name' => 'nullable|string|max:255',
+
+            'equipment_model' => 'nullable|string|max:255',
+
+            'equipment_serial_number' => 'nullable|string|max:255',
+
+            'equipment_purchase_date' => 'nullable|date',
+
+            'equipment_warranty_expiration' => 'nullable|date',
+
+            'items' => 'nullable|array|max:200',
+
+            'items.*.equipment_asset_tag' => 'nullable|string|max:255',
+
+            'items.*.equipment_serial_number' => 'nullable|string|max:255',
+
+            'items.*.equipment_brand_name' => 'nullable|string|max:255',
+
+            'items.*.equipment_model' => 'nullable|string|max:255',
+
+            'items.*.equipment_condition_status' => 'nullable|string',
+
+            'items.*.equipment_warranty_expiration' => 'nullable|date',
 
         ]);
 
-        $duplicateName = DB::table('equipment_table')
-            ->where('equipment_room_id', $request->equipment_room_id)
-            ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
-            ->whereNotIn('equipment_inventory_status', ['Disposed'])
-            ->exists();
+        $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
+        $items = array_values($validated['items'] ?? []);
+        $quantity = (int) $validated['equipment_quantity'];
 
-        if ($duplicateName) {
+        if ($trackingMode === 'Individual' && count($items) > 0 && count($items) !== $quantity) {
             return back()
-                ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                ->withErrors(['items' => 'Item count must match the quantity.'])
                 ->withInput();
         }
 
+        // Bulk stock keeps unique name-per-room; Individual units may share a display name.
+        if ($trackingMode === 'Bulk') {
+            $duplicateName = DB::table('equipment_table')
+                ->where('equipment_room_id', $request->equipment_room_id)
+                ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
+                ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                ->exists();
+
+            if ($duplicateName) {
+                return back()
+                    ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                    ->withInput();
+            }
+        }
+
+        $identifierError = $this->validateEquipmentIdentifierUniqueness(
+            $items,
+            $validated,
+            $trackingMode
+        );
+
+        if ($identifierError !== null) {
+            return back()
+                ->withErrors($identifierError)
+                ->withInput();
+        }
+
+        $createdIds = [];
 
         // =====================================================
         // START TRANSACTION
         // =====================================================
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $trackingMode,
+            $items,
+            $quantity,
+            &$createdIds
+        ) {
 
-            // =================================================
-            // CREATE EQUIPMENT
-            //
-            // insertGetId() RETURNS THE NEW EQUIPMENT ID
-            // =================================================
+            $borrowable = $request->has('equipment_is_borrowable');
 
-            $equipmentId = DB::table('equipment_table')
-                ->insertGetId([
-
-                    'equipment_category_id'
-                        => $request->equipment_category_id,
-
-                    'equipment_room_id'
-                        => $request->equipment_room_id,
-
-                    'equipment_asset_tag'
-                        => $request->equipment_asset_tag,
-
-                    'equipment_name'
-                        => $request->equipment_name,
-
-                    'equipment_brand_name'
-                        => $request->equipment_brand_name,
-
-                    'equipment_model'
-                        => $request->equipment_model,
-
-                    'equipment_serial_number'
-                        => $request->equipment_serial_number,
-
-                    'equipment_quantity'
-                        => $request->equipment_quantity,
-
-                    'equipment_condition_status'
-                        => $request->equipment_condition_status,
-
-                    'equipment_inventory_status'
-                        => $request->equipment_inventory_status,
-
-                    'equipment_purchase_date'
-                        => $request->equipment_purchase_date,
-
-                    'equipment_warranty_expiration'
-                        => $request->equipment_warranty_expiration,
-
-                    'equipment_is_borrowable'
-                        => $request->has('equipment_is_borrowable'),
-
-                    'equipment_created_at'
-                        => now()
-
+            if ($trackingMode === 'Bulk') {
+                $equipmentId = DB::table('equipment_table')->insertGetId([
+                    'equipment_category_id' => $validated['equipment_category_id'],
+                    'equipment_room_id' => $validated['equipment_room_id'],
+                    'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
+                    'equipment_name' => $validated['equipment_name'],
+                    'equipment_brand_name' => $validated['equipment_brand_name'] ?? null,
+                    'equipment_model' => $validated['equipment_model'] ?? null,
+                    'equipment_serial_number' => $validated['equipment_serial_number'] ?? null,
+                    'equipment_quantity' => $quantity,
+                    'equipment_tracking_mode' => 'Bulk',
+                    'equipment_condition_status' => $validated['equipment_condition_status'] ?? 'Good',
+                    'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
+                    'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                    'equipment_warranty_expiration' => $validated['equipment_warranty_expiration'] ?? null,
+                    'equipment_is_borrowable' => $borrowable,
+                    'equipment_created_at' => now(),
                 ]);
 
-            EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                $createdIds[] = (int) $equipmentId;
+            } else {
+                $rows = count($items) > 0
+                    ? $items
+                    : array_fill(0, $quantity, []);
 
+                foreach ($rows as $item) {
+                    $equipmentId = DB::table('equipment_table')->insertGetId([
+                        'equipment_category_id' => $validated['equipment_category_id'],
+                        'equipment_room_id' => $validated['equipment_room_id'],
+                        'equipment_asset_tag' => $item['equipment_asset_tag']
+                            ?? (($quantity === 1) ? ($validated['equipment_asset_tag'] ?? null) : null),
+                        'equipment_name' => $validated['equipment_name'],
+                        'equipment_brand_name' => $item['equipment_brand_name']
+                            ?? ($validated['equipment_brand_name'] ?? null),
+                        'equipment_model' => $item['equipment_model']
+                            ?? ($validated['equipment_model'] ?? null),
+                        'equipment_serial_number' => $item['equipment_serial_number']
+                            ?? (($quantity === 1) ? ($validated['equipment_serial_number'] ?? null) : null),
+                        'equipment_quantity' => 1,
+                        'equipment_tracking_mode' => 'Individual',
+                        'equipment_condition_status' => $item['equipment_condition_status']
+                            ?? ($validated['equipment_condition_status'] ?? 'Good'),
+                        'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
+                        'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                        'equipment_warranty_expiration' => $item['equipment_warranty_expiration']
+                            ?? ($validated['equipment_warranty_expiration'] ?? null),
+                        'equipment_is_borrowable' => $borrowable,
+                        'equipment_created_at' => now(),
+                    ]);
 
-            // =================================================
-            // RECENT ACTIVITY
-            // =================================================
+                    EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                    $createdIds[] = (int) $equipmentId;
+                }
+            }
+
+            $count = count($createdIds);
+            $lastId = (int) end($createdIds);
 
             $this->logActivity(
-
                 'Added equipment',
-
                 'Equipment',
-
                 'equipment_table',
-
-                (int) $equipmentId,
-
-                'Added '
-                . $request->equipment_name
-                . ' to the equipment inventory.'
-
+                $lastId,
+                $count > 1
+                    ? 'Added '.$count.' × '.$validated['equipment_name'].' to the equipment inventory.'
+                    : 'Added '.$validated['equipment_name'].' to the equipment inventory.'
             );
 
         });
-
 
         // =====================================================
         // SUCCESS
         // =====================================================
 
+        $count = count($createdIds);
+
         return redirect(
             '/maintenance/equipment/inventory'
         )->with(
             'success',
-            'Equipment added successfully.'
+            $count > 1
+                ? "{$count} equipment records added successfully."
+                : 'Equipment added successfully.'
         );
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function validateEquipmentIdentifierUniqueness(
+        array $items,
+        array $validated,
+        string $trackingMode
+    ): ?array {
+        $candidates = count($items) > 0
+            ? $items
+            : [[
+                'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
+                'equipment_serial_number' => $validated['equipment_serial_number'] ?? null,
+            ]];
+
+        $assetTags = [];
+        $serials = [];
+
+        foreach ($candidates as $index => $item) {
+            $tag = trim((string) ($item['equipment_asset_tag'] ?? ''));
+            $serial = trim((string) ($item['equipment_serial_number'] ?? ''));
+
+            if ($tag !== '') {
+                $key = mb_strtolower($tag);
+                if (isset($assetTags[$key])) {
+                    return ['items' => 'Duplicate asset tag in this batch.'];
+                }
+                $assetTags[$key] = true;
+
+                if (
+                    DB::table('equipment_table')
+                        ->whereRaw('LOWER(equipment_asset_tag) = ?', [$key])
+                        ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                        ->exists()
+                ) {
+                    return ["items.{$index}.equipment_asset_tag" => "Asset tag \"{$tag}\" is already in use."];
+                }
+            }
+
+            if ($serial !== '') {
+                $key = mb_strtolower($serial);
+                if (isset($serials[$key])) {
+                    return ['items' => 'Duplicate serial number in this batch.'];
+                }
+                $serials[$key] = true;
+
+                if (
+                    DB::table('equipment_table')
+                        ->whereRaw('LOWER(equipment_serial_number) = ?', [$key])
+                        ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                        ->exists()
+                ) {
+                    return ["items.{$index}.equipment_serial_number" => "Serial number \"{$serial}\" is already in use."];
+                }
+            }
+        }
+
+        return null;
     }
 
     
@@ -6604,6 +6797,9 @@ class MaintenanceController extends Controller
 
                     'equipment_inventory_status'
                         => $request->equipment_inventory_status,
+
+                    'equipment_warranty_expiration'
+                        => $request->equipment_warranty_expiration,
 
                     'equipment_is_borrowable'
                         => $request->has('equipment_is_borrowable'),
@@ -10886,6 +11082,8 @@ class MaintenanceController extends Controller
         // RETURN ALL REPORTER DASHBOARD VARIABLES
         // =====================================================
 
+        $pendingReporterApprovals = ReporterApprovals::pendingCount();
+
         return compact(
             'totalReporters',
             'reportersWithEmail',
@@ -10895,7 +11093,8 @@ class MaintenanceController extends Controller
             'reporterMonthlyPercentage',
             'emailCoveragePercentage',
             'contactCoveragePercentage',
-            'reporterMonthlyTrend'
+            'reporterMonthlyTrend',
+            'pendingReporterApprovals'
         );
     }
 
@@ -11233,10 +11432,7 @@ class MaintenanceController extends Controller
 
             $reporters = $query
 
-                ->orderBy(
-                    'reporter_full_name',
-                    'asc'
-                )
+                ->orderBy('reporter_id', 'desc')
 
                 ->paginate(
                     10,
@@ -11416,6 +11612,7 @@ class MaintenanceController extends Controller
                 'report_suggested_issue' => 'nullable|string|max:255',
                 'report_problem_description' => 'nullable|string',
                 'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
+                'report_preferred_action_date' => ReportGrouping::preferredActionDateRules(),
                 'report_uploaded_image' => 'nullable|image|max:5120',
             ]);
 
@@ -11480,6 +11677,18 @@ class MaintenanceController extends Controller
                     ->withInput();
             }
 
+            if (
+                !$request->filled('report_suggested_issue')
+                && !$request->filled('report_problem_description')
+            ) {
+                return back()
+                    ->withErrors([
+                        'report_suggested_issue'
+                            => 'Please select a suggested issue or provide additional details.',
+                    ])
+                    ->withInput();
+            }
+
 
             // =====================================================
             // UPLOAD REPORT IMAGE
@@ -11521,6 +11730,10 @@ class MaintenanceController extends Controller
                     ReportGrouping::mergeIntoOpenReport($openReport, [
                         'reporter_id' => $reporter->reporter_employee_id,
                         'urgency' => $request->report_urgency_level,
+                        'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
+                            $request->report_urgency_level,
+                            $request->report_preferred_action_date
+                        ),
                         'issue' => $request->report_suggested_issue
                             ?: $request->report_problem_description,
                     ]);
@@ -11538,8 +11751,7 @@ class MaintenanceController extends Controller
             // THIS GIVES US THE NEW REPORT ID
             // =====================================================
 
-            $reportId = DB::table('reports_table')
-                ->insertGetId([
+            $reportPayload = [
 
                     'report_reporter_employee_id'
                         => $reporter->reporter_employee_id,
@@ -11580,7 +11792,17 @@ class MaintenanceController extends Controller
                     'report_updated_at'
                         => now(),
 
-                ], 'report_id');
+            ];
+
+            if (ReportGrouping::hasPreferredActionDateColumn()) {
+                $reportPayload['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
+                    $request->report_urgency_level,
+                    $request->report_preferred_action_date
+                );
+            }
+
+            $reportId = DB::table('reports_table')
+                ->insertGetId($reportPayload, 'report_id');
 
 
             // =====================================================
@@ -11732,6 +11954,212 @@ class MaintenanceController extends Controller
             'success',
             'Reporter deleted successfully.'
         );
+    }
+
+
+    // =====================================================
+    // REPORTER APPROVALS
+    // APPLICATIONS WAITING TO BE CONFIRMED AS FACULTY / STAFF
+    // =====================================================
+
+    public function reporterApprovals(Request $request)
+    {
+        $status = $request->get('status', 'pending');
+        $allowedStatuses = [
+            'pending',
+            'approved',
+            'rejected',
+        ];
+
+        if (! in_array($status, $allowedStatuses, true)) {
+            $status = 'pending';
+        }
+
+        $applications = null;
+        $pendingCount = 0;
+        $approvedThisMonth = 0;
+        $rejectedThisMonth = 0;
+        $totalApplications = 0;
+
+        if (ReporterApprovals::hasTable()) {
+            $query = ReporterApprovals::query()
+                ->leftJoin(
+                    'users_table',
+                    'users_table.user_id',
+                    '=',
+                    'reporter_approval_requests.reviewed_by'
+                )
+                ->select(
+                    'reporter_approval_requests.*',
+                    'users_table.user_full_name as reviewed_by_name'
+                );
+
+            if ($request->filled('search')) {
+                $search = trim($request->search);
+
+                $query->where(function ($q) use ($search) {
+                    $q->where('reporter_approval_requests.employee_id', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.full_name', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.email', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.contact', 'LIKE', '%'.$search.'%');
+                });
+            }
+
+            $query->where('reporter_approval_requests.status', $status);
+
+            $applications = $query
+                ->orderByDesc('reporter_approval_requests.created_at')
+                ->paginate(10, ['*'], 'page')
+                ->withQueryString();
+
+            $pendingCount = ReporterApprovals::pendingCount();
+            $approvedThisMonth = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_APPROVED)
+                ->whereBetween('reviewed_at', [now()->copy()->startOfMonth(), now()->copy()->endOfMonth()])
+                ->count();
+            $rejectedThisMonth = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_REJECTED)
+                ->whereBetween('reviewed_at', [now()->copy()->startOfMonth(), now()->copy()->endOfMonth()])
+                ->count();
+            $totalApplications = ReporterApprovals::query()->count();
+        } else {
+            $applications = new \Illuminate\Pagination\LengthAwarePaginator(
+                [],
+                0,
+                10,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
+
+        return view('maintenance-personnel.reporters.approvals', [
+            'applications' => $applications,
+            'status' => $status,
+            'pendingCount' => $pendingCount,
+            'approvedThisMonth' => $approvedThisMonth,
+            'rejectedThisMonth' => $rejectedThisMonth,
+            'totalApplications' => $totalApplications,
+        ]);
+    }
+
+    public function approveReporterApplication(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:Faculty,Staff',
+        ]);
+
+        if (! ReporterApprovals::hasTable()) {
+            return back()->with('error', 'Reporter approval is not available yet.');
+        }
+
+        $application = ReporterApprovals::query()
+            ->where('id', $id)
+            ->first();
+
+        if (! $application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        if ($application->status !== ReporterApprovals::STATUS_PENDING) {
+            return back()->with('error', 'This application was already reviewed.');
+        }
+
+        $employeeId = trim($application->employee_id);
+
+        $idTaken = DB::table('reporters_table')
+            ->where('reporter_employee_id', $employeeId)
+            ->exists();
+
+        if ($idTaken) {
+            return back()->with('error', 'That employee ID is already in the reporters list.');
+        }
+
+        $emailTaken = DB::table('reporters_table')
+            ->whereRaw('LOWER(reporter_email_address) = ?', [strtolower($application->email)])
+            ->exists();
+
+        if ($emailTaken) {
+            return back()->with('error', 'That email is already in the reporters list.');
+        }
+
+        $type = trim($request->type);
+        $first = trim($application->first_name);
+        $middle = trim((string) $application->middle_name);
+        $last = trim($application->last_name);
+
+        $payload = [
+            'reporter_employee_id' => $employeeId,
+            'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
+            'reporter_email_address' => $application->email,
+            'reporter_contact_number' => $application->contact,
+            'reporter_status' => 'Active',
+            'reporter_created_at' => now(),
+        ];
+
+        if (ReporterImport::hasNameColumns()) {
+            $payload['reporter_first_name'] = $first;
+            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+            $payload['reporter_last_name'] = $last;
+        }
+
+        if (ReporterImport::hasTypeColumn()) {
+            $payload['reporter_employment_type'] = $type;
+        }
+
+        DB::transaction(function () use ($payload, $id, $type) {
+            DB::table('reporters_table')->insert($payload);
+
+            ReporterApprovals::query()
+                ->where('id', $id)
+                ->update([
+                    'employment_type' => $type,
+                    'status' => ReporterApprovals::STATUS_APPROVED,
+                    'reviewed_by' => Auth::id(),
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return redirect('/maintenance/reporters/approvals')
+            ->with('success', $payload['reporter_full_name'].' was confirmed and added to the reporters list.');
+    }
+
+    public function rejectReporterApplication(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if (! ReporterApprovals::hasTable()) {
+            return back()->with('error', 'Reporter approval is not available yet.');
+        }
+
+        $application = ReporterApprovals::query()
+            ->where('id', $id)
+            ->first();
+
+        if (! $application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        if ($application->status !== ReporterApprovals::STATUS_PENDING) {
+            return back()->with('error', 'This application was already reviewed.');
+        }
+
+        $reason = trim((string) $request->reason);
+
+        ReporterApprovals::query()
+            ->where('id', $id)
+            ->update([
+                'status' => ReporterApprovals::STATUS_REJECTED,
+                'rejection_reason' => $reason !== '' ? $reason : null,
+                'reviewed_by' => Auth::id(),
+                'reviewed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        return redirect('/maintenance/reporters/approvals?status=rejected')
+            ->with('success', $application->full_name.' was declined and was not added to the reporters list.');
     }
 
 
@@ -13430,23 +13858,73 @@ class MaintenanceController extends Controller
     public function storeReporter(Request $request)
     {
         $request->validate([
-            'employee_id' => 'required|string|max:100',
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'type' => 'nullable|in:Faculty,Staff',
-            'email' => 'nullable|email|max:255',
-            'contact' => 'nullable|string|max:50',
+            // Employee ID
+            // Required and must be unique
+            'employee_id' => [
+                'required',
+                'string',
+                'max:100',
+                'unique:reporters_table,reporter_employee_id',
+            ],
+
+            // First Name
+            // Required
+            'first_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Middle Name
+            // Optional
+            'middle_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            // Last Name
+            // Required
+            'last_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Employment Type
+            // Required
+            'type' => [
+                'required',
+                'in:Faculty,Staff',
+            ],
+
+            // Email
+            // Optional, but must be valid if entered
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+
+            // Contact Number
+            // Optional, but must contain exactly 11 digits if entered
+            'contact' => [
+                'nullable',
+                'digits:11',
+            ],
         ]);
 
         $employeeId = trim($request->employee_id);
 
-        $exists = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->exists();
+            if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
+                return back()->with(
+                    'error',
+                    'That employee ID already has an application waiting for approval.'
+                );
+            }
 
-        if ($exists) {
-            return back()->with('error', 'That employee ID is already registered.');
+        if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
+            return back()->with('error', 'That employee ID already has an application waiting for approval.');
         }
 
         $first = trim($request->first_name);
@@ -13600,6 +14078,24 @@ class MaintenanceController extends Controller
             ->filter()
             ->map(fn ($email) => strtolower((string) $email))
             ->all();
+
+        if (ReporterApprovals::hasTable()) {
+            $pendingIds = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_PENDING)
+                ->pluck('employee_id')
+                ->filter()
+                ->map(fn ($id) => strtoupper((string) $id))
+                ->all();
+            $pendingEmails = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_PENDING)
+                ->pluck('email')
+                ->filter()
+                ->map(fn ($email) => strtolower((string) $email))
+                ->all();
+
+            $existingIds = array_values(array_unique(array_merge($existingIds, $pendingIds)));
+            $existingEmails = array_values(array_unique(array_merge($existingEmails, $pendingEmails)));
+        }
 
         $generated = ReporterImport::nextEmployeeIds(count($body));
         $created = 0;

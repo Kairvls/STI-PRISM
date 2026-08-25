@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PaAyo | Campus Asset Platform</title>
+    <title>PaAyo | Campus Maintenance Platform</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico?v=1') }}">
@@ -24,7 +24,9 @@
         }
 
         *, *::before, *::after { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        html {
+            scroll-behavior: smooth;
+        }
 
         #top, #product, #process, #features {
             scroll-margin-top: 96px;
@@ -34,7 +36,14 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
             background: #fff;
             color: var(--ink);
-            overflow-x: hidden;
+        }
+
+        body {
+            overflow-x: clip;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
         }
 
         .nav-scrolled {
@@ -59,24 +68,41 @@
             color: #fff;
             font-weight: 600;
             border-radius: 999px;
-            transition: background .2s, box-shadow .2s, transform .2s;
+            transition: background .22s ease, box-shadow .22s ease, transform .22s cubic-bezier(.22,1,.36,1);
+            will-change: transform;
+            position: relative;
+            overflow: hidden;
         }
+        .btn-blue::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: rgba(255,255,255,0);
+            transition: background .22s ease;
+        }
+        .btn-blue:hover::after { background: rgba(255,255,255,.08); }
         .btn-blue:hover {
             background: var(--blue-dark);
             box-shadow: 0 12px 28px rgba(0,37,204,.28);
+            transform: translateY(-2px);
         }
+        .btn-blue:active { transform: scale(.97); }
 
         .btn-yellow {
             background: var(--yellow);
             color: var(--ink);
             font-weight: 700;
             border-radius: 999px;
-            transition: filter .2s, box-shadow .2s;
+            transition: filter .22s ease, box-shadow .22s ease, transform .22s cubic-bezier(.22,1,.36,1);
+            will-change: transform;
         }
         .btn-yellow:hover {
             filter: brightness(.97);
             box-shadow: 0 10px 24px rgba(255,242,0,.4);
+            transform: translateY(-2px);
         }
+        .btn-yellow:active { transform: scale(.97); }
 
         .btn-report {
             display: inline-flex;
@@ -118,6 +144,37 @@
         .btn-dark:hover { background: #000; }
 
         /* Large soft light-blue organic wave (mockup left background) */
+        .pixel-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+            background-image:
+                linear-gradient(to right, rgba(216, 226, 248, .22) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(216, 226, 248, .22) 1px, transparent 1px);
+            background-size: 72px 72px;
+            mask-image: radial-gradient(ellipse 95% 70% at 50% 0%, #000 12%, transparent 78%);
+            -webkit-mask-image: radial-gradient(ellipse 95% 70% at 50% 0%, #000 12%, transparent 78%);
+        }
+
+        .pixel-mosaic {
+            position: absolute;
+            inset: -8% 0 auto 0;
+            width: 100%;
+            height: min(720px, 92vh);
+            opacity: .72;
+            mask-image: radial-gradient(ellipse 92% 78% at 50% 8%, #000 0%, transparent 78%);
+            -webkit-mask-image: radial-gradient(ellipse 92% 78% at 50% 8%, #000 0%, transparent 78%);
+        }
+
+        .pixel-mosaic.soft {
+            opacity: .48;
+            height: 420px;
+            mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 58%, transparent 100%);
+        }
+
         .hero-wave-wrap {
             position: absolute;
             inset: 0;
@@ -198,6 +255,48 @@
             user-select: none;
         }
 
+        .month-carousel {
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            cursor: grab;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+        }
+
+        .month-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .month-carousel.is-dragging {
+            cursor: grabbing;
+            scroll-snap-type: none;
+        }
+
+        .month-track {
+            display: flex;
+            width: max-content;
+        }
+
+        .month-item {
+            flex: 0 0 calc((min(1180px, 100vw) - 2.5rem) / 7);
+            text-align: center;
+            scroll-snap-align: start;
+        }
+
+        .month-item.is-current {
+            color: var(--ink);
+            opacity: 1;
+        }
+
+        @media (max-width: 640px) {
+            .month-item {
+                flex-basis: calc((100vw - 2.5rem) / 3.5);
+            }
+        }
+
         .process-num {
             font-size: clamp(5.5rem, 12vw, 8.5rem);
             font-weight: 800;
@@ -260,11 +359,12 @@
             border-radius: 16px;
             border: 0;
             box-shadow: 0 12px 32px rgba(15, 23, 42, .06);
-            transition: transform .25s, box-shadow .25s;
+            transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease;
+            transform-style: preserve-3d;
+            perspective: 800px;
         }
         .feature-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 44px rgba(0, 37, 204, .10);
+            box-shadow: 0 24px 50px rgba(0, 37, 204, .12);
         }
 
         .feature-icon {
@@ -321,6 +421,46 @@
         .btn-platform:hover {
             background: var(--blue-dark);
             box-shadow: 0 12px 28px rgba(0, 37, 204, .28);
+        }
+
+        .btn-outline {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #fff;
+            color: var(--blue);
+            font-weight: 700;
+            border-radius: 999px;
+            border: 1px solid rgba(0, 37, 204, .16);
+            padding: 12px 26px;
+            text-decoration: none;
+            transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
+        }
+        .btn-outline:hover {
+            background: #f6f8ff;
+            box-shadow: 0 10px 24px rgba(0, 37, 204, .12);
+            transform: translateY(-2px);
+        }
+
+        .btn-soft {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #f8faff;
+            color: var(--ink);
+            font-weight: 700;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            padding: 12px 24px;
+            text-decoration: none;
+            transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
+        }
+        .btn-soft:hover {
+            background: #eef3ff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+            transform: translateY(-2px);
         }
 
         .product-stage {
@@ -552,15 +692,129 @@
             box-shadow: 0 14px 28px rgba(255, 242, 0, .28);
         }
 
+        /* ── Reveal / entrance animations ── */
         .reveal {
             opacity: 0;
-            transform: translateY(24px);
-            transition: opacity .7s ease, transform .7s ease;
+            transform: translateY(32px);
+            transition: opacity 1.1s cubic-bezier(.22,1,.36,1), transform 1.1s cubic-bezier(.22,1,.36,1);
         }
         .reveal.visible {
             opacity: 1;
             transform: none;
         }
+
+        /* Slide-in from left / right */
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-40px);
+            transition: opacity 1.1s cubic-bezier(.22,1,.36,1), transform 1.1s cubic-bezier(.22,1,.36,1);
+        }
+        .reveal-right {
+            opacity: 0;
+            transform: translateX(40px);
+            transition: opacity 1.1s cubic-bezier(.22,1,.36,1), transform 1.1s cubic-bezier(.22,1,.36,1);
+        }
+        .reveal-left.visible, .reveal-right.visible {
+            opacity: 1;
+            transform: none;
+        }
+
+        /* Scale-in for cards */
+        .reveal-scale {
+            opacity: 0;
+            transform: scale(.92) translateY(20px);
+            transition: opacity 1s cubic-bezier(.22,1,.36,1), transform 1s cubic-bezier(.22,1,.36,1);
+        }
+        .reveal-scale.visible {
+            opacity: 1;
+            transform: none;
+        }
+
+        /* ── Scroll-progress bar ── */
+        #scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            background: linear-gradient(90deg, var(--blue), #6688ff);
+            z-index: 9999;
+            transition: width .08s linear;
+            border-radius: 0 3px 3px 0;
+        }
+
+        /* ── Hero heading gradient shimmer ── */
+        .shimmer-text {
+            background: linear-gradient(
+                90deg,
+                var(--ink) 0%,
+                var(--ink) 35%,
+                #4466ee 50%,
+                var(--ink) 65%,
+                var(--ink) 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmerMove 4s linear infinite 1.2s;
+        }
+        @keyframes shimmerMove {
+            0%   { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+
+        /* ── Magnetic / lift on interactive elements ── */
+        .magnetic {
+            transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
+            will-change: transform;
+        }
+        .magnetic:hover { transform: translateY(-3px) scale(1.025); }
+        .magnetic:active { transform: scale(.97); }
+
+        /* ── Floating particle dots (hero) ── */
+        .hero-particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleDrift linear infinite;
+            opacity: 0;
+        }
+        @keyframes particleDrift {
+            0%   { transform: translateY(0) rotate(0deg);   opacity: 0; }
+            10%  { opacity: .6; }
+            90%  { opacity: .4; }
+            100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
+        }
+
+        /* ── Stagger helpers (JS sets --delay via inline style) ── */
+        .stagger { transition-delay: var(--delay, 0s); }
+
+        /* ── Number counter pulse ── */
+        @keyframes counterPop {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.18); }
+            100% { transform: scale(1); }
+        }
+        .counter-pop { animation: counterPop .55s cubic-bezier(.22,1,.36,1) forwards; }
+
+        /* ── Smooth underline hover on nav links ── */
+        .nav-link {
+            position: relative;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -3px;
+            width: 0;
+            height: 2px;
+            background: var(--blue);
+            border-radius: 2px;
+            transition: width .25s cubic-bezier(.22,1,.36,1);
+        }
+        .nav-link:hover::after,
+        .nav-link.active::after { width: 100%; }
 
         /* Modals */
         .modal-animation { animation: modalShow .25s ease; }
@@ -571,33 +825,169 @@
         .modal-panel {
             background: #fff;
             border: 1px solid var(--line);
-            box-shadow: 0 28px 70px rgba(15,23,42,.18);
+            box-shadow: 0 20px 48px rgba(15,23,42,.10);
         }
         .modal-input {
             width: 100%;
-            background: #f8f9fd;
+            background: #f7f8fb;
             border: 1px solid var(--line);
-            border-radius: 10px;
-            padding: 12px 16px;
+            border-radius: 12px;
+            padding: 12px 14px;
             font-size: 14px;
             color: var(--ink);
             outline: none;
-            transition: border-color .2s, box-shadow .2s;
+            transition: border-color .2s, box-shadow .2s, background .2s;
         }
         .modal-input::placeholder { color: #9aa1b5; }
         .modal-input:focus {
-            border-color: var(--blue);
-            box-shadow: 0 0 0 3px rgba(0,37,204,.12);
+            border-color: #b8c8ff;
+            box-shadow: 0 0 0 4px rgba(0,37,204,.08);
             background: #fff;
         }
         .modal-label {
             display: block;
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+            color: #5b6472;
             margin-bottom: 8px;
-            letter-spacing: .06em;
-            text-transform: uppercase;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            border-radius: 999px;
+            background: #f4f5f8;
+            color: #6b7280;
+            cursor: pointer;
+            transition: background .2s ease, color .2s ease;
+        }
+        .modal-close:hover {
+            background: #eef1f6;
+            color: var(--ink);
+        }
+        .login-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+            margin: 0 40px 4px 0;
+        }
+        .login-subtitle {
+            font-size: .875rem;
+            color: var(--muted);
+            margin: 0 0 22px;
+        }
+        .login-choice {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 13px 16px;
+            border-radius: 14px;
+            font-size: .9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background .2s ease, border-color .2s ease, color .2s ease;
+        }
+        .login-choice--primary {
+            background: var(--blue);
+            color: #fff;
+            border-color: var(--blue);
+        }
+        .login-choice--primary:hover { background: var(--blue-dark); }
+        .login-choice--accent {
+            background: #fffce8;
+            color: var(--ink);
+            border-color: #efe7a8;
+        }
+        .login-choice--accent:hover { background: #fff8c6; }
+        .login-choice--ghost {
+            background: #fff;
+            color: var(--blue);
+            border-color: #d7def8;
+        }
+        .login-choice--ghost:hover { background: #f7f9ff; }
+        .login-role {
+            height: 108px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background: #fff;
+            cursor: pointer;
+            color: var(--ink);
+            transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+        }
+        .login-role:hover {
+            border-color: #c9d4f5;
+            background: #f8faff;
+            box-shadow: 0 8px 20px rgba(15,23,42,.05);
+        }
+        .login-role-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-role--blue .login-role-icon {
+            background: #eef3ff;
+            color: var(--blue);
+        }
+        .login-role--yellow .login-role-icon {
+            background: #fff8c6;
+            color: #7c6400;
+        }
+        .login-back {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: #5b6472;
+            font-weight: 600;
+            font-size: .9rem;
+            cursor: pointer;
+            transition: background .2s ease, border-color .2s ease;
+        }
+        .login-back:hover {
+            background: #f7f8fb;
+            border-color: #d7deee;
+        }
+        .login-microsoft {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            font-weight: 600;
+            font-size: .9rem;
+            text-decoration: none;
+            margin-bottom: 10px;
+            transition: background .2s ease, border-color .2s ease;
+        }
+        .login-microsoft:hover {
+            background: #f7f8fb;
+            border-color: #d7deee;
         }
 
         .modern-success-popup {
@@ -838,7 +1228,242 @@
         .site-footer {
             background: #ffffff;
             color: #6b7280;
-            border-top: 1px solid var(--line);
+        }
+
+        .month-campus-row {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: stretch;
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (min-width: 1024px) {
+            .month-campus-row {
+                flex-direction: row;
+            }
+        }
+
+        .month-chart-card,
+        .campus-analysis-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            box-shadow: 0 12px 36px rgba(15,23,42,.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .campus-analysis-card {
+            background: #eef1ec;
+            border: 0;
+        }
+
+        @media (min-width: 1024px) {
+            .month-chart-card,
+            .campus-analysis-card {
+                flex: 1 1 0;
+                min-width: 0;
+                align-self: stretch;
+            }
+        }
+
+        .month-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            flex: 1 1 auto;
+            min-height: 168px;
+        }
+
+        .month-bar {
+            flex: 1;
+            min-width: 0;
+            border-radius: 6px 6px 2px 2px;
+            background: #dbe3ff;
+            position: relative;
+            transition: background .2s ease, transform .2s ease;
+        }
+
+        .month-bar.is-peak {
+            background: var(--blue);
+        }
+
+        .month-bar:hover {
+            transform: translateY(-2px);
+            background: var(--blue);
+        }
+
+        .month-bar-tip {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 8px);
+            transform: translateX(-50%);
+            background: #111827;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 7px;
+            border-radius: 8px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .month-bar:hover .month-bar-tip { opacity: 1; }
+
+        .analysis-body {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            flex: 1;
+        }
+
+        @media (min-width: 640px) {
+            .analysis-body {
+                grid-template-columns: 132px 1fr;
+                gap: 14px;
+                align-items: stretch;
+            }
+        }
+
+        .analysis-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+            .analysis-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .analysis-metric {
+            background: #fff;
+            border-radius: 18px;
+            padding: 16px 14px 14px;
+            box-shadow: 0 8px 20px rgba(15,23,42,.04);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .analysis-metric-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+            color: var(--ink);
+            margin-bottom: 12px;
+        }
+
+        .analysis-flow {
+            background: #d7e4cf;
+            border-radius: 22px;
+            padding: 16px 16px 14px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            position: relative;
+        }
+
+        .analysis-gauge {
+            position: relative;
+            width: min(100%, 240px);
+            margin: 4px auto 0;
+        }
+
+        .analysis-gauge svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .analysis-gauge-center {
+            position: absolute;
+            left: 50%;
+            top: 56%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .analysis-tooltip {
+            position: absolute;
+            top: 18%;
+            right: 4%;
+            background: #215c3a;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(33,92,58,.25);
+        }
+
+        .analysis-tooltip::after {
+            content: "";
+            position: absolute;
+            left: -5px;
+            bottom: 8px;
+            width: 10px;
+            height: 10px;
+            background: #215c3a;
+            transform: rotate(45deg);
+            border-radius: 2px;
+        }
+
+        .analysis-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: auto;
+            padding-top: 8px;
+        }
+
+        .analysis-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .analysis-legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .month-analysis-section {
+            position: relative;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .month-analysis-wave {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .month-analysis-wave .edge {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 58%;
+            min-height: 210px;
         }
 
         ::-webkit-scrollbar { width: 6px; }
@@ -847,6 +1472,9 @@
 </head>
 
 <body>
+
+    <!-- Scroll progress bar -->
+    <!--<div id="scroll-progress" aria-hidden="true"></div>-->
 
     <!-- NAV -->
     <nav id="navbar" class="fixed top-0 inset-x-0 z-50 transition-all duration-300 bg-transparent">
@@ -860,7 +1488,7 @@
 
                 <a href="#process" class="nav-link">Process</a>
                 <a href="#features" class="nav-link">Features</a>
-                <a href="#product" class="nav-link">Product</a>
+                <a href="#product" class="nav-link">System</a>
                 <!--<button type="button" onclick="openReportModal()"
                         class="nav-link bg-transparent border-0 cursor-pointer p-0">
                     Make Report
@@ -928,13 +1556,13 @@
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6 relative z-10 w-full">
             <div class="grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
 
-                <div class="reveal relative">
+                <div class="reveal-left relative">
                     <p class="text-sm font-semibold mb-4" style="color:var(--blue);">
                         Campus growth solution in a single platform.
                     </p>
 
-                    <h1 class="font-extrabold tracking-tight leading-[1.12] mb-5"
-                        style="font-size:clamp(2.35rem,5vw,3.6rem); color:var(--ink);">
+                    <h1 class="shimmer-text font-extrabold tracking-tight leading-[1.12] mb-5"
+                        style="font-size:clamp(2.35rem,5vw,3.6rem);">
                         We are here to make easy your campus asset ops
                     </h1>
 
@@ -969,7 +1597,7 @@
                     <div class="flex flex-wrap gap-3 mb-6">
                         
                         <button type="button" onclick="openLoginModal()"
-                                    class="btn-blue inline-flex items-center gap-2 px-7 py-3.5 text-sm border-0 cursor-pointer">
+                                    class="btn-blue magnetic inline-flex items-center gap-2 px-7 py-3.5 text-sm border-0 cursor-pointer">
                                 System Login
                             </button>
                         @guest
@@ -1001,7 +1629,7 @@
                 </div>
 
                 <!-- Floating dashboard collage -->
-                <div class="relative h-[420px] md:h-[500px] reveal" style="transition-delay:.1s;">
+                <div class="relative h-[420px] md:h-[500px] reveal-right" style="transition-delay:.1s;">
                     <!-- Soft glow behind cards -->
                     <div class="absolute inset-[8%] rounded-full pointer-events-none"
                          style="background:radial-gradient(circle, rgba(0,37,204,.08), transparent 70%); filter:blur(20px);"></div>
@@ -1091,14 +1719,22 @@
     <!-- SOCIAL PROOF -->
     <section class="py-14 md:py-16 border-y" style="border-color:var(--line);">
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6 text-center reveal">
-            <p class="text-lg md:text-xl font-semibold mb-10" style="color:var(--ink);">
-                Over <span style="color:var(--blue);">32k+</span> campus workflows growing with
+            <p class="text-lg md:text-2xl font-semibold mb-10" style="color:var(--ink);">
+                Over <span data-count="{{ $yearlyReportTotal }}" style="color:var(--blue);">{{ $yearlyReportTotal }}</span>
+                {{ $yearlyReportTotal === 1 ? 'report' : 'reports' }} submitted in
                 <span class="font-extrabold">PaAyo</span>
+                {{ (int) $yearlyReportYear === (int) now()->year ? 'this year' : 'in '.$yearlyReportYear }}
             </p>
-            <div class="flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
-                @foreach (['Oracle','Morpheus','Samsung','Monday','Segment','Protonet'] as $brand)
-                    <span class="logo-muted">{{ $brand }}</span>
-                @endforeach
+            <div class="month-carousel" aria-label="Months">
+                <div class="month-track">
+                    @php
+                        $months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                    @endphp
+                    @foreach ($months as $index => $month)
+                        <span class="logo-muted month-item{{ ($index + 1) === (int) now()->month ? ' is-current' : '' }}"
+                              @if (($index + 1) === (int) now()->month) aria-current="date" @endif>{{ $month }}</span>
+                    @endforeach
+                </div>
             </div>
         </div>
     </section>
@@ -1108,28 +1744,23 @@
         <div class="process-orb hidden lg:block" aria-hidden="true"></div>
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
             <div class="grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
-                <div class="lg:col-span-4 reveal">
+                <div class="lg:col-span-4 reveal-left">
                     <p class="text-xs font-bold tracking-[0.16em] uppercase mb-4" style="color:var(--blue);">
                         PaAyo operation across campus
                     </p>
                     <h2 class="text-3xl md:text-[2.4rem] font-extrabold leading-tight mb-5" style="color:var(--ink);">
-                        We have best team and best process
+                        One reporting flow for the actual campus process
                     </h2>
                     <p class="text-sm leading-relaxed mb-8 max-w-sm" style="color:var(--muted);">
-                        From discovery to daily maintenance loops, PaAyo guides every role with a clear, shared workflow.
+                        The system follows the same steps your offices already do manually, but records and passes each report through the platform.
                     </p>
-                    @guest
-                        <button type="button" onclick="openLoginModal()" class="btn-blue px-8 py-3.5 text-sm">
-                            Get Started
-                        </button>
-                    @else
-                        <a href="{{ route('dashboard') }}" class="btn-blue inline-flex px-8 py-3.5 text-sm no-underline">
-                            Get Started
-                        </a>
-                    @endguest
+                    <a href="{{ route('reporter.faq') }}" class="btn-outline text-sm">
+                        <i data-lucide="circle-help" class="w-4 h-4"></i>
+                        Read FAQ
+                    </a>
                 </div>
 
-                <div class="lg:col-span-8 process-track reveal" style="transition-delay:.08s;">
+                <div class="lg:col-span-8 process-track reveal-right" style="transition-delay:.08s;">
                     <svg class="process-wave hidden md:block absolute left-0 right-0 top-[92px] w-full h-[120px] pointer-events-none z-[1]"
                          viewBox="0 0 760 120" fill="none" aria-hidden="true" preserveAspectRatio="none">
                         <path d="M36 38 C140 38, 170 98, 250 98 S360 38, 454 38 S560 98, 640 98 S710 38, 724 38"
@@ -1142,9 +1773,9 @@
                             <div class="process-marker -mt-8 mb-4">
                                 <i data-lucide="phone" class="w-4 h-4"></i>
                             </div>
-                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">Discovery Call</h3>
+                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">Report Submission</h3>
                             <p class="text-[13px] leading-relaxed max-w-[200px]" style="color:var(--muted);">
-                                Map buildings, rooms, and asset categories with your maintenance and procurement leads.
+                                Teachers or reporters submit equipment concerns online instead of going room to room or reporting verbally in the office.
                             </p>
                         </div>
 
@@ -1153,9 +1784,9 @@
                             <div class="process-marker -mt-8 mb-4">
                                 <i data-lucide="settings" class="w-4 h-4"></i>
                             </div>
-                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">System Setup</h3>
+                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">Inspection and Decision</h3>
                             <p class="text-[13px] leading-relaxed max-w-[200px]" style="color:var(--muted);">
-                                Configure roles, QR labels, report flows, and inventory baselines in one shared workspace.
+                                Maintenance personnel inspect the item, update the report, and decide whether it can be resolved or must be replaced.
                             </p>
                         </div>
 
@@ -1164,9 +1795,9 @@
                             <div class="process-marker -mt-8 mb-4">
                                 <i data-lucide="activity" class="w-4 h-4"></i>
                             </div>
-                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">Daily Operations</h3>
+                            <h3 class="font-bold text-[15px] mb-2" style="color:var(--ink);">Procurement and Completion</h3>
                             <p class="text-[13px] leading-relaxed max-w-[200px]" style="color:var(--muted);">
-                                Track requests, scan assets, and close loops with live campus visibility.
+                                Replacement requests move to the purchaser, then through approval, funding, receiving, liquidation, and inventory recording.
                             </p>
                         </div>
                     </div>
@@ -1177,47 +1808,63 @@
 
     <!-- PROMO + FEATURES -->
     <section id="features" class="features-wrap py-16 md:py-24">
-        <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
+        <div class="pixel-overlay" aria-hidden="true">
+            <svg class="pixel-mosaic soft" viewBox="0 0 24 10" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMin slice">
+                <rect width="24" height="10" fill="transparent"/>
+                <g fill="#e7eeff">
+                    <rect x="8" y="0" width="1" height="1"/><rect x="15" y="0" width="1" height="1"/>
+                    <rect x="7" y="1" width="1" height="1"/><rect x="16" y="1" width="1" height="1"/>
+                    <rect x="6" y="2" width="1" height="1"/><rect x="17" y="2" width="1" height="1"/>
+                    <rect x="5" y="3" width="1" height="1"/><rect x="18" y="3" width="1" height="1"/>
+                </g>
+                <g fill="#dce6ff">
+                    <rect x="9" y="1" width="1" height="1"/><rect x="14" y="1" width="1" height="1"/>
+                    <rect x="10" y="0" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/>
+                    <rect x="8" y="2" width="1" height="1"/><rect x="15" y="2" width="1" height="1"/>
+                </g>
+                <g fill="#f1f3f8">
+                    <rect x="11" y="0" width="1" height="1"/><rect x="12" y="0" width="1" height="1"/>
+                    <rect x="4" y="4" width="1" height="1"/><rect x="19" y="4" width="1" height="1"/>
+                    <rect x="9" y="3" width="1" height="1"/><rect x="14" y="3" width="1" height="1"/>
+                </g>
+            </svg>
+        </div>
+        <div class="max-w-[1180px] mx-auto px-5 lg:px-6 relative z-10">
 
             <div class="promo-banner reveal relative overflow-hidden px-8 py-16 md:py-20 mb-16 text-center text-white">
                 <h2 class="text-3xl md:text-[2.6rem] font-extrabold mb-4 leading-tight">
-                    Push your campus ops to next level.
+                    Digitalize the reporting and replacement process.
                 </h2>
                 <p class="text-sm md:text-base max-w-xl mx-auto mb-8 leading-relaxed" style="color:rgba(255,255,255,.85);">
-                    Centralize reports, inventory, and QR tracking so maintenance and procurement stay on the same live picture.
+                    The platform records the report from submission up to inspection, approval, receiving, liquidation, and inventory update.
                 </p>
-                @guest
-                    <button type="button" onclick="openLoginModal()" class="btn-banner text-sm cursor-pointer">
-                        Get Started
-                    </button>
-                @else
-                    <a href="{{ route('dashboard') }}" class="btn-banner inline-flex text-sm no-underline">
-                        Get Started
-                    </a>
-                @endguest
+                <a href="{{ route('reporter.helpdesk') }}" target="_blank" rel="noopener noreferrer" class="btn-banner inline-flex text-sm no-underline items-center gap-2">
+                    <i data-lucide="life-buoy" class="w-4 h-4"></i>
+                    Campus Helpdesk
+                </a>
             </div>
 
             <div class="text-center max-w-2xl mx-auto mb-14 reveal">
                 <h2 class="text-3xl md:text-[2.4rem] font-extrabold mb-4" style="color:var(--ink);">
-                    We help your campus grow faster.
+                    The system records each step in one platform.
                 </h2>
                 <p class="text-sm md:text-base leading-relaxed" style="color:var(--muted);">
-                    Inventory, mobile reporting, and QR monitoring — connected in one platform for STI College Ormoc.
+                    Reports, maintenance updates, urgent purchaser requests, QR edits, and inventory records stay in the same workflow.
                 </p>
             </div>
 
             <div class="grid md:grid-cols-3 gap-6 mb-12">
                 @foreach ([
-                    ['icon' => 'package', 'title' => 'Inventory & Procurement', 'copy' => 'Track equipment, facilities, and AV assets in real time while streamlining purchase requests across every equipment.'],
-                    ['icon' => 'smartphone', 'title' => 'Mobile & Web Reporting', 'copy' => 'Let faculty submit damage reports with photos and priority from any device in seconds.'],
-                    ['icon' => 'qr-code', 'title' => 'QR Equipment Monitoring', 'copy' => 'Scan qr code to open equipment details & edit, histories, service logs, and maintenance timelines instantly.'],
+                    ['icon' => 'package', 'title' => 'Procurement and Inventory Recording', 'copy' => 'If inspection shows the item needs replacement, the request is forwarded to the purchaser and later recorded back into inventory after completion.'],
+                    ['icon' => 'smartphone', 'title' => 'Digital Report Submission', 'copy' => 'Teachers and reporters can submit concerns online with details and photos instead of verbally reporting in the maintenance office.'],
+                    ['icon' => 'qr-code', 'title' => 'QR Equipment Updating', 'copy' => 'Audio visual equipment and computer sets can be checked through QR so maintenance personnel can edit details and update status directly in the system.'],
                 ] as $i => $card)
-                    <article class="feature-card p-8 reveal" style="transition-delay: {{ $i * 0.08 }}s;">
+                    <article class="feature-card p-8 reveal-scale" style="transition-delay: {{ $i * 0.1 }}s;">
                         <i data-lucide="{{ $card['icon'] }}" class="feature-icon w-7 h-7"></i>
                         <h3 class="font-bold text-lg mb-3" style="color:#1e1b4b;">{{ $card['title'] }}</h3>
                         <p class="text-sm leading-relaxed mb-6" style="color:var(--muted);">{{ $card['copy'] }}</p>
                         <button type="button" onclick="openReportModal()" class="feature-link inline-flex items-center gap-1.5">
-                            Read More
+                            View Flow
                             <i data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </article>
@@ -1225,15 +1872,10 @@
             </div>
 
             <div class="text-center reveal">
-                @guest
-                    <button type="button" onclick="openLoginModal()" class="btn-platform text-sm cursor-pointer">
-                        More About Platform
-                    </button>
-                @else
-                    <a href="{{ route('dashboard') }}" class="btn-platform inline-flex text-sm no-underline">
-                        More About Platform
-                    </a>
-                @endguest
+                <button type="button" onclick="openFaqChat()" class="btn-platform inline-flex text-sm items-center gap-2 cursor-pointer">
+                    <i data-lucide="message-circle-more" class="w-4 h-4"></i>
+                    Ask PaAyo
+                </button>
             </div>
         </div>
     </section>
@@ -1247,15 +1889,15 @@
                     The platform
                 </p>
                 <h2 class="text-3xl md:text-[2.4rem] font-extrabold leading-tight" style="color:var(--ink);">
-                    Built around mobile reporting
+                    Built around digital reporting
                 </h2>
                 <p class="text-sm md:text-[15px] leading-relaxed mt-4" style="color:var(--muted);">
-                    Faculty report from a phone. Optional web reporting, inventory and procurement control, and QR monitoring keep the rest of campus on the same record.
+                    The report starts online, then continues through inspection, replacement decision, purchaser handling for urgent needs, approval coordination, receiving, liquidation, and inventory updating.
                 </p>
             </div>
 
             <div class="product-stage">
-                <div class="product-visual reveal">
+                <div class="product-visual reveal-left">
                     <div class="frame-photo">
                         <div class="shape-blue" aria-hidden="true"></div>
                         <div class="shape-yellow" aria-hidden="true"></div>
@@ -1265,7 +1907,7 @@
                     </div>
                 </div>
 
-                <div class="product-panel reveal" style="transition-delay:.1s;">
+                <div class="product-panel reveal-right" style="transition-delay:.1s;">
                     <div class="flex items-start gap-3 mb-4">
                         <div class="product-icon" aria-hidden="true">
                             <i data-lucide="smartphone" class="w-5 h-5"></i>
@@ -1276,35 +1918,17 @@
                                 <span class="product-kicker">Primary</span>
                             </div>
                             <p class="text-sm leading-relaxed m-0" style="color:var(--muted);">
-                                File a classroom or facility issue with photos from your phone. Web reporting is available if you prefer desktop.
+                                Reporters can file classroom, facility, AV, or computer concerns online so maintenance personnel receive the concern in the system instead of by walk-in or verbal reporting.
                             </p>
                         </div>
                     </div>
 
-                    <div class="product-status mb-5" aria-label="Report status flow">
-                        <span class="product-status-step">Pending</span>
+                    <div class="product-status mb-6" aria-label="Report status flow">
+                        <span class="product-status-step">Submitted</span>
                         <i data-lucide="chevron-right" class="product-status-arrow w-4 h-4"></i>
-                        <span class="product-status-step is-next">Processing</span>
+                        <span class="product-status-step is-next">Inspected</span>
                         <i data-lucide="chevron-right" class="product-status-arrow w-4 h-4"></i>
-                        <span class="product-status-step is-done">Resolved</span>
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-3 mb-6">
-                        <button type="button" onclick="openReportModal()" class="btn-report text-sm cursor-pointer">
-                            <span class="btn-report-icon">
-                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                            </span>
-                            Make Report
-                        </button>
-                        @guest
-                            <button type="button" onclick="openLoginModal()" class="btn-blue px-5 py-2.5 text-sm border-0 cursor-pointer">
-                                Sign In
-                            </button>
-                        @else
-                            <a href="{{ route('dashboard') }}" class="btn-blue inline-flex px-5 py-2.5 text-sm no-underline">
-                                Dashboard
-                            </a>
-                        @endguest
+                        <span class="product-status-step is-done">Resolved / Replaced</span>
                     </div>
 
                     <div class="product-split">
@@ -1312,18 +1936,18 @@
                             <div class="product-icon mb-3" aria-hidden="true">
                                 <i data-lucide="package" class="w-4 h-4"></i>
                             </div>
-                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">Inventory &amp; procurement</h4>
+                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">Purchaser workflow</h4>
                             <p class="text-[12px] leading-relaxed m-0" style="color:var(--muted);">
-                                Track assets and purchasing in one workflow for maintenance and procurement teams.
+                                Urgent replacement cases can be passed by maintenance to the purchaser, then followed through approval, funding, receiving, and liquidation.
                             </p>
                         </article>
                         <article class="product-mini">
                             <div class="product-icon mb-3" aria-hidden="true">
                                 <i data-lucide="qr-code" class="w-4 h-4"></i>
                             </div>
-                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">QR monitoring</h4>
+                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">QR equipment update</h4>
                             <p class="text-[12px] leading-relaxed m-0" style="color:var(--muted);">
-                                Scan a label for equipment history, service logs, and live status.
+                                Scanning a QR code opens the equipment record so maintenance personnel can edit details and update its current status.
                             </p>
                         </article>
                     </div>
@@ -1332,28 +1956,142 @@
         </div>
     </section>
 
-    <!-- BOTTOM CTA PAIR -->
-    <section class="py-16 md:py-20">
-        <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="rounded-2xl p-8 border reveal" style="border-color:var(--line); background:#fff; box-shadow:0 12px 36px rgba(15,23,42,.05);">
-                    <h3 class="font-extrabold text-xl mb-2" style="color:var(--ink);">Start with a report</h3>
-                    <p class="text-sm mb-6" style="color:var(--muted);">Submit a maintenance concern in minutes with photo evidence.</p>
-                    <button type="button" onclick="openReportModal()" class="btn-report text-sm cursor-pointer">
-                        <span class="btn-report-icon">
-                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                        </span>
-                        Make Report
-                    </button>
+    <!-- MONTHLY REPORTS + ANALYSIS -->
+    <section class="month-analysis-section py-16 md:py-20">
+        <div class="month-analysis-wave" aria-hidden="true">
+            <svg class="edge" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="monthPeakFade" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#e6edf8" stop-opacity="0"/>
+                        <stop offset="32%" stop-color="#e6edf8" stop-opacity=".4"/>
+                        <stop offset="72%" stop-color="#e6edf8" stop-opacity=".18"/>
+                        <stop offset="100%" stop-color="#e6edf8" stop-opacity="0"/>
+                    </linearGradient>
+                </defs>
+                <path fill="url(#monthPeakFade)"
+                      d="M0,168 L560,36 L1440,92 L1440,400 L0,400 Z"/>
+            </svg>
+        </div>
+        <div class="max-w-[1180px] mx-auto px-5 lg:px-6 relative z-10">
+            <div class="month-campus-row">
+                <div class="month-chart-card p-8 reveal-scale">
+                    <div class="inline-flex self-start items-center gap-2 mb-4 px-3 py-1.5 rounded-full text-xs font-bold tracking-[0.12em] uppercase" style="background:#eef3ff; color:var(--blue);">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        This Month
+                    </div>
+                    <div class="flex items-end justify-between gap-4 mb-6">
+                        <div>
+                            <h3 class="font-extrabold text-xl mb-1" style="color:var(--ink);">Reports in {{ $monthlyReportLabel }}</h3>
+                            <p class="text-sm m-0" style="color:var(--muted);">Daily report volume for {{ $daysInMonth }} calendar days in {{ $monthlyReportLabel }}.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-extrabold leading-none" style="color:var(--blue);">{{ $monthlyReportTotal }}</div>
+                            <div class="text-xs font-semibold mt-1" style="color:var(--muted);">total reports</div>
+                        </div>
+                    </div>
+
+                    <div class="month-bars" aria-label="Daily reports this month">
+                        @foreach ($monthlyReportDays as $day)
+                            <div class="month-bar {{ $day->isPeak ? 'is-peak' : '' }}" style="height: {{ $day->height }}%;">
+                                <span class="month-bar-tip">Day {{ $day->day }} · {{ $day->count }}</span>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
-                <div class="rounded-2xl p-8 border reveal" style="border-color:var(--line); background:#fff; box-shadow:0 12px 36px rgba(15,23,42,.05); transition-delay:.08s;">
-                    <h3 class="font-extrabold text-xl mb-2" style="color:var(--ink);">Access the platform</h3>
-                    <p class="text-sm mb-6" style="color:var(--muted);">Sign in to manage inventory, QR labels, and campus workflows.</p>
-                    @guest
-                        <button type="button" onclick="openLoginModal()" class="btn-blue px-6 py-2.5 text-sm">Read More</button>
-                    @else
-                        <a href="{{ route('dashboard') }}" class="btn-blue inline-flex px-6 py-2.5 text-sm no-underline">Read More</a>
-                    @endguest
+
+                <div class="campus-analysis-card p-6 md:p-7 reveal-scale" style="transition-delay:.1s;">
+                    @php
+                        $openThisMonth = (int) ($monthlyStatusCounts['Pending'] ?? 0) + (int) ($monthlyStatusCounts['Processing'] ?? 0);
+                        $resolvedThisMonth = (int) ($monthlyStatusCounts['Resolved'] ?? 0);
+                        $flowTotal = max((int) $monthlyReportTotal, 1);
+                        $resolvedShare = min(1, $resolvedThisMonth / $flowTotal);
+                        $openShare = min(1, $openThisMonth / $flowTotal);
+                        $resolvedPercent = (int) $monthlyReportTotal > 0 ? (int) round(($resolvedThisMonth / (int) $monthlyReportTotal) * 100) : 0;
+                        $reportsToday = (int) optional($weeklyReports->last())->count;
+                        $gaugeLength = 367.6;
+                        $outerLength = 433.5;
+                        $resolvedDash = round($gaugeLength * $resolvedShare, 1);
+                        $openDash = round($outerLength * $openShare, 1);
+                    @endphp
+                    <h3 class="font-extrabold text-xl mb-4" style="color:var(--ink);">Campus Report Analysis</h3>
+                    <div class="analysis-body">
+                        <div class="analysis-metrics">
+                            <article class="analysis-metric">
+                                <span class="analysis-metric-icon" aria-hidden="true">
+                                    <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                                </span>
+                                <div class="text-[13px] font-bold" style="color:var(--ink);">Open reports</div>
+                                <div class="text-[28px] font-extrabold leading-none mt-1" style="color:var(--ink);">{{ $openThisMonth }}</div>
+                                <div class="text-[12px] mt-1" style="color:var(--muted);">
+                                    {{ $reportsToday > 0 ? '+'.$reportsToday.' new today' : 'this month' }}
+                                </div>
+                            </article>
+                            <article class="analysis-metric">
+                                <span class="analysis-metric-icon" aria-hidden="true">
+                                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                </span>
+                                <div class="text-[13px] font-bold" style="color:var(--ink);">Resolved</div>
+                                <div class="text-[28px] font-extrabold leading-none mt-1" style="color:var(--ink);">{{ $resolvedThisMonth }}</div>
+                                <div class="text-[12px] mt-1" style="color:var(--muted);">this month</div>
+                            </article>
+                        </div>
+
+                        <article class="analysis-flow">
+                            <h4 class="font-extrabold text-[15px] m-0" style="color:var(--ink);">Report Flow</h4>
+                            <div class="analysis-gauge" aria-label="Report flow this month">
+                                <svg viewBox="0 0 240 188" fill="none" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="reportFlowInner" x1="28" y1="150" x2="212" y2="40" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" stop-color="#4f9a57"/>
+                                            <stop offset="55%" stop-color="#d6b23a"/>
+                                            <stop offset="100%" stop-color="#f0c94a"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M52.5 164 A 78 78 0 1 1 187.5 164"
+                                          stroke="#c9d8c4"
+                                          stroke-width="22"
+                                          stroke-linecap="round"/>
+                                    <path d="M52.5 164 A 78 78 0 1 1 187.5 164"
+                                          stroke="url(#reportFlowInner)"
+                                          stroke-width="22"
+                                          stroke-linecap="round"
+                                          stroke-dasharray="{{ $resolvedDash }} {{ $gaugeLength }}"
+                                          pathLength="{{ $gaugeLength }}"/>
+                                    <path d="M40.4 170 A 92 92 0 1 1 199.6 170"
+                                          stroke="#cfc6e6"
+                                          stroke-width="10"
+                                          stroke-linecap="round"
+                                          opacity=".45"/>
+                                    <path d="M40.4 170 A 92 92 0 1 1 199.6 170"
+                                          stroke="#8f7cc0"
+                                          stroke-width="10"
+                                          stroke-linecap="round"
+                                          stroke-dasharray="{{ $openDash }} {{ $outerLength }}"
+                                          pathLength="{{ $outerLength }}"/>
+                                    <path d="M52.5 164 A 78 78 0 0 0 187.5 164"
+                                          stroke="#5ea45f"
+                                          stroke-width="16"
+                                          stroke-linecap="round"
+                                          opacity=".9"/>
+                                </svg>
+                                <div class="analysis-gauge-center">
+                                    <div class="text-[34px] font-extrabold leading-none" style="color:var(--ink);">{{ $monthlyReportTotal }}</div>
+                                    <div class="text-[11px] font-semibold mt-1" style="color:#5b6472;">{{ $resolvedPercent }}% resolved</div>
+                                </div>
+                                <div class="analysis-tooltip">{{ $openThisMonth }}</div>
+                            </div>
+                            <div class="analysis-legend">
+                                <span class="analysis-legend-item">
+                                    <span class="analysis-legend-swatch" style="background:#215c3a;"></span>
+                                    Open reports
+                                </span>
+                                <span class="analysis-legend-item">
+                                    <span class="analysis-legend-swatch" style="background:#cfe3c8;"></span>
+                                    Resolved
+                                </span>
+                            </div>
+                        </article>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1389,88 +2127,73 @@
     <!-- MODALS -->
     @guest
     <div id="loginChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 p-4 backdrop-blur-[2px]">
-        <div class="modal-animation modal-panel w-full max-w-[440px] rounded-2xl p-7 relative">
-            <button onclick="closeLoginChooser()"
-                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg"
-                style="color:#717171; background:#f3f4f8; font-size:1.4rem; line-height:1; border:0; cursor:pointer;"
-                onmouseover="this.style.color='#1a1a2e'" onmouseout="this.style.color='#717171'">&times;</button>
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
+        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
+            <button type="button" onclick="closeLoginChooser()" class="modal-close" aria-label="Close">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
 
-            <h2 class="text-[1.75rem] font-extrabold mb-1.5" style="color:var(--ink);">Log In</h2>
-            <p class="text-sm mb-7" style="color:var(--muted);">Select your access level to continue.</p>
+            <h2 class="login-title">Log in</h2>
+            <p class="login-subtitle">Select your access level to continue.</p>
 
-            <div class="space-y-3">
-                <button onclick="openStaffLoginChooser()"
-                    class="w-full flex items-center justify-center gap-3 py-4 rounded-full font-semibold btn-blue text-[.95rem] border-0 cursor-pointer">
-                    <i data-lucide="users" class="w-5 h-5"></i>
+            <div class="space-y-2.5">
+                <button type="button" onclick="openStaffLoginChooser()" class="login-choice login-choice--primary">
+                    <i data-lucide="users" class="w-4 h-4"></i>
                     Log in as Staff
                 </button>
-                <button onclick="openPresidentLogin()"
-                    class="w-full flex items-center justify-center gap-3 py-4 rounded-full font-semibold btn-yellow text-[.95rem] border-0 cursor-pointer">
-                    <i data-lucide="crown" class="w-5 h-5"></i>
-                    President Log in
+                <button type="button" onclick="openPresidentLogin()" class="login-choice login-choice--accent">
+                    <i data-lucide="crown" class="w-4 h-4"></i>
+                    President log in
                 </button>
-                <button onclick="openAdminLogin()"
-                    class="w-full flex items-center justify-center gap-3 py-4 rounded-full font-semibold text-[.95rem] cursor-pointer"
-                    style="background:transparent; border:1.5px solid var(--blue); color:var(--blue);">
-                    <i data-lucide="shield-check" class="w-5 h-5"></i>
-                    Admin Log in
+                <button type="button" onclick="openAdminLogin()" class="login-choice login-choice--ghost">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    Admin log in
                 </button>
             </div>
         </div>
     </div>
 
     <div id="staffChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 p-4 backdrop-blur-[2px]">
-        <div class="modal-animation modal-panel w-full max-w-[440px] rounded-2xl p-7 relative">
-            <button onclick="closeStaffChooser()"
-                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg"
-                style="color:#717171; background:#f3f4f8; font-size:1.4rem; line-height:1; border:0; cursor:pointer;"
-                onmouseover="this.style.color='#1a1a2e'" onmouseout="this.style.color='#717171'">&times;</button>
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
+        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
+            <button type="button" onclick="closeStaffChooser()" class="modal-close" aria-label="Close">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
 
-            <h2 class="text-[1.75rem] font-extrabold mb-1" style="color:var(--ink);">Staff Login</h2>
-            <p class="text-sm mb-6" style="color:var(--muted);">Select your role to continue.</p>
+            <h2 class="login-title">Staff login</h2>
+            <p class="login-subtitle">Select your role to continue.</p>
 
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <button onclick="openRoleLogin('Maintenance Personnel', 2)"
-                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl btn-blue border-0 cursor-pointer">
-                    <i data-lucide="wrench" class="w-7 h-7"></i>
-                    <span class="font-semibold text-[.85rem] text-center leading-snug">Maintenance<br>Personnel</span>
+            <div class="grid grid-cols-2 gap-2.5 mb-3">
+                <button type="button" onclick="openRoleLogin('Maintenance Personnel', 2)" class="login-role login-role--blue">
+                    <span class="login-role-icon"><i data-lucide="wrench" class="w-5 h-5"></i></span>
+                    <span class="text-[13px] font-semibold text-center leading-snug">Maintenance<br>Personnel</span>
                 </button>
-                <button onclick="openRoleLogin('Purchaser', 3)"
-                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl btn-yellow border-0 cursor-pointer">
-                    <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-                    <span class="font-semibold text-[.85rem]">Purchaser</span>
+                <button type="button" onclick="openRoleLogin('Purchaser', 3)" class="login-role login-role--yellow">
+                    <span class="login-role-icon"><i data-lucide="shopping-cart" class="w-5 h-5"></i></span>
+                    <span class="text-[13px] font-semibold">Purchaser</span>
                 </button>
-                <button onclick="openRoleLogin('Accounting', 5)"
-                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl btn-blue border-0 cursor-pointer">
-                    <i data-lucide="calculator" class="w-7 h-7"></i>
-                    <span class="font-semibold text-[.85rem]">Accounting</span>
+                <button type="button" onclick="openRoleLogin('Accounting', 5)" class="login-role login-role--blue">
+                    <span class="login-role-icon"><i data-lucide="calculator" class="w-5 h-5"></i></span>
+                    <span class="text-[13px] font-semibold">Accounting</span>
                 </button>
-                <button onclick="openRoleLogin('Receiving Officer', 6)"
-                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl btn-yellow border-0 cursor-pointer">
-                    <i data-lucide="clipboard-list" class="w-7 h-7"></i>
-                    <span class="font-semibold text-[.85rem] text-center leading-snug">Receiving<br>Officer</span>
+                <button type="button" onclick="openRoleLogin('Receiving Officer', 6)" class="login-role login-role--yellow">
+                    <span class="login-role-icon"><i data-lucide="clipboard-list" class="w-5 h-5"></i></span>
+                    <span class="text-[13px] font-semibold text-center leading-snug">Receiving<br>Officer</span>
                 </button>
             </div>
 
-            <button type="button" onclick="showModal(loginChooserModal)"
-                class="w-full py-3.5 rounded-xl font-semibold cursor-pointer"
-                style="background:#f3f4f8; border:1px solid var(--line); color:#717171;">
-                Back
-            </button>
+            <button type="button" onclick="showModal(loginChooserModal)" class="login-back">Back</button>
         </div>
     </div>
 
     <div id="roleLoginModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 p-4 backdrop-blur-[2px]">
-        <div class="modal-animation modal-panel w-full max-w-[440px] rounded-2xl p-7 relative">
-            <button onclick="closeRoleLogin()"
-                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg"
-                style="color:#717171; background:#f3f4f8; font-size:1.4rem; line-height:1; border:0; cursor:pointer;"
-                onmouseover="this.style.color='#1a1a2e'" onmouseout="this.style.color='#717171'">&times;</button>
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
+        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
+            <button type="button" onclick="closeRoleLogin()" class="modal-close" aria-label="Close">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
 
-            <h2 id="roleLoginTitle" class="text-xl font-extrabold mb-6 pr-10 leading-snug" style="color:var(--ink);">
+            <h2 id="roleLoginTitle" class="login-title mb-6 pr-8 leading-snug">
                 Maintenance Personnel Login
             </h2>
 
@@ -1479,7 +2202,7 @@
                 <input type="hidden" name="login_role_id" id="login_role_id">
                 <input type="hidden" name="login_modal" id="login_modal">
 
-                <div class="mb-5">
+                <div class="mb-4">
                     <label class="modal-label">User ID</label>
                     <input type="text" name="user_employee_id" value="{{ old('user_employee_id') }}"
                            placeholder="Enter your user ID" class="modal-input" required>
@@ -1487,13 +2210,14 @@
 
                 <div class="mb-2">
                     <label class="modal-label">Password</label>
-                    <div style="position:relative;">
+                    <div class="relative">
                         <input type="password" name="password" id="password" placeholder="Enter your password"
-                               class="modal-input" style="padding-right:48px;" required>
+                               class="modal-input pr-12" required>
                         <button type="button" onclick="togglePassword()"
-                            style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#8892a4; background:none; border:none; cursor:pointer;"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 border-0 bg-transparent cursor-pointer"
+                            style="color:#8892a4;"
                             onmouseover="this.style.color='#0025cc'" onmouseout="this.style.color='#8892a4'">
-                            <i data-lucide="eye" id="eyeIcon" class="w-5 h-5"></i>
+                            <i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
@@ -1502,31 +2226,27 @@
                     Incorrect User ID or Password.
                 </p>
 
-                <div class="flex items-center justify-between mt-4 mb-6">
+                <div class="flex items-center justify-between mt-4 mb-5">
                     <label class="flex items-center gap-2" style="font-size:.8rem; color:#717171; cursor:pointer;">
                         <input type="checkbox" name="remember" style="accent-color:#0025cc;">
                         Remember me
                     </label>
-                    <a href="{{ route('password.request') }}" style="font-size:.8rem; color:#0025cc; text-decoration:none; font-weight:600;">
+                    <a href="{{ route('password.request') }}" class="no-underline font-medium" style="font-size:.8rem; color:var(--blue);">
                         Forgot password?
                     </a>
                 </div>
 
-                <button type="submit" class="w-full flex items-center justify-center gap-2 py-3.5 rounded-full btn-blue mb-2 text-[.95rem] border-0 cursor-pointer">
+                <button type="submit" class="login-choice login-choice--primary mb-2.5">
                     <i data-lucide="lock" class="w-4 h-4"></i>
-                    Log In
+                    Log in
                 </button>
 
-                <a href="{{ route('auth.microsoft.redirect') }}"
-                   class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl mb-3 no-underline"
-                   style="background:#f8f9fd; border:1px solid var(--line); color:var(--ink); font-weight:600; font-size:.95rem;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-5 h-5" alt="Microsoft">
+                <a href="{{ route('auth.microsoft.redirect') }}" class="login-microsoft">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-4 h-4" alt="Microsoft">
                     Log in with Office 365
                 </a>
 
-                <button type="button" onclick="goBackRoleLogin()"
-                    class="w-full py-3.5 rounded-xl font-semibold cursor-pointer"
-                    style="background:#f3f4f8; border:1px solid var(--line); color:#717171;">
+                <button type="button" onclick="goBackRoleLogin()" class="login-back">
                     Back to SSO
                 </button>
             </form>
@@ -1535,7 +2255,7 @@
     @endguest
 
     <div id="reportModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 py-10 bg-[#0b1220]/70"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70"
          style="background: rgba(11, 18, 32, 0.7);">
         <div class="w-full max-w-[1080px] relative modal-animation">
             @include('reporter.partials.report-form')
@@ -1546,22 +2266,164 @@
     <script>
         lucide.createIcons();
 
-        document.querySelectorAll('.reveal').forEach((el) => {
-            const io = new IntersectionObserver((entries) => {
-                entries.forEach((e) => {
-                    if (e.isIntersecting) {
-                        e.target.classList.add('visible');
-                        io.unobserve(e.target);
-                    }
-                });
-            }, { threshold: 0.12 });
-            io.observe(el);
-        });
+        (function () {
+            const carousel = document.querySelector('.month-carousel');
+            if (!carousel) return;
 
+            const currentMonth = carousel.querySelector('.month-item.is-current');
+            if (currentMonth) {
+                const offset = currentMonth.offsetLeft - (carousel.clientWidth / 2) + (currentMonth.offsetWidth / 2);
+                carousel.scrollLeft = Math.max(0, offset);
+            }
+
+            let isDragging = false;
+            let startX = 0;
+            let startScroll = 0;
+
+            carousel.addEventListener('pointerdown', function (event) {
+                isDragging = true;
+                startX = event.clientX;
+                startScroll = carousel.scrollLeft;
+                carousel.classList.add('is-dragging');
+                carousel.setPointerCapture(event.pointerId);
+            });
+
+            carousel.addEventListener('pointermove', function (event) {
+                if (!isDragging) return;
+                carousel.scrollLeft = startScroll - (event.clientX - startX);
+            });
+
+            const stopDrag = function () {
+                isDragging = false;
+                carousel.classList.remove('is-dragging');
+            };
+
+            carousel.addEventListener('pointerup', stopDrag);
+            carousel.addEventListener('pointercancel', stopDrag);
+
+            carousel.addEventListener('wheel', function (event) {
+                if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+                event.preventDefault();
+                carousel.scrollLeft += event.deltaY;
+            }, { passive: false });
+        })();
+
+        /* ── Scroll-progress bar ── */
+        const scrollProgress = document.getElementById('scroll-progress');
+        const updateProgress = () => {
+            if (!scrollProgress) return;
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            scrollProgress.style.width = (docHeight > 0 ? (scrollTop / docHeight) * 100 : 0) + '%';
+        };
+        window.addEventListener('scroll', updateProgress, { passive: true });
+
+        /* ── Navbar scroll style ── */
         const navbar = document.getElementById('navbar');
         window.addEventListener('scroll', () => {
             navbar.classList.toggle('nav-scrolled', window.scrollY > 20);
+        }, { passive: true });
+
+        /* ── Universal reveal observer ── */
+        const allReveal = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    revealObserver.unobserve(e.target);
+                }
+            });
+        }, { threshold: 0.10, rootMargin: '0px 0px -40px 0px' });
+        allReveal.forEach((el) => revealObserver.observe(el));
+
+        /* ── Auto-stagger children of [data-stagger] ── */
+        document.querySelectorAll('[data-stagger]').forEach((parent) => {
+            const base = parseFloat(parent.dataset.stagger) || 0.08;
+            Array.from(parent.children).forEach((child, i) => {
+                child.style.setProperty('--delay', (i * base) + 's');
+                child.classList.add('stagger');
+            });
         });
+
+        /* ── Animated number counters ── */
+        const counters = document.querySelectorAll('[data-count]');
+        const countObserver = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+                if (!e.isIntersecting) return;
+                countObserver.unobserve(e.target);
+                const target = parseFloat(e.target.dataset.count);
+                const suffix = e.target.dataset.suffix || '';
+                const decimals = (String(target).split('.')[1] || '').length;
+                const duration = 1400;
+                const start = performance.now();
+                const animate = (now) => {
+                    const progress = Math.min((now - start) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    e.target.textContent = (target * eased).toFixed(decimals) + suffix;
+                    if (progress < 1) requestAnimationFrame(animate);
+                    else {
+                        e.target.textContent = target + suffix;
+                        e.target.classList.add('counter-pop');
+                    }
+                };
+                requestAnimationFrame(animate);
+            });
+        }, { threshold: 0.5 });
+        counters.forEach((c) => countObserver.observe(c));
+
+        /* ── Hero floating particles ── */
+        (function () {
+            const hero = document.getElementById('top');
+            if (!hero) return;
+            const colors = ['#c8d9ff','#dde8ff','#fff200','#e0eaff'];
+            for (let i = 0; i < 18; i++) {
+                const p = document.createElement('span');
+                p.className = 'hero-particle';
+                const size = 4 + Math.random() * 8;
+                p.style.cssText = [
+                    'width:' + size + 'px',
+                    'height:' + size + 'px',
+                    'left:' + (5 + Math.random() * 55) + '%',
+                    'top:' + (20 + Math.random() * 65) + '%',
+                    'background:' + colors[Math.floor(Math.random() * colors.length)],
+                    'animation-duration:' + (4 + Math.random() * 7) + 's',
+                    'animation-delay:' + (Math.random() * 6) + 's',
+                ].join(';');
+                hero.appendChild(p);
+            }
+        })();
+
+        /* ── Subtle parallax on hero collage (desktop only) ── */
+        (function () {
+            if (window.innerWidth < 768) return;
+            const floaters = document.querySelectorAll('.float-a, .float-b, .float-c');
+            window.addEventListener('scroll', () => {
+                const y = window.scrollY;
+                floaters.forEach((el, i) => {
+                    const depth = (i % 3 === 0) ? 0.06 : (i % 3 === 1 ? 0.04 : 0.08);
+                    el.style.transform = 'translateY(' + (-y * depth) + 'px)';
+                });
+            }, { passive: true });
+        })();
+
+        /* ── Tilt on feature cards (desktop only) ── */
+        if (window.matchMedia('(pointer:fine)').matches) {
+            document.querySelectorAll('.feature-card, .stat-bento, .bento-feature').forEach((card) => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const rx = ((e.clientY - cy) / rect.height) * 8;
+                    const ry = -((e.clientX - cx) / rect.width) * 8;
+                    card.style.transform = 'translateY(-6px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+                    card.style.transition = 'transform .05s ease';
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = '';
+                    card.style.transition = 'transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease';
+                });
+            });
+        }
 
         const loginChooserModal = document.getElementById('loginChooserModal');
         const staffChooserModal = document.getElementById('staffChooserModal');
@@ -1803,7 +2665,9 @@
                     const title = response.ok
                         ? (data.already_registered
                             ? 'Already registered'
-                            : (data.register_url ? 'Continue registration' : 'Check your email'))
+                            : (data.pending_approval
+                                ? 'Waiting for approval'
+                                : (data.register_url ? 'Continue registration' : 'Check your email')))
                         : 'Check your details';
                     paayoSwal({
                         title: title,
@@ -1812,7 +2676,7 @@
                             ? 'Open form'
                             : (response.ok && data.already_registered ? 'Make Report' : 'OK'),
                         tone: response.ok
-                            ? (data.already_registered ? 'info' : 'success')
+                            ? ((data.already_registered || data.pending_approval) ? 'info' : 'success')
                             : 'error',
                     }).then((result) => {
                         if (!result.isConfirmed) return;
@@ -1824,7 +2688,7 @@
                             openReportModal();
                         }
                     });
-                    if (response.ok && !data.already_registered && !data.locked) {
+                    if (response.ok && !data.already_registered && !data.pending_approval && !data.locked) {
                         reporterRegisterForm.reset();
                         applyLockUi();
                     }
@@ -1841,6 +2705,23 @@
         }
         const sections = document.querySelectorAll('section[id]');
         const navLinks = document.querySelectorAll('.nav-link');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        document.querySelectorAll('a[href^="#"]').forEach((link) => {
+            link.addEventListener('click', (event) => {
+                const id = link.getAttribute('href');
+                if (!id || id === '#') return;
+                const target = document.querySelector(id);
+                if (!target) return;
+                event.preventDefault();
+                target.scrollIntoView({
+                    behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                    block: 'start',
+                });
+                history.pushState(null, '', id);
+            });
+        });
+
         window.addEventListener('scroll', () => {
             let current = '';
             sections.forEach((section) => {
@@ -1887,6 +2768,9 @@
     });
     </script>
     @endif
+
+
+    @include('landing.partials.faq-chatbot', ['showChatFab' => false])
 
 </body>
 </html>

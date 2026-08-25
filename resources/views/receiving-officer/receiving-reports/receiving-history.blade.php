@@ -5,7 +5,7 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">Delivery History</h1>
-        <p class="admin-page-subtitle">Accepted and returned receiving reports.</p>
+        <p class="admin-page-subtitle">Delivered and returned receiving reports.</p>
     </div>
 
     @include('layouts.partials.receiving-query-error')
@@ -14,12 +14,12 @@
         $filter = $filter ?? 'all';
         $historyCards = [
             ['filter' => 'all', 'label' => 'All', 'count' => $allCount ?? $rows->count(), 'color' => 'text-slate-900', 'title' => 'Show all history'],
-            ['filter' => 'accepted', 'label' => 'Accepted', 'count' => $acceptedCount ?? 0, 'color' => 'text-emerald-600', 'title' => 'Show accepted deliveries'],
-            ['filter' => 'returned', 'label' => 'Returned', 'count' => $returnedCount ?? 0, 'color' => 'text-rose-600', 'title' => 'Show returned deliveries'],
+            ['filter' => 'accepted', 'label' => 'Delivered', 'count' => $acceptedCount ?? 0, 'color' => 'text-sky-600', 'title' => 'Show delivered items'],
+            ['filter' => 'returned', 'label' => 'Returned', 'count' => $returnedCount ?? 0, 'color' => 'text-slate-600', 'title' => 'Show returned deliveries'],
         ];
         $sliderOptions = [
             ['filter' => 'all', 'label' => 'All'],
-            ['filter' => 'accepted', 'label' => 'Accepted'],
+            ['filter' => 'accepted', 'label' => 'Delivered'],
             ['filter' => 'returned', 'label' => 'Returned'],
         ];
     @endphp
@@ -30,12 +30,16 @@
     <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
         <div class="border-b border-gray-100 px-5 py-4">
             <div class="flex flex-col gap-4">
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900">Delivery History</h2>
-                        <p class="mt-1 text-xs text-gray-500">Accepted and returned receiving reports.</p>
+                        <p class="mt-1 text-xs text-gray-500">Delivered and returned receiving reports.</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'roHistoryViewSwitcher',
+                            'btnClass' => 'ro-history-view-btn',
+                        ])
                         @include('layouts.partials.receiving-export-pdf', ['exportSection' => 'history'])
                         <div class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
                             {{ $allCount ?? $rows->count() }} total
@@ -53,7 +57,8 @@
                 </div>
             </div>
         </div>
-        <div class="overflow-x-auto">
+
+        <div id="roHistoryTable" class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-left">
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
@@ -72,26 +77,30 @@
                         @php
                             $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
                             $rowStatus = in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'accepted' : 'returned';
+                            $storeLocation = trim((string) ($row->store_location ?? ''));
+                            $deliveredLabel = $storeLocation !== '' ? 'Delivered · '.$storeLocation : 'Delivered';
                             $rowSearch = trim(implode(' ', [
                                 $row->ris_form_number ?? '',
                                 $row->authority_purchase_form_number ?? '',
                                 $row->item_names ?? '',
                                 $row->supplier_name ?? '',
+                                $storeLocation,
                                 $row->official_receipt ?? '',
                                 $row->officer_name ?? '',
                             ]));
+                            $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number);
                         @endphp
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                             <td class="px-5 py-4 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
-                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
+                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $ref }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->item_names ?: '—' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->official_receipt ?: '—' }} / {{ $row->authority_purchase_reference_po_no ?: '—' }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->official_receipt ?? '—' }} / {{ $row->authority_purchase_reference_po_no ?? '—' }}</td>
                             <td class="px-5 py-4">
                                 @if($rowStatus === 'accepted')
-                                    <span class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Accepted</span>
+                                    <span class="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700" title="{{ $storeLocation !== '' ? $storeLocation : 'Delivered' }}">{{ $deliveredLabel }}</span>
                                 @else
-                                    <span class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">Returned</span>
+                                    <span class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">Returned</span>
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->officer_name ?: '—' }}</td>
@@ -99,7 +108,7 @@
                                 <div class="flex items-center gap-2">
                                     @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
                                     @if(!empty($row->receiving_report_id))
-                                        <a href="/receiving/reports/{{ $row->receiving_report_id }}/print" class="text-sm font-semibold text-[#0037c7]">Print</a>
+                                        <a href="/receiving/reports/{{ $row->receiving_report_id }}/print" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>
                                     @endif
                                 </div>
                             </td>
@@ -112,9 +121,69 @@
                 </tbody>
             </table>
         </div>
+
+        <div id="roHistoryCards" class="hidden space-y-3 px-5 py-4">
+            @forelse($rows as $row)
+                @php
+                    $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
+                    $rowStatus = in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'accepted' : 'returned';
+                    $storeLocation = trim((string) ($row->store_location ?? ''));
+                    $deliveredLabel = $storeLocation !== '' ? 'Delivered · '.$storeLocation : 'Delivered';
+                    $rowSearch = trim(implode(' ', [
+                        $row->ris_form_number ?? '',
+                        $row->authority_purchase_form_number ?? '',
+                        $row->item_names ?? '',
+                        $row->supplier_name ?? '',
+                        $storeLocation,
+                        $row->official_receipt ?? '',
+                        $row->officer_name ?? '',
+                    ]));
+                    $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number);
+                    $actionsHtml = view('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])->render();
+                    if (!empty($row->receiving_report_id)) {
+                        $actionsHtml .= '<a href="/receiving/reports/'.$row->receiving_report_id.'/print" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>';
+                    }
+                @endphp
+                @include('receiving-officer.partials.list-info-card', [
+                    'title' => $ref,
+                    'status' => $rowStatus === 'accepted' ? $deliveredLabel : 'Returned',
+                    'statusClass' => $rowStatus === 'accepted' ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-700',
+                    'roStatus' => $rowStatus,
+                    'roSearch' => $rowSearch,
+                    'fields' => [
+                        ['label' => 'Items', 'value' => $row->item_names ?: '—', 'full' => true],
+                        ['label' => 'Supplier', 'value' => $row->supplier_name ?: '—'],
+                        ['label' => 'OR / PO', 'value' => ($row->official_receipt ?? '—').' / '.($row->authority_purchase_reference_po_no ?? '—')],
+                        ['label' => 'Date', 'value' => $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—'],
+                        ['label' => 'Officer', 'value' => $row->officer_name ?: '—'],
+                    ],
+                    'actionsHtml' => $actionsHtml,
+                ])
+            @empty
+            @endforelse
+            <div class="receiving-empty-cards px-2 py-10 text-center text-sm text-gray-400" @if($rows->count()) style="display:none" @endif>
+                Waiting for Purchaser to submit a Receiving Report. History appears after second count or a return.
+            </div>
+        </div>
+
         @include('layouts.partials.receiving-table-pager')
     </div>
     </div>
 </div>
+
+@include('admin.partials.view-mode-script')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.bindAdminViewMode === 'function') {
+        window.bindAdminViewMode({
+            tableId: 'roHistoryTable',
+            cardsId: 'roHistoryCards',
+            buttonSelector: '.ro-history-view-btn',
+            storageKey: 'ro_history_view',
+        });
+    }
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+});
+</script>
 
 @endsection

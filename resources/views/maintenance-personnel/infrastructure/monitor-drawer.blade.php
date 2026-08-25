@@ -3,31 +3,59 @@
     class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[700px] xl:w-[420px]"
 >-->
 <aside
-    class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[calc(100vh-160px)] xl:max-h-[900px] xl:min-h-[700px] xl:w-[22vw] xl:min-w-[360px] xl:max-w-[460px]"
+    data-monitor-drawer
+    class="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[calc(100vh-14rem-20px)] xl:min-h-[550px] xl:max-h-[620px]"
 >
-    <!-- Selected room container -->
-    <div x-show="selectedRoom === null" class="flex h-full flex-col">
-        <div class="bg-slate-950 p-7 text-white">
-            <div
-                class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005EA6]"
-            >
-                <i data-lucide="panel-right-open" class="h-6 w-6"></i>
+    <!-- Empty state: no room selected — Insight Builder style -->
+    <div x-show="selectedRoom === null" class="flex h-full min-h-0 flex-col overflow-hidden">
+
+        {{-- Panel header --}}
+        <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div class="min-w-0">
+                <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Room Inspector</p>
+                <h2 class="mt-0.5 text-base font-black text-slate-950">Insight Builder</h2>
             </div>
-            <h2 class="mt-5 text-xl font-extrabold">Room intelligence</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-400">Select a room block to open its live monitoring workspace.</p>
+            <button
+                class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                disabled
+            >
+                <i data-lucide="bookmark" class="h-3.5 w-3.5"></i>
+                Save View
+            </button>
         </div>
-        <div class="flex flex-1 items-center justify-center p-8">
+
+        {{-- Icon tab bar (disabled/ghost) --}}
+        <div class="flex shrink-0 items-center border-b border-slate-100 px-4 py-2 gap-1">
+            @foreach ([['icon'=>'layout-dashboard','label'=>'Overview'],['icon'=>'box','label'=>'Assets'],['icon'=>'bar-chart-2','label'=>'Analytics'],['icon'=>'calendar','label'=>'Schedule']] as $t)
+            <div class="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-slate-300">
+                <i data-lucide="{{ $t['icon'] }}" class="h-4 w-4"></i>
+                <span class="text-[9px] font-semibold">{{ $t['label'] }}</span>
+            </div>
+            @endforeach
+        </div>
+
+        {{-- Empty prompt body --}}
+        <div class="drawer-scroll flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto bg-[#F8FAFC] p-8">
+            <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-100 bg-white shadow-sm">
+                <i data-lucide="mouse-pointer-click" class="h-8 w-8 text-[#005EA6]/40"></i>
+            </div>
             <div class="text-center">
-                <div
-                    class="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-100"
-                >
-                    <i
-                        data-lucide="mouse-pointer-click"
-                        class="h-10 w-10 text-slate-300"
-                    ></i>
+                <p class="text-sm font-bold text-slate-700">Select a room on the map</p>
+                <p class="mt-1.5 text-xs leading-5 text-slate-400">Assets, ticket trends, recurring issues, and maintenance schedules will load here.</p>
+            </div>
+
+            {{-- Ghost metric rows --}}
+            <div class="w-full space-y-2 pt-2">
+                @foreach (range(1,3) as $_)
+                <div class="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm">
+                    <div class="h-7 w-7 shrink-0 rounded-lg bg-blue-50"></div>
+                    <div class="flex-1 space-y-1.5">
+                        <div class="h-2 w-24 rounded-full bg-slate-100"></div>
+                        <div class="h-1.5 w-16 rounded-full bg-[#F8FAFC]"></div>
+                    </div>
+                    <div class="h-2 w-8 rounded-full bg-blue-100"></div>
                 </div>
-                <p class="mt-5 text-sm font-bold text-slate-700">Select a room on the map</p>
-                <p class="mt-2 text-xs leading-5 text-slate-400">Assets, ticket trends, recurring issues, and schedules will appear here.</p>
+                @endforeach
             </div>
         </div>
     </div>
@@ -45,6 +73,10 @@
                 editRoomModal:false,
 
                 archiveRoomModal:false,
+
+                archiveBlockedModal:false,
+
+                archiveBlockedCount:0,
 
                 archiveReason:'',
 
@@ -76,6 +108,18 @@
 
                 destinationRoom:'',
 
+                transferMode:'single',
+
+                transferAllRoom:'',
+
+                transferTargets:{},
+
+                transferSelectedIds:[],
+
+                transferApplyRoom:'',
+
+                transferError:'',
+
                 roomSaving:false,
 
                 roomForm:{
@@ -87,6 +131,138 @@
 
                 saving:false,
 
+                addStep:1,
+
+                addItems:[],
+
+                addFullscreen:false,
+
+                addBorrowable:false,
+
+                addErrors:{},
+
+                addFormError:'',
+
+                addAssetTagManual:false,
+
+                applyPlacementZone:'',
+
+                splitPlacementZone:'Holding',
+
+                openPlacementDropdown:null,
+
+                placementMenuStyle:null,
+
+                placementZones(){
+                    return window.infrastructure?.placementZonesForRoom?.({{ $room->room_id }})
+                        || ['Holding', 'Floor'];
+                },
+
+                placementZoneLabel(zone){
+                    return window.infrastructure?.placementZoneLabel?.(zone)
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '—'));
+                },
+
+                closePlacementDropdown(){
+                    this.openPlacementDropdown = null;
+                    this.placementMenuStyle = null;
+                },
+
+                freezeModalScroll(run){
+                    const scrollers = Array.from(document.querySelectorAll('.eq-modal-scroll'));
+                    const tops = scrollers.map((el) => el.scrollTop);
+                    const lefts = scrollers.map((el) => el.scrollLeft);
+                    const result = typeof run === 'function' ? run() : null;
+                    const restore = () => {
+                        scrollers.forEach((el, i) => {
+                            el.scrollTop = tops[i];
+                            el.scrollLeft = lefts[i];
+                        });
+                        if (document.activeElement && document.activeElement !== document.body) {
+                            document.activeElement.blur();
+                        }
+                    };
+                    restore();
+                    this.$nextTick(restore);
+                    return result;
+                },
+
+                suppressGhostClick(){
+                    const suppress = (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        document.removeEventListener('click', suppress, true);
+                    };
+                    document.addEventListener('click', suppress, true);
+                    setTimeout(() => document.removeEventListener('click', suppress, true), 120);
+                },
+
+                togglePlacementDropdown(id, event){
+                    event?.preventDefault?.();
+                    event?.stopPropagation?.();
+                    this.suppressGhostClick();
+
+                    if (this.openPlacementDropdown === id) {
+                        this.freezeModalScroll(() => this.closePlacementDropdown());
+                        return;
+                    }
+
+                    const el = event?.currentTarget;
+                    if (!el) {
+                        this.openPlacementDropdown = id;
+                        this.placementMenuStyle = null;
+                        return;
+                    }
+
+                    const rect = el.getBoundingClientRect();
+                    const menuMax = 240;
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const openUp = spaceBelow < menuMax && rect.top > spaceBelow;
+
+                    this.freezeModalScroll(() => {
+                        this.placementMenuStyle = {
+                            position: 'fixed',
+                            left: `${Math.round(rect.left)}px`,
+                            width: `${Math.round(rect.width)}px`,
+                            zIndex: 10050,
+                            maxHeight: `${menuMax}px`,
+                            overflowY: 'auto',
+                            ...(openUp
+                                ? { bottom: `${Math.round(window.innerHeight - rect.top + 4)}px`, top: 'auto' }
+                                : { top: `${Math.round(rect.bottom + 4)}px`, bottom: 'auto' }),
+                        };
+                        this.openPlacementDropdown = id;
+                    });
+                },
+
+                pickPlacementZone(target, zone){
+                    this.suppressGhostClick();
+                    this.freezeModalScroll(() => {
+                        if (target === 'apply') {
+                            this.applyPlacementZone = zone;
+                        } else if (target === 'split') {
+                            this.splitPlacementZone = zone;
+                        } else if (target === 'form') {
+                            this.addForm.location = zone;
+                        } else if (typeof target === 'number' && !Number.isNaN(target) && this.addItems[target]) {
+                            this.addItems[target].equipment_placement_zone = zone;
+                        }
+                        this.closePlacementDropdown();
+                    });
+                },
+
+                activePlacementValue(){
+                    const id = this.openPlacementDropdown;
+                    if (id === 'apply') return this.applyPlacementZone;
+                    if (id === 'split') return this.splitPlacementZone;
+                    if (id === 'form') return this.addForm.location;
+                    if (String(id || '').startsWith('row-')) {
+                        const index = Number(String(id).replace('row-', ''));
+                        return this.addItems[index]?.equipment_placement_zone || '';
+                    }
+                    return '';
+                },
+
                 addForm:{
 
                     room_id: {{ $room->room_id }},
@@ -97,24 +273,374 @@
 
                     quantity:1,
 
-                    tracking:'Bulk',
+                    tracking:'Individual',
 
                     condition:'Good',
 
-                    location:''
+                    location:'Holding',
+
+                    brand:'',
+
+                    model:'',
+
+                    warranty:'',
+
+                    assetTag:'',
+
+                    serial:''
 
                 },
 
                 categoryManual:false,
 
+                blankAddForm(){
+                    return {
+                        room_id: {{ $room->room_id }},
+                        name:'',
+                        category:'',
+                        quantity:1,
+                        tracking:'Individual',
+                        condition:'Good',
+                        location:'Holding',
+                        brand:'',
+                        model:'',
+                        warranty:'',
+                        assetTag:'',
+                        serial:''
+                    };
+                },
+
+                resetAddEquipment(){
+                    this.addForm = this.blankAddForm();
+                    this.addStep = 1;
+                    this.addItems = [];
+                    this.addFullscreen = false;
+                    this.addBorrowable = false;
+                    this.addAssetTagManual = false;
+                    this.categoryManual = false;
+                    this.applyPlacementZone = '';
+                    this.splitPlacementZone = 'Holding';
+                    this.closePlacementDropdown();
+                    this.addErrors = {};
+                    this.addFormError = '';
+                },
+
+                needsItemDetails(){
+                    return this.addForm.tracking === 'Individual'
+                        && Number(this.addForm.quantity) > 1;
+                },
+
+                clearAddError(field){
+                    if (!this.addErrors?.[field]) return;
+                    const next = { ...this.addErrors };
+                    delete next[field];
+                    this.addErrors = next;
+                    this.addFormError = '';
+                },
+
+                validateAddStep1(){
+                    const next = {};
+                    if (!String(this.addForm.name || '').trim()) {
+                        next.name = 'Equipment name is required.';
+                    }
+                    const qty = Number(this.addForm.quantity);
+                    if (!Number.isFinite(qty) || qty < 1) {
+                        next.quantity = 'Quantity must be at least 1.';
+                    } else if (qty > 200) {
+                        next.quantity = 'Quantity cannot exceed 200.';
+                    }
+                    this.addErrors = next;
+                    this.addFormError = Object.keys(next).length
+                        ? 'Please fix the highlighted fields before continuing.'
+                        : '';
+                    if (Object.keys(next).length) {
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    }
+                    return Object.keys(next).length === 0;
+                },
+
+                validateAddItems(){
+                    const tags = {};
+                    const serials = {};
+                    for (let i = 0; i < this.addItems.length; i++) {
+                        const tag = String(this.addItems[i].equipment_asset_tag || '').trim().toLowerCase();
+                        const serial = String(this.addItems[i].equipment_serial_number || '').trim().toLowerCase();
+                        if (tag) {
+                            if (tags[tag] !== undefined) {
+                                this.addFormError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
+                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                                return false;
+                            }
+                            tags[tag] = i;
+                        }
+                        if (serial) {
+                            if (serials[serial] !== undefined) {
+                                this.addFormError = `Duplicate serial number on rows ${serials[serial] + 1} and ${i + 1}.`;
+                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                                return false;
+                            }
+                            serials[serial] = i;
+                        }
+                    }
+                    this.addFormError = '';
+                    return true;
+                },
+
+                makeItemRow(index, previous){
+                    return {
+                        // Keep unique identity if already edited; always refresh shared defaults from step 1.
+                        equipment_asset_tag: previous?._tagManual
+                            ? previous.equipment_asset_tag
+                            : (previous?.equipment_asset_tag ?? this.buildAssetTag(index)),
+                        equipment_serial_number: previous?.equipment_serial_number ?? '',
+                        equipment_brand_name: this.addForm.brand || '',
+                        equipment_model: this.addForm.model || '',
+                        equipment_condition_status: this.addForm.condition,
+                        equipment_warranty_expiration: this.addForm.warranty || '',
+                        equipment_placement_zone: previous?.equipment_placement_zone
+                            || this.addForm.location
+                            || 'Holding',
+                        _tagManual: previous?._tagManual || false,
+                    };
+                },
+
+                addRoomName(){
+                    return @js($room->room_name);
+                },
+
+                shouldAutoAddAssetTag(){
+                    return this.addForm.tracking === 'Bulk'
+                        || Number(this.addForm.quantity) === 1;
+                },
+
+                syncAddAssetTag(){
+                    if (this.addAssetTagManual || !this.shouldAutoAddAssetTag()) {
+                        return;
+                    }
+                    const roomName = this.addRoomName();
+                    const equipmentName = String(this.addForm.name || '').trim();
+                    if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
+                        this.addForm.assetTag = '';
+                        return;
+                    }
+                    window.equipmentAssetTags.resetReserved();
+                    const tags = window.equipmentAssetTags.generate(roomName, equipmentName, 1);
+                    this.addForm.assetTag = tags[0] || '';
+                },
+
+                assetLabel(index){
+                    const name = String(this.addForm.name || 'Asset').trim() || 'Asset';
+                    const pad = String(index + 1).padStart(3, '0');
+                    return `${name} ${pad}`;
+                },
+
+                resolveZonePosition(zone){
+                    const resolver = window.infrastructure?.zonePosition?.bind(window.infrastructure);
+                    if (typeof resolver === 'function') {
+                        const pos = resolver(zone);
+                        if (Array.isArray(pos)) {
+                            return { x: Number(pos[0]) || 50, y: Number(pos[1]) || 50 };
+                        }
+                        if (pos && typeof pos === 'object') {
+                            return {
+                                x: Number(pos.x) || 50,
+                                y: Number(pos.y) || 50,
+                            };
+                        }
+                    }
+                    return { x: 50, y: 50 };
+                },
+
+                applyPlacementToAll(){
+                    const zone = this.applyPlacementZone;
+                    if (!zone) {
+                        this.addFormError = 'Choose a placement to apply.';
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                        return;
+                    }
+                    this.addItems = this.addItems.map((item) => ({
+                        ...item,
+                        equipment_placement_zone: zone,
+                    }));
+                    this.addFormError = '';
+                },
+
+                applyPlacementRange(start, end, zone){
+                    const from = Math.max(1, Number(start) || 1);
+                    const to = Math.min(this.addItems.length, Number(end) || this.addItems.length);
+                    if (!zone || from > to) return;
+                    this.addItems = this.addItems.map((item, i) => {
+                        const n = i + 1;
+                        if (n < from || n > to) return item;
+                        return { ...item, equipment_placement_zone: zone };
+                    });
+                },
+
+                assetTagPart(value, fallback){
+                    return String(value || '')
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]+/g, '')
+                        || fallback;
+                },
+
+                buildAssetTag(index){
+                    const roomName = this.addRoomName();
+                    const equipmentName = String(this.addForm.name || '').trim();
+                    if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
+                        return '';
+                    }
+                    window.equipmentAssetTags.resetReserved();
+                    const tags = window.equipmentAssetTags.generate(roomName, equipmentName, index + 1);
+                    return tags[index] || tags[tags.length - 1] || '';
+                },
+
+                buildAddItems(){
+                    const qty = Math.min(200, Math.max(1, Number(this.addForm.quantity) || 1));
+                    this.addForm.quantity = qty;
+                    const previous = this.addItems || [];
+                    const roomName = this.addRoomName();
+                    const equipmentName = String(this.addForm.name || '').trim();
+
+                    window.equipmentAssetTags?.resetReserved?.();
+
+                    let generated = [];
+                    if (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function') {
+                        generated = window.equipmentAssetTags.generate(roomName, equipmentName, qty);
+                    }
+
+                    this.addItems = Array.from({ length: qty }, (_, i) => {
+                        const row = this.makeItemRow(i, previous[i]);
+                        if (!row._tagManual && generated[i]) {
+                            row.equipment_asset_tag = generated[i];
+                        }
+                        return row;
+                    });
+                },
+
+                regenerateAssetTags(){
+                    window.equipmentAssetTags?.resetReserved?.();
+                    const roomName = this.addRoomName();
+                    const equipmentName = String(this.addForm.name || '').trim();
+                    const generated = (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function')
+                        ? window.equipmentAssetTags.generate(roomName, equipmentName, this.addItems.length)
+                        : [];
+
+                    this.addItems = this.addItems.map((item, i) => ({
+                        ...item,
+                        equipment_asset_tag: generated[i] || this.buildAssetTag(i),
+                        _tagManual: false,
+                    }));
+                },
+
+                applySharedDefaultsToItems(){
+                    this.addItems = this.addItems.map((item) => ({
+                        ...item,
+                        equipment_brand_name: this.addForm.brand || '',
+                        equipment_model: this.addForm.model || '',
+                        equipment_condition_status: this.addForm.condition,
+                        equipment_warranty_expiration: this.addForm.warranty || '',
+                    }));
+                },
+
+                continueAddEquipment(){
+                    if (!this.validateAddStep1()) {
+                        return;
+                    }
+                    const qty = Math.min(200, Math.max(1, Number(this.addForm.quantity) || 1));
+                    this.addForm.quantity = qty;
+
+                    if (this.needsItemDetails()) {
+                        this.buildAddItems();
+                        this.applyPlacementZone = '';
+                        this.splitPlacementZone = 'Holding';
+                        this.closePlacementDropdown();
+                        this.addStep = 2;
+                        this.addErrors = {};
+                        this.addFormError = '';
+                        this.$nextTick(() => {
+                            if (window.lucide) window.lucide.createIcons();
+                        });
+                        return;
+                    }
+
+                    this.syncAddAssetTag();
+                    this.storeEquipment();
+                },
+
                 async storeEquipment(){
 
+                    if (this.addStep === 1 && !this.validateAddStep1()) {
+                        return;
+                    }
+                    if (this.addStep === 2 && !this.validateAddItems()) {
+                        return;
+                    }
+
+                    if (!this.needsItemDetails()) {
+                        this.syncAddAssetTag();
+                    }
+
                     this.saving=true;
+                    this.addFormError = '';
 
                     try{
-                    const position = this.zonePosition(
-                        this.addForm.location
+                    const position = this.resolveZonePosition(
+                        this.addForm.location || 'Holding'
                     );
+
+                        const payload = {
+
+                                    equipment_room_id:this.addForm.room_id,
+
+                                    equipment_name:this.addForm.name,
+
+                                    equipment_category_id:this.addForm.category || null,
+
+                                    equipment_quantity: Number(this.addForm.quantity) || 1,
+
+                                    equipment_tracking_mode:this.addForm.tracking,
+
+                                    equipment_condition_status:this.addForm.condition,
+
+                                    equipment_current_location:this.addForm.location || 'Holding',
+
+                                    equipment_placement_zone:this.addForm.location || 'Holding',
+
+                                    equipment_brand_name: this.addForm.brand || null,
+
+                                    equipment_model: this.addForm.model || null,
+
+                                    equipment_warranty_expiration: this.addForm.warranty || null,
+
+                                    equipment_asset_tag: this.addForm.assetTag || null,
+
+                                    equipment_serial_number: this.addForm.serial || null,
+
+                                    equipment_is_borrowable: this.addBorrowable ? 1 : 0,
+
+                                    equipment_position_x:position.x,
+
+                                    equipment_position_y:position.y
+
+                                };
+
+                        if (this.addForm.tracking === 'Individual' && this.addItems.length > 0) {
+                            payload.items = this.addItems.map(({ _tagManual, ...item }) => {
+                                const zone = item.equipment_placement_zone || this.addForm.location || 'Holding';
+                                return {
+                                    ...item,
+                                    equipment_placement_zone: zone,
+                                    equipment_current_location: zone,
+                                };
+                            });
+                            payload.equipment_quantity = this.addItems.length;
+                            payload.equipment_asset_tag = null;
+                            payload.equipment_serial_number = null;
+                        }
+
+                        const createdTags = this.addForm.tracking === 'Individual' && this.addItems.length > 0
+                            ? this.addItems.map((item) => item.equipment_asset_tag).filter(Boolean)
+                            : (payload.equipment_asset_tag ? [payload.equipment_asset_tag] : []);
 
                         const response=await fetch(
 
@@ -136,57 +662,46 @@
 
                                 },
 
-                                body:JSON.stringify({
-
-                                    equipment_room_id:this.addForm.room_id,
-
-                                    equipment_name:this.addForm.name,
-
-                                    equipment_category_id:this.addForm.category,
-
-                                    equipment_quantity:this.addForm.quantity,
-
-                                    equipment_tracking_mode:this.addForm.tracking,
-
-                                    equipment_condition_status:this.addForm.condition,
-
-                                    equipment_current_location:this.addForm.location,
-
-                                    equipment_position_x:position.x,
-
-                                    equipment_position_y:position.y
-
-                                })
+                                body:JSON.stringify(payload)
 
                             }
 
                         );
 
                         if(!response.ok){
-
-                            throw new Error();
-
+                            let message = 'Unable to create equipment.';
+                            const fieldErrors = {};
+                            try {
+                                const err = await response.json();
+                                if (err?.errors) {
+                                    Object.entries(err.errors).forEach(([key, messages]) => {
+                                        const msg = Array.isArray(messages) ? messages[0] : String(messages);
+                                        if (key.includes('equipment_name')) fieldErrors.name = msg;
+                                        else if (key.includes('equipment_category')) fieldErrors.category = msg;
+                                        else if (key.includes('location') || key.includes('current_location')) fieldErrors.location = msg;
+                                        else if (key.includes('quantity')) fieldErrors.quantity = msg;
+                                    });
+                                    message = Object.values(err.errors).flat().join(' ');
+                                } else if (err?.message) {
+                                    message = err.message;
+                                }
+                            } catch (_) {}
+                            if (Object.keys(fieldErrors).length) {
+                                this.addErrors = fieldErrors;
+                                this.addStep = 1;
+                            }
+                            this.addFormError = message;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return;
                         }
 
-                        this.addForm = {
-
-                            room_id:this.addForm.room_id,
-
-                            name:'',
-
-                            category:'',
-
-                            quantity:1,
-
-                            condition:'Good',
-
-                            location:''
-
-                        };
-
+                        const roomId = this.addForm.room_id;
+                        window.equipmentAssetTags?.register?.(createdTags);
+                        this.resetAddEquipment();
                         this.addEquipmentModal = false;
+                        document.body.style.overflow = '';
 
-                        await window.infrastructure.refreshRoomEquipment(this.addForm.room_id);
+                        await window.infrastructure.refreshRoomEquipment(roomId);
 
                         this.equipmentRenderKey += 1;
 
@@ -194,7 +709,8 @@
 
                     catch(e){
 
-                        alert('Unable to create equipment.');
+                        this.addFormError = e?.message || 'Unable to create equipment.';
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
 
                     }
 
@@ -279,9 +795,253 @@
 
                 },
 
+                roomEquipmentCount(){
+                    const room = window.infrastructure?.roomCatalog?.find(
+                        (item) => item.id === {{ $room->room_id }}
+                    );
+                    if (room && Array.isArray(room.equipment)) {
+                        return room.equipment.length;
+                    }
+                    return {{ (int) $room->equipment->count() }};
+                },
+
+                requestArchiveRoom(){
+                    const count = this.roomEquipmentCount();
+                    if (count > 0) {
+                        this.archiveBlockedCount = count;
+                        this.archiveRoomModal = false;
+                        this.archiveBlockedModal = true;
+                        this.$nextTick(() => {
+                            if (window.lucide) window.lucide.createIcons();
+                        });
+                        return;
+                    }
+                    this.archiveBlockedModal = false;
+                    this.archiveRoomModal = true;
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+
+                openTransferFromArchiveBlock(){
+                    this.archiveBlockedModal = false;
+                    this.archiveRoomModal = false;
+                    this.openTransferModal();
+                },
+
+                openTransferModal(){
+                    this.resetTransferForm();
+                    this.transferAssetsModal = true;
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+
+                resetTransferForm(){
+                    this.transferMode = 'single';
+                    this.selectedEquipment = '';
+                    this.destinationRoom = '';
+                    this.transferAllRoom = '';
+                    this.transferTargets = {};
+                    this.transferSelectedIds = [];
+                    this.transferApplyRoom = '';
+                    this.transferError = '';
+                    this.initTransferTargets();
+                },
+
+                transferSourceEquipment(){
+                    const room = window.infrastructure?.roomCatalog?.find(
+                        (item) => item.id === {{ $room->room_id }}
+                    );
+                    if (room && Array.isArray(room.equipment) && room.equipment.length) {
+                        return room.equipment.map((item) => ({
+                            id: Number(item.id),
+                            name: item.name || item.asset_tag || ('Asset #' + item.id),
+                        }));
+                    }
+                    return @js($room->equipment->map(fn ($e) => [
+                        'id' => (int) $e->equipment_id,
+                        'name' => $e->equipment_name,
+                    ])->values());
+                },
+
+                initTransferTargets(){
+                    const next = {};
+                    this.transferSourceEquipment().forEach((item) => {
+                        next[item.id] = this.transferTargets[item.id] || '';
+                    });
+                    this.transferTargets = next;
+                },
+
+                setTransferMode(mode){
+                    this.transferMode = mode;
+                    this.transferError = '';
+                    if (mode === 'custom') {
+                        this.initTransferTargets();
+                    }
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+
+                toggleTransferSelected(id){
+                    const key = Number(id);
+                    if (this.transferSelectedIds.includes(key)) {
+                        this.transferSelectedIds = this.transferSelectedIds.filter((item) => item !== key);
+                    } else {
+                        this.transferSelectedIds = [...this.transferSelectedIds, key];
+                    }
+                },
+
+                selectAllTransferEquipment(){
+                    this.transferSelectedIds = this.transferSourceEquipment().map((item) => item.id);
+                },
+
+                clearTransferSelection(){
+                    this.transferSelectedIds = [];
+                },
+
+                applyDestinationToSelected(){
+                    if (!this.transferApplyRoom) {
+                        this.transferError = 'Choose a destination room to apply.';
+                        return;
+                    }
+                    if (!this.transferSelectedIds.length) {
+                        this.transferError = 'Select at least one equipment item first.';
+                        return;
+                    }
+                    const next = { ...this.transferTargets };
+                    this.transferSelectedIds.forEach((id) => {
+                        next[id] = this.transferApplyRoom;
+                    });
+                    this.transferTargets = next;
+                    this.transferError = '';
+                },
+
+                setAllCustomDestinations(roomId){
+                    if (!roomId) return;
+                    const next = {};
+                    this.transferSourceEquipment().forEach((item) => {
+                        next[item.id] = roomId;
+                    });
+                    this.transferTargets = next;
+                    this.transferError = '';
+                },
+
+                buildTransferPayload(){
+                    if (this.transferMode === 'single') {
+                        if (!this.selectedEquipment || !this.destinationRoom) {
+                            this.transferError = 'Select equipment and a destination room.';
+                            return null;
+                        }
+                        return [{
+                            equipment_id: Number(this.selectedEquipment),
+                            room_id: Number(this.destinationRoom),
+                        }];
+                    }
+
+                    if (this.transferMode === 'all') {
+                        if (!this.transferAllRoom) {
+                            this.transferError = 'Select a destination room for all equipment.';
+                            return null;
+                        }
+                        const items = this.transferSourceEquipment();
+                        if (!items.length) {
+                            this.transferError = 'This room has no equipment to transfer.';
+                            return null;
+                        }
+                        return items.map((item) => ({
+                            equipment_id: item.id,
+                            room_id: Number(this.transferAllRoom),
+                        }));
+                    }
+
+                    const transfers = this.transferSourceEquipment()
+                        .map((item) => ({
+                            equipment_id: item.id,
+                            room_id: Number(this.transferTargets[item.id] || 0),
+                        }))
+                        .filter((entry) => entry.room_id);
+
+                    if (!transfers.length) {
+                        this.transferError = 'Assign at least one equipment item to a destination room.';
+                        return null;
+                    }
+
+                    return transfers;
+                },
+
+                async transferAsset(){
+                    this.transferError = '';
+                    const transfers = this.buildTransferPayload();
+                    if (!transfers) {
+                        this.$nextTick(() => {
+                            if (window.lucide) window.lucide.createIcons();
+                        });
+                        return;
+                    }
+
+                    this.roomSaving = true;
+
+                    try {
+                        let response;
+                        if (this.transferMode === 'single' && transfers.length === 1) {
+                            response = await fetch(
+                                `/maintenance/infrastructure/equipment/${transfers[0].equipment_id}/transfer`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                    },
+                                    body: JSON.stringify({ room_id: transfers[0].room_id }),
+                                },
+                            );
+                        } else {
+                            response = await fetch(
+                                `/maintenance/infrastructure/rooms/{{ $room->room_id }}/transfer-equipment`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                    },
+                                    body: JSON.stringify({ transfers }),
+                                },
+                            );
+                        }
+
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            const firstError = payload?.errors
+                                ? Object.values(payload.errors).flat()[0]
+                                : null;
+                            throw new Error(firstError || payload.message || 'Unable to transfer asset.');
+                        }
+
+                        this.transferAssetsModal = false;
+                        this.resetTransferForm();
+                        await window.infrastructure.refreshRoomEquipment({{ $room->room_id }});
+                        window.location.reload();
+                    } catch (e) {
+                        this.transferError = e?.message || 'Unable to transfer asset.';
+                        this.$nextTick(() => {
+                            if (window.lucide) window.lucide.createIcons();
+                        });
+                    } finally {
+                        this.roomSaving = false;
+                    }
+                },
+
                 async archiveRoom(){
 
-                    
+                    const count = this.roomEquipmentCount();
+                    if (count > 0) {
+                        this.requestArchiveRoom();
+                        return;
+                    }
 
                     this.roomSaving=true;
 
@@ -317,91 +1077,37 @@
 
                         );
 
-                        if(!response.ok){
+                        const payload = await response.json().catch(() => ({}));
 
-                            throw new Error();
+                        if(!response.ok){
+                            if (payload.code === 'equipment_present' || response.status === 422) {
+                                this.archiveBlockedCount = Number(payload.equipment_count) || this.roomEquipmentCount();
+                                this.archiveRoomModal = false;
+                                this.archiveBlockedModal = true;
+                                this.$nextTick(() => {
+                                    if (window.lucide) window.lucide.createIcons();
+                                });
+                                return;
+                            }
+
+                            throw new Error(payload.message || payload.error || 'Unable to archive room.');
 
                         }
 
                         this.archiveRoomModal=false;
+                        this.archiveReason='';
 
                         await window.infrastructure.refreshRoomEquipment({{ $room->room_id }});
-
-                    }
-
-                    catch(e){
-
-                        alert('Unable to archive room.');
-
-                    }
-
-                    finally{
-
-                        this.roomSaving=false;
-
-                    }
-
-                },
-
-                async transferAsset(){
-
-                    if(this.selectedEquipment==='' || this.destinationRoom===''){
-
-                        alert('Please complete all fields.');
-
-                        return;
-
-                    }
-
-                    this.roomSaving=true;
-
-                    try{
-
-                        const response=await fetch(
-
-                            `/maintenance/infrastructure/equipment/${this.selectedEquipment}/transfer`,
-
-                            {
-
-                                method:'POST',
-
-                                headers:{
-
-                                    'Content-Type':'application/json',
-
-                                    'Accept':'application/json',
-
-                                    'X-CSRF-TOKEN':document.querySelector(
-                                        'meta[name=csrf-token]'
-                                    ).content
-
-                                },
-
-                                body:JSON.stringify({
-
-                                    room_id:this.destinationRoom
-
-                                })
-
-                            }
-
-                        );
-
-                        if(!response.ok){
-
-                            throw new Error();
-
+                        if (window.infrastructure?.selectedRoom === {{ $room->room_id }}) {
+                            window.infrastructure.selectedRoom = null;
                         }
-
-                        this.transferAssetsModal=false;
-
-                        await window.infrastructure.refreshRoomEquipment({{ $room->room_id }});
+                        window.location.reload();
 
                     }
 
                     catch(e){
 
-                        alert('Unable to transfer asset.');
+                        alert(e?.message || 'Unable to archive room.');
 
                     }
 
@@ -414,1955 +1120,715 @@
                 }
 
             }"
-            class="flex h-full flex-col"
+            class="flex h-full min-h-0 flex-col overflow-hidden"
         >
-            <div class="relative overflow-hidden bg-slate-950 p-6 text-white">
-                <div
-                    class="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-[#005EA6]/30 blur-2xl"
-                ></div>
-                <div class="relative flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#FFF200]">{{ $room->floor->building->building_name ?? "STI Ormoc" }} · {{ $room->floor->floor_level }}</p>
-                        <h2
-                            class="mt-2 text-2xl font-extrabold"
-                            x-text="roomForm.name || 'Not Specified'"
-                        ></h2>
-                        <p
-                            class="mt-1 text-sm text-slate-400"
-                            x-text="roomForm.type || 'No Room Type'"
-                        ></p>
+            {{-- ── Insight Builder: Room header (white, clean) ── --}}
+            <div class="shrink-0 border-b border-slate-100">
+
+                {{-- Title row --}}
+                <div class="flex items-start justify-between gap-3 px-5 py-4">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
+                            {{ $room->floor->building->building_name ?? "STI Ormoc" }} · {{ $room->floor->floor_level }}
+                        </p>
+                        <h2 class="mt-0.5 truncate text-base font-black text-slate-950" x-text="roomForm.name || 'Not Specified'"></h2>
+                        <p class="mt-0.5 truncate text-xs font-medium text-slate-400" x-text="roomForm.type || 'No Room Type'"></p>
                     </div>
-                    <button
-                        @click="selectedRoom = null"
-                        class="rounded-xl bg-white/10 p-2 hover:bg-white/20"
-                        aria-label="Close room details"
-                    >
-                        <i data-lucide="x" class="h-5 w-5"></i>
-                    </button>
-                </div>
-                <div
-                    class="relative mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
-                >
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->equipment->sum(
-                                "equipment_quantity",
-                            )
-                        }}</b
-                        ><span class="text-[10px] text-slate-400">{{
-                            $room->equipment->sum(
-                                "equipment_quantity",
-                            ) > 1
-                                ? "Equipments"
-                                : "Equipment"
-                        }}</span>
-                    </div>
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->monitoring[
-                                "active_reports"
-                            ]
-                        }}</b
-                        ><span class="text-[10px] text-slate-400">{{
-                            $room->monitoring["active_reports"] > 1
-                                ? "Reports"
-                                : "Report"
-                        }}</span>
-                    </div>
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->equipment
-                                ->where("equipment_condition_status", "Good")
-                                ->sum("equipment_quantity")
-                        }}</b
-                        ><span
-                            class="mt-1.5 block truncate text-[10px] text-slate-400"
-                            data-tooltip="Good Condition"
+                    <div class="flex shrink-0 items-center gap-1.5">
+                        <button
+                            class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                            disabled
                         >
-                            {{
-                                $room->equipment
-                                    ->where("equipment_condition_status", "Good")
-                                    ->sum("equipment_quantity") > 1
-                                    ? "Good Conditions"
-                                    : "Good Condition"
-                            }}
-                        </span>
+                            <i data-lucide="bookmark" class="h-3 w-3"></i>
+                            Save View
+                        </button>
+                        <button
+                            @click="selectedRoom = null"
+                            class="flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:bg-slate-50 hover:text-slate-600"
+                            aria-label="Close room details"
+                        >
+                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="border-b border-slate-100 p-2">
-                <div class="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1">
-                    <button
-                        @click="tab = 'overview'"
-                        :class="tab === 'overview'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Overview </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'equipment'"
-                        :class="tab === 'equipment'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Equipment </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'analytics'"
-                        :class="tab === 'analytics'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Analytics </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'schedule'"
-                        :class="tab === 'schedule'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Schedule </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'history'"
-                        :class="tab === 'history'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> History </span>
-                    </button>
-                </div>
+            {{-- ── Insight Builder: Icon tab bar ── --}}
+            <div class="flex shrink-0 items-stretch border-b border-slate-100">
+                @foreach ([
+                    ['key'=>'overview',   'icon'=>'layout-dashboard', 'label'=>'Overview'],
+                    ['key'=>'equipment',  'icon'=>'box',              'label'=>'Assets'],
+                    ['key'=>'analytics',  'icon'=>'bar-chart-2',      'label'=>'Analytics'],
+                    ['key'=>'schedule',   'icon'=>'calendar-clock',   'label'=>'Schedule'],
+                    ['key'=>'history',    'icon'=>'history',          'label'=>'History'],
+                ] as $t)
+                <button
+                    @click="tab = '{{ $t['key'] }}'"
+                    :class="tab === '{{ $t['key'] }}'
+                        ? 'border-b-2 border-[#005EA6] text-[#005EA6] bg-blue-50/60'
+                        : 'border-b-2 border-transparent text-slate-400 hover:text-[#005EA6] hover:bg-[#F8FAFC]'"
+                    class="flex flex-1 flex-col items-center gap-1 px-1 pb-2.5 pt-3 text-[8.5px] font-semibold uppercase tracking-wide transition"
+                >
+                    <i data-lucide="{{ $t['icon'] }}" class="h-4 w-4"></i>
+                    <span>{{ $t['label'] }}</span>
+                </button>
+                @endforeach
             </div>
 
             <div
-                class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-5"
+                class="drawer-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC] p-4"
             >
-                <div x-show="tab === 'overview'" x-cloak class="space-y-5">
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
+                <div x-show="tab === 'overview'" x-cloak class="space-y-3">
 
-                        <!-- ===================================================== -->
-                        <!-- CARD HEADER -->
-                        <!-- ===================================================== -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
-                            <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Room Information
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Inspection, maintenance, and room status details.
-                                </p>
-
-                            </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="info"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
-                        </div>
-
-
-
-                        <!-- ===================================================== -->
-                        <!-- INFORMATION LIST -->
-                        <!-- ===================================================== -->
-
-                        <div class="px-5">
-
-
-                            <!-- ================================================= -->
-                            <!-- LAST INSPECTION -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="clipboard-check"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Last Inspection
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        shrink-0
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.last_inspection
-                                            ? formatDate(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .last_inspection
-                                            )
-                                            : 'Never'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- NEXT MAINTENANCE -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="calendar-clock"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Next Maintenance
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        shrink-0
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.next_maintenance
-                                            ? formatDate(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .next_maintenance
-                                            )
-                                            : 'No Schedule'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- LAST MODIFIED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="history"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Last Modified
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-0
-                                        truncate
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.last_updated
-                                            ? timeAgo(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .last_updated
-                                            )
-                                            : 'Unknown'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- ROOM STATUS -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="activity"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Room Status
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        inline-flex
-                                        shrink-0
-                                        items-center
-                                        gap-1.5
-                                        rounded-md
-                                        px-2
-                                        py-1
-                                        text-[11px]
-                                        font-medium
-                                    "
-                                    :class="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.status === 'Critical'
-                                            ? 'bg-red-50 text-red-700'
-                                            : currentRoom?.monitoring
-                                                ?.room_information?.status ===
-                                            'Maintenance Needed'
-                                                ? 'bg-amber-50 text-amber-700'
-                                                : 'bg-emerald-50 text-emerald-700'
-                                    "
-                                >
-
-                                    <!-- STATUS DOT -->
-
+                    {{-- ── Status hero ── --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-[#F8FAFC]"></div>
+                        <div class="relative flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Current status</p>
+                                <div class="mt-1.5 flex items-center gap-2">
                                     <span
-                                        class="h-1.5 w-1.5 rounded-full"
-                                        :class="
-                                            currentRoom?.monitoring
-                                                ?.room_information?.status === 'Critical'
-                                                ? 'bg-red-500'
-                                                : currentRoom?.monitoring
-                                                    ?.room_information?.status ===
-                                                'Maintenance Needed'
-                                                    ? 'bg-amber-500'
-                                                    : 'bg-emerald-500'
-                                        "
+                                        class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#005EA6] ring-4 ring-blue-50"
+                                        :class="currentRoom?.monitoring?.room_information?.status === 'Critical'
+                                            ? 'bg-slate-500 ring-slate-100'
+                                            : currentRoom?.monitoring?.room_information?.status === 'Maintenance Needed'
+                                                ? 'bg-blue-400 ring-blue-50'
+                                                : 'bg-[#005EA6] ring-blue-50'"
                                     ></span>
-
-
+                                    <p
+                                        class="truncate text-lg font-black text-slate-900"
+                                        x-text="currentRoom?.monitoring?.room_information?.status || 'Normal'"
+                                    ></p>
+                                </div>
+                                <p class="mt-1 text-[11px] font-medium text-slate-400">
+                                    Updated
                                     <span
-                                        x-text="
-                                            currentRoom?.monitoring
-                                                ?.room_information?.status || 'Normal'
-                                        "
+                                        class="text-[#005EA6]"
+                                        x-text="currentRoom?.monitoring?.room_information?.last_updated
+                                            ? timeAgo(currentRoom.monitoring.room_information.last_updated)
+                                            : 'Unknown'"
                                     ></span>
-
-                                </span>
-
+                                </p>
                             </div>
-
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[#005EA6]">
+                                <i data-lucide="activity" class="h-5 w-5"></i>
+                            </div>
                         </div>
-
                     </div>
 
-                    <!-- ===================================================== -->
-                    <!-- ROOM SUMMARY STATS -->
-                    <!-- ===================================================== -->
-
-                    <div class="grid grid-cols-2 gap-3">
-
-
-                        <!-- ================================================= -->
-                        <!-- EQUIPMENT -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
-                                p-4
-                            "
-                        >
-
-                            <!-- HEADER -->
-
-                            <div class="flex items-center justify-between gap-3">
-
-                                <p
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Assets
-                                </p>
-
-
-                                <div
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        bg-blue-50
-                                        text-[#005EA6]
-                                    "
-                                >
-                                    <i
-                                        data-lucide="monitor-cog"
-                                        class="h-4 w-4"
-                                    ></i>
+                    {{-- ── Key metrics ── --}}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Assets</p>
+                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="box" class="h-3.5 w-3.5"></i>
                                 </div>
-
                             </div>
-
-
-                            <!-- VALUE -->
-
-                            <div class="mt-3 flex items-end gap-2">
-
-                                <p
-                                    class="
-                                        text-2xl
-                                        font-semibold
-                                        tracking-tight
-                                        text-slate-900
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_quantity"] }}
-                                </p>
-
-
-                                <span
-                                    class="
-                                        mb-0.5
-                                        text-[11px]
-                                        text-slate-400
-                                    "
-                                >
-                                    registered
-                                </span>
-
-                            </div>
-
+                            <p class="mt-1 text-2xl font-black text-[#005EA6]">{{ $room->monitoring["equipment_quantity"] }}</p>
+                            <p class="text-[10px] font-medium text-slate-400">registered</p>
                         </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- ACTIVE REPORTS -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
-                                p-4
-                            "
-                        >
-
-                            <!-- HEADER -->
-
-                            <div class="flex items-center justify-between gap-3">
-
-                                <p
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Active Reports
-                                </p>
-
-
-                                <div
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        bg-amber-50
-                                        text-amber-600
-                                    "
-                                >
-                                    <i
-                                        data-lucide="triangle-alert"
-                                        class="h-4 w-4"
-                                    ></i>
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Reports</p>
+                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="triangle-alert" class="h-3.5 w-3.5"></i>
                                 </div>
-
                             </div>
-
-
-                            <!-- VALUE -->
-
-                            <div class="mt-3 flex items-end gap-2">
-
-                                <p
-                                    class="
-                                        text-2xl
-                                        font-semibold
-                                        tracking-tight
-                                        text-slate-900
-                                    "
-                                >
-                                    {{ $room->monitoring["active_reports"] }}
-                                </p>
-
-
-                                <span
-                                    class="
-                                        mb-0.5
-                                        text-[11px]
-                                        text-slate-400
-                                    "
-                                >
-                                    unresolved
-                                </span>
-
-                            </div>
-
+                            <p class="mt-1 text-2xl font-black text-slate-800">{{ $room->monitoring["active_reports"] }}</p>
+                            <p class="text-[10px] font-medium text-slate-400">unresolved</p>
                         </div>
-
                     </div>
 
-                    <!-- ===================================================== -->
-                    <!-- EQUIPMENT CONDITION -->
-                    <!-- ===================================================== -->
+                    {{-- ── Schedule bento grid ── --}}
+                    <div>
+                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Schedule & activity</p>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Last inspection</p>
+                                    <p
+                                        class="truncate text-sm font-bold text-slate-800"
+                                        x-text="currentRoom?.monitoring?.room_information?.last_inspection
+                                            ? formatDate(currentRoom.monitoring.room_information.last_inspection)
+                                            : 'Never'"
+                                    ></p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="calendar-clock" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Next maintenance</p>
+                                    <p
+                                        class="truncate text-sm font-bold text-slate-800"
+                                        x-text="currentRoom?.monitoring?.room_information?.next_maintenance
+                                            ? formatDate(currentRoom.monitoring.room_information.next_maintenance)
+                                            : 'No schedule'"
+                                    ></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
-
-                        <!-- ================================================= -->
-                        <!-- HEADER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
+                    {{-- ── Equipment health bar ── --}}
+                    @php
+                        $eqTotal = max(1, (int) $room->monitoring['equipment_quantity']);
+                        $eqGood = (int) $room->monitoring['equipment_good'];
+                        $eqMaint = (int) $room->monitoring['equipment_maintenance'];
+                        $eqDamaged = (int) $room->monitoring['equipment_damaged'];
+                        $eqDisposed = (int) $room->monitoring['equipment_disposed'];
+                        $pctGood = round(($eqGood / $eqTotal) * 100);
+                        $pctMaint = round(($eqMaint / $eqTotal) * 100);
+                        $pctDamaged = round(($eqDamaged / $eqTotal) * 100);
+                        $pctDisposed = round(($eqDisposed / $eqTotal) * 100);
+                    @endphp
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <div class="flex items-center justify-between gap-3">
                             <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Equipment Condition
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Current condition of equipment in this room.
-                                </p>
-
+                                <p class="text-sm font-bold text-slate-800">Equipment health</p>
+                                <p class="text-[11px] text-slate-400">Condition breakdown</p>
                             </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="activity"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#005EA6]">{{ $eqTotal }} total</span>
                         </div>
 
-
-
-                        <!-- ================================================= -->
-                        <!-- CONDITION LIST -->
-                        <!-- ================================================= -->
-
-                        <div class="px-5">
-
-
-                            <!-- ================================================= -->
-                            <!-- GOOD -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-emerald-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Good
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-emerald-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-emerald-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_good"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- UNDER MAINTENANCE -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-amber-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Under Maintenance
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-amber-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-amber-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_maintenance"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- DAMAGED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-red-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Damaged
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-red-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-red-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_damaged"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- DISPOSED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-slate-400
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Disposed
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-slate-100
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-slate-600
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_disposed"] }}
-                                </span>
-
-                            </div>
-
+                        {{-- Segmented bar — blue & gray tones --}}
+                        <div class="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+                            @if ($eqGood > 0)
+                                <div class="bg-[#005EA6] transition-all" style="width: {{ $pctGood }}%"></div>
+                            @endif
+                            @if ($eqMaint > 0)
+                                <div class="bg-blue-300 transition-all" style="width: {{ $pctMaint }}%"></div>
+                            @endif
+                            @if ($eqDamaged > 0)
+                                <div class="bg-slate-400 transition-all" style="width: {{ $pctDamaged }}%"></div>
+                            @endif
+                            @if ($eqDisposed > 0)
+                                <div class="bg-slate-200 transition-all" style="width: {{ $pctDisposed }}%"></div>
+                            @endif
                         </div>
 
+                        {{-- Legend chips — white / light gray --}}
+                        <div class="mt-3 grid grid-cols-2 gap-1.5">
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-[#005EA6]"></span>Good
+                                </span>
+                                <span class="text-xs font-black text-[#005EA6]">{{ $eqGood }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-blue-300"></span>Maint.
+                                </span>
+                                <span class="text-xs font-black text-slate-700">{{ $eqMaint }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Damaged
+                                </span>
+                                <span class="text-xs font-black text-slate-700">{{ $eqDamaged }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-200"></span>Disposed
+                                </span>
+                                <span class="text-xs font-black text-slate-500">{{ $eqDisposed }}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- QUICK ACTIONS --}}
-
-                    <!-- ===================================================== -->
-                    <!-- QUICK ACTIONS -->
-                    <!-- ===================================================== -->
-
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
-
-                        <!-- ================================================= -->
-                        <!-- HEADER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
-                            <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Quick Actions
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Manage this room and its equipment.
-                                </p>
-
-                            </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="zap"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
-                        </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- ACTION GRID -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-3
-                                p-4
-                                sm:grid-cols-2
-                            "
-                        >
-
-
+                    {{-- ── Quick actions ── --}}
+                    <div>
+                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Quick actions</p>
+                        <div class="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                @click="categoryManual = false; addEquipmentModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                @click="categoryManual = false; resetAddEquipment(); addEquipmentModal = true"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-blue-100 p-2 text-[#005EA6] sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="plus"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Add Equipment
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Provision new equipment into this room.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="plus" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Add asset</p>
+                                    <p class="truncate text-[10px] text-slate-400">New equipment</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
                                 @click="editRoomModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-amber-100 p-2 text-amber-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="pencil"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Edit Room
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Modify room information and layout.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Edit room</p>
+                                    <p class="truncate text-[10px] text-slate-400">Name & type</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
-                                @click="transferAssetsModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                @click="openTransferModal()"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-emerald-100 p-2 text-emerald-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="arrow-right-left"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Transfer Assets
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Move equipment to another room.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Transfer</p>
+                                    <p class="truncate text-[10px] text-slate-400">Move assets</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
-                                @click="archiveRoomModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                @click="requestArchiveRoom()"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-[#F8FAFC] hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-red-100 p-2 text-red-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="archive"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Archive Room
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Archive this room and keep records.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-slate-500 group-hover:text-white">
+                                    <i data-lucide="archive" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Archive</p>
+                                    <p class="truncate text-[10px] text-slate-400">Keep records</p>
                                 </div>
                             </button>
-
                         </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- FOOTER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                gap-4
-                                border-t
-                                border-slate-100
-                                bg-slate-50/50
-                                px-5
-                                py-3
-                            "
-                        >
-
-                            <div class="flex items-center gap-2">
-
-                                <i
-                                    data-lucide="panels-top-left"
-                                    class="h-3.5 w-3.5 text-slate-400"
-                                ></i>
-
-
-                                <span
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Layout Editor
-                                </span>
-
-                            </div>
-
-
-                            <span
-                                class="
-                                    rounded-md
-                                    border
-                                    border-slate-200
-                                    bg-white
-                                    px-2
-                                    py-1
-                                    text-[10px]
-                                    font-medium
-                                    text-slate-500
-                                "
-                            >
-                                Equipment Management
-                            </span>
-
-                        </div>
-
                     </div>
+
                 </div>
 
                 <!-- ========================================= -->
-                <!-- Premium Add Equipment Modal -->
-                <!-- Replace your current Add Equipment Modal -->
+                <!-- Add Equipment Modal (Inventory-matched UI) -->
                 <!-- ========================================= -->
 
                 <template x-if="addEquipmentModal">
                     <div
                         x-transition.opacity
+                        x-init="document.body.style.overflow = 'hidden'"
                         @click.self="
-                            addEquipmentModal = false;
-
-                            addForm = {
-                                room_id: {{ $room->room_id }},
-                                name: '',
-                                category: '',
-                                quantity: 1,
-                                tracking: 'Bulk',
-                                condition: 'Good',
-                                location: ''
+                            if (!(addFullscreen && addStep === 2)) {
+                                addEquipmentModal = false;
+                                resetAddEquipment();
+                                document.body.style.overflow = '';
                             }
                         "
-                        class="
-                            fixed inset-0 z-[9999]
-                            flex items-center justify-center
-                            bg-[#0b1220]/70
-                            p-4
-                            sm:p-6
+                        @keydown.escape.window="
+                            if (addFullscreen && addStep === 2) {
+                                addFullscreen = false;
+                            } else {
+                                addEquipmentModal = false;
+                                resetAddEquipment();
+                                document.body.style.overflow = '';
+                            }
                         "
+                        class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70"
+                        :class="addFullscreen && addStep === 2 ? 'p-0' : 'p-4'"
                     >
-
-                        <!-- ===================================================== -->
-                        <!-- MODAL CONTAINER -->
-                        <!-- ===================================================== -->
-
                         <div
-                            class="
-                                flex
-                                max-h-[calc(100dvh-2rem)]
-                                w-full
-                                max-w-xl
-                                flex-col
-                                overflow-hidden
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                shadow-2xl
-                            "
+                            class="relative flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+                            :class="addFullscreen && addStep === 2
+                                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
+                                : (addStep === 2
+                                    ? 'max-h-[90vh] max-w-[80rem] rounded-2xl'
+                                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
                         >
-
-
-                            <!-- ================================================= -->
-                            <!-- HEADER -->
-                            <!-- ================================================= -->
+                            <div class="flex items-start justify-between px-6 pt-6">
+                                <div>
+                                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="addStep === 2 ? 'Assign equipment' : 'Add equipment'"></h2>
+                                    <p class="mt-1 text-sm text-slate-500" x-text="addStep === 2
+                                        ? (addItems.length + ' individual assets will be created. Set placement (Holding Area, Floor, or a row), asset tag, and serial per unit.')
+                                        : 'Identity on the left, status on the right.'"></p>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <button
+                                        type="button"
+                                        x-show="addStep === 2"
+                                        x-cloak
+                                        @click="addFullscreen = !addFullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                                        :title="addFullscreen ? 'Exit full screen' : 'Full screen'"
+                                        :aria-label="addFullscreen ? 'Exit full screen' : 'Full screen'"
+                                    >
+                                        <i :data-lucide="addFullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="addEquipmentModal = false; resetAddEquipment(); document.body.style.overflow = '';"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                                        aria-label="Close"
+                                    >
+                                        <i data-lucide="x" class="h-4 w-4"></i>
+                                    </button>
+                                </div>
+                            </div>
 
                             <div
-                                class="
-                                    flex
-                                    shrink-0
-                                    items-center
-                                    justify-between
-                                    border-b
-                                    border-slate-100
-                                    px-6
-                                    py-5
-                                "
+                                x-show="addFormError"
+                                x-cloak
+                                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
                             >
+                                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                                <p class="min-w-0 flex-1 leading-relaxed" x-text="addFormError"></p>
+                                <button type="button" @click="addFormError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
+                                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                </button>
+                            </div>
 
-                                <div>
+                            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="addStep === 1">
+                                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Equipment name <span class="text-rose-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                x-model="addForm.name"
+                                                @input="
+                                                    clearAddError('name');
+                                                    if (!String(addForm.name || '').trim()) {
+                                                        categoryManual = false;
+                                                        addForm.category = '';
+                                                    } else if (!categoryManual && typeof detectEquipmentCategoryId === 'function') {
+                                                        addForm.category = detectEquipmentCategoryId(addForm.name) || '';
+                                                    }
+                                                    syncAddAssetTag();
+                                                "
+                                                placeholder="e.g. Mouse"
+                                                class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                                :class="addErrors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                            />
+                                            <p x-show="addErrors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.name"></p>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Category</label>
+                                            <select
+                                                x-model="addForm.category"
+                                                @change="
+                                                    clearAddError('category');
+                                                    if (
+                                                        typeof detectEquipmentCategoryId === 'function'
+                                                        && String(addForm.category) === String(detectEquipmentCategoryId(addForm.name) || '')
+                                                    ) {
+                                                        return;
+                                                    }
+                                                    categoryManual = true;
+                                                "
+                                                class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                            >
+                                                <option value="">Select category</option>
+                                                @foreach ($categories as $category)
+                                                    <option value="{{ $category->equipment_category_id }}">
+                                                        {{ $category->equipment_category_name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Room</label>
+                                            <div class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10 flex items-center text-slate-700">
+                                                {{ $room->room_name }}
+                                            </div>
+                                        </div>
+                                        <div x-show="!needsItemDetails()">
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Placement</label>
+                                            <div class="relative">
+                                                <button
+                                                    type="button"
+                                                    data-placement-trigger
+                                                    @mousedown.prevent="togglePlacementDropdown('form', $event)"
+                                                    class="flex h-11 w-full items-center justify-between gap-2 rounded-xl border-0 bg-slate-50 px-3.5 text-left text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition hover:bg-white focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                                >
+                                                    <span class="min-w-0 truncate" x-text="placementZoneLabel(addForm.location)"></span>
+                                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
+                                                </button>
+                                            </div>
+                                            <p class="mt-1.5 text-xs text-slate-400">Holding Area = unplaced. Floor = floor icon. Row = assign to a row table.</p>
+                                        </div>
+                                        <div x-show="needsItemDetails()" x-cloak>
+                                            <p class="rounded-xl bg-white px-3.5 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
+                                                Placement is set per unit on the next step (Holding Area, Floor, or a row).
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                    <h2
-                                        class="
-                                            text-lg
-                                            font-semibold
-                                            tracking-tight
-                                            text-slate-950
-                                        "
-                                    >
-                                        Add Equipment
-                                    </h2>
-
-
-                                    <p
-                                        class="
-                                            mt-1
-                                            text-sm
-                                            text-slate-500
-                                        "
-                                    >
-                                        Register a new asset for this room.
-                                    </p>
-
+                                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Qty</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="200"
+                                                    x-model.number="addForm.quantity"
+                                                    @input="clearAddError('quantity'); syncAddAssetTag()"
+                                                    class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                                    :class="addErrors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                                />
+                                                <p x-show="addErrors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.quantity"></p>
+                                            </div>
+                                            <div>
+                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Condition</label>
+                                                <select x-model="addForm.condition" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                                                    <option value="Good">Good</option>
+                                                    <option value="Damaged">Damaged</option>
+                                                    <option value="Under Maintenance">Under maintenance</option>
+                                                    <option value="Disposed">Disposed</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Tracking mode</label>
+                                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                                                <button type="button" @click="addForm.tracking = 'Bulk'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                                <button type="button" @click="addForm.tracking = 'Individual'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                                            </div>
+                                            <p class="mt-1.5 text-xs text-slate-400" x-text="addForm.tracking === 'Bulk'
+                                                ? 'One stock record with combined quantity.'
+                                                : (Number(addForm.quantity) > 1
+                                                    ? (Number(addForm.quantity) + ' individual assets will be created (asset tag, serial, QR per unit).')
+                                                    : 'Creates a separate trackable asset (asset tag, serial, QR).')"></p>
+                                        </div>
+                                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
+                                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
+                                            <input type="checkbox" x-model="addBorrowable" class="peer sr-only">
+                                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                                        </label>
+                                    </div>
                                 </div>
 
+                                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
+                                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Shared defaults / single-item details</summary>
+                                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                        <div x-show="addForm.tracking === 'Bulk' || Number(addForm.quantity) === 1">
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Asset tag</label>
+                                            <input type="text" x-model="addForm.assetTag" @input="addAssetTagManual = true" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Brand name</label>
+                                            <input type="text" x-model="addForm.brand" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Model</label>
+                                            <input type="text" x-model="addForm.model" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                        <div x-show="addForm.tracking === 'Bulk' || Number(addForm.quantity) === 1">
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Serial number</label>
+                                            <input type="text" x-model="addForm.serial" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Warranty expiration</label>
+                                            <input type="date" x-model="addForm.warranty" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
 
-                                <!-- CLOSE BUTTON -->
+                            <div
+                                class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]"
+                                x-show="addStep === 2"
+                                x-cloak
+                            >
+                                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+                                    <div class="text-sm text-slate-600">
+                                        <span class="font-medium text-slate-900" x-text="addForm.name"></span>
+                                        <span class="text-slate-400"> · </span>
+                                        <span x-text="addItems.length + ' individually tracked units'"></span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
+                                        <button type="button" @click="applySharedDefaultsToItems()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
+                                    </div>
+                                </div>
 
+                                <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                                    <div class="min-w-[12rem] flex-1">
+                                        <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Apply placement to all</label>
+                                        <div class="relative">
+                                            <button
+                                                type="button"
+                                                data-placement-trigger
+                                                @mousedown.prevent="togglePlacementDropdown('apply', $event)"
+                                                class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-900"
+                                            >
+                                                <span class="min-w-0 truncate" x-text="applyPlacementZone ? placementZoneLabel(applyPlacementZone) : 'Select placement'"></span>
+                                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="applyPlacementToAll()"
+                                        class="h-10 rounded-lg bg-slate-900 px-4 text-xs font-medium text-white hover:bg-slate-800"
+                                        x-text="'Apply to all ' + addItems.length"
+                                    ></button>
+                                    <div class="flex flex-wrap items-end gap-2 border-l border-slate-200 pl-3" x-show="addItems.length >= 2">
+                                        <div>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Split range</label>
+                                            <div class="flex items-center gap-1.5 text-xs text-slate-500">
+                                                <span>#</span>
+                                                <input type="number" min="1" :max="addItems.length" x-ref="splitFrom" :value="1" class="h-10 w-14 rounded-lg border border-slate-200 px-2 text-sm" />
+                                                <span>–</span>
+                                                <input type="number" min="1" :max="addItems.length" x-ref="splitTo" :value="Math.ceil(addItems.length / 2)" class="h-10 w-14 rounded-lg border border-slate-200 px-2 text-sm" />
+                                            </div>
+                                        </div>
+                                        <div class="relative w-44">
+                                            <button
+                                                type="button"
+                                                data-placement-trigger
+                                                @mousedown.prevent="togglePlacementDropdown('split', $event)"
+                                                class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-900"
+                                            >
+                                                <span class="min-w-0 truncate" x-text="placementZoneLabel(splitPlacementZone)"></span>
+                                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
+                                            </button>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="applyPlacementRange($refs.splitFrom.value, $refs.splitTo.value, splitPlacementZone)"
+                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Apply to range
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="eq-modal-scroll overflow-x-auto rounded-xl ring-1 ring-slate-200 [scrollbar-gutter:stable]">
+                                    <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <tr>
+                                                <th class="px-3 py-2.5">Asset</th>
+                                                <th class="px-3 py-2.5">Placement</th>
+                                                <th class="px-3 py-2.5">Asset tag</th>
+                                                <th class="px-3 py-2.5">Serial number</th>
+                                                <th class="px-3 py-2.5">Brand</th>
+                                                <th class="px-3 py-2.5">Model</th>
+                                                <th class="px-3 py-2.5">Condition</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white">
+                                            <template x-for="(item, index) in addItems" :key="index">
+                                                <tr>
+                                                    <td class="px-3 py-2">
+                                                        <div class="font-medium text-slate-800" x-text="assetLabel(index)"></div>
+                                                        <div class="text-[11px] text-slate-400" x-text="'#' + (index + 1)"></div>
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <div class="relative w-44">
+                                                            <button
+                                                                type="button"
+                                                                data-placement-trigger
+                                                                @mousedown.prevent="togglePlacementDropdown('row-' + index, $event)"
+                                                                class="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2 text-left text-sm text-slate-900"
+                                                            >
+                                                                <span class="min-w-0 truncate" x-text="placementZoneLabel(item.equipment_placement_zone)"></span>
+                                                                <i data-lucide="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <input type="text" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-56 min-w-[14rem] rounded-md border border-slate-200 px-2 text-sm" />
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <input type="text" x-model="item.equipment_serial_number" class="h-9 w-36 rounded-md border border-slate-200 px-2 text-sm" />
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <input type="text" x-model="item.equipment_brand_name" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <input type="text" x-model="item.equipment_model" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
+                                                    </td>
+                                                    <td class="px-3 py-2">
+                                                        <select x-model="item.equipment_condition_status" class="h-9 rounded-md border border-slate-200 px-2 text-sm">
+                                                            <option value="Good">Good</option>
+                                                            <option value="Damaged">Damaged</option>
+                                                            <option value="Under Maintenance">Under Maintenance</option>
+                                                            <option value="Disposed">Disposed</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-2 px-6 py-4">
                                 <button
                                     type="button"
-                                    @click="addEquipmentModal = false"
-                                    class="
-                                        flex
-                                        h-9
-                                        w-9
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        text-black
-                                        transition
-
-                                        hover:bg-slate-100
-                                        hover:text-slate-700
-                                    "
+                                    @click="addStep === 2 ? (addStep = 1, addFullscreen = false) : (addEquipmentModal = false, resetAddEquipment(), document.body.style.overflow = '')"
+                                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                                    x-text="addStep === 2 ? 'Back' : 'Cancel'"
+                                ></button>
+                                <button
+                                    type="button"
+                                    x-show="addStep === 1 && needsItemDetails()"
+                                    @click="continueAddEquipment()"
+                                    :disabled="saving"
+                                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-
-                                    <i
-                                        data-lucide="x"
-                                        class="h-4 w-4"
-                                    ></i>
-
+                                    Continue
                                 </button>
-
+                                <button
+                                    type="button"
+                                    x-show="addStep === 2 || !needsItemDetails()"
+                                    @click="addStep === 2 ? storeEquipment() : continueAddEquipment()"
+                                    :disabled="saving"
+                                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    x-text="saving
+                                        ? 'Saving…'
+                                        : (addStep === 2
+                                            ? ('Create ' + addItems.length + ' assets')
+                                            : 'Add equipment')"
+                                ></button>
                             </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- SCROLLABLE BODY -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    min-h-0
-                                    flex-1
-                                    overflow-y-auto
-                                    overscroll-contain
-                                    px-6
-                                    py-6
-                                "
-                            >
-
-                                <!-- ================================================= -->
-                                <!-- FORM GRID -->
-                                <!-- ================================================= -->
-
-                                <div
-                                    class="
-                                        grid
-                                        grid-cols-1
-                                        gap-x-6
-                                        gap-y-6
-                                        sm:grid-cols-2
-                                    "
-                                >
-
-
-                                    <!-- ================================================= -->
-                                    <!-- NAME -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Name
-                                        </label>
-
-
-                                        <input
-                                            x-model="addForm.name"
-                                            @input="
-                                                if (!String(addForm.name || '').trim()) {
-                                                    categoryManual = false;
-                                                    addForm.category = '';
-                                                } else if (!categoryManual && typeof detectEquipmentCategoryId === 'function') {
-                                                    const id = detectEquipmentCategoryId(addForm.name);
-                                                    addForm.category = id || '';
-                                                }
-                                            "
-                                            type="text"
-                                            placeholder="e.g. Server Rack A1"
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-900
-                                                outline-none
-                                                transition
-
-                                                placeholder:text-slate-400
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        />
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- CATEGORY -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Category
-                                        </label>
-
-
-                                        <select
-                                            x-model="addForm.category"
-                                            @change="
-                                                if (
-                                                    typeof detectEquipmentCategoryId === 'function'
-                                                    && String(addForm.category) === String(detectEquipmentCategoryId(addForm.name) || '')
-                                                ) {
-                                                    return;
-                                                }
-                                                categoryManual = true;
-                                            "
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-700
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        >
-
-                                            <option value="">
-                                                Select Category
-                                            </option>
-
-
-                                            @foreach ($categories as $category)
-
-                                                <option
-                                                    value="{{ $category->equipment_category_id }}"
-                                                >
-                                                    {{ $category->equipment_category_name }}
-                                                </option>
-
-                                            @endforeach
-
-                                        </select>
-                                        <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- QUANTITY -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Quantity
-                                        </label>
-
-
-                                        <input
-                                            x-model="addForm.quantity"
-                                            type="number"
-                                            min="1"
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-900
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        />
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- TRACKING MODE -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Tracking Mode
-                                        </label>
-
-
-                                        <!-- ================================================= -->
-                                        <!-- SEGMENTED CONTROL -->
-                                        <!-- ================================================= -->
-
-                                        <div
-                                            class="
-                                                flex
-                                                h-11
-                                                rounded-lg
-                                                bg-slate-100
-                                                p-1
-                                            "
-                                        >
-
-
-                                            <!-- BULK -->
-
-                                            <button
-                                                type="button"
-                                                @click="addForm.tracking = 'Bulk'"
-                                                :class="
-                                                    addForm.tracking === 'Bulk'
-                                                        ? 'bg-white text-slate-900 shadow-sm'
-                                                        : 'text-slate-500 hover:text-slate-700'
-                                                "
-                                                class="
-                                                    flex-1
-                                                    rounded-md
-                                                    text-sm
-                                                    font-medium
-                                                    transition
-                                                "
-                                            >
-                                                Bulk
-                                            </button>
-
-
-
-                                            <!-- INDIVIDUAL -->
-
-                                            <button
-                                                type="button"
-                                                @click="addForm.tracking = 'Individual'"
-                                                :class="
-                                                    addForm.tracking === 'Individual'
-                                                        ? 'bg-white text-slate-900 shadow-sm'
-                                                        : 'text-slate-500 hover:text-slate-700'
-                                                "
-                                                class="
-                                                    flex-1
-                                                    rounded-md
-                                                    text-sm
-                                                    font-medium
-                                                    transition
-                                                "
-                                            >
-                                                Individual
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- CONDITION -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Condition
-                                        </label>
-
-
-                                        <select
-                                            x-model="addForm.condition"
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-700
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        >
-
-                                            <option>
-                                                Good
-                                            </option>
-
-                                            <option>
-                                                Under Maintenance
-                                            </option>
-
-                                            <option>
-                                                Damaged
-                                            </option>
-
-                                            <option>
-                                                Disposed
-                                            </option>
-
-                                        </select>
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- PLACEMENT -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Placement
-                                        </label>
-
-
-                                        <div class="relative">
-
-                                            <!-- MAP PIN ICON -->
-
-                                            <div
-                                                class="
-                                                    pointer-events-none
-                                                    absolute
-                                                    left-3
-                                                    top-1/2
-                                                    -translate-y-1/2
-                                                    text-slate-400
-                                                "
-                                            >
-                                                <i
-                                                    data-lucide="map-pin"
-                                                    class="h-4 w-4"
-                                                ></i>
-                                            </div>
-
-
-                                            <select
-                                                x-model="addForm.location"
-                                                @change="updateEquipmentPlacement()"
-                                                class="
-                                                    h-11
-                                                    w-full
-                                                    rounded-lg
-                                                    border
-                                                    border-slate-200
-                                                    bg-white
-                                                    pl-9
-                                                    pr-3
-                                                    text-sm
-                                                    text-slate-700
-                                                    outline-none
-                                                    transition
-
-                                                    hover:border-slate-300
-
-                                                    focus:border-[#005EA6]
-                                                    focus:ring-2
-                                                    focus:ring-blue-100
-                                                "
-                                            >
-
-                                                <option
-                                                    value=""
-                                                    disabled
-                                                    hidden
-                                                >
-                                                    Select placement
-                                                </option>
-
-
-                                                <option value="Front Wall">
-                                                    Front Wall
-                                                </option>
-
-                                                <option value="Center Ceiling">
-                                                    Center Ceiling
-                                                </option>
-
-                                                <option value="Left Row Pods">
-                                                    Left Row Pods
-                                                </option>
-
-                                                <option value="Right Row Pods">
-                                                    Right Row Pods
-                                                </option>
-
-                                                <option value="Rear Wall">
-                                                    Rear Wall
-                                                </option>
-
-                                                <option value="Storage">
-                                                    Storage
-                                                </option>
-
-                                            </select>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- FOOTER -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    shrink-0
-                                    border-t
-                                    border-slate-100
-                                    bg-white
-                                    px-6
-                                    py-4
-                                "
-                            >
-
-                                <div
-                                    class="
-                                        flex
-                                        flex-col-reverse
-                                        justify-end
-                                        gap-3
-                                        sm:flex-row
-                                    "
-                                >
-
-
-                                    <!-- CANCEL BUTTON -->
-
-                                    <button
-                                        type="button"
-                                        @click="
-                                            addEquipmentModal = false;
-
-                                            addForm = {
-                                                room_id: {{ $room->room_id }},
-                                                name: '',
-                                                category: '',
-                                                quantity: 1,
-                                                tracking: 'Bulk',
-                                                condition: 'Good',
-                                                location: ''
-                                            }
-                                        "
-                                        class="
-                                            rounded-lg
-                                            border
-                                            border-slate-200
-                                            bg-white
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-medium
-                                            text-slate-700
-                                            transition
-
-                                            hover:bg-slate-50
-                                            hover:text-slate-950
-                                        "
-                                    >
-                                        Cancel
-                                    </button>
-
-
-
-                                    <!-- ADD EQUIPMENT BUTTON -->
-
-                                    <button
-                                        type="button"
-                                        @click="storeEquipment()"
-                                        :disabled="saving"
-                                        class="
-                                            rounded-lg
-                                            
-                                            
-                                            bg-[rgba(0,55,199,0.85)]
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-medium
-                                            text-white
-                                            transition
-
-                                            hover:bg-[rgba(0, 44, 155, 0.85)]
-
-                                            disabled:cursor-not-allowed
-                                            disabled:opacity-50
-                                        "
-                                    >
-
-                                        <span
-                                            x-text="
-                                                saving
-                                                    ? 'Saving Equipment...'
-                                                    : 'Add Equipment'
-                                            "
-                                        ></span>
-
-                                    </button>
-
-                                </div>
-
-                            </div>
-
                         </div>
 
+                        {{-- Placement menu portaled above modal overflow (stacking context) --}}
+                        <div
+                            x-show="openPlacementDropdown"
+                            x-cloak
+                            @click.outside="
+                                if (!$event.target.closest('[data-placement-trigger]')) {
+                                    freezeModalScroll(() => closePlacementDropdown());
+                                }
+                            "
+                            :style="placementMenuStyle"
+                            class="overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-slate-200/80"
+                        >
+                            <template x-if="openPlacementDropdown === 'apply'">
+                                <button
+                                    type="button"
+                                    tabindex="-1"
+                                    @mousedown.prevent="pickPlacementZone('apply', '')"
+                                    class="flex w-full items-center px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-50"
+                                >Select placement</button>
+                            </template>
+                            <template x-for="zone in placementZones()" :key="'portal-' + zone">
+                                <button
+                                    type="button"
+                                    tabindex="-1"
+                                    @mousedown.prevent="pickPlacementZone(
+                                        openPlacementDropdown === 'apply' ? 'apply'
+                                            : (openPlacementDropdown === 'split' ? 'split'
+                                                : (openPlacementDropdown === 'form' ? 'form'
+                                                    : Number(String(openPlacementDropdown || '').replace('row-', '')))),
+                                        zone
+                                    )"
+                                    class="flex w-full items-center px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                    :class="activePlacementValue() === zone ? 'bg-slate-50 font-medium text-slate-900' : ''"
+                                    x-text="placementZoneLabel(zone)"
+                                ></button>
+                            </template>
+                        </div>
                     </div>
                 </template>
-
-                <!-- ============================== -->
-                <!-- Edit Room Modal -->
-                <!-- Place AFTER Add Equipment Modal -->
-                <!-- ============================== -->
 
                 <template x-if="editRoomModal">
                     <div
@@ -2908,6 +2374,69 @@
                 </template>
 
                 <!-- ===================================== -->
+                <!-- Archive blocked: equipment still present -->
+                <!-- ===================================== -->
+
+                <template x-if="archiveBlockedModal">
+                    <div
+                        x-transition.opacity
+                        @click.self="archiveBlockedModal = false"
+                        class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
+                    >
+                        <div class="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                            <div class="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                                        <i data-lucide="package-x" class="h-5 w-5"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-lg font-semibold tracking-tight text-slate-950">Cannot archive room</h2>
+                                        <p class="mt-0.5 text-xs text-slate-500">Transfer equipment first</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="archiveBlockedModal = false"
+                                    class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+                                    aria-label="Close"
+                                >
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+                            </div>
+
+                            <div class="space-y-3 px-6 py-5 text-sm text-slate-600">
+                                <p>
+                                    <span class="font-semibold text-slate-900">{{ $room->room_name }}</span>
+                                    still has
+                                    <span class="font-semibold text-slate-900" x-text="archiveBlockedCount"></span>
+                                    <span x-text="archiveBlockedCount === 1 ? ' equipment item' : ' equipment items'"></span>.
+                                </p>
+                                <p>
+                                    Move all equipment to another room using <span class="font-medium text-slate-800">Transfer</span> before archiving this room.
+                                </p>
+                            </div>
+
+                            <div class="flex flex-col-reverse justify-end gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row">
+                                <button
+                                    type="button"
+                                    @click="archiveBlockedModal = false"
+                                    class="min-w-[110px] rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="openTransferFromArchiveBlock()"
+                                    class="min-w-[145px] rounded-lg bg-[#005EA6] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#004a85]"
+                                >
+                                    Transfer equipment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- ===================================== -->
                 <!-- Archive Room Confirmation Modal -->
                 <!-- Place AFTER Edit Room Modal -->
                 <!-- ===================================== -->
@@ -3324,436 +2853,230 @@
                 <template x-if="transferAssetsModal">
                     <div
                         x-transition.opacity
-                        @click.self="transferAssetsModal = false"
-                        class="
-                            fixed inset-0 z-[9999]
-                            flex items-center justify-center
-                            bg-[#0b1220]/70
-                            p-4
-                            sm:p-6
-                        "
+                        @click.self="transferAssetsModal = false; resetTransferForm()"
+                        class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
                     >
-
-                        <!-- ===================================================== -->
-                        <!-- MODAL CONTAINER -->
-                        <!-- ===================================================== -->
-
                         <div
-                            class="
-                                flex
-                                max-h-[calc(100dvh-2rem)]
-                                w-full
-                                max-w-2xl
-                                flex-col
-                                overflow-hidden
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                shadow-2xl
-                            "
+                            class="flex max-h-[calc(90dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                            :class="transferMode === 'custom' ? 'max-w-3xl' : 'max-w-2xl'"
                         >
-
-
-                            <!-- ================================================= -->
-                            <!-- HEADER -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    shrink-0
-                                    items-start
-                                    justify-between
-                                    border-b
-                                    border-slate-100
-                                    px-6
-                                    py-4
-                                "
-                            >
-
-                                <!-- HEADER INFORMATION -->
-
+                            <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-6 py-4">
                                 <div>
-
-                                    <h2
-                                        class="
-                                            text-lg
-                                            font-semibold
-                                            tracking-tight
-                                            text-slate-950
-                                        "
-                                    >
-                                        Transfer Asset
-                                    </h2>
-
-
-                                    <p
-                                        class="
-                                            mt-0.5
-                                            text-xs
-                                            text-slate-500
-                                        "
-                                    >
-                                        Select the equipment and destination room.
-                                    </p>
-
+                                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer Asset</h2>
+                                    <p class="mt-0.5 text-xs text-slate-500">Move equipment from {{ $room->room_name }} to other rooms.</p>
                                 </div>
-
-
-                                <!-- CLOSE BUTTON -->
-
                                 <button
                                     type="button"
-                                    @click="transferAssetsModal = false"
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        text-slate-400
-                                        transition
-
-                                        hover:bg-slate-100
-                                        hover:text-slate-700
-                                    "
+                                    @click="transferAssetsModal = false; resetTransferForm()"
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                    aria-label="Close"
                                 >
-
-                                    <i
-                                        data-lucide="x"
-                                        class="h-4 w-4"
-                                    ></i>
-
+                                    <i data-lucide="x" class="h-4 w-4"></i>
                                 </button>
-
                             </div>
 
-
-
-                            <!-- ================================================= -->
-                            <!-- BODY -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    min-h-0
-                                    flex-1
-                                    overflow-y-auto
-                                    overscroll-contain
-                                    px-6
-                                    py-6
-                                "
-                            >
-
-
-                                <!-- ================================================= -->
-                                <!-- FORM GRID -->
-                                <!-- ================================================= -->
-
-                                <div
-                                    class="
-                                        grid
-                                        grid-cols-1
-                                        gap-x-6
-                                        gap-y-5
-                                        sm:grid-cols-2
-                                    "
-                                >
-
-
-                                    <!-- ================================================= -->
-                                    <!-- EQUIPMENT -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Equipment
-                                        </label>
-
-
-                                        <select
-                                            x-model="selectedEquipment"
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-700
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        >
-
-                                            <option value="">
-                                                Select Equipment
-                                            </option>
-
-
-                                            @foreach ($room->equipment as $equipment)
-
-                                                <option
-                                                    value="{{ $equipment->equipment_id }}"
-                                                >
-                                                    {{ $equipment->equipment_name }}
-                                                </option>
-
-                                            @endforeach
-
-                                        </select>
-
-                                    </div>
-
-
-
-                                    <!-- ================================================= -->
-                                    <!-- DESTINATION ROOM -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Destination Room
-                                        </label>
-
-
-                                        <select
-                                            x-model="destinationRoom"
-                                            class="
-                                                h-11
-                                                w-full
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-3.5
-                                                text-sm
-                                                text-slate-700
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
-                                            "
-                                        >
-
-                                            <option value="">
-                                                Select Room
-                                            </option>
-
-
-                                            @foreach ($rooms as $destination)
-
-                                                @if ($destination->room_id != $room->room_id)
-
-                                                    <option
-                                                        value="{{ $destination->room_id }}"
-                                                    >
-                                                        {{ $destination->room_name }}
-                                                    </option>
-
-                                                @endif
-
-                                            @endforeach
-
-                                        </select>
-
-                                    </div>
-
-                                </div>
-
-
-                                <!-- ================================================= -->
-                                <!-- TRANSFER INFORMATION -->
-                                <!-- ================================================= -->
-
-                                <div
-                                    class="
-                                        mt-6
-                                        flex
-                                        items-start
-                                        gap-3
-                                        rounded-lg
-                                        border
-                                        border-slate-200
-                                        bg-slate-50
-                                        p-4
-                                    "
-                                >
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-white
-                                            text-slate-500
-                                            shadow-sm
-                                            ring-1
-                                            ring-slate-200
-                                        "
-                                    >
-
-                                        <i
-                                            data-lucide="arrow-right-left"
-                                            class="h-4 w-4"
-                                        ></i>
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <h4
-                                            class="
-                                                text-sm
-                                                font-medium
-                                                text-slate-800
-                                            "
-                                        >
-                                            Asset Transfer
-                                        </h4>
-
-
-                                        <p
-                                            class="
-                                                mt-1
-                                                text-xs
-                                                leading-5
-                                                text-slate-500
-                                            "
-                                        >
-                                            The selected equipment will be moved from the current
-                                            room to the destination room.
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- FOOTER -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    shrink-0
-                                    border-t
-                                    border-slate-100
-                                    bg-white
-                                    px-6
-                                    py-4
-                                "
-                            >
-
-                                <div
-                                    class="
-                                        flex
-                                        flex-col-reverse
-                                        justify-end
-                                        gap-3
-                                        sm:flex-row
-                                    "
-                                >
-
-
-                                    <!-- CANCEL -->
-
+                            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+                                <div class="mb-5 inline-flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
                                     <button
                                         type="button"
-                                        @click="transferAssetsModal = false"
-                                        class="
-                                            min-w-[120px]
-                                            rounded-lg
-                                            border
-                                            border-slate-200
-                                            bg-white
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-medium
-                                            text-slate-600
-                                            transition
+                                        @click="setTransferMode('single')"
+                                        class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition"
+                                        :class="transferMode === 'single' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                                    >One by one</button>
+                                    <button
+                                        type="button"
+                                        @click="setTransferMode('all')"
+                                        class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition"
+                                        :class="transferMode === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                                    >Transfer all</button>
+                                    <button
+                                        type="button"
+                                        @click="setTransferMode('custom')"
+                                        class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition"
+                                        :class="transferMode === 'custom' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                                    >Split by room</button>
+                                </div>
 
-                                            hover:border-slate-300
-                                            hover:bg-slate-50
-                                            hover:text-slate-900
-                                        "
-                                    >
-                                        Cancel
-                                    </button>
+                                <div
+                                    x-show="transferError"
+                                    x-cloak
+                                    class="mb-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
+                                >
+                                    <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                                    <p x-text="transferError"></p>
+                                </div>
 
+                                <div x-show="transferMode === 'single'" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                    <div>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Equipment</label>
+                                        <select
+                                            x-model="selectedEquipment"
+                                            class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
+                                        >
+                                            <option value="">Select Equipment</option>
+                                            <template x-for="item in transferSourceEquipment()" :key="'single-eq-' + item.id">
+                                                <option :value="item.id" x-text="item.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room</label>
+                                        <select
+                                            x-model="destinationRoom"
+                                            class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
+                                        >
+                                            <option value="">Select Room</option>
+                                            @foreach ($rooms as $destination)
+                                                @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
+                                                    <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
 
+                                <div x-show="transferMode === 'all'" x-cloak class="space-y-4">
+                                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                        Transfer
+                                        <span class="font-semibold text-slate-900" x-text="transferSourceEquipment().length"></span>
+                                        <span x-text="transferSourceEquipment().length === 1 ? ' item' : ' items'"></span>
+                                        from <span class="font-semibold text-slate-900">{{ $room->room_name }}</span> to one destination room.
+                                    </div>
+                                    <div>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room</label>
+                                        <select
+                                            x-model="transferAllRoom"
+                                            class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
+                                        >
+                                            <option value="">Select Room</option>
+                                            @foreach ($rooms as $destination)
+                                                @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
+                                                    <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
 
-                                    <!-- TRANSFER -->
+                                <div x-show="transferMode === 'custom'" x-cloak class="space-y-4">
+                                    <p class="text-sm text-slate-600">
+                                        Assign each item to a room. Example: send TV and chairs to one room, tables and curtains to another.
+                                    </p>
 
+                                    <div class="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        <div class="min-w-[12rem] flex-1">
+                                            <label class="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">Apply destination to selected</label>
+                                            <select
+                                                x-model="transferApplyRoom"
+                                                class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                                            >
+                                                <option value="">Select Room</option>
+                                                @foreach ($rooms as $destination)
+                                                    @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
+                                                        <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="applyDestinationToSelected()"
+                                            class="h-10 rounded-lg bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"
+                                        >Apply to selected</button>
+                                        <button
+                                            type="button"
+                                            @click="selectAllTransferEquipment()"
+                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                        >Select all</button>
+                                        <button
+                                            type="button"
+                                            @click="clearTransferSelection()"
+                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                        >Clear</button>
+                                    </div>
+
+                                    <div class="overflow-hidden rounded-xl ring-1 ring-slate-200">
+                                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                            <thead class="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                <tr>
+                                                    <th class="w-10 px-3 py-2.5"></th>
+                                                    <th class="px-3 py-2.5">Equipment</th>
+                                                    <th class="px-3 py-2.5">Destination room</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100 bg-white">
+                                                <template x-if="!transferSourceEquipment().length">
+                                                    <tr>
+                                                        <td colspan="3" class="px-3 py-6 text-center text-sm text-slate-500">No equipment in this room.</td>
+                                                    </tr>
+                                                </template>
+                                                <template x-for="item in transferSourceEquipment()" :key="'custom-eq-' + item.id">
+                                                    <tr>
+                                                        <td class="px-3 py-2.5">
+                                                            <input
+                                                                type="checkbox"
+                                                                class="h-4 w-4 rounded border-slate-300 text-[#005EA6] focus:ring-[#005EA6]"
+                                                                :checked="transferSelectedIds.includes(item.id)"
+                                                                @change="toggleTransferSelected(item.id)"
+                                                            />
+                                                        </td>
+                                                        <td class="px-3 py-2.5 font-medium text-slate-800" x-text="item.name"></td>
+                                                        <td class="px-3 py-2.5">
+                                                            <select
+                                                                class="h-9 w-full min-w-[10rem] rounded-md border border-slate-200 px-2 text-sm"
+                                                                :value="transferTargets[item.id] || ''"
+                                                                @change="transferTargets = { ...transferTargets, [item.id]: $event.target.value }"
+                                                            >
+                                                                <option value="">Keep here / skip</option>
+                                                                @foreach ($rooms as $destination)
+                                                                    @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
+                                                                        <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
+                                                                    @endif
+                                                                @endforeach
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm ring-1 ring-slate-200">
+                                        <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-medium text-slate-800">Asset Transfer</h4>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500" x-text="
+                                            transferMode === 'all'
+                                                ? 'All equipment in this room will move to the selected destination.'
+                                                : (transferMode === 'custom'
+                                                    ? 'Only items with a destination room will be moved. Unassigned items stay here.'
+                                                    : 'The selected equipment will be moved from the current room to the destination room.')
+                                        "></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+                                <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+                                    <button
+                                        type="button"
+                                        @click="transferAssetsModal = false; resetTransferForm()"
+                                        class="min-w-[110px] rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                                    >Cancel</button>
                                     <button
                                         type="button"
                                         @click="transferAsset()"
-                                        class="
-                                            min-w-[140px]
-                                            rounded-lg
-                                            bg-[rgba(0,55,199,0.85)]
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-semibold
-                                            text-white
-                                            shadow-sm
-                                            transition
-
-                                            hover:bg-[rgba(0, 44, 155, 0.85)]
-                                        "
+                                        :disabled="roomSaving || !transferSourceEquipment().length"
+                                        class="min-w-[145px] rounded-lg bg-[#005EA6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#004a85] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        Transfer Asset
+                                        <span x-text="roomSaving ? 'Transferring…' : (transferMode === 'single' ? 'Transfer Asset' : 'Transfer selected')"></span>
                                     </button>
-
                                 </div>
-
                             </div>
-
                         </div>
-
                     </div>
                 </template>
 
@@ -5057,7 +4380,7 @@
                                                     text-slate-600
                                                 "
                                             >
-                                                Placement
+                                                Placement zone
                                             </label>
 
 
@@ -5107,36 +4430,13 @@
                                                     "
                                                 >
 
-                                                    <option
-                                                        value=""
-                                                        disabled
-                                                    >
-                                                        Select equipment position
+                                                    <option value="" disabled>
+                                                        Select placement
                                                     </option>
 
-                                                    <option value="Front Wall">
-                                                        Front Wall
-                                                    </option>
-
-                                                    <option value="Center Ceiling">
-                                                        Center Ceiling
-                                                    </option>
-
-                                                    <option value="Left Row Pods">
-                                                        Left Row Pods
-                                                    </option>
-
-                                                    <option value="Right Row Pods">
-                                                        Right Row Pods
-                                                    </option>
-
-                                                    <option value="Rear Wall">
-                                                        Rear Wall
-                                                    </option>
-
-                                                    <option value="Storage">
-                                                        Storage
-                                                    </option>
+                                                    <template x-for="zone in placementZones()" :key="'edit-zone-' + zone">
+                                                        <option :value="zone" x-text="placementZoneLabel(zone)"></option>
+                                                    </template>
 
                                                 </select>
 
@@ -6812,6 +6112,54 @@
     @endforeach
 </aside>
 
+<style>
+    [data-monitor-drawer] .drawer-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 transparent;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-thumb:hover {
+        background: #005EA6;
+    }
+
+    /* Light scrollbar for add-equipment / item-details modal */
+    .eq-modal-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 transparent;
+    }
+
+    .eq-modal-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .eq-modal-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .eq-modal-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+    }
+
+    .eq-modal-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+</style>
+
 <script>
     document.addEventListener("alpine:init", () => {
         Alpine.data(
@@ -6857,6 +6205,18 @@
                     );
                 },
 
+                placementZones() {
+                    return window.infrastructure?.placementZonesForRoom?.(
+                        this.roomId,
+                        this.form?.location,
+                    ) || ['Holding', 'Floor'];
+                },
+
+                placementZoneLabel(zone) {
+                    return window.infrastructure?.placementZoneLabel?.(zone)
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '—'));
+                },
+
                 // =====================================
                 // Keep edit form synced with live equipment
                 // Place BELOW equipment()
@@ -6867,13 +6227,13 @@
                         return;
                     }
 
-                    const [x, y] = window.infrastructure.zonePosition(
+                    const pos = window.infrastructure?.zonePosition?.(
                         this.form.location,
-                    );
+                    ) || { x: 50, y: 50 };
 
-                    this.form.x = x;
+                    this.form.x = Array.isArray(pos) ? pos[0] : (pos.x ?? 50);
 
-                    this.form.y = y;
+                    this.form.y = Array.isArray(pos) ? pos[1] : (pos.y ?? 50);
 
                     this.form.placement_zone = this.form.location;
                 },

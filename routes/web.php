@@ -110,6 +110,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'dashboard']
         )->name('dashboard');
 
+        Route::get(
+            '/profile',
+            [AdminController::class, 'profile']
+        )->name('profile');
+
+        Route::get(
+            '/security',
+            [AdminController::class, 'security']
+        )->name('security');
+
         // ==========================================
         // PROCUREMENT REVIEW
         // ==========================================
@@ -686,6 +696,16 @@ Route::get(
     [ReporterController::class, 'index']
 );
 
+Route::view(
+    '/reporter-faq',
+    'landing.faq'
+)->name('reporter.faq');
+
+Route::view(
+    '/campus-helpdesk',
+    'landing.helpdesk'
+)->name('reporter.helpdesk');
+
 Route::post(
     '/register-reporter',
     [ReporterController::class, 'startRegistration']
@@ -1068,6 +1088,11 @@ Route::post(
     [InfrastructureController::class, 'transferEquipment']
 );
 
+Route::post(
+    '/maintenance/infrastructure/rooms/{room}/transfer-equipment',
+    [InfrastructureController::class, 'transferRoomEquipment']
+)->name('maintenance.infrastructure.rooms.transfer-equipment');
+
 Route::delete(
     '/maintenance/infrastructure/equipment/{equipment}',
     [InfrastructureController::class, 'archiveEquipment']
@@ -1267,6 +1292,21 @@ Route::get(
     '/maintenance/reporters',
     [MaintenanceController::class, 'reporters']
 );
+
+Route::get(
+    '/maintenance/reporters/approvals',
+    [MaintenanceController::class, 'reporterApprovals']
+)->name('maintenance.reporters.approvals');
+
+Route::post(
+    '/maintenance/reporters/approvals/{id}/approve',
+    [MaintenanceController::class, 'approveReporterApplication']
+)->name('maintenance.reporters.approvals.approve');
+
+Route::post(
+    '/maintenance/reporters/approvals/{id}/reject',
+    [MaintenanceController::class, 'rejectReporterApplication']
+)->name('maintenance.reporters.approvals.reject');
 
 Route::post(
     '/maintenance/reporters/store',
@@ -1953,10 +1993,20 @@ Route::middleware([
             [PresidentController::class, 'notifications']
         )->name('notifications');
 
+        Route::post(
+            '/notifications/mark-all-read',
+            [PresidentController::class, 'markAllNotificationsAsRead']
+        )->name('notifications.mark-all-read');
+
         Route::get(
             '/notifications/rejection-history',
             [PresidentController::class, 'rejectionHistory']
         )->name('notifications.rejection-history');
+
+        Route::get(
+            '/notifications/{id}/open',
+            [PresidentController::class, 'openNotification']
+        )->whereNumber('id')->name('notifications.open');
 
         // =====================================================
         // PROFILE
@@ -1966,6 +2016,16 @@ Route::middleware([
             '/profile',
             [PresidentController::class, 'profile']
         )->name('profile');
+
+        Route::patch(
+            '/profile',
+            [PresidentController::class, 'updateProfile']
+        )->name('profile.update');
+
+        Route::put(
+            '/profile/password',
+            [PresidentController::class, 'updatePassword']
+        )->name('profile.password');
         
         // =====================================================
         // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
@@ -2037,8 +2097,11 @@ Route::middleware(['auth', 'accounting'])
 
         Route::get('/history', [AccountingController::class, 'history']);
         Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
-        Route::get('/reports', [AccountingController::class, 'reports']);
         Route::get('/notifications', [AccountingController::class, 'notifications']);
+
+        Route::get('/profile', [AccountingController::class, 'profile'])->name('accounting.profile');
+        Route::patch('/profile', [AccountingController::class, 'updateProfile'])->name('accounting.profile.update');
+        Route::put('/profile/password', [AccountingController::class, 'updatePassword'])->name('accounting.profile.password');
 
 
     });
@@ -2055,6 +2118,9 @@ Route::middleware(['auth', 'receiving'])
     ->group(function () {
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
+
+        Route::get('/profile', [ReceivingController::class, 'profile'])->name('receiving.profile');
+        Route::get('/security', [ReceivingController::class, 'security'])->name('receiving.security');
 
         Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
 

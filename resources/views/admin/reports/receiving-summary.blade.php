@@ -15,12 +15,12 @@
 
     <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Accepted</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-emerald-700">{{ $accepted }}</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Delivered</p>
+            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-700">{{ $accepted }}</p>
         </div>
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Returned</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-rose-600">{{ $returned }}</p>
+            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-600">{{ $returned }}</p>
         </div>
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">With OR</p>
