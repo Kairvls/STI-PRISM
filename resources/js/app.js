@@ -1,4 +1,5 @@
 import './bootstrap';
+import './pur-dialog';
 import '../css/realtime.css';
 if (window.Echo) {
 

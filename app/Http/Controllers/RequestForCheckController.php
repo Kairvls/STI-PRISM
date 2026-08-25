@@ -6,7 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
+use App\Services\DocumentWorkflowService;
+use App\Services\RfcFormExporter;
 
 class RequestForCheckController extends Controller
 {
@@ -19,6 +22,7 @@ class RequestForCheckController extends Controller
         $archiveView = $request->query('view') === 'archive';
 
         $query = $this->rfcBaseQuery();
+        $this->applyPurchaserOwnership($query);
         $this->applyArchiveFilter($query, $archiveView);
 
         if ($request->filled('search')) {
@@ -50,10 +54,24 @@ class RequestForCheckController extends Controller
             $query->whereDate('request_check_table.request_check_date', '<=', $dateTo);
         }
 
+        $spotlightQuery = clone $query;
         $rfcs = $query
             ->orderByDesc($this->rfcSortColumn())
             ->paginate(10)
             ->withQueryString();
+
+        $viewRfcId = (int) ($request->query('view_rfc') ?: 0);
+        if (
+            $viewRfcId
+            && !$rfcs->getCollection()->contains(fn ($row) => (int) $row->request_check_id === $viewRfcId)
+        ) {
+            $spotlight = $spotlightQuery
+                ->where('request_check_table.request_check_id', $viewRfcId)
+                ->first();
+            if ($spotlight) {
+                $rfcs->setCollection($rfcs->getCollection()->prepend($spotlight));
+            }
+        }
 
         $rfcSummary = $this->rfcStatusSummary();
         $eligibleAtps = collect();
@@ -102,6 +120,7 @@ class RequestForCheckController extends Controller
             'attachments' => $attachments,
             'selectedAtpId' => $request->query('selected_atp'),
             'openCreate' => $request->boolean('create') || $request->filled('selected_atp'),
+            'viewRfcId' => $viewRfcId ?: null,
         ]);
     }
 
@@ -220,6 +239,7 @@ class RequestForCheckController extends Controller
             if (!$rfc) {
                 return back()->with('error', 'Request for Check not found.');
             }
+            PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
             if (!$this->isEditable($rfc)) {
                 return back()->with('error', 'This Request for Check cannot be submitted.');
             }
@@ -264,10 +284,14 @@ class RequestForCheckController extends Controller
             return back()->with('error', 'Only approved or rejected Request for Check records can be archived.');
         }
 
-        DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
-            'request_check_is_archived' => 1,
-            'request_check_updated_at' => now(),
-        ]));
+        DocumentWorkflowService::setArchived(
+            'request_check_table',
+            'request_check_id',
+            $id,
+            'request_check_is_archived',
+            'request_check_updated_at',
+            true
+        );
 
         return back()->with('success', 'Request for Check archived.');
     }
@@ -283,16 +307,23 @@ class RequestForCheckController extends Controller
             return back()->with('error', 'Archiving is not available for this Request for Check schema.');
         }
 
-        DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
-            'request_check_is_archived' => 0,
-            'request_check_updated_at' => now(),
-        ]));
+        DocumentWorkflowService::setArchived(
+            'request_check_table',
+            'request_check_id',
+            $id,
+            'request_check_is_archived',
+            'request_check_updated_at',
+            false
+        );
 
         return back()->with('success', 'Request for Check restored.');
     }
 
     public function downloadAttachment($id, $attachmentId)
     {
+        $rfc = $this->findRfc($id);
+        abort_if(!$rfc, 404);
+
         $attachment = DB::table('request_check_attachments_table')
             ->where('request_check_attachment_id', $attachmentId)
             ->where('request_check_id', $id)
@@ -404,6 +435,11 @@ class RequestForCheckController extends Controller
         }
 
         return $query->select($select);
+    }
+
+    private function applyPurchaserOwnership($query)
+    {
+        return PurchaserDocumentAccess::scopeOwned($query, 'rfc', 'request_check_table');
     }
 
     public static function reviewBaseQuery()
@@ -645,13 +681,22 @@ class RequestForCheckController extends Controller
 
     private function findRfc($id)
     {
-        return DB::table('request_check_table')->where('request_check_id', $id)->first();
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        if ($rfc) {
+            PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
+        }
+
+        return $rfc;
     }
 
     private function isEditable($rfc): bool
     {
-        return in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
-            && empty($rfc->request_check_is_archived ?? null);
+        return DocumentWorkflowService::isEditable(
+            $rfc,
+            'request_check_status',
+            $this->rfcEditableStatuses(),
+            'request_check_is_archived'
+        );
     }
 
     private function rfcHas(string $column): bool
@@ -687,15 +732,11 @@ class RequestForCheckController extends Controller
             return;
         }
 
-        if ($archiveView) {
-            $query->where('request_check_table.request_check_is_archived', 1);
-            return;
-        }
-
-        $query->where(function ($q) {
-            $q->whereNull('request_check_table.request_check_is_archived')
-                ->orWhere('request_check_table.request_check_is_archived', 0);
-        });
+        DocumentWorkflowService::applyArchiveFilter(
+            $query,
+            'request_check_table.request_check_is_archived',
+            $archiveView
+        );
     }
 
     private function applyUnarchivedRfcConstraint($query): void
@@ -837,7 +878,7 @@ class RequestForCheckController extends Controller
     {
         $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
         $ref = $rfc->request_check_form_number ?? ('RFC #' . $id);
-        WorkflowNotifier::toRole(
+        DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ACCOUNTING,
             'Request Check submitted',
             $ref . ' is waiting for Accounting review.',
@@ -846,5 +887,31 @@ class RequestForCheckController extends Controller
             (int) $id,
             '/accounting/request-check/' . $id
         );
+    }
+
+    public function exportBlankExcel(RfcFormExporter $exporter)
+    {
+        return $exporter->downloadExcel();
+    }
+
+    public function exportBlankWord(RfcFormExporter $exporter)
+    {
+        return $exporter->downloadWord();
+    }
+
+    public function exportExcel($id, RfcFormExporter $exporter)
+    {
+        $rfc = $this->findRfc($id);
+        abort_if(!$rfc, 404);
+
+        return $exporter->downloadExcel($rfc);
+    }
+
+    public function exportWord($id, RfcFormExporter $exporter)
+    {
+        $rfc = $this->findRfc($id);
+        abort_if(!$rfc, 404);
+
+        return $exporter->downloadWord($rfc);
     }
 }

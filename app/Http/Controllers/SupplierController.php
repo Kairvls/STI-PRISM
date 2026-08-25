@@ -6,6 +6,7 @@ use App\Http\Requests\SupplierRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SupplierController extends Controller
 {
@@ -33,12 +34,17 @@ class SupplierController extends Controller
             $query->where('suppliers_table.supplier_is_active', $request->status === 'Inactive' ? 0 : 1);
         }
 
+        if ($request->filled('blacklisted') && in_array($request->blacklisted, ['Yes', 'No'], true)) {
+            $query->where('suppliers_table.supplier_is_blacklisted', $request->blacklisted === 'Yes' ? 1 : 0);
+        }
+
         $suppliers = $query->orderByDesc('suppliers_table.supplier_id')->paginate(10)->withQueryString();
 
         $supplierSummary = [
             'total' => (int) DB::table('suppliers_table')->count(),
             'active' => (int) DB::table('suppliers_table')->where('supplier_is_active', 1)->count(),
             'inactive' => (int) DB::table('suppliers_table')->where('supplier_is_active', 0)->count(),
+            'blacklisted' => (int) DB::table('suppliers_table')->where('supplier_is_blacklisted', 1)->count(),
         ];
 
         return view('purchaser.suppliers.index', compact('suppliers', 'supplierSummary'));
@@ -100,19 +106,106 @@ class SupplierController extends Controller
             return back()->with('error', 'Supplier not found.');
         }
 
-        $procurementHistory = DB::table('procurement_requests_table')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->where('procurement_requests_table.procurement_request_supplier_id', $id)
+        $notes = DB::table('supplier_notes_table')
+            ->leftJoin('users_table', 'supplier_notes_table.supplier_note_user_id', '=', 'users_table.user_id')
+            ->where('supplier_notes_table.supplier_id', $id)
             ->select(
-                'procurement_requests_table.*',
-                'reports_table.report_id',
-                'reports_table.report_unlisted_equipment_name',
-                'reports_table.report_problem_description'
+                'supplier_notes_table.*',
+                'users_table.user_full_name as author_name'
             )
-            ->orderByDesc('procurement_requests_table.procurement_request_created_at')
+            ->orderByDesc('supplier_notes_table.created_at')
+            ->orderByDesc('supplier_notes_table.supplier_note_id')
             ->get();
 
-        return view('purchaser.suppliers.show', compact('supplier', 'procurementHistory'));
+        $documentTrail = $this->buildDocumentTrail((int) $id);
+
+        return view('purchaser.suppliers.show', compact('supplier', 'notes', 'documentTrail'));
+    }
+
+    public function storeNote(Request $request, $id)
+    {
+        $supplier = DB::table('suppliers_table')->where('supplier_id', $id)->first();
+        if (!$supplier) {
+            return back()->with('error', 'Supplier not found.');
+        }
+
+        $validated = $request->validate([
+            'supplier_note_body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $this->insertSupplierNote((int) $id, 'note', trim($validated['supplier_note_body']));
+        $this->writeSupplierAudit('Added supplier note', (int) $id, 'Note added to supplier #' . $id . '.');
+
+        return redirect()
+            ->route('purchaser.suppliers.show', $id)
+            ->with('success', 'Note added.');
+    }
+
+    public function blacklist(Request $request, $id)
+    {
+        $supplier = DB::table('suppliers_table')->where('supplier_id', $id)->first();
+        if (!$supplier) {
+            return back()->with('error', 'Supplier not found.');
+        }
+
+        $validated = $request->validate([
+            'supplier_note_body' => ['required', 'string', 'max:2000'],
+        ], [
+            'supplier_note_body.required' => 'A reason is required to blacklist this supplier.',
+        ]);
+
+        $reason = trim($validated['supplier_note_body']);
+
+        DB::transaction(function () use ($id, $reason) {
+            DB::table('suppliers_table')->where('supplier_id', $id)->update([
+                'supplier_is_blacklisted' => 1,
+                'supplier_blacklist_reason' => $reason,
+                'supplier_blacklisted_at' => now(),
+                'supplier_blacklisted_by' => Auth::id(),
+            ]);
+
+            $this->insertSupplierNote((int) $id, 'blacklist', $reason);
+        });
+
+        $this->writeSupplierAudit('Blacklisted supplier', (int) $id, 'Supplier #' . $id . ' blacklisted.');
+
+        return redirect()
+            ->route('purchaser.suppliers.show', $id)
+            ->with('success', 'Supplier marked as blacklisted. They can still be selected with a warning.');
+    }
+
+    public function unblacklist(Request $request, $id)
+    {
+        $supplier = DB::table('suppliers_table')->where('supplier_id', $id)->first();
+        if (!$supplier) {
+            return back()->with('error', 'Supplier not found.');
+        }
+
+        $validated = $request->validate([
+            'supplier_note_body' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $body = trim((string) ($validated['supplier_note_body'] ?? ''));
+        if ($body === '') {
+            $body = 'Blacklist cleared.';
+        }
+
+        DB::transaction(function () use ($id, $body) {
+            DB::table('suppliers_table')->where('supplier_id', $id)->update([
+                'supplier_is_blacklisted' => 0,
+                'supplier_blacklist_reason' => null,
+                'supplier_blacklisted_at' => null,
+                'supplier_blacklisted_by' => null,
+            ]);
+
+            $this->insertSupplierNote((int) $id, 'unblacklist', $body);
+        });
+
+        $this->writeSupplierAudit('Cleared supplier blacklist', (int) $id, 'Supplier #' . $id . ' blacklist cleared.');
+
+        return redirect()
+            ->route('purchaser.suppliers.show', $id)
+            ->with('success', 'Blacklist cleared.');
     }
 
     public function update(SupplierRequest $request, $id)
@@ -198,11 +291,17 @@ class SupplierController extends Controller
 
     private function createSupplier(SupplierRequest $request): int
     {
-        $supplierId = DB::table('suppliers_table')->insertGetId([
+        $payload = [
             'supplier_store_type' => $request->supplier_store_type,
             'supplier_is_active' => 1,
             'supplier_created_at' => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('suppliers_table', 'supplier_is_blacklisted')) {
+            $payload['supplier_is_blacklisted'] = 0;
+        }
+
+        $supplierId = DB::table('suppliers_table')->insertGetId($payload);
 
         if ($request->supplier_store_type === 'Physical Store') {
             DB::table('physical_suppliers_table')->insert([
@@ -225,6 +324,124 @@ class SupplierController extends Controller
         $this->writeSupplierAudit('Created supplier', $supplierId, 'Supplier #' . $supplierId . ' created.');
 
         return $supplierId;
+    }
+
+    private function insertSupplierNote(int $supplierId, string $type, string $body): void
+    {
+        DB::table('supplier_notes_table')->insert([
+            'supplier_id' => $supplierId,
+            'supplier_note_user_id' => Auth::id(),
+            'supplier_note_type' => $type,
+            'supplier_note_body' => $body,
+            'created_at' => now(),
+        ]);
+    }
+
+    private function buildDocumentTrail(int $supplierId)
+    {
+        $rows = collect();
+
+        $risHeader = DB::table('requisition_issue_slip_table')
+            ->where('ris_supplier_id', $supplierId)
+            ->select(
+                'ris_id as doc_id',
+                'ris_form_number as doc_number',
+                'ris_status as doc_status',
+                'ris_created_at as doc_date',
+                DB::raw("'RIS' as doc_type")
+            )
+            ->get();
+
+        $risItemIds = [];
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
+            $risItemIds = DB::table('requisition_issue_slip_items_table')
+                ->where('ris_item_supplier_id', $supplierId)
+                ->pluck('ris_id')
+                ->unique()
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        $risFromItems = collect();
+        if (!empty($risItemIds)) {
+            $existingHeaderIds = $risHeader->pluck('doc_id')->all();
+            $missingIds = array_values(array_diff($risItemIds, $existingHeaderIds));
+            if (!empty($missingIds)) {
+                $risFromItems = DB::table('requisition_issue_slip_table')
+                    ->whereIn('ris_id', $missingIds)
+                    ->select(
+                        'ris_id as doc_id',
+                        'ris_form_number as doc_number',
+                        'ris_status as doc_status',
+                        'ris_created_at as doc_date',
+                        DB::raw("'RIS' as doc_type")
+                    )
+                    ->get();
+            }
+        }
+
+        $rows = $rows->merge($risHeader)->merge($risFromItems);
+
+        $atpRows = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_supplier_id', $supplierId)
+            ->select(
+                'authority_purchase_id as doc_id',
+                'authority_purchase_form_number as doc_number',
+                'authority_purchase_status as doc_status',
+                'authority_purchase_created_at as doc_date',
+                DB::raw("'ATP' as doc_type")
+            )
+            ->get();
+        $rows = $rows->merge($atpRows);
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_supplier_id')) {
+            $rrRows = DB::table('receiving_reports_table')
+                ->where('receiving_report_supplier_id', $supplierId)
+                ->select(
+                    'receiving_report_id as doc_id',
+                    'receiving_report_form_number as doc_number',
+                    'receiving_report_status as doc_status',
+                    'receiving_report_created_at as doc_date',
+                    DB::raw("'RR' as doc_type")
+                )
+                ->get();
+            $rows = $rows->merge($rrRows);
+        }
+
+        $procurementRows = DB::table('procurement_requests_table')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->where('procurement_requests_table.procurement_request_supplier_id', $supplierId)
+            ->select(
+                'procurement_requests_table.procurement_request_id as doc_id',
+                DB::raw("CONCAT('PR #', procurement_requests_table.procurement_request_id) as doc_number"),
+                'procurement_requests_table.procurement_request_status as doc_status',
+                'procurement_requests_table.procurement_request_created_at as doc_date',
+                DB::raw("'Procurement' as doc_type"),
+                'reports_table.report_problem_description as doc_detail'
+            )
+            ->get();
+        $rows = $rows->merge($procurementRows);
+
+        return $rows
+            ->map(function ($row) {
+                $row->doc_url = $this->documentTrailUrl($row->doc_type, (int) $row->doc_id);
+                return $row;
+            })
+            ->sortByDesc(function ($row) {
+                return $row->doc_date ? strtotime((string) $row->doc_date) : 0;
+            })
+            ->values();
+    }
+
+    private function documentTrailUrl(string $type, int $id): ?string
+    {
+        return match ($type) {
+            'RIS' => route('purchaser.ris.index', ['search' => $id]),
+            'ATP' => route('purchaser.atp.index', ['search' => $id]),
+            'RR' => route('purchaser.rr.index', ['search' => $id]),
+            default => null,
+        };
     }
 
     private function writeSupplierAudit(string $action, int $supplierId, string $description): void

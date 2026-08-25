@@ -107,15 +107,28 @@
         @endif
     </div>
 
-    <div x-cloak x-show="openModal === 'create' || openModal === 'edit'" x-transition.opacity class="pur-modal">
-        <div @click.outside="openModal = null" class="pur-modal-panel max-w-md">
+    <div
+        x-cloak
+        x-show="openModal === 'create' || openModal === 'edit'"
+        x-transition.opacity
+        class="pur-modal"
+        x-effect="window.purDialog && window.purDialog.sync(openModal === 'create' || openModal === 'edit', $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+    >
+        <div
+            @click.outside="openModal = null"
+            class="pur-modal-panel max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="brand-form-title"
+        >
             <form method="POST" :action="openModal === 'create' ? @js(route('purchaser.brands.store')) : (`{{ url('/purchaser/brands') }}/${form.id}`)">
                 @csrf
                 <template x-if="openModal === 'edit'">
                     <input type="hidden" name="_method" value="PUT">
                 </template>
                 <div class="pur-modal-header">
-                    <h3 x-text="openModal === 'create' ? 'Add Brand' : 'Edit Brand'"></h3>
+                    <h3 id="brand-form-title" x-text="openModal === 'create' ? 'Add Brand' : 'Edit Brand'"></h3>
                 </div>
                 <div class="pur-modal-body space-y-4">
                     <div>
@@ -138,13 +151,26 @@
         </div>
     </div>
 
-    <div x-cloak x-show="openModal === 'delete'" x-transition.opacity class="pur-modal">
-        <div @click.outside="openModal = null" class="pur-modal-panel max-w-md">
+    <div
+        x-cloak
+        x-show="openModal === 'delete'"
+        x-transition.opacity
+        class="pur-modal"
+        x-effect="window.purDialog && window.purDialog.sync(openModal === 'delete', $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+    >
+        <div
+            @click.outside="openModal = null"
+            class="pur-modal-panel max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="brand-delete-title"
+        >
             <form method="POST" :action="`{{ url('/purchaser/brands') }}/${deleteTarget.id}`">
                 @csrf
                 @method('DELETE')
                 <div class="pur-modal-header">
-                    <h3>Delete Brand</h3>
+                    <h3 id="brand-delete-title">Delete Brand</h3>
                 </div>
                 <div class="pur-modal-body text-sm text-gray-600">
                     Are you sure you want to delete <span class="font-semibold text-gray-900" x-text="deleteTarget.name"></span>?

@@ -2,15 +2,15 @@
     $editable = $editable ?? false;
     $rr = $rr ?? null;
     $rows = $rows ?? collect();
-    $dateValue = old('receiving_report_date', $rr->receiving_report_date ?? '');
-    $fromValue = old('receiving_report_received_from', $rr->receiving_report_received_from ?? '');
-    $addressValue = old('receiving_report_supplier_address_override', $rr->receiving_report_supplier_address_override ?? '');
-    $invoiceValue = old('receiving_report_invoice_no', $rr->receiving_report_invoice_no ?? '');
-    $drValue = old('receiving_report_dr_no', $rr->receiving_report_dr_no ?? '');
-    $deliveryValue = old('receiving_report_delivery_date', $rr->receiving_report_delivery_date ?? '');
-    $receivedBy = old('receiving_report_received_by_signature', $rr->receiving_report_received_by_signature ?? (auth()->user()->user_full_name ?? ''));
-    $secondCount = $rr->receiving_report_second_count_signature ?? $rr->receiving_report_second_count_by ?? '';
-    $formNo = $rr->receiving_report_form_number ?? '';
+    $dateValue = old('receiving_report_date', $rr?->receiving_report_date ?? '');
+    $fromValue = old('receiving_report_received_from', $rr?->receiving_report_received_from ?? '');
+    $addressValue = old('receiving_report_supplier_address_override', $rr?->receiving_report_supplier_address_override ?? '');
+    $invoiceValue = old('receiving_report_invoice_no', $rr?->receiving_report_invoice_no ?? '');
+    $drValue = old('receiving_report_dr_no', $rr?->receiving_report_dr_no ?? '');
+    $deliveryValue = old('receiving_report_delivery_date', $rr?->receiving_report_delivery_date ?? '');
+    $receivedBy = old('receiving_report_received_by_signature', $rr?->receiving_report_received_by_signature ?? (auth()->user()->user_full_name ?? ''));
+    $secondCount = $rr?->receiving_report_second_count_signature ?? $rr?->receiving_report_second_count_by ?? '';
+    $formNo = $rr?->receiving_report_form_number ?? '';
     $oldItems = old('items');
 @endphp
 

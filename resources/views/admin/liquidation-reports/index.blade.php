@@ -12,30 +12,40 @@
         <a href="{{ route('admin.liq.index', ['status'=>'approved']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='approved'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Approved</p><p class="mt-3 text-3xl font-semibold">{{ $counts['approved'] }}</p></a>
         <a href="{{ route('admin.liq.index', ['status'=>'rejected']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='rejected'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Rejected</p><p class="mt-3 text-3xl font-semibold">{{ $counts['rejected'] }}</p></a>
     </div>
-    <div class="overflow-hidden rounded-xl border bg-white">
-        <table class="w-full min-w-[900px] text-sm">
-            <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th class="px-4 py-3">No.</th><th class="px-4 py-3">RR</th><th class="px-4 py-3">Employee</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Action</th></tr></thead>
-            <tbody class="divide-y">
+    <div class="overflow-x-auto overflow-hidden rounded-xl border bg-white">
+        <table class="w-full min-w-[1000px] text-sm">
+            <thead class="border-b bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr>
+                    <th class="px-4 py-2.5">No.</th>
+                    <th class="px-4 py-2.5">RR</th>
+                    <th class="px-4 py-2.5">Employee</th>
+                    <th class="px-4 py-2.5 text-right">Amount</th>
+                    <th class="px-4 py-2.5">Status</th>
+                    <th class="px-4 py-2.5">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
                 @forelse($reports as $liq)
                     @php $reviewable = $liq->liquidation_report_status === 'Pending Admin Approval' || ($liq->liquidation_report_status === 'Under Review' && $liq->liquidation_report_review_stage === 'admin'); @endphp
-                    <tr>
-                        <td class="px-4 py-4 font-medium">{{ $liq->liquidation_report_form_number }}</td>
-                        <td class="px-4 py-4">{{ $liq->receiving_report_form_number ?? '—' }}</td>
-                        <td class="px-4 py-4">{{ $liq->liquidation_report_employee_name }}</td>
-                        <td class="px-4 py-4">{{ $liq->liquidation_report_status }}</td>
-                        <td class="px-4 py-4">
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('admin.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border px-3 py-2 text-xs">View</button>
+                    <tr class="hover:bg-gray-50/80">
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ $liq->liquidation_report_form_number }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-gray-900">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$liq->liquidation_report_amount_advance, 2) : '—' }}</td>
+                        <td class="px-4 py-3">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-1.5">
+                                <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('admin.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50">View</button>
                                 @if($reviewable)
-                                    <form method="POST" action="{{ route('admin.liq.approve', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700" onclick="return confirm('Endorse and approve?')">Approve</button></form>
-                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-amber-300 px-3 py-2 text-xs text-amber-700">Revise</button>
-                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; rejectOpen=true" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Reject</button>
+                                    <form method="POST" action="{{ route('admin.liq.approve', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700 hover:bg-emerald-100" onclick="return confirm('Endorse and approve?')">Approve</button></form>
+                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-amber-300 px-2.5 py-1.5 text-xs text-amber-700 hover:bg-amber-50">Revise</button>
+                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; rejectOpen=true" class="rounded-lg border border-red-300 px-2.5 py-1.5 text-xs text-red-700 hover:bg-red-50">Reject</button>
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
+                    <tr><td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
                 @endforelse
             </tbody>
         </table>

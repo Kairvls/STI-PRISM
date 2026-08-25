@@ -10,14 +10,15 @@
 <div
     x-data="{
         createOpen: {{ ($errors->any() && old('receiving_report_request_check_id')) || !empty($selectedRfcId) ? 'true' : 'false' }},
-        viewOpen: false,
+        viewOpen: {{ !empty($viewRrId) ? 'true' : 'false' }},
         editOpen: false,
-        selectedRr: null,
+        emptyOpen: false,
+        selectedRr: {{ !empty($viewRrId) ? (int) $viewRrId : 'null' }},
         rfcPrefill: JSON.parse(document.getElementById('rr-rfc-prefill').textContent || '{}'),
 
         openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; },
         openEdit(id) { this.selectedRr = id; this.editOpen = true; this.viewOpen = false; },
-        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.selectedRr = null; },
+        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.selectedRr = null; },
 
         applyRfcPrefill(rfcId) {
             const data = this.rfcPrefill[String(rfcId)];
@@ -64,6 +65,7 @@
     @endif
     @if($errors->any())
         <div class="pur-alert-error">
+            <p class="mb-1 font-medium">Please fix the following:</p>
             <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
@@ -74,11 +76,16 @@
             <h2 class="pur-page-title">Receiving Reports</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('purchaser.rr.index') }}" class="pur-btn-secondary">Active</a>
-            <a href="{{ route('purchaser.rr.index', ['view' => 'archive']) }}" class="pur-btn-secondary">Archive</a>
+            @include('purchaser.partials.archive-tabs', ['archiveView' => $archiveView, 'activeRoute' => 'purchaser.rr.index', 'activeLabel' => 'Active'])
             @unless($archiveView)
-                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create</button>
-                <button type="button" @click="printRr('blank')" class="pur-btn-secondary">Print blank</button>
+                <button
+                    type="button"
+                    @click="emptyOpen = true"
+                    class="pur-btn-secondary"
+                >
+                    Print Empty RR
+                </button>
+                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create RR</button>
             @endunless
         </div>
     </div>
@@ -99,16 +106,25 @@
         @endforeach
     </div>
 
-    <form method="GET" class="pur-card grid gap-3 p-4 lg:grid-cols-5">
+    <form method="GET" class="pur-card grid gap-3 p-4 lg:grid-cols-5" role="search" aria-label="Filter receiving reports">
         @if($archiveView)<input type="hidden" name="view" value="archive">@endif
-        <input type="text" name="search" value="{{ request('search') }}" placeholder="Search RR, RFC, supplier, invoice" class="h-10 rounded-lg border border-gray-300 px-3 text-sm lg:col-span-2">
-        <select name="status" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
-            <option value="">All statuses</option>
-            @foreach(['Draft','Submitted','Minor Revision','Completed','Returned'] as $status)
-                <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
-            @endforeach
-        </select>
-        <input type="date" name="date" value="{{ request('date') }}" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
+        <div class="lg:col-span-2">
+            <label for="rr-search" class="sr-only">Search</label>
+            <input id="rr-search" type="text" name="search" value="{{ request('search') }}" placeholder="Search RR, RFC, supplier, invoice" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" aria-label="Search receiving reports">
+        </div>
+        <div>
+            <label for="rr-status" class="sr-only">Status</label>
+            <select id="rr-status" name="status" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                @foreach(['Draft','Submitted','Minor Revision','Completed','Returned'] as $status)
+                    <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label for="rr-date" class="sr-only">Date</label>
+            <input id="rr-date" type="date" name="date" value="{{ request('date') }}" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" aria-label="Filter by date">
+        </div>
         <div class="flex gap-2">
             <button class="pur-btn-primary">Search</button>
             <a href="{{ $archiveView ? route('purchaser.rr.index', ['view' => 'archive']) : route('purchaser.rr.index') }}" class="inline-flex h-10 items-center rounded-lg border px-5 text-sm">Reset</a>
@@ -137,17 +153,7 @@
                             <td class="px-4 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?: '—' }}</td>
                             <td class="px-4 py-4 text-gray-600">{{ $rr->receiving_report_date ? \Carbon\Carbon::parse($rr->receiving_report_date)->format('M d, Y') : '—' }}</td>
                             <td class="px-4 py-4">
-                                @if($rr->receiving_report_status === 'Completed')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Completed</span>
-                                @elseif($rr->receiving_report_status === 'Returned')
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Returned</span>
-                                @elseif($rr->receiving_report_status === 'Draft')
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
-                                @elseif($rr->receiving_report_status === 'Minor Revision')
-                                    <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Minor Revision</span>
-                                @else
-                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{{ $rr->receiving_report_status }}</span>
-                                @endif
+                                @include('accounting.partials.status-badge', ['status' => $rr->receiving_report_status])
                             </td>
                             <td class="px-4 py-4">
                                 <div class="flex flex-wrap gap-2">
@@ -184,16 +190,28 @@
     </div>
     <div>{{ $reports->links() }}</div>
 
-    <div x-show="createOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+    <div
+        x-show="createOpen"
+        x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+    >
         <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
         <div class="relative flex min-h-full items-center justify-center p-4">
-            <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
+            <div
+                @click.stop
+                class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rr-create-title"
+            >
                 <div class="flex justify-between border-b px-6 py-5">
                     <div>
-                        <h3 class="text-xl font-semibold">Create Receiving Report</h3>
+                        <h3 id="rr-create-title" class="text-xl font-semibold">Create Receiving Report</h3>
                         <p class="text-sm text-gray-500">Select an approved Request for Check.</p>
                     </div>
-                    <button type="button" @click="createOpen = false">✕</button>
+                    <button type="button" @click="createOpen = false" aria-label="Close">✕</button>
                 </div>
                 @if($eligibleRfcs->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved Request for Check is available.</div>
@@ -230,18 +248,35 @@
             $rrItems = $items->get($rr->receiving_report_id, collect())->values();
             $canEdit = in_array($rr->receiving_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
         @endphp
-        <div x-show="viewOpen && selectedRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+        <div
+            x-show="viewOpen && selectedRr === {{ $rr->receiving_report_id }}"
+            x-cloak
+            class="fixed inset-0 z-50 overflow-y-auto"
+            x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedRr === {{ $rr->receiving_report_id }}, $el)"
+            @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        >
             <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
             <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
+                <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="rr-view-title-{{ $rr->receiving_report_id }}">
                     <div class="flex justify-between border-b px-6 py-5">
                         <div>
-                            <h3 class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
+                            <h3 id="rr-view-title-{{ $rr->receiving_report_id }}" class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
                             <p class="text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
+                            @php
+                                $rrLineage = \App\Support\DocumentLineage::forRr((int) $rr->receiving_report_id);
+                                $rrHint = \App\Support\DocumentLineage::reviewHint($rr->receiving_report_status ?? null, null, 'rr');
+                            @endphp
+                            <div class="mt-3">
+                                @include('partials.document-lineage', [
+                                    'lineage' => $rrLineage,
+                                    'currentType' => 'RR',
+                                    'statusHint' => $rrHint,
+                                ])
+                            </div>
                             @if($rr->receiving_report_revision_notes)<p class="mt-2 text-sm text-amber-700">Revision: {{ $rr->receiving_report_revision_notes }}</p>@endif
                             @if($rr->receiving_report_return_reason)<p class="mt-2 text-sm text-red-700">Returned: {{ $rr->receiving_report_return_reason }}</p>@endif
                         </div>
-                        <button type="button" @click="viewOpen = false">✕</button>
+                        <button type="button" @click="viewOpen = false" aria-label="Close">✕</button>
                     </div>
                     <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
@@ -255,19 +290,33 @@
                             @endif
                         @endif
                         <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="pur-btn-primary">Print</button>
+                        <a href="{{ route('purchaser.rr.export-xlsx', $rr->receiving_report_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm">Excel</a>
+                        <a href="{{ route('purchaser.rr.export-docx', $rr->receiving_report_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm">Word</a>
                         <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border px-5 text-sm">Close</button>
                     </div>
                 </div>
             </div>
         </div>
         @if($canEdit)
-            <div x-show="editOpen && selectedRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+            <div
+                x-show="editOpen && selectedRr === {{ $rr->receiving_report_id }}"
+                x-cloak
+                class="fixed inset-0 z-50 overflow-y-auto"
+                x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedRr === {{ $rr->receiving_report_id }}, $el)"
+                @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            >
                 <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
                 <div class="relative flex min-h-full items-center justify-center p-4">
-                    <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
+                    <div
+                        @click.stop
+                        class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="rr-edit-title-{{ $rr->receiving_report_id }}"
+                    >
                         <div class="flex justify-between border-b px-6 py-5">
-                            <h3 class="text-xl font-semibold">Edit {{ $rr->receiving_report_form_number }}</h3>
-                            <button type="button" @click="editOpen = false">✕</button>
+                            <h3 id="rr-edit-title-{{ $rr->receiving_report_id }}" class="text-xl font-semibold">Edit {{ $rr->receiving_report_form_number }}</h3>
+                            <button type="button" @click="editOpen = false" aria-label="Close">✕</button>
                         </div>
                         <form method="POST" action="{{ route('purchaser.rr.update', $rr->receiving_report_id) }}">
                             @csrf
@@ -288,8 +337,71 @@
         @endif
     @endforeach
 
-    <div class="hidden">
-        @include('partials.receiving-report-paper', ['editable' => false, 'rr' => null, 'rows' => collect(), 'printId' => 'rr-print-blank'])
+    {{-- PRINT EMPTY RR MODAL --}}
+    <div
+        x-cloak
+        x-show="emptyOpen"
+        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rr-empty-title"
+    >
+        <div
+            x-on:click.self="emptyOpen = false"
+            class="flex min-h-full w-full justify-center"
+        >
+            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+                <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h3 id="rr-empty-title" class="text-lg font-semibold text-gray-900">Print Empty RR</h3>
+                        <p class="mt-1 text-sm text-gray-500">Original blank Receiving Report format.</p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="emptyOpen = false"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        aria-label="Close"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                    @include('partials.receiving-report-paper', ['editable' => false, 'rr' => null, 'rows' => collect(), 'printId' => 'rr-print-blank'])
+                </div>
+
+                <div class="print-hidden flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                    <button
+                        type="button"
+                        x-on:click="emptyOpen = false"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Cancel
+                    </button>
+                    <a
+                        href="{{ route('purchaser.rr.export-blank-xlsx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Excel
+                    </a>
+                    <a
+                        href="{{ route('purchaser.rr.export-blank-docx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Word
+                    </a>
+                    <button
+                        type="button"
+                        @click="printRr('blank')"
+                        class="pur-btn-primary"
+                    >
+                        Print Empty RR
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -22,6 +22,21 @@
         <div>
             <h2 class="text-2xl font-semibold text-slate-900">{{ $atp->authority_purchase_form_number ?? 'ATP #'.$atp->authority_purchase_id }}</h2>
             <p class="text-sm text-slate-600">RIS: {{ $atp->ris_form_number ?? 'RIS-'.$atp->authority_purchase_ris_id }}</p>
+            @php
+                $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
+                $atpHint = \App\Support\DocumentLineage::reviewHint(
+                    \App\Support\RisWorkflow::atpStatusLabel($atp),
+                    null,
+                    'atp'
+                );
+            @endphp
+            <div class="mt-3 max-w-3xl">
+                @include('partials.document-lineage', [
+                    'lineage' => $atpLineage,
+                    'currentType' => 'ATP',
+                    'statusHint' => $atpHint,
+                ])
+            </div>
         </div>
         <a href="{{ route('purchaser.atp.index') }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Back to list</a>
     </div>

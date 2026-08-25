@@ -53,14 +53,27 @@
 
         <div class="sidebar-search">
             <div class="sidebar-dropdown">
-                <div id="dropdownTrigger" class="dropdown-trigger">
+                <button
+                    type="button"
+                    id="dropdownTrigger"
+                    class="dropdown-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="dropdownMenu"
+                    aria-label="Jump to sidebar section"
+                >
                     <div class="flex items-center gap-2">
-                        <i class="h-5 w-5" data-lucide="search"></i>
+                        <i class="h-5 w-5" data-lucide="search" aria-hidden="true"></i>
                         <span id="selectedSection">Search...</span>
                     </div>
-                </div>
-                <div id="dropdownMenu" class="dropdown-menu">
-                    <div class="dropdown-item" data-target="dashboard-section">
+                </button>
+                <div
+                    id="dropdownMenu"
+                    class="dropdown-menu"
+                    role="listbox"
+                    aria-labelledby="dropdownTrigger"
+                >
+                    <div class="dropdown-item" role="option" data-target="dashboard-section" tabindex="0">
                         Dashboard
                     </div>
                     <!--<div class="dropdown-item" data-target="reports-section">
@@ -68,24 +81,25 @@
                     </div>-->
                     <div
                         class="dropdown-item"
+                        role="option"
                         data-target="emergency-response-section"
+                        tabindex="0"
                     >
                         Emergency Response
                     </div>
-                    <div class="dropdown-item" data-target="procurement-section">
+                    <div class="dropdown-item" role="option" data-target="procurement-section" tabindex="0">
                         Procurement
                     </div>
-                    <div class="dropdown-item" data-target="file-maintenance-section">
+                    <div class="dropdown-item" role="option" data-target="file-maintenance-section" tabindex="0">
                         File Maintenance
                     </div>
                     <div
                         class="dropdown-item"
+                        role="option"
                         data-target="purchasing-workflow-section"
+                        tabindex="0"
                     >
                         Purchasing Workflow
-                    </div>
-                    <div class="dropdown-item" data-target="system-section">
-                        System
                     </div>
                 </div>
             </div>
@@ -231,7 +245,7 @@
             class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
         >
             <i data-lucide="database" class="h-5 w-5"></i>
-            <span>Lookups</span>
+            <span>File Maintenance</span>
         </a>
 
 
@@ -708,6 +722,11 @@
         justify-content: space-between;
         cursor: pointer;
         padding: 0 12px;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
     }
     .dropdown-menu {
         display: none;
@@ -768,10 +787,14 @@
 
         trigger.addEventListener("click", () => {
 
-            menu.style.display =
-                menu.style.display === "block"
-                    ? "none"
-                    : "block";
+            const isOpen = menu.style.display === "block";
+
+            menu.style.display = isOpen ? "none" : "block";
+
+            trigger.setAttribute(
+                "aria-expanded",
+                isOpen ? "false" : "true"
+            );
 
         });
 
@@ -871,6 +894,12 @@
 
                 }
 
+                if (trigger) {
+
+                    trigger.setAttribute("aria-expanded", "false");
+
+                }
+
             });
 
         });
@@ -893,6 +922,8 @@
         ) {
 
             menu.style.display = "none";
+
+            trigger.setAttribute("aria-expanded", "false");
 
         }
 

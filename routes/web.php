@@ -10,6 +10,7 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
+use App\Http\Controllers\RisController;
 use App\Http\Controllers\RequestForCheckController;
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\ReplacementRequestController;
@@ -357,7 +358,7 @@ Route::middleware(['auth', 'admin'])
 
         Route::get(
             '/ris/attachments/{attachmentId}/download',
-            [PurchaserController::class, 'downloadRisAttachment']
+            [RisController::class, 'downloadAttachment']
         )->name('ris.attachments.download');
 
         Route::get(
@@ -1472,36 +1473,56 @@ Route::middleware([
 
         Route::get(
             '/ris',
-            [PurchaserController::class, 'risIndex']
+            [RisController::class, 'index']
         )->name('ris.index');
 
         Route::post(
             '/ris',
-            [PurchaserController::class, 'storeRis']
+            [RisController::class, 'store']
         )->name('ris.store');
 
         // RIS: supporting attachment download
         // Keep this static route before /ris/{risId}
         Route::get(
             '/ris/attachments/{attachmentId}/download',
-            [PurchaserController::class, 'downloadRisAttachment']
+            [RisController::class, 'downloadAttachment']
         )->name('ris.attachments.download');
+
+        Route::get(
+            '/ris/export-blank-xlsx',
+            [RisController::class, 'exportBlankExcel']
+        )->name('ris.export-blank-xlsx');
+
+        Route::get(
+            '/ris/export-blank-docx',
+            [RisController::class, 'exportBlankWord']
+        )->name('ris.export-blank-docx');
 
         // RIS: update Draft or Minor Revision
         Route::put(
             '/ris/{risId}',
-            [PurchaserController::class, 'updateRis']
+            [RisController::class, 'update']
         )->name('ris.update');
 
         Route::post(
             '/ris/{risId}/submit',
-            [PurchaserController::class, 'submitRis']
+            [RisController::class, 'submit']
         )->name('ris.submit');
 
         Route::get(
             '/ris/{risId}/print',
-            [PurchaserController::class, 'printRis']
+            [RisController::class, 'print']
         )->name('ris.print');
+
+        Route::get(
+            '/ris/{risId}/export-xlsx',
+            [RisController::class, 'exportExcel']
+        )->name('ris.export-xlsx');
+
+        Route::get(
+            '/ris/{risId}/export-docx',
+            [RisController::class, 'exportWord']
+        )->name('ris.export-docx');
 
 
         // =====================================================
@@ -1524,6 +1545,16 @@ Route::middleware([
         )->name('atp.store');
 
         Route::get(
+            '/authority-to-purchase/export-blank-xlsx',
+            [AuthorityToPurchaseController::class, 'exportBlankExcel']
+        )->name('atp.export-blank-xlsx');
+
+        Route::get(
+            '/authority-to-purchase/export-blank-docx',
+            [AuthorityToPurchaseController::class, 'exportBlankWord']
+        )->name('atp.export-blank-docx');
+
+        Route::get(
             '/authority-to-purchase/{id}',
             [AuthorityToPurchaseController::class, 'show']
         )->name('atp.show');
@@ -1544,16 +1575,6 @@ Route::middleware([
         )->name('atp.submit');
 
         Route::post(
-            '/authority-to-purchase/{id}/approve',
-            [AuthorityToPurchaseController::class, 'approve']
-        )->name('atp.approve');
-
-        Route::post(
-            '/authority-to-purchase/{id}/reject',
-            [AuthorityToPurchaseController::class, 'reject']
-        )->name('atp.reject');
-
-        Route::post(
             '/authority-to-purchase/{id}/archive',
             [AuthorityToPurchaseController::class, 'archive']
         )->name('atp.archive');
@@ -1562,6 +1583,16 @@ Route::middleware([
             '/authority-to-purchase/{id}/restore',
             [AuthorityToPurchaseController::class, 'restore']
         )->name('atp.restore');
+
+        Route::get(
+            '/authority-to-purchase/{id}/export-xlsx',
+            [AuthorityToPurchaseController::class, 'exportExcel']
+        )->name('atp.export-xlsx');
+
+        Route::get(
+            '/authority-to-purchase/{id}/export-docx',
+            [AuthorityToPurchaseController::class, 'exportWord']
+        )->name('atp.export-docx');
 
 
         // =====================================================
@@ -1577,6 +1608,16 @@ Route::middleware([
             '/request-check',
             [RequestForCheckController::class, 'store']
         )->name('rfc.store');
+
+        Route::get(
+            '/request-check/export-blank-xlsx',
+            [RequestForCheckController::class, 'exportBlankExcel']
+        )->name('rfc.export-blank-xlsx');
+
+        Route::get(
+            '/request-check/export-blank-docx',
+            [RequestForCheckController::class, 'exportBlankWord']
+        )->name('rfc.export-blank-docx');
 
         Route::put(
             '/request-check/{id}',
@@ -1603,6 +1644,16 @@ Route::middleware([
             [RequestForCheckController::class, 'downloadAttachment']
         )->name('rfc.attachment');
 
+        Route::get(
+            '/request-check/{id}/export-xlsx',
+            [RequestForCheckController::class, 'exportExcel']
+        )->name('rfc.export-xlsx');
+
+        Route::get(
+            '/request-check/{id}/export-docx',
+            [RequestForCheckController::class, 'exportWord']
+        )->name('rfc.export-docx');
+
 
         // =====================================================
         // RECEIVING REPORTS
@@ -1617,6 +1668,16 @@ Route::middleware([
             '/receiving-reports',
             [ReceivingReportController::class, 'store']
         )->name('rr.store');
+
+        Route::get(
+            '/receiving-reports/export-blank-xlsx',
+            [ReceivingReportController::class, 'exportBlankExcel']
+        )->name('rr.export-blank-xlsx');
+
+        Route::get(
+            '/receiving-reports/export-blank-docx',
+            [ReceivingReportController::class, 'exportBlankWord']
+        )->name('rr.export-blank-docx');
 
         Route::put(
             '/receiving-reports/{id}',
@@ -1638,6 +1699,16 @@ Route::middleware([
             [ReceivingReportController::class, 'restore']
         )->name('rr.restore');
 
+        Route::get(
+            '/receiving-reports/{id}/export-xlsx',
+            [ReceivingReportController::class, 'exportExcel']
+        )->name('rr.export-xlsx');
+
+        Route::get(
+            '/receiving-reports/{id}/export-docx',
+            [ReceivingReportController::class, 'exportWord']
+        )->name('rr.export-docx');
+
 
         // =====================================================
         // LIQUIDATION REPORTS
@@ -1645,6 +1716,8 @@ Route::middleware([
 
         Route::get('/liquidation-reports', [LiquidationReportController::class, 'index'])->name('liq.index');
         Route::post('/liquidation-reports', [LiquidationReportController::class, 'store'])->name('liq.store');
+        Route::get('/liquidation-reports/export-blank-xlsx', [LiquidationReportController::class, 'exportBlankExcel'])->name('liq.export-blank-xlsx');
+        Route::get('/liquidation-reports/export-blank-docx', [LiquidationReportController::class, 'exportBlankWord'])->name('liq.export-blank-docx');
         Route::put('/liquidation-reports/{id}', [LiquidationReportController::class, 'update'])->name('liq.update');
         Route::post('/liquidation-reports/{id}/submit', [LiquidationReportController::class, 'submit'])->name('liq.submit');
         Route::post('/liquidation-reports/{id}/archive', [LiquidationReportController::class, 'archive'])->name('liq.archive');
@@ -1703,6 +1776,21 @@ Route::middleware([
             '/suppliers/{supplier}/deactivate',
             [\App\Http\Controllers\SupplierController::class, 'deactivate']
         )->name('suppliers.deactivate');
+
+        Route::post(
+            '/suppliers/{supplier}/notes',
+            [\App\Http\Controllers\SupplierController::class, 'storeNote']
+        )->name('suppliers.notes.store');
+
+        Route::post(
+            '/suppliers/{supplier}/blacklist',
+            [\App\Http\Controllers\SupplierController::class, 'blacklist']
+        )->name('suppliers.blacklist');
+
+        Route::post(
+            '/suppliers/{supplier}/unblacklist',
+            [\App\Http\Controllers\SupplierController::class, 'unblacklist']
+        )->name('suppliers.unblacklist');
 
 
         // =====================================================
@@ -1884,7 +1972,7 @@ Route::middleware([
         // =====================================================
         Route::get(
             '/ris/attachments/{attachmentId}/download',
-            [PurchaserController::class, 'downloadRisAttachment']
+            [RisController::class, 'downloadAttachment']
         )->name('ris.attachments.download');
 
         Route::get(

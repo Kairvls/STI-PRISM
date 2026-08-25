@@ -25,17 +25,17 @@
         @endforeach
     </div>
 
-    <div class="acc-table-wrap slide-up">
-        <table class="acc-table min-w-[820px]">
+    <div class="acc-table-wrap slide-up overflow-x-auto">
+        <table class="acc-table min-w-[960px]">
             <thead>
                 <tr>
-                    <th>Liquidation</th>
-                    <th>Receiving Report</th>
+                    <th>No.</th>
+                    <th>RR</th>
                     <th>Employee</th>
                     <th class="!text-right">Amount</th>
                     <th>Submitted</th>
                     <th>Status</th>
-                    <th></th>
+                    <th class="!text-right">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,8 +44,8 @@
                     <tr>
                         <td class="acc-ref">{{ $row->liquidation_report_form_number ?? ('LIQ-'.$row->liquidation_report_id) }}</td>
                         <td class="acc-muted">{{ $row->receiving_report_form_number ?? '—' }}</td>
-                        <td class="acc-muted">{{ $row->liquidation_report_employee_name }}</td>
-                        <td class="acc-money">{{ $row->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$row->liquidation_report_amount_advance, 2) : '—' }}</td>
+                        <td class="acc-muted">{{ $row->liquidation_report_employee_name ?: '—' }}</td>
+                        <td class="acc-money tabular-nums">{{ $row->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$row->liquidation_report_amount_advance, 2) : '—' }}</td>
                         <td class="acc-muted">{{ $when ? \Carbon\Carbon::parse($when)->format('M d, Y') : '—' }}</td>
                         <td>@include('accounting.partials.status-badge', ['status' => $row->liquidation_report_status])</td>
                         <td class="text-right"><a href="/accounting/liquidation-reports/{{ $row->liquidation_report_id }}" class="acc-row-link">Review</a></td>

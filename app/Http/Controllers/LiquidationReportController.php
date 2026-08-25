@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DocumentWorkflowService;
 use App\Services\LiquidationReportExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
 
 class LiquidationReportController extends Controller
@@ -19,15 +21,13 @@ class LiquidationReportController extends Controller
     {
         $archiveView = $request->query('view') === 'archive';
         $query = $this->liqBaseQuery();
+        PurchaserDocumentAccess::scopeOwned($query, 'liq', 'liquidation_reports_table');
 
-        if ($archiveView) {
-            $query->where('liquidation_reports_table.liquidation_report_is_archived', 1);
-        } else {
-            $query->where(function ($q) {
-                $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
-                    ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
-            });
-        }
+        DocumentWorkflowService::applyArchiveFilter(
+            $query,
+            'liquidation_reports_table.liquidation_report_is_archived',
+            $archiveView
+        );
 
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
@@ -51,7 +51,21 @@ class LiquidationReportController extends Controller
             $query->whereDate('liquidation_reports_table.liquidation_report_date_submitted', $request->date);
         }
 
+        $spotlightQuery = clone $query;
         $reports = $query->orderByDesc('liquidation_reports_table.liquidation_report_created_at')->paginate(10)->withQueryString();
+
+        $viewLiqId = (int) ($request->query('view_liq') ?: 0);
+        if (
+            $viewLiqId
+            && !$reports->getCollection()->contains(fn ($row) => (int) $row->liquidation_report_id === $viewLiqId)
+        ) {
+            $spotlight = $spotlightQuery
+                ->where('liquidation_reports_table.liquidation_report_id', $viewLiqId)
+                ->first();
+            if ($spotlight) {
+                $reports->setCollection($reports->getCollection()->prepend($spotlight));
+            }
+        }
 
         $summary = $this->liqStatusSummary();
 
@@ -60,13 +74,12 @@ class LiquidationReportController extends Controller
         $items = $this->itemsFor($reports->getCollection()->pluck('liquidation_report_id'));
         $attachments = $this->attachmentsFor($reports->getCollection()->pluck('liquidation_report_id'));
 
-        // #region agent log
-        file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'LiquidationReportController.php:index', 'message' => 'purchaser liq index payload', 'data' => ['archiveView' => $archiveView, 'reportsCount' => $reports->count(), 'eligibleRrCount' => $eligibleRrs->count(), 'selectedRrId' => $request->query('selected_rr'), 'willRenderCreatePartial' => $eligibleRrs->isNotEmpty()], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
-        // #endregion
-
         return view('purchaser.liquidation-reports.index', compact(
             'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments'
-        ) + ['selectedRrId' => $request->query('selected_rr')]);
+        ) + [
+            'selectedRrId' => $request->query('selected_rr'),
+            'viewLiqId' => $viewLiqId ?: null,
+        ]);
     }
 
     public function store(Request $request)
@@ -151,6 +164,7 @@ class LiquidationReportController extends Controller
             if (!$liq || !$this->isEditable($liq)) {
                 return back()->with('error', 'This Liquidation Report cannot be submitted.');
             }
+            PurchaserDocumentAccess::assertOwns($liq, 'liq');
 
             if (
                 blank($liq->liquidation_report_employee_name)
@@ -192,10 +206,14 @@ class LiquidationReportController extends Controller
         if (!$liq || !in_array($liq->liquidation_report_status, ['Approved', 'Rejected'], true)) {
             return back()->with('error', 'Only approved or rejected Liquidation Reports can be archived.');
         }
-        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
-            'liquidation_report_is_archived' => 1,
-            'liquidation_report_updated_at' => now(),
-        ]);
+        DocumentWorkflowService::setArchived(
+            'liquidation_reports_table',
+            'liquidation_report_id',
+            $id,
+            'liquidation_report_is_archived',
+            'liquidation_report_updated_at',
+            true
+        );
         return back()->with('success', 'Liquidation Report archived.');
     }
 
@@ -205,15 +223,22 @@ class LiquidationReportController extends Controller
         if (!$liq) {
             return back()->with('error', 'Liquidation Report not found.');
         }
-        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
-            'liquidation_report_is_archived' => 0,
-            'liquidation_report_updated_at' => now(),
-        ]);
+        DocumentWorkflowService::setArchived(
+            'liquidation_reports_table',
+            'liquidation_report_id',
+            $id,
+            'liquidation_report_is_archived',
+            'liquidation_report_updated_at',
+            false
+        );
         return back()->with('success', 'Liquidation Report restored.');
     }
 
     public function downloadAttachment($id, $attachmentId)
     {
+        $liq = $this->find($id);
+        abort_if(!$liq, 404);
+
         $attachment = DB::table('liquidation_report_attachments_table')
             ->where('liquidation_attachment_id', $attachmentId)
             ->where('liquidation_report_id', $id)
@@ -236,6 +261,16 @@ class LiquidationReportController extends Controller
         return $exporter->downloadWord($this->loadForExport($id));
     }
 
+    public function exportBlankExcel(LiquidationReportExporter $exporter)
+    {
+        return $exporter->downloadExcel();
+    }
+
+    public function exportBlankWord(LiquidationReportExporter $exporter)
+    {
+        return $exporter->downloadWord();
+    }
+
     public static function reviewBaseQuery()
     {
         return DB::table('liquidation_reports_table')
@@ -255,6 +290,7 @@ class LiquidationReportController extends Controller
     {
         $liq = $this->liqBaseQuery()->where('liquidation_reports_table.liquidation_report_id', $id)->first();
         abort_if(!$liq, 404);
+        PurchaserDocumentAccess::assertOwns($liq, 'liq');
         $items = DB::table('liquidation_report_items_table')
             ->where('liquidation_report_id', $id)
             ->orderBy('liquidation_item_id')
@@ -326,6 +362,7 @@ class LiquidationReportController extends Controller
         ];
 
         if (!$existing) {
+            $row['liquidation_report_created_by'] = auth()->id();
             $row['liquidation_report_created_at'] = $now;
         }
 
@@ -632,14 +669,19 @@ class LiquidationReportController extends Controller
 
     private function find($id)
     {
-        return DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        if ($liq) {
+            PurchaserDocumentAccess::assertOwns($liq, 'liq');
+        }
+
+        return $liq;
     }
 
     private function notifyAccountingLiq($id): void
     {
         $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
         $ref = $liq->liquidation_report_form_number ?? ('LIQ #' . $id);
-        WorkflowNotifier::toRole(
+        DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ACCOUNTING,
             'Liquidation Report submitted',
             $ref . ' is waiting for Accounting review.',
@@ -652,7 +694,11 @@ class LiquidationReportController extends Controller
 
     private function isEditable($liq): bool
     {
-        return in_array($liq->liquidation_report_status, ['Draft', 'Minor Revision'], true)
-            && empty($liq->liquidation_report_is_archived);
+        return DocumentWorkflowService::isEditable(
+            $liq,
+            'liquidation_report_status',
+            ['Draft', 'Minor Revision'],
+            'liquidation_report_is_archived'
+        );
     }
 }
