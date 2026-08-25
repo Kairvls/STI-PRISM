@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
+use App\Services\DocumentWorkflowService;
+use App\Services\ReceivingReportFormExporter;
 
 class ReceivingReportController extends Controller
 {
@@ -21,15 +24,13 @@ class ReceivingReportController extends Controller
     {
         $archiveView = $request->query('view') === 'archive';
         $query = $this->rrBaseQuery();
+        PurchaserDocumentAccess::scopeOwned($query, 'rr', 'receiving_reports_table');
 
-        if ($archiveView) {
-            $query->where('receiving_reports_table.receiving_report_is_archived', 1);
-        } else {
-            $query->where(function ($q) {
-                $q->whereNull('receiving_reports_table.receiving_report_is_archived')
-                    ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
-            });
-        }
+        DocumentWorkflowService::applyArchiveFilter(
+            $query,
+            'receiving_reports_table.receiving_report_is_archived',
+            $archiveView
+        );
 
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
@@ -49,10 +50,24 @@ class ReceivingReportController extends Controller
             $query->whereDate('receiving_reports_table.receiving_report_date', $request->date);
         }
 
+        $spotlightQuery = clone $query;
         $reports = $query
             ->orderByDesc('receiving_reports_table.receiving_report_created_at')
             ->paginate(10)
             ->withQueryString();
+
+        $viewRrId = (int) ($request->query('view_rr') ?: 0);
+        if (
+            $viewRrId
+            && !$reports->getCollection()->contains(fn ($row) => (int) $row->receiving_report_id === $viewRrId)
+        ) {
+            $spotlight = $spotlightQuery
+                ->where('receiving_reports_table.receiving_report_id', $viewRrId)
+                ->first();
+            if ($spotlight) {
+                $reports->setCollection($reports->getCollection()->prepend($spotlight));
+            }
+        }
 
         $summary = $this->rrStatusSummary();
 
@@ -87,6 +102,7 @@ class ReceivingReportController extends Controller
             'rfcPrefill' => $rfcPrefill,
             'items' => $items,
             'selectedRfcId' => $request->query('selected_rfc'),
+            'viewRrId' => $viewRrId ?: null,
         ]);
     }
 
@@ -113,6 +129,7 @@ class ReceivingReportController extends Controller
                 'receiving_report_delivery_date' => $validated['receiving_report_delivery_date'] ?? null,
                 'receiving_report_received_by_signature' => $validated['receiving_report_received_by_signature'] ?? ($user->user_full_name ?? null),
                 'receiving_report_status' => $isDraft ? 'Draft' : 'Submitted',
+                'receiving_report_created_by' => auth()->id(),
                 'receiving_report_submitted_by' => $isDraft ? null : auth()->id(),
                 'receiving_report_submitted_at' => $isDraft ? null : $now,
                 'receiving_report_is_archived' => 0,
@@ -208,6 +225,7 @@ class ReceivingReportController extends Controller
             if (!$rr || !$this->isEditable($rr)) {
                 return back()->with('error', 'This Receiving Report cannot be submitted.');
             }
+            PurchaserDocumentAccess::assertOwns($rr, 'rr');
 
             if ($error = $this->rrEligibilityError($rr->receiving_report_request_check_id, $id, true)) {
                 return back()->with('error', $error);
@@ -239,10 +257,14 @@ class ReceivingReportController extends Controller
             return back()->with('error', 'Only completed or returned Receiving Reports can be archived.');
         }
 
-        DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
-            'receiving_report_is_archived' => 1,
-            'receiving_report_updated_at' => now(),
-        ]);
+        DocumentWorkflowService::setArchived(
+            'receiving_reports_table',
+            'receiving_report_id',
+            $id,
+            'receiving_report_is_archived',
+            'receiving_report_updated_at',
+            true
+        );
 
         return back()->with('success', 'Receiving Report archived.');
     }
@@ -254,10 +276,14 @@ class ReceivingReportController extends Controller
             return back()->with('error', 'Receiving Report not found.');
         }
 
-        DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
-            'receiving_report_is_archived' => 0,
-            'receiving_report_updated_at' => now(),
-        ]);
+        DocumentWorkflowService::setArchived(
+            'receiving_reports_table',
+            'receiving_report_id',
+            $id,
+            'receiving_report_is_archived',
+            'receiving_report_updated_at',
+            false
+        );
 
         return back()->with('success', 'Receiving Report restored.');
     }
@@ -580,14 +606,53 @@ class ReceivingReportController extends Controller
 
     private function findRr($id)
     {
-        return DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+        if ($rr) {
+            PurchaserDocumentAccess::assertOwns($rr, 'rr');
+        }
+
+        return $rr;
+    }
+
+    public function exportBlankExcel(ReceivingReportFormExporter $exporter)
+    {
+        return $exporter->downloadExcel();
+    }
+
+    public function exportBlankWord(ReceivingReportFormExporter $exporter)
+    {
+        return $exporter->downloadWord();
+    }
+
+    public function exportExcel($id, ReceivingReportFormExporter $exporter)
+    {
+        $rr = $this->findRr($id);
+        abort_if(!$rr, 404);
+        $items = DB::table('receiving_report_items_table')
+            ->where('receiving_report_id', $id)
+            ->orderBy('receiving_report_item_id')
+            ->get();
+
+        return $exporter->downloadExcel($rr, $items);
+    }
+
+    public function exportWord($id, ReceivingReportFormExporter $exporter)
+    {
+        $rr = $this->findRr($id);
+        abort_if(!$rr, 404);
+        $items = DB::table('receiving_report_items_table')
+            ->where('receiving_report_id', $id)
+            ->orderBy('receiving_report_item_id')
+            ->get();
+
+        return $exporter->downloadWord($rr, $items);
     }
 
     private function notifyReceiving($id): void
     {
         $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
         $ref = $rr->receiving_report_form_number ?? ('RR #' . $id);
-        WorkflowNotifier::toRole(
+        DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_RECEIVING,
             'Receiving Report submitted',
             $ref . ' is waiting for inspection.',
@@ -643,7 +708,11 @@ class ReceivingReportController extends Controller
 
     private function isEditable($rr): bool
     {
-        return in_array($rr->receiving_report_status, ['Draft', 'Minor Revision'], true)
-            && empty($rr->receiving_report_is_archived);
+        return DocumentWorkflowService::isEditable(
+            $rr,
+            'receiving_report_status',
+            ['Draft', 'Minor Revision'],
+            'receiving_report_is_archived'
+        );
     }
 }

@@ -15,11 +15,19 @@
         $search = $search ?? '';
         $procurementCards = [
             [
+                'filter' => 'all',
+                'label' => 'All',
+                'count' => $allRis ?? ($risRecords->total() ?? 0),
+                'amount' => $allRisAmount ?? 0,
+                'color' => 'text-slate-900',
+                'title' => 'Show all RIS records, including completed work',
+            ],
+            [
                 'filter' => 'pending',
                 'label' => 'Pending',
                 'count' => $pendingRis ?? 0,
                 'amount' => $pendingRisAmount ?? 0,
-                'color' => 'text-amber-600',
+                'color' => 'text-sky-600',
                 'title' => 'Show RIS forms that still need admin review',
             ],
             [
@@ -27,16 +35,8 @@
                 'label' => 'Forwarded to President',
                 'count' => $forwardedRis ?? 0,
                 'amount' => $forwardedRisAmount ?? 0,
-                'color' => 'text-indigo-600',
+                'color' => 'text-amber-600',
                 'title' => 'Show RIS forms currently waiting on the President',
-            ],
-            [
-                'filter' => 'all',
-                'label' => 'All',
-                'count' => $allRis ?? ($risRecords->total() ?? 0),
-                'amount' => $allRisAmount ?? 0,
-                'color' => 'text-slate-900',
-                'title' => 'Show all RIS records, including completed work',
             ],
         ];
     @endphp
@@ -95,7 +95,7 @@
                 {{-- TABLE TITLE --}}
                 {{-- ================================================= --}}
 
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                     <div>
 
@@ -110,7 +110,12 @@
                     </div>
 
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
+
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'adminPrViewSwitcher',
+                            'btnClass' => 'admin-pr-view-btn',
+                        ])
 
                         <a
                             href="{{ route('admin.procurement-review.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
@@ -125,7 +130,7 @@
 
                         <div
                             id="risTotalCount"
-                            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700"
+                            class="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
                             title="Number of RIS records matching the current filter"
                         >
 
@@ -226,13 +231,25 @@
 
 
         {{-- ===================================================== --}}
-        {{-- RIS TABLE --}}
+        {{-- RIS TABLE / CARDS --}}
         {{-- ===================================================== --}}
 
-        <div class="overflow-x-auto" id="risTableContainer">
-
+        <div class="overflow-x-auto" id="risTableContainer" data-pr-panel="table">
             @include('admin.procurement-review._table')
+        </div>
 
+        <div id="risCardsContainer" class="hidden space-y-3 px-5 py-4" data-pr-panel="cards">
+            @forelse($risRecords as $ris)
+                @include('admin.partials.ris-info-card', ['ris' => $ris, 'cardMode' => 'procurement'])
+            @empty
+                <div class="px-2 py-10 text-center text-sm text-gray-400">No RIS records found.</div>
+            @endforelse
+
+            @include('layouts.partials.table-showing-pager', [
+                'pager' => $risRecords,
+                'linkClass' => 'ris-pagination-link',
+                'noun' => 'records',
+            ])
         </div>
 
     </div>

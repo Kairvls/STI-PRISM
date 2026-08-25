@@ -19,12 +19,21 @@
             'unit_cost' => $oldRisItems[$i]['unit_cost'] ?? '',
         ];
     }
+    $viewRisId = request('view_ris') ?: request('ris_id');
     $risPageBoot = [
-        'openModal' => request('ris_id') ? 'ris-' . request('ris_id') : null,
+        'openModal' => $viewRisId ? 'ris-' . $viewRisId : null,
         'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
         'createItems' => $createItemsInit,
         'purposeText' => (string) old('ris_purpose_description', ''),
         'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
+        'supplierWarnings' => collect($activeSuppliers ?? [])->mapWithKeys(function ($supplier) {
+            return [
+                (string) $supplier->supplier_id => [
+                    'flagged' => (bool) ($supplier->is_blacklisted ?? false),
+                    'reason' => (string) ($supplier->supplier_blacklist_reason ?? ''),
+                ],
+            ];
+        })->all(),
         'replacementRequests' => collect($availableReplacementRequests ?? [])->map(function ($request) {
             return [
                 'id' => $request->procurement_request_id,
@@ -47,6 +56,10 @@
         editRisModal: null,
         selectedReplacementData() {
             return this.replacementRequests.find(item => String(item.id) === String(this.selectedReplacement)) || null;
+        },
+        supplierWarning(supplierId) {
+            const entry = (this.supplierWarnings || {})[String(supplierId || '')];
+            return entry && entry.flagged ? entry : null;
         },
         replacementPurpose() {
             const item = this.selectedReplacementData();
@@ -118,6 +131,7 @@
             });
         },
         recordsLoading: false,
+        filterError: null,
         searchTimer: null,
         async refreshRisRecords(url = null) {
             const form = this.$refs.risFilterForm;
@@ -135,6 +149,9 @@
             }
 
             this.recordsLoading = true;
+            this.filterError = null;
+            this.openModal = null;
+            this.editRisModal = null;
 
             try {
                 const response = await fetch(requestUrl, {
@@ -153,6 +170,8 @@
 
                 const nextRecords = parsed.querySelector('#ris-records-section');
                 const currentRecords = document.querySelector('#ris-records-section');
+                const nextModals = parsed.querySelector('#ris-modals-section');
+                const currentModals = document.querySelector('#ris-modals-section');
 
                 if (!nextRecords || !currentRecords) {
                     throw new Error('RIS records section was not found.');
@@ -160,10 +179,22 @@
 
                 currentRecords.innerHTML = nextRecords.innerHTML;
 
+                if (nextModals && currentModals) {
+                    currentModals.innerHTML = nextModals.innerHTML;
+                }
+
+                if (window.Alpine) {
+                    Alpine.initTree(currentRecords);
+                    if (currentModals) {
+                        Alpine.initTree(currentModals);
+                    }
+                }
+
                 const nextUrl = new URL(requestUrl, window.location.origin);
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
             } catch (error) {
                 console.error(error);
+                this.filterError = 'Could not refresh records. Please try again.';
             } finally {
                 this.recordsLoading = false;
             }
@@ -176,6 +207,8 @@
             {{ session('success') }}
         </div>
     @endif
+
+    <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
 
     @if(session('error'))
         <div class="pur-alert-error">
@@ -203,7 +236,7 @@
     <div class="mb-7">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <p class="pur-page-kicker">Procurement</p>
+                <p class="pur-page-kicker">Purchasing Workflow</p>
                 <h1 class="pur-page-title">Requisition &amp; Issue Slips</h1>
             </div>
 
@@ -221,7 +254,7 @@
                     x-on:click="createRisModal = true"
                     class="pur-btn-primary"
                 >
-                    + New RIS
+                    Create RIS
                 </button>
             </div>
         </div>
@@ -343,6 +376,11 @@
         x-show="openModal === 'empty-ris'"
         x-on:keydown.escape.window="openModal = null"
         class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-effect="window.purDialog && window.purDialog.sync(openModal === 'empty-ris', $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ris-empty-title"
     >
         <div
             x-on:click.self="openModal = null"
@@ -353,7 +391,7 @@
                 {{-- MODAL HEADER --}}
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">
+                        <h3 id="ris-empty-title" class="text-lg font-semibold text-gray-900">
                             Print Empty RIS
                         </h3>
 
@@ -366,6 +404,7 @@
                         type="button"
                         x-on:click="openModal = null"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        aria-label="Close"
                     >
                         Close
                     </button>
@@ -408,6 +447,14 @@
                                         class="ris-item-column"
                                     >
                                         ITEM
+                                    </th>
+
+                                    {{-- SUPPLIER --}}
+                                    <th
+                                        rowspan="2"
+                                        class="ris-supplier-column"
+                                    >
+                                        SUPPLIER
                                     </th>
 
                                     {{-- QUANTITY --}}
@@ -455,6 +502,7 @@
                                 {{-- ORIGINAL FORM HAS 8 BLANK ROWS --}}
                                 @for($row = 0; $row < 8; $row++)
                                     <tr>
+                                        <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
@@ -566,6 +614,20 @@
                         Cancel
                     </button>
 
+                    <a
+                        href="{{ route('purchaser.ris.export-blank-xlsx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Excel
+                    </a>
+
+                    <a
+                        href="{{ route('purchaser.ris.export-blank-docx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Word
+                    </a>
+
                     <button
                         type="button"
                         onclick="printRis('print-empty-ris-content')"
@@ -660,31 +722,35 @@
             font-size: 12px;
         }
 
-        /* Column widths matching the original */
+        /* Column widths matching the original (with supplier) */
         .ris-item-column {
-            width: 40%;
+            width: 32%;
+        }
+
+        .ris-supplier-column {
+            width: 18%;
         }
 
         .ris-quantity-header {
-            width: 23%;
+            width: 20%;
         }
 
         .ris-requested-column {
-            width: 11%;
+            width: 10%;
             font-size: 11px !important;
         }
 
         .ris-issued-column {
-            width: 12%;
+            width: 10%;
             font-size: 11px !important;
         }
 
         .ris-unit-cost-column {
-            width: 17%;
+            width: 15%;
         }
 
         .ris-amount-column {
-            width: 20%;
+            width: 15%;
         }
 
         .ris-purpose-area {
@@ -896,11 +962,16 @@
         x-show="createRisModal"
         x-transition.opacity
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        x-effect="window.purDialog && window.purDialog.sync(createRisModal, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
     >
         {{-- MODAL CONTAINER --}}
         <div
             x-on:click.outside="createRisModal = false"
             class="max-h-[95vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-white shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ris-create-title"
         >
             <form method="POST" action="{{ route('purchaser.ris.store') }}" enctype="multipart/form-data">
                 @csrf
@@ -1007,13 +1078,14 @@
                 {{-- MODAL TOP BAR --}}
                 <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Create Requisition and Issue Slip</h3>
+                        <h3 id="ris-create-title" class="text-lg font-semibold text-gray-900">Create Requisition and Issue Slip</h3>
                         <p class="text-sm text-gray-500">Fill out the RIS form below.</p>
                     </div>
                     <button
                         type="button"
                         x-on:click="createRisModal = false"
                         class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600 hover:bg-gray-200"
+                        aria-label="Close"
                     >
                         ×
                     </button>
@@ -1114,6 +1186,11 @@
                                                         <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
                                                     @endforeach
                                                 </select>
+                                                <p
+                                                    class="mt-1 px-1 text-[10px] leading-snug text-amber-700"
+                                                    x-show="supplierWarning(item.supplier_id)"
+                                                    x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"
+                                                ></p>
                                             </td>
                                             <td class="border border-gray-800 p-1">
                                                 <input
@@ -1294,7 +1371,20 @@
 
                     <select name="status" x-on:change="refreshRisRecords()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        @foreach(['Draft', 'In Review', 'Submitted', 'Under Review', 'Minor Revision', 'Resubmitted', 'Approved', 'Rejected'] as $status)
+                        @foreach([
+                            'Draft',
+                            'In Review',
+                            'Submitted',
+                            'Under Review',
+                            'Minor Revision',
+                            'Resubmitted',
+                            'Approved',
+                            'Directly Approved',
+                            'Forwarded to President',
+                            'Approved by the President',
+                            'Rejected',
+                            'Rejected by the President',
+                        ] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
                         @endforeach
                     </select>
@@ -1465,6 +1555,7 @@
         </div>
     </div>
 
+    <div id="ris-modals-section">
     @foreach($risRecords as $ris)
 
         {{-- VIEW RIS MODAL --}}
@@ -1473,16 +1564,21 @@
             x-show="openModal === 'ris-{{ $ris->ris_id }}'"
             x-on:keydown.escape.window="openModal = null"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            x-effect="window.purDialog && window.purDialog.sync(openModal === 'ris-{{ $ris->ris_id }}', $el)"
+            @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         >
             <div
                 x-on:click.self="openModal = null"
                 class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ris-view-title-{{ $ris->ris_id }}"
             >
                 {{-- MODAL HEADER --}}
                 <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                     <div>
                         <div class="flex flex-wrap items-center gap-3">
-                            <h3 class="text-xl font-semibold text-gray-900">
+                            <h3 id="ris-view-title-{{ $ris->ris_id }}" class="text-xl font-semibold text-gray-900">
                                 {{ $ris->ris_form_number ?: 'Draft RIS' }}
                             </h3>
 
@@ -1493,12 +1589,24 @@
                         @if(!empty($ris->supplier_display_name))
                             <p class="mt-1 text-sm text-gray-500">Supplier: {{ $ris->supplier_display_name }}</p>
                         @endif
+                        @php
+                            $risLineage = \App\Support\DocumentLineage::forRis((int) $ris->ris_id);
+                            $risHint = \App\Support\DocumentLineage::reviewHintForRis($ris);
+                        @endphp
+                        <div class="mt-3">
+                            @include('partials.document-lineage', [
+                                'lineage' => $risLineage,
+                                'currentType' => 'RIS',
+                                'statusHint' => $risHint,
+                            ])
+                        </div>
                     </div>
 
                     <button
                         type="button"
                         x-on:click="openModal = null"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        aria-label="Close"
                     >
                         Close
                     </button>
@@ -1552,7 +1660,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
-                                        <th rowspan="2">SUPPLIER</th>
+                                        <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                         <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -1717,6 +1825,20 @@
                             Print RIS
                         </button>
 
+                        <a
+                            href="{{ route('purchaser.ris.export-xlsx', $ris->ris_id) }}"
+                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                            Excel
+                        </a>
+
+                        <a
+                            href="{{ route('purchaser.ris.export-docx', $ris->ris_id) }}"
+                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                            Word
+                        </a>
+
                         @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
                             <button
                                 type="button"
@@ -1780,6 +1902,11 @@
             x-show="openModal === 'print-ris-{{ $ris->ris_id }}'"
             x-on:keydown.escape.window="openModal = null"
             class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+            x-effect="window.purDialog && window.purDialog.sync(openModal === 'print-ris-{{ $ris->ris_id }}', $el)"
+            @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ris-print-title-{{ $ris->ris_id }}"
         >
             <div x-on:click.self="openModal = null" class="flex min-h-full w-full justify-center">
                 <div class="my-auto w-full max-w-5xl rounded-xl bg-white shadow-2xl">
@@ -1787,13 +1914,14 @@
                     {{-- PRINT PREVIEW HEADER --}}
                     <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Print RIS</h3>
+                            <h3 id="ris-print-title-{{ $ris->ris_id }}" class="text-lg font-semibold text-gray-900">Print RIS</h3>
                             <p class="mt-1 text-sm text-gray-500">{{ $ris->ris_form_number ?: 'No RIS Number' }}</p>
                         </div>
                         <button
                             type="button"
                             x-on:click="openModal = null"
                             class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                            aria-label="Close"
                         >
                             Close
                         </button>
@@ -1815,7 +1943,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
-                                        <th rowspan="2">SUPPLIER</th>
+                                        <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                         <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -1880,6 +2008,18 @@
                         >
                             Cancel
                         </button>
+                        <a
+                            href="{{ route('purchaser.ris.export-xlsx', $ris->ris_id) }}"
+                            class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                            Excel
+                        </a>
+                        <a
+                            href="{{ route('purchaser.ris.export-docx', $ris->ris_id) }}"
+                            class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                            Word
+                        </a>
                         <button
                             type="button"
                             onclick="printRis('print-ris-content-{{ $ris->ris_id }}')"
@@ -1901,6 +2041,8 @@
                 x-on:click.self="editRisModal = null"
                 x-on:keydown.escape.window="editRisModal = null"
                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                x-effect="window.purDialog && window.purDialog.sync(editRisModal === 'edit-ris-{{ $ris->ris_id }}', $el)"
+                @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
             >
                 <div
                     x-data="{
@@ -1929,17 +2071,21 @@
                     }
                 }"
                     class="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="ris-edit-title-{{ $ris->ris_id }}"
                 >
                     {{-- EDIT MODAL HEADER --}}
                     <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Edit RIS</h3>
+                            <h3 id="ris-edit-title-{{ $ris->ris_id }}" class="text-lg font-semibold text-gray-900">Edit RIS</h3>
                             <p class="mt-1 text-sm text-gray-500">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
                         </div>
                         <button
                             type="button"
                             x-on:click="editRisModal = null"
                             class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                            aria-label="Close"
                         >
                             Close
                         </button>
@@ -2005,7 +2151,7 @@
                                         <thead>
                                             <tr>
                                                 <th rowspan="2" class="ris-item-column">ITEM</th>
-                                                <th rowspan="2">SUPPLIER</th>
+                                                <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                                 <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                                 <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                                 <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -2051,6 +2197,11 @@
                                                                 <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
                                                             @endforeach
                                                         </select>
+                                                        <p
+                                                            class="mt-1 text-[10px] leading-snug text-amber-700"
+                                                            x-show="$root.supplierWarning(item.supplier_id)"
+                                                            x-text="'Warning: ' + ($root.supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"
+                                                        ></p>
                                                     </td>
                                                     <td><input type="number" min="1" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center"></td>
                                                     <td><input type="number" min="0" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center"></td>
@@ -2189,6 +2340,7 @@
         @endif
 
     @endforeach
+    </div>
 
 </div>
 
@@ -2523,31 +2675,35 @@
                        ============================================ */
 
                     .ris-item-column {
-                        width: 40%;
+                        width: 32%;
+                    }
+
+                    .ris-supplier-column {
+                        width: 18%;
                     }
 
                     .ris-quantity-header {
-                        width: 23%;
+                        width: 20%;
                     }
 
                     .ris-requested-column {
-                        width: 11%;
+                        width: 10%;
 
                         font-size: 7pt !important;
                     }
 
                     .ris-issued-column {
-                        width: 12%;
+                        width: 10%;
 
                         font-size: 7pt !important;
                     }
 
                     .ris-unit-cost-column {
-                        width: 17%;
+                        width: 15%;
                     }
 
                     .ris-amount-column {
-                        width: 20%;
+                        width: 15%;
                     }
 
 

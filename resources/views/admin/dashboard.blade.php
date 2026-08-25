@@ -167,137 +167,107 @@
             @endif
 
 
-{{-- Quick Access Dashboards --}}
+            @php
+                $trendApprovedSeries = $risTrendApproved ?? [];
+                $trendForwardedSeries = $risTrendForwarded ?? [];
+                $trendAmendSeries = $risTrendAmend ?? [];
+                $trendRejectedSeries = $risTrendRejected ?? [];
+                $pctChange = function (array $series): float {
+                    $n = count($series);
+                    if ($n < 2) {
+                        return 0.0;
+                    }
+                    $prev = (float) $series[$n - 2];
+                    $curr = (float) $series[$n - 1];
+                    if (abs($prev) < 0.00001) {
+                        return $curr > 0 ? 100.0 : 0.0;
+                    }
+                    return round((($curr - $prev) / $prev) * 100, 1);
+                };
+                $approvedPct = $pctChange($trendApprovedSeries);
+                $forwardedPct = $pctChange($trendForwardedSeries);
+                $amendPct = $pctChange($trendAmendSeries);
+                $rejectedPct = $pctChange($trendRejectedSeries);
+                $latestApproved = (int) (end($trendApprovedSeries) ?: 0);
+                $latestForwarded = (int) (end($trendForwardedSeries) ?: 0);
+                $latestAmend = (int) (end($trendAmendSeries) ?: 0);
+                $latestRejected = (int) (end($trendRejectedSeries) ?: 0);
+            @endphp
 
-            <div class="dashboard-quick-access">
-                <div class="dashboard-quick-header">
-                    <div>
-                        <h3 class="dashboard-quick-title">Quick Access</h3>
-                        <p class="dashboard-quick-subtitle">Click to open section overview in a modal</p>
+            {{-- RIS Overview metrics (reference-style cards) --}}
+            <div class="ris-metrics-grid">
+                <div class="ris-metric-card ris-metric-card-wide">
+                    <div class="ris-metric-top">
+                        <span class="ris-metric-label">Proposed budget · {{ $budgetProposalYear ?? now()->year }}</span>
+                        <div class="ris-metric-value-row">
+                            <span class="ris-metric-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 0) }}</span>
+                        </div>
+                        <span class="ris-metric-hint">vs selected period</span>
+                    </div>
+                    <div class="ris-metric-chart">
+                        <canvas id="risProposedChart"></canvas>
                     </div>
                 </div>
-                <div class="dashboard-quick-grid">
-                    <button type="button" onclick="openQuickAccessModal('procurement')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-blue">
-                            <i data-lucide="clipboard-check"></i>
-                        </div>
-                        <span class="quick-access-label">Procurement Review</span>
-                        <span class="quick-access-desc">Review and approve RIS submissions</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('signris')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-violet">
-                            <i data-lucide="pen-tool"></i>
-                        </div>
-                        <span class="quick-access-label">Sign RIS</span>
-                        <span class="quick-access-desc">Co-sign President-approved RIS</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('history')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-indigo">
-                            <i data-lucide="history"></i>
-                        </div>
-                        <span class="quick-access-label">Signature History</span>
-                        <span class="quick-access-desc">View completed signature records</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('users')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-emerald">
-                            <i data-lucide="users"></i>
-                        </div>
-                        <span class="quick-access-label">User Management</span>
-                        <span class="quick-access-desc">Manage system users and roles</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('reports')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-amber">
-                            <i data-lucide="file-text"></i>
-                        </div>
-                        <span class="quick-access-label">System Reports</span>
-                        <span class="quick-access-desc">Read-only maintenance, receiving, approvals, and access</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('settings')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
-                        <div class="quick-access-icon quick-access-icon-rose">
-                            <i data-lucide="settings"></i>
-                        </div>
-                        <span class="quick-access-label">System Settings</span>
-                        <span class="quick-access-desc">Campus setup PIN and admin controls</span>
-                    </button>
-                </div>
-            </div>
 
-
-            {{-- Budget Proposal --}}
-
-            <div class="dashboard-chart-card">
-                <div class="dashboard-chart-header">
-                    <div>
-                        <h3 class="dashboard-chart-title">Budget Proposal</h3>
-                        <p class="dashboard-chart-subtitle">RIS amounts for {{ $budgetProposalYear ?? now()->year }} from submitted forms</p>
+                <div class="ris-metric-card">
+                    <div class="ris-metric-top">
+                        <span class="ris-metric-label">Admin approved</span>
+                        <div class="ris-metric-value-row">
+                            <span class="ris-metric-value">{{ $latestApproved }}</span>
+                            <span class="ris-metric-pill {{ $approvedPct >= 0 ? 'is-up' : 'is-down' }}">
+                                {{ $approvedPct >= 0 ? '+' : '' }}{{ $approvedPct }}%
+                            </span>
+                        </div>
+                        <span class="ris-metric-hint">vs last month</span>
                     </div>
-                    <div class="budget-proposal-total">
-                        <span class="budget-proposal-total-label">Proposed</span>
-                        <span class="budget-proposal-total-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 2) }}</span>
+                    <div class="ris-metric-chart ris-metric-chart-sm">
+                        <canvas id="risApprovedSpark"></canvas>
                     </div>
                 </div>
-                <div class="budget-proposal-grid">
-                    <div class="budget-proposal-item">
-                        <span class="budget-proposal-dot" style="background:#38bdf8;"></span>
-                        <div>
-                            <p class="budget-proposal-label">Admin Approved</p>
-                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetAdminApprovedAmount ?? 0), 2) }}</p>
+
+                <div class="ris-metric-card">
+                    <div class="ris-metric-top">
+                        <span class="ris-metric-label">President approved</span>
+                        <div class="ris-metric-value-row">
+                            <span class="ris-metric-value">{{ $latestForwarded }}</span>
+                            <span class="ris-metric-pill {{ $forwardedPct >= 0 ? 'is-up' : 'is-down' }}">
+                                {{ $forwardedPct >= 0 ? '+' : '' }}{{ $forwardedPct }}%
+                            </span>
                         </div>
+                        <span class="ris-metric-hint">vs last month</span>
                     </div>
-                    <div class="budget-proposal-item">
-                        <span class="budget-proposal-dot" style="background:#059669;"></span>
-                        <div>
-                            <p class="budget-proposal-label">Approved by the President</p>
-                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPresidentApprovedAmount ?? 0), 2) }}</p>
-                        </div>
-                    </div>
-                    <div class="budget-proposal-item">
-                        <span class="budget-proposal-dot" style="background:#d97706;"></span>
-                        <div>
-                            <p class="budget-proposal-label">Pending</p>
-                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 2) }}</p>
-                        </div>
-                    </div>
-                    <div class="budget-proposal-item">
-                        <span class="budget-proposal-dot" style="background:#e11d48;"></span>
-                        <div>
-                            <p class="budget-proposal-label">Rejected by the President</p>
-                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPresidentRejectedAmount ?? 0), 2) }}</p>
-                        </div>
+                    <div class="ris-metric-chart ris-metric-chart-sm">
+                        <canvas id="risPresidentSpark"></canvas>
                     </div>
                 </div>
-            </div>
 
-
-            {{-- RIS Monthly Trend Chart --}}
-
-            <div class="dashboard-chart-card">
-                <div class="dashboard-chart-header">
-                    <div>
-                        <h3 class="dashboard-chart-title">Monthly Trend</h3>
-                        <p class="dashboard-chart-subtitle">Admin Approved, President Approved, Amend, and Rejected by the President over the last 6 months</p>
+                <div class="ris-metric-card">
+                    <div class="ris-metric-top">
+                        <span class="ris-metric-label">Pending amount</span>
+                        <div class="ris-metric-value-row">
+                            <span class="ris-metric-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 0) }}</span>
+                        </div>
+                        <span class="ris-metric-hint">awaiting action</span>
                     </div>
-                    <div class="dashboard-chart-legend">
-                        <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#38bdf8;"></span>
-                            <span>Admin Approved</span>
-                        </div>
-                        <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#059669;"></span>
-                            <span>Approved by the President</span>
-                        </div>
-                        <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#f59e0b;"></span>
-                            <span>Amend</span>
-                        </div>
-                        <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#e11d48;"></span>
-                            <span>Rejected by the President</span>
-                        </div>
+                    <div class="ris-metric-chart ris-metric-chart-sm">
+                        <canvas id="risPendingBars"></canvas>
                     </div>
                 </div>
-                <div class="dashboard-chart-body dashboard-chart-body-trend">
-                    <canvas id="risTrendChart"></canvas>
+
+                <div class="ris-metric-card">
+                    <div class="ris-metric-top">
+                        <span class="ris-metric-label">Amend / reject</span>
+                        <div class="ris-metric-value-row">
+                            <span class="ris-metric-value">{{ $latestAmend + $latestRejected }}</span>
+                            <span class="ris-metric-pill {{ ($amendPct + $rejectedPct) <= 0 ? 'is-up' : 'is-down' }}">
+                                {{ $amendPct >= 0 ? '+' : '' }}{{ $amendPct }}% amend
+                            </span>
+                        </div>
+                        <span class="ris-metric-hint">vs last month</span>
+                    </div>
+                    <div class="ris-metric-chart ris-metric-chart-sm">
+                        <canvas id="risAmendSpark"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -377,14 +347,35 @@
 
         <div class="dashboard-sidebar">
 
-{{-- 1. RIS Status Distribution --}}
+{{-- 1. RIS Status Overview --}}
 
-            <div class="sidebar-chart-card">
+            <div class="sidebar-chart-card ris-overview-card">
                 <div class="sidebar-chart-header">
                     <h3 class="sidebar-chart-title">RIS Status Overview</h3>
+                    <p class="ris-overview-sub">Breakdown for current pipeline</p>
                 </div>
-                <div class="sidebar-chart-body">
-                    <canvas id="risStatusChart" height="200"></canvas>
+                <div class="ris-overview-chart-wrap">
+                    <canvas id="risStatusChart" height="140"></canvas>
+                </div>
+                <div class="ris-overview-breakdown">
+                    @php
+                        $overviewRows = [
+                            ['Pending', (int) ($pendingRis ?? 0), '#60a5fa'],
+                            ['Admin Approved', (int) ($directApprovedRis ?? 0), '#93c5fd'],
+                            ['President Approved', (int) ($approvedRis ?? 0), '#64748b'],
+                            ['Amend', (int) ($amendRis ?? 0), '#fbbf24'],
+                            ['Rejected', (int) ($presidentRejectedRis ?? 0), '#475569'],
+                        ];
+                        $overviewTotal = max(1, collect($overviewRows)->sum(fn ($r) => $r[1]));
+                    @endphp
+                    @foreach ($overviewRows as $row)
+                        <div class="ris-overview-row">
+                            <span class="ris-overview-dot" style="background:{{ $row[2] }}"></span>
+                            <span class="ris-overview-name">{{ $row[0] }}</span>
+                            <span class="ris-overview-count">{{ $row[1] }}</span>
+                            <span class="ris-overview-amt {{ $row[1] > 0 ? 'is-pos' : '' }}">{{ number_format(($row[1] / $overviewTotal) * 100, 0) }}%</span>
+                        </div>
+                    @endforeach
                 </div>
             </div>
 
@@ -449,6 +440,7 @@
                                 $eventCount = count($dayEvents);
                             @endphp
                             <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }}"
+                                 data-date="{{ $dateKey }}"
                                  title="{{ $hasEvents ? $eventCount . ' event(s)' : '' }}">
                                 <span class="cal-day-num">{{ $day }}</span>
                                 @if($hasEvents)
@@ -465,8 +457,13 @@
 
                     {{-- Upcoming Events List --}}
                     <div id="adminCalendarUpcoming" class="cal-upcoming">
-                        <h4 class="cal-upcoming-title">Upcoming Events</h4>
-                        @forelse($calendarEvents->take(3) as $event)
+                        <h4 class="cal-upcoming-title">Latest activity</h4>
+                        @php
+                            $adminUpcoming = collect($calendarEvents ?? []);
+                            $adminUpcomingPreview = $adminUpcoming->take(3);
+                            $adminUpcomingTotal = $adminUpcoming->count();
+                        @endphp
+                        @forelse($adminUpcomingPreview as $event)
                             <div class="cal-upcoming-item">
                                 <div class="cal-upcoming-dot"></div>
                                 <div class="cal-upcoming-content">
@@ -479,6 +476,12 @@
                         @empty
                             <div class="cal-upcoming-empty">No procurement dates this month</div>
                         @endforelse
+                        @if($adminUpcomingTotal > 0)
+                            <a class="cal-view-all" href="{{ url('/admin/procurement-review') }}">View all</a>
+                        @endif
+                        @if($adminUpcomingTotal > 3)
+                            <p class="cal-view-all-hint">Showing 3 of {{ $adminUpcomingTotal }}</p>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -681,32 +684,54 @@
 </div>
 
 
+{{-- Attention needed today (login popup) --}}
+@php
+    $attentionPending = (int) ($pendingPurchaserRisCount ?? $pendingRis ?? 0);
+    $attentionCosign = (int) ($forCosigningCount ?? 0);
+    $attentionAmend = (int) ($amendRis ?? 0);
+    $showAttentionPopup = ($attentionPending + $attentionCosign + $attentionAmend) > 0;
+@endphp
+@if($showAttentionPopup)
+<div id="adminDailyReminder" class="admin-daily-reminder hidden" role="dialog" aria-labelledby="adminDailyReminderTitle">
+    <div class="admin-daily-reminder-card admin-attention-popup">
+        <button type="button" class="admin-daily-reminder-close" onclick="dismissAdminDailyReminder()" aria-label="Dismiss">
+            <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+        <h3 id="adminDailyReminderTitle" class="admin-attention-title">Attention needed today</h3>
+        <p class="admin-attention-subtitle">Items that still need your action.</p>
+        <div class="admin-attention-rows">
+            <div class="admin-attention-row admin-attention-row-blue">
+                <div>
+                    <p class="admin-attention-label">Pending RIS needing review</p>
+                    <p class="admin-attention-value">{{ $attentionPending }}</p>
+                </div>
+                <a href="{{ url('/admin/procurement-review') }}" class="admin-attention-cta">Review RIS</a>
+            </div>
+            <div class="admin-attention-row admin-attention-row-yellow">
+                <div>
+                    <p class="admin-attention-label">Awaiting Admin cosign</p>
+                    <p class="admin-attention-value">{{ $attentionCosign }}</p>
+                </div>
+                <a href="{{ url('/admin/digital-signatures/sign-ris') }}" class="admin-attention-cta">Sign RIS</a>
+            </div>
+            <div class="admin-attention-row admin-attention-row-blue">
+                <div>
+                    <p class="admin-attention-label">Amendments / returned</p>
+                    <p class="admin-attention-value">{{ $attentionAmend }}</p>
+                </div>
+                <a href="{{ url('/admin/procurement-review?filter=all') }}" class="admin-attention-cta">View all</a>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+
 {{-- ===================================================== --}}
 {{-- RIS PREVIEW MODAL --}}
 {{-- ===================================================== --}}
 
-<div id="quickAccessModal" class="ris-preview-modal-overlay qa-modal-overlay" style="display: none;">
-    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1400px;">
-        <div class="ris-preview-modal-header">
-            <h3 class="ris-preview-modal-title" id="qaModalTitle">Quick Access</h3>
-            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-close" title="Close">
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-        <div class="ris-preview-modal-body" id="qaModalBody" style="background: #ffffff; min-height: 300px; max-height: calc(90vh - 110px); overflow: auto;">
-            <div class="ris-preview-loading">
-                <div class="ris-preview-spinner"></div>
-                <span>Loading...</span>
-            </div>
-        </div>
-        <div class="ris-preview-modal-footer">
-            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-btn-close">Close</button>
-        </div>
-    </div>
-</div>
-
-
-{{-- RIS Preview must come AFTER Quick Access in the DOM --}}
+{{-- RIS Preview modal --}}
 @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
 
 @include('admin.procurement-review._direct-approve-modal')
@@ -822,12 +847,12 @@
 
 .stat-icon-blue {
     background: #eff6ff;
-    color: #0037c7;
+    color: #3b82f6;
 }
 
 .stat-icon-indigo {
     background: #eff6ff;
-    color: #0037c7;
+    color: #3b82f6;
 }
 
 .stat-icon-amber {
@@ -841,23 +866,23 @@
 }
 
 .stat-icon-sky {
-    background: #e0f2fe;
-    color: #38bdf8;
+    background: #eff6ff;
+    color: #60a5fa;
 }
 
 .stat-icon-rose {
-    background: #fff1f2;
-    color: #e11d48;
+    background: #f1f5f9;
+    color: #475569;
 }
 
 .stat-icon-violet {
     background: #eff6ff;
-    color: #0037c7;
+    color: #3b82f6;
 }
 
 .stat-icon-teal {
-    background: #f0fdfa;
-    color: #0d9488;
+    background: #e2e8f0;
+    color: #334155;
 }
 
 .stat-change {
@@ -871,13 +896,13 @@
 }
 
 .stat-change-up {
-    background: #ecfdf5;
-    color: #059669;
+    background: #f1f5f9;
+    color: #475569;
 }
 
 .stat-change-warn {
-    background: #fffbeb;
-    color: #d97706;
+    background: #e2e8f0;
+    color: #334155;
 }
 
 .stat-label {
@@ -928,11 +953,11 @@
     flex-shrink: 0;
 }
 
-.stat-dot-purple { background: #0037c7; }
-.stat-dot-cyan { background: #06b6d4; }
-.stat-dot-amber { background: #f59e0b; }
-.stat-dot-emerald { background: #10b981; }
-.stat-dot-rose { background: #f43f5e; }
+.stat-dot-purple { background: #475569; }
+.stat-dot-cyan { background: #64748b; }
+.stat-dot-amber { background: #334155; }
+.stat-dot-emerald { background: #94a3b8; }
+.stat-dot-rose { background: #0f172a; }
 
 
 /* ======================================
@@ -967,137 +992,6 @@
 }
 
 
-/* ======================================
-   QUICK ACCESS DASHBOARDS
-====================================== */
-
-.dashboard-quick-access {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    overflow: hidden;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.dashboard-quick-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.dashboard-quick-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.dashboard-quick-subtitle {
-    font-size: 12px;
-    color: #64748b;
-    margin-top: 2px;
-}
-
-.dashboard-quick-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 14px 16px;
-}
-
-.quick-access-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 4px;
-    padding: 12px 8px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-.quick-access-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    border-color: #cbd5e1;
-    background: #ffffff;
-}
-
-.quick-access-card-disabled,
-.quick-access-card-disabled:hover {
-    opacity: 0.55;
-    cursor: not-allowed;
-    pointer-events: none;
-    transform: none;
-    box-shadow: none;
-    background: #f8fafc;
-    border-color: #e2e8f0;
-}
-
-.quick-access-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-bottom: 4px;
-}
-
-.quick-access-icon i,
-.quick-access-icon svg {
-    width: 16px;
-    height: 16px;
-}
-
-.quick-access-icon-blue {
-    background: #eff6ff;
-    color: #2563eb;
-}
-
-.quick-access-icon-violet {
-    background: #eff6ff;
-    color: #0037c7;
-}
-
-.quick-access-icon-indigo {
-    background: #eff6ff;
-    color: #0037c7;
-}
-
-.quick-access-icon-emerald {
-    background: #ecfdf5;
-    color: #059669;
-}
-
-.quick-access-icon-amber {
-    background: #fffbeb;
-    color: #d97706;
-}
-
-.quick-access-icon-rose {
-    background: #fff1f2;
-    color: #e11d48;
-}
-
-.quick-access-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.quick-access-desc {
-    font-size: 9px;
-    color: #94a3b8;
-    line-height: 1.3;
-}
-
-
-/* ======================================
    TABLE PREVIEW BUTTON
 ====================================== */
 
@@ -1202,7 +1096,7 @@
 .ris-preview-modal-close:hover {
     background: #fef2f2;
     border-color: #fecdd3;
-    color: #e11d48;
+    color: #334155;
 }
 
 .ris-preview-modal-body {
@@ -1239,7 +1133,7 @@
     width: 36px;
     height: 36px;
     border: 3px solid #e2e8f0;
-    border-top-color: #0037c7;
+    border-top-color: #334155;
     border-radius: 50%;
     animation: ris-preview-spin 0.8s linear infinite;
 }
@@ -1320,7 +1214,7 @@
 
 .act-icon-success {
     background: #ecfdf5;
-    color: #059669;
+    color: #475569;
 }
 
 .act-icon-danger {
@@ -1330,7 +1224,7 @@
 
 .act-icon-pending {
     background: #fffbeb;
-    color: #d97706;
+    color: #475569;
 }
 
 .sidebar-activity-actor {
@@ -1360,7 +1254,7 @@
 .sidebar-stat-value-highlight {
     font-size: 13px;
     font-weight: 800;
-    color: #d97706;
+    color: #475569;
 }
 
 
@@ -1382,7 +1276,7 @@
 
 .hero-alert-card-violet {
     background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border-color: #93c5fd;
+    border-color: #cbd5e1;
 }
 
 .hero-alert-left {
@@ -1395,7 +1289,7 @@
     width: 40px;
     height: 40px;
     border-radius: 14px;
-    background: #f59e0b;
+    background: #64748b;
     color: white;
     display: flex;
     align-items: center;
@@ -1404,7 +1298,7 @@
 }
 
 .hero-alert-icon-violet {
-    background: #0037c7;
+    background: #334155;
 }
 
 .hero-alert-icon i,
@@ -1474,7 +1368,7 @@
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: #10b981;
+    background: #64748b;
     color: white;
     display: flex;
     align-items: center;
@@ -1675,7 +1569,7 @@
     gap: 4px;
     font-size: 11px;
     font-weight: 600;
-    color: #2563eb;
+    color: #475569;
     text-decoration: none;
     transition: all 0.2s ease;
 }
@@ -1766,7 +1660,7 @@
 
 .status-badge-amber {
     background: #fffbeb;
-    color: #d97706;
+    color: #475569;
     border: 1px solid #fde68a;
 }
 
@@ -1778,13 +1672,13 @@
 
 .status-badge-emerald {
     background: #ecfdf5;
-    color: #059669;
+    color: #475569;
     border: 1px solid #a7f3d0;
 }
 
 .status-badge-rose {
     background: #fff1f2;
-    color: #e11d48;
+    color: #334155;
     border: 1px solid #fecdd3;
 }
 
@@ -1931,7 +1825,7 @@
 }
 
 .supplier-type-bar-online {
-    background: #0037c7;
+    background: #334155;
     display: block;
 }
 
@@ -1985,7 +1879,7 @@
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: #0037c7;
+    background: #334155;
 }
 
 .supplier-compare-count {
@@ -2093,7 +1987,7 @@
 
 .cal-day-today {
     background: #eef2ff;
-    color: #0037c7;
+    color: #334155;
     font-weight: 700;
 }
 
@@ -2104,6 +1998,341 @@
 .cal-day-has-event {
     color: #0f172a;
     font-weight: 600;
+    cursor: pointer;
+}
+
+.cal-day-selected {
+    outline: 2px solid #475569;
+    outline-offset: 1px;
+    background: #eff6ff !important;
+}
+
+.cal-upcoming-item.is-highlighted {
+    background: #eff6ff;
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin: 0 -4px;
+}
+
+.cal-upcoming-item a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.cal-upcoming-item a:hover .cal-upcoming-name {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.admin-attention-popup {
+    width: min(480px, 100%);
+    text-align: left;
+    padding: 22px 20px 18px;
+}
+
+.admin-attention-popup .admin-attention-title {
+    margin-right: 36px;
+}
+
+.admin-attention-popup .admin-attention-rows {
+    margin-top: 16px;
+}
+
+.ris-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.ris-metric-card {
+    background: #ffffff;
+    border: 1px solid #e8eaef;
+    border-radius: 16px;
+    padding: 16px 16px 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    min-width: 0;
+}
+
+.ris-metric-card-wide {
+    grid-column: 1 / -1;
+}
+
+.ris-metric-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.ris-metric-value-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.ris-metric-value {
+    font-family: "Outfit", "Inter", sans-serif;
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.ris-metric-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ris-metric-pill.is-up {
+    background: #ecfdf5;
+    color: #475569;
+}
+
+.ris-metric-pill.is-down {
+    background: #fff1f2;
+    color: #334155;
+}
+
+.ris-metric-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.ris-metric-chart {
+    height: 120px;
+    margin-top: 8px;
+}
+
+.ris-metric-chart-sm {
+    height: 72px;
+}
+
+.ris-overview-card .ris-overview-sub {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.ris-overview-chart-wrap {
+    padding: 8px 14px 4px;
+    height: 140px;
+}
+
+.ris-overview-breakdown {
+    border-top: 1px solid #f1f5f9;
+    padding: 8px 14px 12px;
+}
+
+.ris-overview-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 0;
+}
+
+.ris-overview-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.ris-overview-name {
+    font-size: 12px;
+    color: #334155;
+    font-weight: 500;
+}
+
+.ris-overview-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.ris-overview-amt {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    min-width: 36px;
+    text-align: right;
+}
+
+.ris-overview-amt.is-pos {
+    color: #475569;
+}
+
+@media (max-width: 900px) {
+    .ris-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    .ris-metric-card-wide {
+        grid-column: auto;
+    }
+}
+
+.admin-attention-title {
+    font-family: "Outfit", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0a0a0a;
+}
+
+.admin-attention-subtitle {
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.admin-attention-rows {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-attention-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.admin-attention-row-blue {
+    border-left: 4px solid #93c5fd;
+    background: #f8fbff;
+}
+
+.admin-attention-row-yellow {
+    border-left: 4px solid #fde68a;
+    background: #fffdf5;
+}
+
+.admin-attention-label {
+    font-size: 0.8rem;
+    color: #334155;
+    font-weight: 600;
+}
+
+.admin-attention-value {
+    margin-top: 2px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0a0a0a;
+}
+
+.admin-attention-cta {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #0a0a0a;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.admin-attention-cta:hover {
+    background: #f8fafc;
+}
+
+.admin-daily-reminder {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    padding: 16px;
+}
+
+.admin-daily-reminder.hidden {
+    display: none !important;
+}
+
+.admin-daily-reminder-card {
+    position: relative;
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 24px 22px 20px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+    text-align: left;
+}
+
+.admin-daily-reminder-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.admin-daily-reminder-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.admin-daily-reminder-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0a0a0a;
+}
+
+.admin-daily-reminder-text {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.45;
+}
+
+.admin-daily-reminder-cta {
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #0a0a0a;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
 }
 
 .cal-day-num {
@@ -2114,7 +2343,7 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #f59e0b;
+    background: #64748b;
     margin-top: 1px;
     flex-shrink: 0;
 }
@@ -2144,7 +2373,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #f59e0b;
+    background: #64748b;
     margin-top: 4px;
     flex-shrink: 0;
 }
@@ -2174,6 +2403,36 @@
     color: #94a3b8;
     text-align: center;
     padding: 6px 0;
+}
+
+.cal-view-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-view-all:hover {
+    background: #fff;
+    border-color: #cbd5e1;
+    color: #1d4ed8;
+}
+
+.cal-view-all-hint {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: center;
 }
 
 
@@ -2225,13 +2484,13 @@
     border-radius: 50%;
 }
 
-.sidebar-dot-blue { background: #3b82f6; }
-.sidebar-dot-amber { background: #f59e0b; }
-.sidebar-dot-slate { background: #38bdf8; }
-.sidebar-dot-emerald { background: #10b981; }
-.sidebar-dot-violet { background: #0037c7; }
-.sidebar-dot-teal { background: #14b8a6; }
-.sidebar-dot-rose { background: #f43f5e; }
+.sidebar-dot-blue { background: #60a5fa; }
+.sidebar-dot-amber { background: #fbbf24; }
+.sidebar-dot-slate { background: #93c5fd; }
+.sidebar-dot-emerald { background: #94a3b8; }
+.sidebar-dot-violet { background: #3b82f6; }
+.sidebar-dot-teal { background: #64748b; }
+.sidebar-dot-rose { background: #475569; }
 
 .sidebar-stat-label {
     font-size: 11px;
@@ -2273,7 +2532,7 @@
 .sidebar-activity-link {
     font-size: 12px;
     font-weight: 600;
-    color: #0037c7;
+    color: #334155;
     text-decoration: none;
 }
 
@@ -2407,233 +2666,184 @@
 document.addEventListener('DOMContentLoaded', function() {
 
     // =====================================================
-    // RIS MONTHLY TREND CHART (LINE — Approved vs Amend)
+    // RIS OVERVIEW METRIC CHARTS (reference-style)
     // =====================================================
 
-    const trendCtx = document.getElementById('risTrendChart');
     const trendLabels = {!! json_encode($risTrendLabels ?? []) !!};
     const trendApproved = {!! json_encode($risTrendApproved ?? []) !!};
     const trendForwarded = {!! json_encode($risTrendForwarded ?? []) !!};
     const trendAmend = {!! json_encode($risTrendAmend ?? []) !!};
     const trendRejected = {!! json_encode($risTrendRejected ?? []) !!};
+    const amountSeries = [
+        {{ (float) ($budgetPendingAmount ?? 0) }},
+        {{ (float) ($budgetAdminApprovedAmount ?? 0) }},
+        {{ (float) ($budgetPresidentApprovedAmount ?? 0) }},
+        {{ (float) ($budgetPresidentRejectedAmount ?? 0) }},
+        {{ (float) ($budgetProposalTotal ?? 0) }}
+    ];
+    const amountLabels = ['Pending', 'Admin', 'President', 'Rejected', 'Total'];
 
-    if (trendCtx && trendLabels.length > 0) {
-        const approvedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        approvedGradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
-        approvedGradient.addColorStop(0.4, 'rgba(56, 189, 248, 0.08)');
-        approvedGradient.addColorStop(1, 'rgba(56, 189, 248, 0.01)');
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+    };
 
-        const forwardedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        forwardedGradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
-        forwardedGradient.addColorStop(0.4, 'rgba(5, 150, 105, 0.08)');
-        forwardedGradient.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
-
-        const amendGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        amendGradient.addColorStop(0, 'rgba(245, 158, 11, 0.26)');
-        amendGradient.addColorStop(0.4, 'rgba(245, 158, 11, 0.08)');
-        amendGradient.addColorStop(1, 'rgba(245, 158, 11, 0.01)');
-
-        const rejectedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        rejectedGradient.addColorStop(0, 'rgba(225, 29, 72, 0.22)');
-        rejectedGradient.addColorStop(0.4, 'rgba(225, 29, 72, 0.07)');
-        rejectedGradient.addColorStop(1, 'rgba(225, 29, 72, 0.01)');
-
-        new Chart(trendCtx, {
+    function blueLine(ctx, data, labels, withPoints) {
+        if (!ctx || !labels.length) return;
+        new Chart(ctx, {
             type: 'line',
             data: {
-                labels: trendLabels,
-                datasets: [
-                    {
-                        label: 'Admin Approved',
-                        data: trendApproved,
-                        borderColor: '#38bdf8',
-                        backgroundColor: approvedGradient,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#38bdf8',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2.5,
-                        pointRadius: 4,
-                        pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#38bdf8',
-                        pointHoverBorderColor: '#fff',
-                        pointHoverBorderWidth: 3,
-                        borderWidth: 2.5,
-                    },
-                    {
-                        label: 'Approved by the President',
-                        data: trendForwarded,
-                        borderColor: '#059669',
-                        backgroundColor: forwardedGradient,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#059669',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2.5,
-                        pointRadius: 4,
-                        pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#059669',
-                        pointHoverBorderColor: '#fff',
-                        pointHoverBorderWidth: 3,
-                        borderWidth: 2.5,
-                    },
-                    {
-                        label: 'Amend',
-                        data: trendAmend,
-                        borderColor: '#f59e0b',
-                        backgroundColor: amendGradient,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#f59e0b',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2.5,
-                        pointRadius: 4,
-                        pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#f59e0b',
-                        pointHoverBorderColor: '#fff',
-                        pointHoverBorderWidth: 3,
-                        borderWidth: 2.5,
-                    },
-                    {
-                        label: 'Rejected by the President',
-                        data: trendRejected,
-                        borderColor: '#e11d48',
-                        backgroundColor: rejectedGradient,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#e11d48',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2.5,
-                        pointRadius: 4,
-                        pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#e11d48',
-                        pointHoverBorderColor: '#fff',
-                        pointHoverBorderWidth: 3,
-                        borderWidth: 2.5,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: 1200,
-                    easing: 'easeInOutQuart',
-                },
-                plugins: {
-                    legend: {
-                        display: false,
-                    },
-                    tooltip: {
-                        backgroundColor: '#1f2937',
-                        titleColor: '#f3f4f6',
-                        titleFont: { size: 12, weight: '600' },
-                        bodyColor: '#e5e7eb',
-                        bodyFont: { size: 11 },
-                        padding: 12,
-                        cornerRadius: 8,
-                        boxPadding: 6,
-                        usePointStyle: true,
-                        callbacks: {
-                            label: function(context) {
-                                return ' ' + context.dataset.label + ': ' + context.parsed.y;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            font: { size: 11 },
-                            color: '#9ca3af',
-                            padding: 8,
-                        },
-                        grid: {
-                            color: 'rgba(0,0,0,0.04)',
-                            drawBorder: false,
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false,
-                        },
-                        ticks: {
-                            font: { size: 11, weight: '500' },
-                            color: '#6b7280',
-                            maxRotation: 0,
-                        }
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
-                },
-                hover: {
-                    mode: 'index',
-                    intersect: false,
-                }
-            }
-        });
-    }
-
-
-    // =====================================================
-    // RIS STATUS DISTRIBUTION CHART (DOUGHNUT)
-    // =====================================================
-
-    const statusCtx = document.getElementById('risStatusChart');
-
-    if (statusCtx) {
-        new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: {!! json_encode($risStatusChart['labels']) !!},
+                labels: labels,
                 datasets: [{
-                    data: {!! json_encode($risStatusChart['data']) !!},
-                    backgroundColor: {!! json_encode($risStatusChart['colors'] ?? ['#d97706', '#059669', '#38bdf8', '#f59e0b', '#e11d48']) !!},
-                    borderWidth: 0,
-                    hoverOffset: 8,
+                    data: data,
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2.25,
+                    tension: 0.4,
+                    pointRadius: withPoints ? 3 : 0,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: '#60a5fa',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    fill: false,
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 14,
-                            usePointStyle: true,
-                            pointStyleWidth: 8,
-                            font: { size: 10, weight: '500' },
-                            color: '#475569',
-                        }
+                ...chartDefaults,
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            display: !!withPoints,
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            maxRotation: 0,
+                        },
+                        border: { display: false },
                     },
-                    tooltip: {
-                        backgroundColor: '#0f172a',
-                        titleColor: '#fff',
-                        bodyColor: '#e2e8f0',
-                        padding: 10,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const value = context.parsed;
-                                const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return context.label + ': ' + value + ' (' + pct + '%)';
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.18)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            display: !!withPoints,
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            padding: 6,
+                        },
+                        border: { display: false },
+                    },
+                },
+                interaction: { intersect: false, mode: 'index' },
+            }
+        });
+    }
+
+    function blueBars(ctx, data, labels) {
+        if (!ctx) return;
+        const g = ctx.getContext('2d').createLinearGradient(0, 0, 0, 120);
+        g.addColorStop(0, 'rgba(59, 130, 246, 0.95)');
+        g.addColorStop(1, 'rgba(59, 130, 246, 0.18)');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: g,
+                    borderRadius: 10,
+                    borderSkipped: false,
+                    barPercentage: 0.55,
+                    categoryPercentage: 0.7,
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0 },
+                        border: { display: false },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.18)', drawBorder: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            callback: function (v) {
+                                if (v >= 1000000) return (v / 1000000) + 'm';
+                                if (v >= 1000) return (v / 1000) + 'k';
+                                return v;
                             }
-                        }
-                    }
-                }
+                        },
+                        border: { display: false },
+                    },
+                },
+            }
+        });
+    }
+
+    blueLine(document.getElementById('risProposedChart'), amountSeries, amountLabels, true);
+    blueLine(document.getElementById('risApprovedSpark'), trendApproved, trendLabels, false);
+    blueBars(document.getElementById('risPresidentSpark'), trendForwarded, trendLabels);
+    blueBars(document.getElementById('risPendingBars'), amountSeries.slice(0, 4), amountLabels.slice(0, 4));
+    blueLine(document.getElementById('risAmendSpark'), trendAmend.map(function (a, i) {
+        return a + (trendRejected[i] || 0);
+    }), trendLabels, false);
+
+    // =====================================================
+    // RIS STATUS OVERVIEW (rounded bars)
+    // =====================================================
+
+    const statusCtx = document.getElementById('risStatusChart');
+    if (statusCtx) {
+        const statusData = {!! json_encode($risStatusChart['data'] ?? []) !!};
+        const statusLabels = {!! json_encode($risStatusChart['labels'] ?? []) !!};
+        const barGrad = statusCtx.getContext('2d').createLinearGradient(0, 0, 0, 140);
+        barGrad.addColorStop(0, 'rgba(59, 130, 246, 0.95)');
+        barGrad.addColorStop(1, 'rgba(59, 130, 246, 0.2)');
+        new Chart(statusCtx, {
+            type: 'bar',
+            data: {
+                labels: statusLabels.map(function (l) {
+                    return String(l).replace('Approved by the President', 'President')
+                        .replace('Rejected by the President', 'Rejected')
+                        .replace('Admin Approved', 'Admin');
+                }),
+                datasets: [{
+                    data: statusData,
+                    backgroundColor: barGrad,
+                    borderRadius: 12,
+                    borderSkipped: false,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.75,
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 0 },
+                        border: { display: false },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } },
+                        grid: { color: 'rgba(148, 163, 184, 0.16)', drawBorder: false },
+                        border: { display: false },
+                    },
+                },
             }
         });
     }
 
 
-// =====================================================
+    // =====================================================
     // MINI CALENDAR RENDER - REMOVED
     // =====================================================
 
@@ -2653,6 +2863,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return [
                     'date' => $event->event_date ?? null,
                     'name' => $event->event_name ?? 'RIS',
+                    'id' => $event->ris_id ?? null,
+                    'url' => $event->url ?? '/admin/procurement-review',
                 ];
             })->filter(fn ($e) => !empty($e['date']))->values()
         ) !!};
@@ -2661,10 +2873,16 @@ document.addEventListener('DOMContentLoaded', function() {
         view.setDate(1);
         var now = new Date();
         var minMonthIndex = now.getFullYear() * 12 + now.getMonth() - 1;
+        var selectedDate = null;
 
         function pad(n) { return n < 10 ? '0' + n : String(n); }
         function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
         function monthIndex(d) { return d.getFullYear() * 12 + d.getMonth(); }
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function (c) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+            });
+        }
 
         function canGoPrev() {
             return monthIndex(view) > minMonthIndex;
@@ -2679,6 +2897,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function eventsOn(dateKey) {
             return events.filter(function (e) { return e.date === dateKey; });
+        }
+
+        function renderUpcoming(dateKey) {
+            if (!upcoming) return;
+            var year = view.getFullYear();
+            var month = view.getMonth();
+            var listEvents;
+            var title;
+            var totalCount = 0;
+            var viewAllHref = '/admin/procurement-review';
+
+            if (dateKey) {
+                listEvents = eventsOn(dateKey).slice().reverse();
+                totalCount = listEvents.length;
+                listEvents = listEvents.slice(0, 3);
+                var parts = dateKey.split('-');
+                title = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10);
+            } else {
+                var monthPrefix = year + '-' + pad(month + 1);
+                listEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
+                    .sort(function (a, b) { return b.date.localeCompare(a.date); });
+                totalCount = listEvents.length;
+                listEvents = listEvents.slice(0, 3);
+                title = 'Latest activity';
+            }
+
+            var list = '<h4 class="cal-upcoming-title">' + escapeHtml(title) + '</h4>';
+            if (!listEvents.length) {
+                list += '<div class="cal-upcoming-empty">' + (dateKey ? 'No events on this day' : 'No procurement dates this month') + '</div>';
+            } else {
+                listEvents.forEach(function (e) {
+                    var p = e.date.split('-');
+                    var label = monthNames[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10) + ', ' + p[0];
+                    var href = e.url || '/admin/procurement-review';
+                    var highlight = dateKey ? ' is-highlighted' : '';
+                    list += '<div class="cal-upcoming-item' + highlight + '" data-event-date="' + escapeHtml(e.date) + '">';
+                    list += '<div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
+                    list += '<a href="' + escapeHtml(href) + '"><span class="cal-upcoming-name">' + escapeHtml(e.name) + '</span></a>';
+                    list += '<span class="cal-upcoming-date">' + escapeHtml(label) + '</span></div></div>';
+                });
+            }
+
+            if (totalCount > 0) {
+                list += '<a class="cal-view-all" href="' + escapeHtml(viewAllHref) + '">View all</a>';
+            }
+            if (totalCount > 3) {
+                list += '<p class="cal-view-all-hint">Showing 3 of ' + totalCount + (dateKey ? ' on this day' : '') + '</p>';
+            }
+
+            upcoming.innerHTML = list;
         }
 
         function render() {
@@ -2707,44 +2975,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 var cls = 'cal-day';
                 if (dateKey === todayKey) cls += ' cal-day-today';
                 if (dayEvents.length) cls += ' cal-day-has-event';
-                html += '<div class="' + cls + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
+                if (selectedDate === dateKey) cls += ' cal-day-selected';
+                html += '<div class="' + cls + '" data-date="' + dateKey + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
                 html += '<span class="cal-day-num">' + dayNum + '</span>';
                 if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
                 html += '</div>';
             }
             grid.innerHTML = html;
-
-            if (upcoming) {
-                var monthPrefix = year + '-' + pad(month + 1);
-                var monthEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
-                    .sort(function (a, b) { return a.date.localeCompare(b.date); })
-                    .slice(0, 3);
-                var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
-                if (!monthEvents.length) {
-                    list += '<div class="cal-upcoming-empty">No procurement dates this month</div>';
-                } else {
-                    monthEvents.forEach(function (e) {
-                        var parts = e.date.split('-');
-                        var label = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
-                        list += '<div class="cal-upcoming-item"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
-                        list += '<span class="cal-upcoming-name">' + e.name + '</span>';
-                        list += '<span class="cal-upcoming-date">' + label + '</span></div></div>';
-                    });
-                }
-                upcoming.innerHTML = list;
-            }
-
+            renderUpcoming(selectedDate);
             updateNavButtons();
+        }
+
+        if (grid) {
+            grid.addEventListener('click', function (e) {
+                var dayEl = e.target.closest('.cal-day[data-date]');
+                if (!dayEl || dayEl.classList.contains('cal-day-empty')) return;
+                var dateKey = dayEl.getAttribute('data-date');
+                if (!dateKey) return;
+                if (!eventsOn(dateKey).length) {
+                    selectedDate = null;
+                    render();
+                    return;
+                }
+                selectedDate = dateKey;
+                render();
+            });
         }
 
         if (prevBtn && nextBtn) {
             prevBtn.addEventListener('click', function () {
                 if (!canGoPrev()) return;
                 view.setMonth(view.getMonth() - 1);
+                selectedDate = null;
                 render();
             });
             nextBtn.addEventListener('click', function () {
                 view.setMonth(view.getMonth() + 1);
+                selectedDate = null;
                 render();
             });
         }
@@ -2797,6 +3064,20 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.classList.remove('hidden');
         modal.style.display = 'block';
         modal.style.zIndex = '11000';
+        document.body.style.overflow = 'hidden';
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            lucide.createIcons();
+        }
+        requestAnimationFrame(function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('risPreviewIframe');
+            }
+        });
+        iframe.onload = function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('risPreviewIframe');
+            }
+        };
     };
 
     window.openSignRisPreviewModal = function(risId) {
@@ -2821,6 +3102,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.add('hidden');
             modal.style.display = '';
         }
+        document.body.style.overflow = '';
     };
 
     document.addEventListener('keydown', function(e) {
@@ -2830,108 +3112,37 @@ document.addEventListener('DOMContentLoaded', function() {
             closeRisPreviewModal();
             return;
         }
-        if (typeof qaModalOpen !== 'undefined' && qaModalOpen) {
-            closeQuickAccessModal();
+        const reminder = document.getElementById('adminDailyReminder');
+        if (reminder && !reminder.classList.contains('hidden')) {
+            dismissAdminDailyReminder();
         }
     });
 
-
     // =====================================================
-    // QUICK ACCESS MODAL
+    // ATTENTION NEEDED TODAY (once per browser login/session)
     // =====================================================
 
-    window.switchQaReportTab = function(tab) {
-        if (!tab) return;
-        var root = tab.closest('.space-y-4') || document.getElementById('qaModalBody');
-        if (!root) return;
-        root.querySelectorAll('.qa-report-tab').forEach(function(t) {
-            t.classList.remove('border-[#0037c7]', 'bg-[#0037c7]', 'text-white');
-            t.classList.add('border-gray-200', 'bg-white', 'text-gray-700');
-        });
-        tab.classList.add('border-[#0037c7]', 'bg-[#0037c7]', 'text-white');
-        tab.classList.remove('border-gray-200', 'bg-white', 'text-gray-700');
-        root.querySelectorAll('.qa-report-pane').forEach(function(p) { p.classList.add('hidden'); });
-        var pane = document.getElementById(tab.getAttribute('data-pane'));
-        if (pane) pane.classList.remove('hidden');
+    window.dismissAdminDailyReminder = function () {
+        var el = document.getElementById('adminDailyReminder');
+        if (el) el.classList.add('hidden');
+        try { sessionStorage.setItem(@json('admin_attention_popup_shown_' . (session('attention_popup_token') ?: 'default')), '1'); } catch (e) {}
     };
 
-    var qaModalOpen = false;
-
-    window.openQuickAccessModal = function(section) {
-        var modal = document.getElementById('quickAccessModal');
-        var body = document.getElementById('qaModalBody');
-        var title = document.getElementById('qaModalTitle');
-        if (!modal || !body || !title) return;
-
-        var titles = {
-            'procurement': 'Procurement Request — All RIS Records',
-            'signris': 'Sign RIS — President-Approved Records',
-            'history': 'Signature History — Completed Records',
-            'users': 'User Management',
-            'reports': 'System Reports',
-            'settings': 'System Settings'
-        };
-        title.textContent = titles[section] || 'Quick Access';
-
-        modal.style.display = 'flex';
-        body.innerHTML = '<div class="ris-preview-loading"><div class="ris-preview-spinner"></div><span>Loading...</span></div>';
-        qaModalOpen = true;
-
-        var ajaxUrls = {
-            'procurement': '/admin/quick-access/procurement-content',
-            'signris': '/admin/quick-access/signris-content',
-            'history': '/admin/quick-access/history-content',
-            'users': '/admin/quick-access/users-content',
-            'reports': '/admin/quick-access/reports-content',
-            'settings': '/admin/quick-access/settings-content'
-        };
-
-        if (!ajaxUrls[section]) {
-            body.innerHTML = '<div class="ris-preview-loading" style="color:#64748b;"><span>This section is temporarily unavailable.</span></div>';
-            return;
-        }
-
-        fetch(ajaxUrls[section], {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'text/html'
-            }
-        })
-        .then(function(response) {
-            if (!response.ok) throw new Error('Failed to load');
-            return response.text();
-        })
-        .then(function(html) {
-            body.innerHTML = html;
+    (function () {
+        var el = document.getElementById('adminDailyReminder');
+        if (!el) return;
+        var storageKey = @json('admin_attention_popup_shown_' . (session('attention_popup_token') ?: 'default'));
+        try {
+            if (sessionStorage.getItem(storageKey) === '1') return;
+            el.classList.remove('hidden');
+            sessionStorage.setItem(storageKey, '1');
             if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 lucide.createIcons();
             }
-        })
-        .catch(function(error) {
-            console.error('Quick Access fetch error:', error);
-            body.innerHTML = '<div class="ris-preview-loading" style="color:#e11d48;"><span>Failed to load. <a href="' + (ajaxUrls[section] || '#') + '" style="color:#0037c7;text-decoration:underline;">Open in new tab instead</a></span></div>';
-        });
-    };
-
-    window.closeQuickAccessModal = function() {
-        var modal = document.getElementById('quickAccessModal');
-        var body = document.getElementById('qaModalBody');
-        if (modal) {
-            modal.style.display = 'none';
+        } catch (err) {
+            el.classList.remove('hidden');
         }
-        if (body) {
-            body.innerHTML = '<div class="ris-preview-loading"><div class="ris-preview-spinner"></div><span>Loading...</span></div>';
-        }
-        qaModalOpen = false;
-    };
-
-    // Close Quick Access modal on overlay click
-    document.addEventListener('click', function(e) {
-        var modal = document.getElementById('quickAccessModal');
-        if (modal && e.target === modal) {
-            closeQuickAccessModal();
-        }
-    });
+    })();
 
 });
 </script>

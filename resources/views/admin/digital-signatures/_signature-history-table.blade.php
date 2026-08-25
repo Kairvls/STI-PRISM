@@ -201,6 +201,11 @@
                             </svg>
                         </button>
 
+                        @include('admin.partials.ris-print-icon-button', [
+                            'risId' => $history->ris_id,
+                            'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900',
+                        ])
+
                     </div>
 
                 </td>

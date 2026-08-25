@@ -65,7 +65,9 @@
             }
         })
         .then(function(response) {
-            if (!response.ok) throw new Error('Failed to load form');
+            if (!response.ok) throw new Error(response.status === 403
+                ? 'This RIS is not available for that action.'
+                : 'Failed to load form');
             return response.text();
         })
         .then(function(html) {
@@ -82,8 +84,9 @@
                 });
             }
         })
-        .catch(function() {
-            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-rose-600">Failed to load RIS form. Please try again.</div>';
+        .catch(function(err) {
+            var msg = (err && err.message) ? err.message : 'Failed to load RIS form. Please try again.';
+            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-slate-600">' + msg + '</div>';
         });
     };
 
@@ -145,8 +148,8 @@
                             These remarks will be visible to the Purchaser when they revise this RIS.
                         </p>
                     </div>
-                    <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                        <p class="text-xs text-amber-800">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs text-slate-700">
                             Confirming returns this RIS immediately. The Purchaser must address the remarks before resubmitting.
                         </p>
                     </div>
@@ -161,7 +164,7 @@
                     </button>
                     <button
                         type="submit"
-                        class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
+                        class="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-900"
                     >
                         Return to Purchaser
                     </button>

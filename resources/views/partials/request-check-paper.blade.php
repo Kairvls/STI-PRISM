@@ -1,12 +1,12 @@
 @php
     $editable = $editable ?? false;
     $rfc = $rfc ?? null;
-    $dateValue = old('request_check_date', $rfc->request_check_date ?? ($editable && !$rfc ? now()->toDateString() : ''));
-    $payeeValue = old('request_check_payee', $rfc->request_check_payee ?? '');
-    $amountValue = old('request_check_amount_figures', $rfc->request_check_amount_figures ?? '');
-    $purposeValue = old('request_check_particulars_purpose', $rfc->request_check_particulars_purpose ?? '');
-    $requestedByValue = old('request_check_requested_by', $rfc->request_check_requested_by ?? (auth()->user()->user_full_name ?? ''));
-    $approvedBy = $rfc->request_check_approved_by_signature ?? $rfc->request_check_approved_by_admin ?? '';
+    $dateValue = old('request_check_date', $rfc?->request_check_date ?? ($editable && !$rfc ? now()->toDateString() : ''));
+    $payeeValue = old('request_check_payee', $rfc?->request_check_payee ?? '');
+    $amountValue = old('request_check_amount_figures', $rfc?->request_check_amount_figures ?? '');
+    $purposeValue = old('request_check_particulars_purpose', $rfc?->request_check_particulars_purpose ?? '');
+    $requestedByValue = old('request_check_requested_by', $rfc?->request_check_requested_by ?? (auth()->user()->user_full_name ?? ''));
+    $approvedBy = $rfc?->request_check_approved_by_signature ?? $rfc?->request_check_approved_by_admin ?? '';
     $printClass = $printClass ?? '';
     $printId = $printId ?? null;
 @endphp

@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class MicrosoftController extends Controller
@@ -118,6 +119,7 @@ class MicrosoftController extends Controller
 
             Auth::login($user);
             request()->session()->regenerate();
+            request()->session()->put('attention_popup_token', (string) Str::uuid());
 
             return match ((int) $user->user_role_id) {
                 1 => redirect('/admin/dashboard'),

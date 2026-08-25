@@ -38,6 +38,35 @@ class User extends Authenticatable
     ];
 
     /**
+     * Public URL for the stored profile picture, if any.
+     */
+    public function profilePictureUrl(): ?string
+    {
+        $value = trim((string) ($this->user_profile_picture ?? ''));
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $value) || str_starts_with($value, '/')) {
+            return $value;
+        }
+
+        $path = ltrim(preg_replace('#^storage/#', '', $value), '/');
+
+        return asset('storage/' . $path);
+    }
+
+    /**
+     * One-letter fallback for avatars.
+     */
+    public function profileInitial(): string
+    {
+        $name = trim((string) ($this->user_full_name ?? ''));
+
+        return $name !== '' ? strtoupper(substr($name, 0, 1)) : 'U';
+    }
+
+    /**
      * CUSTOM PASSWORD COLUMN
      */
     public function getAuthPassword()

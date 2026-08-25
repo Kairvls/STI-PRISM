@@ -1,5 +1,6 @@
-{{-- Shared design tokens (Inter/Outfit + STI blue) — matches Admin / Maintenance --}}
+{{-- Shared design tokens (Inter/Outfit) + Admin color theme --}}
 @include('layouts.partials.admin-design')
+@include('layouts.partials.admin-grayscale-theme')
 
 <style>
     /* Receiving pages render in layouts.app <main>; Poppins is set on * */
@@ -102,7 +103,12 @@
                 class="quick-card {{ request()->is('receiving/reports*') ? 'active' : '' }}"
             >
 
-                <i data-lucide="clipboard-list"></i>
+                <span class="menu-icon-wrap">
+                    <i data-lucide="clipboard-list"></i>
+                    @if(($receivingSidebarPendingCount ?? 0) > 0)
+                        <span class="menu-notif-dot" title="{{ $receivingSidebarPendingCount }} awaiting second count"></span>
+                    @endif
+                </span>
 
                 <span>Pending</span>
 
@@ -168,7 +174,12 @@
             class="menu-item {{ request()->is('receiving/reports*') ? 'active' : '' }}"
         >
 
-            <i data-lucide="clipboard-list"></i>
+            <span class="menu-icon-wrap">
+                <i data-lucide="clipboard-list"></i>
+                @if(($receivingSidebarPendingCount ?? 0) > 0)
+                    <span class="menu-notif-dot" title="{{ $receivingSidebarPendingCount }} awaiting second count"></span>
+                @endif
+            </span>
 
             <span>Pending Receiving Reports</span>
 
@@ -215,6 +226,27 @@
             <i data-lucide="scroll-text"></i>
 
             <span>Receiving Logs</span>
+
+        </a>
+
+        {{-- ====================================== --}}
+        {{-- ACCOUNT --}}
+        {{-- ====================================== --}}
+
+        <div class="menu-title" id="account-section">
+
+            ACCOUNT
+
+        </div>
+
+        <a
+            href="{{ route('receiving.profile') }}"
+            class="menu-item {{ request()->is('receiving/profile') || request()->is('receiving/security') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="user-cog"></i>
+
+            <span>Account settings</span>
 
         </a>
 
@@ -277,7 +309,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -341,13 +373,13 @@
     }
     .quick-card:hover {
         background: #182235;
-        border-color: #2563eb;
+        border-color: #93c5fd;
         transform: translateY(-2px);
     }
     .quick-card i {
         width: 16px;
         height: 16px;
-        color: #60a5fa;
+        color: #93c5fd;
         transition: all 0.2s ease;
     }
     .quick-card span {
@@ -357,13 +389,13 @@
 
     /* NEW BLUE ACTIVE STATE STATE FOR QUICK ACTIONS */
     .quick-card.active {
-        border: 1.5px solid #2563eb !important;
+        border: 1.5px solid #60a5fa !important;
         color: #cbd5e1;
         font-weight: 600;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 0 12px rgba(96, 165, 250, 0.22);
     }
     .quick-card.active i {
-        color: #3b82f6;
+        color: #93c5fd;
     }
 
     /* ======================================
@@ -473,6 +505,33 @@
     color: inherit;
 }
 
+.menu-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+}
+
+.menu-notif-dot {
+    position: absolute;
+    top: -3px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #fbbf24;
+    border: 1.5px solid #0d1120;
+    pointer-events: none;
+}
+
+.quick-card .menu-icon-wrap {
+    width: 16px;
+    height: 16px;
+}
+
 
 /* ======================================
    MENU HOVER
@@ -535,7 +594,7 @@
     height: 32px;
 
 
-    background: #fff200;
+    background: #fde68a;
 
 
     border-radius: 0 5px 5px 0;
@@ -549,9 +608,9 @@
 ====================================== */
 
 .menu-item.active svg {
-    color: #fff200 !important;
+    color: #fde68a !important;
 
-    stroke: #fff200 !important;
+    stroke: #fde68a !important;
 }
 
 
@@ -581,7 +640,7 @@
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -598,7 +657,7 @@
     }
 
     .section-highlight {
-        color: #fff200 !important;
+        color: #fde68a !important;
         text-shadow: 0 0 10px rgba(255, 242, 0, 0.5);
     }
 
@@ -636,7 +695,7 @@
     }
     .dropdown-item:hover {
         background: #1f2937;
-        color: #fff200;
+        color: #fde68a;
     }
 </style>
 

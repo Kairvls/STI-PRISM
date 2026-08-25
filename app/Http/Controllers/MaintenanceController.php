@@ -2842,7 +2842,7 @@ class MaintenanceController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            ->select(
+            ->select(array_values(array_filter([
 
                 'reports_table.*',
 
@@ -2869,11 +2869,13 @@ class MaintenanceController extends Controller
                 'assigned_purchaser.user_full_name
                     as assigned_purchaser_name',
 
-                DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
+                Schema::hasColumn('reports_table', 'report_related_count')
+                    ? DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count')
+                    : DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
 
-                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency")
+                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency"),
 
-            );
+            ])));
     }
 
     // =====================================================

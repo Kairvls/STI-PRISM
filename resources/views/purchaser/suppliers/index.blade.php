@@ -75,7 +75,7 @@
 
     <div class="pur-card mb-7">
 
-        <div class="grid grid-cols-1 divide-x divide-y divide-gray-100 sm:grid-cols-3 sm:divide-y-0">
+        <div class="grid grid-cols-1 divide-x divide-y divide-gray-100 sm:grid-cols-2 lg:grid-cols-4 sm:divide-y-0">
 
             <div class="px-5 py-5">
                 <p class="text-2xl font-semibold tracking-tight text-gray-950">
@@ -107,6 +107,17 @@
                 <div class="mt-1 flex items-center gap-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
                     <p class="text-xs font-medium text-gray-500">Inactive</p>
+                </div>
+            </div>
+
+            <div class="px-5 py-5">
+                <p class="text-2xl font-semibold tracking-tight text-gray-950">
+                    {{ $supplierSummary['blacklisted'] ?? 0 }}
+                </p>
+
+                <div class="mt-1 flex items-center gap-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                    <p class="text-xs font-medium text-gray-500">Blacklisted</p>
                 </div>
             </div>
 
@@ -218,6 +229,17 @@
                     </select>
 
 
+                    {{-- BLACKLISTED --}}
+                    <select
+                        name="blacklisted"
+                        class="pur-select"
+                    >
+                        <option value="">Blacklist: All</option>
+                        <option value="Yes" {{ request('blacklisted') === 'Yes' ? 'selected' : '' }}>Blacklisted</option>
+                        <option value="No" {{ request('blacklisted') === 'No' ? 'selected' : '' }}>Not blacklisted</option>
+                    </select>
+
+
                     {{-- APPLY --}}
                     <button
                         type="submit"
@@ -231,7 +253,8 @@
                     @if(
                         request()->filled('search') ||
                         request()->filled('type') ||
-                        request()->filled('status')
+                        request()->filled('status') ||
+                        request()->filled('blacklisted')
                     )
                         <a
                             href="{{ route('purchaser.suppliers.index') }}"
@@ -298,6 +321,7 @@
                             // =================================================
 
                             $isActive = (int) ($supplier->supplier_is_active ?? 1) === 1;
+                            $isBlacklisted = (int) ($supplier->supplier_is_blacklisted ?? 0) === 1;
                             $supplierStatus = $isActive ? 'Active' : 'Inactive';
 
                             $supplierName =
@@ -347,9 +371,19 @@
                                             {{ $supplierName }}
                                         </p>
 
-                                        <p class="mt-0.5 text-xs text-gray-400">
-                                            Supplier #{{ $supplier->supplier_id }}
-                                        </p>
+                                        <div class="mt-1 flex flex-wrap items-center gap-2">
+                                            <p class="text-xs text-gray-400">
+                                                Supplier #{{ $supplier->supplier_id }}
+                                            </p>
+                                            @if($isBlacklisted)
+                                                <span
+                                                    class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800"
+                                                    title="{{ $supplier->supplier_blacklist_reason }}"
+                                                >
+                                                    Blacklisted
+                                                </span>
+                                            @endif
+                                        </div>
 
                                     </div>
 
@@ -385,9 +419,16 @@
                             {{-- STATUS --}}
                             <td class="px-5 py-4">
 
-                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
-                                    {{ $supplierStatus }}
-                                </span>
+                                <div class="flex flex-col items-start gap-1">
+                                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
+                                        {{ $supplierStatus }}
+                                    </span>
+                                    @if($isBlacklisted)
+                                        <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                            Blacklisted
+                                        </span>
+                                    @endif
+                                </div>
 
                             </td>
 
@@ -481,6 +522,14 @@
                                                     {{ $supplierStatus }}
                                                 </span>
 
+                                                @if($isBlacklisted)
+                                                    <span
+                                                        class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"
+                                                        title="{{ $supplier->supplier_blacklist_reason }}"
+                                                    >
+                                                        Blacklisted
+                                                    </span>
+                                                @endif
                                             </div>
 
                                             <p class="mt-1 text-sm text-gray-500">
@@ -511,6 +560,13 @@
                                             <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
                                                 Supplier Information
                                             </h4>
+
+                                            @if($isBlacklisted)
+                                                <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                                    <p class="font-medium">Blacklisted warning</p>
+                                                    <p class="mt-1">{{ $supplier->supplier_blacklist_reason ?: 'This supplier is marked as not recommended.' }}</p>
+                                                </div>
+                                            @endif
 
 
                                             <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -658,6 +714,13 @@
                                         >
                                             Close
                                         </button>
+
+                                        <a
+                                            href="{{ route('purchaser.suppliers.show', $supplier->supplier_id) }}"
+                                            class="pur-btn-secondary"
+                                        >
+                                            Notes &amp; History
+                                        </a>
 
                                         <a
                                             href="{{ route('purchaser.suppliers.edit', $supplier->supplier_id) }}"

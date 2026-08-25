@@ -20,15 +20,15 @@
         </div>
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-emerald-700">{{ $resolved }}</p>
+            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-700">{{ $resolved }}</p>
         </div>
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejected</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-rose-600">{{ $rejected }}</p>
+            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-600">{{ $rejected }}</p>
         </div>
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">For replacement</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-amber-600">{{ $replacement }}</p>
+            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-600">{{ $replacement }}</p>
         </div>
     </div>
 

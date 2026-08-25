@@ -7,8 +7,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
+use App\Services\AtpFormExporter;
+use App\Services\DocumentWorkflowService;
 
 class AuthorityToPurchaseController extends Controller
 {
@@ -72,14 +75,13 @@ class AuthorityToPurchaseController extends Controller
                 'online_suppliers_table.shop_name'
             );
 
-        if ($archiveView) {
-            $query->where('authority_to_purchase_table.authority_purchase_is_archived', 1);
-        } else {
-            $query->where(function ($q) {
-                $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
-                    ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
-            });
-        }
+        PurchaserDocumentAccess::scopeOwned($query, 'atp', 'authority_to_purchase_table');
+
+        DocumentWorkflowService::applyArchiveFilter(
+            $query,
+            'authority_to_purchase_table.authority_purchase_is_archived',
+            $archiveView
+        );
 
         if ($request->filled('search')) {
             $query->where(function ($subQuery) use ($request) {
@@ -301,6 +303,8 @@ class AuthorityToPurchaseController extends Controller
             return redirect()->route('purchaser.atp.index')->with('error', 'Authority to Purchase record not found.');
         }
 
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
         if (!$this->isSoftDraft($atp)) {
             return redirect()->route('purchaser.atp.index', ['view_atp' => $id])
                 ->with('error', 'Only draft ATP records can be edited.');
@@ -319,16 +323,14 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Authority to Purchase record not found.');
         }
 
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
         if (!$this->isSoftDraft($atp)) {
             return back()->with('error', 'Only draft ATP records can be updated.');
         }
 
         $saveAction = $request->input('save_action', 'save');
         $isDraft = in_array($saveAction, ['save', 'draft'], true);
-
-        // #region agent log
-        file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:outer','message'=>'ATP loaded in outer update() scope','data'=>['id'=>$id,'atpDefined'=>isset($atp),'formNumber'=>$atp->authority_purchase_form_number ?? null,'status'=>$atp->authority_purchase_status ?? null,'saveAction'=>$saveAction,'isDraft'=>$isDraft],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
-        // #endregion
 
         $validated = $request->validate([
             'save_action' => ['required', 'in:save,draft,submit'],
@@ -362,10 +364,6 @@ class AuthorityToPurchaseController extends Controller
 
         return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp) {
             $now = now();
-            // #region agent log
-            $closureHasAtp = array_key_exists('atp', get_defined_vars());
-            file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:closure-entry','message'=>'Transaction closure defined vars','data'=>['id'=>$id,'isDraft'=>$isDraft,'closureHasAtp'=>$closureHasAtp,'useClauseVars'=>array_keys(get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
-            // #endregion
 
             $payload = [
                 'authority_purchase_supplier_id' => $validated['authority_purchase_supplier_id'] ?? null,
@@ -389,13 +387,7 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($id, $items);
 
             if (!$isDraft) {
-                // #region agent log
-                file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'C','location'=>'AuthorityToPurchaseController.php:update:before-notify','message'=>'Entering notify branch','data'=>['id'=>$id,'isDraft'=>$isDraft,'closureHasAtp'=>array_key_exists('atp', get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
-                // #endregion
                 $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number);
-                // #region agent log
-                file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'post-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:after-notify','message'=>'Notify succeeded with captured $atp','data'=>['id'=>$id,'formNumber'=>$atp->authority_purchase_form_number ?? null,'closureHasAtp'=>array_key_exists('atp', get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
-                // #endregion
             }
 
             $message = $isDraft
@@ -419,6 +411,8 @@ class AuthorityToPurchaseController extends Controller
             if (!$atp) {
                 return back()->with('error', 'Authority to Purchase not found.');
             }
+
+            PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
             if (!$this->isSoftDraft($atp)) {
                 return back()->with('error', 'Only draft ATP records can be submitted.');
@@ -489,22 +483,6 @@ class AuthorityToPurchaseController extends Controller
         });
     }
 
-    public function approve($id)
-    {
-        return back()->with(
-            'error',
-            'ATP approval is handled by Accounting and is not available on the purchaser module.'
-        );
-    }
-
-    public function reject(Request $request, $id)
-    {
-        return back()->with(
-            'error',
-            'ATP rejection is handled by Accounting and is not available on the purchaser module.'
-        );
-    }
-
     public function archive($id)
     {
         $atp = DB::table('authority_to_purchase_table')
@@ -515,16 +493,20 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Authority to Purchase not found.');
         }
 
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
         if (!in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true)) {
             return back()->with('error', 'Only approved or rejected ATP records can be archived.');
         }
 
-        DB::table('authority_to_purchase_table')
-            ->where('authority_purchase_id', $id)
-            ->update([
-                'authority_purchase_is_archived' => 1,
-                'authority_purchase_updated_at' => now(),
-            ]);
+        DocumentWorkflowService::setArchived(
+            'authority_to_purchase_table',
+            'authority_purchase_id',
+            $id,
+            'authority_purchase_is_archived',
+            'authority_purchase_updated_at',
+            true
+        );
 
         return back()->with('success', 'ATP archived.');
     }
@@ -539,19 +521,23 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Authority to Purchase not found.');
         }
 
-        DB::table('authority_to_purchase_table')
-            ->where('authority_purchase_id', $id)
-            ->update([
-                'authority_purchase_is_archived' => 0,
-                'authority_purchase_updated_at' => now(),
-            ]);
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        DocumentWorkflowService::setArchived(
+            'authority_to_purchase_table',
+            'authority_purchase_id',
+            $id,
+            'authority_purchase_is_archived',
+            'authority_purchase_updated_at',
+            false
+        );
 
         return back()->with('success', 'ATP restored from archive.');
     }
 
     private function notifyAccountingAtp($id, ?string $formNumber): void
     {
-        WorkflowNotifier::toRole(
+        DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ACCOUNTING,
             'ATP submitted for review',
             ($formNumber ?: ('ATP #' . $id)) . ' is waiting for Accounting review.',
@@ -564,9 +550,12 @@ class AuthorityToPurchaseController extends Controller
 
     private function isSoftDraft(object $atp): bool
     {
-        return $atp->authority_purchase_status === 'Pending'
-            && blank($atp->authority_purchase_submitted_at)
-            && (int) ($atp->authority_purchase_is_archived ?? 0) === 0;
+        return DocumentWorkflowService::isSoftDraft(
+            $atp,
+            'authority_purchase_status',
+            'authority_purchase_submitted_at',
+            'authority_purchase_is_archived'
+        );
     }
 
     private function applyStatusFilter($query, string $status): void
@@ -788,6 +777,8 @@ class AuthorityToPurchaseController extends Controller
                 'suppliers_table.supplier_id',
                 'suppliers_table.supplier_store_type',
                 'suppliers_table.supplier_is_active',
+                'suppliers_table.supplier_is_blacklisted',
+                'suppliers_table.supplier_blacklist_reason',
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name'
             )
@@ -917,5 +908,70 @@ class AuthorityToPurchaseController extends Controller
     private function risIsEligibleForAtp(object $ris): bool
     {
         return RisWorkflow::isEligibleForAtp($ris);
+    }
+
+    public function exportBlankExcel(AtpFormExporter $exporter)
+    {
+        return $exporter->downloadExcel();
+    }
+
+    public function exportBlankWord(AtpFormExporter $exporter)
+    {
+        return $exporter->downloadWord();
+    }
+
+    public function exportExcel($id, AtpFormExporter $exporter)
+    {
+        [$atp, $items] = $this->loadAtpForExport($id);
+
+        return $exporter->downloadExcel($atp, $items);
+    }
+
+    public function exportWord($id, AtpFormExporter $exporter)
+    {
+        [$atp, $items] = $this->loadAtpForExport($id);
+
+        return $exporter->downloadWord($atp, $items);
+    }
+
+    private function loadAtpForExport($id): array
+    {
+        $atp = DB::table('authority_to_purchase_table')
+            ->leftJoin(
+                'suppliers_table',
+                'authority_to_purchase_table.authority_purchase_supplier_id',
+                '=',
+                'suppliers_table.supplier_id'
+            )
+            ->leftJoin(
+                'physical_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'physical_suppliers_table.supplier_id'
+            )
+            ->leftJoin(
+                'online_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'online_suppliers_table.supplier_id'
+            )
+            ->where('authority_to_purchase_table.authority_purchase_id', $id)
+            ->select(
+                'authority_to_purchase_table.*',
+                'suppliers_table.supplier_store_type',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->first();
+
+        abort_if(!$atp, 404);
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        $items = DB::table('authority_to_purchase_items_table')
+            ->where('authority_purchase_id', $id)
+            ->orderBy('atp_item_id')
+            ->get();
+
+        return [$atp, $items];
     }
 }

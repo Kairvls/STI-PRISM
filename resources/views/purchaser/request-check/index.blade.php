@@ -10,9 +10,10 @@
 <div
     x-data="{
         createOpen: {{ ($errors->any() && old('request_check_authority_purchase_id')) || !empty($selectedAtpId) || !empty($openCreate) ? 'true' : 'false' }},
-        viewOpen: false,
+        viewOpen: {{ !empty($viewRfcId) ? 'true' : 'false' }},
         editOpen: false,
-        selectedRfc: null,
+        emptyOpen: false,
+        selectedRfc: {{ !empty($viewRfcId) ? (int) $viewRfcId : 'null' }},
         atpPrefill: JSON.parse(document.getElementById('rfc-atp-prefill').textContent || '{}'),
         today: '{{ now()->toDateString() }}',
 
@@ -32,6 +33,7 @@
             this.createOpen = false;
             this.viewOpen = false;
             this.editOpen = false;
+            this.emptyOpen = false;
             this.selectedRfc = null;
         },
 
@@ -62,6 +64,7 @@
             window.print();
         },
         recordsLoading: false,
+        filterError: null,
         searchTimer: null,
         async refreshRfcRecords(url = null) {
             const form = this.$refs.rfcFilterForm;
@@ -79,6 +82,7 @@
             }
 
             this.recordsLoading = true;
+            this.filterError = null;
 
             try {
                 const response = await fetch(requestUrl, {
@@ -111,6 +115,7 @@
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
             } catch (error) {
                 console.error(error);
+                this.filterError = 'Could not refresh records. Please try again.';
             } finally {
                 this.recordsLoading = false;
             }
@@ -127,11 +132,13 @@
     @if(session('success'))
         <div class="pur-alert-success">{{ session('success') }}</div>
     @endif
+    <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
     @if(session('error'))
         <div class="pur-alert-error">{{ session('error') }}</div>
     @endif
     @if($errors->any())
         <div class="pur-alert-error">
+            <p class="mb-1 font-medium">Please fix the following:</p>
             <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
@@ -142,11 +149,16 @@
             <h2 class="pur-page-title">Request for Check</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('purchaser.rfc.index') }}" class="pur-btn-secondary">Active</a>
-            <a href="{{ route('purchaser.rfc.index', ['view' => 'archive']) }}" class="pur-btn-secondary">Archive</a>
+            @include('purchaser.partials.archive-tabs', ['archiveView' => $archiveView, 'activeRoute' => 'purchaser.rfc.index', 'activeLabel' => 'Active'])
             @unless($archiveView)
-                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create</button>
-                <button type="button" @click="printRfc('blank')" class="pur-btn-secondary">Print blank</button>
+                <button
+                    type="button"
+                    @click="emptyOpen = true"
+                    class="pur-btn-secondary"
+                >
+                    Print Empty RFC
+                </button>
+                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create RFC</button>
             @endunless
         </div>
     </div>
@@ -342,16 +354,28 @@
     </div>
     </div>
 
-    <div x-show="createOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+    <div
+        x-show="createOpen"
+        x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+    >
         <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
         <div class="relative flex min-h-full items-center justify-center p-4">
-            <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl">
+            <div
+                @click.stop
+                class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rfc-create-title"
+            >
                 <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                     <div>
-                        <h3 class="text-xl font-semibold text-slate-900">Create Request for Check</h3>
+                        <h3 id="rfc-create-title" class="text-xl font-semibold text-slate-900">Create Request for Check</h3>
                         <p class="mt-1 text-sm text-gray-500">Select an approved ATP. Submit sends this to Accounting.</p>
                     </div>
-                    <button type="button" @click="createOpen = false" class="rounded-lg p-2 text-gray-400">✕</button>
+                    <button type="button" @click="createOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
                 </div>
                 @if($eligibleAtps->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved ATP is currently available for Request for Check creation.</div>
@@ -394,18 +418,35 @@
             $canEdit = in_array($rfc->request_check_status, ['Draft', 'Minor Revision'], true) && !$archiveView;
         @endphp
 
-        <div x-show="viewOpen && selectedRfc === {{ $rfc->request_check_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+        <div
+            x-show="viewOpen && selectedRfc === {{ $rfc->request_check_id }}"
+            x-cloak
+            class="fixed inset-0 z-50 overflow-y-auto"
+            x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedRfc === {{ $rfc->request_check_id }}, $el)"
+            @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        >
             <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
             <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl">
+                <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="rfc-view-title-{{ $rfc->request_check_id }}">
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
-                            <h3 class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
+                            <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
                             <p class="mt-1 text-sm text-gray-500">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}
                                 @if(!empty($rfc->receiving_report_form_number))
                                     · RR: {{ $rfc->receiving_report_form_number }} ({{ $rfc->receiving_report_status }})
                                 @endif
                             </p>
+                            @php
+                                $rfcLineage = \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id);
+                                $rfcHint = \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc');
+                            @endphp
+                            <div class="mt-3">
+                                @include('partials.document-lineage', [
+                                    'lineage' => $rfcLineage,
+                                    'currentType' => 'RFC',
+                                    'statusHint' => $rfcHint,
+                                ])
+                            </div>
                             @if($rfc->request_check_revision_notes)
                                 <p class="mt-2 text-sm text-amber-700">Revision notes: {{ $rfc->request_check_revision_notes }}</p>
                             @endif
@@ -413,7 +454,7 @@
                                 <p class="mt-2 text-sm text-red-700">Rejection: {{ $rfc->request_check_rejection_reason }}</p>
                             @endif
                         </div>
-                        <button type="button" @click="viewOpen = false" class="rounded-lg p-2 text-gray-400">✕</button>
+                        <button type="button" @click="viewOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
                     </div>
                     <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                         @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc, 'printId' => 'rfc-print-'.$rfc->request_check_id])
@@ -443,6 +484,8 @@
                             @endif
                         @endif
                         <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="pur-btn-primary">Print</button>
+                        <a href="{{ route('purchaser.rfc.export-xlsx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Excel</a>
+                        <a href="{{ route('purchaser.rfc.export-docx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Word</a>
                         <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">Close</button>
                     </div>
                 </div>
@@ -450,13 +493,25 @@
         </div>
 
         @if($canEdit)
-            <div x-show="editOpen && selectedRfc === {{ $rfc->request_check_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+            <div
+                x-show="editOpen && selectedRfc === {{ $rfc->request_check_id }}"
+                x-cloak
+                class="fixed inset-0 z-50 overflow-y-auto"
+                x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedRfc === {{ $rfc->request_check_id }}, $el)"
+                @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            >
                 <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
                 <div class="relative flex min-h-full items-center justify-center p-4">
-                    <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl">
+                    <div
+                        @click.stop
+                        class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="rfc-edit-title-{{ $rfc->request_check_id }}"
+                    >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
-                            <h3 class="text-xl font-semibold text-slate-900">Edit {{ $rfc->request_check_form_number }}</h3>
-                            <button type="button" @click="editOpen = false" class="rounded-lg p-2 text-gray-400">✕</button>
+                            <h3 id="rfc-edit-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">Edit {{ $rfc->request_check_form_number }}</h3>
+                            <button type="button" @click="editOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
                         </div>
                         <form method="POST" action="{{ route('purchaser.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
                             @csrf
@@ -486,11 +541,74 @@
             </div>
         @endif
     @endforeach
-</div>
 
-    <div class="hidden">
-        @include('partials.request-check-paper', ['editable' => false, 'rfc' => null, 'printId' => 'rfc-print-blank'])
+    {{-- PRINT EMPTY RFC MODAL --}}
+    <div
+        x-cloak
+        x-show="emptyOpen"
+        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rfc-empty-title"
+    >
+        <div
+            x-on:click.self="emptyOpen = false"
+            class="flex min-h-full w-full justify-center"
+        >
+            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+                <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h3 id="rfc-empty-title" class="text-lg font-semibold text-gray-900">Print Empty RFC</h3>
+                        <p class="mt-1 text-sm text-gray-500">Original blank Request for Check format.</p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="emptyOpen = false"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        aria-label="Close"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                    @include('partials.request-check-paper', ['editable' => false, 'rfc' => null, 'printId' => 'rfc-print-blank'])
+                </div>
+
+                <div class="print-hidden flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                    <button
+                        type="button"
+                        x-on:click="emptyOpen = false"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Cancel
+                    </button>
+                    <a
+                        href="{{ route('purchaser.rfc.export-blank-xlsx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Excel
+                    </a>
+                    <a
+                        href="{{ route('purchaser.rfc.export-blank-docx') }}"
+                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                        Word
+                    </a>
+                    <button
+                        type="button"
+                        @click="printRfc('blank')"
+                        class="pur-btn-primary"
+                    >
+                        Print Empty RFC
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 
 <style>
     [x-cloak] { display: none !important; }

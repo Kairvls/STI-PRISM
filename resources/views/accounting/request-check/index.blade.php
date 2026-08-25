@@ -18,6 +18,13 @@
         'incoming' => $counts['incoming'],
         'funds' => $counts['funds'],
         'released' => $counts['released'],
+        'revision' => $counts['revision'],
+    ];
+    $statCards = [
+        ['key' => 'incoming', 'label' => 'Needs review', 'value' => $counts['incoming'], 'hint' => 'Pending review', 'icon' => 'clipboard-list', 'tone' => 'blue'],
+        ['key' => 'funds', 'label' => 'Funds to release', 'value' => $counts['funds'], 'hint' => 'Ready', 'icon' => 'banknote', 'tone' => 'blue'],
+        ['key' => 'released', 'label' => 'Released', 'value' => $counts['released'], 'hint' => 'Collected', 'icon' => 'circle-check', 'tone' => 'slate'],
+        ['key' => 'revision', 'label' => 'Revision', 'value' => $counts['revision'], 'hint' => 'Sent back', 'icon' => 'pencil', 'tone' => 'slate'],
     ];
 @endphp
 
@@ -30,6 +37,27 @@
             <input type="hidden" name="status" value="{{ $filter }}">
             <input type="search" name="search" id="rfcSearch" value="{{ request('search') }}" placeholder="Search RFC, ATP, RIS, payee..." class="acc-search">
         </form>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ($statCards as $i => $card)
+            <a
+                href="/accounting/request-check?status={{ $card['key'] }}{{ request('search') ? '&search='.urlencode(request('search')) : '' }}"
+                class="pm-stat-card relative slide-up status-filter-card {{ $filter === $card['key'] ? 'ring-2 ring-blue-200 border-blue-200' : '' }}"
+                style="animation-delay:{{ 0.04 + ($i * 0.04) }}s"
+                data-filter="{{ $card['key'] }}"
+            >
+                <div class="pm-stat-icon {{ $card['tone'] === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600' }}">
+                    <i data-lucide="{{ $card['icon'] }}"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="pm-stat-label">{{ $card['label'] }}</p>
+                    <p class="pm-stat-value {{ $card['tone'] === 'blue' ? 'is-blue' : '' }}">
+                        <span data-count="{{ $card['key'] }}">{{ $card['value'] }}</span> {{ $card['hint'] }}
+                    </p>
+                </div>
+            </a>
+        @endforeach
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-3 slide-up">
@@ -58,11 +86,11 @@
                     <th class="!text-right">Amount</th>
                     <th>Date</th>
                     <th>Status</th>
-                    <th></th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody id="rfcTableBody" class="acc-animate">
-                @include('accounting.request-check._rows', ['records' => $records])
+                @include('accounting.request-check._rows', ['records' => $records, 'filter' => $filter])
             </tbody>
         </table>
     </div>
@@ -81,6 +109,7 @@
         const searchForm = document.getElementById('rfcSearchForm');
         const filterSlider = document.getElementById('rfcFilterSlider');
         const filterButtons = document.querySelectorAll('#rfcFilterSlider .status-filter-btn');
+        const filterCards = document.querySelectorAll('.status-filter-card');
         let currentFilter = '{{ $filter }}';
         let searchTimeout = null;
         let fetching = false;
@@ -97,6 +126,16 @@
                 btn.classList.toggle('is-active', active);
                 btn.setAttribute('aria-selected', active ? 'true' : 'false');
             });
+            filterCards.forEach(card => {
+                const active = card.getAttribute('data-filter') === activeFilter;
+                card.classList.toggle('ring-2', active);
+                card.classList.toggle('ring-blue-200', active);
+                card.classList.toggle('border-blue-200', active);
+            });
+            if (searchForm) {
+                const hidden = searchForm.querySelector('input[name="status"]');
+                if (hidden) hidden.value = activeFilter;
+            }
         }
 
         function buildUrl(page, filter, search) {
@@ -124,7 +163,6 @@
                 if (tbody) {
                     tbody.innerHTML = data.table_html;
                     tbody.classList.remove('is-loading');
-                    // Re-trigger the staggered row entrance animation
                     tbody.classList.remove('acc-animate');
                     void tbody.offsetWidth;
                     tbody.classList.add('acc-animate');
@@ -135,7 +173,12 @@
                         : '';
                 }
                 if (data.counts) {
-                    const map = { incoming: 'incoming', funds: 'funds', released: 'released' };
+                    Object.keys(data.counts).forEach(key => {
+                        document.querySelectorAll('[data-count="' + key + '"]').forEach(el => {
+                            el.textContent = data.counts[key];
+                        });
+                    });
+                    const map = { incoming: 'incoming', funds: 'funds', released: 'released', revision: 'revision' };
                     filterButtons.forEach(btn => {
                         const key = btn.getAttribute('data-filter');
                         const badge = btn.querySelector('.acc-count-badge');
@@ -158,15 +201,25 @@
             window.history.replaceState({}, '', buildUrl(page, filter, search));
         }
 
+        function applyFilter(newFilter) {
+            if (newFilter === currentFilter) return;
+            currentFilter = newFilter;
+            updateFilterButtons(newFilter);
+            fetchData(1, newFilter);
+            pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
+        }
+
         filterButtons.forEach(btn => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                const newFilter = this.getAttribute('data-filter');
-                if (newFilter === currentFilter) return;
-                currentFilter = newFilter;
-                updateFilterButtons(newFilter);
-                fetchData(1, newFilter);
-                pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
+                applyFilter(this.getAttribute('data-filter'));
+            });
+        });
+
+        filterCards.forEach(card => {
+            card.addEventListener('click', function (e) {
+                e.preventDefault();
+                applyFilter(this.getAttribute('data-filter'));
             });
         });
 
@@ -188,7 +241,6 @@
             });
         }
 
-        // Delegate pagination clicks (live, no page reload)
         if (pagination) {
             pagination.addEventListener('click', function (e) {
                 const link = e.target.closest('a[href]');
@@ -201,7 +253,6 @@
             });
         }
 
-        // Handle browser back/forward
         window.addEventListener('popstate', function () {
             const params = new URLSearchParams(window.location.search);
             const filter = params.get('status') || 'incoming';

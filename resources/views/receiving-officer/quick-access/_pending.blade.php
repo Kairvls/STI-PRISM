@@ -1,24 +1,28 @@
 <div class="space-y-3 p-1" data-ro-table data-ro-default-filter="pending">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <p class="text-sm text-gray-500">Pending receiving reports waiting for inspection.</p>
-            <a href="/receiving/reports" class="text-xs font-semibold text-[#0037c7]">Open full page</a>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div class="border-b border-gray-100 px-4 py-3">
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Pending receiving reports waiting for inspection.</p>
+                        <a href="/receiving/reports" class="text-xs font-semibold text-sky-600">Open full page</a>
+                    </div>
+                    <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ ($rows ?? collect())->count() }} total</span>
+                </div>
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    @include('layouts.partials.receiving-filter-slider', [
+                        'sliderId' => 'qaPendingFilterSlider',
+                        'current' => 'pending',
+                        'options' => [
+                            ['filter' => 'pending', 'label' => 'Pending'],
+                            ['filter' => 'returned', 'label' => 'For correction'],
+                            ['filter' => 'all', 'label' => 'All'],
+                        ],
+                    ])
+                    @include('layouts.partials.receiving-filters', ['searchId' => 'qaPendingSearch', 'placeholder' => 'Search RR, RIS, ATP...'])
+                </div>
+            </div>
         </div>
-        <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ ($rows ?? collect())->count() }} total</span>
-    </div>
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        @include('layouts.partials.receiving-filter-slider', [
-            'sliderId' => 'qaPendingFilterSlider',
-            'current' => 'pending',
-            'options' => [
-                ['filter' => 'pending', 'label' => 'Pending'],
-                ['filter' => 'returned', 'label' => 'For correction'],
-                ['filter' => 'all', 'label' => 'All'],
-            ],
-        ])
-        @include('layouts.partials.receiving-filters', ['searchId' => 'qaPendingSearch', 'placeholder' => 'Search RR, RIS, ATP...'])
-    </div>
-    <div class="overflow-hidden rounded-xl border border-gray-200">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[900px] text-left">
                 <thead class="border-b bg-gray-50">

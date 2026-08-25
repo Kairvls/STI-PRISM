@@ -6,8 +6,8 @@
         {{-- MOBILE SIDEBAR BUTTON --}}
         {{-- ================================================= --}}
 
-        <button onclick="toggleSidebar()" class="mobile-sidebar-btn">
-            <i data-lucide="menu"></i>
+        <button onclick="toggleSidebar()" class="mobile-sidebar-btn" type="button" aria-label="Open navigation menu" aria-controls="sidebar">
+            <i data-lucide="menu" aria-hidden="true"></i>
         </button>
 
         {{-- ================================================= --}}
@@ -20,8 +20,9 @@
             <input
                 type="search"
                 id="dashboard-search"
-                placeholder="Search accounts, roles, settings..."
+                placeholder="Search documents, suppliers, reports..."
                 autocomplete="off"
+                aria-label="Search purchaser records"
             />
 
             <kbd class="dashboard-search-shortcut"> Ctrl K </kbd>
@@ -77,9 +78,13 @@
 
             <button
                 type="button"
+                id="purchaserNotifToggle"
                 onclick="toggleNotifications()"
                 class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls="notificationDropdown"
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
@@ -117,6 +122,8 @@
             <div
                 id="notificationDropdown"
                 class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[360px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
+                role="menu"
+                aria-labelledby="purchaserNotifToggle"
             >
                 <!-- ===================================== -->
                 <!-- DROPDOWN HEADER -->
@@ -219,8 +226,13 @@
             <!-- PROFILE BUTTON -->
             <button
                 type="button"
+                id="purchaserProfileToggle"
                 onclick="toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
+                aria-label="Account menu"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls="profileDropdown"
             >
                 <!-- AVATAR -->
                 <div
@@ -253,6 +265,8 @@
             <div
                 id="profileDropdown"
                 class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[260px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
+                role="menu"
+                aria-labelledby="purchaserProfileToggle"
             >
                 <!-- PROFILE HEADER -->
                 <div class="border-b border-slate-100 px-4 py-4">
@@ -282,7 +296,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/admin/profile') }}"
+                        href="{{ route('profile.edit') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -291,18 +305,6 @@
                         ></i>
 
                         Profile settings
-                    </a>
-
-                    <a
-                        href="{{ url('/admin/security') }}"
-                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        <i
-                            data-lucide="shield-check"
-                            class="h-4 w-4 text-slate-400"
-                        ></i>
-
-                        Security settings
                     </a>
                 </div>
 
@@ -848,35 +850,82 @@
 </style>
 
 <script>
+    function setExpanded(toggleId, isOpen) {
+        const toggle = document.getElementById(toggleId);
+        if (toggle) {
+            toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        }
+    }
+
     function toggleNotifications() {
         const dropdown = document.getElementById("notificationDropdown");
+        const profile = document.getElementById("profileDropdown");
+
+        if (profile) {
+            profile.classList.add("hidden");
+            setExpanded("purchaserProfileToggle", false);
+        }
 
         dropdown.classList.toggle("hidden");
+        setExpanded("purchaserNotifToggle", !dropdown.classList.contains("hidden"));
     }
 
     function toggleProfileDropdown() {
         const dropdown = document.getElementById("profileDropdown");
+        const notif = document.getElementById("notificationDropdown");
+
+        if (notif) {
+            notif.classList.add("hidden");
+            setExpanded("purchaserNotifToggle", false);
+        }
 
         dropdown.classList.toggle("hidden");
+        setExpanded("purchaserProfileToggle", !dropdown.classList.contains("hidden"));
     }
 
     window.addEventListener("click", function (e) {
         const notif = document.getElementById("notificationDropdown");
-
         const profile = document.getElementById("profileDropdown");
 
         if (
+            notif &&
             !e.target.closest("#notificationDropdown") &&
-            !e.target.closest('[onclick="toggleNotifications()"]')
+            !e.target.closest("#purchaserNotifToggle")
         ) {
             notif.classList.add("hidden");
+            setExpanded("purchaserNotifToggle", false);
         }
 
         if (
+            profile &&
             !e.target.closest("#profileDropdown") &&
-            !e.target.closest('[onclick="toggleProfileDropdown()"]')
+            !e.target.closest("#purchaserProfileToggle")
         ) {
             profile.classList.add("hidden");
+            setExpanded("purchaserProfileToggle", false);
+        }
+    });
+
+    window.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") {
+            return;
+        }
+
+        const notif = document.getElementById("notificationDropdown");
+        const profile = document.getElementById("profileDropdown");
+
+        if (notif && !notif.classList.contains("hidden")) {
+            notif.classList.add("hidden");
+            setExpanded("purchaserNotifToggle", false);
+            document.getElementById("purchaserNotifToggle")?.focus();
+        }
+
+        if (profile && !profile.classList.contains("hidden")) {
+            profile.classList.add("hidden");
+            setExpanded("purchaserProfileToggle", false);
+            document.getElementById("purchaserProfileToggle")?.focus();
         }
     });
 </script>
+
+@include('layouts.partials.pur-dialog-script')

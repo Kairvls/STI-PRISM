@@ -11,7 +11,7 @@
     </div>
 
     @if (session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             {{ session('success') }}
         </div>
     @endif
@@ -53,7 +53,7 @@
                         required
                         minlength="4"
                         maxlength="20"
-                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
+                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300"
                         placeholder="Enter current PIN"
                         autocomplete="current-password"
                     >
@@ -71,7 +71,7 @@
                     required
                     minlength="4"
                     maxlength="20"
-                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
+                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300"
                     placeholder="Enter a new shared PIN"
                     autocomplete="new-password"
                     value="{{ old('campus_setup_pin') }}"
@@ -89,7 +89,7 @@
                     required
                     minlength="4"
                     maxlength="20"
-                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
+                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300"
                     placeholder="Re-enter the new PIN"
                     autocomplete="new-password"
                 >

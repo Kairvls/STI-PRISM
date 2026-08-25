@@ -17,48 +17,118 @@
 .ro-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
 .ro-icon i, .ro-icon svg { width: 18px; height: 18px; }
 .ro-icon-amber { background: #fffbeb; color: #d97706; }
-.ro-icon-emerald { background: #ecfdf5; color: #059669; }
-.ro-icon-rose { background: #fff1f2; color: #e11d48; }
-.ro-icon-blue { background: #eff6ff; color: #0037c7; }
+.ro-icon-emerald { background: #eff6ff; color: #3b82f6; }
+.ro-icon-rose { background: #f1f5f9; color: #475569; }
+.ro-icon-blue { background: #eff6ff; color: #3b82f6; }
 .ro-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
 .ro-pill-warn { background: #fffbeb; color: #d97706; }
-.ro-pill-ok { background: #ecfdf5; color: #059669; }
+.ro-pill-ok { background: #eff6ff; color: #3b82f6; }
 .ro-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
 .ro-value { font-family: Outfit, sans-serif; font-size: 1.75rem; font-weight: 700; color: #0f172a; line-height: 1; }
 .ro-hint { margin-top: 6px; font-size: 12px; color: #94a3b8; }
 .ro-alert { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-radius: 18px; margin-bottom: 16px; }
 .ro-alert-warn { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
-.ro-alert-ok { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.ro-alert-ok { background: #f8fbff; border: 1px solid #bfdbfe; }
 .ro-alert-left { display: flex; align-items: center; gap: 12px; }
 .ro-alert-icon { width: 40px; height: 40px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
 .ro-alert-title { font-family: Outfit, sans-serif; font-size: 15px; font-weight: 700; color: #0f172a; }
 .ro-alert-desc { margin-top: 2px; font-size: 12px; color: #64748b; }
-.ro-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: rgba(0,55,199,.85); color: #fff; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.ro-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #64748b; color: #fff; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .ro-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
 .ro-panel-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
 .ro-panel-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; }
 .ro-panel-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
-.ro-link { font-size: 12px; font-weight: 600; color: #0037c7; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.ro-quick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 14px 16px; }
-.ro-quick button, .ro-quick a { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; cursor: pointer; width: 100%; font-family: inherit; }
-.ro-quick button:hover, .ro-quick a:hover { background: #fff; border-color: #cbd5e1; transform: translateY(-1px); }
-.ro-quick-label { font-size: 11px; font-weight: 600; color: #0f172a; }
-.ro-quick-desc { font-size: 10px; color: #94a3b8; }
+.ro-link { font-size: 12px; font-weight: 600; color: #3b82f6; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
 .ro-table { width: 100%; border-collapse: collapse; }
 .ro-table th { text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
 .ro-table td { padding: 10px 14px; font-size: 12px; color: #475569; border-bottom: 1px solid #f1f5f9; }
 .ro-ref { font-weight: 600; color: #0f172a; }
 .ro-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .ro-badge-amber { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-.ro-badge-emerald { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
-.ro-badge-rose { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
+.ro-badge-emerald { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+.ro-badge-rose { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 .ro-side { display: flex; flex-direction: column; gap: 16px; }
 .ro-act { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f8fafc; }
 .ro-act:last-child { border-bottom: none; }
 .ro-empty { padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 13px; }
-.ro-qa-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px 16px; color: #64748b; font-size: 13px; }
-.ro-qa-spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: #0037c7; border-radius: 50%; animation: ro-spin .7s linear infinite; }
-@keyframes ro-spin { to { transform: rotate(360deg); } }
+.ro-attention-popup {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    padding: 16px;
+}
+.ro-attention-popup.hidden { display: none !important; }
+.ro-attention-card {
+    position: relative;
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 24px 22px 20px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+}
+.ro-attention-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+}
+.ro-attention-title {
+    font-family: Outfit, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0a0a0a;
+}
+.ro-attention-subtitle {
+    margin-top: 6px;
+    font-size: 0.875rem;
+    color: #64748b;
+}
+.ro-attention-rows {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ro-attention-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+.ro-attention-row-blue { background: #eff6ff; border-color: #bfdbfe; }
+.ro-attention-row-yellow { background: #fffbeb; border-color: #fde68a; }
+.ro-attention-label { font-size: 12px; font-weight: 600; color: #64748b; }
+.ro-attention-value { margin-top: 2px; font-family: Outfit, sans-serif; font-size: 1.35rem; font-weight: 700; color: #0f172a; }
+.ro-attention-cta {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.ro-attention-cta:hover { background: #1e293b; }
 .sidebar-calendar-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
 .sidebar-calendar-header { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
 .sidebar-calendar-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; }
@@ -70,21 +140,45 @@
 .cal-month-label { font-size: 12px; font-weight: 700; color: #0f172a; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 10px; }
 .cal-day-header { text-align: center; font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; padding: 2px 0; }
-.cal-day { text-align: center; padding: 4px 1px; border-radius: 6px; font-size: 10px; font-weight: 500; color: #475569; min-height: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.cal-day { text-align: center; padding: 4px 1px; border-radius: 6px; font-size: 10px; font-weight: 500; color: #475569; min-height: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: none; background: transparent; width: 100%; font-family: inherit; }
+.cal-day-btn { cursor: pointer; }
+.cal-day-btn:hover { background: #f1f5f9; }
 .cal-day-empty { opacity: .3; }
-.cal-day-today { background: #eef2ff; color: #0037c7; font-weight: 700; }
+.cal-day-today { background: #eff6ff; color: #3b82f6; font-weight: 700; }
 .cal-day-has-event { color: #0f172a; font-weight: 600; }
-.cal-day-dot { width: 4px; height: 4px; border-radius: 50%; background: #f59e0b; margin-top: 1px; }
+.cal-day-selected { outline: 2px solid #60a5fa; outline-offset: 1px; background: #dbeafe; }
+.cal-day-dot { width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; margin-top: 1px; }
+.cal-day-events { border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 8px; }
+.cal-day-events-title { font-size: 10px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
 .cal-upcoming { border-top: 1px solid #f1f5f9; padding-top: 8px; }
 .cal-upcoming-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
-.cal-upcoming-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; }
-.cal-upcoming-dot { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-top: 4px; flex-shrink: 0; }
+.cal-upcoming-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; transition: background .15s ease; border-radius: 6px; }
+.cal-upcoming-item.is-highlighted { background: #eff6ff; padding: 4px 6px; }
+.cal-upcoming-dot { width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; margin-top: 4px; flex-shrink: 0; }
 .cal-upcoming-content { display: flex; flex-direction: column; min-width: 0; }
 .cal-upcoming-name { font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-upcoming-date { font-size: 9px; color: #94a3b8; }
 .cal-upcoming-empty { font-size: 10px; color: #94a3b8; text-align: center; padding: 6px 0; }
-@media (max-width: 1200px) { .ro-grid { grid-template-columns: 1fr; } .ro-stat-grid, .ro-quick { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) { .ro-stat-grid, .ro-quick { grid-template-columns: 1fr; } .ro-dash-header, .ro-alert { flex-direction: column; align-items: flex-start; } }
+.cal-view-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+.cal-view-all:hover { background: #fff; border-color: #cbd5e1; color: #3b82f6; }
+.cal-view-all-hint { margin-top: 6px; font-size: 10px; color: #94a3b8; text-align: center; }
+@media (max-width: 1200px) { .ro-grid { grid-template-columns: 1fr; } .ro-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .ro-stat-grid { grid-template-columns: 1fr; } .ro-dash-header, .ro-alert { flex-direction: column; align-items: flex-start; } }
 </style>
 
 <div class="admin-page ro-dash">
@@ -100,6 +194,13 @@
     </div>
 
     @include('layouts.partials.receiving-query-error')
+
+    @php
+        $attentionPending = (int) ($pendingCount ?? 0);
+        $attentionLeftover = (int) ($yesterdayLeftoverCount ?? 0);
+        $attentionReturned = (int) ($returnedCount ?? 0);
+        $showAttentionPopup = ($attentionPending + $attentionLeftover + $attentionReturned) > 0;
+    @endphp
 
     <div class="ro-grid">
         <div>
@@ -124,7 +225,7 @@
                         <div class="ro-card-top"><div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div></div>
                         <p class="ro-label">Delivered Items</p>
                         <p class="ro-value">{{ $acceptedCount }}</p>
-                        <p class="ro-hint">{{ $acceptedMonth }} accepted this month</p>
+                        <p class="ro-hint">{{ $acceptedMonth }} delivered this month</p>
                     </div>
                 </a>
                 <a href="/receiving/supplier-records" class="ro-card-link">
@@ -167,7 +268,7 @@
             @else
                 <div class="ro-alert ro-alert-ok">
                     <div class="ro-alert-left">
-                        <div class="ro-alert-icon" style="background:#10b981;"><i data-lucide="check-circle-2"></i></div>
+                        <div class="ro-alert-icon" style="background:#60a5fa;"><i data-lucide="check-circle-2"></i></div>
                         <div>
                             <p class="ro-alert-title">No Receiving Reports waiting</p>
                             <p class="ro-alert-desc">Waiting for Purchaser to submit a Receiving Report after Accounting releases funds.</p>
@@ -175,42 +276,6 @@
                     </div>
                 </div>
             @endif
-
-            <div class="ro-panel">
-                <div class="ro-panel-h">
-                    <div>
-                        <p class="ro-panel-title">Quick access</p>
-                        <p class="ro-panel-sub">Open a section overview in a modal</p>
-                    </div>
-                </div>
-                <div class="ro-quick">
-                    <button type="button" onclick="openReceivingQuickAccess('pending')">
-                        <div class="ro-icon ro-icon-amber"><i data-lucide="clipboard-list"></i></div>
-                        <span class="ro-quick-label">Pending Receiving Reports</span>
-                        <span class="ro-quick-desc">Inspect incoming deliveries</span>
-                    </button>
-                    <button type="button" onclick="openReceivingQuickAccess('delivered')">
-                        <div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div>
-                        <span class="ro-quick-label">Delivered Items</span>
-                        <span class="ro-quick-desc">Accepted into inventory</span>
-                    </button>
-                    <button type="button" onclick="openReceivingQuickAccess('suppliers')">
-                        <div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div>
-                        <span class="ro-quick-label">Supplier lookup</span>
-                        <span class="ro-quick-desc">Read-only vendor list</span>
-                    </button>
-                    <button type="button" onclick="openReceivingQuickAccess('history')">
-                        <div class="ro-icon ro-icon-blue"><i data-lucide="history"></i></div>
-                        <span class="ro-quick-label">Delivery History</span>
-                        <span class="ro-quick-desc">Accepted and returned</span>
-                    </button>
-                    <button type="button" onclick="openReceivingQuickAccess('logs')">
-                        <div class="ro-icon ro-icon-blue"><i data-lucide="scroll-text"></i></div>
-                        <span class="ro-quick-label">Receiving Logs</span>
-                        <span class="ro-quick-desc">Inspection audit trail</span>
-                    </button>
-                </div>
-            </div>
 
             <div class="ro-panel" data-ro-table data-ro-default-filter="pending">
                 <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
@@ -223,7 +288,7 @@
                         <a class="ro-link" href="/receiving/reports">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
                     </div>
                 </div>
-                <div class="px-4 pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="px-4 pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-gray-100">
                     @include('layouts.partials.receiving-filter-slider', [
                         'sliderId' => 'dashPendingFilterSlider',
                         'current' => 'pending',
@@ -288,15 +353,15 @@
             <div class="ro-panel" data-ro-table data-ro-default-filter="all">
                 <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
                     <div>
-                        <p class="ro-panel-title">Recently accepted</p>
-                        <p class="ro-panel-sub">Items accepted after second count</p>
+                        <p class="ro-panel-title">Recently delivered</p>
+                        <p class="ro-panel-sub">Items delivered after second count</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $acceptedRows->count() }} total</span>
                         <a class="ro-link" href="/receiving/delivered-items">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
                     </div>
                 </div>
-                <div class="px-4 pb-3 flex justify-end">
+                <div class="px-4 pb-3 flex justify-end border-b border-gray-100">
                     @include('layouts.partials.receiving-filters', ['searchId' => 'dashAcceptedSearch', 'placeholder' => 'Search RIS, ATP, supplier...'])
                 </div>
                 <div class="overflow-x-auto">
@@ -329,7 +394,7 @@
                                         <div class="flex items-center gap-2">
                                             @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
                                             @if(!empty($row->receiving_report_id))
-                                                <a class="ro-link" href="/receiving/reports/{{ $row->receiving_report_id }}/print">Print</a>
+                                                <a class="ro-preview-btn" href="/receiving/reports/{{ $row->receiving_report_id }}/print" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>
                                             @endif
                                         </div>
                                     </td>
@@ -337,7 +402,7 @@
                             @empty
                             @endforelse
                                 <tr class="receiving-empty-row" @if($acceptedRows->count()) style="display:none" @endif>
-                                    <td colspan="7" class="ro-empty">Waiting for the first accepted delivery.</td>
+                                    <td colspan="7" class="ro-empty">Waiting for the first delivered item.</td>
                                 </tr>
                         </tbody>
                     </table>
@@ -357,7 +422,7 @@
                         <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
                         Calendar of Events
                     </h3>
-                    <p class="mt-1 text-[11px] font-normal text-slate-500">Inspections, accepted deliveries, and returns</p>
+                    <p class="mt-1 text-[11px] font-normal text-slate-500">Inspections, delivered items, and returns</p>
                 </div>
                 <div class="sidebar-calendar-body">
                     <div class="calendar-month-header">
@@ -398,7 +463,16 @@
                                 $isToday = $dateKey === $todayDate;
                                 $eventCount = count($calendarEventsByDate[$dateKey] ?? []);
                             @endphp
-                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }}" title="{{ $hasEvents ? $eventCount . ' event(s)' : '' }}">
+                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }} {{ $hasEvents ? 'cal-day-btn' : '' }}"
+                                @if($hasEvents)
+                                    role="button"
+                                    tabindex="0"
+                                    data-cal-date="{{ $dateKey }}"
+                                    title="{{ $eventCount }} event(s) — click to view"
+                                @else
+                                    title=""
+                                @endif
+                            >
                                 <span class="cal-day-num">{{ $day }}</span>
                                 @if($hasEvents)
                                     <span class="cal-day-dot"></span>
@@ -409,10 +483,15 @@
                             <div class="cal-day cal-day-empty"></div>
                         @endfor
                     </div>
+                    <div id="receivingCalendarDayEvents" class="cal-day-events" style="display:none;"></div>
                     <div id="receivingCalendarUpcoming" class="cal-upcoming">
                         <h4 class="cal-upcoming-title">Upcoming Events</h4>
-                        @forelse($calendarEvents->take(3) as $event)
-                            <div class="cal-upcoming-item">
+                        @php
+                            $upcomingPreview = collect($calendarEvents ?? [])->take(3);
+                            $upcomingTotal = collect($calendarEvents ?? [])->count();
+                        @endphp
+                        @forelse($upcomingPreview as $event)
+                            <div class="cal-upcoming-item" data-event-date="{{ $event->event_date ?? '' }}">
                                 <div class="cal-upcoming-dot"></div>
                                 <div class="cal-upcoming-content">
                                     <span class="cal-upcoming-name">{{ $event->event_name ?? 'Receiving' }}</span>
@@ -424,6 +503,9 @@
                         @empty
                             <div class="cal-upcoming-empty">No receiving dates this month</div>
                         @endforelse
+                        @if($upcomingTotal > 0)
+                            <a class="cal-view-all" href="/receiving/reports">View all</a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -452,7 +534,7 @@
                 <div class="ro-panel-h">
                     <div>
                         <p class="ro-panel-title">Top suppliers</p>
-                        <p class="ro-panel-sub">By accepted deliveries</p>
+                        <p class="ro-panel-sub">By delivered items</p>
                     </div>
                     <a class="ro-link" href="/receiving/supplier-records">All</a>
                 </div>
@@ -461,7 +543,7 @@
                         <div class="ro-icon ro-icon-blue" style="width:32px;height:32px;border-radius:8px;"><i data-lucide="store"></i></div>
                         <div>
                             <p class="text-xs font-semibold text-slate-800">{{ $supplier->supplier_name }}</p>
-                            <p class="text-[11px] text-slate-500">{{ $supplier->delivery_count }} accepted · {{ $supplier->contact_person ?: 'No contact' }}</p>
+                            <p class="text-[11px] text-slate-500">{{ $supplier->delivery_count }} delivered · {{ $supplier->contact_person ?: 'No contact' }}</p>
                         </div>
                     </div>
                 @empty
@@ -496,75 +578,100 @@
     </div>
 </div>
 
-<div id="receivingQuickAccessModal" class="ris-preview-modal-overlay" style="z-index: 12000;">
-    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1200px;">
-        <div class="ris-preview-modal-header">
-            <h3 class="ris-preview-modal-title" id="receivingQaTitle">Quick Access</h3>
-            <button type="button" class="ris-preview-modal-close" onclick="closeReceivingQuickAccess()" title="Close">
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-        <div class="ris-preview-modal-body" id="receivingQaBody" style="background:#fff; min-height: 280px; max-height: calc(90vh - 110px); overflow: auto; padding: 16px;">
-            <div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>
-        </div>
-        <div class="ris-preview-modal-footer">
-            <button type="button" class="ris-preview-modal-btn-close" onclick="closeReceivingQuickAccess()">Close</button>
+@if($showAttentionPopup)
+<div id="receivingDailyReminder" class="ro-attention-popup hidden" role="dialog" aria-labelledby="receivingDailyReminderTitle" aria-modal="true">
+    <div class="ro-attention-card">
+        <button type="button" class="ro-attention-close" onclick="dismissReceivingDailyReminder()" aria-label="Dismiss">
+            <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+        <h3 id="receivingDailyReminderTitle" class="ro-attention-title">Attention needed today</h3>
+        <p class="ro-attention-subtitle">Items that still need your action.</p>
+        <div class="ro-attention-rows">
+            <div class="ro-attention-row ro-attention-row-yellow">
+                <div>
+                    <p class="ro-attention-label">Pending for second count</p>
+                    <p class="ro-attention-value">{{ $attentionPending }}</p>
+                </div>
+                <a href="{{ url('/receiving/reports') }}" class="ro-attention-cta">Review queue</a>
+            </div>
+            <div class="ro-attention-row ro-attention-row-blue">
+                <div>
+                    <p class="ro-attention-label">Leftover from yesterday</p>
+                    <p class="ro-attention-value">{{ $attentionLeftover }}</p>
+                </div>
+                <a href="{{ url('/receiving/reports') }}" class="ro-attention-cta">Open reports</a>
+            </div>
+            <div class="ro-attention-row ro-attention-row-yellow">
+                <div>
+                    <p class="ro-attention-label">Returned for correction</p>
+                    <p class="ro-attention-value">{{ $attentionReturned }}</p>
+                </div>
+                <a href="{{ url('/receiving/history') }}" class="ro-attention-cta">View history</a>
+            </div>
         </div>
     </div>
 </div>
+@endif
 
 <script>
-window.openReceivingQuickAccess = function (section) {
-    var modal = document.getElementById('receivingQuickAccessModal');
-    var body = document.getElementById('receivingQaBody');
-    var title = document.getElementById('receivingQaTitle');
-    if (!modal || !body) return;
-    var titles = {
-        pending: 'Pending Receiving Reports',
-        delivered: 'Delivered Items',
-        suppliers: 'Supplier lookup',
-        history: 'Delivery History',
-        logs: 'Receiving Logs'
-    };
-    if (title) title.textContent = titles[section] || 'Quick Access';
-    body.innerHTML = '<div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>';
-    modal.style.display = 'flex';
-    fetch('/receiving/quick-access/' + encodeURIComponent(section), {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
-    })
-    .then(function (response) {
-        if (!response.ok) throw new Error('Failed to load');
-        return response.text();
-    })
-    .then(function (html) {
-        body.innerHTML = html;
-        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-        if (typeof window.initReceivingTableFilters === 'function') window.initReceivingTableFilters();
-    })
-    .catch(function () {
-        body.innerHTML = '<div class="ro-qa-loading" style="color:#e11d48;"><span>Failed to load this section.</span></div>';
-    });
-};
-window.closeReceivingQuickAccess = function () {
-    var modal = document.getElementById('receivingQuickAccessModal');
-    var body = document.getElementById('receivingQaBody');
-    if (modal) modal.style.display = 'none';
-    if (body) body.innerHTML = '<div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>';
-};
-document.addEventListener('click', function (e) {
-    var modal = document.getElementById('receivingQuickAccessModal');
-    if (modal && e.target === modal) closeReceivingQuickAccess();
-});
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeReceivingQuickAccess();
-});
+(function () {
+    var storageKey = @json('receiving_attention_popup_shown_' . (session('attention_popup_token') ?: 'default'));
 
+    window.dismissReceivingDailyReminder = function () {
+        var el = document.getElementById('receivingDailyReminder');
+        if (el) el.classList.add('hidden');
+        try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
+    };
+
+    function showReceivingAttention() {
+        var el = document.getElementById('receivingDailyReminder');
+        if (!el) return;
+
+        try {
+            if (sessionStorage.getItem(storageKey) === '1') return;
+            el.classList.remove('hidden');
+            sessionStorage.setItem(storageKey, '1');
+            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+            var pending = {{ $attentionPending }};
+            var leftover = {{ $attentionLeftover }};
+            var returned = {{ $attentionReturned }};
+            var total = pending + leftover + returned;
+            if (total > 0 && typeof window.showMpToast === 'function') {
+                window.showMpToast(
+                    pending + ' pending · ' + leftover + ' leftover · ' + returned + ' returned',
+                    { title: 'Attention needed today', type: 'warning', timer: 4200 }
+                );
+            }
+        } catch (err) {
+            el.classList.remove('hidden');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showReceivingAttention);
+    } else {
+        // Wait a tick so prism-toast (pushed scripts) can register showMpToast.
+        setTimeout(showReceivingAttention, 0);
+    }
+
+    document.addEventListener('keydown', function (event) {
+        var el = document.getElementById('receivingDailyReminder');
+        if (event.key === 'Escape' && el && !el.classList.contains('hidden')) {
+            dismissReceivingDailyReminder();
+        }
+    });
+})();
+</script>
+
+<script>
 (function() {
     var prevBtn = document.getElementById('receivingCalPrevBtn');
     var nextBtn = document.getElementById('receivingCalNextBtn');
     var monthLabel = document.getElementById('receivingCalMonthLabel');
     var grid = document.getElementById('receivingCalendarGrid');
     var upcoming = document.getElementById('receivingCalendarUpcoming');
+    var dayEventsEl = document.getElementById('receivingCalendarDayEvents');
     var events = {!! json_encode(
         collect($calendarEvents ?? [])->map(function ($event) {
             return [
@@ -578,6 +685,7 @@ document.addEventListener('keydown', function (e) {
     view.setDate(1);
     var now = new Date();
     var minMonthIndex = now.getFullYear() * 12 + now.getMonth() - 1;
+    var selectedDate = null;
 
     function pad(n) { return n < 10 ? '0' + n : String(n); }
     function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -591,6 +699,67 @@ document.addEventListener('keydown', function (e) {
     }
     function eventsOn(dateKey) {
         return events.filter(function (e) { return e.date === dateKey; });
+    }
+    function formatLabel(dateKey) {
+        var parts = dateKey.split('-');
+        return monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
+    }
+    function highlightUpcoming(dateKey) {
+        if (!upcoming) return;
+        upcoming.querySelectorAll('.cal-upcoming-item').forEach(function (el) {
+            el.classList.toggle('is-highlighted', el.getAttribute('data-event-date') === dateKey);
+        });
+    }
+    function showDayEvents(dateKey) {
+        if (!dayEventsEl) return;
+        var dayEvents = eventsOn(dateKey).slice().reverse();
+        var total = dayEvents.length;
+        if (!total) {
+            dayEventsEl.style.display = 'none';
+            dayEventsEl.innerHTML = '';
+            return;
+        }
+        var preview = dayEvents.slice(0, 3);
+        var html = '<h4 class="cal-day-events-title">' + formatLabel(dateKey) + '</h4>';
+        preview.forEach(function (e) {
+            html += '<div class="cal-upcoming-item is-highlighted"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
+            html += '<span class="cal-upcoming-name">' + e.name + '</span>';
+            html += '<span class="cal-upcoming-date"><a class="ro-link" href="/receiving/reports?date=' + encodeURIComponent(dateKey) + '">Open reports</a></span>';
+            html += '</div></div>';
+        });
+        html += '<a class="cal-view-all" href="/receiving/reports?date=' + encodeURIComponent(dateKey) + '">View all</a>';
+        if (total > 3) {
+            html += '<p class="cal-view-all-hint">Showing 3 of ' + total + ' on this day</p>';
+        }
+        dayEventsEl.innerHTML = html;
+        dayEventsEl.style.display = 'block';
+        highlightUpcoming(dateKey);
+        dayEventsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function selectDate(dateKey) {
+        selectedDate = dateKey;
+        if (grid) {
+            grid.querySelectorAll('[data-cal-date]').forEach(function (el) {
+                el.classList.toggle('cal-day-selected', el.getAttribute('data-cal-date') === dateKey);
+            });
+        }
+        showDayEvents(dateKey);
+    }
+    function bindDayClicks() {
+        if (!grid) return;
+        grid.querySelectorAll('[data-cal-date]').forEach(function (el) {
+            el.addEventListener('click', function () {
+                var dateKey = el.getAttribute('data-cal-date');
+                if (!dateKey) return;
+                selectDate(dateKey);
+            });
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    el.click();
+                }
+            });
+        });
     }
     function render() {
         if (!grid || !monthLabel) return;
@@ -616,8 +785,13 @@ document.addEventListener('keydown', function (e) {
             var dayEvents = eventsOn(dateKey);
             var cls = 'cal-day';
             if (dateKey === todayKey) cls += ' cal-day-today';
-            if (dayEvents.length) cls += ' cal-day-has-event';
-            html += '<div class="' + cls + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
+            if (dayEvents.length) cls += ' cal-day-has-event cal-day-btn';
+            if (selectedDate === dateKey) cls += ' cal-day-selected';
+            if (dayEvents.length) {
+                html += '<div class="' + cls + '" role="button" tabindex="0" data-cal-date="' + dateKey + '" title="' + dayEvents.length + ' event(s) — click to view">';
+            } else {
+                html += '<div class="' + cls + '">';
+            }
             html += '<span class="cal-day-num">' + dayNum + '</span>';
             if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
             html += '</div>';
@@ -626,21 +800,31 @@ document.addEventListener('keydown', function (e) {
         if (upcoming) {
             var monthPrefix = year + '-' + pad(month + 1);
             var monthEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
-                .sort(function (a, b) { return a.date.localeCompare(b.date); })
-                .slice(0, 3);
+                .sort(function (a, b) { return b.date.localeCompare(a.date); });
+            var monthTotal = monthEvents.length;
+            monthEvents = monthEvents.slice(0, 3);
             var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
             if (!monthEvents.length) {
                 list += '<div class="cal-upcoming-empty">No receiving dates this month</div>';
             } else {
                 monthEvents.forEach(function (e) {
-                    var parts = e.date.split('-');
-                    var label = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
-                    list += '<div class="cal-upcoming-item"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
+                    list += '<div class="cal-upcoming-item" data-event-date="' + e.date + '"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
                     list += '<span class="cal-upcoming-name">' + e.name + '</span>';
-                    list += '<span class="cal-upcoming-date">' + label + '</span></div></div>';
+                    list += '<span class="cal-upcoming-date">' + formatLabel(e.date) + '</span></div></div>';
                 });
             }
+            if (monthTotal > 0) {
+                list += '<a class="cal-view-all" href="/receiving/reports">View all</a>';
+            }
+            if (monthTotal > 3) {
+                list += '<p class="cal-view-all-hint">Showing 3 of ' + monthTotal + '</p>';
+            }
             upcoming.innerHTML = list;
+        }
+        bindDayClicks();
+        if (selectedDate) {
+            highlightUpcoming(selectedDate);
+            if (eventsOn(selectedDate).length) showDayEvents(selectedDate);
         }
         updateNavButtons();
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();

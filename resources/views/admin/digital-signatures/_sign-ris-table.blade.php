@@ -70,19 +70,8 @@
             >
 
                 @php
-                    $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected by the President'], true);
-                    $alreadyIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== ''
-                        || !empty($ris->ris_issued_by_date);
-                    $approvedBySig = trim((string) ($ris->ris_approved_by_signature ?? ''));
-                    $presidentApprovedStatus = in_array($ris->ris_status ?? '', ['Approved by the President', 'Approved'], true)
-                        && $approvedBySig !== ''
-                        && (
-                            ($ris->ris_status ?? '') === 'Approved by the President'
-                            || str_starts_with($approvedBySig, 'data:image')
-                        );
-                    $awaitingSign = !$isPresidentRejected
-                        && !$alreadyIssued
-                        && $presidentApprovedStatus;
+                    $awaitingSign = \App\Support\RisWorkflow::needsAdminIssuedBy($ris);
+                    $isPresidentRejected = \App\Support\RisWorkflow::canReturnForRevision($ris);
                 @endphp
 
 
@@ -217,14 +206,19 @@
                             </svg>
                         </button>
 
+                        @include('admin.partials.ris-print-icon-button', [
+                            'risId' => $ris->ris_id,
+                            'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900',
+                        ])
+
                         @if($awaitingSign)
 
                             <button
                                 type="button"
-                                onclick="openCoSignModal('{{ $ris->ris_id }}')"
+                                onclick="window.openCoSignModal('{{ $ris->ris_id }}')"
                                 title="Sign Issued by on this President-approved RIS"
                                 aria-label="Sign Issued by"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-sky-600 text-white transition hover:bg-sky-700"
                             >
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"></path>
@@ -237,7 +231,7 @@
 
                             <button
                                 type="button"
-                                onclick="openReturnRevisionModal('{{ $ris->ris_id }}')"
+                                onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}')"
                                 title="Return this President-rejected RIS to Purchaser for Minor Revision"
                                 aria-label="Return for revision"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"

@@ -25,28 +25,28 @@
                 'filter' => 'direct_approved',
                 'label' => 'Admin Approved',
                 'count' => $directApprovedCount ?? 0,
-                'color' => 'text-sky-500',
+                'color' => 'text-sky-600',
                 'title' => 'Show RIS forms approved directly by Admin',
             ],
             [
                 'filter' => 'president_approved',
                 'label' => 'Approved by the President',
                 'count' => $presidentApprovedCount ?? 0,
-                'color' => 'text-emerald-600',
+                'color' => 'text-blue-600',
                 'title' => 'Show RIS forms approved by the President',
             ],
             [
                 'filter' => 'president_rejected',
                 'label' => 'Rejected by the President',
                 'count' => $presidentRejectedCount ?? 0,
-                'color' => 'text-rose-600',
+                'color' => 'text-amber-700',
                 'title' => 'Show RIS forms rejected by the President',
             ],
             [
                 'filter' => 'amend',
                 'label' => 'Amend',
                 'count' => $amendedCount ?? 0,
-                'color' => 'text-amber-500',
+                'color' => 'text-amber-600',
                 'title' => 'Show RIS forms returned to Purchaser for amendment',
             ],
         ];
@@ -103,7 +103,7 @@
                 {{-- TABLE TITLE --}}
                 {{-- ================================================= --}}
 
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                     <div>
 
@@ -118,7 +118,12 @@
                     </div>
 
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
+
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'adminHistoryViewSwitcher',
+                            'btnClass' => 'admin-history-view-btn',
+                        ])
 
                         <a
                             href="{{ route('admin.digital-signatures.history.export-pdf', ['search' => $search, 'filter' => $filter]) }}"
@@ -133,7 +138,7 @@
 
                         <div
                             id="signatureHistoryTotalCount"
-                            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700"
+                            class="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
                             title="Number of RIS records matching the current filter and search"
                         >
 
@@ -230,10 +235,22 @@
         {{-- SIGNATURE HISTORY TABLE --}}
         {{-- ===================================================== --}}
 
-        <div class="overflow-x-auto" id="signatureHistoryTableContainer">
-
+        <div class="overflow-x-auto" id="signatureHistoryTableContainer" data-history-panel="table">
             @include('admin.digital-signatures._signature-history-table')
+        </div>
 
+        <div id="signatureHistoryCardsContainer" class="hidden space-y-3 px-5 py-4" data-history-panel="cards">
+            @forelse($signatureHistory as $history)
+                @include('admin.partials.ris-info-card', ['ris' => $history, 'cardMode' => 'history'])
+            @empty
+                <div class="px-2 py-10 text-center text-sm text-gray-400">No RIS records found.</div>
+            @endforelse
+
+            @include('layouts.partials.table-showing-pager', [
+                'pager' => $signatureHistory,
+                'linkClass' => 'signature-history-pagination-link',
+                'noun' => 'records',
+            ])
         </div>
 
     </div>
