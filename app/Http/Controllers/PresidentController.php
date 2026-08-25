@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use App\Http\Controllers\Concerns\ManagesUserProfile;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,7 @@ use App\Support\WorkflowNotifier;
 
 class PresidentController extends Controller
 {
+    use ManagesUserProfile;
     // =====================================================
     // DASHBOARD
     // =====================================================
@@ -1367,7 +1369,17 @@ class PresidentController extends Controller
 
     public function profile(): View
     {
-        return view('president.profile.index');
+        return $this->showUserProfile('president.profile.index');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        return $this->saveUserProfile($request, '/president/profile');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        return $this->saveUserPassword($request, '/president/profile');
     }
 
     // =====================================================

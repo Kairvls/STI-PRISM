@@ -1,15 +1,17 @@
-@extends('layouts.president-layout')
+@extends('layouts.accounting-layout')
 
 @section('title', 'Profile settings')
 
 @section('content')
+@include('accounting.partials.flash')
+
 @php
-    $roleName = $user->role->role_name ?? 'President';
+    $roleName = $user->role->role_name ?? 'Accounting';
     $avatarUrl = $user->profilePictureUrl();
 @endphp
 
-<div class="space-y-4 fade-in">
-    <p class="text-sm text-slate-500">Manage your President account details, photo, and password.</p>
+<div class="acc-page fade-in space-y-4">
+    <p class="text-sm text-slate-500">Manage your Accounting account details, photo, and password.</p>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <aside class="pm-card p-5 xl:col-span-4">
@@ -48,22 +50,22 @@
                     <p class="mt-1 text-xs text-slate-500">Update your photo, name, email, username, and contact number.</p>
                 </div>
 
-                <form method="POST" action="{{ route('president.profile.update') }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <form method="POST" action="{{ route('accounting.profile.update') }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     @csrf
                     @method('PATCH')
 
                     <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-                            <div id="pmAvatarPreview" class="shrink-0">
+                            <div id="accAvatarPreview" class="shrink-0">
                                 @include('partials.user-avatar', ['avatarUser' => $user, 'avatarSize' => 'lg'])
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-semibold text-slate-800">Profile picture</p>
                                 <p class="mt-1 text-xs text-slate-500">JPG, PNG, or WEBP up to 2MB.</p>
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
-                                    <label class="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                                    <label class="acc-btn acc-btn-ghost cursor-pointer">
                                         <span>Upload photo</span>
-                                        <input id="pmProfilePictureInput" type="file" name="user_profile_picture" accept="image/jpeg,image/png,image/webp" class="sr-only">
+                                        <input id="accProfilePictureInput" type="file" name="user_profile_picture" accept="image/jpeg,image/png,image/webp" class="sr-only">
                                     </label>
                                     @if ($avatarUrl)
                                         <label class="inline-flex items-center gap-2 text-xs font-semibold text-rose-600">
@@ -81,36 +83,36 @@
 
                     <div class="sm:col-span-2">
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_full_name">Full name</label>
-                        <input id="user_full_name" name="user_full_name" type="text" value="{{ old('user_full_name', $user->user_full_name) }}" required class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="user_full_name" name="user_full_name" type="text" value="{{ old('user_full_name', $user->user_full_name) }}" required class="acc-search w-full max-w-none">
                         @error('user_full_name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_email_address">Email address</label>
-                        <input id="user_email_address" name="user_email_address" type="email" value="{{ old('user_email_address', $user->user_email_address) }}" required class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="user_email_address" name="user_email_address" type="email" value="{{ old('user_email_address', $user->user_email_address) }}" required class="acc-search w-full max-w-none">
                         @error('user_email_address') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_contact_number">Contact number</label>
-                        <input id="user_contact_number" name="user_contact_number" type="text" value="{{ old('user_contact_number', $user->user_contact_number) }}" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="user_contact_number" name="user_contact_number" type="text" value="{{ old('user_contact_number', $user->user_contact_number) }}" class="acc-search w-full max-w-none">
                         @error('user_contact_number') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_username">Username</label>
-                        <input id="user_username" name="user_username" type="text" value="{{ old('user_username', $user->user_username) }}" required class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="user_username" name="user_username" type="text" value="{{ old('user_username', $user->user_username) }}" required class="acc-search w-full max-w-none">
                         @error('user_username') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_employee_id">Employee ID</label>
-                        <input id="user_employee_id" type="text" value="{{ $user->user_employee_id }}" disabled class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+                        <input id="user_employee_id" type="text" value="{{ $user->user_employee_id }}" disabled class="acc-search w-full max-w-none opacity-70">
                         <p class="mt-1 text-[11px] text-slate-400">Managed by Admin. Contact Admin to change this.</p>
                     </div>
 
                     <div class="sm:col-span-2 flex items-center gap-3 pt-1">
-                        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">Save profile</button>
+                        <button type="submit" class="acc-btn acc-btn-primary">Save profile</button>
                     </div>
                 </form>
             </section>
@@ -118,32 +120,32 @@
             <section class="pm-card p-5">
                 <div class="mb-4">
                     <h2 class="text-sm font-bold text-slate-900">Update password</h2>
-                    <p class="mt-1 text-xs text-slate-500">Use a long, unique password for your President account.</p>
+                    <p class="mt-1 text-xs text-slate-500">Use a long, unique password for your Accounting account.</p>
                 </div>
 
-                <form method="POST" action="{{ route('president.profile.password') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <form method="POST" action="{{ route('accounting.profile.password') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     @csrf
                     @method('PUT')
 
                     <div class="sm:col-span-2">
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="current_password">Current password</label>
-                        <input id="current_password" name="current_password" type="password" required autocomplete="current-password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="current_password" name="current_password" type="password" required autocomplete="current-password" class="acc-search w-full max-w-none">
                         @error('current_password') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="password">New password</label>
-                        <input id="password" name="password" type="password" required autocomplete="new-password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="password" name="password" type="password" required autocomplete="new-password" class="acc-search w-full max-w-none">
                         @error('password') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="password_confirmation">Confirm password</label>
-                        <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400">
+                        <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="acc-search w-full max-w-none">
                     </div>
 
                     <div class="sm:col-span-2 flex items-center gap-3 pt-1">
-                        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">Update password</button>
+                        <button type="submit" class="acc-btn acc-btn-primary">Update password</button>
                     </div>
                 </form>
             </section>
@@ -153,8 +155,8 @@
 
 <script>
     (function () {
-        const input = document.getElementById('pmProfilePictureInput');
-        const preview = document.getElementById('pmAvatarPreview');
+        const input = document.getElementById('accProfilePictureInput');
+        const preview = document.getElementById('accAvatarPreview');
         if (!input || !preview) return;
         input.addEventListener('change', function () {
             const file = input.files && input.files[0];

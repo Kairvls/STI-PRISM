@@ -8,7 +8,7 @@
         <td>@include('accounting.partials.status-badge', ['status' => $row->authority_purchase_status, 'submitted' => $row->authority_purchase_submitted_at, 'revision' => $row->authority_purchase_rejection_reason])</td>
         <td class="text-right">
             <a
-                href="/accounting/authority-to-purchase/{{ $row->authority_purchase_id }}"
+                href="/accounting/authority-to-purchase/{{ $row->authority_purchase_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                 class="icon-btn"
                 data-tip="Review ATP"
                 aria-label="Review ATP"

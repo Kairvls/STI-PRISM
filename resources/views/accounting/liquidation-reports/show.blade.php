@@ -8,14 +8,20 @@
 <div class="acc-page fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/liquidation-reports" class="acc-back" data-tip="Back to liquidation queue" aria-label="Back to liquidation queue">
+            <a href="/accounting/liquidation-reports?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to liquidation queue" aria-label="Back to liquidation queue">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $liq->liquidation_report_form_number ?? ('LIQ-'.$liq->liquidation_report_id) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])
+                @include('accounting.partials.deadline-badge', ['deadline' => $liq->liquidation_report_submission_deadline ?? null])
             </div>
             <p class="acc-page-subtitle">Official liquidation form. Approval completes the transaction.</p>
+            @if (!empty($liq->liquidation_report_submission_deadline))
+                <p class="mt-1 text-xs font-semibold {{ \Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->startOfDay()->lt(now()->startOfDay()) ? 'text-rose-600' : (\Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->startOfDay()->eq(now()->startOfDay()) ? 'text-amber-600' : 'text-slate-500') }}">
+                    Submission deadline: {{ \Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->format('M d, Y') }}
+                </p>
+            @endif
         </div>
         <div class="acc-actions">
             @if ($reviewable)

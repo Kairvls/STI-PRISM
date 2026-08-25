@@ -12,7 +12,7 @@
 <div class="acc-page fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/authority-to-purchase" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
+            <a href="/accounting/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -37,10 +37,10 @@
     </div>
 
     <div class="acc-review-grid">
-        <div class="acc-viewer">
-            <div class="acc-viewer-stage">
-                <div class="acc-viewer-fit">
-                    <div class="acc-paper">
+            <div class="acc-viewer">
+                <div class="acc-viewer-stage">
+                    <div class="acc-viewer-fit">
+                        <div class="acc-paper">
                         <div class="acc-paper-title">
                             <p class="org">STI COLLEGE- ORMOC, INC.</p>
                             <p class="doc">AUTHORITY TO PURCHASE</p>

@@ -1928,6 +1928,16 @@ Route::middleware([
             '/profile',
             [PresidentController::class, 'profile']
         )->name('profile');
+
+        Route::patch(
+            '/profile',
+            [PresidentController::class, 'updateProfile']
+        )->name('profile.update');
+
+        Route::put(
+            '/profile/password',
+            [PresidentController::class, 'updatePassword']
+        )->name('profile.password');
         
         // =====================================================
         // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
@@ -2000,6 +2010,10 @@ Route::middleware(['auth', 'accounting'])
         Route::get('/history', [AccountingController::class, 'history']);
         Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
         Route::get('/notifications', [AccountingController::class, 'notifications']);
+
+        Route::get('/profile', [AccountingController::class, 'profile'])->name('accounting.profile');
+        Route::patch('/profile', [AccountingController::class, 'updateProfile'])->name('accounting.profile.update');
+        Route::put('/profile/password', [AccountingController::class, 'updatePassword'])->name('accounting.profile.password');
 
 
     });

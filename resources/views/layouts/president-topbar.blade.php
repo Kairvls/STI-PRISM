@@ -50,7 +50,7 @@
                 id="topbarMessageBadge"
                 class="hidden absolute -right-1 -top-1 min-w-[18px] h-[18px]
                     items-center justify-center rounded-full
-                    bg-blue-600 px-1 text-[10px] font-bold text-white
+                    bg-rose-500 px-1 text-[10px] font-bold text-white
                     border-2 border-white"
             >0</span>
         </a>
@@ -67,7 +67,7 @@
 
                 @if (($headerUnreadCount ?? 0) > 0)
                     <span
-                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-blue-600"
+                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
                 @endif
             </button>
@@ -75,7 +75,7 @@
             <div
                 id="notificationDropdown"
                 class="absolute right-0 top-[calc(100%+2px)] z-50 hidden
-                    w-[min(340px,calc(100vw-1.5rem))]
+                    w-[340px]
                     overflow-hidden
                     rounded-xl
                     border border-black/5
@@ -131,7 +131,7 @@
                                         {{ $notification->notification_title }}
                                     </h4>
                                     @if (empty($notification->is_read))
-                                        <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600"></span>
+                                        <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"></span>
                                     @endif
                                 </div>
                                 <p class="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500">
@@ -170,16 +170,22 @@
                 onclick="toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white">
-                    {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
-                </div>
-                <div class="hidden min-w-0 sm:block">
+                @include('partials.user-avatar', ['avatarUser' => Auth::user(), 'avatarSize' => 'sm'])
+
+                {{-- Do not use Tailwind "hidden sm:block" here.
+                     global CSS may force .hidden { display:none !important }
+                     which permanently hides the name/role/chevron. --}}
+                <div class="pm-topbar-profile-meta min-w-0">
                     <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
                         {{ Auth::user()->user_full_name }}
                     </p>
                     <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">President</p>
                 </div>
-                <i data-lucide="chevron-down" class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"></i>
+
+                <i
+                    data-lucide="chevron-down"
+                    class="pm-topbar-profile-chevron h-4 w-4 shrink-0 text-slate-400"
+                ></i>
             </button>
 
             <div
@@ -188,9 +194,7 @@
             >
                 <div class="border-b border-slate-100 px-4 py-4">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white">
-                            {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
-                        </div>
+                        @include('partials.user-avatar', ['avatarUser' => Auth::user(), 'avatarSize' => 'md'])
                         <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-slate-950">{{ Auth::user()->user_full_name }}</p>
                             <p class="mt-0.5 truncate text-xs text-slate-500">{{ Auth::user()->user_email_address }}</p>
@@ -213,7 +217,7 @@
                         @csrf
                         <button
                             type="submit"
-                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
                         >
                             <i data-lucide="log-out" class="h-4 w-4"></i>
                             Log out
@@ -329,6 +333,26 @@
         width: 18px;
         height: 18px;
         stroke: currentColor;
+    }
+
+    /* Match accounting topbar: name + chevron visible on desktop (bypass .hidden overrides) */
+    .pm-topbar-profile-meta,
+    .pm-topbar-profile-chevron,
+    i.pm-topbar-profile-chevron,
+    svg.pm-topbar-profile-chevron {
+        display: none !important;
+    }
+
+    @media (min-width: 640px) {
+        .pm-topbar-profile-meta {
+            display: block !important;
+        }
+
+        .pm-topbar-profile-chevron,
+        i.pm-topbar-profile-chevron,
+        svg.pm-topbar-profile-chevron {
+            display: block !important;
+        }
     }
 
     .mobile-sidebar-btn {

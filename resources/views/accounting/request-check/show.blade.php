@@ -8,7 +8,7 @@
 <div class="acc-page fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/request-check" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
+            <a href="/accounting/request-check?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -47,6 +47,48 @@
                 </div>
                 <button type="button" class="icon-close" onclick="closeReleaseFundsModal()" data-tip="Close" aria-label="Close"><i data-lucide="x"></i></button>
             </div>
+
+            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Amount to release</p>
+                <p class="mt-1 text-2xl font-bold text-blue-700">
+                    {{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                    Payee: {{ $rfc->request_check_payee ?: '—' }}
+                    @if (!empty($rfc->authority_purchase_form_number))
+                        · ATP {{ $rfc->authority_purchase_form_number }}
+                    @endif
+                </p>
+            </div>
+
+            <div class="mt-4">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Items / products to purchase</p>
+                <div class="mt-2 max-h-48 overflow-auto rounded-xl border border-slate-200 bg-white">
+                    @if (($atpItems ?? collect())->isNotEmpty())
+                        <table class="acc-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="!text-right">Qty</th>
+                                    <th class="!text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($atpItems as $item)
+                                    <tr>
+                                        <td>{{ $item->atp_description ?: '—' }}</td>
+                                        <td class="text-right whitespace-nowrap">{{ $item->atp_quantity ?? '—' }}{{ !empty($item->atp_unit) ? ' '.$item->atp_unit : '' }}</td>
+                                        <td class="acc-money whitespace-nowrap">{{ $item->atp_amount !== null ? '₱'.number_format((float) $item->atp_amount, 2) : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @else
+                        <p class="px-4 py-3 text-sm text-slate-500">No ATP item details found for this Request Check.</p>
+                    @endif
+                </div>
+            </div>
+
             <form method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/release-funds" class="mt-4">
                 @csrf
                 <div class="confirm-actions">
