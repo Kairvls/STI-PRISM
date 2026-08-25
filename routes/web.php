@@ -109,6 +109,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'dashboard']
         )->name('dashboard');
 
+        Route::get(
+            '/profile',
+            [AdminController::class, 'profile']
+        )->name('profile');
+
+        Route::get(
+            '/security',
+            [AdminController::class, 'security']
+        )->name('security');
+
         // ==========================================
         // PROCUREMENT REVIEW
         // ==========================================
@@ -2006,6 +2016,9 @@ Route::middleware(['auth', 'receiving'])
     ->group(function () {
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
+
+        Route::get('/profile', [ReceivingController::class, 'profile'])->name('receiving.profile');
+        Route::get('/security', [ReceivingController::class, 'security'])->name('receiving.security');
 
         Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
 

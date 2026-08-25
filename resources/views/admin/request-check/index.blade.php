@@ -75,9 +75,9 @@
                                 @if($reviewable)
                                     <form method="POST" action="{{ route('admin.rfc.approve', $rfc->request_check_id) }}">
                                         @csrf
-                                        <button type="submit" onclick="return confirm('Approve and sign as Administrator?')" class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">Approve</button>
+                                        <button type="submit" onclick="return confirm('Approve and sign as Administrator?')" class="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">Approve</button>
                                     </form>
-                                    <button type="button" @click="openRevise({{ $rfc->request_check_id }})" class="rounded-lg border border-amber-300 px-3 py-2 text-xs font-medium text-amber-700">Revise</button>
+                                    <button type="button" @click="openRevise({{ $rfc->request_check_id }})" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700">Revise</button>
                                     <button type="button" @click="openReject({{ $rfc->request_check_id }})" class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-700">Reject</button>
                                 @endif
                             </div>
@@ -119,7 +119,7 @@
             <textarea name="remarks" required class="mt-4 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
             <div class="mt-4 flex justify-end gap-2">
                 <button type="button" @click="reviseOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" class="rounded-lg bg-amber-600 px-4 py-2 text-sm text-white">Send back</button>
+                <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white">Send back</button>
             </div>
         </form>
     </div>

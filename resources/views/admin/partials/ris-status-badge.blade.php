@@ -6,13 +6,14 @@
     $presidentApproved = $risStatus === 'Approved by the President'
         || ($risStatus === 'Approved' && $presidentImage);
 
+    // Soft slate base + light blue (active) / soft yellow (needs attention)
     if (in_array($risStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
         $risStatusLabel = 'Pending';
-        $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-700';
+        $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
         $risStatusTitle = 'This RIS is waiting for review';
     } elseif ($risStatus === 'Directly Approved') {
         $risStatusLabel = 'Admin Approved';
-        $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
+        $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';
         $risStatusTitle = 'Approved by Admin and returned to Purchaser';
     } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && ($presidentSig === '' || !$presidentImage))) {
         $risStatusLabel = 'Forwarded to President';
@@ -20,19 +21,19 @@
         $risStatusTitle = 'Sent to the President for a decision';
     } elseif ($presidentApproved && $issuedBy === '') {
         $risStatusLabel = 'Awaiting Admin';
-        $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-700';
+        $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-800';
         $risStatusTitle = 'President approved. Admin must sign Issued by';
     } elseif ($presidentApproved) {
         $risStatusLabel = 'Approved by the President';
-        $risStatusClass = 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        $risStatusClass = 'border-slate-200 bg-white text-slate-600';
         $risStatusTitle = 'Approved by the President and signed by Admin';
     } elseif (in_array($risStatus, ['Rejected by the President', 'Rejected by President'], true)) {
         $risStatusLabel = 'Rejected by the President';
-        $risStatusClass = 'border-rose-200 bg-rose-50 text-rose-700';
+        $risStatusClass = 'border-slate-500 bg-slate-800 text-slate-100';
         $risStatusTitle = 'Rejected by the President';
     } elseif (in_array($risStatus, ['Minor Revision', 'Rejected'], true)) {
         $risStatusLabel = 'Amend';
-        $risStatusClass = 'border-yellow-300 bg-yellow-50 text-amber-600';
+        $risStatusClass = 'border-amber-300 bg-amber-50 text-amber-800';
         $risStatusTitle = 'Returned to Purchaser for amendment';
     } else {
         $risStatusLabel = $risStatus !== '' ? $risStatus : 'N/A';

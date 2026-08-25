@@ -7,7 +7,7 @@
         @foreach($files as $file)
             <a
                 href="{{ route($downloadRoute, $file->ris_attachment_id) }}"
-                class="block max-w-[220px] truncate text-xs text-blue-600 hover:underline"
+                class="block max-w-[220px] truncate text-xs text-slate-600 hover:underline"
                 title="{{ $file->ris_attachment_original_name }}"
                 target="_blank"
                 rel="noopener"

@@ -19,7 +19,7 @@
         </a>
         <a href="{{ url('/admin/reports/receiving') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">Receiving</p>
-            <p class="mt-1 text-sm text-gray-500">Accepted vs returned deliveries, official receipts, and inventory lines added.</p>
+            <p class="mt-1 text-sm text-gray-500">Delivered vs returned items, receipts, and stock that was added.</p>
         </a>
         <a href="{{ url('/admin/reports/approval-logs') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">Approvals</p>

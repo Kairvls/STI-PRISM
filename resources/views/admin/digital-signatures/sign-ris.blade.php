@@ -79,6 +79,7 @@
 
 </div>
 
+@include('admin.partials.view-mode-script')
 
 {{-- ===================================================== --}}
 {{-- SIGN RIS JAVASCRIPT --}}
@@ -157,7 +158,10 @@
                 document.getElementById('signRisContentContainer');
 
             if (contentContainer) {
-                contentContainer.innerHTML = html;
+                const parsed = new DOMParser().parseFromString(html, 'text/html');
+                const partial = parsed.querySelector('#signRisContent')
+                    || parsed.querySelector('#signRisContentContainer');
+                contentContainer.innerHTML = partial ? partial.innerHTML : html;
             }
 
             // Re-bind event listeners after DOM update.
@@ -267,6 +271,32 @@
     }
 
 
+    function applySignRisView(mode, animate) {
+        if (typeof window.applyAdminViewMode === 'function') {
+            window.applyAdminViewMode({
+                mode: mode,
+                tableId: 'signRisTableContainer',
+                cardsId: 'signRisCardsContainer',
+                buttonSelector: '.admin-sign-view-btn',
+                storageKey: 'admin_sign_view',
+                animate: animate !== false,
+            });
+            return;
+        }
+        var table = document.getElementById('signRisTableContainer');
+        var cards = document.getElementById('signRisCardsContainer');
+        var buttons = document.querySelectorAll('.admin-sign-view-btn');
+        if (!table || !cards) return;
+        var useCards = mode === 'cards';
+        table.classList.toggle('hidden', useCards);
+        cards.classList.toggle('hidden', !useCards);
+        buttons.forEach(function (btn) {
+            var active = btn.getAttribute('data-view-mode') === mode;
+            btn.classList.toggle('is-active', active);
+        });
+    }
+
+
     function bindSignRisEventListeners() {
 
         const searchInput =
@@ -321,6 +351,14 @@
         });
 
         updateSignRisFilterSlider(currentFilter, false);
+
+        document.querySelectorAll('.admin-sign-view-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                applySignRisView(btn.getAttribute('data-view-mode') || 'table', true);
+            });
+        });
+        // Always reopen in table view when navigating / reloading content.
+        applySignRisView('table', false);
 
         const paginationLinks =
             document.querySelectorAll(
@@ -378,9 +416,20 @@
 
         modal.classList.remove('hidden');
         modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        requestAnimationFrame(function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('signRisPreviewIframe');
+            }
+        });
+        iframe.onload = function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('signRisPreviewIframe');
+            }
+        };
 
     };
-
 
     window.closeSignRisPreviewModal = function () {
 
@@ -399,36 +448,15 @@
             modal.style.display = '';
         }
 
+        document.body.style.overflow = '';
+
     };
 
 
     window.scaleSignRisPreviewToFit = function () {
-
-        const iframe =
-            document.getElementById('signRisPreviewIframe');
-
-        if (!iframe) {
-            return;
+        if (typeof window.scaleRisPreviewIframe === 'function') {
+            window.scaleRisPreviewIframe('signRisPreviewIframe');
         }
-
-        const docWidthInches = 11;
-        const docHeightInches = 8.5;
-
-        const docWidthPx = docWidthInches * 96;
-        const docHeightPx = docHeightInches * 96;
-
-        const viewportWidth = window.innerWidth - 64;
-        const viewportHeight = window.innerHeight - 64;
-
-        const scaleX = viewportWidth / docWidthPx;
-        const scaleY = viewportHeight / docHeightPx;
-
-        const scale = Math.min(scaleX, scaleY, 1) * 0.9;
-
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.width = docWidthPx + 'px';
-        iframe.style.height = docHeightPx + 'px';
-
     };
 
 
@@ -470,7 +498,9 @@
     window.openCoSignModal = function(risId) {
         if (typeof window.openDirectApproveModal === 'function') {
             window.openDirectApproveModal(risId, 'cosign');
+            return;
         }
+        console.error('Sign Issued by modal is not available on this page.');
     };
 
     document.addEventListener(

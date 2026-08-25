@@ -76,6 +76,7 @@
 
 </div>
 
+@include('admin.partials.view-mode-script')
 
 {{-- ===================================================== --}}
 {{-- SIGNATURE HISTORY JAVASCRIPT --}}
@@ -150,7 +151,10 @@
                 document.getElementById('signatureHistoryContentContainer');
 
             if (contentContainer) {
-                contentContainer.innerHTML = html;
+                const parsed = new DOMParser().parseFromString(html, 'text/html');
+                const partial = parsed.querySelector('#signatureHistoryContent')
+                    || parsed.querySelector('#signatureHistoryContentContainer');
+                contentContainer.innerHTML = partial ? partial.innerHTML : html;
             }
 
             // Re-bind event listeners after DOM update.
@@ -239,6 +243,31 @@
         }, 230);
     }
 
+    function applySignatureHistoryView(mode, animate) {
+        if (typeof window.applyAdminViewMode === 'function') {
+            window.applyAdminViewMode({
+                mode: mode,
+                tableId: 'signatureHistoryTableContainer',
+                cardsId: 'signatureHistoryCardsContainer',
+                buttonSelector: '.admin-history-view-btn',
+                storageKey: 'admin_history_view',
+                animate: animate !== false,
+            });
+            return;
+        }
+        var table = document.getElementById('signatureHistoryTableContainer');
+        var cards = document.getElementById('signatureHistoryCardsContainer');
+        var buttons = document.querySelectorAll('.admin-history-view-btn');
+        if (!table || !cards) return;
+        var useCards = mode === 'cards';
+        table.classList.toggle('hidden', useCards);
+        cards.classList.toggle('hidden', !useCards);
+        buttons.forEach(function (btn) {
+            var active = btn.getAttribute('data-view-mode') === mode;
+            btn.classList.toggle('is-active', active);
+        });
+    }
+
     function bindSignatureHistoryEventListeners() {
 
         const searchInput =
@@ -293,6 +322,14 @@
         });
 
         updateSignatureHistoryFilterSlider(currentFilter, false);
+
+        document.querySelectorAll('.admin-history-view-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                applySignatureHistoryView(btn.getAttribute('data-view-mode') || 'table', true);
+            });
+        });
+        // Always reopen in table view when navigating / reloading content.
+        applySignatureHistoryView('table', false);
 
         const paginationLinks =
             document.querySelectorAll(
@@ -353,9 +390,20 @@
 
         modal.classList.remove('hidden');
         modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        requestAnimationFrame(function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('signatureHistoryPreviewIframe');
+            }
+        });
+        iframe.onload = function () {
+            if (typeof window.scaleRisPreviewIframe === 'function') {
+                window.scaleRisPreviewIframe('signatureHistoryPreviewIframe');
+            }
+        };
 
     };
-
 
     // =====================================================
     // CLOSE SIGNATURE HISTORY PREVIEW
@@ -378,6 +426,8 @@
             modal.style.display = '';
         }
 
+        document.body.style.overflow = '';
+
     };
 
 
@@ -386,32 +436,9 @@
     // =====================================================
 
     window.scaleSignatureHistoryPreviewToFit = function () {
-
-        const iframe =
-            document.getElementById('signatureHistoryPreviewIframe');
-
-        if (!iframe) {
-            return;
+        if (typeof window.scaleRisPreviewIframe === 'function') {
+            window.scaleRisPreviewIframe('signatureHistoryPreviewIframe');
         }
-
-        const docWidthInches = 11;
-        const docHeightInches = 8.5;
-
-        const docWidthPx = docWidthInches * 96;
-        const docHeightPx = docHeightInches * 96;
-
-        const viewportWidth = window.innerWidth - 64;
-        const viewportHeight = window.innerHeight - 64;
-
-        const scaleX = viewportWidth / docWidthPx;
-        const scaleY = viewportHeight / docHeightPx;
-
-        const scale = Math.min(scaleX, scaleY, 1);
-
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.width = docWidthPx + 'px';
-        iframe.style.height = docHeightPx + 'px';
-
     };
 
 

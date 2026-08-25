@@ -97,7 +97,7 @@
     </div>
 
     <button
-        class="mt-6 bg-blue-600 text-white px-6 py-2 rounded">
+        class="mt-6 bg-slate-800 text-white px-6 py-2 rounded">
 
         Save Account
 

@@ -27,8 +27,8 @@
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('admin.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border px-3 py-2 text-xs">View</button>
                                 @if($reviewable)
-                                    <form method="POST" action="{{ route('admin.liq.approve', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700" onclick="return confirm('Endorse and approve?')">Approve</button></form>
-                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-amber-300 px-3 py-2 text-xs text-amber-700">Revise</button>
+                                    <form method="POST" action="{{ route('admin.liq.approve', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700" onclick="return confirm('Endorse and approve?')">Approve</button></form>
+                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700">Revise</button>
                                     <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; rejectOpen=true" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Reject</button>
                                 @endif
                             </div>
@@ -54,7 +54,7 @@
         </div>
     @endforeach
     <div x-show="reviseOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <form method="POST" :action="'/admin/liquidation-reports/'+remarksId+'/revise'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">@csrf<textarea name="remarks" required rows="4" class="w-full rounded-lg border p-3 text-sm"></textarea><div class="mt-4 flex justify-end gap-2"><button type="button" @click="reviseOpen=false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button><button class="rounded-lg bg-amber-600 px-4 py-2 text-sm text-white">Send back</button></div></form>
+        <form method="POST" :action="'/admin/liquidation-reports/'+remarksId+'/revise'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">@csrf<textarea name="remarks" required rows="4" class="w-full rounded-lg border p-3 text-sm"></textarea><div class="mt-4 flex justify-end gap-2"><button type="button" @click="reviseOpen=false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button><button class="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white">Send back</button></div></form>
     </div>
     <div x-show="rejectOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <form method="POST" :action="'/admin/liquidation-reports/'+remarksId+'/reject'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">@csrf<textarea name="remarks" required rows="4" class="w-full rounded-lg border p-3 text-sm"></textarea><div class="mt-4 flex justify-end gap-2"><button type="button" @click="rejectOpen=false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button><button class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">Reject</button></div></form>
