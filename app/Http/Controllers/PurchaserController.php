@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use App\Support\ReportGrouping;
 use App\Support\RisWorkflow;
 
 class PurchaserController extends Controller
@@ -238,53 +239,192 @@ class PurchaserController extends Controller
     // SHOW URGENT REPORTS
     public function urgentReports(Request $request)
     {
-        $purchaserId = Auth::id();
-
-        // Active or archive view (default: active)
-        $archiveView = $request->query('view') === 'archive';
-
-        $query = DB::table('reports_table')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
-            ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
-            ->select(
-                'reports_table.*',
-                'equipment_table.equipment_name',
-                'equipment_table.equipment_asset_tag',
-                'rooms_table.room_name',
-                'reporters_table.reporter_full_name',
-                'reporters_table.reporter_employee_id',
-                'reporters_table.reporter_contact_number'
-            )
-            ->where('reports_table.report_urgency_level', 'Urgent');
-
-        if ($archiveView) {
-            $query->where('reports_table.report_is_archived', true);
-        } else {
-            $query->where('reports_table.report_is_archived', false);
-        }
-
-        if ($request->filled('search')) {
-            $query->where(function ($subQuery) use ($request) {
-                $subQuery
-                    ->where('reports_table.report_id', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('rooms_table.room_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('reporters_table.reporter_full_name', 'LIKE', '%' . $request->search . '%');
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('reports_table.report_current_status', $request->status);
-        }
-
-        $urgentReports = $query
-            ->orderByDesc('reports_table.report_updated_at')
+        $reports = $this->urgentReportsQuery()
             ->paginate(10)
             ->withQueryString();
 
-        return view('purchaser.reports.urgent-reports', compact('urgentReports', 'archiveView'));
+        $reports->getCollection()->transform(function ($report) {
+            if (isset($report->grouped_report_count)) {
+                $report->report_related_count = (int) $report->grouped_report_count;
+            }
+
+            if (!empty($report->grouped_urgency)) {
+                $report->report_urgency_level = $report->grouped_urgency;
+            }
+
+            return $report;
+        });
+
+        $this->attachEquipmentReportHistory($reports->getCollection());
+
+        return view('purchaser.reports.urgent-reports', [
+            'reports' => $reports,
+        ]);
+    }
+
+    private function urgentReportsQuery()
+    {
+        $request = request();
+        $showArchive = $request->query('archive') == 1 || $request->query('view') === 'archive';
+        $isArchiveMode = $showArchive;
+
+        return DB::table('reports_table')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
+            ->leftJoin('users_table as assigned_personnel', 'reports_table.report_assigned_personnel_id', '=', 'assigned_personnel.user_id')
+            ->leftJoin('users_table as assigned_purchaser', 'reports_table.report_assigned_purchaser_id', '=', 'assigned_purchaser.user_id')
+            ->where('reports_table.report_urgency_level', 'Urgent')
+            ->when(
+                $request->filled('search'),
+                function ($query) use ($request) {
+                    $query->where(function ($subQuery) use ($request) {
+                        $subQuery
+                            ->where('reports_table.report_id', 'LIKE', '%' . $request->search . '%')
+                            ->orWhere('equipment_table.equipment_name', 'LIKE', $request->search . '%')
+                            ->orWhere('rooms_table.room_name', 'LIKE', $request->search . '%')
+                            ->orWhere('reporters_table.reporter_full_name', 'LIKE', $request->search . '%');
+                    });
+                }
+            )
+            ->when(
+                $request->filled('status'),
+                function ($query) use ($request, $isArchiveMode) {
+                    if (
+                        $isArchiveMode
+                        && !in_array($request->status, ['Resolved', 'Rejected', 'For Replacement'], true)
+                    ) {
+                        return;
+                    }
+
+                    $query->where('reports_table.report_current_status', $request->status);
+                }
+            )
+            ->when(
+                $showArchive,
+                fn ($query) => $query->where('reports_table.report_is_archived', true),
+                function ($query) {
+                    $query->where('reports_table.report_is_archived', false);
+                    $query->where(function ($groupQuery) {
+                        $groupQuery
+                            ->whereNull('reports_table.report_equipment_id')
+                            ->orWhereNotIn(
+                                'reports_table.report_current_status',
+                                ReportGrouping::groupedStatuses()
+                            )
+                            ->orWhereRaw(
+                                'reports_table.report_id = (
+                                    SELECT MAX(duplicate_reports.report_id)
+                                    FROM reports_table AS duplicate_reports
+                                    WHERE duplicate_reports.report_equipment_id = reports_table.report_equipment_id
+                                      AND duplicate_reports.report_room_id = reports_table.report_room_id
+                                      AND duplicate_reports.report_is_archived = 0
+                                      AND duplicate_reports.report_current_status IN (?, ?, ?, ?)
+                                      AND ' . ReportGrouping::groupBucketSql('duplicate_reports') . '
+                                        = ' . ReportGrouping::groupBucketSql('reports_table') . '
+                                )',
+                                ReportGrouping::groupedStatuses()
+                            );
+                    });
+                }
+            )
+            ->leftJoin(
+                DB::raw('(
+                    SELECT
+                        report_equipment_id,
+                        report_room_id,
+                        CASE
+                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
+                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
+                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
+                            ELSE report_current_status
+                        END AS report_group_bucket,
+                        COUNT(*) AS open_count,
+                        MAX(CASE WHEN report_urgency_level = \'Urgent\' THEN 1 ELSE 0 END) AS has_urgent
+                    FROM reports_table
+                    WHERE report_equipment_id IS NOT NULL
+                      AND report_is_archived = 0
+                      AND report_current_status IN (\'Pending\', \'Processing\', \'Resolved\', \'For Replacement\')
+                    GROUP BY
+                        report_equipment_id,
+                        report_room_id,
+                        CASE
+                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
+                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
+                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
+                            ELSE report_current_status
+                        END
+                ) AS open_report_group'),
+                function ($join) {
+                    $join
+                        ->on('open_report_group.report_equipment_id', '=', 'reports_table.report_equipment_id')
+                        ->on('open_report_group.report_room_id', '=', 'reports_table.report_room_id')
+                        ->whereRaw(
+                            'open_report_group.report_group_bucket = ' . ReportGrouping::groupBucketSql('reports_table')
+                        );
+                }
+            )
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->select(array_values(array_filter([
+                'reports_table.*',
+                'rooms_table.room_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'reporters_table.reporter_full_name',
+                'reporters_table.reporter_employee_id',
+                'reporters_table.reporter_contact_number',
+                'assigned_personnel.user_full_name as assigned_personnel_name',
+                'assigned_purchaser.user_full_name as assigned_purchaser_name',
+                Schema::hasColumn('reports_table', 'report_related_count')
+                    ? DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count')
+                    : DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
+                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency"),
+            ])));
+    }
+
+    private function attachEquipmentReportHistory($reports): void
+    {
+        $equipmentIds = collect($reports)
+            ->pluck('report_equipment_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($equipmentIds->isEmpty()) {
+            foreach ($reports as $report) {
+                $report->equipment_report_history = collect();
+            }
+
+            return;
+        }
+
+        $history = DB::table('reports_table')
+            ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            ->whereIn('reports_table.report_equipment_id', $equipmentIds)
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->select(
+                'reports_table.report_id',
+                'reports_table.report_equipment_id',
+                'reports_table.report_reporter_employee_id',
+                'reports_table.report_urgency_level',
+                'reports_table.report_current_status',
+                'reports_table.report_suggested_issue',
+                'reports_table.report_problem_description',
+                'reports_table.report_submitted_at',
+                'reports_table.report_is_archived',
+                'reporters_table.reporter_full_name',
+                'rooms_table.room_name'
+            )
+            ->get()
+            ->groupBy('report_equipment_id');
+
+        foreach ($reports as $report) {
+            $report->equipment_report_history = $history->get(
+                $report->report_equipment_id,
+                collect()
+            );
+        }
     }
 
     // PURCHASER ACCEPT URGENT REPORT
@@ -529,7 +669,7 @@ class PurchaserController extends Controller
                 ]);
 
             return redirect()
-                ->route('purchaser.reports.urgent', ['view' => 'archive'])
+                ->route('purchaser.reports.urgent', ['archive' => 1])
                 ->with('success', 'Urgent report restored successfully.');
         });
     }

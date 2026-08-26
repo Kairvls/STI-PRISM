@@ -143,40 +143,110 @@
         </div>
     @endif
 
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <p class="pur-page-kicker">Purchasing Workflow</p>
-            <h2 class="pur-page-title">Request for Check</h2>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            @include('purchaser.partials.archive-tabs', ['archiveView' => $archiveView, 'activeRoute' => 'purchaser.rfc.index', 'activeLabel' => 'Active'])
-            @unless($archiveView)
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <nav class="pur-tabs !mb-0" aria-label="RFC list view">
+            <a
+                href="{{ route('purchaser.rfc.index') }}"
+                class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
+            >
+                <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
+                Active
+            </a>
+            <a
+                href="{{ route('purchaser.rfc.index', ['view' => 'archive']) }}"
+                class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
+            >
+                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                Archive
+            </a>
+        </nav>
+
+        @unless($archiveView)
+            <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    @click="emptyOpen = true"
-                    class="pur-btn-secondary"
+                    @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
                 >
+                    <i data-lucide="printer" class="h-4 w-4"></i>
                     Print Empty RFC
                 </button>
-                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create RFC</button>
-            @endunless
-        </div>
+                <button
+                    type="button"
+                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Create RFC
+                </button>
+            </div>
+        @endunless
     </div>
 
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-6">
-        @foreach([
-            ['Total RFC', $rfcSummary['total'], 'files', route('purchaser.rfc.index')],
-            ['Draft', $rfcSummary['draft'], 'file-pen-line', route('purchaser.rfc.index', ['status' => 'Draft'])],
-            ['In Review', $rfcSummary['submitted'], 'send', route('purchaser.rfc.index', ['status' => 'Submitted'])],
-            ['Approved', $rfcSummary['approved'], 'circle-check-big', route('purchaser.rfc.index', ['status' => 'Approved'])],
-            ['Rejected', $rfcSummary['rejected'], 'circle-x', route('purchaser.rfc.index', ['status' => 'Rejected'])],
-            ['Archived', $rfcSummary['archived'], 'archive', route('purchaser.rfc.index', ['view' => 'archive'])],
-        ] as $card)
-            <a href="{{ $card[3] }}" class="pur-stat-card group">
-                <p class="text-sm font-medium text-gray-500">{{ $card[0] }}</p>
-                <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $card[1] }}</p>
-            </a>
-        @endforeach
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <a href="{{ route('purchaser.rfc.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Draft</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['draft']) }}</p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Incomplete drafts awaiting submit</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a href="{{ route('purchaser.rfc.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">In Review</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['submitted']) }}</p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                    <i data-lucide="send" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Waiting for accounting review</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Approved</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['approved']) }}</p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Approved for receiving workflow</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a href="{{ route('purchaser.rfc.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Rejected</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['rejected']) }}</p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
+                    <i data-lucide="circle-x" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Returned or declined RFC</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
     </div>
 
     @php
@@ -190,15 +260,21 @@
             : route('purchaser.rfc.index');
     @endphp
 
-    <div id="rfc-records-section" class="space-y-6">
-    <div class="pur-card">
+    <div id="rfc-records-section" class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div class="flex items-center gap-3">
-                    <h2 class="text-base font-semibold text-gray-950">RFC Records</h2>
-                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
-                        {{ $rfcs->total() }}
-                    </span>
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-base font-semibold text-gray-950">
+                            {{ $archiveView ? 'Archived RFC' : 'RFC Records' }}
+                        </h2>
+                        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
+                            {{ $rfcs->total() }}
+                        </span>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        {{ $archiveView ? 'Stored Request for Check records.' : 'Search and manage Request for Check records.' }}
+                    </p>
                 </div>
 
                 <form
@@ -206,7 +282,7 @@
                     action="{{ route('purchaser.rfc.index') }}"
                     x-ref="rfcFilterForm"
                     x-on:submit.prevent="refreshRfcRecords()"
-                    class="flex flex-col gap-2 sm:flex-row"
+                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
                 >
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
@@ -223,26 +299,27 @@
                                 clearTimeout(searchTimer);
                                 searchTimer = setTimeout(() => refreshRfcRecords(), 350);
                             "
-                            placeholder="Search RFC, ATP, payee, or purpose"
-                            class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            placeholder="Search RFC, ATP, payee..."
+                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
                         >
                     </div>
 
-                    <select name="status" x-on:change="refreshRfcRecords()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <select name="status" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
+                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
                         @endforeach
                     </select>
 
-                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" x-on:change="refreshRfcRecords()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" x-on:change="refreshRfcRecords()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_to" value="{{ request('date_to') }}" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
 
                     <button
                         type="submit"
                         x-bind:disabled="recordsLoading"
-                        class="pur-btn-primary disabled:cursor-wait disabled:opacity-60"
+                        class="box-border inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-[13px] font-semibold leading-none text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
                     >
+                        <i data-lucide="filter" class="h-4 w-4 shrink-0"></i>
                         <span x-cloak x-show="!recordsLoading">Apply</span>
                         <span x-cloak x-show="recordsLoading">Loading...</span>
                     </button>
@@ -254,7 +331,7 @@
                                 $refs.rfcFilterForm.reset();
                                 refreshRfcRecords('{{ $rfcClearUrl }}');
                             "
-                            class="rounded-xl border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+                            class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
                         >
                             Clear
                         </button>
@@ -264,29 +341,39 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
-                <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                    <tr>
-                        <th class="px-4 py-3">RFC No.</th>
-                        <th class="px-4 py-3">ATP</th>
-                        <th class="px-4 py-3">Payee</th>
-                        <th class="px-4 py-3">Amount</th>
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3">Action</th>
+                <thead class="bg-gray-50/70">
+                    <tr class="border-b border-gray-100">
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RFC No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payee</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse($rfcs as $rfc)
                         @php
                             $editable = in_array($rfc->request_check_status, ['Draft', 'Minor Revision'], true) && !$archiveView;
                         @endphp
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-4 font-medium text-slate-900">{{ $rfc->request_check_form_number ?? 'RFC-'.$rfc->request_check_id }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_date ? \Carbon\Carbon::parse($rfc->request_check_date)->format('M d, Y') : '—' }}</td>
-                            <td class="px-4 py-4">
+                        <tr class="transition hover:bg-gray-50/70">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
+                                        <i data-lucide="receipt-text" class="h-4 w-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?? 'RFC-'.$rfc->request_check_id }}</p>
+                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rfc->request_check_id }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
+                            <td class="px-5 py-4 font-medium text-gray-700">{{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}</td>
+                            <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rfc->request_check_date ? \Carbon\Carbon::parse($rfc->request_check_date)->format('M d, Y') : '—' }}</td>
+                            <td class="px-5 py-4">
                                 @if($rfc->request_check_status === 'Approved')
                                     @if($rfc->funds_released)
                                         @include('accounting.partials.status-badge', ['status' => 'Funds released'])
@@ -297,35 +384,35 @@
                                     @include('accounting.partials.status-badge', ['status' => $rfc->request_check_status])
                                 @endif
                             </td>
-                            <td class="px-4 py-4">
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" @click="openView({{ $rfc->request_check_id }})" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">View</button>
-                                    <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">Print</button>
+                            <td class="px-5 py-4">
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">View</button>
+                                    <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Print</button>
                                     @if($editable)
-                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">Edit</button>
+                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Edit</button>
                                         <form method="POST" action="{{ route('purchaser.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
                                             @csrf
-                                            <button type="submit" class="pur-btn-primary !px-3 !py-2 !text-xs">Submit</button>
+                                            <button type="submit" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Submit</button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">Create RR</a>
+                                            <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Create RR</a>
                                         @elseif(!$rfc->has_rr)
-                                            <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">Waiting for funds</span>
+                                            <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">Waiting for funds</span>
                                         @else
-                                            <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700">RR Created</span>
+                                            <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">RR Created</span>
                                         @endif
                                     @endif
                                     @if($archiveView)
                                         <form method="POST" action="{{ route('purchaser.rfc.restore', $rfc->request_check_id) }}">
                                             @csrf
-                                            <button type="submit" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">Restore</button>
+                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Restore</button>
                                         </form>
                                     @elseif(in_array($rfc->request_check_status, ['Approved', 'Rejected'], true))
                                         <form method="POST" action="{{ route('purchaser.rfc.archive', $rfc->request_check_id) }}" onsubmit="return confirm('Archive this Request for Check?')">
                                             @csrf
-                                            <button type="submit" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">Archive</button>
+                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100">Archive</button>
                                         </form>
                                     @endif
                                 </div>
@@ -333,7 +420,13 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-12 text-center text-sm text-gray-500">No Request for Check records found.</td>
+                            <td colspan="7" class="px-6 py-16 text-center">
+                                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
+                                    <i data-lucide="receipt-text" class="h-5 w-5"></i>
+                                </div>
+                                <p class="mt-4 font-medium text-gray-700">No Request for Check records found</p>
+                                <p class="mt-1 text-sm text-gray-400">Create an RFC or adjust the current filters.</p>
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -341,7 +434,7 @@
         </div>
 
         <div
-            class="border-t border-gray-100 px-6 py-4"
+            class="border-t border-gray-100 px-5 py-4"
             x-on:click="
                 const link = $event.target.closest('a');
                 if (!link) return;
@@ -351,7 +444,6 @@
         >
             {{ $rfcs->links() }}
         </div>
-    </div>
     </div>
 
     <div
@@ -370,12 +462,19 @@
                 aria-modal="true"
                 aria-labelledby="rfc-create-title"
             >
-                <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
-                    <div>
-                        <h3 id="rfc-create-title" class="text-xl font-semibold text-slate-900">Create Request for Check</h3>
-                        <p class="mt-1 text-sm text-gray-500">Select an approved ATP. Submit sends this to Accounting.</p>
+                <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                            <i data-lucide="receipt-text" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <h3 id="rfc-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Request for Check</h3>
+                            <p class="mt-0.5 text-sm text-gray-500">Select an approved ATP. Submit sends this to Accounting.</p>
+                        </div>
                     </div>
-                    <button type="button" @click="createOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
+                    <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
                 </div>
                 @if($eligibleAtps->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved ATP is currently available for Request for Check creation.</div>
@@ -402,9 +501,15 @@
                                 <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-2 block w-full text-sm">
                             </div>
                         </div>
-                        <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-                            <button type="submit" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">Save Draft</button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
+                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50">
+                                Save Draft
+                            </button>
+                            <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                                <i data-lucide="check" class="h-4 w-4"></i>
+                                Save & Submit
+                            </button>
                         </div>
                     </form>
                 @endif
@@ -454,7 +559,9 @@
                                 <p class="mt-2 text-sm text-red-700">Rejection: {{ $rfc->request_check_rejection_reason }}</p>
                             @endif
                         </div>
-                        <button type="button" @click="viewOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
+                        <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
                     </div>
                     <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                         @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc, 'printId' => 'rfc-print-'.$rfc->request_check_id])
@@ -511,7 +618,9 @@
                     >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <h3 id="rfc-edit-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">Edit {{ $rfc->request_check_form_number }}</h3>
-                            <button type="button" @click="editOpen = false" class="rounded-lg p-2 text-gray-400" aria-label="Close">✕</button>
+                            <button type="button" @click="editOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
                         </div>
                         <form method="POST" action="{{ route('purchaser.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
                             @csrf
@@ -566,10 +675,10 @@
                     <button
                         type="button"
                         x-on:click="emptyOpen = false"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                         aria-label="Close"
                     >
-                        Close
+                        <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
 

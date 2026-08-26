@@ -1,64 +1,83 @@
 <div class="topbar">
-    <!-- LEFT -->
-
     <div class="topbar-left">
-        {{-- ================================================= --}}
-        {{-- MOBILE SIDEBAR BUTTON --}}
-        {{-- ================================================= --}}
-
         <button onclick="toggleSidebar()" class="mobile-sidebar-btn" type="button" aria-label="Open navigation menu" aria-controls="sidebar">
             <i data-lucide="menu" aria-hidden="true"></i>
         </button>
 
-        {{-- ================================================= --}}
-        {{-- SEARCH BAR --}}
-        {{-- ================================================= --}}
+        @php
+            $moduleHeading = match (true) {
+                request()->is('purchaser/dashboard') => ['Dashboard', 'Overview of purchasing activity and workload.'],
+                request()->is('purchaser/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
+                request()->is('purchaser/reports/urgent*') => ['Urgent Reports', 'Reports that need immediate purchasing attention.'],
+                request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', 'Review and process equipment replacement requests.'],
+                request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
+                request()->is('purchaser/file-maintenance*') || request()->is('purchaser/brands*') || request()->is('purchaser/uom*') || request()->is('purchaser/categories*') || request()->is('purchaser/subcategories*') => ['File Maintenance', 'Brands, units, categories, and related records.'],
+                request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slip documents.'],
+                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare and track ATP documents.'],
+                request()->is('purchaser/request-check*') => ['Request Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
+                request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
+                default => [View::yieldContent('title', 'PRISM'), 'Purchaser'],
+            };
 
-        <div class="dashboard-toolbar-search">
-            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
+            $unreadCount = 0;
+            $recentNotes = collect();
+            try {
+                $unreadCount = \DB::table('notifications_table')
+                    ->where(function ($q) {
+                        $q->where('notification_user_id', auth()->id())
+                            ->orWhere('notification_target_role', 'Purchaser');
+                    })
+                    ->count();
 
-            <input
-                type="search"
-                id="dashboard-search"
-                placeholder="Search documents, suppliers, reports..."
-                autocomplete="off"
-                aria-label="Search purchaser records"
-            />
+                $recentNotes = \DB::table('notifications_table')
+                    ->where(function ($q) {
+                        $q->where('notification_user_id', auth()->id())
+                            ->orWhere('notification_target_role', 'Purchaser');
+                    })
+                    ->orderByDesc('notification_created_at')
+                    ->limit(8)
+                    ->get();
+            } catch (\Throwable $e) {
+                $unreadCount = 0;
+                $recentNotes = collect();
+            }
 
-            <kbd class="dashboard-search-shortcut"> Ctrl K </kbd>
+            $topbarUser = Auth::user();
+            $topbarInitial = strtoupper(substr($topbarUser->user_full_name ?? 'U', 0, 1));
+            $topbarPictureUrl = $topbarUser->profile_picture_url ?? null;
+        @endphp
+
+        <div class="min-w-0">
+            <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
+                {{ $moduleHeading[0] }}
+            </h1>
+            <p class="mt-0.5 truncate text-sm text-slate-500">
+                {{ $moduleHeading[1] }}
+            </p>
         </div>
     </div>
 
-    <!-- RIGHT -->
-
     <div class="flex items-center gap-2">
-        <!-- ===================================== -->
-        <!-- NOTIFICATIONS -->
-        <!-- ===================================== -->
-
-        {{-- ================================================= --}}
-        {{-- MAILBOX BUTTON --}}
-        {{-- BESIDE NOTIFICATION BUTTON --}}
-        {{-- ================================================= --}}
-
-        {{-- ================================================= --}}
-        {{-- MESSAGE BUTTON WITH UNREAD COUNT --}}
-        {{-- REPLACES THE OLD MESSAGE BUTTON --}}
-        {{-- ================================================= --}}
+        <div class="dashboard-toolbar-search hidden md:flex">
+            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
+            <input
+                type="search"
+                id="dashboard-search"
+                placeholder="Search..."
+                autocomplete="off"
+                aria-label="Search purchaser records"
+            />
+        </div>
 
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
             aria-label="PRISM messages"
-            title="Messages"
+            data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
-
-            {{-- ============================================= --}}
-            {{-- REAL MESSAGE UNREAD COUNT --}}
-            {{-- UPDATED BY messaging-modal.blade.php --}}
-            {{-- ============================================= --}}
 
             <span
                 id="topbarMessageBadge"
@@ -72,146 +91,195 @@
         </a>
 
         <div class="relative">
-            <!-- ===================================== -->
-            <!-- NOTIFICATION BUTTON -->
-            <!-- ===================================== -->
-
             <button
                 type="button"
-                id="purchaserNotifToggle"
                 onclick="toggleNotifications()"
                 class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
-                aria-haspopup="true"
-                aria-expanded="false"
-                aria-controls="notificationDropdown"
+                data-tooltip="Notifications"
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
-
-                <!-- ===================================== -->
-                <!-- UNREAD INDICATOR -->
-                <!-- ONLY SHOW WHEN UNREAD EXISTS -->
-                <!-- ===================================== -->
-
-                @php
-                    $unreadCount = 0;
-                    try {
-                        $unreadCount = \DB::table('notifications_table')
-                            ->where(function ($q) {
-                                $q->where('notification_user_id', auth()->id())
-                                    ->orWhere('notification_target_role', 'Purchaser');
-                            })
-                            ->count();
-                    } catch (\Throwable $e) {
-                        $unreadCount = 0;
-                    }
-                @endphp
 
                 @if ($unreadCount > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
-
                 @endif
             </button>
 
-            <!-- ===================================== -->
-            <!-- NOTIFICATION DROPDOWN -->
-            <!-- ===================================== -->
-
             <div
                 id="notificationDropdown"
-                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[360px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
-                role="menu"
-                aria-labelledby="purchaserNotifToggle"
+                class="absolute right-0 top-[calc(100%+2px)] z-50 hidden
+                    w-[340px]
+                    overflow-hidden
+                    rounded-xl
+                    border border-black/5
+                    bg-white
+                    shadow-[0_16px_45px_rgba(0,0,0,0.13)]"
             >
-                <!-- ===================================== -->
-                <!-- DROPDOWN HEADER -->
-                <!-- ===================================== -->
-
                 <div
-                    class="flex items-center justify-between border-b border-slate-100 px-5 py-4"
+                    class="flex items-center justify-between
+                        border-b border-slate-100
+                        px-4 py-3"
                 >
-                    <div>
-                        <h3
-                            class="text-sm font-semibold tracking-tight text-slate-950"
-                        >
+                    <div class="min-w-0">
+                        <h3 class="text-[13px] font-semibold tracking-tight text-slate-950">
                             Notifications
                         </h3>
-
-                        <p class="mt-0.5 text-xs text-slate-500">Recent activity requiring your attention</p>
+                        <p class="mt-0.5 text-[11px] text-slate-500">
+                            Recent activity requiring your attention
+                        </p>
                     </div>
 
-                    <!-- ===================================== -->
-                    <!-- UNREAD COUNT -->
-                    <!-- ===================================== -->
-
                     <span
-                        class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
+                        class="ml-3 shrink-0 rounded-full
+                            bg-slate-100
+                            px-2 py-1
+                            text-[10px] font-medium
+                            text-slate-600"
                     >
                         {{ $unreadCount }} new
                     </span>
                 </div>
 
-                <!-- ===================================== -->
-                <!-- NOTIFICATION LIST -->
-                <!-- ===================================== -->
-
-                <div class="max-h-[360px] overflow-y-auto">
-                    @php
-                        $recentNotes = collect();
-                        try {
-                            $recentNotes = \DB::table('notifications_table')
-                                ->where(function ($q) {
-                                    $q->where('notification_user_id', auth()->id())
-                                        ->orWhere('notification_target_role', 'Purchaser');
-                                })
-                                ->orderByDesc('notification_created_at')
-                                ->limit(8)
-                                ->get();
-                        } catch (\Throwable $e) {
-                            $recentNotes = collect();
-                        }
-                    @endphp
-
+                <div class="max-h-[290px] overflow-y-auto">
                     @forelse ($recentNotes as $note)
-                        <a href="{{ $note->notification_url ?: url('/purchaser/notifications') }}" class="flex items-start gap-3 border-b border-slate-100 px-5 py-3 hover:bg-slate-50">
-                            <div class="min-w-0">
-                                <h4 class="truncate text-sm font-medium text-slate-900">{{ $note->notification_title }}</h4>
-                                <p class="mt-0.5 line-clamp-2 text-xs text-slate-500">{{ $note->notification_message }}</p>
+                        @php
+                            $icon = match ($note->notification_type ?? null) {
+                                'urgent_report' => 'triangle-alert',
+                                'replacement_request' => 'inbox',
+                                'ris' => 'package-open',
+                                'atp', 'authority_to_purchase' => 'file-check-2',
+                                'rfc', 'request_check' => 'clipboard-check',
+                                'receiving_report' => 'package-check',
+                                'liquidation' => 'receipt-text',
+                                'supplier' => 'truck',
+                                default => 'bell',
+                            };
+
+                            $iconStyle = match ($note->notification_category ?? null) {
+                                'Reports' => 'bg-rose-50 text-rose-600',
+                                'Procurement' => 'bg-amber-50 text-amber-600',
+                                'Workflow' => 'bg-slate-100 text-slate-600',
+                                default => 'bg-slate-100 text-slate-500',
+                            };
+
+                            $isUnread = isset($note->is_read) ? !$note->is_read : true;
+                        @endphp
+
+                        <a
+                            href="{{ $note->notification_url ?: url('/purchaser/notifications') }}"
+                            class="flex w-full
+                                items-start
+                                gap-2.5
+                                border-b border-slate-100
+                                px-4 py-2.5
+                                text-left
+                                transition
+                                last:border-b-0
+                                hover:bg-slate-50
+                                {{ $isUnread ? 'bg-slate-50/60' : '' }}"
+                        >
+                            <div
+                                class="flex h-8 w-8
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    {{ $iconStyle }}"
+                            >
+                                <i data-lucide="{{ $icon }}" class="h-3.5 w-3.5"></i>
+                            </div>
+
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-start justify-between gap-3">
+                                    <h4
+                                        class="truncate
+                                            text-[12px]
+                                            font-semibold
+                                            leading-4
+                                            text-slate-900"
+                                    >
+                                        {{ $note->notification_title }}
+                                    </h4>
+
+                                    @if ($isUnread)
+                                        <span
+                                            class="mt-1
+                                                h-1.5 w-1.5
+                                                shrink-0
+                                                rounded-full
+                                                bg-rose-500"
+                                        ></span>
+                                    @endif
+                                </div>
+
+                                <p
+                                    class="mt-0.5
+                                        line-clamp-2
+                                        text-[11px]
+                                        leading-4
+                                        text-slate-500"
+                                >
+                                    {{ $note->notification_message }}
+                                </p>
+
+                                @if (!empty($note->notification_created_at))
+                                    <p
+                                        class="mt-1
+                                            text-[10px]
+                                            leading-3
+                                            text-slate-400"
+                                    >
+                                        {{ \Carbon\Carbon::parse($note->notification_created_at)->diffForHumans() }}
+                                    </p>
+                                @endif
                             </div>
                         </a>
                     @empty
-                    <div
-                        class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
-                    >
                         <div
-                            class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                            class="flex min-h-[170px]
+                                flex-col
+                                items-center
+                                justify-center
+                                px-5
+                                text-center"
                         >
-                            <i data-lucide="bell-off" class="h-4 w-4"></i>
+                            <div
+                                class="flex h-9 w-9
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-slate-100
+                                    text-slate-400"
+                            >
+                                <i data-lucide="bell-off" class="h-4 w-4"></i>
+                            </div>
+
+                            <h4 class="mt-2 text-[12px] font-medium text-slate-700">
+                                No notifications
+                            </h4>
+
+                            <p class="mt-1 text-[10px] text-slate-400">
+                                New system activity will appear here.
+                            </p>
                         </div>
-
-                        <h4 class="mt-3 text-sm font-medium text-slate-700">
-                            No notifications
-                        </h4>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            New system activity will appear here.
-                        </p>
-
-                    </div>
                     @endforelse
-
                 </div>
 
-                <!-- ===================================== -->
-                <!-- DROPDOWN FOOTER -->
-                <!-- ===================================== -->
-
-                <div class="border-t border-slate-100 px-3 py-2">
+                <div class="border-t border-slate-100 px-3 py-1.5">
                     <a
                         href="{{ url('/purchaser/notifications') }}"
-                        class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                        class="block w-full
+                            rounded-lg
+                            px-3 py-2
+                            text-center
+                            text-[11px]
+                            font-medium
+                            text-slate-600
+                            transition
+                            hover:bg-slate-100
+                            hover:text-slate-950"
                     >
                         View all notifications
                     </a>
@@ -219,108 +287,92 @@
             </div>
         </div>
 
-        <!-- ===================================== -->
-        <!-- PROFILE -->
-        <!-- ===================================== -->
         <div class="relative">
-            <!-- PROFILE BUTTON -->
             <button
                 type="button"
-                id="purchaserProfileToggle"
                 onclick="toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
-                aria-label="Account menu"
-                aria-haspopup="true"
-                aria-expanded="false"
-                aria-controls="profileDropdown"
             >
-                <!-- AVATAR -->
                 <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
+                    data-user-avatar
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
                 >
-                    {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
+                    @if ($topbarPictureUrl)
+                        <img
+                            src="{{ $topbarPictureUrl }}?v={{ time() }}"
+                            alt="{{ $topbarUser->user_full_name }}"
+                            class="h-full w-full object-cover"
+                        >
+                    @else
+                        {{ $topbarInitial }}
+                    @endif
                 </div>
 
-                <!-- PROFILE INFORMATION -->
                 <div class="hidden min-w-0 sm:block">
-                    <p
-                        class="max-w-[150px] truncate text-sm font-medium text-slate-900"
-                    >{{ Auth::user()->user_full_name }}</p>
-
-                    <p
-                        class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
-                    >Purchaser</p>
+                    <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
+                        {{ $topbarUser->user_full_name }}
+                    </p>
+                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
+                        Purchaser
+                    </p>
                 </div>
 
-                <!-- CHEVRON -->
                 <i
                     data-lucide="chevron-down"
                     class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
                 ></i>
             </button>
 
-            <!-- ===================================== -->
-            <!-- PROFILE DROPDOWN -->
-            <!-- ===================================== -->
             <div
                 id="profileDropdown"
                 class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[260px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
-                role="menu"
-                aria-labelledby="purchaserProfileToggle"
             >
-                <!-- PROFILE HEADER -->
                 <div class="border-b border-slate-100 px-4 py-4">
                     <div class="flex items-center gap-3">
-                        <!-- AVATAR -->
                         <div
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
+                            data-user-avatar
+                            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
                         >
-                            {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
+                            @if ($topbarPictureUrl)
+                                <img
+                                    src="{{ $topbarPictureUrl }}?v={{ time() }}"
+                                    alt="{{ $topbarUser->user_full_name }}"
+                                    class="h-full w-full object-cover"
+                                >
+                            @else
+                                {{ $topbarInitial }}
+                            @endif
                         </div>
 
-                        <!-- USER INFORMATION -->
                         <div class="min-w-0">
-                            <p
-                                class="truncate text-sm font-medium text-slate-950"
-                            >{{ Auth::user()->user_full_name }}</p>
-
-                            <p
-                                class="mt-0.5 truncate text-xs text-slate-500"
-                            >{{ Auth::user()->user_email_address }}</p>
+                            <p class="truncate text-sm font-medium text-slate-950">
+                                {{ $topbarUser->user_full_name }}
+                            </p>
+                            <p class="mt-0.5 truncate text-xs text-slate-500">
+                                {{ $topbarUser->user_email_address }}
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- ===================================== -->
-                <!-- PROFILE LINKS -->
-                <!-- ===================================== -->
                 <div class="p-2">
                     <a
                         href="{{ route('profile.edit') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
-                        <i
-                            data-lucide="user-cog"
-                            class="h-4 w-4 text-slate-400"
-                        ></i>
-
+                        <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
                     </a>
                 </div>
 
-                <!-- ===================================== -->
-                <!-- LOGOUT -->
-                <!-- ===================================== -->
                 <div class="border-t border-slate-100 p-2">
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-
                         <button
                             type="submit"
                             class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
                         >
                             <i data-lucide="log-out" class="h-4 w-4"></i>
-
                             Log out
                         </button>
                     </form>
@@ -331,7 +383,6 @@
 </div>
 
 <style>
-
         :root{
             --primary:#FFD400;
             --primary-dark:#E6BF00;
@@ -342,32 +393,18 @@
             --border:#E5E7EB;
         }
 
-
         .topbar{
-
             height:82px;
-
-            background:white;
-
-            border-bottom:1px solid #E2E8F0;
-
-            box-shadow:
-                0 2px 10px rgba(15,23,42,.03);
-
+            background:#ffffff;
+            border-bottom:none;
+            box-shadow:none;
             display:flex;
-
             align-items:center;
-
             justify-content:space-between;
-
-            padding:0 28px;
-
+            padding:0 32px;
             position:sticky;
-
             top:0;
-
             z-index:10;
-
         }
 
         .topbar-left{
@@ -376,142 +413,87 @@
             gap:18px;
         }
 
-        /* ======================================
-       TOPBAR SEARCH
-       KEEP THIS INSIDE maintenance-topbar.blade.php
-    ====================================== */
-
     .dashboard-toolbar-search {
-        width: 320px;
-        height: 46px;
-
+        width: 220px;
+        height: 42px;
         display: flex;
         align-items: center;
-
-        gap: 12px;
-
-        padding: 0 12px 0 16px;
-
+        gap: 10px;
+        padding: 0 14px;
         background: #ffffff;
-
-        border: 1px solid #e2e8f0;
-
-        border-radius: 14px;
-
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
         color: #64748b;
     }
-
 
     .dashboard-toolbar-search-icon {
         width: 18px;
         height: 18px;
-
         flex-shrink: 0;
-
         color: #94a3b8;
-
         stroke: currentColor;
     }
 
-
     .dashboard-toolbar-search input {
         min-width: 0;
-
         flex: 1;
-
         border: none;
-
         outline: none;
-
         background: transparent;
-
         font-size: 14px;
-
         color: #0f172a;
     }
-
 
     .dashboard-toolbar-search input::placeholder {
         color: #94a3b8;
     }
 
-
     .dashboard-search-shortcut {
         flex-shrink: 0;
-
         padding: 3px 7px;
-
         border: 1px solid #e2e8f0;
-
         border-radius: 6px;
-
         background: #f8fafc;
-
         color: #94a3b8;
-
         font-size: 11px;
-
         line-height: 1;
     }
 
-
-    /* ======================================
-       MAILBOX BUTTON
-       KEEP THIS INSIDE maintenance-topbar.blade.php
-    ====================================== */
-
     .dashboard-icon-action {
         position: relative;
-
         width: 40px;
         height: 40px;
-
         display: flex;
         align-items: center;
         justify-content: center;
-
         flex-shrink: 0;
-
         border-radius: 999px;
-
         color: #64748b;
-
         text-decoration: none;
-
         transition:
             background 0.2s ease,
             color 0.2s ease;
     }
 
-
     .dashboard-icon-action:hover {
         background: #f1f5f9;
-
         color: #0f172a;
     }
-
 
     .dashboard-icon-action svg {
         width: 18px;
         height: 18px;
-
         stroke: currentColor;
     }
 
-
     .dashboard-notification-dot {
         position: absolute;
-
         top: 8px;
         right: 8px;
-
         width: 6px;
         height: 6px;
-
         border-radius: 999px;
-
         background: #ef4444;
-
         border: 1px solid #ffffff;
     }
 
@@ -552,8 +534,6 @@
             gap:16px;
         }
 
-        /* TIME */
-
         .time-card{
             background:#FFFDF3;
             border:1px solid rgba(255,212,0,.25);
@@ -587,8 +567,6 @@
             font-weight:700;
             color:var(--text);
         }
-
-        /* ICON BUTTONS */
 
         .icon-btn{
             width:48px;
@@ -628,11 +606,8 @@
             right:10px;
         }
 
-        /* PROFILE */
-
         .profile-btn{
             border:none;
-
             padding:6px 14px;
             border-radius:18px;
             display:flex;
@@ -654,8 +629,6 @@
             width:35px;
             height:35px;
             border-radius:14px;
-
-
             color:#111827;
             font-weight:700;
             display:flex;
@@ -680,8 +653,6 @@
             height:18px;
             color:#94A3B8;
         }
-
-        /* DROPDOWNS */
 
         .dropdown-panel,
         .profile-dropdown{
@@ -829,7 +800,6 @@
         }
 
         @media(max-width:1280px){
-
             .mobile-sidebar-btn{
                 display:flex;
             }
@@ -850,37 +820,14 @@
 </style>
 
 <script>
-    function setExpanded(toggleId, isOpen) {
-        const toggle = document.getElementById(toggleId);
-        if (toggle) {
-            toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-        }
-    }
-
     function toggleNotifications() {
         const dropdown = document.getElementById("notificationDropdown");
-        const profile = document.getElementById("profileDropdown");
-
-        if (profile) {
-            profile.classList.add("hidden");
-            setExpanded("purchaserProfileToggle", false);
-        }
-
         dropdown.classList.toggle("hidden");
-        setExpanded("purchaserNotifToggle", !dropdown.classList.contains("hidden"));
     }
 
     function toggleProfileDropdown() {
         const dropdown = document.getElementById("profileDropdown");
-        const notif = document.getElementById("notificationDropdown");
-
-        if (notif) {
-            notif.classList.add("hidden");
-            setExpanded("purchaserNotifToggle", false);
-        }
-
         dropdown.classList.toggle("hidden");
-        setExpanded("purchaserProfileToggle", !dropdown.classList.contains("hidden"));
     }
 
     window.addEventListener("click", function (e) {
@@ -888,42 +835,17 @@
         const profile = document.getElementById("profileDropdown");
 
         if (
-            notif &&
             !e.target.closest("#notificationDropdown") &&
-            !e.target.closest("#purchaserNotifToggle")
+            !e.target.closest('[onclick="toggleNotifications()"]')
         ) {
             notif.classList.add("hidden");
-            setExpanded("purchaserNotifToggle", false);
         }
 
         if (
-            profile &&
             !e.target.closest("#profileDropdown") &&
-            !e.target.closest("#purchaserProfileToggle")
+            !e.target.closest('[onclick="toggleProfileDropdown()"]')
         ) {
             profile.classList.add("hidden");
-            setExpanded("purchaserProfileToggle", false);
-        }
-    });
-
-    window.addEventListener("keydown", function (e) {
-        if (e.key !== "Escape") {
-            return;
-        }
-
-        const notif = document.getElementById("notificationDropdown");
-        const profile = document.getElementById("profileDropdown");
-
-        if (notif && !notif.classList.contains("hidden")) {
-            notif.classList.add("hidden");
-            setExpanded("purchaserNotifToggle", false);
-            document.getElementById("purchaserNotifToggle")?.focus();
-        }
-
-        if (profile && !profile.classList.contains("hidden")) {
-            profile.classList.add("hidden");
-            setExpanded("purchaserProfileToggle", false);
-            document.getElementById("purchaserProfileToggle")?.focus();
         }
     });
 </script>

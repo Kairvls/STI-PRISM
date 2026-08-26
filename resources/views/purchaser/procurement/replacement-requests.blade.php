@@ -9,8 +9,34 @@
 <div
     x-data="{
         openModal: null,
+        approveModal: null,
+        archiveModal: null,
+        createRisModal: null,
+        rejectModal: {{ old('reject_request_id') ? (int) old('reject_request_id') : 'null' }},
         search: '',
         status: '',
+
+        openApprove(id) {
+            this.approveModal = id;
+        },
+
+        openArchive(id) {
+            this.archiveModal = id;
+            this.openModal = null;
+        },
+
+        openCreateRis(id) {
+            this.createRisModal = id;
+        },
+
+        openReject(id) {
+            this.rejectModal = id;
+            this.$nextTick(() => {
+                if (this.$refs.rejectRemarks) {
+                    this.$refs.rejectRemarks.focus();
+                }
+            });
+        },
 
         matchesSearch(request) {
             const query = this.search.toLowerCase().trim();
@@ -78,29 +104,6 @@
         </div>
     @endif
 
-    <div class="mb-7">
-        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <p class="pur-page-kicker">Procurement</p>
-                <h1 class="pur-page-title">
-                    {{ $archiveView ? 'Archived Replacement Requests' : 'Replacement Requests' }}
-                </h1>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-                @if($archiveView)
-                    <a href="{{ url()->current() }}" class="pur-btn-secondary">
-                        Back to Requests
-                    </a>
-                @else
-                    <a href="{{ url()->current() }}?view=archive" class="pur-btn-secondary">
-                        View Archive
-                    </a>
-                @endif
-            </div>
-        </div>
-    </div>
-
     <div class="pur-card mb-6">
         <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
             <div class="px-5 py-5">
@@ -156,7 +159,9 @@
                     </p>
                 </div>
 
-                <div class="flex flex-col gap-2 sm:flex-row">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    
+
                     <div class="relative">
                         <svg
                             class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -176,13 +181,13 @@
                             type="text"
                             x-model.debounce.300ms="search"
                             placeholder="Search requests."
-                            class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            class="w-full rounded-lg border border-gray-200 bg-gray-50 h-9 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
                         >
                     </div>
 
                     <select
                         x-model="status"
-                        class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white"
+                        class="rounded-lg border border-gray-200 bg-gray-50 px-4 h-9 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white"
                     >
                         <option value="">All statuses</option>
                         <option value="Pending">Pending</option>
@@ -195,10 +200,38 @@
                         type="button"
                         x-show="search || status"
                         x-on:click="search = ''; status = ''"
-                        class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+                        class="rounded-lg border border-gray-100/80 px-3.5 py-2.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                     >
                         Clear
                     </button>
+
+                    <div
+                        class="flex shrink-0 items-center rounded-lg bg-slate-100 h-9 p-1"
+                    >
+                        <a
+                            href="{{ route('purchaser.procurement.replacement-requests') }}"
+                            class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
+                                {{ !$archiveView
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600'
+                                }}"
+                        >
+                            <i data-lucide="folder-open" class="h-3.5 w-3.5"></i>
+                            Requests
+                        </a>
+
+                        <a
+                            href="{{ route('purchaser.procurement.replacement-requests', ['view' => 'archive']) }}"
+                            class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
+                                {{ $archiveView
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600'
+                                }}"
+                        >
+                            <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                            Archive
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,7 +248,7 @@
                         {{-- RIS COLUMN --}}
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
                 </thead>
 
@@ -314,51 +347,95 @@
                             </td>
 
                             <td class="px-5 py-4">
-                                <div class="flex justify-end items-center gap-2">
-
-                                    {{-- CREATE RIS --}}
-                                    @if($canCreateRis)
-                                        <a
-                                            href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
-                                            class="pur-btn-primary !px-3 !py-2 !text-xs"
-                                        >
-                                            Create RIS
-                                        </a>
-                                    @elseif($hasRis)
-                                        <a
-                                            href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
-                                            class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-100"
-                                        >
-                                            View RIS
-                                        </a>
-                                    @endif
+                                <div class="flex justify-end items-center gap-1.5">
 
                                     {{-- VIEW --}}
                                     <button
                                         type="button"
                                         x-on:click="openModal = 'replacement-{{ $request->procurement_request_id }}'"
-                                        class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                        data-tooltip="View"
+                                        aria-label="View"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
                                     >
-                                        View
+                                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
                                     </button>
 
-                                    {{-- ARCHIVE --}}
+                                    {{-- APPROVE / REJECT (Pending only) --}}
+                                    @if(
+                                        !$request->procurement_request_is_archived
+                                        && $request->procurement_request_status === 'Pending'
+                                    )
+                                        <button
+                                            type="button"
+                                            x-on:click="openApprove({{ $request->procurement_request_id }})"
+                                            data-tooltip="Approve"
+                                            aria-label="Approve"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-blue-800"
+                                        >
+                                            <i data-lucide="check" class="h-3.5 w-3.5"></i>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            x-on:click="openReject({{ $request->procurement_request_id }})"
+                                            data-tooltip="Reject"
+                                            aria-label="Reject"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                                        >
+                                            <i data-lucide="thumbs-down" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    @endif
+
+                                    {{-- CREATE RIS / VIEW RIS --}}
+                                    @if($canCreateRis)
+                                        <button
+                                            type="button"
+                                            x-on:click="openCreateRis({{ $request->procurement_request_id }})"
+                                            data-tooltip="Create RIS"
+                                            aria-label="Create RIS"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
+                                        >
+                                            <i data-lucide="file-plus-2" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    @elseif($hasRis)
+                                        <a
+                                            href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
+                                            data-tooltip="View RIS"
+                                            aria-label="View RIS"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700 transition hover:bg-green-100"
+                                        >
+                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                        </a>
+                                    @endif
+
+                                    {{-- ARCHIVE / RESTORE --}}
                                     @if(
                                         !$request->procurement_request_is_archived
                                         && in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true)
                                     )
+                                        <button
+                                            type="button"
+                                            x-on:click="openArchive({{ $request->procurement_request_id }})"
+                                            data-tooltip="Archive"
+                                            aria-label="Archive"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100"
+                                        >
+                                            <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    @elseif($request->procurement_request_is_archived)
                                         <form
                                             method="POST"
-                                            action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}"
-                                            onsubmit="return confirm('Archive this replacement request?')"
+                                            action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}"
                                         >
                                             @csrf
 
                                             <button
                                                 type="submit"
-                                                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+                                                data-tooltip="Restore"
+                                                aria-label="Restore"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200"
                                             >
-                                                Archive
+                                                <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                             </button>
                                         </form>
                                     @endif
@@ -379,7 +456,7 @@
                                     x-show="openModal === 'replacement-{{ $request->procurement_request_id }}'"
                                     x-transition
                                     x-on:click.outside="openModal = null"
-                                    class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+                                    class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
                                 >
                                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
                                         <div>
@@ -548,83 +625,11 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                                        <div class="flex flex-wrap gap-2">
-                                            @if(!$request->procurement_request_is_archived)
-                                                @if($request->procurement_request_status === 'Pending')
-                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.reject', $request->procurement_request_id) }}" class="flex flex-wrap items-end gap-2">
-                                                        @csrf
-                                                        <label class="sr-only" for="reject-remarks-{{ $request->procurement_request_id }}">Reject remarks</label>
-                                                        <input
-                                                            id="reject-remarks-{{ $request->procurement_request_id }}"
-                                                            type="text"
-                                                            name="remarks"
-                                                            required
-                                                            minlength="8"
-                                                            maxlength="2000"
-                                                            placeholder="Reason for rejection"
-                                                            class="min-w-[12rem] rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                                                        >
-                                                        <button type="submit" class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50">
-                                                            Reject
-                                                        </button>
-                                                    </form>
-
-                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.approve', $request->procurement_request_id) }}">
-                                                        @csrf
-                                                        <button type="submit" class="pur-btn-primary">
-                                                            Approve Request
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                {{-- CREATE RIS / VIEW RIS --}}
-                                                @if($hasRis)
-                                                    <a
-                                                        href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
-                                                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-                                                    >
-                                                        View RIS
-                                                    </a>
-                                                @elseif($canCreateRis)
-                                                    <a
-                                                        href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
-                                                        class="pur-btn-primary"
-                                                    >
-                                                        Create RIS
-                                                    </a>
-                                                @endif
-
-                                                {{-- ===================================================== --}}
-                                                {{-- ARCHIVE REQUEST --}}
-                                                {{-- Only Approved, Rejected, or Completed requests can be archived --}}
-                                                {{-- ===================================================== --}}
-                                                @if(in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true))
-                                                <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}">
-                                                    @csrf
-                                                    <button
-                                                        type="submit"
-                                                        onclick="return confirm('Archive this replacement request?')"
-                                                        class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
-                                                    >
-                                                        Archive
-                                                    </button>
-                                                </form>
-                                                @endif
-                                            @else
-                                                <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="pur-btn-primary">
-                                                        Restore Request
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
-
+                                    <div class="flex items-center justify-end border-t border-gray-100 bg-gray-50 px-6 py-4">
                                         <button
                                             type="button"
                                             x-on:click="openModal = null"
-                                            class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
+                                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
                                         >
                                             Close
                                         </button>
@@ -655,6 +660,276 @@
             </div>
         @endif
     </div>
-</div>  
+
+    {{-- CREATE RIS CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="createRisModal !== null"
+            x-transition.opacity
+            x-on:keydown.escape.window="createRisModal = null"
+            class="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-950/50 p-4"
+            style="display: none;"
+        >
+            <div
+                x-show="createRisModal !== null"
+                x-transition
+                x-on:click.outside="createRisModal = null"
+                class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            >
+                <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-gray-950">Create RIS</h3>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Continue to create a Requisition &amp; Issue Slip from request
+                            <span class="font-semibold text-gray-700" x-text="'#' + createRisModal"></span>.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="createRisModal = null"
+                        aria-label="Close"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-4 p-5">
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        You will be taken to the RIS page with this approved replacement request ready to use.
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            x-on:click="createRisModal = null"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
+                        >
+                            Cancel
+                        </button>
+                        <a
+                            x-bind:href="'{{ route('purchaser.ris.index') }}?replacement_request=' + createRisModal"
+                            class="rounded-lg bg-[#FFF200] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#E6E600]"
+                        >
+                            Continue to RIS
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    {{-- ARCHIVE CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="archiveModal !== null"
+            x-transition.opacity
+            x-on:keydown.escape.window="archiveModal = null"
+            class="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-950/50 p-4"
+            style="display: none;"
+        >
+            <div
+                x-show="archiveModal !== null"
+                x-transition
+                x-on:click.outside="archiveModal = null"
+                class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            >
+                <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-gray-950">Archive Replacement Request</h3>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Confirm archiving request
+                            <span class="font-semibold text-gray-700" x-text="'#' + archiveModal"></span>.
+                            You can restore it later from the Archive tab.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="archiveModal = null"
+                        aria-label="Close"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <form
+                    method="POST"
+                    x-bind:action="'/purchaser/procurement/replacement-requests/' + archiveModal + '/archive'"
+                    class="space-y-4 p-5"
+                >
+                    @csrf
+
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                        This will move the replacement request to <span class="font-semibold">Archive</span>.
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            x-on:click="archiveModal = null"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                        >
+                            Confirm Archive
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    {{-- APPROVE CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="approveModal !== null"
+            x-transition.opacity
+            x-on:keydown.escape.window="approveModal = null"
+            class="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-950/50 p-4"
+            style="display: none;"
+        >
+            <div
+                x-show="approveModal !== null"
+                x-transition
+                x-on:click.outside="approveModal = null"
+                class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            >
+                <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-gray-950">Approve Replacement Request</h3>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Confirm approval for request
+                            <span class="font-semibold text-gray-700" x-text="'#' + approveModal"></span>.
+                            After approval, you can create an RIS to start purchasing.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="approveModal = null"
+                        aria-label="Close"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <form
+                    method="POST"
+                    x-bind:action="'/purchaser/procurement/replacement-requests/' + approveModal + '/approve'"
+                    class="space-y-4 p-5"
+                >
+                    @csrf
+
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        This will mark the replacement request as <span class="font-semibold">Approved</span>.
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            x-on:click="approveModal = null"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
+                        >
+                            Confirm Approve
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    {{-- REJECT REASON MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="rejectModal !== null"
+            x-transition.opacity
+            x-on:keydown.escape.window="rejectModal = null"
+            class="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-950/50 p-4"
+            style="display: none;"
+        >
+            <div
+                x-show="rejectModal !== null"
+                x-transition
+                x-on:click.outside="rejectModal = null"
+                class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            >
+                <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-gray-950">Reject Replacement Request</h3>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Provide a clear reason before rejecting request
+                            <span class="font-semibold text-gray-700" x-text="'#' + rejectModal"></span>.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        x-on:click="rejectModal = null"
+                        aria-label="Close"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <form
+                    method="POST"
+                    x-bind:action="'/purchaser/procurement/replacement-requests/' + rejectModal + '/reject'"
+                    class="space-y-4 p-5"
+                >
+                    @csrf
+                    <input type="hidden" name="reject_request_id" x-bind:value="rejectModal">
+
+                    <div>
+                        <label for="reject-remarks-input" class="mb-1.5 block text-xs font-medium text-gray-600">
+                            Reason for rejection
+                        </label>
+                        <textarea
+                            id="reject-remarks-input"
+                            name="remarks"
+                            required
+                            minlength="8"
+                            maxlength="2000"
+                            rows="4"
+                            placeholder="Explain why this replacement request is being rejected..."
+                            class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-gray-300 focus:bg-white"
+                            x-ref="rejectRemarks"
+                        >{{ old('remarks') }}</textarea>
+                        <p class="mt-1.5 text-[11px] text-gray-400">Minimum 8 characters.</p>
+                        @error('remarks')
+                            <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            x-on:click="rejectModal = null"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg border border-red-200 bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                        >
+                            Confirm Reject
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+</div>
 
 @endsection

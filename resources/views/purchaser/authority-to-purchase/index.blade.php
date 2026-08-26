@@ -114,83 +114,49 @@
     @endif
 
 
-    {{-- ========================================================= --}}
-    {{-- PAGE HEADER --}}
-    {{-- ========================================================= --}}
-
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <p class="pur-page-kicker">Purchasing Workflow</p>
-            <h2 class="pur-page-title">
-                Authority to Purchase
-            </h2>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <nav class="pur-tabs !mb-0" aria-label="ATP list view">
             <a
                 href="{{ route('purchaser.atp.index') }}"
-                class="{{ !$archiveView ? 'pur-btn-primary' : 'pur-btn-secondary' }}"
+                class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
+                <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
                 href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
-                class="{{ $archiveView ? 'pur-btn-primary' : 'pur-btn-secondary' }}"
+                class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
+                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                 Archive
             </a>
+        </nav>
 
-            @unless($archiveView)
+        @unless($archiveView)
+            <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    @click="emptyOpen = true"
-                    class="pur-btn-secondary"
+                    @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
                 >
+                    <i data-lucide="printer" class="h-4 w-4"></i>
                     Print Empty ATP
                 </button>
                 <button
                     type="button"
-                    @click="createOpen = true"
-                    class="pur-btn-primary"
+                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
                     Create ATP
                 </button>
-            @endunless
-        </div>
+            </div>
+        @endunless
     </div>
 
-
-    {{-- ========================================================= --}}
-    {{-- SUMMARY CARDS (dashboard style) --}}
-    {{-- ========================================================= --}}
-
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-6">
-
-        <a
-            href="{{ route('purchaser.atp.index') }}"
-            class="pur-stat-card group"
-        >
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Total ATP</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['total']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <i data-lucide="files" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>All active Authority to Purchase</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a
-            href="{{ route('purchaser.atp.index', ['status' => 'Draft']) }}"
-            class="pur-stat-card group"
-        >
+    {{-- SUMMARY CARDS --}}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <a href="{{ route('purchaser.atp.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Draft</p>
@@ -208,10 +174,7 @@
             </div>
         </a>
 
-        <a
-            href="{{ route('purchaser.atp.index', ['status' => 'Submitted']) }}"
-            class="pur-stat-card group"
-        >
+        <a href="{{ route('purchaser.atp.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Submitted</p>
@@ -229,10 +192,7 @@
             </div>
         </a>
 
-        <a
-            href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}"
-            class="pur-stat-card group"
-        >
+        <a href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Approved</p>
@@ -245,15 +205,12 @@
                 </div>
             </div>
             <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Approved for purchasing workflow</span>
+                <span>Ready for purchasing workflow</span>
                 <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
         </a>
 
-        <a
-            href="{{ route('purchaser.atp.index', ['status' => 'Rejected']) }}"
-            class="pur-stat-card group"
-        >
+        <a href="{{ route('purchaser.atp.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Rejected</p>
@@ -266,169 +223,153 @@
                 </div>
             </div>
             <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Returned or declined ATP records</span>
+                <span>Returned or declined ATP</span>
                 <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
         </a>
-
-        <a
-            href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
-            class="pur-stat-card group"
-        >
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Archived</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['archived']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <i data-lucide="archive" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Stored away from the active list</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
     </div>
 
+    {{-- ATP RECORDS --}}
+    <div class="pur-card">
+        <div class="border-b border-gray-100 px-5 py-5">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-base font-semibold text-gray-950">
+                            {{ $archiveView ? 'Archived ATP' : 'ATP Records' }}
+                        </h2>
+                        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
+                            {{ $atps->total() }}
+                        </span>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        {{ $archiveView ? 'Stored Authority to Purchase records.' : 'Search and manage Authority to Purchase records.' }}
+                    </p>
+                </div>
 
-    {{-- ========================================================= --}}
-    {{-- SEARCH / FILTERS --}}
-    {{-- ========================================================= --}}
+                <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    @if($archiveView)
+                        <input type="hidden" name="view" value="archive">
+                    @endif
 
-    <form
-        method="GET"
-        class="pur-card grid gap-3 p-4 lg:grid-cols-5"
-    >
+                    <div class="relative">
+                        <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+                        </svg>
+                        <input
+                            type="text"
+                            name="search"
+                            value="{{ request('search') }}"
+                            placeholder="Search ATP, RIS, supplier..."
+                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                        >
+                    </div>
 
-        @if($archiveView)
-            <input type="hidden" name="view" value="archive">
-        @endif
+                    <select name="status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                        <option value="">All statuses</option>
+                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>Draft</option>
+                        <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
+                        <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>Minor Revision</option>
+                        <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
+                        <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
+                    </select>
 
-        <input
-            type="text"
-            name="search"
-            value="{{ request('search') }}"
-            placeholder="Search ATP, RIS, supplier, or equipment"
-            class="h-10 rounded-lg border border-gray-300 px-3 text-sm lg:col-span-2"
-        >
+                    @if(\Illuminate\Support\Facades\Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type'))
+                        <select name="request_type" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                            <option value="">All RIS types</option>
+                            <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
+                            <option value="Replacement Procurement" {{ request('request_type') === 'Replacement Procurement' ? 'selected' : '' }}>Replacement Procurement</option>
+                        </select>
+                    @endif
 
-        <select name="status" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
-            <option value="">All statuses</option>
-            <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>Draft</option>
-            <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
-            <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>Minor Revision</option>
-            <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
-            <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
-        </select>
+                    <button
+                        type="submit"
+                        class="box-border inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-[13px] font-semibold leading-none text-white transition hover:bg-blue-800"
+                    >
+                        <i data-lucide="filter" class="h-4 w-4 shrink-0"></i>
+                        Apply
+                    </button>
 
-        @if(\Illuminate\Support\Facades\Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type'))
-        <select name="request_type" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
-            <option value="">All RIS types</option>
-            <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
-            <option value="Replacement Procurement" {{ request('request_type') === 'Replacement Procurement' ? 'selected' : '' }}>Replacement Procurement</option>
-        </select>
-        @endif
-
-        <div class="flex gap-2">
-
-            <button type="submit" class="pur-btn-primary">
-                Search
-            </button>
-
-            <a
-                href="{{ $archiveView ? route('purchaser.atp.index', ['view' => 'archive']) : route('purchaser.atp.index') }}"
-                class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
-            >
-                Reset
-            </a>
-
+                    @if(request()->filled('search') || request()->filled('status') || request()->filled('request_type'))
+                        <a
+                            href="{{ $archiveView ? route('purchaser.atp.index', ['view' => 'archive']) : route('purchaser.atp.index') }}"
+                            class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
+                        >
+                            Clear
+                        </a>
+                    @endif
+                </form>
+            </div>
         </div>
 
-    </form>
-
-
-    {{-- ========================================================= --}}
-    {{-- ATP TABLE --}}
-    {{-- ========================================================= --}}
-
-    <div class="pur-card">
-
         <div class="overflow-x-auto">
-
             <table class="w-full min-w-[1000px] text-sm">
-
-                <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                    <tr>
-                        <th class="px-4 py-3">ATP No.</th>
-                        <th class="px-4 py-3">RIS</th>
-                        <th class="px-4 py-3">Supplier</th>
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3">Action</th>
+                <thead class="bg-gray-50/70">
+                    <tr class="border-b border-gray-100">
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Supplier</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
                 </thead>
-
                 <tbody class="divide-y divide-gray-100 bg-white">
-
                     @forelse($atps as $atp)
-
-                        <tr class="hover:bg-gray-50">
-
-                            <td class="px-4 py-4 font-medium text-slate-900">
-                                {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
+                        <tr class="transition hover:bg-gray-50/70">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
+                                        <i data-lucide="file-check-2" class="h-4 w-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">
+                                            {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
+                                        </p>
+                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $atp->authority_purchase_id }}</p>
+                                    </div>
+                                </div>
                             </td>
-
-                            <td class="px-4 py-4 text-gray-600">
-                                {{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}
-                                <br>
-                                <span class="text-xs text-gray-400">
+                            <td class="px-5 py-4">
+                                <p class="text-sm text-gray-700">{{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}</p>
+                                <p class="mt-1 text-xs text-gray-400">
                                     {{ $atp->equipment_name ?? $atp->report_unlisted_equipment_name ?? 'No equipment' }}
-                                </span>
+                                </p>
                             </td>
-
-                            <td class="px-4 py-4 text-gray-600">
+                            <td class="px-5 py-4 text-gray-600">
                                 @if($atp->supplier_store_type === 'Physical Store')
                                     {{ $atp->company_name ?? 'Physical supplier' }}
                                 @else
                                     {{ $atp->shop_name ?? 'Online supplier' }}
                                 @endif
                             </td>
-
-                            <td class="px-4 py-4 text-gray-600">
+                            <td class="whitespace-nowrap px-5 py-4 text-gray-600">
                                 @if($atp->authority_purchase_date)
                                     {{ \Carbon\Carbon::parse($atp->authority_purchase_date)->format('M d, Y') }}
                                 @else
-                                    —
+                                    <span class="text-xs text-gray-400">—</span>
                                 @endif
                             </td>
-
-                            <td class="px-4 py-4">
+                            <td class="px-5 py-4">
                                 @include('accounting.partials.status-badge', [
                                     'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
                                     'submitted' => $atp->authority_purchase_submitted_at,
                                     'revision' => $atp->authority_purchase_rejection_reason,
                                 ])
                             </td>
-
-                            <td class="px-4 py-4">
-                                <div class="flex flex-wrap gap-2">
-
+                            <td class="px-5 py-4">
+                                <div class="flex flex-wrap justify-end gap-2">
                                     <button
                                         type="button"
                                         @click="openView({{ $atp->authority_purchase_id }})"
-                                        class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                                     >
                                         View
                                     </button>
-
                                     <button
                                         type="button"
                                         @click="printAtp({{ $atp->authority_purchase_id }})"
-                                        class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                                     >
                                         Print
                                     </button>
@@ -438,85 +379,74 @@
                                         && $atp->authority_purchase_status === 'Pending'
                                         && !$archiveView
                                     )
-
                                         <button
                                             type="button"
                                             @click="openEdit({{ $atp->authority_purchase_id }})"
-                                            class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                                         >
                                             Edit
                                         </button>
-
                                         <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                             @csrf
-                                            <button type="submit" class="pur-btn-primary !px-3 !py-2 !text-xs">
+                                            <button type="submit" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">
                                                 Submit
                                             </button>
                                         </form>
-
                                     @endif
 
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
                                         @if(!$atp->has_rfc)
                                             <a
                                                 href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}"
-                                                class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                                                class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800"
                                             >
                                                 Create RFC
                                             </a>
                                         @else
-                                            <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                                            <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
                                                 RFC Created
                                             </span>
                                         @endif
                                     @endif
 
                                     @if($archiveView)
-
                                         <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}">
                                             @csrf
-                                            <button type="submit" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">
+                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">
                                                 Restore
                                             </button>
                                         </form>
-
                                     @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
-
                                         <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}">
                                             @csrf
-                                            <button type="submit" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100">
                                                 Archive
                                             </button>
                                         </form>
-
                                     @endif
-
                                 </div>
                             </td>
-
                         </tr>
-
                     @empty
-
                         <tr>
-                            <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">
-                                No ATP records found.
+                            <td colspan="6" class="px-6 py-16 text-center">
+                                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
+                                    <i data-lucide="file-check-2" class="h-5 w-5"></i>
+                                </div>
+                                <p class="mt-4 font-medium text-gray-700">No ATP records found</p>
+                                <p class="mt-1 text-sm text-gray-400">Create an ATP or adjust the current filters.</p>
                             </td>
                         </tr>
-
                     @endforelse
-
                 </tbody>
-
             </table>
-
         </div>
 
-    </div>
-
-
-    <div>
-        {{ $atps->links() }}
+        @if($atps->hasPages())
+            <div class="border-t border-gray-100 px-5 py-4">
+                {{ $atps->links() }}
+            </div>
+        @endif
     </div>
 
 
@@ -545,14 +475,18 @@
                 aria-labelledby="atp-create-title"
             >
 
-                <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
-                    <div>
-                        <h3 id="atp-create-title" class="text-xl font-semibold text-slate-900">Create Authority to Purchase</h3>
-                        <p class="mt-1 text-sm text-gray-500">Select an approved RIS to generate an Authority to Purchase.</p>
+                <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                            <i data-lucide="file-check-2" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <h3 id="atp-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Authority to Purchase</h3>
+                            <p class="mt-0.5 text-sm text-gray-500">Select an approved RIS to generate an ATP.</p>
+                        </div>
                     </div>
-
-                    <button type="button" @click="createOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                        ✕
+                    <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
 
@@ -612,11 +546,12 @@
 
                         </div>
 
-                        <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-                            <button type="button" @click="createOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">
+                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                                 Cancel
                             </button>
-                            <button type="submit" class="pur-btn-primary">
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                                <i data-lucide="check" class="h-4 w-4"></i>
                                 Save Draft
                             </button>
                         </div>
@@ -705,8 +640,8 @@
                             @endif
                         </div>
 
-                        <button type="button" @click="viewOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                            ✕
+                        <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
 
                     </div>

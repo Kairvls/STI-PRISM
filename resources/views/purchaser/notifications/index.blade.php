@@ -3,10 +3,6 @@
 @section('page-title', 'Notifications')
 
 @section('content')
-<div class="mb-6">
-    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Notifications</h1>
-    <p class="mt-1 text-sm text-slate-500">Workflow alerts for this purchaser account.</p>
-</div>
 <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
     @forelse ($items as $item)
         <a href="{{ $item->notification_url ?: '#' }}" class="block border-b border-slate-100 px-5 py-4 last:border-0 hover:bg-slate-50">

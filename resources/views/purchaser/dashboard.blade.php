@@ -31,25 +31,7 @@
     {{-- PAGE HEADING --}}
     {{-- ===================================================== --}}
 
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-
-        <div>
-
-            <p class="text-sm font-medium text-gray-500">
-                Procurement Overview
-            </p>
-
-            <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
-                Purchaser Dashboard
-            </h1>
-
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- VIEW REPLACEMENT REQUESTS BUTTON --}}
-        {{-- ===================================================== --}}
-
+    <div class="flex justify-end">
         <a
             href="{{ route('purchaser.procurement.replacement-requests') }}"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
@@ -63,7 +45,6 @@
             View Requests
 
         </a>
-
     </div>
 
 

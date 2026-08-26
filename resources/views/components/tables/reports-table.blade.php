@@ -28,6 +28,13 @@
         animation: scanner 2s linear infinite;
     }
 </style>
+@php
+    $context = $context ?? 'maintenance';
+    $isPurchaserUrgent = $context === 'purchaser-urgent';
+    $listUrl = $isPurchaserUrgent ? route('purchaser.reports.urgent') : request()->url();
+    $reportViewStorageKey = $isPurchaserUrgent ? 'prism-purchaser-urgent-report-view' : 'prism-report-view';
+    $isArchiveView = request('archive') == 1 || request('view') === 'archive';
+@endphp
 <div
     class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
 >
@@ -37,12 +44,13 @@
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
             <form
                 method="GET"
+                action="{{ $isPurchaserUrgent ? route('purchaser.reports.urgent') : '' }}"
                 class="flex flex-1 flex-col items-stretch gap-2.5 lg:flex-row lg:items-center"
             >
                 <input
                     type="hidden"
                     name="archive"
-                    value="{{ request('archive', 0) }}"
+                    value="{{ $isArchiveView ? 1 : 0 }}"
                 />
 
                 <!-- SEARCH -->
@@ -66,7 +74,7 @@
                     name="status"
                     class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                 >
-                    @if (request("archive"))
+                    @if (request("archive") || $isArchiveView)
                         <option value="">All Archived Statuses</option>
 
                         <option
@@ -168,12 +176,12 @@
                 </div>
 
                 <!-- DIVIDER -->
-                @if (!request()->is("maintenance/reports/urgent"))
+                @if (!$isPurchaserUrgent && !request()->is("maintenance/reports/urgent"))
                     <div class="hidden h-6 w-px bg-slate-200 lg:block"></div>
                 @endif
 
                 <!-- PRIORITIES BUTTON -->
-                @if (!request()->is("maintenance/reports/urgent"))
+                @if (!$isPurchaserUrgent && !request()->is("maintenance/reports/urgent"))
                     <div class="relative shrink-0">
                     <select
                         name="urgency"
@@ -242,9 +250,9 @@
                     class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1"
                 >
                     <a
-                        href="{{ request()->url() }}?archive=0"
+                        href="{{ $listUrl }}?archive=0"
                         class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
-                    {{ !request('archive')
+                    {{ ! $isArchiveView
                             ? 'bg-white text-slate-900 shadow-sm'
                             : 'text-slate-400 hover:text-slate-600'
                     }}"
@@ -254,9 +262,9 @@
                     </a>
 
                     <a
-                        href="{{ request()->url() }}?archive=1"
+                        href="{{ $listUrl }}?archive=1"
                         class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
-                    {{ request('archive')
+                    {{ $isArchiveView
                             ? 'bg-white text-slate-900 shadow-sm'
                             : 'text-slate-400 hover:text-slate-600'
                     }}"
@@ -309,7 +317,7 @@
         @forelse ($reports as $report)
         @include(
             'components.tables.partials.report-card',
-            ['report' => $report]
+            ['report' => $report, 'context' => $context]
         )
             
 
@@ -355,7 +363,7 @@
                                 ? 'No matching reports'
 
                                 : (
-                                    request('archive')
+                                    $isArchiveView
                                         ? 'Archive is empty'
                                         : 'No reports yet'
                                 )
@@ -374,7 +382,7 @@
                                 ? 'No maintenance reports match your current search or filters.'
 
                                 : (
-                                    request('archive')
+                                    $isArchiveView
                                         ? 'Archived maintenance reports will appear here.'
                                         : 'Submitted maintenance reports will appear here.'
                                 )
@@ -390,7 +398,7 @@
                     )
 
                         <a
-                            href="{{ request()->url() }}?archive={{ request('archive', 0) }}"
+                            href="{{ $listUrl }}?archive={{ $isArchiveView ? 1 : 0 }}"
 
                             class="mt-5 inline-flex h-9 items-center gap-2
                                 rounded-lg border border-slate-200
@@ -593,6 +601,47 @@
                                         <i data-lucide="history" class="h-3.5 w-3.5"></i>
                                     </button>
                                 @endif
+                                @if ($isPurchaserUrgent)
+                                    @if ($currentStatus === 'Pending')
+                                        <form method="POST" action="{{ route('purchaser.reports.urgent.accept', $report->report_id) }}">
+                                            @csrf
+                                            <button type="submit" data-tooltip="Accept Report" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700">
+                                                <i data-lucide="siren" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if (
+                                        $currentStatus === 'Processing'
+                                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+                                    )
+                                        <button type="button" data-tooltip="Resolve Report" onclick="openReportModal('purchaser-resolve-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700">
+                                            <i data-lucide="circle-check" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                        <button type="button" data-tooltip="Send for Replacement" onclick="openReportModal('purchaser-replacement-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                                            <i data-lucide="package-search" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    @endif
+                                    @if (
+                                        !$report->report_is_archived
+                                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+                                        && in_array($currentStatus, ['Resolved', 'For Replacement'], true)
+                                    )
+                                        <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
+                                            @csrf
+                                            <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)]">
+                                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        </form>
+                                    @endif
+                                    @if ($report->report_is_archived && (int) $report->report_assigned_purchaser_id === (int) auth()->id())
+                                        <form method="POST" action="{{ route('purchaser.reports.urgent.restore', $report->report_id) }}">
+                                            @csrf
+                                            <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
+                                                <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        </form>
+                                    @endif
+                                @else
                                 @if ($canUpdate)
                                     <button
                                         type="button"
@@ -642,6 +691,7 @@
                                         </button>
                                     </form>
 
+                                @endif
                                 @endif
                             </div>
                         </td>
@@ -698,7 +748,7 @@
                                             ? 'No matching reports'
 
                                             : (
-                                                request('archive')
+                                                $isArchiveView
                                                     ? 'Archive is empty'
                                                     : 'No reports yet'
                                             )
@@ -724,7 +774,7 @@
                                             ? 'No maintenance reports match your current search or filters.'
 
                                             : (
-                                                request('archive')
+                                                $isArchiveView
                                                     ? 'Archived maintenance reports will appear here.'
                                                     : 'Submitted maintenance reports will appear here.'
                                             )
@@ -745,7 +795,7 @@
                                 )
 
                                     <a
-                                        href="{{ request()->url() }}?archive={{ request('archive', 0) }}"
+                                        href="{{ $listUrl }}?archive={{ $isArchiveView ? 1 : 0 }}"
 
                                         class="mt-5 inline-flex h-9 items-center gap-2
                                             rounded-lg border border-slate-200
@@ -975,6 +1025,7 @@
 @endforeach
 
 <!-- UPDATE MODALS -->
+@unless($isPurchaserUrgent)
 @foreach ($reports as $report)
     @php
         $statusDotClasses = match ($report->report_current_status) {
@@ -1257,6 +1308,11 @@
         </div>
     </div>
 @endforeach
+@endunless
+
+@if($isPurchaserUrgent)
+    @include('components.tables.partials.purchaser-urgent-report-modals', ['reports' => $reports])
+@endif
 
 <!-- GLOBAL LIGHTBOX MODAL CONTAINER -->
 <div
@@ -1408,11 +1464,11 @@
             tableBtn.classList.add(...inactiveClass);
         }
 
-        localStorage.setItem("prism-report-view", view);
+        localStorage.setItem(@json($reportViewStorageKey), view);
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        const savedView = localStorage.getItem("prism-report-view") || "table";
+        const savedView = localStorage.getItem(@json($reportViewStorageKey)) || "table";
 
         setReportView(savedView);
 

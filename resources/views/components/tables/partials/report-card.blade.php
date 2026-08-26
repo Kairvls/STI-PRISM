@@ -1,4 +1,6 @@
 @php
+$context = $context ?? 'maintenance';
+$isPurchaserUrgent = $context === 'purchaser-urgent';
 $isUrgent = $report->report_urgency_level == "Urgent";
 
 $urgencyPill = $isUrgent
@@ -129,6 +131,27 @@ if ($currentStatus === "Pending") {
 
         <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
             <div class="flex flex-wrap items-center gap-1.5">
+                @if ($isPurchaserUrgent)
+                    @if ($currentStatus === 'Pending')
+                        <form method="POST" action="{{ route('purchaser.reports.urgent.accept', $report->report_id) }}">
+                            @csrf
+                            <button type="submit" class="h-9 rounded-lg bg-rose-600 px-3.5 text-xs font-semibold text-white transition hover:bg-rose-700">
+                                Accept Report
+                            </button>
+                        </form>
+                    @endif
+                    @if (
+                        $currentStatus === 'Processing'
+                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+                    )
+                        <button type="button" onclick="openReportModal('purchaser-resolve-modal-{{ $report->report_id }}')" class="h-9 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+                            Resolve
+                        </button>
+                        <button type="button" onclick="openReportModal('purchaser-replacement-modal-{{ $report->report_id }}')" class="h-9 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                            For Replacement
+                        </button>
+                    @endif
+                @else
                 @if (!empty($nextOptions))
                     @foreach ($nextOptions as $option)
                         <button
@@ -148,6 +171,7 @@ if ($currentStatus === "Pending") {
                             {{ $option["label"] }}
                         </button>
                     @endforeach
+                @endif
                 @endif
             </div>
 
@@ -174,6 +198,30 @@ if ($currentStatus === "Pending") {
                     </button>
                 @endif
 
+                @if ($isPurchaserUrgent)
+                    @if (
+                        !$report->report_is_archived
+                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+                        && in_array($currentStatus, ['Resolved', 'For Replacement'], true)
+                    )
+                        <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
+                            @csrf
+                            <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                Archive
+                            </button>
+                        </form>
+                    @endif
+                    @if ($report->report_is_archived && (int) $report->report_assigned_purchaser_id === (int) auth()->id())
+                        <form method="POST" action="{{ route('purchaser.reports.urgent.restore', $report->report_id) }}">
+                            @csrf
+                            <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50">
+                                <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                Restore
+                            </button>
+                        </form>
+                    @endif
+                @else
                 @if (
                     in_array($currentStatus, ["Resolved", "Rejected", "For Replacement"]) &&
                     !$report->report_is_archived
@@ -197,6 +245,7 @@ if ($currentStatus === "Pending") {
                             Restore
                         </button>
                     </form>
+                @endif
                 @endif
             </div>
         </div>

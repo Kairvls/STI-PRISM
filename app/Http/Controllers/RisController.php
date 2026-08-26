@@ -401,7 +401,7 @@ class RisController extends Controller
             'ris_attachments' => [
                 'nullable',
                 'array',
-                'max:10',
+                'max:1',
             ],
 
             'ris_attachments.*' => [
@@ -415,6 +415,9 @@ class RisController extends Controller
             // =============================================
             'ris_form_number.required' =>
                 'RIS number is required before submitting.',
+
+            'ris_form_number.digits' =>
+                'RIS number must be exactly 8 digits.',
 
             'ris_purpose_description.required' =>
                 'Purpose is required before submitting.',
@@ -447,7 +450,7 @@ class RisController extends Controller
                 'Unit Cost cannot be negative.',
 
             'ris_attachments.max' =>
-                'You may upload a maximum of 10 supporting documents.',
+                'You may upload only 1 supporting document at a time.',
 
             'ris_attachments.*.mimes' =>
                 'Supporting documents must be Word or Excel files only.',
@@ -930,7 +933,7 @@ public function update(Request $request, $risId)
         'ris_attachments' => [
             'nullable',
             'array',
-            'max:10',
+            'max:1',
         ],
 
         'ris_attachments.*' => [
@@ -943,6 +946,9 @@ public function update(Request $request, $risId)
 
         'ris_form_number.required' =>
             'RIS number is required before submitting.',
+
+        'ris_form_number.digits' =>
+            'RIS number must be exactly 8 digits.',
 
         'ris_purpose_description.required' =>
             'Purpose is required before submitting.',
@@ -1615,8 +1621,7 @@ public function submit($risId)
 
         return [
             $required ? 'required' : 'nullable',
-            'string',
-            'max:100',
+            'digits:8',
             $unique,
         ];
     }
