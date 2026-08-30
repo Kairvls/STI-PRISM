@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Http\Controllers\Concerns\ManagesUserProfile;
+use App\Support\PresidentAttentionSummary;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,12 +27,9 @@ class PresidentController extends Controller
         // ================================
         $totalRisCount = DB::table('requisition_issue_slip_table')->count();
 
-        $pendingApprovalsCount =
-            DB::table('requisition_issue_slip_table')
-                ->where(function ($q) {
-                    $this->scopeAwaitingPresident($q);
-                })
-                ->count();
+        $attention = PresidentAttentionSummary::counts();
+        $pendingApprovalsCount = $attention['pendingApprovalsCount'];
+        $awaitingNotifyCount = $attention['awaitingNotifyCount'];
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
@@ -158,18 +156,6 @@ class PresidentController extends Controller
 
                 return $ris;
             });
-
-        $awaitingNotifyCount = DB::table('requisition_issue_slip_table')
-            ->where(function ($q) {
-                $this->scopePresidentApproved($q);
-            })
-            ->where(function ($q) {
-                $q->whereNull('ris_issued_by_signature')
-                    ->orWhere('ris_issued_by_signature', '');
-            })
-            ->get()
-            ->filter(fn ($ris) => !$this->presidentHasNotifiedAdmin((int) $ris->ris_id))
-            ->count();
 
         // ================================
         // Notifications count (for current user)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ManagesUserProfile;
+use App\Support\AccountingAttentionSummary;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -1088,12 +1089,14 @@ class AccountingController extends Controller
 
     private function metrics(): array
     {
+        $attention = AccountingAttentionSummary::counts();
+
         return [
-            'atp_pending' => $this->countAtpIncoming(),
-            'rfc_pending' => $this->countRfcIncoming(),
-            'funds_awaiting' => $this->countFundsAwaiting(),
+            'atp_pending' => $attention['atpPending'],
+            'rfc_pending' => $attention['rfcPending'],
+            'funds_awaiting' => $attention['fundsAwaiting'],
             'funds_released' => $this->countFundsReleased(),
-            'liq_pending' => $this->countLiqIncoming(),
+            'liq_pending' => $attention['liqPending'],
             'atp_revision' => $this->countAtpRevision(),
             'rfc_revision' => $this->countRfcRevision(),
             'liq_revision' => $this->countLiqRevision(),

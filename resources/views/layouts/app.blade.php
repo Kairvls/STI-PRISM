@@ -987,6 +987,8 @@
 
     @stack('scripts')
 
+    @include('layouts.partials.idle-session-timeout')
+
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
 
     @include('layouts.partials.messaging-modal')

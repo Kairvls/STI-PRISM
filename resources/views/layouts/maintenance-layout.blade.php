@@ -605,4 +605,6 @@
         }, true);
     })();
 </script>
+
+@include('layouts.partials.maintenance-daily-reminder')
 @endpush

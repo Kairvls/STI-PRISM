@@ -12,4 +12,5 @@
 
 @push('scripts')
     @include('layouts.partials.prism-toast')
+    @include('layouts.partials.admin-daily-reminder')
 @endpush

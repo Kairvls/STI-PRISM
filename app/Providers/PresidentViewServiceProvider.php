@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\PresidentAttentionSummary;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -23,9 +24,18 @@ class PresidentViewServiceProvider extends ServiceProvider
                 $userId = Auth::id();
                 $headerNotifications = collect();
                 $headerUnreadCount = 0;
+                $attentionTotal = 0;
 
                 if (!$userId || !Schema::hasTable('notifications_table')) {
-                    $view->with(compact('headerNotifications', 'headerUnreadCount'));
+                    try {
+                        if ($userId) {
+                            $attentionTotal = (int) (PresidentAttentionSummary::counts()['attentionTotal'] ?? 0);
+                        }
+                    } catch (\Throwable $e) {
+                        $attentionTotal = 0;
+                    }
+
+                    $view->with(compact('headerNotifications', 'headerUnreadCount', 'attentionTotal'));
                     return;
                 }
 
@@ -85,7 +95,13 @@ class PresidentViewServiceProvider extends ServiceProvider
                     $headerUnreadCount = $accessibleNotifications()->count();
                 }
 
-                $view->with(compact('headerNotifications', 'headerUnreadCount'));
+                try {
+                    $attentionTotal = (int) (PresidentAttentionSummary::counts()['attentionTotal'] ?? 0);
+                } catch (\Throwable $e) {
+                    $attentionTotal = 0;
+                }
+
+                $view->with(compact('headerNotifications', 'headerUnreadCount', 'attentionTotal'));
             }
         );
     }

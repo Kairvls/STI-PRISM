@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
@@ -94,27 +95,6 @@ class MaintenanceController extends Controller
             ->whereDate('borrowing_expected_return_date', '<', today())
             ->update(['borrowing_status' => 'Overdue']);
 
-        $overdueBorrowings = DB::table('borrowing_records_table')
-            ->where('borrowing_status', 'Overdue')
-            ->count();
-
-
-        $overdueMaintenance = DB::table('maintenance_schedules_table')
-            ->where(function ($query) {
-                $query
-                    ->where('maintenance_schedule_status', 'Overdue')
-                    ->orWhere(function ($activePastDue) {
-                        $activePastDue
-                            ->where('maintenance_schedule_status', 'Active')
-                            ->whereDate(
-                                'maintenance_schedule_next_date',
-                                '<',
-                                today()
-                            );
-                    });
-            })
-            ->count();
-
 
         // =====================================================
         // PENDING REPORTS SUBMITTED TODAY
@@ -172,37 +152,11 @@ class MaintenanceController extends Controller
         // Non-urgent: remind from preferred date, or after 5 days if none
         // =====================================================
 
-        $urgentReportsNeedingAction = DB::table('reports_table')
-            ->where('report_urgency_level', 'Urgent')
-            ->where('report_is_archived', false)
-            ->where(function ($query) {
-                $query
-                    ->where('report_current_status', 'Pending')
-                    ->orWhere(function ($overdue) {
-                        $overdue
-                            ->whereIn(
-                                'report_current_status',
-                                ['Pending', 'Processing']
-                            )
-                            ->where(function ($due) {
-                                $due
-                                    ->where('report_is_overdue', true)
-                                    ->orWhereDate(
-                                        'report_submitted_at',
-                                        '<',
-                                        today()
-                                    );
-                            });
-                    });
-            })
-            ->count();
-
-        $nonUrgentReportsNeedingAction = ReportGrouping::applyNonUrgentReminderWindow(
-            DB::table('reports_table')
-                ->where('report_urgency_level', 'Non-Urgent')
-                ->where('report_is_archived', false)
-                ->where('report_current_status', 'Pending')
-        )->count();
+        $attentionCounts = MaintenanceAttentionSummary::counts();
+        $urgentReportsNeedingAction = $attentionCounts['urgentReportsNeedingAction'];
+        $nonUrgentReportsNeedingAction = $attentionCounts['nonUrgentReportsNeedingAction'];
+        $overdueMaintenance = $attentionCounts['overdueMaintenance'];
+        $overdueBorrowings = $attentionCounts['overdueBorrowings'];
 
 
         // =====================================================

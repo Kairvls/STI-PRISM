@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\MaintenanceAttentionSummary;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
@@ -42,6 +43,12 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                 $headerUnreadCount =
                     0;
 
+                $attentionUrgentReports = 0;
+                $attentionNonUrgentReports = 0;
+                $attentionOverdueSchedules = 0;
+                $attentionOverdueBorrows = 0;
+                $attentionTotal = 0;
+
 
                 // =====================================================
                 // STOP IF USER IS NOT AUTHENTICATED
@@ -52,7 +59,12 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                     $view->with(
                         compact(
                             'headerNotifications',
-                            'headerUnreadCount'
+                            'headerUnreadCount',
+                            'attentionUrgentReports',
+                            'attentionNonUrgentReports',
+                            'attentionOverdueSchedules',
+                            'attentionOverdueBorrows',
+                            'attentionTotal'
                         )
                     );
 
@@ -192,16 +204,74 @@ class MaintenanceViewServiceProvider extends ServiceProvider
 
 
                 // =====================================================
+                // DAILY ATTENTION COUNTS (bell badge + reminder modal)
+                // =====================================================
+
+                try {
+                    $attention = MaintenanceAttentionSummary::counts();
+                    $attentionUrgentReports = $attention['urgentReportsNeedingAction'];
+                    $attentionNonUrgentReports = $attention['nonUrgentReportsNeedingAction'];
+                    $attentionOverdueSchedules = $attention['overdueMaintenance'];
+                    $attentionOverdueBorrows = $attention['overdueBorrowings'];
+                    $attentionTotal = $attention['attentionTotal'];
+                } catch (\Throwable $e) {
+                    // Keep defaults if attention queries fail.
+                }
+
+
+                // =====================================================
                 // SEND DATA TO TOPBAR
                 // =====================================================
 
                 $view->with(
                     compact(
                         'headerNotifications',
-                        'headerUnreadCount'
+                        'headerUnreadCount',
+                        'attentionUrgentReports',
+                        'attentionNonUrgentReports',
+                        'attentionOverdueSchedules',
+                        'attentionOverdueBorrows',
+                        'attentionTotal'
                     )
                 );
 
+            }
+        );
+
+        // Share the same attention counts with the global reminder partial.
+        View::composer(
+            'layouts.partials.maintenance-daily-reminder',
+            function ($view) {
+                if (! Auth::id()) {
+                    $view->with([
+                        'attentionUrgentReports' => 0,
+                        'attentionNonUrgentReports' => 0,
+                        'attentionOverdueSchedules' => 0,
+                        'attentionOverdueBorrows' => 0,
+                        'attentionTotal' => 0,
+                    ]);
+
+                    return;
+                }
+
+                try {
+                    $attention = MaintenanceAttentionSummary::counts();
+                    $view->with([
+                        'attentionUrgentReports' => $attention['urgentReportsNeedingAction'],
+                        'attentionNonUrgentReports' => $attention['nonUrgentReportsNeedingAction'],
+                        'attentionOverdueSchedules' => $attention['overdueMaintenance'],
+                        'attentionOverdueBorrows' => $attention['overdueBorrowings'],
+                        'attentionTotal' => $attention['attentionTotal'],
+                    ]);
+                } catch (\Throwable $e) {
+                    $view->with([
+                        'attentionUrgentReports' => 0,
+                        'attentionNonUrgentReports' => 0,
+                        'attentionOverdueSchedules' => 0,
+                        'attentionOverdueBorrows' => 0,
+                        'attentionTotal' => 0,
+                    ]);
+                }
             }
         );
     }

@@ -195,13 +195,6 @@
 
     @include('layouts.partials.receiving-query-error')
 
-    @php
-        $attentionPending = (int) ($pendingCount ?? 0);
-        $attentionLeftover = (int) ($yesterdayLeftoverCount ?? 0);
-        $attentionReturned = (int) ($returnedCount ?? 0);
-        $showAttentionPopup = ($attentionPending + $attentionLeftover + $attentionReturned) > 0;
-    @endphp
-
     <div class="ro-grid">
         <div>
             <div class="ro-stat-grid">
@@ -577,92 +570,6 @@
         </div>
     </div>
 </div>
-
-@if($showAttentionPopup)
-<div id="receivingDailyReminder" class="ro-attention-popup hidden" role="dialog" aria-labelledby="receivingDailyReminderTitle" aria-modal="true">
-    <div class="ro-attention-card">
-        <button type="button" class="ro-attention-close" onclick="dismissReceivingDailyReminder()" aria-label="Dismiss">
-            <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <h3 id="receivingDailyReminderTitle" class="ro-attention-title">Attention needed today</h3>
-        <p class="ro-attention-subtitle">Items that still need your action.</p>
-        <div class="ro-attention-rows">
-            <div class="ro-attention-row ro-attention-row-yellow">
-                <div>
-                    <p class="ro-attention-label">Pending for second count</p>
-                    <p class="ro-attention-value">{{ $attentionPending }}</p>
-                </div>
-                <a href="{{ url('/receiving/reports') }}" class="ro-attention-cta">Review queue</a>
-            </div>
-            <div class="ro-attention-row ro-attention-row-blue">
-                <div>
-                    <p class="ro-attention-label">Leftover from yesterday</p>
-                    <p class="ro-attention-value">{{ $attentionLeftover }}</p>
-                </div>
-                <a href="{{ url('/receiving/reports') }}" class="ro-attention-cta">Open reports</a>
-            </div>
-            <div class="ro-attention-row ro-attention-row-yellow">
-                <div>
-                    <p class="ro-attention-label">Returned for correction</p>
-                    <p class="ro-attention-value">{{ $attentionReturned }}</p>
-                </div>
-                <a href="{{ url('/receiving/history') }}" class="ro-attention-cta">View history</a>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-<script>
-(function () {
-    var storageKey = @json('receiving_attention_popup_shown_' . (session('attention_popup_token') ?: 'default'));
-
-    window.dismissReceivingDailyReminder = function () {
-        var el = document.getElementById('receivingDailyReminder');
-        if (el) el.classList.add('hidden');
-        try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
-    };
-
-    function showReceivingAttention() {
-        var el = document.getElementById('receivingDailyReminder');
-        if (!el) return;
-
-        try {
-            if (sessionStorage.getItem(storageKey) === '1') return;
-            el.classList.remove('hidden');
-            sessionStorage.setItem(storageKey, '1');
-            if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-
-            var pending = {{ $attentionPending }};
-            var leftover = {{ $attentionLeftover }};
-            var returned = {{ $attentionReturned }};
-            var total = pending + leftover + returned;
-            if (total > 0 && typeof window.showMpToast === 'function') {
-                window.showMpToast(
-                    pending + ' pending · ' + leftover + ' leftover · ' + returned + ' returned',
-                    { title: 'Attention needed today', type: 'warning', timer: 4200 }
-                );
-            }
-        } catch (err) {
-            el.classList.remove('hidden');
-        }
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', showReceivingAttention);
-    } else {
-        // Wait a tick so prism-toast (pushed scripts) can register showMpToast.
-        setTimeout(showReceivingAttention, 0);
-    }
-
-    document.addEventListener('keydown', function (event) {
-        var el = document.getElementById('receivingDailyReminder');
-        if (event.key === 'Escape' && el && !el.classList.contains('hidden')) {
-            dismissReceivingDailyReminder();
-        }
-    });
-})();
-</script>
 
 <script>
 (function() {

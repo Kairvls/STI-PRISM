@@ -24,3 +24,7 @@
     @include("layouts.purchaser-topbar")
 
 @endsection
+
+@push('scripts')
+    @include('layouts.partials.purchaser-daily-reminder')
+@endpush

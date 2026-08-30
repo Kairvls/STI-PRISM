@@ -18,5 +18,6 @@
 
 @push('scripts')
     @include('layouts.partials.prism-toast')
+    @include('layouts.partials.receiving-daily-reminder')
     @include('layouts.partials.receiving-table-filters-script')
 @endpush

@@ -83,13 +83,9 @@
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
-                <!-- ===================================== -->
-                <!-- UNREAD INDICATOR -->
-                <!-- ONLY SHOW WHEN UNREAD EXISTS -->
-                <!-- ===================================== -->
-
                 @php
                     $unreadCount = 0;
+                    $attentionTotal = (int) ($attentionTotal ?? 0);
                     try {
                         $unreadCount = \DB::table('notifications_table')
                             ->where(function ($q) {
@@ -102,11 +98,16 @@
                     }
                 @endphp
 
-                @if ($unreadCount > 0)
+                @if ($attentionTotal > 0)
+                    <span
+                        class="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                    >
+                        {{ $attentionTotal > 99 ? '99+' : $attentionTotal }}
+                    </span>
+                @elseif ($unreadCount > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
-
                 @endif
             </button>
 
@@ -142,7 +143,7 @@
                     <span
                         class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
                     >
-                        {{-- $headerUnreadCount --}} new
+                        {{ $unreadCount }} new
                     </span>
                 </div>
 
@@ -152,22 +153,63 @@
 
                 <div class="max-h-[360px] overflow-y-auto">
 
+                    @if ($attentionTotal > 0)
+                        <button
+                            type="button"
+                            onclick="typeof openReceivingDailyReminder === 'function' && openReceivingDailyReminder()"
+                            class="flex w-full items-start gap-2.5 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 text-left transition hover:bg-rose-50/60"
+                        >
+                            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                                <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h4 class="truncate text-[12px] font-semibold text-slate-900">
+                                        Attention needed today
+                                    </h4>
+                                    <span class="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                        {{ $attentionTotal }}
+                                    </span>
+                                </div>
+                                <p class="mt-0.5 text-[11px] leading-4 text-slate-500">
+                                    Open the daily summary of pending inspections and returned reports.
+                                </p>
+                            </div>
+                        </button>
+                    @endif
+
                     <div
                         class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
                     >
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
-                        >
-                            <i data-lucide="bell-off" class="h-4 w-4"></i>
-                        </div>
+                        @if ($attentionTotal > 0)
+                            <div
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-500"
+                            >
+                                <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                            </div>
 
-                        <h4 class="mt-3 text-sm font-medium text-slate-700">
-                            No notifications
-                        </h4>
+                            <h4 class="mt-3 text-sm font-medium text-slate-700">
+                                No new notifications
+                            </h4>
 
-                        <p class="mt-1 text-xs text-slate-400">
-                            New system activity will appear here.
-                        </p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                Open Attention needed today above for queue items.
+                            </p>
+                        @else
+                            <div
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                            >
+                                <i data-lucide="bell-off" class="h-4 w-4"></i>
+                            </div>
+
+                            <h4 class="mt-3 text-sm font-medium text-slate-700">
+                                No notifications
+                            </h4>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                New system activity will appear here.
+                            </p>
+                        @endif
 
                     </div>
 

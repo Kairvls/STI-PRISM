@@ -65,7 +65,13 @@
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
-                @if (($headerUnreadCount ?? 0) > 0)
+                @if (($attentionTotal ?? 0) > 0)
+                    <span
+                        class="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+                    >
+                        {{ $attentionTotal > 99 ? '99+' : $attentionTotal }}
+                    </span>
+                @elseif (($headerUnreadCount ?? 0) > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
@@ -99,6 +105,31 @@
                 </div>
 
                 <div class="max-h-[290px] overflow-y-auto">
+                    @if (($attentionTotal ?? 0) > 0)
+                        <button
+                            type="button"
+                            onclick="typeof openPresidentDailyReminder === 'function' && openPresidentDailyReminder()"
+                            class="flex w-full items-start gap-2.5 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 text-left transition hover:bg-rose-50/60"
+                        >
+                            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                                <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h4 class="truncate text-[12px] font-semibold text-slate-900">
+                                        Attention needed today
+                                    </h4>
+                                    <span class="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                        {{ $attentionTotal }}
+                                    </span>
+                                </div>
+                                <p class="mt-0.5 text-[11px] leading-4 text-slate-500">
+                                    Open the daily summary of RIS awaiting decision or Admin notify.
+                                </p>
+                            </div>
+                        </button>
+                    @endif
+
                     @forelse (($headerNotifications ?? collect()) as $notification)
                         @php
                             $icon = match ($notification->notification_type) {
@@ -144,11 +175,19 @@
                         </a>
                     @empty
                         <div class="flex min-h-[170px] flex-col items-center justify-center px-5 text-center">
-                            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                <i data-lucide="bell-off" class="h-4 w-4"></i>
-                            </div>
-                            <h4 class="mt-2 text-[12px] font-medium text-slate-700">No notifications</h4>
-                            <p class="mt-1 text-[10px] text-slate-400">New system activity will appear here.</p>
+                            @if (($attentionTotal ?? 0) > 0)
+                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+                                    <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                                </div>
+                                <h4 class="mt-2 text-[12px] font-medium text-slate-700">No new notifications</h4>
+                                <p class="mt-1 text-[10px] text-slate-500">Open Attention needed today above for RIS items.</p>
+                            @else
+                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                                    <i data-lucide="bell-off" class="h-4 w-4"></i>
+                                </div>
+                                <h4 class="mt-2 text-[12px] font-medium text-slate-700">No notifications</h4>
+                                <p class="mt-1 text-[10px] text-slate-400">New system activity will appear here.</p>
+                            @endif
                         </div>
                     @endforelse
                 </div>

@@ -2,8 +2,7 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Support\ReceivingAttentionSummary;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,29 +21,27 @@ class ReceivingViewServiceProvider extends ServiceProvider
                 $receivingSidebarPendingCount = 0;
 
                 try {
-                    if (Schema::hasTable('receiving_reports_table')) {
-                        $query = DB::table('receiving_reports_table')
-                            ->whereIn('receiving_report_status', [
-                                'Pending',
-                                'Submitted',
-                                'Resubmitted',
-                                'Under Review',
-                            ]);
-
-                        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
-                            $query->where(function ($q) {
-                                $q->whereNull('receiving_report_is_archived')
-                                    ->orWhere('receiving_report_is_archived', 0);
-                            });
-                        }
-
-                        $receivingSidebarPendingCount = (int) $query->count();
-                    }
+                    $receivingSidebarPendingCount = (int) (ReceivingAttentionSummary::counts()['pendingCount'] ?? 0);
                 } catch (\Throwable $e) {
                     // Keep zero if schema/query fails.
                 }
 
                 $view->with(compact('receivingSidebarPendingCount'));
+            }
+        );
+
+        View::composer(
+            'layouts.receiving-topbar',
+            function ($view) {
+                $attentionTotal = 0;
+
+                try {
+                    $attentionTotal = (int) (ReceivingAttentionSummary::counts()['attentionTotal'] ?? 0);
+                } catch (\Throwable $e) {
+                    $attentionTotal = 0;
+                }
+
+                $view->with(compact('attentionTotal'));
             }
         );
     }

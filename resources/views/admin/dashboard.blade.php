@@ -684,53 +684,6 @@
 </div>
 
 
-{{-- Attention needed today (login popup) --}}
-@php
-    $attentionPending = (int) ($pendingPurchaserRisCount ?? $pendingRis ?? 0);
-    $attentionCosign = (int) ($forCosigningCount ?? 0);
-    $attentionAmend = (int) ($amendRis ?? 0);
-    $showAttentionPopup = ($attentionPending + $attentionCosign + $attentionAmend) > 0;
-@endphp
-@if($showAttentionPopup)
-<div id="adminDailyReminder" class="admin-daily-reminder hidden" role="dialog" aria-labelledby="adminDailyReminderTitle">
-    <div class="admin-daily-reminder-card admin-attention-popup">
-        <button type="button" class="admin-daily-reminder-close" onclick="dismissAdminDailyReminder()" aria-label="Dismiss">
-            <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <h3 id="adminDailyReminderTitle" class="admin-attention-title">Attention needed today</h3>
-        <p class="admin-attention-subtitle">Items that still need your action.</p>
-        <div class="admin-attention-rows">
-            <div class="admin-attention-row admin-attention-row-blue">
-                <div>
-                    <p class="admin-attention-label">Pending RIS needing review</p>
-                    <p class="admin-attention-value">{{ $attentionPending }}</p>
-                </div>
-                <a href="{{ url('/admin/procurement-review') }}" class="admin-attention-cta">Review RIS</a>
-            </div>
-            <div class="admin-attention-row admin-attention-row-yellow">
-                <div>
-                    <p class="admin-attention-label">Awaiting Admin cosign</p>
-                    <p class="admin-attention-value">{{ $attentionCosign }}</p>
-                </div>
-                <a href="{{ url('/admin/digital-signatures/sign-ris') }}" class="admin-attention-cta">Sign RIS</a>
-            </div>
-            <div class="admin-attention-row admin-attention-row-blue">
-                <div>
-                    <p class="admin-attention-label">Amendments / returned</p>
-                    <p class="admin-attention-value">{{ $attentionAmend }}</p>
-                </div>
-                <a href="{{ url('/admin/procurement-review?filter=all') }}" class="admin-attention-cta">View all</a>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-
-{{-- ===================================================== --}}
-{{-- RIS PREVIEW MODAL --}}
-{{-- ===================================================== --}}
-
 {{-- RIS Preview modal --}}
 @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
 
@@ -3112,37 +3065,11 @@ document.addEventListener('DOMContentLoaded', function() {
             closeRisPreviewModal();
             return;
         }
-        const reminder = document.getElementById('adminDailyReminder');
-        if (reminder && !reminder.classList.contains('hidden')) {
+        const reminder = document.getElementById('adminDailyReminderModal');
+        if (reminder && !reminder.classList.contains('hidden') && typeof dismissAdminDailyReminder === 'function') {
             dismissAdminDailyReminder();
         }
     });
-
-    // =====================================================
-    // ATTENTION NEEDED TODAY (once per browser login/session)
-    // =====================================================
-
-    window.dismissAdminDailyReminder = function () {
-        var el = document.getElementById('adminDailyReminder');
-        if (el) el.classList.add('hidden');
-        try { sessionStorage.setItem(@json('admin_attention_popup_shown_' . (session('attention_popup_token') ?: 'default')), '1'); } catch (e) {}
-    };
-
-    (function () {
-        var el = document.getElementById('adminDailyReminder');
-        if (!el) return;
-        var storageKey = @json('admin_attention_popup_shown_' . (session('attention_popup_token') ?: 'default'));
-        try {
-            if (sessionStorage.getItem(storageKey) === '1') return;
-            el.classList.remove('hidden');
-            sessionStorage.setItem(storageKey, '1');
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
-        } catch (err) {
-            el.classList.remove('hidden');
-        }
-    })();
 
 });
 </script>

@@ -19,6 +19,7 @@
 
 @push('scripts')
     @include('layouts.partials.prism-toast')
+    @include('layouts.partials.president-daily-reminder')
     <script>
         (function () {
             if (window.__pmFloatingTipInit) return;
