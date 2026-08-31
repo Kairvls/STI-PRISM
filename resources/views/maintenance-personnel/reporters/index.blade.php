@@ -936,7 +936,7 @@
                                                 font-medium tracking-wider
                                                 text-slate-700"
                                         >
-                                            #{{ $report->report_id }}
+                                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
                                         </span>
 
                                     </td>

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Support\ReportGrouping;
+use App\Support\ReportItems;
 use App\Support\SuggestedIssues;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class MobileReportController extends Controller
@@ -66,16 +66,28 @@ class MobileReportController extends Controller
 
     public function equipment($roomId)
     {
+        $columns = [
+            'equipment_id',
+            'equipment_name',
+            'equipment_brand_name',
+            'equipment_model',
+        ];
+
+        foreach ([
+            'equipment_asset_tag',
+            'equipment_serial_number',
+            'equipment_placement_zone',
+        ] as $optional) {
+            if (Schema::hasColumn('equipment_table', $optional)) {
+                $columns[] = $optional;
+            }
+        }
+
         $equipment = ReportGrouping::applyReporterEquipmentFilters(
             DB::table('equipment_table')
                 ->where('equipment_room_id', $roomId)
         )
-            ->select(
-                'equipment_id',
-                'equipment_name',
-                'equipment_brand_name',
-                'equipment_model'
-            )
+            ->select($columns)
             ->orderBy('equipment_name')
             ->get();
 
@@ -105,14 +117,27 @@ class MobileReportController extends Controller
 
         }
 
-        $issues = SuggestedIssues::namesForEquipment($equipment)
-            ->map(function ($name, $index) {
-                return [
-                    'issue_template_id' => $index + 1,
-                    'issue_template_name' => $name,
-                ];
-            })
-            ->values();
+        $query = DB::table('issue_templates_table')
+            ->where('issue_template_category_id', $equipment->equipment_category_id)
+            ->orderBy('issue_template_name');
+
+        if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
+            $component = SuggestedIssues::detectComponent($equipment->equipment_name ?? '');
+
+            if ($component) {
+                $query->where('issue_template_component', $component);
+            } else {
+                $query->where(function ($inner) {
+                    $inner
+                        ->whereNull('issue_template_component')
+                        ->orWhere('issue_template_component', '');
+                });
+            }
+        }
+
+        $issues = $query
+            ->select('issue_template_id', 'issue_template_name')
+            ->get();
 
         return response()->json($issues);
     }
@@ -175,7 +200,23 @@ class MobileReportController extends Controller
 
             'equipment_id' => 'nullable|integer',
 
+            'equipment_ids' => 'nullable|array',
+
+            'equipment_ids.*' => 'integer',
+
+            'equipment_issues' => 'nullable|array',
+
+            'equipment_issues.*' => 'nullable|string|max:255',
+
             'manual_equipment_name' => 'nullable|string|max:255',
+
+            'manual_equipment_names' => 'nullable|array',
+
+            'manual_equipment_names.*' => 'nullable|string|max:255',
+
+            'manual_equipment_issues' => 'nullable|array',
+
+            'manual_equipment_issues.*' => 'nullable|string|max:255',
 
             'issue_template_id' => 'nullable|integer',
 
@@ -185,9 +226,77 @@ class MobileReportController extends Controller
 
             'preferred_action_date' => ReportGrouping::preferredActionDateRules(),
 
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png|max:5120',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
 
         ]);
+
+        $rawEquipmentIds = collect($request->input('equipment_ids', []));
+        $rawEquipmentIssues = collect($request->input('equipment_issues', []));
+
+        $equipmentIds = $rawEquipmentIds
+            ->when(
+                $request->filled('equipment_id'),
+                fn ($ids) => $ids->push($request->equipment_id)
+            )
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $equipmentIssuesById = [];
+        foreach ($rawEquipmentIds as $index => $rawId) {
+            $equipmentId = (int) $rawId;
+            if ($equipmentId <= 0) {
+                continue;
+            }
+            $equipmentIssuesById[$equipmentId] = trim((string) ($rawEquipmentIssues[$index] ?? ''));
+        }
+
+        $manualNames = collect($request->input('manual_equipment_names', []))
+            ->when(
+                filled(trim((string) $request->manual_equipment_name)),
+                fn ($names) => $names->push($request->manual_equipment_name)
+            )
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->values();
+
+        // Preserve first occurrence for case-insensitive uniqueness while
+        // keeping parallel issue indexes aligned via a rebuild below.
+        $manualIssuesRaw = collect($request->input('manual_equipment_issues', []))
+            ->map(fn ($issue) => trim((string) $issue))
+            ->values();
+
+        while ($manualIssuesRaw->count() < collect($request->input('manual_equipment_names', []))->count()) {
+            $manualIssuesRaw->push('');
+        }
+
+        $dedupedManuals = [];
+        $manualIssues = [];
+        $seenManual = [];
+        $sourceManuals = collect($request->input('manual_equipment_names', []))
+            ->when(
+                filled(trim((string) $request->manual_equipment_name)),
+                fn ($names) => $names->push($request->manual_equipment_name)
+            )
+            ->values();
+
+        foreach ($sourceManuals as $index => $rawName) {
+            $name = trim((string) $rawName);
+            if ($name === '') {
+                continue;
+            }
+            $key = mb_strtolower($name);
+            if (isset($seenManual[$key])) {
+                continue;
+            }
+            $seenManual[$key] = true;
+            $dedupedManuals[] = $name;
+            $manualIssues[] = trim((string) ($manualIssuesRaw[$index] ?? ''));
+        }
+
+        $manualNames = collect($dedupedManuals);
+        $manualIssues = collect($manualIssues);
 
         /*
         |--------------------------------------------------------------------------
@@ -195,44 +304,69 @@ class MobileReportController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (
-
-            empty($request->equipment_id) &&
-            empty(trim($request->manual_equipment_name))
-
-        ) {
-
+        if ($equipmentIds->isEmpty() && $manualNames->isEmpty()) {
             return response()->json([
-
                 'success' => false,
-
-                'message' => 'Please select equipment or enter a manual equipment name.'
-
+                'message' => 'Please select at least one equipment or enter a manual equipment name.',
             ], 422);
-
         }
 
         /*
         |--------------------------------------------------------------------------
-        | ISSUE VALIDATION
+        | BUILD SHARED FALLBACK ISSUE (legacy single-item clients)
         |--------------------------------------------------------------------------
         */
 
+        $sharedIssueName = null;
+
+        if ($request->filled('issue_template_id')) {
+            $issue = DB::table('issue_templates_table')
+                ->where('issue_template_id', $request->issue_template_id)
+                ->first();
+
+            if ($issue) {
+                $sharedIssueName = $issue->issue_template_name;
+            }
+        }
+
+        $sharedDescription = trim((string) $request->description);
+        $sharedFallback = $sharedIssueName ?: $sharedDescription;
+
         if (
-
-            empty($request->issue_template_id) &&
-            empty(trim($request->description))
-
+            $request->filled('equipment_id')
+            && $sharedFallback !== ''
+            && ! isset($equipmentIssuesById[(int) $request->equipment_id])
         ) {
+            $equipmentIssuesById[(int) $request->equipment_id] = $sharedFallback;
+        }
 
+        /*
+        |--------------------------------------------------------------------------
+        | ISSUE VALIDATION (per item, matching web)
+        |--------------------------------------------------------------------------
+        */
+
+        $missingListedIssue = $equipmentIds->contains(
+            function ($equipmentId) use ($equipmentIssuesById, $sharedFallback) {
+                $itemIssue = trim((string) ($equipmentIssuesById[$equipmentId] ?? ''));
+
+                return $itemIssue === '' && $sharedFallback === '';
+            }
+        );
+
+        $missingManualIssue = $manualNames->keys()->contains(
+            function ($index) use ($manualIssues, $sharedFallback) {
+                $itemIssue = trim((string) ($manualIssues[$index] ?? ''));
+
+                return $itemIssue === '' && $sharedFallback === '';
+            }
+        );
+
+        if ($missingListedIssue || $missingManualIssue) {
             return response()->json([
-
                 'success' => false,
-
-                'message' => 'Please select a suggested issue or provide a description.'
-
+                'message' => 'Please select a suggested issue or provide a description for each equipment.',
             ], 422);
-
         }
 
         /*
@@ -264,53 +398,6 @@ class MobileReportController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | BUILD FINAL DESCRIPTION
-        |--------------------------------------------------------------------------
-        */
-
-        $issueName = null;
-
-        if ($request->filled('issue_template_id')) {
-
-            $issue = DB::table('issue_templates_table')
-
-                ->where(
-                    'issue_template_id',
-                    $request->issue_template_id
-                )
-
-                ->first();
-
-            if ($issue) {
-
-                $issueName = $issue->issue_template_name;
-
-            }
-
-        }
-
-        $description = '';
-
-        if ($issueName) {
-
-            $description .= $issueName;
-
-        }
-
-        if (!empty(trim($request->description))) {
-
-            if (!empty($description)) {
-
-                $description .= "\n\n";
-
-            }
-
-            $description .= trim($request->description);
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
         | SAVE PHOTO
         |--------------------------------------------------------------------------
         */
@@ -325,53 +412,87 @@ class MobileReportController extends Controller
 
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | BLOCK EQUIPMENT ALREADY FOR REPLACEMENT
-        |--------------------------------------------------------------------------
-        */
-
-        if (!empty($request->equipment_id)) {
-            $listedEquipment = DB::table('equipment_table')
-                ->where('equipment_id', $request->equipment_id)
+        if ($equipmentIds->isNotEmpty()) {
+            $validEquipment = DB::table('equipment_table')
+                ->whereIn('equipment_id', $equipmentIds->all())
                 ->where('equipment_room_id', $request->room_id)
-                ->first();
+                ->get()
+                ->keyBy('equipment_id');
 
-            if (!$listedEquipment) {
+            if ($validEquipment->count() !== $equipmentIds->count()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Selected equipment does not belong to the selected room.',
+                    'message' => 'One or more selected equipment do not belong to the selected room.',
                 ], 422);
             }
 
-            if (ReportGrouping::equipmentIsForReplacement((int) $request->equipment_id)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This equipment is already marked for replacement and cannot be reported again.',
-                ], 422);
+            foreach ($equipmentIds as $equipmentId) {
+                if (ReportGrouping::equipmentIsForReplacement((int) $equipmentId)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'An equipment is already marked for replacement and cannot be reported again.',
+                    ], 422);
+                }
             }
+        }
 
+        $preferredDate = ReportGrouping::hasPreferredActionDateColumn()
+            ? ReportGrouping::resolvePreferredActionDate(
+                $request->priority,
+                $request->preferred_action_date
+            )
+            : null;
+
+        $resolveItemIssue = function (?string $itemIssue) use ($sharedFallback): string {
+            $itemIssue = trim((string) $itemIssue);
+
+            return $itemIssue !== '' ? $itemIssue : $sharedFallback;
+        };
+
+        $totalSelected = $equipmentIds->count() + $manualNames->count();
+        $isMultiItemSubmit = $totalSelected > 1;
+        $newEquipmentIds = collect();
+
+        if (! $isMultiItemSubmit && $equipmentIds->count() === 1 && $manualNames->isEmpty()) {
+            $equipmentId = (int) $equipmentIds->first();
             $openReport = ReportGrouping::findOpenReport(
-                (int) $request->equipment_id,
+                $equipmentId,
                 (int) $request->room_id
             );
+
+            $itemIssue = $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '');
 
             if ($openReport) {
                 ReportGrouping::mergeIntoOpenReport($openReport, [
                     'reporter_id' => $request->employee_id,
                     'urgency' => $request->priority,
-                    'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
-                        $request->priority,
-                        $request->preferred_action_date
-                    ),
-                    'issue' => $issueName ?: trim((string) $request->description),
+                    'preferred_action_date' => $preferredDate,
+                    'issue' => $itemIssue,
                 ]);
 
                 return response()->json([
                     'success' => true,
                     'merged' => true,
-                    'message' => 'This equipment already has an open report. Your report was added to it instead of creating a duplicate.',
+                    'message' => 'This equipment already has an open report (#'.$openReport->report_id.'). Your update was added to it instead of creating a duplicate.',
                 ]);
+            }
+
+            $newEquipmentIds->push($equipmentId);
+        } else {
+            foreach ($equipmentIds as $equipmentId) {
+                $openReport = ReportGrouping::findOpenReport(
+                    (int) $equipmentId,
+                    (int) $request->room_id
+                );
+
+                if ($openReport) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'One or more selected equipment already have an open report. Remove those items and submit again.',
+                    ], 422);
+                }
+
+                $newEquipmentIds->push((int) $equipmentId);
             }
         }
 
@@ -381,23 +502,33 @@ class MobileReportController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $primaryEquipmentId = $newEquipmentIds->first();
+        $primaryManual = $primaryEquipmentId ? null : $manualNames->first();
+        $primaryIssue = $primaryEquipmentId
+            ? $resolveItemIssue($equipmentIssuesById[$primaryEquipmentId] ?? '')
+            : $resolveItemIssue($manualIssues->first() ?? '');
+
         $reportPayload = [
 
             'report_reporter_employee_id' => $request->employee_id,
 
             'report_room_id' => $request->room_id,
 
-            'report_equipment_id' => $request->equipment_id,
+            'report_equipment_id' => $primaryEquipmentId,
 
-            'report_suggested_issue' => $issueName,
+            'report_unlisted_equipment_name' => $primaryManual,
 
-            'report_problem_description' => trim($request->description) ?: null,
+            'report_suggested_issue' => $primaryIssue !== '' ? $primaryIssue : null,
+
+            'report_problem_description' => $sharedDescription !== '' ? $sharedDescription : null,
 
             'report_urgency_level' => $request->priority,
 
             'report_current_status' => 'Pending',
 
             'report_uploaded_image' => $photoPath,
+
+            'report_is_archived' => false,
 
             'report_submitted_at' => now(),
 
@@ -410,13 +541,36 @@ class MobileReportController extends Controller
         }
 
         if (ReportGrouping::hasPreferredActionDateColumn()) {
-            $reportPayload['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
-                $request->priority,
-                $request->preferred_action_date
-            );
+            $reportPayload['report_preferred_action_date'] = $preferredDate;
         }
 
         $reportId = DB::table('reports_table')->insertGetId($reportPayload);
+
+        $itemPayloads = [];
+
+        foreach ($newEquipmentIds as $equipmentId) {
+            $itemIssue = $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '');
+
+            $itemPayloads[] = [
+                'equipment_id' => (int) $equipmentId,
+                'suggested_issue' => $itemIssue !== '' ? $itemIssue : null,
+                'problem_description' => $sharedDescription !== '' ? $sharedDescription : null,
+                'uploaded_image' => $photoPath,
+            ];
+        }
+
+        foreach ($manualNames as $index => $manualName) {
+            $itemIssue = $resolveItemIssue($manualIssues[$index] ?? '');
+
+            $itemPayloads[] = [
+                'unlisted_name' => $manualName,
+                'suggested_issue' => $itemIssue !== '' ? $itemIssue : null,
+                'problem_description' => $sharedDescription !== '' ? $sharedDescription : null,
+                'uploaded_image' => $photoPath,
+            ];
+        }
+
+        ReportItems::createForReport((int) $reportId, $itemPayloads);
 
         $report = DB::table('reports_table')
             ->where('report_id', $reportId)
@@ -441,11 +595,17 @@ class MobileReportController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $message = count($itemPayloads) > 1
+            ? 'Report #'.$reportId.' submitted successfully with '.count($itemPayloads).' equipment items.'
+            : 'Report #'.$reportId.' submitted successfully.';
+
         return response()->json([
 
             'success' => true,
 
-            'message' => 'Report submitted successfully.'
+            'message' => $message,
+            'report_id' => $reportId,
+            'item_count' => count($itemPayloads),
 
         ]);
 

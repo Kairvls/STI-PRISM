@@ -371,6 +371,36 @@
         padding: 16px 12px;
     }
 
+    .rf-option-tip {
+        position: fixed;
+        z-index: 120;
+        max-width: min(360px, calc(100vw - 24px));
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.45;
+        white-space: normal;
+        word-break: break-word;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(4px);
+        transition:
+            opacity 0.12s ease,
+            transform 0.12s ease,
+            visibility 0.12s ease;
+    }
+
+    .rf-option-tip.is-visible {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
     /* ── REPORTER INFO BOX ── */
     .reporter-box {
         background: rgba(41, 71, 240, 0.05);
@@ -435,6 +465,53 @@
         color: #9aa1b5;
         line-height: 1.45;
         margin-top: 8px;
+    }
+
+    .rf-eq-item {
+        position: relative;
+        cursor: default;
+    }
+
+    .rf-eq-tip {
+        position: absolute;
+        left: 12px;
+        bottom: calc(100% + 8px);
+        z-index: 40;
+        max-width: min(320px, 80vw);
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.45;
+        white-space: normal;
+        word-break: break-word;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(4px);
+        transition:
+            opacity 0.15s ease,
+            transform 0.15s ease,
+            visibility 0.15s ease;
+    }
+
+    .rf-eq-tip::after {
+        content: "";
+        position: absolute;
+        left: 16px;
+        top: 100%;
+        border: 6px solid transparent;
+        border-top-color: #0f172a;
+    }
+
+    .rf-eq-item:hover .rf-eq-tip,
+    .rf-eq-item:focus-within .rf-eq-tip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
     }
 
     .rf-submit-btn {
@@ -1622,7 +1699,7 @@
                             <p id="locationError" class="mt-1 hidden text-[14px] text-red-500">Please select a location.</p>
                         </div>
 
-                        {{-- EQUIPMENT --}}
+                        {{-- EQUIPMENT (one-to-many) --}}
                         <div>
                             <div class="mb-2 flex items-center justify-between">
                                 <label class="rf-label" style="margin-bottom: 0"
@@ -1647,38 +1724,69 @@
                                 </button>
                             </div>
 
-                            <div
-                                id="equipmentDropdownContainer"
-                                class="rf-select-wrap"
-                            >
-                                <select
-                                    name="report_equipment_id"
-                                    id="equipmentSelect"
-                                    class="rf-input details-textarea rf-native-select"
-                                    data-picker-title="Select equipment"
-                                    data-picker-search="Search equipment"
-                                    style="
-                                        height: 48px;
-                                        padding-right: 36px;
-                                        cursor: pointer;
-                                    "
-                                >
-                                    <option value="">Select Equipment</option>
-                                </select>
+                            <div id="equipmentDropdownContainer">
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="rf-select-wrap"
+                                        style="flex: 1; min-width: 0"
+                                    >
+                                        <select
+                                            id="equipmentSelect"
+                                            class="rf-input details-textarea rf-native-select"
+                                            data-picker-title="Select equipment"
+                                            data-picker-search="Search equipment"
+                                            style="
+                                                height: 48px;
+                                                padding-right: 36px;
+                                                cursor: pointer;
+                                                width: 100%;
+                                            "
+                                        >
+                                            <option value="">Select Equipment</option>
+                                        </select>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        id="addEquipmentBtn"
+                                        class="shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                        style="height: 48px; min-width: 72px"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
                             </div>
 
                             <div id="equipmentManualContainer" class="hidden">
-                                <input
-                                    type="text"
-                                    name="report_equipment_manual"
-                                    id="equipmentManualInput"
-                                    placeholder="Enter equipment name manually..."
-                                    class="rf-input details-textarea"
-                                    style="height: 48px"
-                                />
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        id="equipmentManualInput"
+                                        placeholder="Enter equipment name manually..."
+                                        class="rf-input details-textarea"
+                                        style="height: 48px; flex: 1; min-width: 0"
+                                    />
+                                    <button
+                                        type="button"
+                                        id="addManualEquipmentBtn"
+                                        class="shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                        style="height: 48px; min-width: 72px"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
                             </div>
 
-                            <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please enter or select an equipment.</p>
+                            <div
+                                id="selectedEquipmentList"
+                                class="mt-3 flex flex-col gap-2"
+                            ></div>
+                            <div id="selectedEquipmentInputs"></div>
+
+                            <p class="mt-1 text-[11px] text-slate-400">
+                                Select equipment, then choose a suggested issue or fill Additional Details, then click Add. Labels include asset tag/serial so identical names stay distinguishable.
+                            </p>
+
+                            <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
                         </div>
                     </div>
 
@@ -1739,8 +1847,7 @@
                                 id="issuePlaceholder"
                                 class="issue-placeholder"
                             >
-                                Select a location and choose or type equipment
-                                to see suggestions
+                                Select a location and equipment, then choose a suggested issue before clicking Add
                             </div>
                         </div>
 
@@ -1957,12 +2064,12 @@
                             id="preferredActionDateInput"
                             name="report_preferred_action_date"
                             value="{{ old('report_preferred_action_date') }}"
-                            min="{{ today()->toDateString() }}"
+                            min="{{ \App\Support\ReportGrouping::preferredActionDateMinimum() }}"
                             {{ $showPreferredDate ? '' : 'disabled' }}
                             class="rf-input rf-date-input"
                         />
                         <p class="rf-preferred-hint">
-                            Request a day for maintenance to look at this. If you skip this, they will be reminded after 5 days.
+                            Optional. Earliest date is 2 days from today. If you skip this, maintenance will be reminded after {{ \App\Support\ReportGrouping::nonUrgentReminderGraceDays() }} days.
                         </p>
                         @error('report_preferred_action_date')
                             <p class="mt-2 text-xs font-semibold text-red-500">{{ $message }}</p>
@@ -2097,6 +2204,7 @@
 <div id="rfDropdownMenu" class="rf-dropdown-menu" hidden>
     <div class="rf-dropdown-list" id="rfDropdownList"></div>
 </div>
+<div id="rfOptionTip" class="rf-option-tip" hidden></div>
 
 <script>
     /* ── RE-RENDER ICONS ── */
@@ -2518,9 +2626,301 @@ toggleRoomBtn.addEventListener('click', function () {
         "equipmentManualInput",
     );
 
+    const addEquipmentBtn = document.getElementById("addEquipmentBtn");
+
+    const addManualEquipmentBtn = document.getElementById(
+        "addManualEquipmentBtn",
+    );
+
+    const selectedEquipmentList = document.getElementById(
+        "selectedEquipmentList",
+    );
+
+    const selectedEquipmentInputs = document.getElementById(
+        "selectedEquipmentInputs",
+    );
+
     let equipmentManualMode = false;
 
     let lastSelectedEquipment = "";
+
+    /** @type {{type: 'id'|'manual', id?: string, name: string, issue: string}[]} */
+    let selectedEquipmentItems = [];
+
+    function formatEquipmentLabel(equipment) {
+        const name = String(equipment.equipment_name || "Equipment").trim();
+        const parts = [];
+
+        const assetTag = String(equipment.equipment_asset_tag || "").trim();
+        const serial = String(equipment.equipment_serial_number || "").trim();
+        const brandModel = [equipment.equipment_brand_name, equipment.equipment_model]
+            .map((part) => String(part || "").trim())
+            .filter(Boolean)
+            .join(" ");
+        const zone = String(equipment.equipment_placement_zone || "").trim();
+
+        if (assetTag) {
+            parts.push("Tag: " + assetTag);
+        } else if (serial) {
+            parts.push("SN: " + serial);
+        }
+
+        if (brandModel) {
+            parts.push(brandModel);
+        }
+
+        if (zone) {
+            parts.push(zone);
+        }
+
+        if (parts.length === 0 && equipment.equipment_id) {
+            parts.push("#" + equipment.equipment_id);
+        }
+
+        return parts.length ? name + " · " + parts.join(" · ") : name;
+    }
+
+    function syncEquipmentSelectTrigger() {
+        const trigger = document.querySelector(
+            '.rf-picker-trigger[data-for="equipmentSelect"]',
+        );
+        if (!trigger) {
+            return;
+        }
+
+        const option = equipmentSelect.options[equipmentSelect.selectedIndex];
+        const label = option
+            ? option.textContent.trim()
+            : "Select Equipment";
+        const labelEl = trigger.querySelector(".rf-picker-label");
+        if (labelEl) {
+            labelEl.textContent = label || "Select Equipment";
+        }
+        trigger.classList.toggle("is-placeholder", !equipmentSelect.value);
+    }
+
+    function getSelectedSuggestedIssue() {
+        const input = document.getElementById("suggestedIssueInput");
+        return input ? input.value.trim() : "";
+    }
+
+    function getAdditionalDetails() {
+        const input = document.getElementById("problemDescription");
+        return input ? input.value.trim() : "";
+    }
+
+    function getIssueForAdd() {
+        return getSelectedSuggestedIssue() || getAdditionalDetails();
+    }
+
+    function renderSelectedEquipment() {
+        if (!selectedEquipmentList || !selectedEquipmentInputs) {
+            return;
+        }
+
+        selectedEquipmentList.innerHTML = "";
+        selectedEquipmentInputs.innerHTML = "";
+
+        selectedEquipmentItems.forEach((item, index) => {
+            const uniqueness =
+                item.type === "id"
+                    ? item.name + (item.id ? " · ID #" + item.id : "")
+                    : item.name + " (manual entry)";
+            const tipText = item.issue
+                ? uniqueness + "\nIssue: " + item.issue
+                : uniqueness;
+
+            const row = document.createElement("div");
+            row.className =
+                "rf-eq-item flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2";
+            row.setAttribute("tabindex", "0");
+            row.setAttribute("aria-label", tipText.replace(/\n/g, ". "));
+            row.innerHTML = `
+                <div class="rf-eq-tip" data-eq-tip></div>
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold text-slate-800" data-eq-name></p>
+                    <p class="mt-0.5 truncate text-xs text-slate-500" data-eq-issue></p>
+                    <p class="text-[10px] uppercase tracking-wide text-slate-400">${item.type === "manual" ? "Manual entry" : "Listed equipment"}</p>
+                </div>
+                <button
+                    type="button"
+                    data-remove-equipment="${index}"
+                    class="shrink-0 rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100"
+                >
+                    Remove
+                </button>
+            `;
+            const tipEl = row.querySelector("[data-eq-tip]");
+            tipEl.textContent = "";
+            tipText.split("\n").forEach((line, lineIndex) => {
+                if (lineIndex > 0) {
+                    tipEl.appendChild(document.createElement("br"));
+                }
+                tipEl.appendChild(document.createTextNode(line));
+            });
+            row.querySelector("[data-eq-name]").textContent = item.name;
+            row.querySelector("[data-eq-name]").setAttribute("title", item.name);
+            row.querySelector("[data-eq-issue]").textContent = item.issue
+                ? "Issue: " + item.issue
+                : "No suggested issue";
+            selectedEquipmentList.appendChild(row);
+
+
+            if (item.type === "id") {
+                const idInput = document.createElement("input");
+                idInput.type = "hidden";
+                idInput.name = "report_equipment_ids[]";
+                idInput.value = item.id;
+                selectedEquipmentInputs.appendChild(idInput);
+
+                const issueInput = document.createElement("input");
+                issueInput.type = "hidden";
+                issueInput.name = "report_equipment_issues[]";
+                issueInput.value = item.issue || "";
+                selectedEquipmentInputs.appendChild(issueInput);
+            } else {
+                const nameInput = document.createElement("input");
+                nameInput.type = "hidden";
+                nameInput.name = "report_equipment_manuals[]";
+                nameInput.value = item.name;
+                selectedEquipmentInputs.appendChild(nameInput);
+
+                const issueInput = document.createElement("input");
+                issueInput.type = "hidden";
+                issueInput.name = "report_equipment_manual_issues[]";
+                issueInput.value = item.issue || "";
+                selectedEquipmentInputs.appendChild(issueInput);
+            }
+        });
+
+        selectedEquipmentList
+            .querySelectorAll("[data-remove-equipment]")
+            .forEach((btn) => {
+                btn.addEventListener("click", function () {
+                    const idx = Number(this.getAttribute("data-remove-equipment"));
+                    selectedEquipmentItems.splice(idx, 1);
+                    renderSelectedEquipment();
+                });
+            });
+    }
+
+    function addListedEquipment() {
+        const equipmentId = equipmentSelect.value;
+        const option = equipmentSelect.options[equipmentSelect.selectedIndex];
+        const equipmentName = option ? option.textContent.trim() : "";
+        const selectedIssue = getIssueForAdd();
+
+        document.getElementById("equipmentError").classList.add("hidden");
+        setSelectTriggerBorder(equipmentSelect, "");
+        hideIssueOrDetailsErrors();
+
+        if (!equipmentId) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "Please select equipment, then a suggested issue or additional details, then Add.";
+            setSelectTriggerBorder(equipmentSelect, "#dc2626");
+            return;
+        }
+
+        if (!selectedIssue) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "Please select a suggested issue or provide additional details before adding this equipment.";
+            document.getElementById("issueError")?.classList.remove("hidden");
+            return;
+        }
+
+        if (
+            selectedEquipmentItems.some(
+                (item) => item.type === "id" && String(item.id) === String(equipmentId),
+            )
+        ) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "That equipment is already added.";
+            return;
+        }
+
+        selectedEquipmentItems.push({
+            type: "id",
+            id: String(equipmentId),
+            name: equipmentName || `Equipment #${equipmentId}`,
+            issue: selectedIssue,
+        });
+
+        renderSelectedEquipment();
+        lastSelectedEquipment = "";
+        equipmentSelect.value = "";
+        syncEquipmentSelectTrigger();
+        clearSuggestedIssue();
+        showIssuePlaceholder();
+    }
+
+    function addManualEquipment() {
+        const name = equipmentManualInput.value.trim();
+        const selectedIssue = getIssueForAdd();
+
+        document.getElementById("equipmentError").classList.add("hidden");
+        equipmentManualInput.style.borderColor = "";
+        hideIssueOrDetailsErrors();
+
+        if (!name) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "Please enter an equipment name.";
+            equipmentManualInput.style.borderColor = "#dc2626";
+            return;
+        }
+
+        if (!selectedIssue) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "Please select a suggested issue or provide additional details before adding this equipment.";
+            document.getElementById("issueError")?.classList.remove("hidden");
+            return;
+        }
+
+        if (
+            selectedEquipmentItems.some(
+                (item) =>
+                    item.type === "manual" &&
+                    item.name.toLowerCase() === name.toLowerCase(),
+            )
+        ) {
+            const err = document.getElementById("equipmentError");
+            err.classList.remove("hidden");
+            err.innerText = "That equipment name is already added.";
+            return;
+        }
+
+        selectedEquipmentItems.push({
+            type: "manual",
+            name,
+            issue: selectedIssue,
+        });
+
+        renderSelectedEquipment();
+        equipmentManualInput.value = "";
+        clearSuggestedIssue();
+        loadGenericSuggestions();
+    }
+
+    if (addEquipmentBtn) {
+        addEquipmentBtn.addEventListener("click", addListedEquipment);
+    }
+
+    if (addManualEquipmentBtn) {
+        addManualEquipmentBtn.addEventListener("click", addManualEquipment);
+    }
+
+    if (equipmentManualInput) {
+        equipmentManualInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addManualEquipment();
+            }
+        });
+    }
 
     toggleEquipmentBtn.addEventListener("click", function () {
         document.getElementById("equipmentError").classList.add("hidden");
@@ -2530,12 +2930,6 @@ toggleRoomBtn.addEventListener('click', function () {
         equipmentManualInput.style.borderColor = "";
 
         equipmentManualMode = !equipmentManualMode;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SWITCH TO MANUAL EQUIPMENT
-        |--------------------------------------------------------------------------
-        */
 
         if (equipmentManualMode) {
             if (equipmentSelect.value) {
@@ -2556,11 +2950,6 @@ toggleRoomBtn.addEventListener('click', function () {
 
             loadGenericSuggestions();
         } else {
-            /*
-        |--------------------------------------------------------------------------
-        | SWITCH BACK TO EQUIPMENT LIST
-        |--------------------------------------------------------------------------
-        */
             equipmentDropdown.classList.remove("hidden");
 
             equipmentManual.classList.add("hidden");
@@ -2595,10 +2984,10 @@ toggleRoomBtn.addEventListener('click', function () {
 
                         updateIssueCount();
                     });
-            } else {
+            } else if (selectedEquipmentItems.length === 0) {
                 issueCarousel.innerHTML = `
                     <div id="issuePlaceholder" class="issue-placeholder">
-                        Select a location and choose or type equipment to see suggestions
+                        Select equipment, choose a suggested issue, then click Add
                     </div>
                 `;
 
@@ -2612,7 +3001,7 @@ toggleRoomBtn.addEventListener('click', function () {
     function showIssuePlaceholder() {
         issueCarousel.innerHTML = `
         <div id="issuePlaceholder" class="issue-placeholder">
-            Select a location and choose or type equipment to see suggestions
+            Select equipment, choose a suggested issue, then click Add
         </div>
     `;
 
@@ -3069,11 +3458,67 @@ toggleRoomBtn.addEventListener('click', function () {
         const closeEl = document.getElementById("rfPickerClose");
         const dropdownMenu = document.getElementById("rfDropdownMenu");
         const dropdownList = document.getElementById("rfDropdownList");
+        const optionTip = document.getElementById("rfOptionTip");
         if (!overlay || !dropdownMenu || !dropdownList) return;
 
         const ITEM_HEIGHT = 44;
         const VISIBLE_ITEMS = 5;
         let activeSelect = null;
+
+        function hideOptionTip() {
+            if (!optionTip) return;
+            optionTip.classList.remove("is-visible");
+            optionTip.hidden = true;
+            optionTip.textContent = "";
+        }
+
+        function showOptionTip(anchor, text) {
+            if (!optionTip || !anchor || !text) return;
+
+            optionTip.hidden = false;
+            optionTip.textContent = text;
+            optionTip.classList.add("is-visible");
+
+            const rect = anchor.getBoundingClientRect();
+            const tipRect = optionTip.getBoundingClientRect();
+            let left = rect.left;
+            let top = rect.top - tipRect.height - 8;
+
+            if (top < 8) {
+                top = rect.bottom + 8;
+            }
+
+            if (left + tipRect.width > window.innerWidth - 8) {
+                left = Math.max(8, window.innerWidth - tipRect.width - 8);
+            }
+
+            if (left < 8) {
+                left = 8;
+            }
+
+            optionTip.style.left = left + "px";
+            optionTip.style.top = top + "px";
+        }
+
+        function bindUniquenessTip(item, text) {
+            // Prefer custom tip over native title (avoids double tooltips).
+            item.removeAttribute("title");
+            item.setAttribute("aria-label", text);
+
+            item.addEventListener("mouseenter", function () {
+                showOptionTip(item, text);
+            });
+
+            item.addEventListener("mouseleave", hideOptionTip);
+            item.addEventListener("focus", function () {
+                showOptionTip(item, text);
+            });
+            item.addEventListener("blur", hideOptionTip);
+        }
+
+        function selectIsEquipment(select) {
+            return select && select.id === "equipmentSelect";
+        }
 
         function isMobilePicker() {
             return window.matchMedia("(max-width: 767px)").matches;
@@ -3129,6 +3574,7 @@ toggleRoomBtn.addEventListener('click', function () {
         function closePicker() {
             closeDropdown();
             closeSheet();
+            hideOptionTip();
             activeSelect = null;
         }
 
@@ -3153,13 +3599,19 @@ toggleRoomBtn.addEventListener('click', function () {
         function renderSheetList(select, query) {
             const options = optionList(select, query);
             listEl.innerHTML = "";
+            hideOptionTip();
 
             options.forEach(function (option) {
                 const text = option.textContent.trim();
                 const item = document.createElement("button");
                 item.type = "button";
                 item.className = "rf-picker-item" + (option.value === select.value ? " is-active" : "");
-                item.innerHTML = "<span>" + text.replace(/</g, "&lt;") + "</span>";
+                item.innerHTML = "<span></span>";
+                item.querySelector("span").textContent = text;
+                if (selectIsEquipment(select)) {
+                    item.dataset.showTip = "1";
+                    bindUniquenessTip(item, text);
+                }
                 bindOptionClick(item, select, option, true);
                 listEl.appendChild(item);
             });
@@ -3174,6 +3626,7 @@ toggleRoomBtn.addEventListener('click', function () {
         function renderDropdownList(select) {
             const options = optionList(select, "");
             dropdownList.innerHTML = "";
+            hideOptionTip();
 
             options.forEach(function (option) {
                 const text = option.textContent.trim();
@@ -3181,7 +3634,12 @@ toggleRoomBtn.addEventListener('click', function () {
                 item.type = "button";
                 item.className = "rf-dropdown-item" + (option.value === select.value ? " is-active" : "");
                 item.textContent = text;
-                item.title = text;
+                if (selectIsEquipment(select)) {
+                    item.dataset.showTip = "1";
+                    bindUniquenessTip(item, text);
+                } else {
+                    item.title = text;
+                }
                 bindOptionClick(item, select, option, true);
                 dropdownList.appendChild(item);
             });
@@ -3232,6 +3690,7 @@ toggleRoomBtn.addEventListener('click', function () {
             dropdownMenu.hidden = false;
             dropdownMenu.classList.add("is-open");
             positionDropdown(trigger);
+            dropdownList.addEventListener("scroll", hideOptionTip, { passive: true });
 
             const active = dropdownList.querySelector(".is-active");
             if (active) {
@@ -3481,10 +3940,8 @@ toggleRoomBtn.addEventListener('click', function () {
                             pendingReporterBox.classList.add("hidden");
                         }
 
-                        employeeError.innerText =
-                            "Employee ID not recognized.";
-
-                        employeeError.style.display = "block";
+                        // Don't show unrecognized error while typing — only on Submit.
+                        employeeError.style.display = "none";
 
 
                         // KEEP FORM UNLOCKED
@@ -3615,10 +4072,8 @@ toggleRoomBtn.addEventListener('click', function () {
                         pendingReporterBox.classList.add("hidden");
                     }
 
-                    employeeError.innerText =
-                        "Unable to verify Employee ID.";
-
-                    employeeError.style.display = "block";
+                    // Don't show verify errors while typing — only on Submit.
+                    employeeError.style.display = "none";
 
 
                     // KEEP FORM UNLOCKED
@@ -3637,6 +4092,8 @@ toggleRoomBtn.addEventListener('click', function () {
             hideIssueOrDetailsErrors();
 
             lastSelectedEquipment = "";
+            selectedEquipmentItems = [];
+            renderSelectedEquipment();
 
             const roomId = this.value;
 
@@ -3666,9 +4123,20 @@ toggleRoomBtn.addEventListener('click', function () {
             fetch(`/get-equipment/${roomId}`)
                 .then((r) => r.json())
                 .then((data) => {
+                    equipSelect.innerHTML = "";
+                    const placeholder = document.createElement("option");
+                    placeholder.value = "";
+                    placeholder.textContent = "Select Equipment";
+                    equipSelect.appendChild(placeholder);
+
                     data.forEach((e) => {
-                        equipSelect.innerHTML += `<option value="${e.equipment_id}">${e.equipment_name}</option>`;
+                        const option = document.createElement("option");
+                        option.value = e.equipment_id;
+                        option.textContent = formatEquipmentLabel(e);
+                        equipSelect.appendChild(option);
                     });
+
+                    syncEquipmentSelectTrigger();
                 });
         });
 
@@ -3730,245 +4198,194 @@ toggleRoomBtn.addEventListener('click', function () {
 <script>
     document
         .getElementById("reportForm")
-        .addEventListener("submit", function (e) {
+        .addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const form = this;
             const employeeInput = document.getElementById("employeeIdInput");
-
             const employeeError = document.getElementById("employeeError");
-
             const roomSelect = document.getElementById("roomSelect");
-
             const equipmentSelect = document.getElementById("equipmentSelect");
-
             const equipmentManualInput = document.getElementById(
                 "equipmentManualInput",
             );
-
             const roomId = roomSelect.value;
+            const pendingReporterBox =
+                document.getElementById("pendingReporterBox");
 
-            const equipmentId = equipmentSelect.value;
-
-            const equipmentManual = equipmentManualInput.value.trim();
-
-            const selectedIssue = document
-                .getElementById("suggestedIssueInput")
-                .value.trim();
-
-            const additionalDetails = document
-                .getElementById("problemDescription")
-                .value.trim();
-
-            /*
-        |--------------------------------------------------------------------------
-        | RESET ALL ERRORS
-        |--------------------------------------------------------------------------
-        */
             document.getElementById("locationError").classList.add("hidden");
-
             document.getElementById("equipmentError").classList.add("hidden");
-
             hideIssueOrDetailsErrors();
-
             employeeError.style.display = "none";
-
-            /*
-        |--------------------------------------------------------------------------
-        | RESET BORDERS
-        |--------------------------------------------------------------------------
-        */
             setSelectTriggerBorder(roomSelect, "");
-
             setSelectTriggerBorder(equipmentSelect, "");
-
             if (equipmentManualInput) {
                 equipmentManualInput.style.borderColor = "";
             }
-
             employeeInput.style.borderColor = "";
 
-            /*
-        |--------------------------------------------------------------------------
-        | STEP 1 : LOCATION REQUIRED
-        |--------------------------------------------------------------------------
-        */
             if (!roomId) {
                 document
                     .getElementById("locationError")
                     .classList.remove("hidden");
-
                 setSelectTriggerBorder(roomSelect, "#dc2626");
-
                 roomSelect.focus();
-
-                e.preventDefault();
-
                 return;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | STEP 2 : EQUIPMENT REQUIRED
-        |--------------------------------------------------------------------------
-        */
-            if (!equipmentManualMode && !equipmentId) {
+            if (!selectedEquipmentItems.length) {
                 document
                     .getElementById("equipmentError")
                     .classList.remove("hidden");
-
-                setSelectTriggerBorder(equipmentSelect, "#dc2626");
-
-                equipmentSelect.focus();
-
-                e.preventDefault();
-
+                document.getElementById("equipmentError").innerText =
+                    "Please add at least one equipment.";
+                if (equipmentManualMode) {
+                    equipmentManualInput.style.borderColor = "#dc2626";
+                    equipmentManualInput.focus();
+                } else {
+                    setSelectTriggerBorder(equipmentSelect, "#dc2626");
+                    equipmentSelect.focus();
+                }
                 return;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | STEP 3 : MANUAL EQUIPMENT REQUIRED
-        |--------------------------------------------------------------------------
-        */
-            if (equipmentManualMode && equipmentManual === "") {
+            const itemsMissingIssue = selectedEquipmentItems.filter(
+                (item) => !String(item.issue || "").trim(),
+            );
+
+            if (itemsMissingIssue.length > 0) {
                 document
                     .getElementById("equipmentError")
                     .classList.remove("hidden");
-
-                equipmentManualInput.style.borderColor = "#dc2626";
-
-                equipmentManualInput.focus();
-
-                e.preventDefault();
-
+                document.getElementById("equipmentError").innerText =
+                    "Each equipment in the list needs a suggested issue. Remove incomplete items and add them again.";
                 return;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | STEP 4 : SUGGESTED ISSUE OR ADDITIONAL DETAILS REQUIRED
-        |--------------------------------------------------------------------------
-        */
-            if (selectedIssue === "" && additionalDetails === "") {
-                document
-                    .getElementById("issueError")
-                    .classList.remove("hidden");
-
-                const detailsError = document.getElementById("detailsError");
-                const detailsInput = document.getElementById("problemDescription");
-
-                if (detailsError) {
-                    detailsError.classList.remove("hidden");
-                }
-
-                if (detailsInput) {
-                    detailsInput.style.borderColor = "#dc2626";
-                    detailsInput.focus();
-                }
-
-                e.preventDefault();
-
-                return;
+            const suggestedIssueInput = document.getElementById(
+                "suggestedIssueInput",
+            );
+            if (suggestedIssueInput && selectedEquipmentItems.length > 0) {
+                suggestedIssueInput.value =
+                    selectedEquipmentItems[0].issue || "";
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | STEP 5 : EMPLOYEE ID VALIDATION
-        |--------------------------------------------------------------------------
-        */
             if (!reporterVerified) {
-                if (pendingReporterBox && !pendingReporterBox.classList.contains("hidden")) {
-                    pendingReporterBox.scrollIntoView({ behavior: "smooth", block: "center" });
-                    e.preventDefault();
+                if (
+                    pendingReporterBox &&
+                    !pendingReporterBox.classList.contains("hidden")
+                ) {
+                    pendingReporterBox.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                    });
                     return;
                 }
 
                 employeeError.innerText = "Employee ID not recognized.";
-
                 employeeError.style.display = "block";
-
                 employeeInput.style.borderColor = "#dc2626";
-
                 employeeInput.focus();
-
-                e.preventDefault();
-
                 return;
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | LOADING MODAL
-        |--------------------------------------------------------------------------
-        */
             Swal.fire({
-
-                // =====================================================
-                // CONTENT
-                // =====================================================
-
-                title: 'Submitting report',
-
+                title: "Submitting report",
                 html: `
                     <div class="swal-submitting-message">
                         Processing your maintenance report...
                     </div>
                 `,
-
-
-                // =====================================================
-                // BEHAVIOR
-                // =====================================================
-
                 allowOutsideClick: false,
-
                 allowEscapeKey: false,
-
                 showConfirmButton: false,
-
-
-                // =====================================================
-                // APPEARANCE
-                // =====================================================
-
-                background: '#ffffff',
-
-                color: '#111827',
-
-                width: '420px',
-
-                padding: '1.75rem',
-
-                backdrop: `
-                    rgba(15, 23, 42, 0.35)
-                `,
-
-
-                // =====================================================
-                // CUSTOM CLASSES
-                // =====================================================
-
+                background: "#ffffff",
+                color: "#111827",
+                width: "420px",
+                padding: "1.75rem",
+                backdrop: `rgba(15, 23, 42, 0.35)`,
                 customClass: {
-
-                    popup: 'modern-submitting-popup',
-
-                    title: 'modern-submitting-title',
-
-                    htmlContainer: 'modern-submitting-content',
-
-                    loader: 'modern-submitting-loader',
-
+                    popup: "modern-submitting-popup",
+                    title: "modern-submitting-title",
+                    htmlContainer: "modern-submitting-content",
+                    loader: "modern-submitting-loader",
                 },
-
-
-                // =====================================================
-                // SHOW LOADING INDICATOR
-                // =====================================================
-
                 didOpen: () => {
-
                     Swal.showLoading();
-
                 },
-
             });
+
+            try {
+                const csrfToken = form.querySelector('input[name="_token"]')?.value;
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": csrfToken || "",
+                    },
+                    credentials: "same-origin",
+                });
+
+                const contentType = response.headers.get("content-type") || "";
+                const data = contentType.includes("application/json")
+                    ? await response.json().catch(() => ({}))
+                    : {};
+
+                // Only trust an explicit success payload from the API.
+                if (!response.ok || data.success !== true) {
+                    const validationMessage =
+                        data.message ||
+                        (data.errors
+                            ? Object.values(data.errors).flat()[0]
+                            : null) ||
+                        (!contentType.includes("application/json")
+                            ? "Server did not return a JSON save result (HTTP " +
+                              response.status +
+                              "). The report was probably not saved."
+                            : null) ||
+                        "Could not submit the report. Please try again.";
+
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Submit failed",
+                        text: String(validationMessage),
+                        confirmButtonColor: "#0025cc",
+                    });
+                    return;
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Report submitted",
+                    text:
+                        data.message ||
+                        "Maintenance report #" +
+                            (data.report_id || "") +
+                            " submitted successfully.",
+                    confirmButtonColor: "#0025cc",
+                    timer: 4000,
+                    timerProgressBar: true,
+                });
+
+                selectedEquipmentItems = [];
+                renderSelectedEquipment();
+                form.reset();
+                reporterVerified = false;
+                clearSuggestedIssue();
+                showIssuePlaceholder();
+                if (typeof closeReportModal === "function") {
+                    closeReportModal();
+                }
+            } catch (error) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Submit failed",
+                    text:
+                        "Network or server error while submitting. Check your connection and try again.",
+                    confirmButtonColor: "#0025cc",
+                });
+            }
         });
 </script>

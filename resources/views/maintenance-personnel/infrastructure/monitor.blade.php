@@ -4,6 +4,9 @@
 
 @section ("content")
     @php
+        use App\Support\LayoutEquipmentPayload;
+        use Illuminate\Support\Str;
+
         $initialFloor =
             $floors->firstWhere("floor_id", $requestedFloorId) ?? $floors->first();
         $roomCatalog = $rooms
@@ -25,57 +28,12 @@
                     "comlab_row_layouts" => data_get($room->room_metadata, 'comlab_row_layouts'),
                     "equipment" => $room->equipment
                         ->values()
-                        ->map(
-                            fn($equipment) => [
-                                "id" => $equipment->equipment_id,
-
-                                "name" => $equipment->equipment_name,
-
-                                "category" => $equipment->equipment_category_id,
-
-                                "category_name" => optional($equipment->category)->equipment_category_name,
-
-                                "quantity" => (int) $equipment->equipment_quantity,
-
-                                "tracking_mode" => $equipment->equipment_tracking_mode ?: "Individual",
-
-                                "condition" => $equipment->equipment_condition_status,
-
-                                "inventory_status" =>
-                                    $equipment->equipment_inventory_status,
-
-                                "asset_tag" => $equipment->equipment_asset_tag,
-
-                                "serial_number" => $equipment->equipment_serial_number,
-
-                                "brand" => $equipment->equipment_brand_name,
-
-                                "model" => $equipment->equipment_model,
-
-                                "location" => $equipment->equipment_current_location,
-
-                                "placement_zone" =>
-                                    $equipment->equipment_placement_zone,
-
-                                "x" => (int) ($equipment->equipment_position_x ?? 50),
-
-                                "y" => (int) ($equipment->equipment_position_y ?? 50),
-
-                                "width" => (int) ($equipment->equipment_width ?? 120),
-
-                                "height" => (int) ($equipment->equipment_height ?? 96),
-
-                                "rotation" => (int) ($equipment->equipment_rotation ?? 0),
-                            ],
-                        )
+                        ->map(fn($equipment) => LayoutEquipmentPayload::fromModel($equipment))
                         ->all(),
                 ],
             )
             ->values();
         $roomCountsByFloor = $rooms->countBy("room_floor_id");
-    @endphp
-    @php
-        use Illuminate\Support\Str;
     @endphp
 
     <div
@@ -1420,7 +1378,7 @@
                                 <div class="border-b border-slate-100 px-4 py-3">
                                     <button
                                         type="button"
-                                        @click="roomLayout.selectedAssetId = null; if (!(selectedLayoutGroup() && selectedLayoutGroup().quantity > 1)) { clearLayoutSelection(); }"
+                                        @click="roomLayout.selectedAssetId = null; roomLayout.lifecycle = { loading: false, data: null, equipmentId: null }; if (!(selectedLayoutGroup() && selectedLayoutGroup().quantity > 1)) { clearLayoutSelection(); }"
                                         class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-900"
                                     >
                                         <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
@@ -1429,42 +1387,7 @@
                                     <p class="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Asset details</p>
                                     <h3 class="mt-1 truncate text-base font-semibold text-slate-900" x-text="selectedLayoutAsset()?.asset_tag || selectedLayoutAsset()?.name"></h3>
                                 </div>
-                                <div class="min-h-0 flex-1 space-y-0 overflow-y-auto px-4 py-2 text-sm">
-                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                                        <span class="text-slate-400">Brand</span>
-                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.brand || '—'"></span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                                        <span class="text-slate-400">Model</span>
-                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.model || '—'"></span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                                        <span class="text-slate-400">Serial</span>
-                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.serial_number || '—'"></span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                                        <span class="text-slate-400">Condition</span>
-                                        <span
-                                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                                            :class="
-                                                (selectedLayoutAsset()?.condition || '') === 'Good'
-                                                    ? 'bg-emerald-50 text-emerald-700'
-                                                    : (selectedLayoutAsset()?.condition || '') === 'Damaged'
-                                                        ? 'bg-rose-50 text-rose-700'
-                                                        : 'bg-slate-100 text-slate-600'
-                                            "
-                                            x-text="selectedLayoutAsset()?.condition || '—'"
-                                        ></span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                                        <span class="text-slate-400">Location</span>
-                                        <span class="font-medium text-slate-800" x-text="roomLayout.name || '—'"></span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3 py-3">
-                                        <span class="text-slate-400">Zone</span>
-                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location || '—'"></span>
-                                    </div>
-                                </div>
+                                @include('maintenance-personnel.infrastructure.partials.layout-asset-details')
                             </div>
                         </template>
 
@@ -2715,6 +2638,11 @@
                         selectedComlabRowTable: null,
                         comlabSetCarouselIndex: 0,
                         comlabHoldingPage: 0,
+                        lifecycle: {
+                            loading: false,
+                            data: null,
+                            equipmentId: null,
+                        },
                     },
                     selectedComlabRowTable: null,
                     comlabRowIsRotating: false,
@@ -7302,6 +7230,7 @@
                         this.selectedComlabRowTable = null;
                         this.roomLayout.selectedComlabRow = null;
                         this.roomLayout.selectedAssetId = id;
+                        this.loadAssetLifecycle(id);
                         // Stay on room layout — never open the row page for floor items
                         this.roomLayout.comlabNav = 'rows';
                         if (this.roomLayout.edit) {
@@ -8024,6 +7953,7 @@
                             this.roomLayout.comlabNav = 'asset';
                         }
                         this.roomLayout.selectedAssetId = id;
+                        this.loadAssetLifecycle(id);
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 
@@ -8039,6 +7969,7 @@
                         this.roomLayout.selectedComlabRow = null;
                         this.selectedEquipmentId = null;
                         this.roomLayout.selectedAssetId = id;
+                        this.loadAssetLifecycle(id);
                         this.roomLayout.comlabNav = 'rows';
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
@@ -8299,6 +8230,7 @@
                         this.roomLayout.selectedAssetId = null;
                         this.roomLayout.listSearch = '';
                         this.roomLayout.listPage = 1;
+                        this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
                         if (this.isComlabRoomLayout()) {
                             this.roomLayout.comlabNav = 'rows';
                             this.roomLayout.selectedComlabRow = null;
@@ -8312,10 +8244,86 @@
                         this.roomLayout.selectedAssetId = null;
                         this.roomLayout.listSearch = '';
                         this.roomLayout.listPage = 1;
+                        this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
 
                         const group = this.layoutGroups().find((item) => item.key === key);
                         if (group && group.quantity === 1 && group.primaryId) {
-                            this.roomLayout.selectedAssetId = group.primaryId;
+                            this.selectLayoutAsset(group.primaryId);
+                            return;
+                        }
+
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    formatLayoutDate(value) {
+                        if (!value) return '—';
+                        const date = new Date(value);
+                        if (Number.isNaN(date.getTime())) return String(value);
+                        return date.toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                        });
+                    },
+
+                    formatLayoutCost(value) {
+                        if (value === null || value === undefined || value === '') return '—';
+                        const amount = Number(value);
+                        if (Number.isNaN(amount)) return '—';
+                        return '₱' + amount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        });
+                    },
+
+                    async loadAssetLifecycle(equipmentId) {
+                        if (!equipmentId) {
+                            this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
+                            return;
+                        }
+
+                        this.roomLayout.lifecycle = {
+                            loading: true,
+                            data: null,
+                            equipmentId,
+                        };
+
+                        try {
+                            const response = await fetch(
+                                `/maintenance/equipment/lifecycle/${equipmentId}`,
+                                {
+                                    headers: {
+                                        Accept: 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                    },
+                                },
+                            );
+
+                            if (!response.ok) {
+                                throw new Error('Failed to load lifecycle');
+                            }
+
+                            const data = await response.json();
+
+                            if (this.roomLayout.lifecycle.equipmentId !== equipmentId) {
+                                return;
+                            }
+
+                            this.roomLayout.lifecycle = {
+                                loading: false,
+                                data,
+                                equipmentId,
+                            };
+                        } catch (error) {
+                            if (this.roomLayout.lifecycle.equipmentId !== equipmentId) {
+                                return;
+                            }
+
+                            this.roomLayout.lifecycle = {
+                                loading: false,
+                                data: null,
+                                equipmentId,
+                            };
                         }
 
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
@@ -8323,6 +8331,7 @@
 
                     selectLayoutAsset(id) {
                         this.roomLayout.selectedAssetId = id;
+                        this.loadAssetLifecycle(id);
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 

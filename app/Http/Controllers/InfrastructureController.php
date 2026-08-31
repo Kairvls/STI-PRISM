@@ -12,6 +12,7 @@ use App\Models\RoomActivityLog;
 use App\Models\CampusSetupSetting;
 use App\Support\RoomName;
 use App\Support\EquipmentQrCodes;
+use App\Support\LayoutEquipmentPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -253,54 +254,11 @@ class InfrastructureController extends Controller
     public function roomEquipment(Room $room): JsonResponse
     {
         return response()->json(
-
             $room->equipment()
                 ->with('category')
                 ->get()
-                ->map(function ($equipment) {
-
-                    return [
-
-                        'id' => $equipment->equipment_id,
-
-                        'name' => $equipment->equipment_name,
-
-                        'category' => $equipment->equipment_category_id,
-
-                        'category_name' => optional($equipment->category)->equipment_category_name,
-
-                        'quantity' => (int) ($equipment->equipment_quantity ?? 1),
-
-                        'tracking_mode' => $equipment->equipment_tracking_mode ?: 'Individual',
-
-                        'condition' => $equipment->equipment_condition_status,
-
-                        'asset_tag' => $equipment->equipment_asset_tag,
-
-                        'serial_number' => $equipment->equipment_serial_number,
-
-                        'brand' => $equipment->equipment_brand_name,
-
-                        'model' => $equipment->equipment_model,
-
-                        'location' => $equipment->equipment_current_location,
-
-                        'placement_zone' => $equipment->equipment_placement_zone,
-
-                        'x' => (int) $equipment->equipment_position_x,
-
-                        'y' => (int) $equipment->equipment_position_y,
-
-                        'width' => (int) ($equipment->equipment_width ?? 120),
-
-                        'height' => (int) ($equipment->equipment_height ?? 96),
-
-                        'rotation' => (int) ($equipment->equipment_rotation ?? 0),
-
-                    ];
-
-                })
-
+                ->map(fn ($equipment) => LayoutEquipmentPayload::fromModel($equipment))
+                ->values()
         );
     }
 
@@ -471,7 +429,7 @@ class InfrastructureController extends Controller
                 'Lecture Room', 'Computer Laboratory', 'Hospitality Suite', 'Office',
                 'Library', 'Canteen', 'Clinic', 'Utility', 'Hallway', 'Exit',
                 'Restroom', 'Elevator', 'Stairs', 'HM Room', 'Hotel Room Simulation',
-                'Faculty Room', 'School Clinic',
+                'Faculty Room', 'School Clinic', 'Storage / Stockroom',
             ])],
             'floors.*.rooms.*.status' => ['required', Rule::in(['Normal', 'Maintenance Needed', 'Critical'])],
             'floors.*.rooms.*.equipment' => ['nullable', 'array'],
@@ -1113,6 +1071,17 @@ class InfrastructureController extends Controller
             'equipment_position_y' => 90,
         ]);
 
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            DB::table('equipment_transfer_history_table')->insert([
+                'equipment_id' => $equipment->equipment_id,
+                'from_room_id' => $oldRoom,
+                'to_room_id' => $destinationRoomId,
+                'transferred_by' => Auth::check() ? Auth::id() : null,
+                'remarks' => 'Transferred via Building Layout',
+                'created_at' => now(),
+            ]);
+        }
+
         RoomActivityLog::create([
             'room_id' => $oldRoom,
             'equipment_id' => $equipment->equipment_id,
@@ -1663,6 +1632,7 @@ class InfrastructureController extends Controller
             'Library' => '#A78BFA', 'Canteen' => '#84CC16', 'Clinic' => '#FB7185',
             'School Clinic' => '#FB7185', 'Faculty Room' => '#22C55E',
             'Office' => '#22C55E', 'Utility' => '#94A3B8',
+            'Storage / Stockroom' => '#78716C',
             'Hallway' => '#CBD5E1', 'Exit' => '#22C55E', 'Restroom' => '#38BDF8',
             'Elevator' => '#64748B', 'Stairs' => '#94A3B8',
             default => '#60A5FA',

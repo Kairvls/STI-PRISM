@@ -1,9 +1,10 @@
 @extends ("layouts.maintenance-layout")
 
-@section ("title", "Equipment Inventory")
+@section ("title", ($isStockPage ?? false) ? "Inventory" : "All Equipment")
 
 @section ("content")
     @php
+        $isStockPage = $isStockPage ?? (($scope ?? 'stock') === 'stock');
         $eqImageUrl = function ($path) {
             if (!filled($path)) {
                 return '';
@@ -23,29 +24,92 @@
 
     <div class="space-y-6">
         <!-- PAGE HEADER -->
-        <div class="flex justify-end">
-            <button
-                type="button"
-                onclick="openAddEquipmentModal()"
-                class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800"
-            >
-                <i data-lucide="plus" class="w-4 h-4"></i>
+        @if ($isStockPage)
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <button
+                    type="button"
+                    id="inventoryTransferSelectedBtn"
+                    onclick="openInventoryTransferSelectedModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled
+                >
+                    <i data-lucide="check-square" class="h-4 w-4"></i>
+                    Transfer selected
+                    <span id="inventoryTransferSelectedCount" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">0</span>
+                </button>
+                <button
+                    type="button"
+                    onclick="openInventoryTransferAllModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    @if (empty($stockTransferIds ?? [])) disabled @endif
+                >
+                    <i data-lucide="move" class="h-4 w-4"></i>
+                    Transfer all
+                </button>
+                <button
+                    type="button"
+                    onclick="openAddEquipmentModal()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    @if (!($defaultStorageRoomId ?? null)) disabled @endif
+                >
+                    <i data-lucide="plus" class="w-4 h-4"></i>
 
-                Add Equipment
-            </button>
-        </div>
+                    Add to stock
+                </button>
+            </div>
+            @if (!($defaultStorageRoomId ?? null))
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Create a room with type <span class="font-semibold">Storage / Stockroom</span> before adding inventory stock.
+                </div>
+            @endif
+            @if (session('success'))
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if (session('error'))
+                <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    {{ session('error') }}
+                </div>
+            @endif
+        @endif
 
         <!-- DASHBOARD CARDS -->
-        <!-- ========================================================= -->
-        <!-- DASHBOARD STATS -->
-        <!-- ========================================================= -->
-        {{-- ===================================================== --}}
-        {{-- EQUIPMENT INVENTORY DASHBOARD --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
-        >
+        @if ($isStockPage)
+            <div class="overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm">
+                <div class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4">
+                    <div class="px-8 py-6">
+                        <p class="text-sm font-medium text-slate-500">Items in storage</p>
+                        <h2 class="mt-2 text-4xl font-medium text-slate-900">{{ number_format($totalEquipment) }}</h2>
+                        <p class="mt-3 text-sm text-slate-500">
+                            @if ($equipmentMonthlyPercentage === null)
+                                <span class="font-semibold text-emerald-600">New activity</span>
+                            @else
+                                <span class="font-semibold {{ $equipmentMonthlyPercentage > 0 ? 'text-emerald-600' : ($equipmentMonthlyPercentage < 0 ? 'text-red-600' : 'text-slate-500') }}">
+                                    {{ $equipmentMonthlyPercentage > 0 ? '+' : '' }}{{ number_format($equipmentMonthlyPercentage, 2) }}%
+                                </span>
+                            @endif
+                            <span>added vs last month</span>
+                        </p>
+                    </div>
+                    <div class="px-8 py-6">
+                        <p class="text-sm font-medium text-slate-500">Total quantity</p>
+                        <h2 class="mt-2 text-4xl font-medium text-slate-900">{{ number_format($stockTotalQuantity ?? 0) }}</h2>
+                        <p class="mt-3 text-sm text-slate-500">Combined qty in stockrooms</p>
+                    </div>
+                    <div class="px-8 py-6">
+                        <p class="text-sm font-medium text-slate-500">Stock types</p>
+                        <h2 class="mt-2 text-4xl font-medium text-slate-900">{{ number_format($stockTypeCount ?? 0) }}</h2>
+                        <p class="mt-3 text-sm text-slate-500">Distinct equipment names</p>
+                    </div>
+                    <div class="px-8 py-6">
+                        <p class="text-sm font-medium text-slate-500">Storage rooms</p>
+                        <h2 class="mt-2 text-4xl font-medium text-slate-900">{{ number_format($storageRoomsWithStock ?? 0) }}</h2>
+                        <p class="mt-3 text-sm text-slate-500">Rooms holding stock</p>
+                    </div>
+                </div>
+            </div>
+        @else
             <div
                 class="grid grid-cols-1 divide-y divide-slate-200
                     md:grid-cols-2 md:divide-y-0
@@ -439,6 +503,7 @@
 
             </div>
         </div>
+        @endif
 
         <!-- FILTER SECTION 
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
@@ -597,12 +662,16 @@
 
                     {{-- ================================================= --}}
                     {{-- LEFT SIDE --}}
-                    {{-- STATUS TABS --}}
-                    {{-- TAKES REMAINING AVAILABLE SPACE --}}
+                    {{-- STATUS TABS (All Equipment only) --}}
                     {{-- ================================================= --}}
 
                     <div class="min-w-0 flex-1">
 
+                        @if ($isStockPage)
+                            <p class="text-sm text-slate-500">
+                                Storage stock only. Check items to <span class="font-medium text-slate-800">Transfer selected</span>, use row <span class="font-medium text-slate-800">Transfer to</span>, or <span class="font-medium text-slate-800">Transfer all</span>.
+                            </p>
+                        @else
                         <div
                             class="flex items-center gap-1
                                 overflow-x-auto whitespace-nowrap
@@ -730,6 +799,7 @@
                             </a>
 
                         </div>
+                        @endif
 
                     </div>
 
@@ -761,7 +831,6 @@
                             >
 
                         @endif
-
 
                         {{-- ================================================= --}}
                         {{-- SEARCH --}}
@@ -869,7 +938,7 @@
                             >
 
                                 <option value="">
-                                    All Rooms
+                                    {{ $isStockPage ? 'All storage rooms' : 'All Rooms' }}
                                 </option>
 
                                 @foreach ($rooms as $room)
@@ -881,7 +950,7 @@
                                             request('room') == $room->room_id
                                         )
                                     >
-                                        {{ $room->room_name }}
+                                        {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
                                     </option>
 
                                 @endforeach
@@ -970,9 +1039,20 @@
 
                 
 
-                <table class="w-full">
+                <table class="w-full" @if ($isStockPage) id="inventoryStockTable" @endif>
                     <thead class="border-b border-slate-200 bg-slate-50/80">
                         <tr>
+                            @if ($isStockPage)
+                                <th class="w-12 px-4 py-3 text-center">
+                                    <input
+                                        type="checkbox"
+                                        id="inventorySelectAllPage"
+                                        class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                        onclick="toggleInventorySelectAllPage(this)"
+                                        aria-label="Select all on this page"
+                                    />
+                                </th>
+                            @endif
                             <th class="px-6 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black">
                                 Equipment
                             </th>
@@ -1026,8 +1106,31 @@
                                     "Disposed" => "bg-rose-50 text-rose-700",
                                     default => "bg-slate-100 text-slate-600",
                                 };
+
+                                $placementZone = trim((string) (
+                                    $item->equipment_placement_zone
+                                    ?: $item->equipment_current_location
+                                    ?: ''
+                                ));
+                                $isStorageStock = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
+                                $placementLabel = $isStorageStock ? 'Stock' : 'Deployed';
+                                $placementClass = $isStorageStock
+                                    ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                    : 'bg-sky-50 text-sky-700 ring-sky-200';
                             @endphp
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
+                                @if ($isStockPage)
+                                    <td class="px-4 py-4 text-center">
+                                        <input
+                                            type="checkbox"
+                                            class="inventory-stock-checkbox h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                            value="{{ (int) $item->equipment_id }}"
+                                            data-name="{{ $item->equipment_name }}"
+                                            onchange="syncInventoryTransferSelection()"
+                                            aria-label="Select {{ $item->equipment_name }}"
+                                        />
+                                    </td>
+                                @endif
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
                                         <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
@@ -1055,12 +1158,20 @@
                                             @endif
                                         </div>
                                         <div class="flex min-w-0 flex-col">
-                                            <span class="font-semibold text-slate-900">
-                                                {{ $item->equipment_name }}
-                                            </span>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-semibold text-slate-900">
+                                                    {{ $item->equipment_name }}
+                                                </span>
+                                                <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $placementClass }}">
+                                                    {{ $placementLabel }}
+                                                </span>
+                                            </div>
 
                                             <span class="mt-1 text-xs text-slate-400">
                                                 {{ $item->equipment_asset_tag ?? "No Asset Tag" }}
+                                                @if ($placementZone !== '')
+                                                    · {{ $placementZone }}
+                                                @endif
                                             </span>
                                         </div>
                                     </div>
@@ -1111,47 +1222,30 @@
 
                                         <button
                                             type="button"
-                                            onclick="openEquipmentModal(
-
-                                                '{{ $item->equipment_asset_tag ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_name }}',
-
-                                                '{{ $item->equipment_brand_name ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_model ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_serial_number ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_category_name }}',
-
-                                                '{{ $item->room_name }}',
-
-                                                '{{ $item->equipment_quantity }}',
-
-                                                '{{ $item->equipment_condition_status }}',
-
-                                                '{{ $item->equipment_inventory_status }}',
-
-                                            
-
-                                                '{{ $item->equipment_purchase_date ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_warranty_expiration ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_created_at ?? 'N/A' }}',
-
-                                                '{{ $item->equipment_is_borrowable ? 'Yes' : 'No' }}',
-
-                                                {{ json_encode($eqImageUrl($item->equipment_image)) }}
-
-                                            )"
+                                            onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image))))'
                                             class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
                                             data-tooltip="View equipment"
                                             aria-label="View equipment"
                                         >
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
+
+                                        @if ($isStockPage)
+                                            <button
+                                                type="button"
+                                                onclick="openInventoryTransferToModal(
+                                                    {{ (int) $item->equipment_id }},
+                                                    {{ json_encode($item->equipment_name) }},
+                                                    {{ json_encode($item->room_name ?? '') }},
+                                                    {{ json_encode($item->equipment_asset_tag ?? '') }}
+                                                )"
+                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-sky-50 px-3 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
+                                                data-tooltip="Transfer to room"
+                                                aria-label="Transfer to room"
+                                            >
+                                                <i data-lucide="move" class="h-4 w-4"></i>
+                                            </button>
+                                        @endif
 
                                         <button
                                             type="button"
@@ -1179,7 +1273,13 @@
 
                                                 '{{ $item->equipment_inventory_status }}',
 
-                                                '{{ $item->equipment_warranty_expiration ?? '' }}',
+                                                '{{ $item->equipment_purchase_date ? \Carbon\Carbon::parse($item->equipment_purchase_date)->format('Y-m-d') : '' }}',
+
+                                                '{{ $item->equipment_acquired_date ? \Carbon\Carbon::parse($item->equipment_acquired_date)->format('Y-m-d') : '' }}',
+
+                                                '{{ $item->equipment_purchase_cost ?? '' }}',
+
+                                                '{{ $item->equipment_warranty_expiration ? \Carbon\Carbon::parse($item->equipment_warranty_expiration)->format('Y-m-d') : '' }}',
 
                                                 '{{ $item->equipment_is_borrowable }}',
 
@@ -1219,7 +1319,7 @@
                             <tr>
 
                                 <td
-                                    colspan="9"
+                                    colspan="{{ $isStockPage ? 9 : 8 }}"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1411,98 +1511,50 @@
 
         <div
             id="viewEquipmentModal"
-            class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+            class="fixed inset-0 z-50 hidden"
+            aria-hidden="true"
         >
-            <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
-                <div class="flex items-start justify-between gap-4 px-6 pt-6">
-                    <div class="flex min-w-0 items-start gap-4">
-                        <button
-                            type="button"
-                            id="modal_image_wrap"
-                            onclick="openEquipmentPhotoViewer(document.getElementById('modal_image')?.src, document.getElementById('modal_name')?.textContent)"
-                            class="hidden group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
-                            aria-label="View equipment photo fullscreen"
-                        >
-                            <img id="modal_image" src="" alt="" class="h-full w-full object-cover">
-                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
-                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
-                            </span>
-                        </button>
-                        <div
-                            id="modal_layout_icon_wrap"
-                            class="hidden h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200/80"
-                        >
-                            <span
-                                id="modal_layout_icon"
-                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                            ></span>
-                        </div>
-                        <div class="min-w-0">
-                        <p id="modal_name" class="truncate text-xl font-semibold tracking-tight text-slate-900"></p>
-                        <p class="mt-1 truncate text-sm text-slate-800">
-                            <span id="modal_category"></span>
-                            <span class="mx-1.5 text-slate-300">·</span>
-                            <span id="modal_room"></span>
-                        </p>
-                        <div class="flex justify-between gap-4 mt-1">
-                        
-                            <span
-                                id="modal_created_at"
-                                class="text-right text-xs text-slate-500"
-                            ></span>
-                        </div>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            <span id="modal_condition" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
-                            <span id="modal_status" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
-                        </div>
-                        </div>
+            <div
+                class="absolute inset-0 bg-[#0b1220]/50 backdrop-blur-[1px] transition-opacity"
+                onclick="closeEquipmentModal()"
+            ></div>
+
+            <aside
+                id="viewEquipmentModalPanel"
+                class="absolute right-0 top-0 flex h-full w-full max-w-[420px] translate-x-full flex-col overflow-hidden rounded-l-2xl border-l border-slate-200 bg-white shadow-2xl shadow-slate-950/10 transition-transform duration-300 ease-out"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="eqAssetModal_drawer_title"
+            >
+                <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+                    <div class="min-w-0">
+                        <h2 id="eqAssetModal_drawer_title" class="text-xl font-semibold tracking-tight text-slate-900">Asset details</h2>
+                        <p id="eqAssetModal_drawer_subtitle" class="mt-1 text-sm text-slate-500">Review equipment information and lifecycle.</p>
                     </div>
                     <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
 
-                <div class="mt-5 grid grid-cols-2 gap-3 px-6">
-                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
-                        <p id="modal_quantity" class="mt-1 text-lg font-semibold text-slate-900"></p>
-                    </div>
-                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
-                        <p id="modal_borrowable" class="mt-1 text-lg font-semibold text-slate-900"></p>
-                    </div>
-                </div>
-
-                <div class="mt-4 space-y-2.5 px-6 pb-2 text-sm">
-                    <div class="flex justify-between gap-4"><span class="text-slate-400">Asset tag</span><span id="modal_asset_tag" class="text-right font-medium text-slate-800"></span></div>
-                    <div class="flex justify-between gap-4"><span class="text-slate-400">Brand</span><span id="modal_brand" class="text-right font-medium text-slate-800"></span></div>
-                    <div class="flex justify-between gap-4"><span class="text-slate-400">Model</span><span id="modal_model" class="text-right font-medium text-slate-800"></span></div>
-                    <div class="flex justify-between gap-4"><span class="text-slate-400">Serial</span><span id="modal_serial" class="text-right font-medium text-slate-800"></span></div>
-                    <div class="flex justify-between gap-4">
-                        <span class="text-slate-400">Purchased</span>
-                        <span
-                            id="modal_purchase_date"
-                            class="text-right font-medium text-slate-800"
-                        ></span>
-                    </div>
-
-                    <div class="flex justify-between gap-4">
-                        <span class="text-slate-400">Warranty</span>
-                        <span
-                            id="modal_warranty"
-                            class="text-right font-medium text-slate-800"
-                        ></span>
-                    </div>
-
-                    <!-- ADDED DATE AND TIME -->
-                    
-                </div>
-
-                <div class="flex justify-end px-6 py-4">
-                    <button type="button" onclick="closeEquipmentModal()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white">Close</button>
-                </div>
-            </div>
+                @include('maintenance-personnel.equipment.partials.equipment-asset-details-body')
+            </aside>
         </div>
+
+        <style>
+            .eq-drawer-scroll {
+                scrollbar-width: thin;
+                scrollbar-color: #cbd5e1 transparent;
+            }
+
+            .eq-drawer-scroll::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .eq-drawer-scroll::-webkit-scrollbar-thumb {
+                border-radius: 999px;
+                background: #cbd5e1;
+            }
+        </style>
     <div
         id="addEquipmentModal"
         x-data="inventoryAddEquipment()"
@@ -1548,10 +1600,10 @@
 
             <div class="flex items-start justify-between px-6 pt-6">
                 <div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : 'Add equipment'"></h2>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : {{ $isStockPage ? "'Add to stock'" : "'Add equipment'" }}"></h2>
                     <p class="mt-1 text-sm text-slate-500" x-text="step === 2
                         ? 'Edit unique identity per unit. Shared name, category, and room apply to all.'
-                        : 'Identity on the left, status on the right.'"></p>
+                        : {{ $isStockPage ? "'Receive equipment into a storage room. Deploy later with Transfers.'" : "'Identity on the left, status on the right.'" }}"></p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                     <button
@@ -1687,7 +1739,7 @@
                             <p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
                         </div>
                         <div>
-                            <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
+                            <label for="add_equipment_room" class="{{ $eqLabel }}">{{ $isStockPage ? 'Storage room' : 'Room' }} <span class="text-rose-500">*</span></label>
                             <select
                                 id="add_equipment_room"
                                 name="equipment_room_id"
@@ -1696,11 +1748,24 @@
                                 class="{{ $eqField }}"
                                 :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                             >
-                                <option value="">Select room</option>
-                                @foreach ($rooms as $room)
-                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                <option value="">{{ $isStockPage ? 'Select storage room' : 'Select room' }}</option>
+                                @foreach (($isStockPage ? ($storageRooms ?? $rooms) : $rooms) as $room)
+                                    @php
+                                        $isStorageRoom = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
+                                        $roomLabel = $isStockPage
+                                            ? $room->room_name
+                                            : ($isStorageRoom ? 'Storage · '.$room->room_name : $room->room_name);
+                                    @endphp
+                                    <option value="{{ $room->room_id }}">{{ $roomLabel }}</option>
                                 @endforeach
                             </select>
+                            <p class="mt-1.5 text-xs text-slate-400">
+                                @if ($isStockPage)
+                                    Stock stays in storage until you transfer it to a classroom or lab.
+                                @else
+                                    Prefer a Storage room to keep items in inventory stock. Use Transfers to deploy to classrooms.
+                                @endif
+                            </p>
                             <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
                         </div>
                     </div>
@@ -1936,7 +2001,7 @@
                     type="submit"
                     x-show="step === 2 || !needsItemStep()"
                     class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                    x-text="step === 2 ? ('Create ' + items.length + ' assets') : 'Add equipment'"
+                    x-text="step === 2 ? ('Create ' + items.length + ' assets') : {{ $isStockPage ? "'Add to stock'" : "'Add equipment'" }}"
                 ></button>
             </div>
         </form>
@@ -2028,7 +2093,9 @@
                             <select id="edit_room" name="equipment_room_id" required class="{{ $eqField }}">
                                 <option value="">Select room</option>
                                 @foreach ($rooms as $room)
-                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                    <option value="{{ $room->room_id }}">
+                                        {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -2069,7 +2136,7 @@
                 </div>
                 <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
                     <summary class="cursor-pointer text-sm font-medium text-slate-700">More details</summary>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
                             <label for="edit_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
                             <input id="edit_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
@@ -2085,6 +2152,18 @@
                         <div>
                             <label for="edit_serial" class="{{ $eqLabel }}">Serial number</label>
                             <input id="edit_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_purchase_date" class="{{ $eqLabel }}">Purchased</label>
+                            <input id="edit_purchase_date" type="date" name="equipment_purchase_date" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_acquired_date" class="{{ $eqLabel }}">Acquired</label>
+                            <input id="edit_acquired_date" type="date" name="equipment_acquired_date" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_purchase_cost" class="{{ $eqLabel }}">Purchase cost (₱)</label>
+                            <input id="edit_purchase_cost" type="number" name="equipment_purchase_cost" min="0" step="0.01" placeholder="0.00" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label
@@ -2113,93 +2192,365 @@
     </div>
 
     <script>
-        function openEquipmentModal(
-            assetTag,
-            name,
-            brand,
-            model,
-            serial,
-            category,
-            room,
-            quantity,
-            condition,
-            status,
-            purchaseDate,
-            warranty,
-            createdAt,
-            borrowable,
-            imageUrl
-        ) {
-            document.getElementById("modal_asset_tag").textContent = assetTag;
-            document.getElementById("modal_name").textContent = name;
-            document.getElementById("modal_brand").textContent = brand;
-            document.getElementById("modal_model").textContent = model;
-            document.getElementById("modal_serial").textContent = serial;
-            document.getElementById("modal_category").textContent = category;
-            document.getElementById("modal_room").textContent = room;
-            document.getElementById("modal_quantity").textContent = quantity;
-            document.getElementById("modal_condition").textContent = condition;
-            document.getElementById("modal_status").textContent = status;
-            document.getElementById("modal_purchase_date").textContent =
-                purchaseDate;
-            document.getElementById("modal_warranty").textContent = warranty;
-            document.getElementById("modal_created_at").textContent =
-                createdAt;
-            document.getElementById("modal_borrowable").textContent =
-                borrowable;
+        let equipmentModalLifecycleRequest = 0;
+        let equipmentModalCurrentAssetTag = '';
 
-            const imageWrap = document.getElementById("modal_image_wrap");
-            const image = document.getElementById("modal_image");
-            const iconWrap = document.getElementById("modal_layout_icon_wrap");
-            const icon = document.getElementById("modal_layout_icon");
+        function formatEquipmentAssetDate(value) {
+            if (!value) return '—';
+            const date = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            });
+        }
+
+        function setEquipmentModalText(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = value && String(value).trim() !== '' ? value : '—';
+            }
+        }
+
+        function applyEquipmentStatusBadge(status) {
+            const el = document.getElementById('eqAssetModal_status_badge');
+            if (!el) return;
+
+            const label = status && String(status).trim() !== '' ? status : 'Unknown';
+            el.textContent = label;
+            el.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold';
+
+            const map = {
+                'Active': 'bg-emerald-50 text-emerald-700',
+                'Under Maintenance': 'bg-amber-50 text-amber-700',
+                'Borrowed': 'bg-sky-50 text-sky-700',
+                'For Replacement': 'bg-orange-50 text-orange-700',
+                'Disposed': 'bg-rose-50 text-rose-700',
+            };
+
+            el.classList.add(...(map[label] || 'bg-slate-100 text-slate-600').split(' '));
+        }
+
+        function applyEquipmentConditionBadge(condition) {
+            const el = document.getElementById('eqAssetModal_condition_badge');
+            if (!el) return;
+
+            const label = condition && String(condition).trim() !== '' ? condition : '—';
+            el.textContent = label;
+            el.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium';
+
+            if (label === 'Good') {
+                el.classList.add('bg-emerald-50', 'text-emerald-700');
+            } else if (label === 'Damaged') {
+                el.classList.add('bg-rose-50', 'text-rose-700');
+            } else {
+                el.classList.add('bg-slate-100', 'text-slate-600');
+            }
+        }
+
+        function applyEquipmentPlacementBadge(roomType) {
+            const el = document.getElementById('eqAssetModal_placement_badge');
+            if (!el) return;
+
+            const isStorage = roomType === @json(\App\Support\RoomCategories::STORAGE_TYPE);
+            el.textContent = isStorage ? 'Stock' : 'Deployed';
+            el.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium';
+            el.classList.add(
+                ...(isStorage
+                    ? ['bg-amber-50', 'text-amber-700']
+                    : ['bg-sky-50', 'text-sky-700'])
+            );
+        }
+
+        function switchEquipmentModalTab(tab) {
+            const tabs = ['overview', 'lifecycle', 'activity'];
+            tabs.forEach((name) => {
+                const button = document.getElementById(`eqAssetModal_tab_${name}`);
+                const panel = document.getElementById(`eqAssetModal_panel_${name}`);
+                const active = name === tab;
+
+                if (button) {
+                    button.classList.toggle('border-[#0025cc]', active);
+                    button.classList.toggle('text-[#0025cc]', active);
+                    button.classList.toggle('font-semibold', active);
+                    button.classList.toggle('border-transparent', !active);
+                    button.classList.toggle('text-slate-500', !active);
+                    button.classList.toggle('font-medium', !active);
+                    button.setAttribute('aria-selected', active ? 'true' : 'false');
+                }
+
+                panel?.classList.toggle('hidden', !active);
+            });
+        }
+
+        function copyEquipmentAssetTag() {
+            if (!equipmentModalCurrentAssetTag) return;
+
+            navigator.clipboard?.writeText(equipmentModalCurrentAssetTag).then(() => {
+                const btn = document.getElementById('eqAssetModal_copy_tag');
+                if (!btn) return;
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="h-3.5 w-3.5 text-emerald-600"></i>';
+                if (window.lucide) window.lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = original;
+                    if (window.lucide) window.lucide.createIcons();
+                }, 1500);
+            });
+        }
+
+        function renderEquipmentLifecycleRows(data) {
+            const contentEl = document.getElementById('eqAssetModal_lifecycle_content');
+            if (!contentEl) return;
+
+            contentEl.innerHTML = '';
+            const rows = [
+                ['Put in room', formatEquipmentAssetDate(data.deployed_at)],
+                ['Last moved', formatEquipmentAssetDate(data.last_moved_at)],
+                ['Last maintenance', formatEquipmentAssetDate(data.last_maintenance_at)],
+            ];
+
+            if (data.disposed_at) {
+                rows.push(['Disposed', formatEquipmentAssetDate(data.disposed_at)]);
+            }
+            if (data.disposal_reason) {
+                rows.push(['Disposal reason', data.disposal_reason]);
+            }
+
+            rows.forEach(([label, value]) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-4 px-4 py-3.5';
+                row.innerHTML = `<span class="text-sm text-slate-500">${label}</span><span class="text-right text-sm font-medium text-slate-800">${value || '—'}</span>`;
+                contentEl.appendChild(row);
+            });
+        }
+
+        function renderEquipmentActivity(data) {
+            const contentEl = document.getElementById('eqAssetModal_activity_content');
+            const emptyEl = document.getElementById('eqAssetModal_activity_empty');
+            if (!contentEl) return;
+
+            contentEl.innerHTML = '';
+            const transfers = Array.isArray(data.transfers) ? data.transfers.slice(0, 6) : [];
+            const maintenance = Array.isArray(data.maintenance) ? data.maintenance.slice(0, 6) : [];
+
+            if (!transfers.length && !maintenance.length) {
+                contentEl.classList.add('hidden');
+                emptyEl?.classList.remove('hidden');
+                return;
+            }
+
+            emptyEl?.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+
+            if (transfers.length) {
+                const block = document.createElement('div');
+                block.className = 'overflow-hidden rounded-xl border border-slate-200 bg-white';
+                block.innerHTML = '<div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Recent moves</div>';
+                transfers.forEach((move, index) => {
+                    const item = document.createElement('div');
+                    item.className = `px-4 py-3.5 ${index ? 'border-t border-slate-100' : ''}`;
+                    item.innerHTML = `
+                        <p class="text-sm font-medium text-slate-800">${move.from_room_name || 'Unassigned'} → ${move.to_room_name || '—'}</p>
+                        <p class="mt-1 text-xs text-slate-400">${formatEquipmentAssetDate(move.created_at)}</p>
+                    `;
+                    block.appendChild(item);
+                });
+                contentEl.appendChild(block);
+            }
+
+            if (maintenance.length) {
+                const block = document.createElement('div');
+                block.className = 'overflow-hidden rounded-xl border border-slate-200 bg-white';
+                block.innerHTML = '<div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Maintenance</div>';
+                maintenance.forEach((row, index) => {
+                    const item = document.createElement('div');
+                    item.className = `px-4 py-3.5 ${index ? 'border-t border-slate-100' : ''}`;
+                    item.innerHTML = `
+                        <p class="truncate text-sm font-medium text-slate-800">${row.findings || row.status || 'Maintenance'}</p>
+                        <p class="mt-1 text-xs text-slate-400">${formatEquipmentAssetDate(row.at)}</p>
+                    `;
+                    block.appendChild(item);
+                });
+                contentEl.appendChild(block);
+            }
+        }
+
+        function renderEquipmentModalLifecycle(data) {
+            const loadingEl = document.getElementById('eqAssetModal_lifecycle_loading');
+            const contentEl = document.getElementById('eqAssetModal_lifecycle_content');
+            const emptyEl = document.getElementById('eqAssetModal_lifecycle_empty');
+            const activityLoadingEl = document.getElementById('eqAssetModal_activity_loading');
+            const activityContentEl = document.getElementById('eqAssetModal_activity_content');
+            const activityEmptyEl = document.getElementById('eqAssetModal_activity_empty');
+
+            loadingEl?.classList.add('hidden');
+            activityLoadingEl?.classList.add('hidden');
+            emptyEl?.classList.add('hidden');
+            activityEmptyEl?.classList.add('hidden');
+
+            renderEquipmentLifecycleRows(data);
+            contentEl?.classList.remove('hidden');
+
+            renderEquipmentActivity(data);
+        }
+
+        async function loadEquipmentModalLifecycle(equipmentId) {
+            const loadingEl = document.getElementById('eqAssetModal_lifecycle_loading');
+            const contentEl = document.getElementById('eqAssetModal_lifecycle_content');
+            const emptyEl = document.getElementById('eqAssetModal_lifecycle_empty');
+            const activityLoadingEl = document.getElementById('eqAssetModal_activity_loading');
+            const activityContentEl = document.getElementById('eqAssetModal_activity_content');
+            const activityEmptyEl = document.getElementById('eqAssetModal_activity_empty');
+            const requestId = ++equipmentModalLifecycleRequest;
+
+            loadingEl?.classList.remove('hidden');
+            activityLoadingEl?.classList.remove('hidden');
+            contentEl?.classList.add('hidden');
+            activityContentEl?.classList.add('hidden');
+            emptyEl?.classList.add('hidden');
+            activityEmptyEl?.classList.add('hidden');
+            if (contentEl) contentEl.innerHTML = '';
+            if (activityContentEl) activityContentEl.innerHTML = '';
+
+            if (!equipmentId) {
+                loadingEl?.classList.add('hidden');
+                activityLoadingEl?.classList.add('hidden');
+                emptyEl?.classList.remove('hidden');
+                activityEmptyEl?.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/maintenance/equipment/lifecycle/${equipmentId}`, {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (requestId !== equipmentModalLifecycleRequest) return;
+
+                if (!response.ok) {
+                    throw new Error('Failed to load lifecycle');
+                }
+
+                const data = await response.json();
+                if (requestId !== equipmentModalLifecycleRequest) return;
+
+                renderEquipmentModalLifecycle(data);
+            } catch (error) {
+                if (requestId !== equipmentModalLifecycleRequest) return;
+                loadingEl?.classList.add('hidden');
+                activityLoadingEl?.classList.add('hidden');
+                contentEl?.classList.add('hidden');
+                activityContentEl?.classList.add('hidden');
+                emptyEl?.classList.remove('hidden');
+                activityEmptyEl?.classList.remove('hidden');
+            }
+        }
+
+        function openEquipmentModal(asset) {
+            if (!asset || typeof asset !== 'object') return;
+
+            equipmentModalCurrentAssetTag = asset.asset_tag || '';
+            const displayName = asset.name || 'Equipment';
+
+            setEquipmentModalText('eqAssetModal_drawer_subtitle', `Review ${displayName} information and lifecycle.`);
+            setEquipmentModalText('eqAssetModal_profile_name', displayName);
+            setEquipmentModalText('eqAssetModal_meta_tag', asset.asset_tag);
+            setEquipmentModalText('eqAssetModal_meta_serial', asset.serial_number);
+            setEquipmentModalText('eqAssetModal_meta_room', asset.room_name);
+            setEquipmentModalText('eqAssetModal_brand', asset.brand);
+            setEquipmentModalText('eqAssetModal_model', asset.model);
+            setEquipmentModalText('eqAssetModal_category', asset.category_name);
+            setEquipmentModalText('eqAssetModal_quantity', String(asset.quantity ?? 1));
+            setEquipmentModalText('eqAssetModal_tracking_mode', asset.tracking_mode || 'Individual');
+            setEquipmentModalText('eqAssetModal_condition', asset.condition);
+            setEquipmentModalText('eqAssetModal_status', asset.inventory_status);
+            setEquipmentModalText('eqAssetModal_warranty', formatEquipmentAssetDate(asset.warranty_expiration));
+            setEquipmentModalText('eqAssetModal_acquired_date', formatEquipmentAssetDate(asset.acquired_date));
+            setEquipmentModalText('eqAssetModal_room', asset.room_name);
+            setEquipmentModalText('eqAssetModal_zone', asset.placement_zone || asset.location);
+
+            const categoryBadge = document.getElementById('eqAssetModal_category_badge');
+            if (categoryBadge) {
+                categoryBadge.textContent = asset.category_name || 'Uncategorized';
+            }
+
+            applyEquipmentStatusBadge(asset.inventory_status);
+            applyEquipmentConditionBadge(asset.condition);
+            applyEquipmentPlacementBadge(asset.room_type);
+            switchEquipmentModalTab('overview');
+
+            const profileLink = document.getElementById('eqAssetModal_profile_link');
+            if (profileLink) {
+                const baseUrl = (asset.view_url || `/maintenance/equipment/view/${asset.id}`).split('?')[0];
+                const returnParam = encodeURIComponent(window.location.href);
+                profileLink.href = `${baseUrl}?return=${returnParam}`;
+            }
+
+            const imageUrl = asset.image_url || '';
+            const imageWrap = document.getElementById('modal_image_wrap');
+            const image = document.getElementById('modal_image');
+            const iconWrap = document.getElementById('modal_layout_icon_wrap');
+            const icon = document.getElementById('modal_layout_icon');
 
             if (imageUrl) {
                 image.src = imageUrl;
-                image.alt = name;
-                imageWrap.classList.remove("hidden");
-                iconWrap.classList.add("hidden");
-                iconWrap.classList.remove("flex");
+                image.alt = displayName;
+                imageWrap.classList.remove('hidden');
+                iconWrap.classList.add('hidden');
+                iconWrap.classList.remove('flex');
             } else {
-                image.src = "";
-                image.alt = "";
-                imageWrap.classList.add("hidden");
-                iconWrap.classList.remove("hidden");
-                iconWrap.classList.add("flex");
+                image.src = '';
+                image.alt = '';
+                imageWrap.classList.add('hidden');
+                iconWrap.classList.remove('hidden');
+                iconWrap.classList.add('flex');
                 if (icon && window.PrismEquipmentIcons) {
-                    icon.innerHTML = window.PrismEquipmentIcons.svg(name || "");
+                    icon.innerHTML = window.PrismEquipmentIcons.svg(displayName);
                 }
             }
 
-            const modal = document.getElementById("viewEquipmentModal");
+            const modal = document.getElementById('viewEquipmentModal');
+            const panel = document.getElementById('viewEquipmentModalPanel');
 
-            modal.classList.remove("hidden");
-            modal.classList.add("flex");
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
 
-            const formattedCreatedAt = createdAt && createdAt !== 'N/A'
-                ? new Date(
-                    createdAt.replace(' ', 'T')
-                ).toLocaleString('en-PH', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                })
-                : 'N/A';
+            requestAnimationFrame(() => {
+                panel?.classList.remove('translate-x-full');
+            });
 
-            document.getElementById("modal_created_at").textContent =
-                createdAt && createdAt !== 'N/A'
-                    ? `Added ${formattedCreatedAt}`
-                    : 'Added date unavailable';
+            loadEquipmentModalLifecycle(asset.id);
+
+            if (window.lucide) window.lucide.createIcons();
         }
 
         function closeEquipmentModal() {
-            const modal = document.getElementById("viewEquipmentModal");
+            equipmentModalLifecycleRequest++;
+            const modal = document.getElementById('viewEquipmentModal');
+            const panel = document.getElementById('viewEquipmentModalPanel');
 
-            modal.classList.add("hidden");
-            modal.classList.remove("flex");
+            panel?.classList.add('translate-x-full');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+
+            setTimeout(() => {
+                if (panel?.classList.contains('translate-x-full')) {
+                    modal.classList.add('hidden');
+                }
+            }, 300);
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('viewEquipmentModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeEquipmentModal();
+                }
+            }
+        });
     </script>
 
     <script>
@@ -2212,7 +2563,7 @@
                 name: '',
                 category: '',
                 categoryManual: false,
-                room: '',
+                room: @json((string) (old('equipment_room_id', $defaultStorageRoomId ?? ''))),
                 quantity: 1,
                 condition: 'Good',
                 brand: '',
@@ -2394,7 +2745,7 @@
                     this.name = '';
                     this.category = '';
                     this.categoryManual = false;
-                    this.room = '';
+                    this.room = @json((string) ($defaultStorageRoomId ?? ''));
                     this.quantity = 1;
                     this.condition = 'Good';
                     this.brand = '';
@@ -2412,6 +2763,9 @@
                 },
                 show() {
                     this.reset();
+                    @if (old('equipment_room_id'))
+                        this.room = @json((string) old('equipment_room_id'));
+                    @endif
                     this.open = true;
                     this.$nextTick(() => {
                         document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
@@ -2587,6 +2941,9 @@
             quantity,
             condition,
             status,
+            purchaseDate,
+            acquiredDate,
+            purchaseCost,
             warranty,
             borrowable,
             imageUrl
@@ -2603,6 +2960,12 @@
             document.getElementById("edit_model").value = model;
 
             document.getElementById("edit_serial").value = serial;
+
+            document.getElementById("edit_purchase_date").value = purchaseDate || "";
+
+            document.getElementById("edit_acquired_date").value = acquiredDate || "";
+
+            document.getElementById("edit_purchase_cost").value = purchaseCost || "";
 
             document.getElementById("edit_warranty_expiration").value = warranty;
 
@@ -2758,7 +3121,297 @@
             modal.classList.add("hidden");
             modal.classList.remove("flex");
         }
+
+        function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag) {
+            document.getElementById("inventoryTransferEquipmentId").value = equipmentId;
+            document.getElementById("inventoryTransferEquipmentName").textContent = equipmentName || "Equipment";
+            document.getElementById("inventoryTransferCurrentRoom").textContent = roomName || "—";
+            document.getElementById("inventoryTransferAssetTag").textContent = assetTag || "No asset tag";
+            document.getElementById("inventoryTransferRoomId").value = "";
+            document.getElementById("inventoryTransferRemarks").value = "";
+
+            const modal = document.getElementById("inventoryTransferToModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeInventoryTransferToModal() {
+            const modal = document.getElementById("inventoryTransferToModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function openInventoryTransferAllModal() {
+            const count = Number(document.getElementById("inventoryTransferAllCount")?.dataset.count || 0);
+            if (!count) return;
+
+            document.getElementById("inventoryTransferAllRoomId").value = "";
+            document.getElementById("inventoryTransferAllRemarks").value = "";
+
+            const modal = document.getElementById("inventoryTransferAllModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeInventoryTransferAllModal() {
+            const modal = document.getElementById("inventoryTransferAllModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function getInventorySelectedIds() {
+            return Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'))
+                .map((input) => Number(input.value))
+                .filter((id) => Number.isFinite(id) && id > 0);
+        }
+
+        function syncInventoryTransferSelection() {
+            const selected = getInventorySelectedIds();
+            const countEl = document.getElementById('inventoryTransferSelectedCount');
+            const btn = document.getElementById('inventoryTransferSelectedBtn');
+            const selectAll = document.getElementById('inventorySelectAllPage');
+            const boxes = document.querySelectorAll('.inventory-stock-checkbox');
+
+            if (countEl) countEl.textContent = String(selected.length);
+            if (btn) btn.disabled = selected.length === 0;
+
+            if (selectAll && boxes.length) {
+                selectAll.checked = selected.length === boxes.length;
+                selectAll.indeterminate = selected.length > 0 && selected.length < boxes.length;
+            }
+        }
+
+        function toggleInventorySelectAllPage(source) {
+            document.querySelectorAll('.inventory-stock-checkbox').forEach((input) => {
+                input.checked = !!source.checked;
+            });
+            syncInventoryTransferSelection();
+        }
+
+        function openInventoryTransferSelectedModal() {
+            const ids = getInventorySelectedIds();
+            if (!ids.length) return;
+
+            const container = document.getElementById('inventoryTransferSelectedIds');
+            if (!container) return;
+
+            container.innerHTML = '';
+            ids.forEach((id) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'equipment_ids[]';
+                input.value = String(id);
+                container.appendChild(input);
+            });
+
+            const countLabel = document.getElementById('inventoryTransferSelectedModalCount');
+            if (countLabel) countLabel.textContent = String(ids.length);
+
+            const summary = document.getElementById('inventoryTransferSelectedSummary');
+            if (summary) {
+                const names = Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'))
+                    .map((input) => input.dataset.name || 'Item')
+                    .slice(0, 6);
+                const extra = ids.length > names.length ? ` +${ids.length - names.length} more` : '';
+                summary.textContent = names.join(', ') + extra;
+            }
+
+            document.getElementById('inventoryTransferSelectedRoomId').value = '';
+            document.getElementById('inventoryTransferSelectedRemarks').value = '';
+
+            const modal = document.getElementById('inventoryTransferSelectedModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeInventoryTransferSelectedModal() {
+            const modal = document.getElementById('inventoryTransferSelectedModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            syncInventoryTransferSelection();
+        });
     </script>
+
+    @if ($isStockPage)
+    <div
+        id="inventoryTransferSelectedModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="check-square" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        Deploy
+                        <span id="inventoryTransferSelectedModalCount" class="font-semibold text-slate-800">0</span>
+                        selected item(s) to one classroom or lab. Then select another set for a different room.
+                    </p>
+                    <p id="inventoryTransferSelectedSummary" class="mt-2 text-xs text-slate-400"></p>
+                </div>
+                <button type="button" onclick="closeInventoryTransferSelectedModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/equipment/transfer-batch" method="POST">
+                @csrf
+                <div id="inventoryTransferSelectedIds"></div>
+
+                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
+                    <div>
+                        <label for="inventoryTransferSelectedRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <select id="inventoryTransferSelectedRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                            <option value="">Select classroom / lab</option>
+                            @foreach (($deployRooms ?? collect()) as $room)
+                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="inventoryTransferSelectedRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
+                        <textarea id="inventoryTransferSelectedRemarks" name="remarks" rows="3" placeholder="e.g. 5 mice for Room 204" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" onclick="closeInventoryTransferSelectedModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer selected</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div
+        id="inventoryTransferToModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="move" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer to room</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        Deploy this stock item to a classroom or lab. It lands in Holding until placed on the floor.
+                    </p>
+                </div>
+                <button type="button" onclick="closeInventoryTransferToModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/equipment/transfer" method="POST">
+                @csrf
+                <input type="hidden" name="equipment_id" id="inventoryTransferEquipmentId" value="" />
+
+                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
+                    <div class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60">
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Equipment</span>
+                            <span id="inventoryTransferEquipmentName" class="min-w-0 truncate text-right text-sm font-semibold text-slate-950"></span>
+                        </div>
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Asset tag</span>
+                            <span id="inventoryTransferAssetTag" class="min-w-0 truncate text-right text-sm font-medium text-slate-800"></span>
+                        </div>
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Current room</span>
+                            <span id="inventoryTransferCurrentRoom" class="min-w-0 truncate text-right text-sm font-medium text-slate-800"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="inventoryTransferRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <select id="inventoryTransferRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                            <option value="">Select classroom / lab</option>
+                            @foreach (($deployRooms ?? collect()) as $room)
+                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="inventoryTransferRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
+                        <textarea id="inventoryTransferRemarks" name="remarks" rows="3" placeholder="e.g. Deployed for Room 204 use" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" onclick="closeInventoryTransferToModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div
+        id="inventoryTransferAllModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="boxes" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer all stock</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        Deploy all
+                        <span
+                            id="inventoryTransferAllCount"
+                            data-count="{{ count($stockTransferIds ?? []) }}"
+                            class="font-semibold text-slate-800"
+                        >{{ number_format(count($stockTransferIds ?? [])) }}</span>
+                        filtered storage item(s) to one classroom or lab.
+                    </p>
+                </div>
+                <button type="button" onclick="closeInventoryTransferAllModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/equipment/transfer-batch" method="POST">
+                @csrf
+                @foreach (($stockTransferIds ?? []) as $transferId)
+                    <input type="hidden" name="equipment_ids[]" value="{{ $transferId }}" />
+                @endforeach
+
+                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
+                    <div>
+                        <label for="inventoryTransferAllRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <select id="inventoryTransferAllRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                            <option value="">Select classroom / lab</option>
+                            @foreach (($deployRooms ?? collect()) as $room)
+                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="inventoryTransferAllRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
+                        <textarea id="inventoryTransferAllRemarks" name="remarks" rows="3" placeholder="e.g. Deployed filtered stock to Computer Laboratory 1" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" onclick="closeInventoryTransferAllModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer all</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
 
     <div
         id="inventoryDisposeModal"

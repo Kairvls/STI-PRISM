@@ -448,7 +448,7 @@
                             @endphp
                             <tr class="transition-colors hover:bg-slate-50/70">
                                 <td class="px-5 py-4 text-sm font-semibold text-slate-800">
-                                    #{{ $report->report_id }}
+                                    {{ \App\Support\ReportGrouping::ticketCode($report) }}
                                 </td>
                                 <td class="px-5 py-4 text-sm text-slate-600">
                                     <p class="max-w-[260px] truncate">{{ $report->report_problem_description ?: '—' }}</p>
@@ -708,7 +708,7 @@
                                     </button>
 
                                     <a
-                                        href="{{ url('/maintenance/equipment/inventory') }}?room={{ $room->room_id }}"
+                                        href="{{ url('/maintenance/equipment/all') }}?room={{ $room->room_id }}"
                                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-blue-800"
                                         title="View equipment"
                                     >
@@ -1212,7 +1212,7 @@
         title.textContent = roomName;
         count.textContent = 'Loading…';
         list.innerHTML = '<p class="px-6 py-8 text-sm text-slate-400">Loading equipment…</p>';
-        inventory.href = '/maintenance/equipment/inventory?room=' + roomId;
+        inventory.href = '/maintenance/equipment/all?room=' + roomId;
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');

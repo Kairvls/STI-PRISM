@@ -52,6 +52,13 @@ if ($currentStatus === "Pending") {
     ];
 }
 
+$equipmentParts = \App\Support\ReportItems::splitMoreLabel(
+    $report->equipment_display ?? $report->equipment_name ?? "Unlisted Equipment"
+);
+$issueParts = \App\Support\ReportItems::splitMoreLabel(
+    $report->issue_display ?? $report->report_suggested_issue ?? "No suggested issue"
+);
+
 @endphp
 
 <div class="group relative overflow-visible rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
@@ -70,13 +77,23 @@ if ($currentStatus === "Pending") {
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
                 <p class="text-xs text-slate-400">
-                    #{{ $report->report_id }}
+                    {{ \App\Support\ReportGrouping::ticketCode($report) }}
                     <span class="mx-1 text-slate-300">•</span>
                     {{ \Carbon\Carbon::parse($report->report_submitted_at)->diffForHumans() }}
                 </p>
 
-                <h3 class="mt-2 truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
-                    {{ $report->equipment_name ?? "Unlisted Equipment" }}
+                <h3 class="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
+                    <span class="align-middle">{{ $equipmentParts['primary'] }}</span>
+                    @if ($equipmentParts['more'] > 0)
+                        <button
+                            type="button"
+                            onclick="event.stopPropagation(); openReportItemsHighlight({{ $report->report_id }})"
+                            data-tooltip="View all equipment on this ticket"
+                            class="ml-1 inline-flex align-middle items-center rounded-md bg-[#0037C7]/10 px-1.5 py-0.5 text-[13px] font-bold text-[#0037C7] ring-1 ring-[#0037C7]/20 transition hover:bg-[#0037C7] hover:text-white"
+                        >
+                            +{{ $equipmentParts['more'] }} more
+                        </button>
+                    @endif
                 </h3>
                 <p class="mt-1 truncate text-sm text-slate-500">
                     {{ $report->room_name ?? "No assigned room" }}
@@ -102,8 +119,18 @@ if ($currentStatus === "Pending") {
             </div>
             <div class="min-w-0">
                 <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Issue</p>
-                <p class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900">
-                    {{ $report->report_suggested_issue ?? "No suggested issue" }}
+                <p class="mt-1 text-sm font-semibold text-slate-900">
+                    <span class="align-middle">{{ $issueParts['primary'] }}</span>
+                    @if ($issueParts['more'] > 0)
+                        <button
+                            type="button"
+                            onclick="event.stopPropagation(); openReportItemsHighlight({{ $report->report_id }})"
+                            data-tooltip="View all issues on this ticket"
+                            class="ml-1 inline-flex align-middle items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-500 hover:text-white"
+                        >
+                            +{{ $issueParts['more'] }} more
+                        </button>
+                    @endif
                 </p>
             </div>
         </div>

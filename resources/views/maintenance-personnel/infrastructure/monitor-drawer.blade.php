@@ -2045,6 +2045,10 @@
                                                 School Clinic
                                             </option>
 
+                                            <option value="Storage / Stockroom">
+                                                Storage / Stockroom
+                                            </option>
+
                                         </select>
 
                                     </div>

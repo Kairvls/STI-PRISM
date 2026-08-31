@@ -760,7 +760,7 @@ Route::get(
 Route::post(
     '/store-report',
     [ReporterController::class, 'storeReport']
-);
+)->name('reports.store');
 
 Route::get(
     '/get-equipment/{roomId}',
@@ -846,10 +846,20 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 
-// Equipment Inventory
+// Equipment Inventory (storage stock) + All Equipment register
 Route::get(
     '/maintenance/equipment/inventory',
     [MaintenanceController::class, 'equipmentInventory']
+);
+
+Route::get(
+    '/maintenance/equipment/all',
+    [MaintenanceController::class, 'equipmentInventory']
+);
+
+Route::get(
+    '/maintenance/equipment/deployed',
+    [MaintenanceController::class, 'deployedStocks']
 );
 
 Route::get(
@@ -882,6 +892,11 @@ Route::post(
     [MaintenanceController::class, 'transferEquipment']
 );
 
+Route::post(
+    '/maintenance/equipment/transfer-batch',
+    [MaintenanceController::class, 'transferEquipmentBatch']
+);
+
 Route::get(
     '/maintenance/equipment/history/{id}',
     [MaintenanceController::class, 'getEquipmentHistory']
@@ -895,6 +910,11 @@ Route::post(
 Route::get(
     '/maintenance/equipment/transfers/{id}',
     [MaintenanceController::class, 'getTransferHistory']
+);
+
+Route::get(
+    '/maintenance/equipment/lifecycle/{id}',
+    [MaintenanceController::class, 'equipmentLifecycle']
 );
 
 
@@ -1358,11 +1378,6 @@ Route::post(
     '/maintenance/reporters/import',
     [MaintenanceController::class, 'importReporters']
 );
-
-Route::post(
-    '/store-report',
-    [MaintenanceController::class, 'storeReport']
-)->name('reports.store');
 
 Route::post(
     '/maintenance/reporters/update',

@@ -176,11 +176,25 @@
 
         <div class="menu-title" id="equipment-section">EQUIPMENT</div>
         <a
+            href="/maintenance/equipment/all"
+            class="menu-item {{ request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="layers"></i>
+            <span>All Equipment</span>
+        </a>
+        <a
             href="/maintenance/equipment/inventory"
-            class="menu-item {{ request()->is('maintenance/equipment/inventory*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="package"></i>
             <span>Inventory</span>
+        </a>
+        <a
+            href="/maintenance/equipment/deployed"
+            class="menu-item {{ request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="boxes"></i>
+            <span>Deployed Stocks</span>
         </a>
         <a
             href="/maintenance/equipment/categories"

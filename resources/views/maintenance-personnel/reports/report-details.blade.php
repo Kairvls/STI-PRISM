@@ -1,6 +1,6 @@
 @extends("layouts.maintenance-layout")
 
-@section("title", "Report #" . $report->report_id)
+@section("title", \App\Support\ReportGrouping::ticketCode($report))
 
 @section("content")
 
@@ -81,7 +81,7 @@
                 ></i>
 
                 <span class="font-medium text-gray-600">
-                    Report #{{ $report->report_id }}
+                    {{ \App\Support\ReportGrouping::ticketCode($report) }}
                 </span>
 
                 
@@ -309,13 +309,43 @@
                                     class="font-semibold text-gray-900"
                                 >
                                     {{
-                                        $report->equipment_name
+                                        $report->equipment_display
+                                        ?? $report->equipment_name
                                         ?? $report->report_unlisted_equipment_name
                                         ?? "Not specified"
                                     }}
                                 </p>
 
-                                @if ($report->equipment_inventory_status)
+                                @php
+                                    $detailItems = $reportItems ?? ($report->report_items ?? collect());
+                                @endphp
+
+                                @if ($detailItems->count() > 1)
+                                    <ul class="mt-3 space-y-3">
+                                        @foreach ($detailItems as $item)
+                                            <li class="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                                                <p class="text-sm font-semibold text-gray-800">
+                                                    {{ \App\Support\ReportItems::displayName($item) }}
+                                                </p>
+                                                @if (!empty($item->report_item_suggested_issue))
+                                                    <p class="mt-0.5 text-xs text-gray-600">
+                                                        Issue: {{ $item->report_item_suggested_issue }}
+                                                    </p>
+                                                @endif
+                                                <p class="mt-0.5 text-xs text-gray-500">
+                                                    Status: {{ $item->report_item_status }}
+                                                    @if (!empty($item->equipment_inventory_status))
+                                                        · Inventory: {{ $item->equipment_inventory_status }}
+                                                    @endif
+                                                </p>
+                                                @include('components.tables.partials.report-item-equipment-details', [
+                                                    'item' => $item,
+                                                    'compact' => false,
+                                                ])
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @elseif ($report->equipment_inventory_status)
 
                                     <p
                                         class="mt-1 text-sm text-gray-500"
@@ -830,7 +860,7 @@
                 <p
                     class="text-xs font-semibold uppercase tracking-wider text-gray-400"
                 >
-                    Report #{{ $report->report_id }}
+                    {{ \App\Support\ReportGrouping::ticketCode($report) }}
                 </p>
 
                 <h2

@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
+use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
 use App\Support\SuggestedIssues;
 use App\Support\EquipmentQrCodes;
+use App\Support\EquipmentViewReturn;
 use App\Models\RoomActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -149,7 +151,7 @@ class MaintenanceController extends Controller
         // =====================================================
         // DAILY REMINDER COUNTS
         // Urgent: pending or overdue
-        // Non-urgent: remind from preferred date, or after 5 days if none
+        // Non-urgent: remind from preferred date, or after 3 days if none
         // =====================================================
 
         $attentionCounts = MaintenanceAttentionSummary::counts();
@@ -2545,6 +2547,48 @@ class MaintenanceController extends Controller
             ->where('report_id', $id)
             ->update($updates);
 
+        if (ReportItems::tableExists()) {
+            ReportItems::ensureLegacyItem($report);
+
+            $itemExtra = [];
+            $status = $updates['report_current_status'] ?? null;
+
+            if (array_key_exists('report_resolution_notes', $updates)) {
+                $itemExtra['report_item_resolution_notes'] = $updates['report_resolution_notes'];
+            }
+            if (array_key_exists('report_resolution_image', $updates)) {
+                $itemExtra['report_item_resolution_image'] = $updates['report_resolution_image'];
+            }
+            if (array_key_exists('report_replacement_notes', $updates)) {
+                $itemExtra['report_item_replacement_notes'] = $updates['report_replacement_notes'];
+            }
+            if (array_key_exists('report_replacement_image', $updates)) {
+                $itemExtra['report_item_replacement_image'] = $updates['report_replacement_image'];
+            }
+            if (array_key_exists('report_rejection_notes', $updates)) {
+                $itemExtra['report_item_rejection_notes'] = $updates['report_rejection_notes'];
+            }
+
+            if ($status) {
+                $payload = array_merge($itemExtra, [
+                    'report_item_status' => $status,
+                    'report_item_updated_at' => now(),
+                ]);
+
+                $query = DB::table('report_items_table')
+                    ->where('report_id', $id);
+
+                // Don't overwrite items that already have a final outcome
+                // when applying a whole-report resolve/replace/reject.
+                if (in_array($status, ReportItems::terminalStatuses(), true)) {
+                    $query->whereIn('report_item_status', ReportItems::openStatuses());
+                }
+
+                $query->update($payload);
+                ReportItems::refreshParentStatus((int) $id);
+            }
+        }
+
         ReportGrouping::syncOpenSiblings($report, $updates);
     }
 
@@ -2623,37 +2667,36 @@ class MaintenanceController extends Controller
                 $request->filled('search'),
 
                 function ($query) use ($request) {
+                    $search = trim((string) $request->search);
+                    $ticketId = ReportGrouping::parseTicketSearch($search);
 
-                    $query->where(function ($subQuery) use ($request) {
-
+                    $query->where(function ($subQuery) use ($search, $ticketId) {
                         $subQuery
-
                             ->where(
                                 'reports_table.report_id',
                                 'LIKE',
-                                '%' . $request->search . '%'
+                                '%'.$search.'%'
                             )
-
                             ->orWhere(
                                 'equipment_table.equipment_name',
                                 'LIKE',
-                                $request->search . '%'
+                                $search.'%'
                             )
-
                             ->orWhere(
                                 'rooms_table.room_name',
                                 'LIKE',
-                                $request->search . '%'
+                                $search.'%'
                             )
-
                             ->orWhere(
                                 'reporters_table.reporter_full_name',
                                 'LIKE',
-                                $request->search . '%'
+                                $search.'%'
                             );
 
+                        if ($ticketId !== null) {
+                            $subQuery->orWhere('reports_table.report_id', $ticketId);
+                        }
                     });
-
                 }
 
             )
@@ -2782,13 +2825,33 @@ class MaintenanceController extends Controller
             /*
             |--------------------------------------------------------------------------
             | ORDERING
+            | 1) Urgent open stacks, 2) Urgent closed stacks,
+            | 3) Non-urgent open stacks, 4) Non-urgent closed stacks.
+            | Newest within each tier.
             |--------------------------------------------------------------------------
             */
 
-            ->orderBy(
-                'reports_table.report_submitted_at',
-                'DESC'
+            ->orderByRaw(
+                "CASE
+                    WHEN reports_table.report_current_status IN ('Pending', 'Processing')
+                         AND (
+                             reports_table.report_urgency_level = 'Urgent'
+                             OR COALESCE(open_report_group.has_urgent, 0) = 1
+                         )
+                    THEN 0
+                    WHEN reports_table.report_current_status IN ('Resolved', 'For Replacement', 'Rejected')
+                         AND (
+                             reports_table.report_urgency_level = 'Urgent'
+                             OR COALESCE(open_report_group.has_urgent, 0) = 1
+                         )
+                    THEN 1
+                    WHEN reports_table.report_current_status IN ('Pending', 'Processing')
+                    THEN 2
+                    ELSE 3
+                END"
             )
+
+            ->orderByDesc('reports_table.report_submitted_at')
 
             /*
             |--------------------------------------------------------------------------
@@ -3346,6 +3409,50 @@ class MaintenanceController extends Controller
         }
     }
 
+    private function sortReportsUrgentFirst($reports)
+    {
+        $openStatuses = ReportGrouping::openStatuses();
+        $closedStatuses = ['Resolved', 'For Replacement', 'Rejected'];
+
+        return $reports
+            ->sort(function ($a, $b) use ($openStatuses, $closedStatuses) {
+                $aPriority = $this->reportListSortPriority($a, $openStatuses, $closedStatuses);
+                $bPriority = $this->reportListSortPriority($b, $openStatuses, $closedStatuses);
+
+                if ($aPriority !== $bPriority) {
+                    return $aPriority <=> $bPriority;
+                }
+
+                $aTime = strtotime((string) ($a->report_submitted_at ?? '')) ?: 0;
+                $bTime = strtotime((string) ($b->report_submitted_at ?? '')) ?: 0;
+
+                return $bTime <=> $aTime;
+            })
+            ->values();
+    }
+
+    private function reportListSortPriority($report, array $openStatuses, array $closedStatuses): int
+    {
+        $status = $report->report_current_status ?? '';
+        $urgent = ($report->report_urgency_level ?? '') === 'Urgent';
+        $isOpen = in_array($status, $openStatuses, true);
+        $isClosed = in_array($status, $closedStatuses, true);
+
+        if ($isOpen && $urgent) {
+            return 0;
+        }
+
+        if ($isClosed && $urgent) {
+            return 1;
+        }
+
+        if ($isOpen) {
+            return 2;
+        }
+
+        return 3;
+    }
+
     private function reportsView($reports, bool $showReportStats = false)
     {
         $reports->getCollection()->transform(function ($report) {
@@ -3360,7 +3467,13 @@ class MaintenanceController extends Controller
             return $report;
         });
 
+        $reports->setCollection(
+            $this->sortReportsUrgentFirst($reports->getCollection())
+        );
+
         $this->attachEquipmentReportHistory($reports->getCollection());
+        ReportItems::attachToReports($reports->getCollection());
+        ReportItems::attachTimelines($reports->getCollection());
 
         return view(
             'maintenance-personnel.reports.all-reports',
@@ -3656,6 +3769,12 @@ class MaintenanceController extends Controller
 
         $relatedReports = collect();
 
+        ReportItems::ensureLegacyItem($report);
+        $reportItems = ReportItems::forReport((int) $report->report_id);
+        $report->report_items = $reportItems;
+        $report->equipment_display = ReportItems::labelForReport($report, $reportItems);
+        $report->issue_display = ReportItems::issueLabelForReport($report, $reportItems);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3667,7 +3786,8 @@ class MaintenanceController extends Controller
             'maintenance-personnel.reports.report-details',
             compact(
                 'report',
-                'relatedReports'
+                'relatedReports',
+                'reportItems'
             )
         );
     }
@@ -3947,9 +4067,19 @@ class MaintenanceController extends Controller
             )
             ->first();
 
+        if (!$report) {
+            abort(404, 'Report not found.');
+        }
+
+        ReportItems::ensureLegacyItem($report);
+        $reportItems = ReportItems::forReport((int) $report->report_id);
+        $report->report_items = $reportItems;
+        $report->equipment_display = ReportItems::labelForReport($report, $reportItems);
+        $report->issue_display = ReportItems::issueLabelForReport($report, $reportItems);
+
         return view(
             'maintenance-personnel.reports.update-status',
-            compact('report')
+            compact('report', 'reportItems')
         );
     }
 
@@ -3974,6 +4104,12 @@ class MaintenanceController extends Controller
 
             'proof_image' =>
                 'nullable|image|max:5120',
+
+            'report_item_ids' =>
+                'nullable|array',
+
+            'report_item_ids.*' =>
+                'integer',
 
         ]);
 
@@ -4026,7 +4162,7 @@ class MaintenanceController extends Controller
         // DATABASE TRANSACTION HERE
         // =====================================================
 
-        $equipmentForReplacement = null;
+        $equipmentForReplacement = [];
 
         $response = DB::transaction(function () use (
 
@@ -4460,6 +4596,46 @@ class MaintenanceController extends Controller
                     'Resolved'
                 ) {
 
+                    ReportItems::ensureLegacyItem($report);
+                    $allItems = ReportItems::forReport((int) $id);
+                    $selectedItemIds = collect($request->input('report_item_ids', []))
+                        ->map(fn ($itemId) => (int) $itemId)
+                        ->filter(fn ($itemId) => $itemId > 0)
+                        ->unique()
+                        ->values();
+
+                    if ($allItems->count() > 1 && $selectedItemIds->isNotEmpty()) {
+                        $targets = $allItems->whereIn('report_item_id', $selectedItemIds->all());
+
+                        if ($targets->isEmpty()) {
+                            return back()->with(
+                                'error',
+                                'Select at least one equipment item to resolve.'
+                            );
+                        }
+
+                        foreach ($targets as $item) {
+                            ReportItems::updateItem((int) $item->report_item_id, 'Resolved', [
+                                'report_item_resolution_notes' => $request->remarks,
+                                'report_item_resolution_image' => $imagePath,
+                            ]);
+                        }
+
+                        $this->logActivity(
+                            'Resolved report items',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Resolved '. $targets->count() .' equipment item(s) on Report #' . $id . '.'
+                        );
+
+                        return back()
+                            ->with(
+                                'success',
+                                'Selected equipment marked as resolved. Remaining items can still be fixed or sent for replacement.'
+                            );
+                    }
+
                     $this->applyReportStatusUpdate($id, $report, [
                         'report_current_status' => 'Resolved',
                         'report_resolution_notes' => $request->remarks,
@@ -4507,21 +4683,84 @@ class MaintenanceController extends Controller
                 ) {
 
 
-                    // =================================================
-                    // UPDATE REPORT HERE
-                    // =================================================
+                    ReportItems::ensureLegacyItem($report);
+                    $allItems = ReportItems::forReport((int) $id);
+                    $selectedItemIds = collect($request->input('report_item_ids', []))
+                        ->map(fn ($itemId) => (int) $itemId)
+                        ->filter(fn ($itemId) => $itemId > 0)
+                        ->unique()
+                        ->values();
 
-                    $this->applyReportStatusUpdate($id, $report, [
-                        'report_current_status' => 'For Replacement',
-                        'report_replacement_notes' => $request->remarks,
-                        'report_replacement_image' => $imagePath,
-                        'report_replacement_submitted_to_purchaser' => 1,
-                        'report_updated_at' => now(),
-                    ]);
+                    $partialReplacement = $allItems->count() > 1 && $selectedItemIds->isNotEmpty();
 
-                    if (!empty($report->report_equipment_id)) {
-                        $equipmentForReplacement = (int) $report->report_equipment_id;
-                    }
+                    if ($partialReplacement) {
+                        $targets = $allItems->whereIn('report_item_id', $selectedItemIds->all());
+
+                        if ($targets->isEmpty()) {
+                            return back()->with(
+                                'error',
+                                'Select at least one equipment item for replacement.'
+                            );
+                        }
+
+                        foreach ($targets as $item) {
+                            ReportItems::updateItem((int) $item->report_item_id, 'For Replacement', [
+                                'report_item_replacement_notes' => $request->remarks,
+                                'report_item_replacement_image' => $imagePath,
+                            ]);
+
+                            if (!empty($item->report_item_equipment_id)) {
+                                $equipmentForReplacement[] = (int) $item->report_item_equipment_id;
+                            }
+                        }
+
+                        DB::table('reports_table')
+                            ->where('report_id', $id)
+                            ->update([
+                                'report_replacement_notes' => $request->remarks,
+                                'report_replacement_image' => $imagePath,
+                                'report_replacement_submitted_to_purchaser' => 1,
+                                'report_updated_at' => now(),
+                            ]);
+
+                        ReportItems::refreshParentStatus((int) $id);
+
+                        $this->logActivity(
+                            'Submitted report items for replacement',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Submitted '. $targets->count() .' equipment item(s) on Report #' . $id . ' for replacement.'
+                        );
+                    } else {
+                        // =================================================
+                        // UPDATE REPORT HERE
+                        // =================================================
+
+                        $this->applyReportStatusUpdate($id, $report, [
+                            'report_current_status' => 'For Replacement',
+                            'report_replacement_notes' => $request->remarks,
+                            'report_replacement_image' => $imagePath,
+                            'report_replacement_submitted_to_purchaser' => 1,
+                            'report_updated_at' => now(),
+                        ]);
+
+                        $replacementItems = $allItems->filter(
+                            fn ($item) => in_array($item->report_item_status, ReportItems::openStatuses(), true)
+                        );
+
+                        if ($replacementItems->isEmpty() && $allItems->isEmpty() && !empty($report->report_equipment_id)) {
+                            $replacementItems = collect([(object) [
+                                'report_item_equipment_id' => $report->report_equipment_id,
+                            ]]);
+                        }
+
+                        foreach ($replacementItems as $item) {
+                            $equipmentId = (int) ($item->report_item_equipment_id ?? 0);
+                            if ($equipmentId > 0) {
+                                $equipmentForReplacement[] = $equipmentId;
+                            }
+                        }
 
                         $this->logActivity(
                             'Submitted report for replacement',
@@ -4530,6 +4769,7 @@ class MaintenanceController extends Controller
                             (int) $id,
                             'Submitted Report #' . $id . ' for equipment replacement.'
                         );
+                    }
 
 
                     // =================================================
@@ -4617,7 +4857,9 @@ class MaintenanceController extends Controller
 
                         ->with(
                             'success',
-                            'Report submitted for replacement successfully.'
+                            $partialReplacement
+                                ? 'Selected equipment submitted for replacement. Other items on this report can still be resolved separately.'
+                                : 'Report submitted for replacement successfully.'
                         )
 
                         ->with(
@@ -4646,10 +4888,8 @@ class MaintenanceController extends Controller
 
         });
 
-        if (!empty($equipmentForReplacement)) {
-            ReportGrouping::markEquipmentForReplacement(
-                (int) $equipmentForReplacement
-            );
+        foreach (array_unique($equipmentForReplacement) as $equipmentId) {
+            ReportGrouping::markEquipmentForReplacement((int) $equipmentId);
         }
 
         return $response;
@@ -4696,6 +4936,21 @@ class MaintenanceController extends Controller
     {
         /*
         |--------------------------------------------------------------------------
+        | PAGE SCOPE (sidebar routes)
+        | /inventory = storage stock; /all = full register
+        |--------------------------------------------------------------------------
+        */
+
+        $scope = $request->is('maintenance/equipment/all')
+            || $request->is('maintenance/equipment/all/*')
+                ? 'all'
+                : 'stock';
+
+        $storageType = RoomCategories::STORAGE_TYPE;
+        $isStockPage = $scope === 'stock';
+
+        /*
+        |--------------------------------------------------------------------------
         | FILTER DATA
         |--------------------------------------------------------------------------
         */
@@ -4708,132 +4963,142 @@ class MaintenanceController extends Controller
             )
             ->get();
 
-
-        $rooms = DB::table(
+        $allRooms = DB::table(
             'rooms_table'
         )
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('room_is_archived', false)
+            )
+            ->orderByRaw(
+                'CASE WHEN room_type = ? THEN 0 ELSE 1 END',
+                [$storageType]
+            )
             ->orderBy(
                 'room_name'
             )
             ->get();
 
+        $storageRooms = $allRooms
+            ->filter(fn ($room) => RoomCategories::isStorageType($room->room_type ?? null))
+            ->values();
 
-        // =====================================================
-        // TOTAL EQUIPMENT
-        // =====================================================
+        $rooms = $isStockPage ? $storageRooms : $allRooms;
 
-        $totalEquipment =
-            DB::table('equipment_table')
-                ->count();
+        $defaultStorageRoomId = optional($storageRooms->first())->room_id;
 
-
-        // =====================================================
-        // ACTIVE EQUIPMENT
-        // =====================================================
-
-        $activeEquipment =
-            DB::table('equipment_table')
-
-                ->where(
-                    'equipment_inventory_status',
-                    'Active'
+        $storageJoin = function ($query) use ($storageType) {
+            return $query
+                ->join(
+                    'rooms_table',
+                    'equipment_table.equipment_room_id',
+                    '=',
+                    'rooms_table.room_id'
                 )
-
-                ->count();
-
-
-        // =====================================================
-        // UNDER MAINTENANCE EQUIPMENT
-        // =====================================================
-
-        $underMaintenanceEquipment =
-            DB::table('equipment_table')
-
-                ->where(
-                    'equipment_inventory_status',
-                    'Under Maintenance'
-                )
-
-                ->count();
-
+                ->where('rooms_table.room_type', $storageType);
+        };
 
         // =====================================================
-        // BORROWED EQUIPMENT
+        // TOTAL EQUIPMENT (fleet or storage-scoped)
         // =====================================================
 
-        $borrowedEquipment =
-            DB::table('equipment_table')
+        if ($isStockPage) {
+            $liveStockQuery = $storageJoin(DB::table('equipment_table'))
+                ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed']);
 
-                ->where(
-                    'equipment_inventory_status',
-                    'Borrowed'
-                )
+            $totalEquipment = (clone $liveStockQuery)->count();
+            $stockTotalQuantity = (int) (clone $liveStockQuery)
+                ->sum('equipment_table.equipment_quantity');
+            $stockTypeCount = (int) (clone $liveStockQuery)
+                ->select('equipment_table.equipment_name')
+                ->distinct()
+                ->count('equipment_table.equipment_name');
+            $storageRoomsWithStock = (int) (clone $liveStockQuery)
+                ->select('equipment_table.equipment_room_id')
+                ->distinct()
+                ->count('equipment_table.equipment_room_id');
 
-                ->count();
+            $activeEquipment = 0;
+            $underMaintenanceEquipment = 0;
+            $borrowedEquipment = 0;
+            $disposedEquipment = 0;
+        } else {
+            $stockTotalQuantity = 0;
+            $stockTypeCount = 0;
+            $storageRoomsWithStock = 0;
 
+            $totalEquipment =
+                DB::table('equipment_table')
+                    ->count();
+
+            $activeEquipment =
+                DB::table('equipment_table')
+                    ->where('equipment_inventory_status', 'Active')
+                    ->count();
+
+            $underMaintenanceEquipment =
+                DB::table('equipment_table')
+                    ->where('equipment_inventory_status', 'Under Maintenance')
+                    ->count();
+
+            $borrowedEquipment =
+                DB::table('equipment_table')
+                    ->where('equipment_inventory_status', 'Borrowed')
+                    ->count();
+
+            $disposedEquipment =
+                DB::table('equipment_table')
+                    ->where('equipment_inventory_status', 'Disposed')
+                    ->count();
+        }
 
         // =====================================================
-        // DISPOSED EQUIPMENT
+        // CURRENT / PREVIOUS MONTH REGISTRATIONS
         // =====================================================
 
-        $disposedEquipment =
-            DB::table('equipment_table')
-
-                ->where(
-                    'equipment_inventory_status',
-                    'Disposed'
-                )
-
-                ->count();
-
-
-        // =====================================================
-        // CURRENT MONTH EQUIPMENT REGISTRATIONS
-        // =====================================================
-
-        $currentMonthEquipment =
-            DB::table('equipment_table')
-
+        if ($isStockPage) {
+            $currentMonthEquipment = $storageJoin(DB::table('equipment_table'))
                 ->whereBetween(
-                    'equipment_created_at',
+                    'equipment_table.equipment_created_at',
                     [
-                        now()
-                            ->copy()
-                            ->startOfMonth(),
-
-                        now()
-                            ->copy()
-                            ->endOfMonth(),
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
                     ]
                 )
-
                 ->count();
 
-
-        // =====================================================
-        // PREVIOUS MONTH EQUIPMENT REGISTRATIONS
-        // =====================================================
-
-        $previousMonthEquipment =
-            DB::table('equipment_table')
-
+            $previousMonthEquipment = $storageJoin(DB::table('equipment_table'))
                 ->whereBetween(
-                    'equipment_created_at',
+                    'equipment_table.equipment_created_at',
                     [
-                        now()
-                            ->copy()
-                            ->subMonthNoOverflow()
-                            ->startOfMonth(),
-
-                        now()
-                            ->copy()
-                            ->subMonthNoOverflow()
-                            ->endOfMonth(),
+                        now()->copy()->subMonthNoOverflow()->startOfMonth(),
+                        now()->copy()->subMonthNoOverflow()->endOfMonth(),
                     ]
                 )
-
                 ->count();
+        } else {
+            $currentMonthEquipment =
+                DB::table('equipment_table')
+                    ->whereBetween(
+                        'equipment_created_at',
+                        [
+                            now()->copy()->startOfMonth(),
+                            now()->copy()->endOfMonth(),
+                        ]
+                    )
+                    ->count();
 
+            $previousMonthEquipment =
+                DB::table('equipment_table')
+                    ->whereBetween(
+                        'equipment_created_at',
+                        [
+                            now()->copy()->subMonthNoOverflow()->startOfMonth(),
+                            now()->copy()->subMonthNoOverflow()->endOfMonth(),
+                        ]
+                    )
+                    ->count();
+        }
 
         // =====================================================
         // EQUIPMENT MONTHLY PERCENTAGE CHANGE
@@ -4877,7 +5142,7 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $activeEquipmentPercentage =
-            $totalEquipment > 0
+            (! $isStockPage && $totalEquipment > 0)
 
                 ? (
                     $activeEquipment
@@ -4893,7 +5158,7 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $underMaintenanceEquipmentPercentage =
-            $totalEquipment > 0
+            (! $isStockPage && $totalEquipment > 0)
 
                 ? (
                     $underMaintenanceEquipment
@@ -4909,7 +5174,7 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $disposedEquipmentPercentage =
-            $totalEquipment > 0
+            (! $isStockPage && $totalEquipment > 0)
 
                 ? (
                     $disposedEquipment
@@ -4924,11 +5189,35 @@ class MaintenanceController extends Controller
         // LAST 12 MONTHS
         // =====================================================
 
-        $monthlyEquipmentRows =
-            DB::table('equipment_table')
-
-                ->selectRaw(
-                    '
+        if ($isStockPage) {
+            $monthlyEquipmentRows = $storageJoin(DB::table('equipment_table'))
+                ->selectRaw('
+                    YEAR(equipment_table.equipment_created_at) AS equipment_year,
+                    MONTH(equipment_table.equipment_created_at) AS equipment_month,
+                    COUNT(*) AS equipment_count
+                ')
+                ->whereNotNull('equipment_table.equipment_created_at')
+                ->where(
+                    'equipment_table.equipment_created_at',
+                    '>=',
+                    now()->copy()->subMonths(11)->startOfMonth()
+                )
+                ->groupByRaw('
+                    YEAR(equipment_table.equipment_created_at),
+                    MONTH(equipment_table.equipment_created_at)
+                ')
+                ->orderByRaw('
+                    YEAR(equipment_table.equipment_created_at),
+                    MONTH(equipment_table.equipment_created_at)
+                ')
+                ->get()
+                ->keyBy(function ($row) {
+                    return $row->equipment_year.'-'.str_pad((string) $row->equipment_month, 2, '0', STR_PAD_LEFT);
+                });
+        } else {
+            $monthlyEquipmentRows =
+                DB::table('equipment_table')
+                    ->selectRaw('
                     YEAR(equipment_created_at)
                         AS equipment_year,
 
@@ -4937,52 +5226,28 @@ class MaintenanceController extends Controller
 
                     COUNT(*)
                         AS equipment_count
-                    '
-                )
-
-                ->whereNotNull(
-                    'equipment_created_at'
-                )
-
-                ->where(
-                    'equipment_created_at',
-                    '>=',
-                    now()
-                        ->copy()
-                        ->subMonths(11)
-                        ->startOfMonth()
-                )
-
-                ->groupByRaw(
-                    '
+                    ')
+                    ->whereNotNull('equipment_created_at')
+                    ->where(
+                        'equipment_created_at',
+                        '>=',
+                        now()->copy()->subMonths(11)->startOfMonth()
+                    )
+                    ->groupByRaw('
                     YEAR(equipment_created_at),
                     MONTH(equipment_created_at)
-                    '
-                )
-
-                ->orderByRaw(
-                    '
+                    ')
+                    ->orderByRaw('
                     YEAR(equipment_created_at),
                     MONTH(equipment_created_at)
-                    '
-                )
-
-                ->get()
-
-                ->keyBy(function ($row) {
-
-                    return
-                        $row->equipment_year
-                        . '-'
-                        . str_pad(
-                            $row->equipment_month,
-                            2,
-                            '0',
-                            STR_PAD_LEFT
-                        );
-
-                });
-
+                    ')
+                    ->get()
+                    ->keyBy(function ($row) {
+                        return $row->equipment_year
+                            .'-'
+                            .str_pad($row->equipment_month, 2, '0', STR_PAD_LEFT);
+                    });
+        }
 
         // =====================================================
         // BUILD COMPLETE 12 MONTH EQUIPMENT TREND
@@ -5049,7 +5314,9 @@ class MaintenanceController extends Controller
 
                 'equipment_categories_table.equipment_category_name',
 
-                'rooms_table.room_name'
+                'rooms_table.room_name',
+
+                'rooms_table.room_type'
 
             );
 
@@ -5131,7 +5398,15 @@ class MaintenanceController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($request->filled('status')) {
+        if ($isStockPage) {
+            $query->whereNotIn(
+                'equipment_table.equipment_inventory_status',
+                ['Disposed']
+            )->where(
+                'rooms_table.room_type',
+                $storageType
+            );
+        } elseif ($request->filled('status')) {
 
             $query->where(
                 'equipment_table.equipment_inventory_status',
@@ -5146,24 +5421,30 @@ class MaintenanceController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | PAGINATION
         |--------------------------------------------------------------------------
         */
 
+        $stockTransferIds = [];
+        if ($isStockPage) {
+            $stockTransferIds = (clone $query)
+                ->orderBy('equipment_table.equipment_id')
+                ->pluck('equipment_table.equipment_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+        }
+
         $equipment = $query
-
-            ->orderBy(
-                'equipment_table.equipment_created_at',
-                'desc'
-            )
-
+            ->orderBy('equipment_table.equipment_created_at', 'desc')
             ->paginate(10)
-
             ->withQueryString();
 
+        $deployRooms = $allRooms
+            ->reject(fn ($room) => RoomCategories::isStorageType($room->room_type ?? null))
+            ->values();
 
         $usedAssetTags = DB::table('equipment_table')
             ->whereNotNull('equipment_asset_tag')
@@ -5184,7 +5465,16 @@ class MaintenanceController extends Controller
                 'equipment',
                 'categories',
                 'rooms',
+                'storageRooms',
+                'deployRooms',
+                'stockTransferIds',
                 'usedAssetTags',
+                'scope',
+                'isStockPage',
+                'defaultStorageRoomId',
+                'stockTotalQuantity',
+                'stockTypeCount',
+                'storageRoomsWithStock',
 
                 // =====================================================
                 // EQUIPMENT DASHBOARD COUNTS
@@ -5219,6 +5509,223 @@ class MaintenanceController extends Controller
                 'equipmentMonthlyTrend'
             )
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DEPLOYED STOCKS (equipment assigned to rooms)
+    |--------------------------------------------------------------------------
+    */
+    public function deployedStocks(Request $request)
+    {
+        $categories = DB::table('equipment_categories_table')
+            ->orderBy('equipment_category_name')
+            ->get();
+
+        $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('room_is_archived', false)
+            )
+            ->orderByRaw(
+                'CASE WHEN room_type = ? THEN 0 ELSE 1 END',
+                [RoomCategories::STORAGE_TYPE]
+            )
+            ->orderBy('room_name')
+            ->get();
+
+        $includeStorage = $request->boolean('include_storage');
+
+        $base = DB::table('equipment_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->whereNotNull('equipment_table.equipment_room_id')
+            ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed']);
+
+        if (! $includeStorage) {
+            $base->where(function ($query) {
+                $query->whereNull('rooms_table.room_type')
+                    ->orWhere('rooms_table.room_type', '!=', RoomCategories::STORAGE_TYPE);
+            });
+        }
+
+        if ($request->filled('room')) {
+            $base->where('equipment_table.equipment_room_id', $request->room);
+        }
+
+        if ($request->filled('category')) {
+            $base->where('equipment_table.equipment_category_id', $request->category);
+        }
+
+        if ($request->filled('search')) {
+            $search = '%'.$request->search.'%';
+            $base->where(function ($query) use ($search) {
+                $query->where('equipment_table.equipment_name', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_brand_name', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_model', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_asset_tag', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_serial_number', 'LIKE', $search)
+                    ->orWhere('rooms_table.room_name', 'LIKE', $search);
+            });
+        }
+
+        if ($request->boolean('on_floor')) {
+            $base->where(function ($query) {
+                $query->whereNull('equipment_table.equipment_placement_zone')
+                    ->orWhere('equipment_table.equipment_placement_zone', '!=', 'Holding');
+            })->where(function ($query) {
+                $query->whereNull('equipment_table.equipment_current_location')
+                    ->orWhere('equipment_table.equipment_current_location', '!=', 'Holding');
+            });
+        }
+
+        $stockRows = (clone $base)
+            ->select(
+                'equipment_table.equipment_room_id',
+                'rooms_table.room_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_category_id',
+                'equipment_categories_table.equipment_category_name',
+                DB::raw('SUM(equipment_table.equipment_quantity) as total_quantity'),
+                DB::raw('COUNT(equipment_table.equipment_id) as unit_count'),
+                DB::raw("SUM(CASE WHEN equipment_table.equipment_inventory_status = 'Active' THEN equipment_table.equipment_quantity ELSE 0 END) as active_quantity"),
+                DB::raw("SUM(CASE WHEN equipment_table.equipment_inventory_status = 'Under Maintenance' THEN equipment_table.equipment_quantity ELSE 0 END) as maintenance_quantity"),
+                DB::raw("MAX(equipment_table.equipment_warranty_expiration) as latest_warranty"),
+                DB::raw("MIN(COALESCE(equipment_table.equipment_acquired_date, equipment_table.equipment_created_at)) as earliest_acquired")
+            )
+            ->groupBy(
+                'equipment_table.equipment_room_id',
+                'rooms_table.room_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_category_id',
+                'equipment_categories_table.equipment_category_name'
+            )
+            ->orderBy('rooms_table.room_name')
+            ->orderBy('equipment_table.equipment_name')
+            ->get();
+
+        $equipmentIdsByGroup = (clone $base)
+            ->select(
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_room_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
+                'equipment_table.equipment_quantity',
+                'equipment_table.equipment_tracking_mode',
+                'equipment_table.equipment_condition_status',
+                'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_warranty_expiration',
+                'equipment_table.equipment_purchase_date',
+                'equipment_table.equipment_acquired_date',
+                'equipment_table.equipment_purchase_cost',
+                'equipment_table.equipment_placement_zone',
+                'equipment_table.equipment_current_location',
+                'equipment_table.equipment_created_at',
+                'rooms_table.room_name',
+                'equipment_categories_table.equipment_category_name'
+            )
+            ->orderBy('rooms_table.room_name')
+            ->orderBy('equipment_table.equipment_name')
+            ->orderBy('equipment_table.equipment_asset_tag')
+            ->get()
+            ->groupBy(function ($row) {
+                return implode('|', [
+                    (string) $row->equipment_room_id,
+                    (string) ($row->equipment_name ?? ''),
+                    (string) ($row->equipment_brand_name ?? ''),
+                    (string) ($row->equipment_model ?? ''),
+                ]);
+            });
+
+        $groups = $stockRows->map(function ($row) use ($equipmentIdsByGroup) {
+            $key = implode('|', [
+                (string) $row->equipment_room_id,
+                (string) ($row->equipment_name ?? ''),
+                (string) ($row->equipment_brand_name ?? ''),
+                (string) ($row->equipment_model ?? ''),
+            ]);
+
+            $units = ($equipmentIdsByGroup->get($key) ?? collect())->values();
+
+            return [
+                'key' => $key,
+                'room_id' => (int) $row->equipment_room_id,
+                'room_name' => $row->room_name,
+                'name' => $row->equipment_name,
+                'brand' => $row->equipment_brand_name,
+                'model' => $row->equipment_model,
+                'category' => $row->equipment_category_name,
+                'total_quantity' => (int) $row->total_quantity,
+                'unit_count' => (int) $row->unit_count,
+                'active_quantity' => (int) $row->active_quantity,
+                'maintenance_quantity' => (int) $row->maintenance_quantity,
+                'latest_warranty' => $row->latest_warranty,
+                'earliest_acquired' => $row->earliest_acquired,
+                'inventory_url' => url('/maintenance/equipment/all').'?room='.$row->equipment_room_id,
+                'units' => $units->map(function ($unit) {
+                    return [
+                        'id' => (int) $unit->equipment_id,
+                        'asset_tag' => $unit->equipment_asset_tag,
+                        'serial_number' => $unit->equipment_serial_number,
+                        'quantity' => (int) ($unit->equipment_quantity ?? 1),
+                        'tracking_mode' => $unit->equipment_tracking_mode ?: 'Individual',
+                        'condition' => $unit->equipment_condition_status,
+                        'inventory_status' => $unit->equipment_inventory_status,
+                        'warranty_expiration' => $unit->equipment_warranty_expiration,
+                        'purchase_date' => $unit->equipment_purchase_date,
+                        'acquired_date' => $unit->equipment_acquired_date,
+                        'purchase_cost' => $unit->equipment_purchase_cost,
+                        'placement_zone' => $unit->equipment_placement_zone ?: $unit->equipment_current_location,
+                        'created_at' => $unit->equipment_created_at,
+                        'view_url' => EquipmentViewReturn::viewUrl((int) $unit->equipment_id),
+                    ];
+                })->all(),
+            ];
+        })->values();
+
+        $roomsWithStock = $groups->pluck('room_id')->unique()->count();
+        $totalDeployedQty = $groups->sum('total_quantity');
+        $stockTypes = $groups->count();
+        $onFloorQty = $groups->sum(function ($group) {
+            return collect($group['units'])->sum(function ($unit) {
+                $zone = $unit['placement_zone'] ?? '';
+                return $zone === 'Holding' ? 0 : (int) $unit['quantity'];
+            });
+        });
+
+        return view('maintenance-personnel.equipment.deployed', [
+            'groups' => $groups,
+            'categories' => $categories,
+            'rooms' => $rooms,
+            'roomsWithStock' => $roomsWithStock,
+            'totalDeployedQty' => $totalDeployedQty,
+            'stockTypes' => $stockTypes,
+            'onFloorQty' => $onFloorQty,
+            'filters' => [
+                'search' => $request->get('search', ''),
+                'room' => $request->get('room', ''),
+                'category' => $request->get('category', ''),
+                'on_floor' => $request->boolean('on_floor'),
+                'include_storage' => $includeStorage,
+            ],
+        ]);
     }
 
     /*
@@ -6055,7 +6562,7 @@ class MaintenanceController extends Controller
             'room' => $room->room_name,
             'count' => $items->count(),
             'items' => $items,
-            'inventory_url' => url('/maintenance/equipment/inventory').'?room='.$id,
+            'inventory_url' => url('/maintenance/equipment/all').'?room='.$id,
         ]);
     }
 
@@ -7115,9 +7622,11 @@ class MaintenanceController extends Controller
 
         }
 
+        $equipmentBack = EquipmentViewReturn::resolve(request());
+
         return view(
             'maintenance-personnel.equipment.view',
-            compact('equipment')
+            compact('equipment', 'equipmentBack')
         );
     }
 
@@ -7189,6 +7698,10 @@ class MaintenanceController extends Controller
 
             'equipment_purchase_date' => 'nullable|date',
 
+            'equipment_acquired_date' => 'nullable|date',
+
+            'equipment_purchase_cost' => 'nullable|numeric|min:0',
+
             'equipment_warranty_expiration' => 'nullable|date',
 
             'items' => 'nullable|array|max:200',
@@ -7214,6 +7727,65 @@ class MaintenanceController extends Controller
         $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
         $items = array_values($validated['items'] ?? []);
         $quantity = (int) $validated['equipment_quantity'];
+
+        $roomId = (int) ($validated['equipment_room_id'] ?? 0);
+        $room = $roomId > 0
+            ? DB::table('rooms_table')
+                ->where('room_id', $roomId)
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->first()
+            : null;
+
+        if (! $room) {
+            $fallbackStorageRoomId = DB::table('rooms_table')
+                ->where('room_type', RoomCategories::STORAGE_TYPE)
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->orderBy('room_name')
+                ->value('room_id');
+
+            if ($fallbackStorageRoomId) {
+                $validated['equipment_room_id'] = (int) $fallbackStorageRoomId;
+                $roomId = (int) $fallbackStorageRoomId;
+            } else {
+                return back()
+                    ->withErrors([
+                        'equipment_room_id' => 'Select a room, or create a Storage / Stockroom first.',
+                    ])
+                    ->withInput();
+            }
+        } elseif (! RoomCategories::isStorageType($room->room_type ?? null)) {
+            // Inventory stocking must land in a storage room.
+            $fallbackStorageRoomId = DB::table('rooms_table')
+                ->where('room_type', RoomCategories::STORAGE_TYPE)
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->orderBy('room_name')
+                ->value('room_id');
+
+            if ($fallbackStorageRoomId) {
+                $validated['equipment_room_id'] = (int) $fallbackStorageRoomId;
+            } else {
+                return back()
+                    ->withErrors([
+                        'equipment_room_id' => 'Add stock to a Storage / Stockroom room only. Create one first, or use Transfers to deploy later.',
+                    ])
+                    ->withInput();
+            }
+        }
+
+        // Purchased date/cost come from purchaser/receiving when possible.
+        // Manual inventory adds only stamp when the asset entered campus stock.
+        $acquiredDate = $validated['equipment_acquired_date'] ?? now()->toDateString();
+        $purchaseDate = $validated['equipment_purchase_date'] ?? null;
+        $purchaseCost = $validated['equipment_purchase_cost'] ?? null;
 
         if ($trackingMode === 'Individual' && count($items) > 0 && count($items) !== $quantity) {
             return back()
@@ -7269,6 +7841,9 @@ class MaintenanceController extends Controller
             $quantity,
             $imagePath,
             $useSharedImage,
+            $acquiredDate,
+            $purchaseDate,
+            $purchaseCost,
             &$createdIds
         ) {
 
@@ -7287,10 +7862,16 @@ class MaintenanceController extends Controller
                     'equipment_tracking_mode' => 'Bulk',
                     'equipment_condition_status' => $validated['equipment_condition_status'] ?? 'Good',
                     'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
-                    'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                    'equipment_purchase_date' => $purchaseDate,
+                    'equipment_acquired_date' => $acquiredDate,
+                    'equipment_purchase_cost' => $purchaseCost,
                     'equipment_warranty_expiration' => $validated['equipment_warranty_expiration'] ?? null,
                     'equipment_is_borrowable' => $borrowable,
                     'equipment_image' => $imagePath,
+                    'equipment_placement_zone' => 'Holding',
+                    'equipment_current_location' => 'Holding',
+                    'equipment_position_x' => 50,
+                    'equipment_position_y' => 90,
                     'equipment_created_at' => now(),
                 ]);
 
@@ -7325,11 +7906,17 @@ class MaintenanceController extends Controller
                         'equipment_condition_status' => $item['equipment_condition_status']
                             ?? ($validated['equipment_condition_status'] ?? 'Good'),
                         'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
-                        'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                        'equipment_purchase_date' => $purchaseDate,
+                        'equipment_acquired_date' => $acquiredDate,
+                        'equipment_purchase_cost' => $purchaseCost,
                         'equipment_warranty_expiration' => $item['equipment_warranty_expiration']
                             ?? ($validated['equipment_warranty_expiration'] ?? null),
                         'equipment_is_borrowable' => $borrowable,
                         'equipment_image' => $rowImagePath,
+                        'equipment_placement_zone' => 'Holding',
+                        'equipment_current_location' => 'Holding',
+                        'equipment_position_x' => 50,
+                        'equipment_position_y' => 90,
                         'equipment_created_at' => now(),
                     ]);
 
@@ -7547,6 +8134,21 @@ class MaintenanceController extends Controller
 
                     'equipment_inventory_status'
                         => $request->equipment_inventory_status,
+
+                    'equipment_purchase_date'
+                        => $request->filled('equipment_purchase_date')
+                            ? $request->equipment_purchase_date
+                            : null,
+
+                    'equipment_acquired_date'
+                        => $request->filled('equipment_acquired_date')
+                            ? $request->equipment_acquired_date
+                            : null,
+
+                    'equipment_purchase_cost'
+                        => $request->filled('equipment_purchase_cost')
+                            ? $request->equipment_purchase_cost
+                            : null,
 
                     'equipment_warranty_expiration'
                         => $request->equipment_warranty_expiration,
@@ -8273,6 +8875,18 @@ class MaintenanceController extends Controller
                     'equipment_room_id'
                         => $request->room_id,
 
+                    'equipment_placement_zone'
+                        => 'Holding',
+
+                    'equipment_current_location'
+                        => 'Holding',
+
+                    'equipment_position_x'
+                        => 50,
+
+                    'equipment_position_y'
+                        => 90,
+
                 ]);
 
 
@@ -8374,6 +8988,124 @@ class MaintenanceController extends Controller
             'success',
             'Equipment transferred successfully.'
         );
+    }
+
+    public function transferEquipmentBatch(Request $request)
+    {
+        $validated = $request->validate([
+            'equipment_ids' => 'required|array|min:1',
+            'equipment_ids.*' => 'integer',
+            'room_id' => 'required|integer',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        $destinationRoom = DB::table('rooms_table')
+            ->where('room_id', $validated['room_id'])
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('room_is_archived', false)
+            )
+            ->first();
+
+        if (! $destinationRoom) {
+            return back()->with('error', 'Destination room not found.');
+        }
+
+        if (RoomCategories::isStorageType($destinationRoom->room_type ?? null)) {
+            return back()->with(
+                'error',
+                'Choose a classroom or lab to deploy stock. Storage rooms are for inventory only.'
+            );
+        }
+
+        $ids = collect($validated['equipment_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $transferred = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($ids, $validated, $destinationRoom, $request, &$transferred, &$skipped) {
+            foreach ($ids as $equipmentId) {
+                $equipment = DB::table('equipment_table')
+                    ->where('equipment_id', $equipmentId)
+                    ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                    ->first();
+
+                if (! $equipment) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ((int) $equipment->equipment_room_id === (int) $validated['room_id']) {
+                    $skipped++;
+                    continue;
+                }
+
+                $oldRoom = DB::table('rooms_table')
+                    ->where('room_id', $equipment->equipment_room_id)
+                    ->first();
+
+                $transferId = DB::table('equipment_transfer_history_table')->insertGetId([
+                    'equipment_id' => $equipment->equipment_id,
+                    'from_room_id' => $equipment->equipment_room_id,
+                    'to_room_id' => $validated['room_id'],
+                    'remarks' => $validated['remarks'] ?? 'Batch transfer from Inventory',
+                    'created_at' => now(),
+                ]);
+
+                DB::table('equipment_table')
+                    ->where('equipment_id', $equipment->equipment_id)
+                    ->update([
+                        'equipment_room_id' => $validated['room_id'],
+                        'equipment_placement_zone' => 'Holding',
+                        'equipment_current_location' => 'Holding',
+                        'equipment_position_x' => 50,
+                        'equipment_position_y' => 90,
+                    ]);
+
+                DB::table('notifications_table')->insertOrIgnore([
+                    'notification_user_id' => null,
+                    'notification_target_role' => 'Maintenance Personnel',
+                    'notification_title' => 'Equipment Transferred',
+                    'notification_message' => ($equipment->equipment_name ?? 'Equipment')
+                        .' was transferred from '
+                        .($oldRoom->room_name ?? 'Unassigned Location')
+                        .' to '
+                        .($destinationRoom->room_name ?? 'Unknown Location')
+                        .'.',
+                    'notification_type' => 'equipment_transferred',
+                    'notification_category' => 'Equipment',
+                    'notification_reference_type' => 'equipment_transfer',
+                    'notification_reference_id' => $transferId,
+                    'notification_url' => '/maintenance/equipment/transfer',
+                    'notification_event_key' => 'equipment_transferred_'.$transferId,
+                    'notification_created_at' => now(),
+                ]);
+
+                $transferred++;
+            }
+        });
+
+        if ($transferred === 0) {
+            return back()->with(
+                'error',
+                $skipped > 0
+                    ? 'No equipment was transferred. Items may already be in that room.'
+                    : 'No equipment was transferred.'
+            );
+        }
+
+        $message = $transferred.' equipment item'.($transferred === 1 ? '' : 's')
+            .' transferred to '.$destinationRoom->room_name.'.';
+
+        if ($skipped > 0) {
+            $message .= ' '.$skipped.' skipped.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function storeMaintenanceHistory(Request $request)
@@ -8486,6 +9218,109 @@ class MaintenanceController extends Controller
 
         return response()->json($history);
 
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EQUIPMENT LIFECYCLE (layout asset details)
+    |--------------------------------------------------------------------------
+    */
+    public function equipmentLifecycle($id)
+    {
+        $equipment = DB::table('equipment_table')
+            ->where('equipment_id', $id)
+            ->first();
+
+        if (! $equipment) {
+            return response()->json(['message' => 'Equipment not found.'], 404);
+        }
+
+        $transfers = collect();
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            $transfers = DB::table('equipment_transfer_history_table')
+                ->leftJoin(
+                    'rooms_table as from_room',
+                    'equipment_transfer_history_table.from_room_id',
+                    '=',
+                    'from_room.room_id'
+                )
+                ->leftJoin(
+                    'rooms_table as to_room',
+                    'equipment_transfer_history_table.to_room_id',
+                    '=',
+                    'to_room.room_id'
+                )
+                ->where('equipment_transfer_history_table.equipment_id', $id)
+                ->select(
+                    'equipment_transfer_history_table.transfer_id',
+                    'equipment_transfer_history_table.from_room_id',
+                    'equipment_transfer_history_table.to_room_id',
+                    'equipment_transfer_history_table.remarks',
+                    'equipment_transfer_history_table.created_at',
+                    'from_room.room_name as from_room_name',
+                    'to_room.room_name as to_room_name'
+                )
+                ->orderByDesc('equipment_transfer_history_table.created_at')
+                ->limit(10)
+                ->get();
+        }
+
+        $maintenance = collect();
+        if (Schema::hasTable('equipment_maintenance_history_table')) {
+            $maintenance = DB::table('equipment_maintenance_history_table')
+                ->where('equipment_maintenance_equipment_id', $id)
+                ->orderByDesc('equipment_maintenance_created_at')
+                ->limit(5)
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'findings' => $row->equipment_maintenance_findings,
+                        'repair' => $row->equipment_maintenance_repair_action,
+                        'status' => $row->equipment_maintenance_status,
+                        'at' => $row->equipment_maintenance_completed_at
+                            ?: $row->equipment_maintenance_created_at,
+                    ];
+                });
+        }
+
+        $disposal = null;
+        if (Schema::hasTable('disposal_records_table')) {
+            $disposal = DB::table('disposal_records_table')
+                ->where('disposal_equipment_id', $id)
+                ->orderByDesc('disposal_disposed_at')
+                ->first();
+        }
+
+        $currentRoomId = $equipment->equipment_room_id;
+        $deployedAt = $equipment->equipment_created_at;
+        $lastMovedAt = null;
+
+        $latestTransfer = $transfers->first();
+        if ($latestTransfer) {
+            $lastMovedAt = $latestTransfer->created_at;
+        }
+
+        $intoCurrent = $transfers->first(function ($row) use ($currentRoomId) {
+            return (int) $row->to_room_id === (int) $currentRoomId;
+        });
+
+        if ($intoCurrent) {
+            $deployedAt = $intoCurrent->created_at;
+        } elseif ($equipment->equipment_acquired_date) {
+            $deployedAt = $equipment->equipment_acquired_date;
+        }
+
+        return response()->json([
+            'equipment_id' => (int) $equipment->equipment_id,
+            'deployed_at' => $deployedAt,
+            'last_moved_at' => $lastMovedAt,
+            'disposed_at' => $disposal->disposal_disposed_at ?? null,
+            'disposal_reason' => $disposal->disposal_reason ?? null,
+            'disposal_area' => $disposal->disposal_area_location ?? null,
+            'last_maintenance_at' => data_get($maintenance->first(), 'at'),
+            'transfers' => $transfers->values(),
+            'maintenance' => $maintenance->values(),
+        ]);
     }
 
     /*
@@ -12585,6 +13420,58 @@ class MaintenanceController extends Controller
 
             $reportId = DB::table('reports_table')
                 ->insertGetId($reportPayload, 'report_id');
+
+            $itemPayloads = [];
+
+            $equipmentIds = collect($request->input('report_equipment_ids', []))
+                ->when(
+                    $request->filled('report_equipment_id'),
+                    fn ($ids) => $ids->push($request->report_equipment_id)
+                )
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            $manualNames = collect($request->input('report_equipment_manuals', []))
+                ->when(
+                    $request->filled('report_equipment_manual'),
+                    fn ($names) => $names->push($request->report_equipment_manual)
+                )
+                ->map(fn ($name) => trim((string) $name))
+                ->filter()
+                ->unique(fn ($name) => mb_strtolower($name))
+                ->values();
+
+            foreach ($equipmentIds as $equipmentId) {
+                $itemPayloads[] = [
+                    'equipment_id' => (int) $equipmentId,
+                    'suggested_issue' => $request->report_suggested_issue,
+                    'problem_description' => $request->report_problem_description,
+                    'uploaded_image' => $imagePath,
+                ];
+            }
+
+            foreach ($manualNames as $manualName) {
+                $itemPayloads[] = [
+                    'unlisted_name' => $manualName,
+                    'suggested_issue' => $request->report_suggested_issue,
+                    'problem_description' => $request->report_problem_description,
+                    'uploaded_image' => $imagePath,
+                ];
+            }
+
+            if ($itemPayloads === [] && ($request->filled('report_equipment_id') || $request->filled('report_equipment_manual'))) {
+                $itemPayloads[] = [
+                    'equipment_id' => $request->report_equipment_id,
+                    'unlisted_name' => $request->report_equipment_manual,
+                    'suggested_issue' => $request->report_suggested_issue,
+                    'problem_description' => $request->report_problem_description,
+                    'uploaded_image' => $imagePath,
+                ];
+            }
+
+            ReportItems::createForReport((int) $reportId, $itemPayloads);
 
 
             // =====================================================

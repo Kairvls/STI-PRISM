@@ -63,7 +63,7 @@
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search report ID, equipment, room, reporter"
+                        placeholder="Search ticket code, equipment, room, reporter"
                         class="h-9 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5"
                     />
                 </div>
@@ -499,7 +499,7 @@
                         class="border-b border-gray-100 hover:bg-yellow-50/30 transition {{ $rowBg }}"
                     >
                         <td class="px-5 py-4 text-sm font-semibold text-gray-500">
-                            No.{{ $report->report_id }}
+                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
                         </td>
                         <td class="px-5 py-4">
                             <div>
@@ -532,10 +532,25 @@
 
                         <td class="px-5 py-4 text-sm text-gray-600">
                             <div>
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    @php
+                                        $tableEqParts = \App\Support\ReportItems::splitMoreLabel(
+                                            $report->equipment_display ?? $report->equipment_name ?? 'Unlisted'
+                                        );
+                                    @endphp
                                     <p class="font-medium text-slate-800">
-                                        {{ $report->equipment_name }}
+                                        {{ $tableEqParts['primary'] }}
                                     </p>
+                                    @if ($tableEqParts['more'] > 0)
+                                        <button
+                                            type="button"
+                                            onclick="openReportItemsHighlight({{ $report->report_id }})"
+                                            data-tooltip="View all equipment on this ticket"
+                                            class="inline-flex items-center rounded-md bg-[#0037C7]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#0037C7] ring-1 ring-[#0037C7]/20 transition hover:bg-[#0037C7] hover:text-white"
+                                        >
+                                            +{{ $tableEqParts['more'] }} more
+                                        </button>
+                                    @endif
                                     @if ((int) ($report->report_related_count ?? 1) > 1)
                                         <button
                                             type="button"
@@ -857,8 +872,11 @@
             $report->report_urgency_level == "Urgent"
                 ? "bg-rose-50 text-rose-700"
                 : "bg-slate-100 text-slate-500";
-        $historyCount = collect($report->equipment_report_history ?? [])->count();
-        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Unlisted");
+        $historyCount = collect($report->report_timeline ?? $report->equipment_report_history ?? [])->count();
+        $viewItems = collect($report->report_items ?? []);
+        $equipmentLabel = $report->equipment_display
+            ?? $report->equipment_name
+            ?? ($report->report_unlisted_equipment_name ?? "Unlisted");
         $reporterInitials = collect(explode(" ", trim($report->reporter_full_name ?? "R")))
             ->filter()
             ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
@@ -921,7 +939,7 @@
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="hash" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                <span>{{ $report->reporter_employee_id ?? "—" }} · Ticket #{{ $report->report_id }}</span>
+                                <span>{{ $report->reporter_employee_id ?? "—" }} · {{ \App\Support\ReportGrouping::ticketCode($report) }}</span>
                             </p>
                         </div>
                     </div>
@@ -948,11 +966,49 @@
 
                 <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                     <div id="report-panel-details-{{ $report->report_id }}">
+                        @if ($viewItems->count() > 0)
+                            <div
+                                id="report-equipment-items-{{ $report->report_id }}"
+                                class="rounded-2xl transition ring-0 ring-transparent"
+                            >
+                            <p class="mb-3 text-sm font-medium text-slate-600">
+                                Equipment items{{ $viewItems->count() > 1 ? " · ".$viewItems->count() : "" }}
+                            </p>
+                            <ul class="mb-5 space-y-3">
+                                @foreach ($viewItems as $item)
+                                    @php
+                                        $itemStatus = (string) ($item->report_item_status ?? "Pending");
+                                        $itemStatusPill = $statusMap[$itemStatus] ?? "bg-slate-100 text-slate-600";
+                                    @endphp
+                                    <li class="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-semibold text-slate-900">
+                                                    {{ \App\Support\ReportItems::displayName($item) }}
+                                                </p>
+                                                <p class="mt-0.5 text-xs text-slate-500">
+                                                    Issue: {{ $item->report_item_suggested_issue ?: ($report->report_suggested_issue ?? "None given") }}
+                                                </p>
+                                            </div>
+                                            <span class="inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium {{ $itemStatusPill }}">
+                                                {{ $itemStatus }}
+                                            </span>
+                                        </div>
+                                        @include('components.tables.partials.report-item-equipment-details', [
+                                            'item' => $item,
+                                            'compact' => false,
+                                        ])
+                                    </li>
+                                @endforeach
+                            </ul>
+                            </div>
+                        @endif
+
                         <p class="mb-3 text-sm font-medium text-slate-600">Report information</p>
                         <div class="overflow-hidden rounded-xl border border-slate-200">
                             <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
                                 <span class="text-sm text-slate-500">Issue</span>
-                                <span class="text-right text-sm font-medium text-slate-800">{{ $report->report_suggested_issue ?? "None given" }}</span>
+                                <span class="text-right text-sm font-medium text-slate-800">{{ $report->issue_display ?? $report->report_suggested_issue ?? "None given" }}</span>
                             </div>
                             <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
                                 <span class="text-sm text-slate-500">Assigned</span>
@@ -1015,7 +1071,10 @@
                     </div>
 
                     <div id="report-panel-history-{{ $report->report_id }}" class="hidden">
-                        <p class="mb-3 text-sm font-medium text-slate-600">Equipment timeline</p>
+                        <p class="mb-3 text-sm font-medium text-slate-600">Ticket timeline</p>
+                        <p class="mb-4 text-xs leading-5 text-slate-500">
+                            Status updates for equipment on this ticket, plus earlier reports for those same assets.
+                        </p>
                         @include("components.tables.partials.equipment-report-history", ["report" => $report])
                     </div>
                 </div>
@@ -1036,6 +1095,11 @@
             'For Replacement' => 'bg-orange-500',
             default => 'bg-gray-400',
         };
+        $updateItems = collect($report->report_items ?? []);
+        $openUpdateItems = $updateItems->filter(
+            fn ($item) => in_array($item->report_item_status, ['Pending', 'Processing'], true)
+        );
+        $isMultiItemUpdate = $updateItems->count() > 1;
     @endphp
     <div id="update-modal-{{ $report->report_id }}" class="fixed inset-0 z-50 hidden overflow-hidden">
         <div
@@ -1050,7 +1114,7 @@
                 <div class="flex shrink-0 items-start justify-between border-b border-gray-100 px-6 py-5">
                     <div class="min-w-0">
                         <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                            Report #{{ $report->report_id }}
+                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
                         </p>
                         <h2 class="mt-1 text-xl font-semibold text-gray-900">
                             Update Status
@@ -1091,6 +1155,56 @@
                             </div>
                         </div>
 
+                        @if ($isMultiItemUpdate && $report->report_current_status == "Processing")
+                            <div>
+                                <p class="mb-2 text-sm font-semibold text-gray-700">
+                                    Equipment items
+                                </p>
+                                <p class="mb-3 text-xs leading-5 text-gray-500">
+                                    Select which equipment this decision applies to. Leave unchecked to apply to all open items.
+                                </p>
+                                <div class="space-y-2">
+                                    @foreach ($updateItems as $item)
+                                        @php
+                                            $itemIsOpen = in_array($item->report_item_status, ['Pending', 'Processing'], true);
+                                        @endphp
+                                        <label class="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 {{ $itemIsOpen ? 'cursor-pointer' : 'opacity-60' }}">
+                                            @if ($itemIsOpen)
+                                                <input
+                                                    type="checkbox"
+                                                    name="report_item_ids[]"
+                                                    value="{{ $item->report_item_id }}"
+                                                    class="mt-1 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                                                />
+                                            @else
+                                                <input type="checkbox" disabled class="mt-1 rounded border-gray-300" />
+                                            @endif
+                                            <span class="min-w-0">
+                                                <span class="block text-sm font-semibold text-gray-900">
+                                                    {{ \App\Support\ReportItems::displayName($item) }}
+                                                </span>
+                                                <span class="mt-0.5 block text-xs text-gray-500">
+                                                    Current: {{ $item->report_item_status }}
+                                                    @if (!empty($item->report_item_suggested_issue))
+                                                        · {{ $item->report_item_suggested_issue }}
+                                                    @endif
+                                                </span>
+                                                @include('components.tables.partials.report-item-equipment-details', [
+                                                    'item' => $item,
+                                                    'compact' => true,
+                                                ])
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @if ($openUpdateItems->isEmpty())
+                                    <p class="mt-2 text-xs text-amber-700">
+                                        All equipment items on this report already have a final status.
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
+
                         {{-- Change status --}}
                         <div>
                             <label
@@ -1108,7 +1222,7 @@
                                 @if ($report->report_current_status == "Pending")
                                     <option value="" selected disabled>Select status</option>
                                     <option value="Processing">Processing</option>
-                                @elseif ($report->report_current_status == "Processing")
+                                @elseif ($report->report_current_status == "Processing" || $openUpdateItems->isNotEmpty())
                                     <option value="" selected disabled>Select status</option>
                                     <option value="Resolved">Resolved</option>
                                     <option value="For Replacement">For Replacement</option>
@@ -1122,7 +1236,12 @@
                             @if ($report->report_current_status == "Pending")
                                 <div class="mt-3 flex items-start gap-2 rounded-xl bg-gray-50 px-3.5 py-3 text-xs leading-5 text-gray-500">
                                     <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                                    <p>Starting this report will make you responsible for handling it.</p>
+                                    <p>
+                                        Starting this report will make you responsible for handling it.
+                                        @if ($isMultiItemUpdate)
+                                            You can resolve or send individual equipment for replacement after starting.
+                                        @endif
+                                    </p>
                                 </div>
                             @endif
                         </div>
@@ -1231,7 +1350,9 @@
 @foreach ($reports as $report)
     @continue($report->report_current_status !== 'Pending')
     @php
-        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Equipment Report");
+        $equipmentLabel = $report->equipment_display
+            ?? $report->equipment_name
+            ?? ($report->report_unlisted_equipment_name ?? "Equipment Report");
     @endphp
     <div id="reject-modal-{{ $report->report_id }}" class="fixed inset-0 z-50 hidden overflow-hidden">
         <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
@@ -1241,7 +1362,7 @@
             >
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">#{{ $report->report_id }} · {{ $report->report_current_status }}</p>
+                        <p class="text-xs text-slate-400">{{ \App\Support\ReportGrouping::ticketCode($report) }} · {{ $report->report_current_status }}</p>
                         <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
                             {{ $equipmentLabel }}
                         </h2>
@@ -1398,6 +1519,11 @@
     function openReportModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove("hidden");
+        if (typeof window.initReportEquipmentTabCarousels === "function") {
+            window.requestAnimationFrame(function () {
+                window.initReportEquipmentTabCarousels();
+            });
+        }
     }
 
     function closeReportModal(modalId) {
@@ -1436,6 +1562,37 @@
     function openReportHistory(reportId) {
         openReportModal(`view-modal-${reportId}`);
         switchReportViewTab(reportId, "history");
+    }
+
+    function openReportItemsHighlight(reportId) {
+        openReportModal(`view-modal-${reportId}`);
+        switchReportViewTab(reportId, "details");
+
+        window.setTimeout(function () {
+            const panel = document.getElementById(
+                `report-equipment-items-${reportId}`
+            );
+            if (!panel) return;
+
+            panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            panel.classList.add(
+                "ring-2",
+                "ring-[#0037C7]",
+                "ring-offset-2",
+                "bg-sky-50/80"
+            );
+
+            window.setTimeout(function () {
+                panel.classList.remove(
+                    "ring-2",
+                    "ring-[#0037C7]",
+                    "ring-offset-2",
+                    "bg-sky-50/80"
+                );
+            }, 1800);
+
+            if (typeof lucide !== "undefined") lucide.createIcons();
+        }, 80);
     }
 
     function setReportView(view) {

@@ -5,7 +5,7 @@
     <template x-if="roomLayout.selectedAssetId && selectedLayoutAsset()">
         <div class="flex min-h-0 flex-1 flex-col">
             <div class="border-b border-slate-100 px-4 py-3">
-                <button type="button" @click="comlabBack()" class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900">
+                <button type="button" @click="comlabBack(); roomLayout.lifecycle = { loading: false, data: null, equipmentId: null }" class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900">
                     <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
                     Back
                 </button>
@@ -13,44 +13,19 @@
                 <h3 class="mt-1 truncate text-base font-semibold text-slate-900" x-text="selectedLayoutAsset()?.asset_tag || selectedLayoutAsset()?.name"></h3>
                 <p class="text-xs text-slate-500" x-text="comlabAssetPlacementHint(selectedLayoutAsset())"></p>
             </div>
-            <div class="min-h-0 flex-1 space-y-0 overflow-y-auto px-4 py-2 text-sm">
-                <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                    <span class="text-slate-400">Name</span>
-                    <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.name"></span>
-                </div>
-                <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                    <span class="text-slate-400">Brand</span>
-                    <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.brand || '—'"></span>
-                </div>
-                <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                    <span class="text-slate-400">Model</span>
-                    <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.model || '—'"></span>
-                </div>
-                <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                    <span class="text-slate-400">Serial</span>
-                    <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.serial_number || '—'"></span>
-                </div>
-                <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-                    <span class="text-slate-400">Condition</span>
-                    <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.condition || '—'"></span>
-                </div>
-                <div class="flex items-center justify-between gap-3 py-3">
-                    <span class="text-slate-400">Placement</span>
-                    <span class="font-medium text-slate-800" x-text="comlabAssetPlacementLabel(selectedLayoutAsset())"></span>
-                </div>
-                <div
-                    x-show="roomLayout.edit && selectedLayoutAsset() && isComlabRowZone(selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location)"
-                    class="border-t border-slate-100 pt-3"
+            @include('maintenance-personnel.infrastructure.partials.layout-asset-details')
+            <div
+                x-show="roomLayout.edit && selectedLayoutAsset() && isComlabRowZone(selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location)"
+                class="border-t border-slate-100 px-4 py-3"
+            >
+                <button
+                    type="button"
+                    @click="sendEquipmentToHolding(selectedLayoutAsset().id)"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-100"
                 >
-                    <button
-                        type="button"
-                        @click="sendEquipmentToHolding(selectedLayoutAsset().id)"
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-100"
-                    >
-                        <i data-lucide="inbox" class="h-4 w-4"></i>
-                        Remove from row → Holding
-                    </button>
-                </div>
+                    <i data-lucide="inbox" class="h-4 w-4"></i>
+                    Remove from row → Holding
+                </button>
             </div>
         </div>
     </template>

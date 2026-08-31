@@ -64,10 +64,10 @@
         <header class="mb-6">
             <div class="mb-4 flex items-center gap-2 text-sm text-slate-400">
                 <a
-                    href="{{ url('/maintenance/dashboard') }}"
+                    href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
                     class="transition hover:text-slate-700"
                 >
-                    Dashboard
+                    {{ $equipmentBack['label'] ?? 'All Equipment' }}
                 </a>
                 <i data-lucide="chevron-right" class="h-4 w-4"></i>
                 <span class="font-medium text-slate-600">Equipment details</span>
@@ -113,11 +113,11 @@
                 </div>
 
                 <a
-                    href="{{ url('/maintenance/dashboard') }}"
+                    href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
                     class="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                 >
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                    Back
+                    Back to {{ $equipmentBack['label'] ?? 'All Equipment' }}
                 </a>
             </div>
         </header>
@@ -196,6 +196,26 @@
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase date</p>
                             </div>
                             <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_purchase_date) }}</p>
+                        </div>
+                        <div>
+                            <div class="mb-3 flex items-center gap-2">
+                                <i data-lucide="calendar-check" class="h-4 w-4 text-slate-400"></i>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Acquired date</p>
+                            </div>
+                            <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_acquired_date) }}</p>
+                        </div>
+                        <div>
+                            <div class="mb-3 flex items-center gap-2">
+                                <i data-lucide="banknote" class="h-4 w-4 text-slate-400"></i>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase cost</p>
+                            </div>
+                            <p class="font-semibold text-slate-900">
+                                @if (isset($equipment->equipment_purchase_cost) && $equipment->equipment_purchase_cost !== null && $equipment->equipment_purchase_cost !== '')
+                                    ₱{{ number_format((float) $equipment->equipment_purchase_cost, 2) }}
+                                @else
+                                    {{ $na(null) }}
+                                @endif
+                            </p>
                         </div>
                         <div>
                             <div class="mb-3 flex items-center gap-2">

@@ -484,6 +484,7 @@
                                                     <option value="Office">Office</option>
                                                     <option value="Library">Library</option>
                                                     <option value="School Clinic">School Clinic</option>
+                                                    <option value="Storage / Stockroom">Storage / Stockroom</option>
                                                 </select>
                                             </label>
 
@@ -613,6 +614,7 @@
                                                     <option value="Office">Office</option>
                                                     <option value="Library">Library</option>
                                                     <option value="School Clinic">School Clinic</option>
+                                                    <option value="Storage / Stockroom">Storage / Stockroom</option>
                                                 </select>
                                             </label>
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">

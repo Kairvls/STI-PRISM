@@ -84,7 +84,7 @@
                                 {{ $nonUrgentReportsNeedingAction }} non-urgent {{ \Illuminate\Support\Str::plural('report', $nonUrgentReportsNeedingAction) }} need action
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Pending for 5 days or more, or the requested date has arrived.
+                                Pending for {{ \App\Support\ReportGrouping::nonUrgentReminderGraceDays() }} days or more, or the requested date has arrived.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-sky-400"></i>

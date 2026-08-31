@@ -1,30 +1,52 @@
 @php
-    $equipmentHistory = collect($report->equipment_report_history ?? []);
-    $itemName = $report->equipment_name
-        ?? $report->report_unlisted_equipment_name
-        ?? 'This item';
+    $timeline = collect($report->report_timeline ?? []);
+    if ($timeline->isEmpty() && ! empty($report->equipment_report_history)) {
+        // Fallback for callers that have not attached the new timeline yet.
+        $timeline = collect($report->equipment_report_history)->map(function ($pastReport) use ($report) {
+            return (object) [
+                'type' => 'past_report',
+                'at' => $pastReport->report_submitted_at,
+                'title' => $report->equipment_name ?? $pastReport->equipment_name ?? 'Equipment',
+                'subtitle' => ($pastReport->report_suggested_issue ?: 'Report')
+                    .(! empty($pastReport->room_name) ? ' in '.$pastReport->room_name : ''),
+                'urgency' => $pastReport->report_urgency_level ?? null,
+                'status_label' => $pastReport->report_current_status,
+                'status_key' => $pastReport->report_current_status,
+                'meta' => trim(
+                    ($pastReport->reporter_full_name ?? '')
+                    .(! empty($pastReport->report_reporter_employee_id) ? ' · '.$pastReport->report_reporter_employee_id : '')
+                ),
+                'notes' => $pastReport->report_problem_description ?? null,
+                'is_current' => (int) $pastReport->report_id === (int) $report->report_id,
+            ];
+        });
+    }
 @endphp
 
 <div id="equipment-history-{{ $report->report_id }}">
-    @if (!$report->report_equipment_id || $equipmentHistory->isEmpty())
-        <p class="py-6 text-sm text-slate-400">No earlier reports for this item.</p>
+    @if ($timeline->isEmpty())
+        <p class="py-6 text-sm text-slate-400">No timeline events for this ticket yet.</p>
     @else
         <ol class="relative ml-3">
-            @foreach ($equipmentHistory as $index => $pastReport)
+            @foreach ($timeline as $index => $event)
                 @php
-                    $isCurrent = (int) $pastReport->report_id === (int) $report->report_id;
-                    $isLast = $index === $equipmentHistory->count() - 1;
-                    $statusLabel = match ($pastReport->report_current_status) {
-                        'Pending' => 'Waiting for staff',
-                        'Processing' => 'In progress',
-                        'Resolved' => 'Fixed',
-                        'Rejected' => 'Not accepted',
-                        'For Replacement' => 'Needs replacement',
-                        default => $pastReport->report_current_status,
+                    $isLast = $index === $timeline->count() - 1;
+                    $isCurrent = (bool) ($event->is_current ?? false);
+                    $statusKey = (string) ($event->status_key ?? '');
+                    $statusPill = match ($statusKey) {
+                        'Pending' => 'bg-amber-50 text-amber-700',
+                        'Processing' => 'bg-sky-50 text-sky-700',
+                        'Resolved' => 'bg-emerald-50 text-emerald-700',
+                        'Rejected' => 'bg-rose-50 text-rose-700',
+                        'For Replacement' => 'bg-orange-50 text-orange-700',
+                        default => 'bg-slate-100 text-slate-600',
                     };
-                    $entryName = $report->equipment_name
-                        ?? $pastReport->report_unlisted_equipment_name
-                        ?? $itemName;
+                    $typeLabel = match ((string) ($event->type ?? '')) {
+                        'filed' => 'This ticket',
+                        'item_status' => 'Item update',
+                        'past_report' => 'Earlier report',
+                        default => null,
+                    };
                 @endphp
 
                 <li class="relative pb-8 {{ $isLast ? 'pb-0' : '' }}">
@@ -42,38 +64,47 @@
                         <div class="min-w-0 flex-1 -mt-0.5">
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="text-[15px] font-semibold text-slate-900">
-                                    {{ $entryName }}
+                                    {{ $event->title }}
                                 </p>
-                                <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $pastReport->report_urgency_level === 'Urgent' ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-slate-500 ring-1 ring-slate-200/80' }}">
-                                    {{ $pastReport->report_urgency_level ?? 'Non-Urgent' }}
-                                </span>
-                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                    {{ $statusLabel }}
-                                </span>
+                                @if ($typeLabel)
+                                    <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+                                        {{ $typeLabel }}
+                                    </span>
+                                @endif
+                                @if (!empty($event->urgency))
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $event->urgency === 'Urgent' ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-slate-500 ring-1 ring-slate-200/80' }}">
+                                        {{ $event->urgency }}
+                                    </span>
+                                @endif
+                                @if (!empty($event->status_label))
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusPill }}">
+                                        {{ $event->status_label }}
+                                    </span>
+                                @endif
                             </div>
 
-                            <p class="mt-0.5 text-sm text-slate-600">
-                                {{ $pastReport->report_suggested_issue ?: 'No problem named' }}
-                                @if ($pastReport->room_name)
-                                    in {{ $pastReport->room_name }}
-                                @endif
-                            </p>
-
-                            @if ($pastReport->report_problem_description)
-                                <p class="mt-1 text-sm leading-6 text-slate-500">
-                                    {{ \Illuminate\Support\Str::limit($pastReport->report_problem_description, 120) }}
+                            @if (!empty($event->subtitle))
+                                <p class="mt-0.5 text-sm text-slate-600">
+                                    {{ $event->subtitle }}
                                 </p>
                             @endif
 
-                            <p class="mt-2 text-xs leading-5 text-slate-500">
-                                {{ $pastReport->reporter_full_name ?? 'Unknown reporter' }}
-                                @if ($pastReport->report_reporter_employee_id)
-                                    · {{ $pastReport->report_reporter_employee_id }}
-                                @endif
-                            </p>
-                            <p class="mt-0.5 text-xs text-slate-400">
-                                {{ \Carbon\Carbon::parse($pastReport->report_submitted_at)->format('M d, Y g:i A') }}
-                            </p>
+                            @if (!empty($event->notes))
+                                <p class="mt-1 text-sm leading-6 text-slate-500">
+                                    {{ \Illuminate\Support\Str::limit($event->notes, 140) }}
+                                </p>
+                            @endif
+
+                            @if (!empty($event->meta))
+                                <p class="mt-2 text-xs leading-5 text-slate-500">
+                                    {{ $event->meta }}
+                                </p>
+                            @endif
+                            @if (!empty($event->at))
+                                <p class="mt-0.5 text-xs text-slate-400">
+                                    {{ \Carbon\Carbon::parse($event->at)->format('M d, Y g:i A') }}
+                                </p>
+                            @endif
                         </div>
                     </div>
                 </li>
