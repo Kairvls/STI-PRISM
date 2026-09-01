@@ -36,10 +36,17 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
             background: #fff;
             color: var(--ink);
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         body {
-            overflow-x: clip;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body.mobile-nav-open {
+            overflow: hidden;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -1264,8 +1271,9 @@
         }
 
         .campus-analysis-card {
-            background: #eef1ec;
-            border: 0;
+            background: #fff;
+            border: 1px solid var(--line);
+            overflow: visible;
         }
 
         @media (min-width: 1024px) {
@@ -1321,134 +1329,404 @@
 
         .month-bar:hover .month-bar-tip { opacity: 1; }
 
-        .analysis-body {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
-            flex: 1;
-        }
-
-        @media (min-width: 640px) {
-            .analysis-body {
-                grid-template-columns: 132px 1fr;
-                gap: 14px;
-                align-items: stretch;
-            }
-        }
-
-        .analysis-metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        @media (min-width: 640px) {
-            .analysis-metrics {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .analysis-metric {
-            background: #fff;
-            border-radius: 18px;
-            padding: 16px 14px 14px;
-            box-shadow: 0 8px 20px rgba(15,23,42,.04);
+        .analysis-card-head {
             display: flex;
-            flex-direction: column;
-            min-height: 0;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
         }
 
-        .analysis-metric-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 999px;
+        .analysis-card-head-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .analysis-card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: #eef3ff;
+            color: var(--blue);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: #f3f4f6;
-            color: var(--ink);
-            margin-bottom: 12px;
+            flex-shrink: 0;
         }
 
-        .analysis-flow {
-            background: #d7e4cf;
-            border-radius: 22px;
-            padding: 16px 16px 14px;
+        .analysis-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--ink);
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .analysis-card-info {
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 1px solid #d7deee;
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .analysis-total {
+            font-size: clamp(2rem, 5vw, 2.65rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--ink);
+            line-height: 1;
+            margin: 0 0 22px;
+        }
+
+        .analysis-total-inring {
+            position: absolute;
+            inset: 0;
             display: flex;
             flex-direction: column;
-            min-width: 0;
-            position: relative;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
         }
 
-        .analysis-gauge {
-            position: relative;
-            width: min(100%, 240px);
-            margin: 4px auto 0;
+        .analysis-total-inring .analysis-total-value {
+            font-size: clamp(1.75rem, 4vw, 2.25rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--ink);
+            line-height: 1;
         }
 
-        .analysis-gauge svg {
+        .analysis-empty-state {
+            margin: 0;
+            padding: 28px 16px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px dashed #dbe3f0;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .analysis-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        @media (min-width: 640px) {
+            .analysis-content {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 18px 24px;
+            }
+        }
+
+        .analysis-rings-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: min(100%, 230px);
+            margin: 0 auto;
+        }
+
+        .analysis-rings {
+            position: relative;
+            width: 100%;
+        }
+
+        .analysis-rings svg {
             display: block;
             width: 100%;
             height: auto;
         }
 
-        .analysis-gauge-center {
+        .analysis-rings-foot {
+            text-align: center;
+            width: 100%;
+            padding: 0 4px;
+        }
+
+        .analysis-rings-foot .pct {
+            font-size: clamp(1.75rem, 4vw, 2.15rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--ink);
+            line-height: 1;
+        }
+
+        .analysis-rings-foot .pct.is-equipment-name {
+            font-size: clamp(1.15rem, 3.2vw, 1.45rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+            color: var(--ink);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .analysis-rings-foot .pct-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-top: 6px;
+            line-height: 1.25;
+        }
+
+        .analysis-rings-foot .pct-hint {
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-top: 4px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: normal;
+            word-break: break-all;
+        }
+
+        .analysis-rings-foot.is-interactive {
+            cursor: help;
+        }
+
+        .prism-tooltip {
+            position: relative;
+            display: block;
+            max-width: 100%;
+            min-width: 0;
+        }
+
+        .prism-tooltip.is-truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .prism-tooltip.is-truncate:not(.has-overflow)::after,
+        .prism-tooltip.is-truncate:not(.has-overflow)::before {
+            display: none;
+        }
+
+        .prism-tooltip.is-truncate.has-overflow {
+            cursor: help;
+        }
+
+        .analysis-breakdown .prism-tooltip::after {
+            bottom: auto;
+            top: calc(100% + 10px);
+            transform: translateX(-50%) translateY(-6px);
+        }
+
+        .analysis-breakdown .prism-tooltip:hover::after,
+        .analysis-breakdown .prism-tooltip:focus-visible::after {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .analysis-breakdown .prism-tooltip::before {
+            bottom: auto;
+            top: calc(100% + 2px);
+            border-top-color: transparent;
+            border-bottom-color: #0f172a;
+        }
+
+        .prism-tooltip::after {
+            content: attr(data-tooltip);
             position: absolute;
             left: 50%;
-            top: 56%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            pointer-events: none;
-        }
-
-        .analysis-tooltip {
-            position: absolute;
-            top: 18%;
-            right: 4%;
-            background: #215c3a;
-            color: #fff;
-            font-size: 13px;
-            font-weight: 800;
-            line-height: 1;
-            padding: 8px 12px;
-            border-radius: 10px;
-            box-shadow: 0 8px 16px rgba(33,92,58,.25);
-        }
-
-        .analysis-tooltip::after {
-            content: "";
-            position: absolute;
-            left: -5px;
-            bottom: 8px;
-            width: 10px;
-            height: 10px;
-            background: #215c3a;
-            transform: rotate(45deg);
-            border-radius: 2px;
-        }
-
-        .analysis-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-top: auto;
-            padding-top: 8px;
-        }
-
-        .analysis-legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            bottom: calc(100% + 10px);
+            transform: translateX(-50%) translateY(6px);
+            width: max-content;
+            max-width: min(300px, calc(100vw - 32px));
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #f8fafc;
             font-size: 12px;
+            font-weight: 600;
+            line-height: 1.45;
+            text-align: left;
+            white-space: normal;
+            word-break: break-word;
+            box-shadow: 0 14px 34px rgba(15, 23, 42, .22);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+            z-index: 30;
+        }
+
+        .prism-tooltip::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 2px);
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #0f172a;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .18s ease, visibility .18s ease;
+            z-index: 30;
+        }
+
+        .prism-tooltip:hover::after,
+        .prism-tooltip:focus-visible::after,
+        .prism-tooltip:hover::before,
+        .prism-tooltip:focus-visible::before {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .prism-tooltip:hover::after,
+        .prism-tooltip:focus-visible::after {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .prism-tooltip:focus-visible {
+            outline: 2px solid rgba(0, 37, 204, .35);
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+
+        .analysis-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .analysis-breakdown-title {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin: 0 0 4px;
+        }
+
+        .analysis-breakdown-item {
+            display: grid;
+            grid-template-columns: 4px minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+
+        .analysis-breakdown-bar {
+            width: 4px;
+            min-height: 52px;
+            height: 100%;
+            border-radius: 999px;
+            align-self: stretch;
+        }
+
+        .analysis-breakdown-bar.open { background: #0025cc; }
+        .analysis-breakdown-bar.resolved { background: #7cb8ff; }
+        .analysis-breakdown-bar.today { background: #fff200; }
+
+        .analysis-breakdown-label {
+            font-size: 14px;
             font-weight: 700;
             color: var(--ink);
+            line-height: 1.3;
         }
 
-        .analysis-legend-swatch {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            flex-shrink: 0;
+        .analysis-breakdown-label-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .analysis-breakdown-meta {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            line-height: 1.3;
+        }
+
+        .analysis-breakdown-location {
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+            line-height: 1.3;
+        }
+
+        .analysis-breakdown-bar.week { background: #7cb8ff; }
+        .analysis-breakdown-bar.month { background: #0025cc; }
+
+        .analysis-top-reporters {
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+        }
+
+        .analysis-top-reporters-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink);
+            margin: 0 0 12px;
+        }
+
+        .analysis-top-reporter-item {
+            display: grid;
+            grid-template-columns: 28px minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .analysis-top-reporter-item + .analysis-top-reporter-item {
+            border-top: 1px dashed #eceef2;
+        }
+
+        .analysis-top-reporter-rank {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: #f3f6ff;
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .analysis-top-reporter-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .analysis-top-reporter-count {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .analysis-top-reporters-empty {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 0;
         }
 
         .month-analysis-section {
@@ -1476,6 +1754,352 @@
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #c9cfde; border-radius: 6px; }
+
+        /* ── Mobile navigation ── */
+        #navbar {
+            width: 100%;
+            max-width: 100vw;
+            overflow: hidden;
+        }
+
+        #navbar .nav-inner {
+            width: 100%;
+            max-width: 1180px;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            height: 72px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        @media (min-width: 1024px) {
+            #navbar .nav-inner {
+                grid-template-columns: auto 1fr auto;
+                padding-left: 1.5rem;
+                padding-right: 1.5rem;
+                gap: 1rem;
+            }
+        }
+
+        #navbar .nav-logo {
+            min-width: 0;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        #navbar .nav-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.375rem;
+            min-width: 0;
+            flex-shrink: 0;
+        }
+
+        @media (min-width: 640px) {
+            #navbar .nav-actions {
+                gap: 0.5rem;
+            }
+        }
+
+        #navbar .nav-signin {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.8125rem;
+            white-space: nowrap;
+        }
+
+        @media (min-width: 640px) {
+            #navbar .nav-signin {
+                padding: 0.625rem 1.25rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        .mobile-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .92);
+            color: var(--ink);
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 0;
+            transition: background .2s, border-color .2s;
+        }
+
+        @media (min-width: 640px) {
+            .mobile-menu-btn {
+                width: 40px;
+                height: 40px;
+                border-radius: 12px;
+            }
+        }
+
+        .mobile-menu-btn:hover { background: #fff; border-color: #d7deee; }
+
+        .mobile-nav-panel {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 72px;
+            bottom: 0;
+            z-index: 45;
+            width: 100%;
+            max-width: 100vw;
+            background: rgba(255, 255, 255, .98);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--line);
+            padding: 20px 20px 28px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            transform: translateY(-8px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .22s ease, transform .22s ease, visibility .22s;
+        }
+        .mobile-nav-panel.is-open {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+        .mobile-nav-link {
+            display: block;
+            padding: 14px 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--ink);
+            text-decoration: none;
+            border-bottom: 1px solid var(--line);
+        }
+        .mobile-nav-link:last-child { border-bottom: 0; }
+        .mobile-nav-link.active { color: var(--blue); }
+
+        /* ── Hero collage (mobile/tablet) ── */
+        @media (max-width: 1023px) {
+            .hero-section {
+                min-height: auto !important;
+                padding-top: 6.5rem;
+                padding-bottom: 3rem;
+            }
+
+            .hero-section .hero-grid {
+                justify-items: center;
+            }
+
+            .hero-copy {
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                max-width: 560px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-copy .hero-lead,
+            .hero-copy .hero-register-form,
+            .hero-copy .hero-register-note,
+            .hero-copy .hero-cta-row,
+            .hero-copy .hero-trust {
+                width: 100%;
+                max-width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-trust {
+                justify-content: center;
+            }
+
+            .hero-wave-wrap {
+                overflow: hidden;
+            }
+
+            .hero-wave-svg {
+                width: 100%;
+                max-width: 100%;
+                left: 0;
+            }
+
+            .hero-wave-svg.back {
+                width: 90%;
+                left: -5%;
+            }
+
+            .hero-collage {
+                height: auto !important;
+                min-height: 0;
+                margin-top: 1.5rem;
+                width: 100%;
+                max-width: 420px;
+                margin-left: auto;
+                margin-right: auto;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            .hero-collage .hero-collage-glow {
+                display: none;
+            }
+
+            .hero-collage .ui-card {
+                position: relative !important;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+                bottom: auto !important;
+                width: 100% !important;
+                animation: none !important;
+                transform: none !important;
+            }
+
+            .process-copy {
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .process-copy .btn-outline {
+                align-self: center;
+            }
+
+            .features-head,
+            .product-head {
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 639px) {
+            .hero-collage {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                max-width: 340px;
+            }
+
+            .promo-banner {
+                padding: 2.5rem 1.25rem !important;
+                min-height: 240px;
+                overflow: visible;
+            }
+
+            .promo-banner h2 {
+                font-size: clamp(1.45rem, 6vw, 2rem) !important;
+                line-height: 1.2;
+            }
+
+            .month-chart-head {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 12px;
+            }
+
+            .month-chart-head .text-right {
+                text-align: left;
+            }
+
+            .campus-analysis-card {
+                padding: 1.25rem !important;
+            }
+
+            .analysis-card-head {
+                margin-bottom: 10px;
+            }
+
+            .analysis-card-title {
+                white-space: normal;
+                font-size: clamp(.9rem, 4vw, 1rem);
+                line-height: 1.25;
+            }
+
+            .campus-analysis-card .analysis-rings-foot {
+                margin-top: -0.5rem !important;
+            }
+
+            .analysis-rings-stack {
+                width: min(100%, 200px);
+            }
+
+            .analysis-breakdown {
+                padding-top: 20px;
+                border-top: 1px solid var(--line);
+            }
+
+            .analysis-breakdown-title {
+                text-align: center;
+            }
+
+            .product-status {
+                gap: 6px !important;
+                justify-content: center;
+            }
+
+            .product-status-step {
+                font-size: 10px;
+                padding: 5px 8px;
+            }
+
+            .social-proof-section {
+                overflow: hidden;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-section h1 {
+                font-size: clamp(1.85rem, 8vw, 2.35rem) !important;
+            }
+
+            .hero-cta-row {
+                flex-direction: column;
+            }
+
+            .hero-cta-row .btn-report,
+            .hero-cta-row .btn-blue {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .analysis-rings-stack {
+                width: min(100%, 180px);
+            }
+
+            .analysis-total-inring .analysis-total-value {
+                font-size: clamp(1.5rem, 7vw, 1.85rem);
+            }
+
+            .analysis-breakdown-bar {
+                min-height: 44px;
+            }
+
+            .analysis-breakdown-item {
+                gap: 10px;
+            }
+        }
+
+        /* ── Report modal shell (landing host) ── */
+        @media (max-width: 767px) {
+            #reportModal {
+                align-items: stretch !important;
+                padding: 0 !important;
+            }
+
+            #reportModal > .report-modal-wrap {
+                max-width: 100%;
+                height: 100%;
+                max-height: 100dvh;
+            }
+        }
     </style>
 </head>
 
@@ -1486,46 +2110,62 @@
 
     <!-- NAV -->
     <nav id="navbar" class="fixed top-0 inset-x-0 z-50 transition-all duration-300 bg-transparent">
-        <div class="max-w-[1180px] mx-auto px-5 lg:px-6 h-[72px] flex items-center justify-between gap-4">
-            <a href="#top" class="text-[1.15rem] font-extrabold tracking-tight no-underline" style="color:var(--ink);">
+        <div class="nav-inner">
+            <a href="#top" class="nav-logo text-[1.05rem] sm:text-[1.15rem] font-extrabold tracking-tight no-underline" style="color:var(--ink);">
                 Pa<span style="color:var(--blue);">Ayo</span>
             </a>
 
-            <div class="hidden lg:flex items-center gap-9">
+            <div class="hidden lg:flex items-center justify-center gap-9">
                 <a href="#top" class="nav-link active">Home</a>
-
                 <a href="#process" class="nav-link">Process</a>
                 <a href="#features" class="nav-link">Features</a>
                 <a href="#product" class="nav-link">System</a>
-                <!--<button type="button" onclick="openReportModal()"
-                        class="nav-link bg-transparent border-0 cursor-pointer p-0">
-                    Make Report
-                </button>-->
             </div>
 
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button type="button" onclick="openReportModal()"
-                        class="lg:hidden text-xs sm:text-sm font-semibold bg-transparent border-0 cursor-pointer p-0"
-                        style="color:var(--ink);">
-                    Report
-                </button>
+            <div class="nav-actions">
                 @guest
                     <button type="button" onclick="openReportModal()"
-                            class="hidden sm:inline text-sm font-semibold bg-transparent border-0 cursor-pointer"
+                            class="hidden md:inline lg:hidden text-sm font-semibold bg-transparent border-0 cursor-pointer whitespace-nowrap"
                             style="color:var(--ink);">
-                            Make Report
+                        Report
+                    </button>
+                    <button type="button" onclick="openReportModal()"
+                            class="hidden lg:inline text-sm font-semibold bg-transparent border-0 cursor-pointer whitespace-nowrap"
+                            style="color:var(--ink);">
+                        Make Report
                     </button>
                     <button type="button" onclick="openLoginModal()"
-                            class="btn-blue px-5 py-2.5 text-sm border-0 cursor-pointer">
+                            class="btn-blue nav-signin border-0 cursor-pointer">
                         Sign In
                     </button>
                 @else
                     <a href="{{ route('dashboard') }}"
-                       class="btn-blue px-5 py-2.5 text-sm no-underline inline-flex">
+                       class="btn-blue nav-signin no-underline inline-flex whitespace-nowrap">
                         Dashboard
                     </a>
                 @endguest
+                <button type="button"
+                        id="mobileMenuBtn"
+                        class="mobile-menu-btn lg:hidden"
+                        aria-label="Open navigation menu"
+                        aria-expanded="false"
+                        aria-controls="mobileNavPanel">
+                    <i data-lucide="menu" class="w-5 h-5" id="mobileMenuIcon"></i>
+                </button>
             </div>
+        </div>
+
+        <div id="mobileNavPanel" class="mobile-nav-panel lg:hidden" aria-hidden="true">
+            <a href="#top" class="mobile-nav-link active" data-mobile-nav>Home</a>
+            <a href="#process" class="mobile-nav-link" data-mobile-nav>Process</a>
+            <a href="#features" class="mobile-nav-link" data-mobile-nav>Features</a>
+            <a href="#product" class="mobile-nav-link" data-mobile-nav>System</a>
+            @guest
+                <button type="button" onclick="closeMobileNav(); openReportModal();"
+                        class="mobile-nav-link w-full text-left bg-transparent border-0 cursor-pointer">
+                    Make Report
+                </button>
+            @endguest
         </div>
     </nav>
 
@@ -1562,10 +2202,10 @@
         </div>
 
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6 relative z-10 w-full">
-            <div class="grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
+            <div class="hero-grid grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
 
-                <div class="reveal-left relative">
-                    <p class="text-sm font-semibold mb-4" style="color:var(--blue);">
+                <div class="hero-copy reveal-left relative">
+                    <p class="hero-lead text-sm font-semibold mb-4" style="color:var(--blue);">
                         Campus growth solution in a single platform.
                     </p>
 
@@ -1574,11 +2214,11 @@
                         We are here to make easy your campus asset ops
                     </h1>
 
-                    <p class="text-base leading-relaxed max-w-md mb-8" style="color:var(--muted);">
+                    <p class="hero-lead text-base leading-relaxed max-w-md mb-8" style="color:var(--muted);">
                         PaAyo centralizes procurement, inventory, and maintenance monitoring with mobile damage reporting and QR tracking for STI College Ormoc.
                     </p>
 
-                    <form id="reporterRegisterForm" method="POST" action="{{ route('reporter.register.start') }}" class="flex flex-col sm:flex-row gap-3 mb-2 max-w-lg">
+                    <form id="reporterRegisterForm" method="POST" action="{{ route('reporter.register.start') }}" class="hero-register-form flex flex-col sm:flex-row gap-3 mb-2 max-w-lg w-full">
                         @csrf
                         <input type="email"
                                id="reporterRegisterEmail"
@@ -1597,12 +2237,12 @@
                             <span id="reporterRegisterSubmitLabel">Submit</span>
                         </button>
                     </form>
-                    <p id="reporterRegisterLockMsg" class="hidden text-xs mb-3 max-w-lg font-semibold" style="color:#dc2626;"></p>
-                    <p class="text-xs mb-4 max-w-lg" style="color:var(--muted);">
+                    <p id="reporterRegisterLockMsg" class="hero-register-note hidden text-xs mb-3 max-w-lg w-full font-semibold" style="color:#dc2626;"></p>
+                    <p class="hero-register-note text-xs mb-4 max-w-lg w-full" style="color:var(--muted);">
                         First time reporting? Enter a real email you can open. We’ll send a form for you to fill up your employee ID, name, type, and contact. This is not a login account.
                     </p>
 
-                    <div class="flex flex-wrap gap-3 mb-6">
+                    <div class="hero-cta-row flex flex-wrap gap-3 mb-6">
                         
                         <button type="button" onclick="openLoginModal()"
                                     class="btn-blue magnetic inline-flex items-center gap-2 px-7 py-3.5 text-sm border-0 cursor-pointer">
@@ -1624,7 +2264,7 @@
                         @endguest
                     </div>
 
-                    <div class="flex flex-wrap gap-6 text-sm font-medium" style="color:var(--ink);">
+                    <div class="hero-trust flex flex-wrap gap-6 text-sm font-medium justify-center lg:justify-start" style="color:var(--ink);">
                         <span class="inline-flex items-center gap-2">
                             <i data-lucide="check-circle-2" class="w-5 h-5" style="color:var(--blue);"></i>
                             Free Register
@@ -1637,9 +2277,9 @@
                 </div>
 
                 <!-- Floating dashboard collage -->
-                <div class="relative h-[420px] md:h-[500px] reveal-right" style="transition-delay:.1s;">
+                <div class="hero-collage relative h-[420px] md:h-[500px] lg:h-[500px] reveal-right" style="transition-delay:.1s;">
                     <!-- Soft glow behind cards -->
-                    <div class="absolute inset-[8%] rounded-full pointer-events-none"
+                    <div class="hero-collage-glow absolute inset-[8%] rounded-full pointer-events-none"
                          style="background:radial-gradient(circle, rgba(0,37,204,.08), transparent 70%); filter:blur(20px);"></div>
 
                     <!-- Main chart card -->
@@ -1725,7 +2365,7 @@
     </section>
 
     <!-- SOCIAL PROOF -->
-    <section class="py-14 md:py-16 border-y" style="border-color:var(--line);">
+    <section class="social-proof-section py-14 md:py-16 border-y" style="border-color:var(--line);">
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6 text-center reveal">
             <p class="text-lg md:text-2xl font-semibold mb-10" style="color:var(--ink);">
                 Over <span data-count="{{ $yearlyReportTotal }}" style="color:var(--blue);">{{ $yearlyReportTotal }}</span>
@@ -1752,7 +2392,7 @@
         <div class="process-orb hidden lg:block" aria-hidden="true"></div>
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
             <div class="grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
-                <div class="lg:col-span-4 reveal-left">
+                <div class="process-copy lg:col-span-4 reveal-left">
                     <p class="text-xs font-bold tracking-[0.16em] uppercase mb-4" style="color:var(--blue);">
                         PaAyo operation across campus
                     </p>
@@ -1852,7 +2492,7 @@
                 </a>
             </div>
 
-            <div class="text-center max-w-2xl mx-auto mb-14 reveal">
+            <div class="text-center max-w-2xl mx-auto mb-14 reveal features-head">
                 <h2 class="text-3xl md:text-[2.4rem] font-extrabold mb-4" style="color:var(--ink);">
                     The system records each step in one platform.
                 </h2>
@@ -1892,7 +2532,7 @@
     <section id="product" class="stories-wrap pt-24 md:pt-32 pb-28 md:pb-36">
         <div class="stories-v-fade" aria-hidden="true"></div>
         <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
-            <div class="text-center max-w-2xl mx-auto mb-12 md:mb-16 reveal">
+            <div class="text-center max-w-2xl mx-auto mb-12 md:mb-16 reveal product-head">
                 <p class="text-xs font-bold tracking-[0.16em] uppercase mb-3" style="color:var(--blue);">
                     The platform
                 </p>
@@ -1987,7 +2627,7 @@
                         <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                         This Month
                     </div>
-                    <div class="flex items-end justify-between gap-4 mb-6">
+                    <div class="month-chart-head flex items-end justify-between gap-4 mb-6">
                         <div>
                             <h3 class="font-extrabold text-xl mb-1" style="color:var(--ink);">Reports in {{ $monthlyReportLabel }}</h3>
                             <p class="text-sm m-0" style="color:var(--muted);">Daily report volume for {{ $daysInMonth }} calendar days in {{ $monthlyReportLabel }}.</p>
@@ -2007,99 +2647,92 @@
                     </div>
                 </div>
 
-                <div class="campus-analysis-card p-6 md:p-7 reveal-scale" style="transition-delay:.1s;">
+                <div class="campus-analysis-card p-6 md:p-8 reveal-scale" style="transition-delay:.1s;">
                     @php
-                        $openThisMonth = (int) ($monthlyStatusCounts['Pending'] ?? 0) + (int) ($monthlyStatusCounts['Processing'] ?? 0);
-                        $resolvedThisMonth = (int) ($monthlyStatusCounts['Resolved'] ?? 0);
-                        $flowTotal = max((int) $monthlyReportTotal, 1);
-                        $resolvedShare = min(1, $resolvedThisMonth / $flowTotal);
-                        $openShare = min(1, $openThisMonth / $flowTotal);
-                        $resolvedPercent = (int) $monthlyReportTotal > 0 ? (int) round(($resolvedThisMonth / (int) $monthlyReportTotal) * 100) : 0;
-                        $reportsToday = (int) optional($weeklyReports->last())->count;
-                        $gaugeLength = 367.6;
-                        $outerLength = 433.5;
-                        $resolvedDash = round($gaugeLength * $resolvedShare, 1);
-                        $openDash = round($outerLength * $openShare, 1);
+                        $equipmentSlotCount = $latestReportedEquipmentToday->count();
+                        $arcScale = 0.82;
+                        $ringOuterR = 88;
+                        $ringMidR = 68;
+                        $ringInnerR = 48;
+                        $ringOuterLen = 2 * M_PI * $ringOuterR;
+                        $ringMidLen = 2 * M_PI * $ringMidR;
+                        $ringInnerLen = 2 * M_PI * $ringInnerR;
+                        $latestArcLen = round($ringInnerLen * $arcScale * ($equipmentSlotCount >= 1 ? 1 : 0), 2);
+                        $secondArcLen = round($ringMidLen * $arcScale * ($equipmentSlotCount >= 2 ? 1 : 0), 2);
+                        $thirdArcLen = round($ringOuterLen * $arcScale * ($equipmentSlotCount >= 3 ? 1 : 0), 2);
+                        $latestEquipment = $latestReportedEquipmentToday->first();
+                        $equipmentBarClasses = ['today', 'week', 'month'];
                     @endphp
-                    <h3 class="font-extrabold text-xl mb-4" style="color:var(--ink);">Campus Report Analysis</h3>
-                    <div class="analysis-body">
-                        <div class="analysis-metrics">
-                            <article class="analysis-metric">
-                                <span class="analysis-metric-icon" aria-hidden="true">
-                                    <i data-lucide="clipboard-list" class="w-4 h-4"></i>
-                                </span>
-                                <div class="text-[13px] font-bold" style="color:var(--ink);">Open reports</div>
-                                <div class="text-[28px] font-extrabold leading-none mt-1" style="color:var(--ink);">{{ $openThisMonth }}</div>
-                                <div class="text-[12px] mt-1" style="color:var(--muted);">
-                                    {{ $reportsToday > 0 ? '+'.$reportsToday.' new today' : 'this month' }}
+
+                    <div class="analysis-card-head">
+                        <div class="analysis-card-head-left">
+                            <span class="analysis-card-icon" aria-hidden="true">
+                                <i data-lucide="monitor-cog" class="w-4 h-4"></i>
+                            </span>
+                            <h3 class="analysis-card-title">Today's Reported Equipment</h3>
+                            <span class="analysis-card-info" title="Equipment reported today with asset tag or serial and room location" aria-hidden="true">
+                                <i data-lucide="info" class="w-3 h-3"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    @if ($equipmentReportedTodayCount > 0)
+                    <div class="analysis-content">
+                        <div class="analysis-rings-stack" aria-label="{{ $equipmentReportedTodayCount }} equipment reported today">
+                            <div class="analysis-rings">
+                                <svg viewBox="0 0 220 220" fill="none" aria-hidden="true">
+                                    <circle cx="110" cy="110" r="{{ $ringOuterR }}" stroke="#eceef2" stroke-width="13" stroke-dasharray="5 7" fill="none"/>
+                                    <circle cx="110" cy="110" r="{{ $ringMidR }}" stroke="#eceef2" stroke-width="13" stroke-dasharray="5 7" fill="none"/>
+                                    <circle cx="110" cy="110" r="{{ $ringInnerR }}" stroke="#eceef2" stroke-width="13" stroke-dasharray="5 7" fill="none"/>
+                                    <circle cx="110" cy="110" r="{{ $ringOuterR }}" stroke="#0025cc" stroke-width="13" stroke-linecap="round"
+                                            stroke-dasharray="{{ $thirdArcLen }} {{ $ringOuterLen - $thirdArcLen }}" fill="none"
+                                            transform="rotate(-90 110 110)"/>
+                                    <circle cx="110" cy="110" r="{{ $ringMidR }}" stroke="#7cb8ff" stroke-width="13" stroke-linecap="round"
+                                            stroke-dasharray="{{ $secondArcLen }} {{ $ringMidLen - $secondArcLen }}" fill="none"
+                                            transform="rotate(-90 110 110)"/>
+                                    <circle cx="110" cy="110" r="{{ $ringInnerR }}" stroke="#fff200" stroke-width="13" stroke-linecap="round"
+                                            stroke-dasharray="{{ $latestArcLen }} {{ $ringInnerLen - $latestArcLen }}" fill="none"
+                                            transform="rotate(-90 110 110)"/>
+                                </svg>
+                                <div class="analysis-total-inring">
+                                    <span class="analysis-total-value">{{ $equipmentReportedTodayCount }}</span>
                                 </div>
-                            </article>
-                            <article class="analysis-metric">
-                                <span class="analysis-metric-icon" aria-hidden="true">
-                                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                </span>
-                                <div class="text-[13px] font-bold" style="color:var(--ink);">Resolved</div>
-                                <div class="text-[28px] font-extrabold leading-none mt-1" style="color:var(--ink);">{{ $resolvedThisMonth }}</div>
-                                <div class="text-[12px] mt-1" style="color:var(--muted);">this month</div>
-                            </article>
+                            </div>
+                            <div class="analysis-rings-foot -mt-5 is-interactive prism-tooltip"
+                                 tabindex="0"
+                                 role="button"
+                                 aria-label="Latest reported equipment details"
+                                 data-tooltip="{{ $latestEquipment->equipment_name }} · {{ $latestEquipment->identifier }} · {{ $latestEquipment->location }}">
+                                <div class="pct is-equipment-name">{{ $latestEquipment->equipment_name }}</div>
+                                <div class="pct-label">latest report today</div>
+                                <div class="pct-hint">{{ $latestEquipment->identifier }}</div>
+                            </div>
                         </div>
 
-                        <article class="analysis-flow">
-                            <h4 class="font-extrabold text-[15px] m-0" style="color:var(--ink);">Report Flow</h4>
-                            <div class="analysis-gauge" aria-label="Report flow this month">
-                                <svg viewBox="0 0 240 188" fill="none" aria-hidden="true">
-                                    <defs>
-                                        <linearGradient id="reportFlowInner" x1="28" y1="150" x2="212" y2="40" gradientUnits="userSpaceOnUse">
-                                            <stop offset="0%" stop-color="#4f9a57"/>
-                                            <stop offset="55%" stop-color="#d6b23a"/>
-                                            <stop offset="100%" stop-color="#f0c94a"/>
-                                        </linearGradient>
-                                    </defs>
-                                    <path d="M52.5 164 A 78 78 0 1 1 187.5 164"
-                                          stroke="#c9d8c4"
-                                          stroke-width="22"
-                                          stroke-linecap="round"/>
-                                    <path d="M52.5 164 A 78 78 0 1 1 187.5 164"
-                                          stroke="url(#reportFlowInner)"
-                                          stroke-width="22"
-                                          stroke-linecap="round"
-                                          stroke-dasharray="{{ $resolvedDash }} {{ $gaugeLength }}"
-                                          pathLength="{{ $gaugeLength }}"/>
-                                    <path d="M40.4 170 A 92 92 0 1 1 199.6 170"
-                                          stroke="#cfc6e6"
-                                          stroke-width="10"
-                                          stroke-linecap="round"
-                                          opacity=".45"/>
-                                    <path d="M40.4 170 A 92 92 0 1 1 199.6 170"
-                                          stroke="#8f7cc0"
-                                          stroke-width="10"
-                                          stroke-linecap="round"
-                                          stroke-dasharray="{{ $openDash }} {{ $outerLength }}"
-                                          pathLength="{{ $outerLength }}"/>
-                                    <path d="M52.5 164 A 78 78 0 0 0 187.5 164"
-                                          stroke="#5ea45f"
-                                          stroke-width="16"
-                                          stroke-linecap="round"
-                                          opacity=".9"/>
-                                </svg>
-                                <div class="analysis-gauge-center">
-                                    <div class="text-[34px] font-extrabold leading-none" style="color:var(--ink);">{{ $monthlyReportTotal }}</div>
-                                    <div class="text-[11px] font-semibold mt-1" style="color:#5b6472;">{{ $resolvedPercent }}% resolved</div>
+                        <div class="analysis-breakdown">
+                            <p class="analysis-breakdown-title">Top 3 latest equipment reported today</p>
+                            @foreach ($latestReportedEquipmentToday as $index => $entry)
+                                <div class="analysis-breakdown-item">
+                                    <span class="analysis-breakdown-bar {{ $equipmentBarClasses[$index] ?? 'today' }}" aria-hidden="true"></span>
+                                    <div class="analysis-breakdown-label-wrap">
+                                        <span class="analysis-breakdown-label prism-tooltip is-truncate"
+                                              tabindex="0"
+                                              data-tooltip="{{ $entry->equipment_name }}">{{ $entry->equipment_name }}</span>
+                                        <span class="analysis-breakdown-meta prism-tooltip is-truncate"
+                                              tabindex="0"
+                                              data-tooltip="{{ $entry->identifier }}">{{ $entry->identifier }}</span>
+                                        <span class="analysis-breakdown-location prism-tooltip is-truncate"
+                                              tabindex="0"
+                                              data-tooltip="{{ $entry->location }}">{{ $entry->location }}</span>
+                                    </div>
                                 </div>
-                                <div class="analysis-tooltip">{{ $openThisMonth }}</div>
-                            </div>
-                            <div class="analysis-legend">
-                                <span class="analysis-legend-item">
-                                    <span class="analysis-legend-swatch" style="background:#215c3a;"></span>
-                                    Open reports
-                                </span>
-                                <span class="analysis-legend-item">
-                                    <span class="analysis-legend-swatch" style="background:#cfe3c8;"></span>
-                                    Resolved
-                                </span>
-                            </div>
-                        </article>
+                            @endforeach
+                        </div>
                     </div>
+                    @else
+                    <p class="analysis-total">{{ $equipmentReportedTodayCount }}</p>
+                    <p class="analysis-empty-state">No equipment has been reported today yet.</p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -2152,9 +2785,9 @@
     @endguest
 
     <div id="reportModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 overscroll-none"
          style="background: rgba(11, 18, 32, 0.7);">
-        <div class="w-full max-w-[1080px] relative modal-animation">
+        <div class="report-modal-wrap w-full max-w-[1080px] relative modal-animation min-h-0">
             @include('reporter.partials.report-form')
         </div>
     </div>
@@ -2162,6 +2795,25 @@
 
     <script>
         lucide.createIcons();
+
+        (function () {
+            function syncTruncateTooltips() {
+                document.querySelectorAll('.prism-tooltip.is-truncate').forEach(function (el) {
+                    const label = el.textContent.trim();
+                    if (!label || label === '—') {
+                        el.classList.remove('has-overflow');
+                        el.removeAttribute('data-tooltip');
+                        return;
+                    }
+
+                    el.setAttribute('data-tooltip', label);
+                    el.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 1);
+                });
+            }
+
+            syncTruncateTooltips();
+            window.addEventListener('resize', syncTruncateTooltips);
+        })();
 
         (function () {
             const carousel = document.querySelector('.month-carousel');
@@ -2220,6 +2872,46 @@
         window.addEventListener('scroll', () => {
             navbar.classList.toggle('nav-scrolled', window.scrollY > 20);
         }, { passive: true });
+
+        /* ── Mobile navigation ── */
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileNavPanel = document.getElementById('mobileNavPanel');
+        const mobileMenuIcon = document.getElementById('mobileMenuIcon');
+
+        function closeMobileNav() {
+            if (!mobileNavPanel || !mobileMenuBtn) return;
+            mobileNavPanel.classList.remove('is-open');
+            mobileNavPanel.setAttribute('aria-hidden', 'true');
+            mobileMenuBtn.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('mobile-nav-open');
+            if (mobileMenuIcon) mobileMenuIcon.setAttribute('data-lucide', 'menu');
+            lucide.createIcons();
+        }
+
+        function openMobileNav() {
+            if (!mobileNavPanel || !mobileMenuBtn) return;
+            mobileNavPanel.classList.add('is-open');
+            mobileNavPanel.setAttribute('aria-hidden', 'false');
+            mobileMenuBtn.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('mobile-nav-open');
+            if (mobileMenuIcon) mobileMenuIcon.setAttribute('data-lucide', 'x');
+            lucide.createIcons();
+        }
+
+        if (mobileMenuBtn && mobileNavPanel) {
+            mobileMenuBtn.addEventListener('click', () => {
+                if (mobileNavPanel.classList.contains('is-open')) closeMobileNav();
+                else openMobileNav();
+            });
+
+            mobileNavPanel.querySelectorAll('[data-mobile-nav]').forEach((link) => {
+                link.addEventListener('click', closeMobileNav);
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 1024) closeMobileNav();
+            }, { passive: true });
+        }
 
         /* ── Universal reveal observer ── */
         const allReveal = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
@@ -2333,6 +3025,7 @@
         function showModal(modal) {
             if (!modal) return;
             closeAllModals();
+            if (typeof closeMobileNav === 'function') closeMobileNav();
             modal.classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
             document.documentElement.classList.add('overflow-hidden');
@@ -2352,6 +3045,18 @@
         function closeLoginChooser() { hideModal(loginChooserModal); }
         function openReportModal() { showModal(reportModal); }
         function closeReportModal() { hideModal(reportModal); }
+
+        if (reportModal) {
+            reportModal.addEventListener('click', (e) => {
+                if (e.target === reportModal) closeReportModal();
+            });
+        }
+
+        if (loginChooserModal) {
+            loginChooserModal.addEventListener('click', (e) => {
+                if (e.target === loginChooserModal) closeLoginChooser();
+            });
+        }
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
@@ -2374,7 +3079,8 @@
                 icon: swalIcon,
                 iconHtml: icons[tone] || icons.success,
                 title: options.title || '',
-                text: options.text || '',
+                text: options.html ? undefined : (options.text || ''),
+                html: options.html || undefined,
                 showConfirmButton: options.showConfirmButton !== false,
                 confirmButtonText: options.confirmText || 'OK',
                 buttonsStyling: false,
@@ -2555,7 +3261,7 @@
             });
         }
         const sections = document.querySelectorAll('section[id]');
-        const navLinks = document.querySelectorAll('.nav-link');
+        const navLinks = document.querySelectorAll('.nav-link, .mobile-nav-link[data-mobile-nav]');
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         document.querySelectorAll('a[href^="#"]').forEach((link) => {

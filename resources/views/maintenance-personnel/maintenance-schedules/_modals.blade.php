@@ -258,38 +258,143 @@
 
 <div
     id="viewModal"
-    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
+    class="fixed inset-0 z-[1300] hidden"
+    aria-hidden="true"
 >
-    <div class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div class="flex items-start justify-between gap-4 px-6 pt-6">
+    <div
+        class="absolute inset-0 bg-[#0b1220]/50 backdrop-blur-[1px] transition-opacity"
+        onclick="closeViewModal()"
+    ></div>
+
+    <aside
+        id="viewModalPanel"
+        class="absolute right-0 top-0 flex h-full w-full max-w-[420px] translate-x-full flex-col overflow-hidden rounded-l-2xl border-l border-slate-200 bg-white shadow-2xl shadow-slate-950/10 transition-transform duration-300 ease-out"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scheduleDrawer_title"
+    >
+        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
             <div class="min-w-0">
-                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule details</h2>
-                <p class="mt-1 text-sm text-slate-500">View this maintenance schedule.</p>
+                <h2 id="scheduleDrawer_title" class="text-xl font-semibold tracking-tight text-slate-900">Schedule details</h2>
+                <p id="scheduleDrawer_subtitle" class="mt-1 text-sm text-slate-500">Review this maintenance schedule.</p>
             </div>
             <button
                 type="button"
                 onclick="closeViewModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <div id="scheduleDetails" class="space-y-3"></div>
+        <div class="shrink-0 border-b border-slate-100 px-6 py-5">
+            <div class="flex items-start gap-4">
+                <div
+                    id="scheduleDrawerAvatar"
+                    class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0025cc]/10 text-base font-semibold text-[#0025cc] ring-2 ring-white"
+                >
+                    —
+                </div>
+
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 id="scheduleDrawer_profile_name" class="truncate text-base font-semibold text-slate-900">—</h3>
+                        <span id="scheduleDrawer_status_badge" class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"></span>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                        <span id="scheduleDrawer_category_badge" class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"></span>
+                        <span id="scheduleDrawer_inventory_badge" class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"></span>
+                        <span id="scheduleDrawer_frequency_badge" class="inline-flex items-center rounded-full bg-[#0025cc]/10 px-2 py-0.5 text-[11px] font-medium text-[#0025cc]"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 space-y-2.5">
+                <div class="flex items-center gap-2.5 text-sm text-slate-600">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <i data-lucide="tag" class="h-3.5 w-3.5"></i>
+                    </span>
+                    <span id="scheduleDrawer_meta_tag" class="min-w-0 flex-1 truncate font-medium text-slate-800">—</span>
+                    <button
+                        type="button"
+                        id="scheduleDrawer_copy_tag"
+                        onclick="copyScheduleAssetTag()"
+                        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Copy asset tag"
+                    >
+                        <i data-lucide="copy" class="h-3.5 w-3.5"></i>
+                    </button>
+                </div>
+                <div class="flex items-center gap-2.5 text-sm text-slate-600">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <i data-lucide="barcode" class="h-3.5 w-3.5"></i>
+                    </span>
+                    <span id="scheduleDrawer_meta_serial" class="min-w-0 truncate font-medium text-slate-800">—</span>
+                </div>
+                <div class="flex items-center gap-2.5 text-sm text-slate-600">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <i data-lucide="map-pin" class="h-3.5 w-3.5"></i>
+                    </span>
+                    <span id="scheduleDrawer_meta_room" class="min-w-0 truncate font-medium text-slate-800">—</span>
+                </div>
+                <div class="flex items-center gap-2.5 text-sm text-slate-600">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <i data-lucide="qr-code" class="h-3.5 w-3.5"></i>
+                    </span>
+                    <span id="scheduleDrawer_meta_qr" class="min-w-0 flex-1 truncate font-mono text-xs font-medium text-slate-800">—</span>
+                    <button
+                        type="button"
+                        id="scheduleDrawer_view_qr"
+                        class="hidden shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium text-[#0025cc] transition hover:bg-[#0025cc]/5"
+                    >
+                        View
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <div class="flex shrink-0 items-center justify-end px-6 pb-6">
+        <div class="shrink-0 border-b border-slate-100 px-6">
+            <div class="flex gap-6" role="tablist" aria-label="Schedule detail sections">
+                <button
+                    type="button"
+                    id="scheduleDrawer_tab_equipment"
+                    onclick="switchScheduleDrawerTab('equipment')"
+                    class="schedule-drawer-tab border-b-2 border-[#0025cc] pb-3 pt-4 text-sm font-semibold text-[#0025cc]"
+                    role="tab"
+                    aria-selected="true"
+                >
+                    Equipment
+                </button>
+                <button
+                    type="button"
+                    id="scheduleDrawer_tab_schedule"
+                    onclick="switchScheduleDrawerTab('schedule')"
+                    class="schedule-drawer-tab border-b-2 border-transparent pb-3 pt-4 text-sm font-medium text-slate-500 hover:text-slate-800"
+                    role="tab"
+                    aria-selected="false"
+                >
+                    Schedule
+                </button>
+            </div>
+        </div>
+
+        <div class="schedule-drawer-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div id="scheduleDrawerPanelEquipment" class="schedule-drawer-panel space-y-5"></div>
+            <div id="scheduleDrawerPanelSchedule" class="schedule-drawer-panel hidden space-y-5"></div>
+        </div>
+
+        <div class="shrink-0 border-t border-slate-100 px-6 py-4">
             <button
                 type="button"
-                onclick="closeViewModal()"
-                class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                id="scheduleDrawer_primary_action"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#001fa8]"
             >
-                Close
+                <i data-lucide="circle-check" class="h-4 w-4"></i>
+                Mark complete
             </button>
         </div>
-    </div>
+    </aside>
 </div>
 
 <div
@@ -297,22 +402,48 @@
     class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
 >
     <div class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div class="flex items-start justify-between gap-4 px-6 pt-6">
-            <div class="min-w-0 flex-1">
-                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Complete maintenance</h2>
-                <div class="mt-1 flex items-center justify-between gap-3">
-                    <p id="completeEquipmentName" class="min-w-0 truncate text-sm text-slate-500"></p>
-                    <p id="completeQrCode" class="shrink-0 font-mono text-sm text-slate-500"></p>
+        <div class="shrink-0 border-b border-slate-100">
+            <div class="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
+                <div class="min-w-0">
+                    <h2 class="text-xl font-semibold tracking-tight text-slate-900">Complete maintenance</h2>
+                    <p class="mt-1 text-sm text-slate-500">Record findings and mark this schedule as complete.</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeCompleteModal()"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="px-6 pb-5">
+                <div class="flex items-start gap-3.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                    <div
+                        id="completeEquipmentAvatar"
+                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0025cc]/10 text-sm font-semibold text-[#0025cc] ring-2 ring-white"
+                    >
+                        —
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                        <p id="completeEquipmentName" class="truncate text-base font-semibold text-slate-900"></p>
+                        <p id="completeEquipmentIdentifier" class="mt-1 text-xs font-medium text-slate-500"></p>
+
+                        <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                            <span
+                                id="completeEquipmentRoom"
+                                class="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200"
+                            ></span>
+                            <span
+                                id="completeEquipmentQr"
+                                class="hidden max-w-full truncate rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] font-medium text-slate-500 ring-1 ring-slate-200"
+                            ></span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button
-                type="button"
-                onclick="closeCompleteModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
         </div>
 
         <form
@@ -424,17 +555,17 @@
                 </div>
             </div>
 
-            <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
+            <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
                 <button
                     type="button"
                     onclick="closeCompleteModal()"
-                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 px-4 text-sm font-medium leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
-                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#0025cc] px-4 text-sm font-medium leading-none text-white transition hover:bg-[#001fa8]"
                 >
                     Complete
                 </button>
@@ -494,17 +625,17 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 px-6 pb-6">
+            <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
                 <button
                     type="button"
                     onclick="closeRescheduleModal()"
-                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 px-4 text-sm font-medium leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
-                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#0025cc] px-4 text-sm font-medium leading-none text-white transition hover:bg-[#001fa8]"
                 >
                     Save date
                 </button>
@@ -515,13 +646,13 @@
 
 <div
     id="deleteModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    class="fixed inset-0 z-[1300] hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
 >
     <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
                 <h2 class="text-xl font-semibold tracking-tight text-slate-900">Delete schedule</h2>
-                <p id="deleteScheduleTitle" class="mt-1 text-sm leading-6 text-slate-500"></p>
+                <p class="mt-1 text-sm text-slate-500">This action cannot be undone.</p>
             </div>
             <button
                 type="button"
@@ -538,17 +669,25 @@
             @method('DELETE')
             <input type="hidden" id="deleteScheduleId" name="schedule_id" />
 
-            <div class="flex items-center justify-end gap-2 px-6 py-6">
+            <div class="space-y-3 px-6 py-5">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p id="deleteScheduleEquipmentName" class="text-sm font-semibold text-slate-900"></p>
+                    <p id="deleteScheduleIdentifier" class="mt-0.5 text-xs text-slate-500"></p>
+                </div>
+                <p id="deleteScheduleTitle" class="text-sm leading-6 text-slate-600"></p>
+            </div>
+
+            <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
                 <button
                     type="button"
                     onclick="closeDeleteModal()"
-                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 px-4 text-sm font-medium leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
-                    class="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 bg-rose-600 px-4 text-sm font-medium leading-none text-white transition hover:bg-rose-700"
                 >
                     Delete
                 </button>

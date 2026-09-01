@@ -22,6 +22,7 @@
                     <div class="dropdown-item" data-target="dashboard-section">Dashboard</div>
                     <div class="dropdown-item" data-target="approvals-section">RIS Approvals</div>
                     <div class="dropdown-item" data-target="reports-section">Reports</div>
+                    <div class="dropdown-item" data-target="records-section">Compiled Records</div>
                 </div>
             </div>
         </div>
@@ -83,6 +84,14 @@
         >
             <i class="h-5 w-5" data-lucide="bar-chart-3"></i>
             <span>Reports & Summary</span>
+        </a>
+        <a
+            href="/president/procurement-records"
+            class="menu-item {{ request()->is('president/procurement-records*') ? 'active' : '' }} mt-1"
+            id="records-section"
+        >
+            <i class="h-5 w-5" data-lucide="folder-archive"></i>
+            <span>Compiled Records</span>
         </a>
     </div>
 </div>

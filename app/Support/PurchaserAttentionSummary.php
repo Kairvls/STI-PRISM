@@ -139,7 +139,24 @@ class PurchaserAttentionSummary
                 Schema::hasTable('liquidation_reports_table')
                 && Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')
             ) {
-                $rrReadyQuery->whereNotExists(function ($query) {
+                $rrReadyQuery
+                    ->leftJoin(
+                        'request_check_table',
+                        'receiving_reports_table.receiving_report_request_check_id',
+                        '=',
+                        'request_check_table.request_check_id'
+                    )
+                    ->leftJoin(
+                        'authority_to_purchase_table',
+                        'request_check_table.request_check_authority_purchase_id',
+                        '=',
+                        'authority_to_purchase_table.authority_purchase_id'
+                    )
+                    ->where(function ($q) {
+                        $q->where('authority_to_purchase_table.authority_purchase_payment_path', ProcurementPaymentPath::CASH_ADVANCE)
+                            ->orWhere('request_check_table.request_check_funding_type', ProcurementPaymentPath::CASH_ADVANCE);
+                    })
+                    ->whereNotExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('liquidation_reports_table')
                         ->whereColumn(

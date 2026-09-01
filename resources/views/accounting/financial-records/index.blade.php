@@ -10,6 +10,6 @@
         </div>
         <a href="/accounting/history" class="acc-btn acc-btn-primary">Open History</a>
     </div>
-    <div class="mt-4 acc-empty">Use History for processed ATP, Request Checks, and liquidations.</div>
+    <div class="mt-4 acc-empty">Use <a href="{{ route('accounting.procurement-records.index') }}" class="acc-link">Compiled Procurement Records</a> for purchaser-submitted document checklists. History covers processed ATP, Request Checks, and liquidations.</div>
 </div>
 @endsection

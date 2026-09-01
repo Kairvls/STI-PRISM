@@ -134,15 +134,6 @@ class ReportGrouping
                     ->whereNotNull('report_equipment_id')
                     ->where('report_current_status', 'For Replacement')
                     ->where('report_is_archived', false);
-            })
-            // Hide equipment that already has an open maintenance report.
-            ->whereNotIn('equipment_id', function ($subQuery) {
-                $subQuery
-                    ->select('report_equipment_id')
-                    ->from('reports_table')
-                    ->whereNotNull('report_equipment_id')
-                    ->whereIn('report_current_status', self::openStatuses())
-                    ->where('report_is_archived', false);
             });
 
         if (ReportItems::tableExists()) {
@@ -160,24 +151,107 @@ class ReportGrouping
                     ->where('report_items_table.report_item_status', 'For Replacement')
                     ->where('reports_table.report_is_archived', false);
             });
-
-            $query->whereNotIn('equipment_id', function ($subQuery) {
-                $subQuery
-                    ->select('report_items_table.report_item_equipment_id')
-                    ->from('report_items_table')
-                    ->join(
-                        'reports_table',
-                        'reports_table.report_id',
-                        '=',
-                        'report_items_table.report_id'
-                    )
-                    ->whereNotNull('report_items_table.report_item_equipment_id')
-                    ->whereIn('report_items_table.report_item_status', self::openStatuses())
-                    ->where('reports_table.report_is_archived', false);
-            });
         }
 
         return $query;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public static function openReportsByEquipmentInRoom(int $roomId)
+    {
+        $map = collect();
+
+        $legacyReports = DB::table('reports_table')
+            ->where('report_room_id', $roomId)
+            ->whereNotNull('report_equipment_id')
+            ->whereIn('report_current_status', self::openStatuses())
+            ->where('report_is_archived', false)
+            ->orderBy('report_submitted_at', 'asc')
+            ->get([
+                'report_id',
+                'report_equipment_id',
+                'report_current_status',
+                'report_submitted_at',
+            ]);
+
+        foreach ($legacyReports as $report) {
+            $equipmentId = (int) $report->report_equipment_id;
+            if ($equipmentId > 0 && ! $map->has($equipmentId)) {
+                $map->put($equipmentId, $report);
+            }
+        }
+
+        if (ReportItems::tableExists()) {
+            $itemReports = DB::table('report_items_table')
+                ->join(
+                    'reports_table',
+                    'reports_table.report_id',
+                    '=',
+                    'report_items_table.report_id'
+                )
+                ->where('reports_table.report_room_id', $roomId)
+                ->whereNotNull('report_items_table.report_item_equipment_id')
+                ->whereIn('report_items_table.report_item_status', self::openStatuses())
+                ->where('reports_table.report_is_archived', false)
+                ->orderBy('reports_table.report_submitted_at', 'asc')
+                ->get([
+                    'reports_table.report_id',
+                    'reports_table.report_current_status',
+                    'reports_table.report_submitted_at',
+                    'report_items_table.report_item_equipment_id',
+                ]);
+
+            foreach ($itemReports as $report) {
+                $equipmentId = (int) $report->report_item_equipment_id;
+                if ($equipmentId > 0 && ! $map->has($equipmentId)) {
+                    $map->put($equipmentId, $report);
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  iterable<int, object|array<string, mixed>>  $equipment
+     * @return \Illuminate\Support\Collection<int, object|array<string, mixed>>
+     */
+    public static function enrichEquipmentWithOpenReports(iterable $equipment, int $roomId)
+    {
+        $openReports = self::openReportsByEquipmentInRoom($roomId);
+
+        return collect($equipment)->map(function ($item) use ($openReports) {
+            $equipmentId = (int) (is_array($item)
+                ? ($item['equipment_id'] ?? 0)
+                : ($item->equipment_id ?? 0));
+
+            $openReport = $openReports->get($equipmentId);
+            if (! $openReport) {
+                return $item;
+            }
+
+            $meta = [
+                'open_report_id' => (int) $openReport->report_id,
+                'open_report_ticket_code' => self::ticketCode($openReport),
+                'open_report_status' => (string) (
+                    $openReport->report_current_status
+                    ?? $openReport->report_item_status
+                    ?? 'Pending'
+                ),
+            ];
+
+            if (is_array($item)) {
+                return array_merge($item, $meta);
+            }
+
+            foreach ($meta as $key => $value) {
+                $item->{$key} = $value;
+            }
+
+            return $item;
+        })->values();
     }
 
     public static function mergeIntoOpenReport(
@@ -270,6 +344,11 @@ class ReportGrouping
     public static function hasPreferredActionDateColumn(): bool
     {
         return Schema::hasColumn('reports_table', self::preferredActionDateColumn());
+    }
+
+    public static function hasLoggedByColumn(): bool
+    {
+        return Schema::hasColumn('reports_table', 'report_logged_by');
     }
 
     public static function preferredActionDateRules(): array

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Builds RIS → ATP → RFC → RR → LIQ lineage for purchaser view surfaces.
+ * Builds RIS → ATP → RFC/CA → RR → LIQ (cash advance only) lineage for purchaser view surfaces.
  */
 class DocumentLineage
 {
@@ -287,6 +287,18 @@ class DocumentLineage
             return $chain;
         }
 
+        $paymentPath = null;
+        if (!empty($chain['rfc']['id'] ?? null)) {
+            $rfcRow = DB::table('request_check_table')->where('request_check_id', $chain['rfc']['id'])->first();
+            if ($rfcRow) {
+                $paymentPath = self::paymentPathForRfc($rfcRow);
+            }
+        }
+
+        if (!ProcurementPaymentPath::requiresLiquidation($paymentPath)) {
+            return $chain;
+        }
+
         $liq = DB::table('liquidation_reports_table')
             ->where('liquidation_report_receiving_report_id', $rr->receiving_report_id)
             ->orderByDesc('liquidation_report_id')
@@ -303,5 +315,30 @@ class DocumentLineage
         }
 
         return $chain;
+    }
+
+    private static function paymentPathForRfc(object $rfc): ?string
+    {
+        if (!empty($rfc->request_check_funding_type ?? null)) {
+            return $rfc->request_check_funding_type;
+        }
+
+        if (!empty($rfc->request_check_authority_purchase_id)) {
+            $atp = DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_id', $rfc->request_check_authority_purchase_id)
+                ->first();
+
+            return $atp->authority_purchase_payment_path ?? null;
+        }
+
+        return null;
+    }
+
+    private static function rfcLabel(object $rfc): string
+    {
+        $type = self::paymentPathForRfc($rfc);
+        $prefix = $type === ProcurementPaymentPath::CASH_ADVANCE ? 'CA' : 'RFC';
+
+        return $rfc->request_check_form_number ?? ($prefix . ' #' . $rfc->request_check_id);
     }
 }

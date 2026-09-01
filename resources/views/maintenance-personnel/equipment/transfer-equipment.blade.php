@@ -1,6 +1,6 @@
 @extends ("layouts.maintenance-layout")
 
-@section ("title", "Transfer & History")
+@section ("title", "Transfer")
 
 @section ("content")
     <div class="space-y-6">
@@ -412,7 +412,7 @@
                         </h2>
 
                         <p class="mt-0.5 text-xs text-slate-400">
-                            Manage equipment locations, maintenance, and movement history
+                            Move equipment between rooms and review transfer logs
                         </p>
 
                     </div>
@@ -420,16 +420,29 @@
                 </div>
 
 
-                {{-- TOTAL COUNT --}}
-                <div
-                    class="inline-flex w-fit items-center gap-2
-                        rounded-lg border border-slate-200
-                        bg-slate-50 px-3 py-2
-                        text-xs font-medium text-slate-500"
-                >
-                    <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                {{-- TOTAL COUNT + BATCH ACTION --}}
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        id="transferSelectedBtn"
+                        onclick="openTransferSelectedModal()"
+                        disabled
+                        class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-[#0025cc]/20 enabled:bg-[#0025cc] enabled:text-white enabled:hover:bg-blue-800"
+                    >
+                        <i data-lucide="check-square" class="h-3.5 w-3.5"></i>
+                        Transfer selected
+                    </button>
 
-                    {{ $equipment->total() }} total
+                    <div
+                        class="inline-flex w-fit items-center gap-2
+                            rounded-lg border border-slate-200
+                            bg-slate-50 px-3 py-2
+                            text-xs font-medium text-slate-500"
+                    >
+                        <i data-lucide="package" class="h-3.5 w-3.5"></i>
+
+                        {{ $equipment->total() }} total
+                    </div>
                 </div>
 
             </div>
@@ -724,6 +737,15 @@
                                 tracking-[0.08em] text-black"
                         >
 
+                            <th class="w-12 px-5 py-3">
+                                <input
+                                    type="checkbox"
+                                    id="transferSelectAll"
+                                    class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                    aria-label="Select all transferable equipment on this page"
+                                >
+                            </th>
+
                             <th class="px-5 py-3">
                                 Equipment
                             </th>
@@ -798,6 +820,17 @@
                                     default =>
                                         "bg-slate-400",
                                 };
+
+                                $equipmentIdentifier = collect([
+                                    $item->equipment_asset_tag
+                                        ? 'Tag: '.$item->equipment_asset_tag
+                                        : null,
+                                    $item->equipment_serial_number
+                                        ? 'Serial: '.$item->equipment_serial_number
+                                        : null,
+                                ])->filter()->implode(' · ');
+
+                                $canTransfer = $inventoryStatus !== 'Disposed';
                             @endphp
 
 
@@ -805,7 +838,27 @@
                             <tr
                                 class="group transition-colors
                                     hover:bg-slate-50/70"
+                                data-equipment-id="{{ $item->equipment_id }}"
+                                data-equipment-name="{{ $item->equipment_name }}"
+                                data-room-name="{{ $item->room_name }}"
+                                data-asset-tag="{{ $item->equipment_asset_tag }}"
+                                data-serial-number="{{ $item->equipment_serial_number }}"
                             >
+
+                                {{-- ===================================== --}}
+                                {{-- SELECT --}}
+                                {{-- ===================================== --}}
+
+                                <td class="px-5 py-4">
+                                    @if ($canTransfer)
+                                        <input
+                                            type="checkbox"
+                                            class="transfer-equipment-checkbox h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                            value="{{ $item->equipment_id }}"
+                                            aria-label="Select {{ $item->equipment_name }}"
+                                        >
+                                    @endif
+                                </td>
 
                                 {{-- ===================================== --}}
                                 {{-- EQUIPMENT --}}
@@ -844,10 +897,9 @@
 
 
                                             <p
-                                                class="mt-0.5 text-[11px]
-                                                    text-slate-400"
+                                                class="mt-0.5 text-[11px] text-slate-400"
                                             >
-                                                Equipment record
+                                                {{ $equipmentIdentifier ?: 'No asset tag or serial' }}
                                             </p>
 
                                         </div>
@@ -991,6 +1043,7 @@
                                             {{-- TRANSFER --}}
                                             {{-- ================================= --}}
 
+                                            @if ($canTransfer)
                                             <button
                                                 type="button"
 
@@ -1000,7 +1053,9 @@
                                                     openTransferModal(
                                                         @js($item->equipment_id),
                                                         @js($item->equipment_name),
-                                                        @js($item->room_name)
+                                                        @js($item->room_name),
+                                                        @js($item->equipment_asset_tag),
+                                                        @js($item->equipment_serial_number)
                                                     );
                                                 "
 
@@ -1018,84 +1073,9 @@
 
                                                 Transfer equipment
                                             </button>
+                                            @endif
 
 
-
-                                            {{-- ================================= --}}
-                                            {{-- ADD MAINTENANCE --}}
-                                            {{-- ================================= --}}
-
-                                            <button
-                                                type="button"
-
-                                                @click="
-                                                    open = false;
-
-                                                    openMaintenanceModal(
-                                                        @js($item->equipment_id),
-                                                        @js($item->equipment_name)
-                                                    );
-                                                "
-
-                                                class="flex w-full items-center gap-2.5
-                                                    rounded-lg px-3 py-2
-                                                    text-xs font-medium
-                                                    text-slate-600 transition
-                                                    hover:bg-slate-50
-                                                    hover:text-slate-900"
-                                            >
-                                                <i
-                                                    data-lucide="wrench"
-                                                    class="h-3.5 w-3.5"
-                                                ></i>
-
-                                                Add maintenance
-                                            </button>
-
-
-
-                                            <div
-                                                class="my-1 border-t border-slate-100"
-                                            ></div>
-
-
-
-                                            {{-- ================================= --}}
-                                            {{-- MAINTENANCE HISTORY --}}
-                                            {{-- ================================= --}}
-
-                                            <button
-                                                type="button"
-
-                                                @click="
-                                                    open = false;
-
-                                                    openHistoryModal(
-                                                        @js($item->equipment_id),
-                                                        @js($item->equipment_name)
-                                                    );
-                                                "
-
-                                                class="flex w-full items-center gap-2.5
-                                                    rounded-lg px-3 py-2
-                                                    text-xs font-medium
-                                                    text-slate-600 transition
-                                                    hover:bg-slate-50
-                                                    hover:text-slate-900"
-                                            >
-                                                <i
-                                                    data-lucide="history"
-                                                    class="h-3.5 w-3.5"
-                                                ></i>
-
-                                                Maintenance history
-                                            </button>
-
-
-
-                                            {{-- ================================= --}}
-                                            {{-- TRANSFER HISTORY --}}
-                                            {{-- ================================= --}}
 
                                             <button
                                                 type="button"
@@ -1105,7 +1085,8 @@
 
                                                     openTransferHistory(
                                                         @js($item->equipment_id),
-                                                        @js($item->equipment_name)
+                                                        @js($item->equipment_name),
+                                                        @js($equipmentIdentifier)
                                                     );
                                                 "
 
@@ -1139,7 +1120,7 @@
                             <tr>
 
                                 <td
-                                    colspan="5"
+                                    colspan="6"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1186,7 +1167,7 @@
                                         >
 
                                             Equipment added to the inventory will appear here
-                                            for transfer and maintenance management.
+                                            Select equipment using the checkboxes, then use Transfer selected, or transfer one item from the actions menu.
 
                                         </p>
 
@@ -1317,6 +1298,22 @@
                         </div>
 
                         <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Asset tag</span>
+                            <span
+                                id="transferAssetTag"
+                                class="min-w-0 truncate text-right text-sm font-medium text-slate-800"
+                            >—</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Serial number</span>
+                            <span
+                                id="transferSerialNumber"
+                                class="min-w-0 truncate text-right text-sm font-medium text-slate-800"
+                            >—</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
                             <span class="shrink-0 text-sm text-slate-500">Current room</span>
                             <span
                                 id="transferCurrentRoom"
@@ -1325,28 +1322,10 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label
-                            for="transferRoom"
-                            class="mb-2 block text-sm font-semibold text-slate-700"
-                        >
-                            Transfer to
-                        </label>
-
-                        <select
-                            id="transferRoom"
-                            name="room_id"
-                            required
-                            class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="">Select destination room</option>
-                            @foreach ($rooms as $room)
-                                <option value="{{ $room->room_id }}">
-                                    {{ $room->room_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @include('maintenance-personnel.equipment.partials.transfer-room-picker', [
+                        'pickerId' => 'transferRoomPicker',
+                        'inputName' => 'room_id',
+                    ])
 
                     <div>
                         <div class="mb-2 flex items-center justify-between gap-4">
@@ -1390,241 +1369,50 @@
     </div>
 
     <!-- ===================================================== -->
-    <!-- HISTORY MODAL -->
+    <!-- TRANSFER SELECTED MODAL -->
     <!-- ===================================================== -->
 
     <div
-        id="historyModal"
+        id="transferSelectedModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
-        onclick="if (event.target === this) closeHistoryModal()"
+        onclick="if (event.target === this) closeTransferSelectedModal()"
     >
-        <div
-            class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-        >
-            <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div class="flex items-start justify-between gap-6 border-b border-slate-200 px-6 py-5">
                 <div class="min-w-0">
-                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                        <i data-lucide="history" class="h-4 w-4"></i>
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="check-square" class="h-4 w-4"></i>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
-                        Maintenance history
-                    </h2>
-                    <p
-                        id="historyEquipmentName"
-                        class="mt-1 truncate text-sm text-slate-500"
-                    >
-                        Equipment records
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Move <span id="transferSelectedCount" class="font-semibold text-slate-800">0</span> selected item(s) to one room.
                     </p>
+                    <p id="transferSelectedSummary" class="mt-2 text-xs text-slate-400"></p>
                 </div>
-
-                <button
-                    type="button"
-                    onclick="closeHistoryModal()"
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label="Close modal"
-                >
+                <button type="button" onclick="closeTransferSelectedModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close modal">
                     <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-y-auto">
-                <div class="p-6">
-                    <div id="historyContent">
-                        <div class="flex min-h-[280px] flex-col items-center justify-center text-center">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
-                                <i data-lucide="history" class="h-5 w-5"></i>
-                            </div>
-                            <h3 class="mt-4 text-sm font-semibold text-slate-900">
-                                No maintenance history
-                            </h3>
-                            <p class="mt-1.5 max-w-xs text-sm leading-6 text-slate-500">
-                                Maintenance records for this equipment will appear here.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex shrink-0 items-center justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
-                <button
-                    type="button"
-                    onclick="closeHistoryModal()"
-                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===================================================== -->
-    <!-- ADD MAINTENANCE MODAL -->
-    <!-- ===================================================== -->
-
-    <div
-        id="maintenanceModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
-        onclick="if (event.target === this) closeMaintenanceModal()"
-    >
-        <div
-            class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-        >
-            <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
-                <div class="min-w-0">
-                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-700">
-                        <i data-lucide="wrench" class="h-4 w-4"></i>
-                    </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
-                        Add maintenance record
-                    </h2>
-                    <p
-                        id="maintenanceEquipmentName"
-                        class="mt-1 truncate text-sm text-slate-500"
-                    ></p>
-                </div>
-
-                <button
-                    type="button"
-                    onclick="closeMaintenanceModal()"
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label="Close modal"
-                >
-                    <i data-lucide="x" class="h-5 w-5"></i>
-                </button>
-            </div>
-
-            <form
-                action="/maintenance/equipment/history/store"
-                method="POST"
-                enctype="multipart/form-data"
-                class="flex min-h-0 flex-1 flex-col"
-            >
+            <form action="/maintenance/equipment/transfer-batch" method="POST">
                 @csrf
-
-                <input
-                    type="hidden"
-                    id="maintenance_equipment_id"
-                    name="equipment_id"
-                />
-
-                <div class="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                    <div class="space-y-5">
-                        <div>
-                            <label
-                                for="maintenanceStatus"
-                                class="mb-2 block text-sm font-semibold text-slate-700"
-                            >
-                                Status
-                            </label>
-
-                            <select
-                                id="maintenanceStatus"
-                                name="status"
-                                required
-                                class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                <option value="Pending">Pending</option>
-                                <option value="Processing">Processing</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="For Replacement">For Replacement</option>
-                            </select>
+                <div id="transferSelectedIds"></div>
+                <div class="space-y-5 px-6 py-6">
+                    @include('maintenance-personnel.equipment.partials.transfer-room-picker', [
+                        'pickerId' => 'transferSelectedRoomPicker',
+                        'inputName' => 'room_id',
+                    ])
+                    <div>
+                        <div class="mb-2 flex items-center justify-between gap-4">
+                            <label for="transferSelectedRemarks" class="text-sm font-semibold text-slate-700">Remarks</label>
+                            <span class="text-xs text-slate-400">Optional</span>
                         </div>
-
-                        <div>
-                            <div class="mb-2 flex items-center justify-between gap-4">
-                                <label
-                                    for="maintenanceFindings"
-                                    class="text-sm font-semibold text-slate-700"
-                                >
-                                    Findings
-                                </label>
-                                <span class="text-xs text-slate-400">Optional</span>
-                            </div>
-
-                            <textarea
-                                id="maintenanceFindings"
-                                name="findings"
-                                rows="3"
-                                placeholder="Describe the issue or inspection findings"
-                                class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            ></textarea>
-                        </div>
-
-                        <div>
-                            <div class="mb-2 flex items-center justify-between gap-4">
-                                <label
-                                    for="maintenanceRepairAction"
-                                    class="text-sm font-semibold text-slate-700"
-                                >
-                                    Repair action
-                                </label>
-                                <span class="text-xs text-slate-400">Optional</span>
-                            </div>
-
-                            <textarea
-                                id="maintenanceRepairAction"
-                                name="repair_action"
-                                rows="3"
-                                placeholder="Describe the repair or action performed"
-                                class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            ></textarea>
-                        </div>
-
-                        <div>
-                            <div class="mb-2 flex items-center justify-between gap-4">
-                                <label
-                                    for="maintenanceProofImage"
-                                    class="text-sm font-semibold text-slate-700"
-                                >
-                                    Proof image
-                                </label>
-                                <span class="text-xs text-slate-400">Optional</span>
-                            </div>
-
-                            <label
-                                for="maintenanceProofImage"
-                                class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-4 transition hover:border-slate-400 hover:bg-slate-50"
-                            >
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
-                                    <i data-lucide="image-plus" class="h-4 w-4"></i>
-                                </div>
-
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-700">
-                                        Upload an image
-                                    </p>
-                                    <p class="mt-0.5 text-xs text-slate-400">
-                                        Select a photo from your device
-                                    </p>
-                                </div>
-
-                                <input
-                                    id="maintenanceProofImage"
-                                    type="file"
-                                    name="proof_image"
-                                    accept="image/*"
-                                    class="hidden"
-                                />
-                            </label>
-                        </div>
+                        <textarea id="transferSelectedRemarks" name="remarks" rows="3" placeholder="Add a note about this batch transfer" class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
                     </div>
                 </div>
-
-                <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
-                    <button
-                        type="button"
-                        onclick="closeMaintenanceModal()"
-                        class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
-                    >
-                        Save record
-                    </button>
+                <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <button type="button" onclick="closeTransferSelectedModal()" class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">Cancel</button>
+                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">Transfer selected</button>
                 </div>
             </form>
         </div>
@@ -1687,130 +1475,72 @@
     </div>
 
     <script>
-        async function openHistoryModal(id, name) {
-            document.getElementById("historyEquipmentName").innerText = name;
+        function transferRoomPicker(rooms) {
+            return {
+                rooms: rooms || [],
+                query: '',
+                open: false,
+                selectedId: '',
+                selectedName: '',
+                get filteredRooms() {
+                    const term = this.query.trim().toLowerCase();
 
-            document.getElementById("historyContent").innerHTML = `
-        <div class="flex min-h-[200px] items-center justify-center text-sm text-slate-500">
-            Loading history...
-        </div>
-    `;
+                    if (!term) {
+                        return this.rooms;
+                    }
 
-            document.getElementById("historyModal").classList.remove("hidden");
+                    return this.rooms.filter((room) =>
+                        room.name.toLowerCase().includes(term)
+                    );
+                },
+                select(room) {
+                    this.selectedId = String(room.id);
+                    this.selectedName = room.name;
+                    this.query = room.name;
+                    this.open = false;
+                },
+                clear() {
+                    this.selectedId = '';
+                    this.selectedName = '';
+                    this.query = '';
+                    this.open = false;
+                },
+            };
+        }
 
-            document.getElementById("historyModal").classList.add("flex");
+        function resetRoomPicker(pickerId) {
+            window.dispatchEvent(new CustomEvent('reset-room-picker', {
+                detail: { id: pickerId },
+            }));
+        }
 
-            if (window.lucide) lucide.createIcons();
+        function getSelectedTransferEquipment() {
+            return Array.from(document.querySelectorAll('.transfer-equipment-checkbox:checked'));
+        }
 
-            try {
-                const response = await fetch(
-                    "/maintenance/equipment/history/" + id,
-                );
+        function updateTransferSelectionUi() {
+            const selected = getSelectedTransferEquipment();
+            const button = document.getElementById('transferSelectedBtn');
+            const selectAll = document.getElementById('transferSelectAll');
+            const checkboxes = Array.from(document.querySelectorAll('.transfer-equipment-checkbox'));
 
-                const data = await response.json();
+            if (button) {
+                button.disabled = selected.length === 0;
+            }
 
-                if (data.length === 0) {
-                    document.getElementById("historyContent").innerHTML = `
-                <div class="flex min-h-[280px] flex-col items-center justify-center text-center">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
-                        <i data-lucide="history" class="h-5 w-5"></i>
-                    </div>
-                    <h3 class="mt-4 text-sm font-semibold text-slate-900">No maintenance history found</h3>
-                    <p class="mt-1.5 max-w-xs text-sm leading-6 text-slate-500">
-                        Maintenance records for this equipment will appear here.
-                    </p>
-                </div>
-            `;
-
-                    if (window.lucide) lucide.createIcons();
-                    return;
-                }
-
-                let html = "";
-
-                data.forEach((item) => {
-                    html += `
-
-                <div class="border-l-4 border-indigo-500 pl-4 mb-6">
-
-                    <div class="font-semibold text-indigo-600">
-
-                        <span
-                        class="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
-
-                        ${item.equipment_maintenance_status}
-
-                        </span>
-
-                    </div>
-
-                    <div class="text-sm text-slate-500 mb-2">
-
-                        ${item.equipment_maintenance_created_at ?? ""}
-
-                    </div>
-
-                    <div class="mb-2">
-
-                        <strong>Findings:</strong><br>
-
-                        ${item.equipment_maintenance_findings ?? "N/A"}
-
-                    </div>
-
-                    <div>
-
-                            <strong>Repair Action:</strong><br>
-
-                            ${item.equipment_maintenance_repair_action ?? "N/A"}
-
-                        </div>
-
-                        ${
-                            item.equipment_maintenance_proof_image
-                                ? `
-                        <div class="mt-3">
-
-                            <a
-                                href="/storage/${item.equipment_maintenance_proof_image}"
-                                target="_blank"
-                                class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
-
-                                📷 View Proof Image
-
-                            </a>
-
-                        </div>
-                        `
-                                : ""
-                        }
-
-                </div>
-
-            `;
-                });
-
-                document.getElementById("historyContent").innerHTML = html;
-            } catch (error) {
-                document.getElementById("historyContent").innerHTML = `
-            <div class="text-center text-red-500 py-10">
-                Failed to load history.
-            </div>
-        `;
+            if (selectAll && checkboxes.length > 0) {
+                selectAll.indeterminate = selected.length > 0 && selected.length < checkboxes.length;
+                selectAll.checked = selected.length === checkboxes.length;
             }
         }
 
-        function closeHistoryModal() {
-            document.getElementById("historyModal").classList.add("hidden");
-
-            document.getElementById("historyModal").classList.remove("flex");
-        }
-
-        function openTransferModal(id, name, room) {
+        function openTransferModal(id, name, room, assetTag, serialNumber) {
             document.getElementById("transfer_equipment_id").value = id;
             document.getElementById("transferEquipmentName").innerText = name;
-            document.getElementById("transferCurrentRoom").innerText =
-                room || "—";
+            document.getElementById("transferAssetTag").innerText = assetTag || "—";
+            document.getElementById("transferSerialNumber").innerText = serialNumber || "—";
+            document.getElementById("transferCurrentRoom").innerText = room || "—";
+            resetRoomPicker('transferRoomPicker');
 
             document.getElementById("transferModal").classList.remove("hidden");
             document.getElementById("transferModal").classList.add("flex");
@@ -1820,37 +1550,78 @@
 
         function closeTransferModal() {
             document.getElementById("transferModal").classList.add("hidden");
-
             document.getElementById("transferModal").classList.remove("flex");
+            resetRoomPicker('transferRoomPicker');
         }
 
-        function openMaintenanceModal(id, name) {
-            document.getElementById("maintenance_equipment_id").value = id;
+        function openTransferSelectedModal() {
+            const selected = getSelectedTransferEquipment();
+            if (selected.length === 0) return;
 
-            document.getElementById("maintenanceEquipmentName").innerText = name;
+            const idsContainer = document.getElementById('transferSelectedIds');
+            const countEl = document.getElementById('transferSelectedCount');
+            const summaryEl = document.getElementById('transferSelectedSummary');
 
-            document
-                .getElementById("maintenanceModal")
-                .classList.remove("hidden");
+            idsContainer.innerHTML = '';
+            const labels = [];
 
-            document.getElementById("maintenanceModal").classList.add("flex");
+            selected.forEach((checkbox) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'equipment_ids[]';
+                input.value = checkbox.value;
+                idsContainer.appendChild(input);
+
+                const row = checkbox.closest('tr');
+                const name = row?.dataset.equipmentName || 'Equipment';
+                const tag = row?.dataset.assetTag;
+                const serial = row?.dataset.serialNumber;
+                const identifier = [tag ? `Tag: ${tag}` : null, serial ? `Serial: ${serial}` : null].filter(Boolean).join(' · ');
+                labels.push(identifier ? `${name} (${identifier})` : name);
+            });
+
+            countEl.textContent = String(selected.length);
+            summaryEl.textContent = labels.slice(0, 3).join(' · ') + (labels.length > 3 ? ` · +${labels.length - 3} more` : '');
+            resetRoomPicker('transferSelectedRoomPicker');
+
+            document.getElementById('transferSelectedModal').classList.remove('hidden');
+            document.getElementById('transferSelectedModal').classList.add('flex');
 
             if (window.lucide) lucide.createIcons();
         }
 
-        function closeMaintenanceModal() {
-            document.getElementById("maintenanceModal").classList.add("hidden");
-
-            document
-                .getElementById("maintenanceModal")
-                .classList.remove("flex");
+        function closeTransferSelectedModal() {
+            document.getElementById('transferSelectedModal').classList.add('hidden');
+            document.getElementById('transferSelectedModal').classList.remove('flex');
+            resetRoomPicker('transferSelectedRoomPicker');
         }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const selectAll = document.getElementById('transferSelectAll');
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    document.querySelectorAll('.transfer-equipment-checkbox').forEach((checkbox) => {
+                        checkbox.checked = selectAll.checked;
+                    });
+                    updateTransferSelectionUi();
+                });
+            }
+
+            document.querySelectorAll('.transfer-equipment-checkbox').forEach((checkbox) => {
+                checkbox.addEventListener('change', updateTransferSelectionUi);
+            });
+
+            updateTransferSelectionUi();
+
+            if (window.lucide) window.lucide.createIcons();
+        });
 
         // =====================================================
         // TRANSFER HISTORY
         // =====================================================
 
-        async function openTransferHistory(id, name) {
+        async function openTransferHistory(id, name, identifier) {
 
             // =====================================
             // GET MODAL ELEMENTS
@@ -1870,7 +1641,7 @@
             // SET EQUIPMENT NAME
             // =====================================
 
-            title.innerText = name;
+            title.innerText = identifier ? `${name} · ${identifier}` : name;
 
 
             // =====================================

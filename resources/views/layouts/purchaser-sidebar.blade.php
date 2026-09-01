@@ -320,7 +320,7 @@
             ></i>
 
             <span>
-                Request Check
+                Request Check / Cash Advance
             </span>
 
         </a>
@@ -363,6 +363,22 @@
 
             <span>
                 Liquidation Reports
+            </span>
+
+        </a>
+
+        <a
+            href="{{ route('purchaser.procurement-records.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement-records*') ? 'active' : '' }}"
+        >
+
+            <i
+                data-lucide="folder-archive"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                Compiled Records
             </span>
 
         </a>

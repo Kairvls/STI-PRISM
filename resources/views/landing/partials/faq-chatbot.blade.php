@@ -559,7 +559,7 @@
                 },
                 {
                     n: score(['track', 'follow up', 'follow-up', 'where is my report', 'update on my', 'already submitted']),
-                    reply: 'Once submitted, the report is already in the maintenance system. Maintenance inspects it first. You can follow up with maintenance personnel if you need a status update.'
+                    reply: 'Once submitted, the report is already in the maintenance system. Maintenance inspects it first. If the same equipment still has an open report, you can file again through Make Report and PaAyo will add your update to that ticket. You can also follow up with maintenance personnel for a status update.'
                 },
                 {
                     n: score(['how long', 'how many days', 'when will it be fixed', 'eta', 'how soon']),
@@ -567,7 +567,11 @@
                 },
                 {
                     n: score(['edit', 'change after', 'cancel', 'delete report', 'wrong report']),
-                    reply: 'Submit only when the needed fields are complete. After submission, maintenance already receives it. If something was encoded wrongly, contact maintenance personnel. Do not submit a second report for the same concern unless they ask you to.'
+                    reply: 'Submit only when the needed fields are complete. After submission, maintenance already receives it. If something was encoded wrongly, contact maintenance personnel. You cannot edit or cancel a submitted report yourself.'
+                },
+                {
+                    n: score(['second report', 'same equipment', 'already reported', 'report again', 'duplicate', 'open report', 'same concern']),
+                    reply: 'If equipment already has an open report, it stays in the equipment list with its ticket code (for example, Open report: RPT-...). Submitting again adds your update to that existing ticket instead of creating a new one.'
                 },
                 {
                     n: score(['inactive', 'disabled', 'cannot submit', 'can\'t submit', 'access disabled']),

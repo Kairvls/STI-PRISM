@@ -22,6 +22,9 @@
             $nextExpected = $pipelineOrder[$idx + 1];
         }
     }
+    if ($nextExpected === 'LIQ' && empty($lineage['liq'] ?? null) && ($paymentPath ?? null) === \App\Support\ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+        $nextExpected = null;
+    }
 @endphp
 
 @if(count($steps) > 0 || $statusHint)

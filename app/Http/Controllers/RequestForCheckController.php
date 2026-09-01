@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
@@ -77,7 +79,8 @@ class RequestForCheckController extends Controller
         $eligibleAtps = collect();
         $atpPrefill = [];
         if (!$request->ajax()) {
-            $eligibleAtps = $this->eligibleAtpQuery()->get();
+            $fundingType = $this->resolveFundingType($request);
+            $eligibleAtps = $this->eligibleAtpQuery($fundingType)->get();
             $atpPrefill = $this->buildAtpPrefill($eligibleAtps);
         }
         $rfcIds = $rfcs->getCollection()->pluck('request_check_id');
@@ -119,8 +122,10 @@ class RequestForCheckController extends Controller
             'atpPrefill' => $atpPrefill,
             'attachments' => $attachments,
             'selectedAtpId' => $request->query('selected_atp'),
+            'selectedFundingType' => $this->resolveFundingType($request),
             'openCreate' => $request->boolean('create') || $request->filled('selected_atp'),
             'viewRfcId' => $viewRfcId ?: null,
+            'fundingTypeLabels' => ProcurementPaymentPath::labels(),
         ]);
     }
 
@@ -129,17 +134,19 @@ class RequestForCheckController extends Controller
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
         $validated = $this->validateRfc($request, $isDraft);
+        $fundingType = $validated['request_check_funding_type'] ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
 
-        if ($error = $this->atpEligibilityError($validated['request_check_authority_purchase_id'] ?? null, null, !$isDraft)) {
+        if ($error = $this->atpEligibilityError($validated['request_check_authority_purchase_id'] ?? null, null, !$isDraft, $fundingType)) {
             return back()->withInput()->with('error', $error);
         }
 
-        return DB::transaction(function () use ($request, $validated, $isDraft) {
+        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType) {
             $now = now();
             $user = auth()->user();
 
             $id = DB::table('request_check_table')->insertGetId($this->rfcPayload([
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? null,
+                'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
                 'request_check_amount_figures' => $validated['request_check_amount_figures'] ?? null,
@@ -169,7 +176,9 @@ class RequestForCheckController extends Controller
 
             return redirect()->route('purchaser.rfc.index')->with(
                 'success',
-                $isDraft ? 'Request for Check draft saved.' : 'Request for Check submitted to Accounting.'
+                $isDraft
+                    ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft saved.' : 'Request for Check draft saved.')
+                    : ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance submitted to Accounting.' : 'Request for Check submitted to Accounting.')
             );
         });
     }
@@ -188,13 +197,15 @@ class RequestForCheckController extends Controller
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
         $validated = $this->validateRfc($request, $isDraft);
+        $fundingType = $validated['request_check_funding_type']
+            ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
 
         $atpId = $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id;
-        if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft)) {
+        if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft, $fundingType)) {
             return back()->withInput()->with('error', $error);
         }
 
-        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id) {
+        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType) {
             $now = now();
             $wasRevision = in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
                 && $rfc->request_check_status !== 'Draft'
@@ -205,6 +216,7 @@ class RequestForCheckController extends Controller
 
             DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id,
+                'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
                 'request_check_amount_figures' => $validated['request_check_amount_figures'] ?? null,
@@ -227,7 +239,9 @@ class RequestForCheckController extends Controller
 
             return redirect()->route('purchaser.rfc.index')->with(
                 'success',
-                $isDraft ? 'Request for Check draft updated.' : 'Request for Check submitted to Accounting.'
+                $isDraft
+                    ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft updated.' : 'Request for Check draft updated.')
+                    : ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance submitted to Accounting.' : 'Request for Check submitted to Accounting.')
             );
         });
     }
@@ -343,6 +357,10 @@ class RequestForCheckController extends Controller
     {
         return $request->validate([
             'save_action' => ['required', 'in:draft,submit'],
+            'request_check_funding_type' => [
+                'required',
+                Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE]),
+            ],
             'request_check_authority_purchase_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
@@ -418,6 +436,7 @@ class RequestForCheckController extends Controller
         $select = [
             'request_check_table.*',
             'authority_to_purchase_table.authority_purchase_form_number',
+            'authority_to_purchase_table.authority_purchase_payment_path',
             'authority_to_purchase_table.authority_purchase_status as atp_status',
         ];
 
@@ -458,8 +477,10 @@ class RequestForCheckController extends Controller
             );
     }
 
-    private function eligibleAtpQuery()
+    private function eligibleAtpQuery(?string $fundingType = null)
     {
+        $fundingType = $fundingType ?: ProcurementPaymentPath::REQUEST_FOR_CHECK;
+
         return DB::table('authority_to_purchase_table')
             ->leftJoin(
                 'suppliers_table',
@@ -504,6 +525,10 @@ class RequestForCheckController extends Controller
                 'equipment_table.equipment_id'
             )
             ->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
+            ->when(
+                Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path'),
+                fn ($q) => $q->where('authority_to_purchase_table.authority_purchase_payment_path', $fundingType)
+            )
             ->where(function ($q) {
                 $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                     ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
@@ -521,6 +546,7 @@ class RequestForCheckController extends Controller
             ->select(
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
+                'authority_to_purchase_table.authority_purchase_payment_path',
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name',
                 'suppliers_table.supplier_store_type',
@@ -563,6 +589,15 @@ class RequestForCheckController extends Controller
         }
 
         return $prefill;
+    }
+
+    private function resolveFundingType(Request $request): string
+    {
+        $type = (string) $request->query('funding_type', ProcurementPaymentPath::REQUEST_FOR_CHECK);
+
+        return ProcurementPaymentPath::isValid($type)
+            ? $type
+            : ProcurementPaymentPath::REQUEST_FOR_CHECK;
     }
 
     private function rfcStatusSummary(): array
@@ -610,7 +645,7 @@ class RequestForCheckController extends Controller
         return $summary;
     }
 
-    private function atpEligibilityError($atpId, $ignoreRfcId, bool $required): ?string
+    private function atpEligibilityError($atpId, $ignoreRfcId, bool $required, ?string $fundingType = null): ?string
     {
         if (!$atpId) {
             return $required ? 'Complete payee, amount, purpose, and ATP before submitting.' : null;
@@ -625,11 +660,27 @@ class RequestForCheckController extends Controller
             || $atp->authority_purchase_status !== 'Approved'
             || !empty($atp->authority_purchase_is_archived)
         ) {
-            return 'Only an approved, unarchived Authority to Purchase can be used for a Request for Check.';
+            return 'Only an approved, unarchived Authority to Purchase can be used for a funding request.';
+        }
+
+        $fundingType = $fundingType ?: ProcurementPaymentPath::REQUEST_FOR_CHECK;
+
+        if (
+            Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            && blank($atp->authority_purchase_payment_path ?? null)
+        ) {
+            return 'Choose a payment path (Request for Check or Cash Advance) on the ATP before creating a funding request.';
+        }
+
+        if (
+            Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            && ($atp->authority_purchase_payment_path ?? null) !== $fundingType
+        ) {
+            return 'Funding type must match the payment path chosen on the ATP (' . ProcurementPaymentPath::label($atp->authority_purchase_payment_path) . ').';
         }
 
         if ($this->hasBlockingRfcForAtp($atpId, $ignoreRfcId)) {
-            return 'A Request for Check already exists for the selected ATP.';
+            return 'A funding request already exists for the selected ATP.';
         }
 
         return null;

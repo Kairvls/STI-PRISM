@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
@@ -73,6 +74,7 @@ class ReceivingReportController extends Controller
 
         $eligibleRfcs = $this->eligibleRfcQuery()->get();
         $rfcPrefill = $this->buildRfcPrefill($eligibleRfcs);
+        $suppliers = $this->activeSuppliersForRr();
         $rrIds = $reports->getCollection()->pluck('receiving_report_id');
         $items = $this->itemsFor($rrIds);
 
@@ -92,6 +94,9 @@ class ReceivingReportController extends Controller
 
         foreach ($reports as $rr) {
             $rr->has_liq = in_array((int) $rr->receiving_report_id, $rrHasLiq, true);
+            $path = $rr->authority_purchase_payment_path
+                ?? ($rr->request_check_funding_type ?? null);
+            $rr->requires_liquidation = ProcurementPaymentPath::requiresLiquidation($path);
         }
 
         return view('purchaser.receiving-reports.index', [
@@ -100,6 +105,7 @@ class ReceivingReportController extends Controller
             'summary' => $summary,
             'eligibleRfcs' => $eligibleRfcs,
             'rfcPrefill' => $rfcPrefill,
+            'suppliers' => $suppliers,
             'items' => $items,
             'selectedRfcId' => $request->query('selected_rfc'),
             'viewRrId' => $viewRrId ?: null,
@@ -113,6 +119,10 @@ class ReceivingReportController extends Controller
 
         if ($error = $this->rrEligibilityError($validated['receiving_report_request_check_id'] ?? null, null, !$isDraft)) {
             return back()->withInput()->with('error', $error);
+        }
+
+        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($validated['receiving_report_request_check_id'] ?? null, $validated['items'] ?? []))) {
+            return back()->withInput()->with('error', $itemError);
         }
 
         return DB::transaction(function () use ($validated, $isDraft) {
@@ -174,6 +184,10 @@ class ReceivingReportController extends Controller
 
         if ($error = $this->rrEligibilityError($rfcId, $id, !$isDraft)) {
             return back()->withInput()->with('error', $error);
+        }
+
+        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $validated['items'] ?? []))) {
+            return back()->withInput()->with('error', $itemError);
         }
 
         return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId) {
@@ -324,10 +338,13 @@ class ReceivingReportController extends Controller
             'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.article' => ['nullable', 'string', 'max:2000'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
+            'items.*.supplier_name' => ['nullable', 'string', 'max:255'],
         ]);
     }
 
-    private function replaceItems($rrId, array $items): void
+    private function replaceItems($rrId, array $items, ?string $paymentPath = null): void
     {
         DB::table('receiving_report_items_table')->where('receiving_report_id', $rrId)->delete();
 
@@ -339,16 +356,112 @@ class ReceivingReportController extends Controller
             if ($qty === null && blank($unit) && blank($article)) {
                 continue;
             }
-            $rows[] = [
+
+            $itemRow = [
                 'receiving_report_id' => $rrId,
                 'receiving_report_item_quantity' => $qty ?: null,
                 'receiving_report_item_unit' => $unit,
                 'receiving_report_item_article' => $article,
             ];
+
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_unit_price')) {
+                $itemRow['receiving_report_item_unit_price'] = isset($row['unit_price']) && $row['unit_price'] !== ''
+                    ? (float) $row['unit_price']
+                    : null;
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_supplier_id')) {
+                $itemRow['receiving_report_item_supplier_id'] = $row['supplier_id'] ?? null;
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_supplier_name')) {
+                $itemRow['receiving_report_item_supplier_name'] = $row['supplier_name'] ?? null;
+            }
+
+            $rows[] = $itemRow;
         }
         if ($rows !== []) {
             DB::table('receiving_report_items_table')->insert($rows);
         }
+    }
+
+    private function validateRrItemsForFunding($rfcId, array $items): ?string
+    {
+        if (!$rfcId) {
+            return null;
+        }
+
+        $rfc = DB::table('request_check_table')
+            ->leftJoin(
+                'authority_to_purchase_table',
+                'request_check_table.request_check_authority_purchase_id',
+                '=',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
+            ->where('request_check_table.request_check_id', $rfcId)
+            ->select(
+                'request_check_table.*',
+                'authority_to_purchase_table.authority_purchase_payment_path',
+                'authority_to_purchase_table.authority_purchase_supplier_id'
+            )
+            ->first();
+
+        if (!$rfc) {
+            return 'Selected funding request was not found.';
+        }
+
+        $path = $rfc->authority_purchase_payment_path
+            ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+
+        $atpItems = DB::table('authority_to_purchase_items_table')
+            ->where('authority_purchase_id', $rfc->request_check_authority_purchase_id)
+            ->orderBy('atp_item_id')
+            ->get();
+
+        if ($path === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+            foreach ($atpItems as $item) {
+                if ((int) ($item->atp_back_order_qty ?? 0) > 0) {
+                    return 'Back order items must be fulfilled by the original supplier before creating a Receiving Report.';
+                }
+            }
+
+            foreach ($items as $row) {
+                if (!empty($row['supplier_id']) && (int) $row['supplier_id'] !== (int) $rfc->authority_purchase_supplier_id) {
+                    return 'Request for Check requires all items from the ATP supplier only.';
+                }
+            }
+        }
+
+        if ($path === ProcurementPaymentPath::CASH_ADVANCE) {
+            $budgetByIndex = $atpItems->values();
+            foreach (array_values(array_slice($items, 0, 10)) as $index => $row) {
+                $budgetItem = $budgetByIndex[$index] ?? null;
+                if (!$budgetItem) {
+                    continue;
+                }
+                $unitPrice = isset($row['unit_price']) && $row['unit_price'] !== '' ? (float) $row['unit_price'] : null;
+                $maxPrice = (float) ($budgetItem->atp_unit_price ?? 0);
+                if ($unitPrice !== null && $maxPrice > 0 && $unitPrice > $maxPrice) {
+                    return 'Item ' . ($index + 1) . ' unit price cannot exceed the approved budget of ₱' . number_format($maxPrice, 2) . '.';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function activeSuppliersForRr()
+    {
+        return DB::table('suppliers_table')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->where('suppliers_table.supplier_is_active', 1)
+            ->select(
+                'suppliers_table.supplier_id',
+                'suppliers_table.supplier_store_type',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->orderBy('suppliers_table.supplier_id')
+            ->get();
     }
 
     private function linkRfc($rfcId, $rrId): void
@@ -371,10 +484,18 @@ class ReceivingReportController extends Controller
                 '=',
                 'request_check_table.request_check_id'
             )
+            ->leftJoin(
+                'authority_to_purchase_table',
+                'request_check_table.request_check_authority_purchase_id',
+                '=',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
             ->select(
                 'receiving_reports_table.*',
                 'request_check_table.request_check_form_number',
-                'request_check_table.request_check_payee'
+                'request_check_table.request_check_payee',
+                'request_check_table.request_check_funding_type',
+                'authority_to_purchase_table.authority_purchase_payment_path'
             );
     }
 
@@ -433,8 +554,11 @@ class ReceivingReportController extends Controller
                 'request_check_table.request_check_id',
                 'request_check_table.request_check_form_number',
                 'request_check_table.request_check_payee',
+                'request_check_table.request_check_funding_type',
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
+                'authority_to_purchase_table.authority_purchase_payment_path',
+                'authority_to_purchase_table.authority_purchase_supplier_id',
                 'physical_suppliers_table.company_name',
                 'physical_suppliers_table.company_address',
                 'online_suppliers_table.shop_name',
@@ -459,17 +583,23 @@ class ReceivingReportController extends Controller
             $from = $rfc->supplier_store_type === 'Physical Store'
                 ? ($rfc->company_name ?? $rfc->request_check_payee)
                 : ($rfc->shop_name ?? $rfc->request_check_payee);
+            $path = $rfc->authority_purchase_payment_path
+                ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
             $rows = [];
-            foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(10) as $item) {
+            foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(10) as $index => $item) {
                 $rows[] = [
                     'quantity' => $item->atp_quantity,
                     'unit' => $item->atp_unit,
                     'article' => $item->atp_description,
+                    'unit_price' => $item->atp_unit_price,
+                    'supplier_id' => $path === ProcurementPaymentPath::CASH_ADVANCE ? null : $rfc->authority_purchase_supplier_id,
+                    'supplier_name' => $path === ProcurementPaymentPath::CASH_ADVANCE ? '' : $from,
                 ];
             }
             $prefill[(string) $rfc->request_check_id] = [
                 'received_from' => $from,
                 'address' => $rfc->company_address ?? '',
+                'payment_path' => $path,
                 'items' => $rows,
             ];
         }

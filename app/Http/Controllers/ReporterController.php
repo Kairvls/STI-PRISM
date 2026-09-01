@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ReportSubmissionService;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
@@ -39,6 +40,13 @@ class ReporterController extends Controller
 
     public function index()
     {
+        $equipmentCountSub = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
+                ->whereNotNull('equipment_room_id')
+                ->groupBy('equipment_room_id')
+        );
+
         $rooms = DB::table('rooms_table')
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
@@ -56,10 +64,29 @@ class ReporterController extends Controller
                 '=',
                 'buildings_table.building_id'
             )
+            ->leftJoinSub(
+                $equipmentCountSub,
+                'room_equipment_counts',
+                'rooms_table.room_id',
+                '=',
+                'room_equipment_counts.equipment_room_id'
+            )
             ->select(
                 'rooms_table.*',
                 'floors_table.floor_level',
-                'buildings_table.building_name'
+                'buildings_table.building_name',
+                DB::raw('COALESCE(room_equipment_counts.equipment_count, 0) as equipment_count')
+            )
+            ->orderByRaw("
+                CASE
+                    WHEN floors_table.floor_level LIKE '2nd%' THEN 1
+                    WHEN floors_table.floor_level LIKE '3rd%' THEN 2
+                    ELSE 99
+                END ASC
+            ")
+            ->orderByRaw(
+                "CASE WHEN floors_table.floor_level LIKE '3rd%' AND rooms_table.room_type = ? THEN 0 ELSE 1 END ASC",
+                ['Lecture Room']
             )
             ->orderBy('rooms_table.room_name')
             ->get();
@@ -370,6 +397,120 @@ class ReporterController extends Controller
             }
         }
 
+        $equipmentReportedTodayCount = 0;
+        $latestReportedEquipmentToday = collect();
+
+        if ($reportsQuery) {
+            $entries = collect();
+
+            if (ReportItems::tableExists()) {
+                $itemQuery = ReportItems::itemsQuery()
+                    ->join('reports_table', 'report_items_table.report_id', '=', 'reports_table.report_id')
+                    ->leftJoin('rooms_table as report_rooms', 'reports_table.report_room_id', '=', 'report_rooms.room_id');
+
+                if (Schema::hasTable('floors_table')) {
+                    $itemQuery->leftJoin(
+                        'floors_table as report_floors',
+                        'report_rooms.room_floor_id',
+                        '=',
+                        'report_floors.floor_id'
+                    );
+                }
+
+                $itemQuery
+                    ->whereDate('reports_table.report_submitted_at', today())
+                    ->when(
+                        Schema::hasColumn('reports_table', 'report_is_archived'),
+                        fn ($query) => $query->where('reports_table.report_is_archived', false)
+                    )
+                    ->addSelect([
+                        'reports_table.report_submitted_at',
+                        'report_rooms.room_name as report_room_name',
+                    ]);
+
+                if (Schema::hasTable('floors_table')) {
+                    $itemQuery->addSelect('report_floors.floor_level as report_floor_level');
+                }
+
+                foreach ($itemQuery
+                    ->orderByDesc('reports_table.report_submitted_at')
+                    ->orderByDesc('report_items_table.report_item_id')
+                    ->get() as $item) {
+                    $entries->push((object) [
+                        'equipment_name' => ReportItems::displayName($item),
+                        'identifier' => $this->formatEquipmentIdentifier($item),
+                        'location' => $this->formatReportLocation($item),
+                        'submitted_at' => $item->report_submitted_at,
+                    ]);
+                }
+            }
+
+            $legacyQuery = (clone $reportsQuery)
+                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+                ->leftJoin('rooms_table as report_rooms', 'reports_table.report_room_id', '=', 'report_rooms.room_id');
+
+            if (Schema::hasTable('floors_table')) {
+                $legacyQuery->leftJoin(
+                    'floors_table as report_floors',
+                    'report_rooms.room_floor_id',
+                    '=',
+                    'report_floors.floor_id'
+                );
+            }
+
+            if (ReportItems::tableExists()) {
+                $legacyQuery->whereNotIn('reports_table.report_id', function ($sub) {
+                    $sub->select('report_id')->from('report_items_table');
+                });
+            }
+
+            $legacySelect = [
+                'reports_table.report_submitted_at',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
+                'equipment_table.equipment_current_location',
+                'report_rooms.room_name as report_room_name',
+            ];
+
+            if (Schema::hasTable('floors_table')) {
+                $legacySelect[] = 'report_floors.floor_level as report_floor_level';
+            }
+
+            foreach ($legacyQuery
+                ->whereDate('reports_table.report_submitted_at', today())
+                ->when(
+                    Schema::hasColumn('reports_table', 'report_is_archived'),
+                    fn ($query) => $query->where('reports_table.report_is_archived', false)
+                )
+                ->select($legacySelect)
+                ->orderByDesc('reports_table.report_submitted_at')
+                ->get() as $report) {
+                $name = trim((string) ($report->equipment_name ?? ''));
+                if ($name === '') {
+                    $name = trim((string) ($report->report_unlisted_equipment_name ?? ''));
+                }
+                if ($name === '') {
+                    $name = 'Unlisted equipment';
+                }
+
+                $entries->push((object) [
+                    'equipment_name' => $name,
+                    'identifier' => $this->formatEquipmentIdentifier($report),
+                    'location' => $this->formatReportLocation($report),
+                    'submitted_at' => $report->report_submitted_at,
+                ]);
+            }
+
+            $equipmentReportedTodayCount = $entries->count();
+
+            $latestReportedEquipmentToday = $entries
+                ->sortByDesc('submitted_at')
+                ->take(3)
+                ->values();
+        }
+
         $campusBuildings = $rooms
             ->groupBy(fn ($room) => $room->building_name ?: 'Campus Building')
             ->map(function ($buildingRooms, $buildingName) {
@@ -432,7 +573,9 @@ class ReporterController extends Controller
             'monthlyStatusCounts',
             'campusBuildings',
             'yearlyReportTotal',
-            'yearlyReportYear'
+            'yearlyReportYear',
+            'equipmentReportedTodayCount',
+            'latestReportedEquipmentToday'
         ));
     }
 
@@ -442,423 +585,22 @@ class ReporterController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function storeReport(Request $request)
+    public function storeReport(Request $request, ReportSubmissionService $reports)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
-        $request->validate([
-
-            'report_reporter_employee_id' =>
-                'required|string',
-
-            'report_room_id' =>
-                'required|integer',
-
-            'report_equipment_id' =>
-                'nullable|integer',
-
-            'report_equipment_ids' =>
-                'nullable|array',
-
-            'report_equipment_ids.*' =>
-                'integer',
-
-            'report_equipment_issues' =>
-                'nullable|array',
-
-            'report_equipment_issues.*' =>
-                'nullable|string|max:255',
-
-            'report_equipment_manual' =>
-                'nullable|string|max:255',
-
-            'report_equipment_manuals' =>
-                'nullable|array',
-
-            'report_equipment_manuals.*' =>
-                'nullable|string|max:255',
-
-            'report_equipment_manual_issues' =>
-                'nullable|array',
-
-            'report_equipment_manual_issues.*' =>
-                'nullable|string|max:255',
-
-            'report_problem_description' =>
-                'nullable|string',
-
-            'report_suggested_issue' =>
-            'nullable|string|max:255',
-
-            'report_urgency_level' =>
-                'required|in:Urgent,Non-Urgent',
-
-            'report_preferred_action_date' =>
-                ReportGrouping::preferredActionDateRules(),
-
-            'report_uploaded_image' =>
-                'nullable|image|mimes:jpg,jpeg,png,webp|max:10240'
-
-        ]);
-
-        $equipmentIds = collect($request->input('report_equipment_ids', []))
-            ->when(
-                $request->filled('report_equipment_id'),
-                fn ($ids) => $ids->push($request->report_equipment_id)
-            )
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
-
-        $equipmentIssuesById = [];
-        $rawEquipmentIds = collect($request->input('report_equipment_ids', []));
-        $rawEquipmentIssues = collect($request->input('report_equipment_issues', []));
-        foreach ($rawEquipmentIds as $index => $rawId) {
-            $equipmentId = (int) $rawId;
-            if ($equipmentId <= 0) {
-                continue;
-            }
-            $equipmentIssuesById[$equipmentId] = trim((string) ($rawEquipmentIssues[$index] ?? ''));
-        }
-
-        if ($request->filled('report_equipment_id') && $request->filled('report_suggested_issue')) {
-            $equipmentIssuesById[(int) $request->report_equipment_id] = trim(
-                (string) $request->report_suggested_issue
-            );
-        }
-
-        $manualNames = collect($request->input('report_equipment_manuals', []))
-            ->when(
-                $request->filled('report_equipment_manual'),
-                fn ($names) => $names->push($request->report_equipment_manual)
-            )
-            ->map(fn ($name) => trim((string) $name))
-            ->filter()
-            ->values();
-
-        $manualIssues = collect($request->input('report_equipment_manual_issues', []))
-            ->map(fn ($issue) => trim((string) $issue))
-            ->values();
-
-        while ($manualIssues->count() < $manualNames->count()) {
-            $manualIssues->push(trim((string) $request->report_suggested_issue));
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | EQUIPMENT REQUIRED
-        |--------------------------------------------------------------------------
-        */
-
-        if ($equipmentIds->isEmpty() && $manualNames->isEmpty()) {
-            return $this->reportStoreResponse(
-                $request,
-                false,
-                'Please select at least one equipment or enter an equipment name.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUGGESTED ISSUE REQUIRED PER EQUIPMENT ITEM
-        |--------------------------------------------------------------------------
-        */
-
-        $missingListedIssue = $equipmentIds->contains(
-            fn ($equipmentId) => trim((string) ($equipmentIssuesById[$equipmentId] ?? '')) === ''
-        );
-
-        $missingManualIssue = $manualNames->keys()->contains(
-            fn ($index) => trim((string) ($manualIssues[$index] ?? '')) === ''
-        );
-
-        if (
-            ($equipmentIds->isNotEmpty() || $manualNames->isNotEmpty())
-            && ($missingListedIssue || $missingManualIssue)
-            && empty(trim((string) $request->report_suggested_issue))
-            && empty(trim((string) $request->report_problem_description))
-        ) {
-            return $this->reportStoreResponse(
-                $request,
-                false,
-                'Please select a suggested issue for each equipment before submitting.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK REPORTER EXISTENCE
-        |--------------------------------------------------------------------------
-        */
-
-        $reporter = DB::table('reporters_table')
-            ->where(
-                'reporter_employee_id',
-                $request->report_reporter_employee_id
-            )
-            ->first();
-
-        if (!$reporter) {
-            $pending = ReporterApprovals::pendingByEmployeeId(
-                (string) $request->report_reporter_employee_id
-            );
-
-            if ($pending) {
-                return $this->reportStoreResponse(
-                    $request,
-                    false,
-                    'Your reporter application is still waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.'
-                );
-            }
-
-            return $this->reportStoreResponse(
-                $request,
-                false,
-                'Employee ID not recognized.'
-            );
-        }
-
-        if (strtolower((string) $reporter->reporter_status) !== 'active') {
-            return $this->reportStoreResponse(
-                $request,
-                false,
-                'This reporter account is inactive and cannot submit maintenance reports.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK ROOM EXISTENCE
-        |--------------------------------------------------------------------------
-        */
-
-        $room = DB::table('rooms_table')
-            ->where('room_id', $request->report_room_id)
-            ->first();
-
-        if (!$room) {
-            return $this->reportStoreResponse(
-                $request,
-                false,
-                'Selected room not found.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATE LISTED EQUIPMENT
-        |--------------------------------------------------------------------------
-        */
-
-        $validEquipment = collect();
-
-        if ($equipmentIds->isNotEmpty()) {
-            $validEquipment = DB::table('equipment_table')
-                ->whereIn('equipment_id', $equipmentIds->all())
-                ->where('equipment_room_id', $request->report_room_id)
-                ->get()
-                ->keyBy('equipment_id');
-
-            if ($validEquipment->count() !== $equipmentIds->count()) {
-                return $this->reportStoreResponse(
-                    $request,
-                    false,
-                    'One or more selected equipment do not belong to the selected room.'
-                );
-            }
-
-            foreach ($equipmentIds as $equipmentId) {
-                if (ReportGrouping::equipmentIsForReplacement((int) $equipmentId)) {
-                    $name = $validEquipment->get($equipmentId)->equipment_name ?? ('#'.$equipmentId);
-
-                    return $this->reportStoreResponse(
-                        $request,
-                        false,
-                        $name.' is already marked for replacement and cannot be reported again.'
-                    );
-                }
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | IMAGE UPLOAD
-        |--------------------------------------------------------------------------
-        */
-
-        $imagePath = null;
-
-        if ($request->hasFile('report_uploaded_image')) {
-            $imagePath = $request
-                ->file('report_uploaded_image')
-                ->store('report-images', 'public');
-        }
-
-        $preferredDate = ReportGrouping::hasPreferredActionDateColumn()
-            ? ReportGrouping::resolvePreferredActionDate(
-                $request->report_urgency_level,
-                $request->report_preferred_action_date
-            )
-            : null;
-
-        $issueText = $request->report_suggested_issue
-            ?: ($equipmentIssuesById[$equipmentIds->first()] ?? null)
-            ?: ($manualIssues->first() ?: null)
-            ?: $request->report_problem_description;
-
-        $totalSelected = $equipmentIds->count() + $manualNames->count();
-        $isMultiItemSubmit = $totalSelected > 1;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SINGLE EQUIPMENT: MERGE INTO EXISTING OPEN REPORT IF PRESENT
-        | MULTI EQUIPMENT: ALWAYS CREATE ONE NEW PARENT REPORT
-        |--------------------------------------------------------------------------
-        */
-
-        $newEquipmentIds = collect();
-        $mergedCount = 0;
-
-        if (! $isMultiItemSubmit && $equipmentIds->count() === 1 && $manualNames->isEmpty()) {
-            $equipmentId = (int) $equipmentIds->first();
-            $openReport = ReportGrouping::findOpenReport(
-                $equipmentId,
-                (int) $request->report_room_id
-            );
-
-            $itemIssue = trim((string) ($equipmentIssuesById[$equipmentId] ?? ''));
-            if ($itemIssue === '') {
-                $itemIssue = trim((string) $request->report_suggested_issue);
-            }
-            if ($itemIssue === '') {
-                $itemIssue = trim((string) $request->report_problem_description);
-            }
-
-            if ($openReport) {
-                ReportGrouping::mergeIntoOpenReport($openReport, [
-                    'reporter_id' => $request->report_reporter_employee_id,
-                    'urgency' => $request->report_urgency_level,
-                    'preferred_action_date' => $preferredDate,
-                    'issue' => $itemIssue,
-                ]);
-
-                return $this->reportStoreResponse(
-                    $request,
-                    true,
-                    'This equipment already has an open report (#'.$openReport->report_id.'). Your update was added to it instead of creating a duplicate.',
-                    200,
-                    ['merged' => true, 'report_id' => (int) $openReport->report_id]
-                );
-            }
-
-            $newEquipmentIds->push($equipmentId);
-        } else {
-            // Multi-item (or manuals): create one report with every selected item.
-            foreach ($equipmentIds as $equipmentId) {
-                $openReport = ReportGrouping::findOpenReport(
-                    (int) $equipmentId,
-                    (int) $request->report_room_id
-                );
-
-                if ($openReport) {
-                    return $this->reportStoreResponse(
-                        $request,
-                        false,
-                        'One or more selected equipment already have an open report. Remove those items (or wait until they are resolved) and submit again.'
-                    );
-                }
-
-                $newEquipmentIds->push((int) $equipmentId);
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | INSERT PARENT REPORT + LINE ITEMS
-        |--------------------------------------------------------------------------
-        */
-
-        $primaryEquipmentId = $newEquipmentIds->first();
-        $primaryManual = $primaryEquipmentId ? null : $manualNames->first();
-        $primaryIssue = $primaryEquipmentId
-            ? ($equipmentIssuesById[$primaryEquipmentId] ?? null)
-            : ($manualIssues->first() ?: null);
-        $primaryIssue = trim((string) ($primaryIssue ?: $request->report_suggested_issue));
-
-        $insertData = [
-            'report_reporter_employee_id' => $request->report_reporter_employee_id,
-            'report_room_id' => $request->report_room_id,
-            'report_equipment_id' => $primaryEquipmentId,
-            'report_unlisted_equipment_name' => $primaryManual,
-            'report_problem_description' => $request->report_problem_description,
-            'report_suggested_issue' => $primaryIssue !== '' ? $primaryIssue : null,
-            'report_urgency_level' => $request->report_urgency_level,
-            'report_current_status' => 'Pending',
-            'report_uploaded_image' => $imagePath,
-            'report_is_overdue' => false,
-            'report_is_archived' => false,
-            'report_submitted_at' => now(),
-            'report_updated_at' => now(),
-        ];
-
-        if (Schema::hasColumn('reports_table', 'report_related_count')) {
-            $insertData['report_related_count'] = 1;
-        }
-
-        if (ReportGrouping::hasPreferredActionDateColumn()) {
-            $insertData['report_preferred_action_date'] = $preferredDate;
-        }
-
-        $reportId = (int) DB::table('reports_table')->insertGetId($insertData);
-
-        $itemPayloads = [];
-
-        foreach ($newEquipmentIds as $equipmentId) {
-            $itemIssue = trim((string) ($equipmentIssuesById[$equipmentId] ?? ''));
-            if ($itemIssue === '') {
-                $itemIssue = $primaryIssue;
-            }
-
-            $itemPayloads[] = [
-                'equipment_id' => (int) $equipmentId,
-                'suggested_issue' => $itemIssue !== '' ? $itemIssue : null,
-                'problem_description' => $request->report_problem_description,
-                'uploaded_image' => $imagePath,
-            ];
-        }
-
-        foreach ($manualNames as $index => $manualName) {
-            $itemIssue = trim((string) ($manualIssues[$index] ?? ''));
-            if ($itemIssue === '') {
-                $itemIssue = $primaryIssue;
-            }
-
-            $itemPayloads[] = [
-                'unlisted_name' => $manualName,
-                'suggested_issue' => $itemIssue !== '' ? $itemIssue : null,
-                'problem_description' => $request->report_problem_description,
-                'uploaded_image' => $imagePath,
-            ];
-        }
-
-        ReportItems::createForReport($reportId, $itemPayloads);
-
-        $itemCount = count($itemPayloads);
-        $message = $itemCount > 1
-            ? 'Maintenance report #'.$reportId.' submitted successfully with '.$itemCount.' equipment items. It is now in Pending reports.'
-            : 'Maintenance report #'.$reportId.' submitted successfully. It is now in Pending reports.';
+        $result = $reports->submit($request);
 
         return $this->reportStoreResponse(
             $request,
-            true,
-            $message,
-            200,
-            ['report_id' => $reportId, 'item_count' => $itemCount]
+            (bool) ($result['success'] ?? false),
+            (string) ($result['message'] ?? 'Unable to submit report.'),
+            (int) ($result['status'] ?? (($result['success'] ?? false) ? 200 : 422)),
+            array_filter([
+                'report_id' => $result['report_id'] ?? null,
+                'ticket_code' => $result['ticket_code'] ?? null,
+                'item_count' => $result['item_count'] ?? null,
+                'merged' => $result['merged'] ?? null,
+                'errors' => $result['errors'] ?? null,
+            ], fn ($value) => $value !== null)
         );
     }
 
@@ -870,12 +612,15 @@ class ReporterController extends Controller
 
     public function getEquipmentByRoom($roomId)
     {
-        $equipment = ReportGrouping::applyReporterEquipmentFilters(
-            DB::table('equipment_table')
-                ->where('equipment_room_id', $roomId)
-        )
-            ->orderBy('equipment_name')
-            ->get();
+        $equipment = ReportGrouping::enrichEquipmentWithOpenReports(
+            ReportGrouping::applyReporterEquipmentFilters(
+                DB::table('equipment_table')
+                    ->where('equipment_room_id', $roomId)
+            )
+                ->orderBy('equipment_name')
+                ->get(),
+            (int) $roomId
+        );
 
         return response()->json($equipment);
     }
@@ -1309,6 +1054,47 @@ class ReporterController extends Controller
         return $request->expectsJson()
             ? response()->json($payload, 429)
             : back()->withErrors(['email' => $message])->withInput();
+    }
+
+    private function formatEquipmentIdentifier(object $row): string
+    {
+        $tag = trim((string) ($row->equipment_asset_tag ?? ''));
+        if ($tag !== '') {
+            return $tag;
+        }
+
+        $serial = trim((string) ($row->equipment_serial_number ?? ''));
+        if ($serial !== '') {
+            return $serial;
+        }
+
+        return '—';
+    }
+
+    private function formatReportLocation(object $row): string
+    {
+        $reportRoom = trim((string) ($row->report_room_name ?? ''));
+        $reportFloor = $row->report_floor_level ?? null;
+        $equipmentRoom = trim((string) ($row->room_name ?? ''));
+        $currentLocation = trim((string) ($row->equipment_current_location ?? ''));
+
+        if ($reportRoom !== '') {
+            if ($reportFloor !== null && $reportFloor !== '') {
+                return $reportFloor.' - '.$reportRoom;
+            }
+
+            return $reportRoom;
+        }
+
+        if ($equipmentRoom !== '') {
+            return $equipmentRoom;
+        }
+
+        if ($currentLocation !== '') {
+            return $currentLocation;
+        }
+
+        return '—';
     }
 }
 

@@ -379,12 +379,18 @@
                             || request()->filled('status')
                             || request()->filled('urgency')
 
-                                ? 'No maintenance reports match your current search or filters.'
+                                ? ($isPurchaserUrgent
+                                    ? 'No urgent reports match your current search or filters.'
+                                    : 'No maintenance reports match your current search or filters.')
 
                                 : (
                                     $isArchiveView
-                                        ? 'Archived maintenance reports will appear here.'
-                                        : 'Submitted maintenance reports will appear here.'
+                                        ? ($isPurchaserUrgent
+                                            ? 'Archived urgent reports will appear here.'
+                                            : 'Archived maintenance reports will appear here.')
+                                        : ($isPurchaserUrgent
+                                            ? 'Submitted urgent reports will appear here.'
+                                            : 'Submitted maintenance reports will appear here.')
                                 )
                         }}
 
@@ -491,6 +497,18 @@
                             "For Replacement" => "bg-orange-50 text-orange-700",
                         ];
                         $currentStatus = $report->report_current_status;
+                        $canClaimPurchaserUrgent = $isPurchaserUrgent
+                            && $currentStatus === 'Pending'
+                            && empty($report->report_assigned_personnel_id)
+                            && empty($report->report_assigned_purchaser_id);
+                        $canArchivePurchaserUrgent = $isPurchaserUrgent
+                            && ! $report->report_is_archived
+                            && empty($report->report_assigned_personnel_id)
+                            && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement'], true)
+                            && (
+                                (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+                                || ($currentStatus === 'Rejected' && empty($report->report_assigned_purchaser_id))
+                            );
                         $statusPill = $statusMap[$currentStatus] ?? "bg-slate-100 text-slate-600";
                         $canUpdate = in_array($currentStatus, ["Pending", "Processing"]);
                         $rowBg = $loop->even ? "bg-gray-50/40" : "";
@@ -617,13 +635,16 @@
                                     </button>
                                 @endif
                                 @if ($isPurchaserUrgent)
-                                    @if ($currentStatus === 'Pending')
+                                    @if ($canClaimPurchaserUrgent)
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.accept', $report->report_id) }}">
                                             @csrf
-                                            <button type="submit" data-tooltip="Accept Report" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700">
+                                            <button type="submit" data-tooltip="Start Processing" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700">
                                                 <i data-lucide="siren" class="h-3.5 w-3.5"></i>
                                             </button>
                                         </form>
+                                        <button type="button" data-tooltip="Reject Report" onclick="openReportModal('purchaser-reject-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
+                                            <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
+                                        </button>
                                     @endif
                                     @if (
                                         $currentStatus === 'Processing'
@@ -636,11 +657,7 @@
                                             <i data-lucide="package-search" class="h-3.5 w-3.5"></i>
                                         </button>
                                     @endif
-                                    @if (
-                                        !$report->report_is_archived
-                                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
-                                        && in_array($currentStatus, ['Resolved', 'For Replacement'], true)
-                                    )
+                                    @if ($canArchivePurchaserUrgent)
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
                                             @csrf
                                             <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)]">
@@ -786,12 +803,18 @@
                                         || request()->filled('status')
                                         || request()->filled('urgency')
 
-                                            ? 'No maintenance reports match your current search or filters.'
+                                            ? ($isPurchaserUrgent
+                                                ? 'No urgent reports match your current search or filters.'
+                                                : 'No maintenance reports match your current search or filters.')
 
                                             : (
                                                 $isArchiveView
-                                                    ? 'Archived maintenance reports will appear here.'
-                                                    : 'Submitted maintenance reports will appear here.'
+                                                    ? ($isPurchaserUrgent
+                                                        ? 'Archived urgent reports will appear here.'
+                                                        : 'Archived maintenance reports will appear here.')
+                                                    : ($isPurchaserUrgent
+                                                        ? 'Submitted urgent reports will appear here.'
+                                                        : 'Submitted maintenance reports will appear here.')
                                             )
                                     }}
 
@@ -1470,51 +1493,6 @@
     </div>
 </div>
 
-<!-- UNDO TOAST -->
-@if (session("undo_report_id"))
-    <div
-        id="undo-toast"
-        class="fixed bottom-6 right-6 z-[60] hidden max-w-sm rounded-2xl border border-gray-200 bg-white p-4 shadow-xl"
-    >
-        <div class="flex items-start gap-3">
-            <div
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100"
-            >
-                <i
-                    data-lucide="refresh-cw"
-                    class="h-4 w-4 text-emerald-600"
-                ></i>
-            </div>
-            <div class="flex-1">
-                <p class="text-sm font-semibold text-gray-900">Status updated</p>
-                <p class="mt-0.5 text-xs text-gray-500">{{
-                    session(
-                        "success",
-                    )
-                }}</p>
-            </div>
-            <form
-                action="/maintenance/reports/update-status/{{ session('undo_report_id') }}"
-                method="POST"
-            >
-                @csrf
-                <input
-                    type="hidden"
-                    name="status"
-                    value="{{ session('undo_previous_status') }}"
-                />
-                <input type="hidden" name="undo" value="1" />
-                <button
-                    type="submit"
-                    class="rounded-lg bg-[#FFF200] px-3 py-1.5 text-xs font-bold text-gray-900 transition hover:bg-yellow-300"
-                >
-                    Undo
-                </button>
-            </form>
-        </div>
-    </div>
-@endif
-
 <script>
     function openReportModal(modalId) {
         const modal = document.getElementById(modalId);
@@ -1628,16 +1606,6 @@
         const savedView = localStorage.getItem(@json($reportViewStorageKey)) || "table";
 
         setReportView(savedView);
-
-        const toast = document.getElementById("undo-toast");
-
-        if (toast) {
-            toast.classList.remove("hidden");
-
-            setTimeout(() => {
-                toast.classList.add("hidden");
-            }, 7000);
-        }
     });
 
     /* ==========================================

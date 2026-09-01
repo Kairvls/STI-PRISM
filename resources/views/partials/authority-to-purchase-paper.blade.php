@@ -136,6 +136,7 @@
         <thead>
             <tr>
                 <th class="border border-black p-2">Quantity</th>
+                <th class="border border-black p-2">Supplier Stock</th>
                 <th class="border border-black p-2">Unit</th>
                 <th class="border border-black p-2">Description</th>
                 <th class="border border-black p-2">Unit Price</th>
@@ -149,6 +150,7 @@
                         $row = is_array($oldItems) ? ($oldItems[$i] ?? null) : null;
                         $item = $items[$i] ?? null;
                         $qty = is_array($row) ? ($row['quantity'] ?? '') : ($item->atp_quantity ?? '');
+                        $stock = is_array($row) ? ($row['supplier_stock'] ?? '') : ($item->atp_supplier_stock ?? '');
                         $unit = is_array($row) ? ($row['unit'] ?? '') : ($item->atp_unit ?? '');
                         $desc = is_array($row) ? ($row['description'] ?? '') : ($item->atp_description ?? '');
                         $price = is_array($row) ? ($row['unit_price'] ?? '') : ($item->atp_unit_price ?? '');
@@ -159,6 +161,9 @@
                     <tr>
                         <td class="border border-black p-1">
                             <input type="number" name="items[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="w-full border-0 text-center">
+                        </td>
+                        <td class="border border-black p-1">
+                            <input type="number" name="items[{{ $i }}][supplier_stock]" value="{{ $stock }}" min="0" class="w-full border-0 text-center" title="Available stock at supplier (manual entry)">
                         </td>
                         <td class="border border-black p-1">
                             <input type="text" name="items[{{ $i }}][unit]" value="{{ $unit }}" class="w-full border-0 text-center">
@@ -198,6 +203,12 @@
                 @forelse($items as $item)
                     <tr>
                         <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
+                        <td class="border border-black text-center">
+                            {{ $item->atp_supplier_stock ?? '—' }}
+                            @if((int) ($item->atp_back_order_qty ?? 0) > 0)
+                                <span class="block text-[10px] font-semibold text-amber-700">Back order: {{ $item->atp_back_order_qty }}</span>
+                            @endif
+                        </td>
                         <td class="border border-black text-center">{{ $item->atp_unit }}</td>
                         <td class="border border-black px-2">{{ $item->atp_description }}</td>
                         <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>

@@ -42,6 +42,37 @@
                     $schedule->equipment_name
                     ?? "Unassigned equipment",
 
+                "asset_tag" =>
+                    $schedule->equipment_asset_tag ?? "",
+
+                "serial_number" =>
+                    $schedule->equipment_serial_number ?? "",
+
+                "equipment_identifier" =>
+                    collect([
+                        $schedule->equipment_asset_tag
+                            ? 'Tag: '.$schedule->equipment_asset_tag
+                            : null,
+                        $schedule->equipment_serial_number
+                            ? 'Serial: '.$schedule->equipment_serial_number
+                            : null,
+                    ])->filter()->implode(' · '),
+
+                "category" =>
+                    $schedule->equipment_category_name ?? "",
+
+                "brand" =>
+                    $schedule->equipment_brand_name ?? "",
+
+                "model" =>
+                    $schedule->equipment_model ?? "",
+
+                "inventory_status" =>
+                    $schedule->equipment_inventory_status ?? "",
+
+                "condition_status" =>
+                    $schedule->equipment_condition_status ?? "",
+
                 "room" =>
                     $schedule->room_name
                     ?? "No room assigned",
@@ -58,6 +89,13 @@
                     Carbon::parse(
                         $schedule->maintenance_schedule_next_date
                     )->format("Y-m-d"),
+
+                "last_date" =>
+                    !empty($schedule->maintenance_schedule_last_date)
+                        ? Carbon::parse(
+                            $schedule->maintenance_schedule_last_date
+                        )->format("Y-m-d")
+                        : "",
 
                 "status" =>
                     $effectiveStatus($schedule),
@@ -109,7 +147,6 @@
         ->values();
 
     $upcomingCount = $upcomingAll->count();
-    $upcomingItems = $upcomingAll->take(2)->values();
 
     $overdueAll = $calendarSchedules
         ->filter(function ($item) use ($today) {
@@ -127,7 +164,6 @@
         ->values();
 
     $overdueCount = $overdueAll->count();
-    $overdueItems = $overdueAll->take(2)->values();
 
     $completedPctBar = (int) min(100, max(0, round($completedMaintenancePercentage ?? 0)));
     $firstName = explode(" ", trim(Auth::user()->user_full_name ?? "there"))[0];
@@ -141,9 +177,15 @@
         miniMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         selectedDay: new Date().toISOString().slice(0, 10),
         events: {{ Js::from($calendarSchedules) }},
+        overdueAll: {{ Js::from($overdueAll) }},
+        upcomingAll: {{ Js::from($upcomingAll) }},
+        sidebarOverdueLimit: 2,
+        sidebarUpcomingLimit: 2,
+        sidebarLimitsObserver: null,
         toggleWide() {
             this.wide = !this.wide;
             localStorage.setItem('prism-schedule-wide', this.wide ? '1' : '0');
+            this.$nextTick(() => this.updateSidebarLimits());
         },
         openBigCalendar() {
             this.calendarFull = true;
@@ -159,6 +201,7 @@
         closeBigCalendar() {
             this.calendarFull = false;
             this.$nextTick(() => {
+                this.updateSidebarLimits();
                 if (window.lucide) {
                     lucide.createIcons();
                 }
@@ -187,8 +230,72 @@
         },
         selectedEvents() {
             return this.events.filter((item) => item.date === this.selectedDay);
-        }
+        },
+        formatSidebarDate(value) {
+            if (!value) {
+                return '';
+            }
+            const [year, month, day] = String(value).split('-').map(Number);
+            return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+            });
+        },
+        visibleOverdue() {
+            return this.overdueAll.slice(0, this.sidebarOverdueLimit);
+        },
+        visibleUpcoming() {
+            return this.upcomingAll.slice(0, this.sidebarUpcomingLimit);
+        },
+        updateSidebarLimits() {
+            const section = document.getElementById('scheduleListSection');
+            if (!section || this.wide || this.calendarFull) {
+                this.sidebarOverdueLimit = 2;
+                this.sidebarUpcomingLimit = 2;
+                return;
+            }
+
+            const dataRows = section.querySelectorAll(
+                '.schedule-list-table tbody tr:not([data-empty-row])',
+            ).length;
+            const sectionHeight = section.offsetHeight;
+
+            let overdueLimit = 2;
+            if (sectionHeight >= 880 || dataRows >= 12) {
+                overdueLimit = 4;
+            } else if (sectionHeight >= 700 || dataRows >= 8) {
+                overdueLimit = 3;
+            }
+
+            let upcomingLimit = 2;
+            if (sectionHeight >= 820 || dataRows >= 11) {
+                upcomingLimit = 3;
+            } else if (sectionHeight >= 680 || dataRows >= 7) {
+                upcomingLimit = 2;
+            }
+
+            this.sidebarOverdueLimit = overdueLimit;
+            this.sidebarUpcomingLimit = upcomingLimit;
+        },
+        bindSidebarLimits() {
+            const section = document.getElementById('scheduleListSection');
+            if (!section) {
+                return;
+            }
+
+            this.updateSidebarLimits();
+
+            if (this.sidebarLimitsObserver) {
+                this.sidebarLimitsObserver.disconnect();
+            }
+
+            this.sidebarLimitsObserver = new ResizeObserver(() => {
+                this.updateSidebarLimits();
+            });
+            this.sidebarLimitsObserver.observe(section);
+        },
     }"
+    x-init="$nextTick(() => bindSidebarLimits())"
 >
     @if (session("success"))
         <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
@@ -252,7 +359,7 @@
         :class="wide ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_300px]'"
         x-show="!calendarFull"
     >
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <section id="scheduleListSection" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h2 class="text-lg font-semibold tracking-tight text-slate-900">All Schedules</h2>
@@ -317,7 +424,7 @@
                         type="search"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search equipment, maintenance, room, or description..."
+                        placeholder="Search equipment, asset tag, serial, room..."
 
                         class="h-10 w-full rounded-lg
                             border border-slate-200
@@ -595,7 +702,7 @@
 
             <table
                 class="schedule-list-table w-full text-left"
-                :class="wide ? 'is-wide min-w-[1320px]' : 'min-w-0'"
+                :class="wide ? 'is-wide' : 'min-w-0'"
             >
 
                 {{-- ================================================= --}}
@@ -608,16 +715,12 @@
                             Equipment
                         </th>
 
-                        <th class="schedule-col-extra px-5 py-3">
+                        <th class="schedule-col-location px-5 py-3">
                             Location
                         </th>
 
                         <th class="px-5 py-3">
                             QR Code
-                        </th>
-
-                        <th class="schedule-col-extra px-5 py-3">
-                            Maintenance
                         </th>
 
                         <th class="schedule-col-extra px-5 py-3">
@@ -628,15 +731,11 @@
                             Next Date
                         </th>
 
-                        <th class="schedule-col-extra px-5 py-3">
-                            Last Date
-                        </th>
-
                         <th class="px-5 py-3">
                             Status
                         </th>
 
-                        <th class="w-16 px-5 py-3 text-center">
+                        <th class="w-12 px-5 py-3 text-center">
                             Actions
                         </th>
                     </tr>
@@ -667,6 +766,20 @@
 
                                 default => "bg-blue-500",
                             };
+
+                            $equipmentIdentifier = collect([
+                                $schedule->equipment_asset_tag
+                                    ? 'Tag: '.$schedule->equipment_asset_tag
+                                    : null,
+                                $schedule->equipment_serial_number
+                                    ? 'Serial: '.$schedule->equipment_serial_number
+                                    : null,
+                            ])->filter()->implode(' · ');
+
+                            $rowQrCode = trim((string) ($schedule->equipment_qr_code ?? ""));
+                            $rowQrImage = $rowQrCode !== ""
+                                ? url('/maintenance/equipment/qr-image/'.$rowQrCode)
+                                : "";
                         @endphp
 
 
@@ -685,7 +798,7 @@
 
                                     {{-- EQUIPMENT ICON --}}
                                     <div
-                                        class="flex h-9 w-9 shrink-0
+                                        class="schedule-equipment-icon flex h-9 w-9 shrink-0
                                             items-center justify-center
                                             rounded-lg border border-slate-200
                                             bg-white text-slate-400"
@@ -701,7 +814,7 @@
                                     <div class="min-w-0">
 
                                         <p
-                                            class="max-w-[220px] truncate
+                                            class="schedule-equipment-name max-w-[220px] truncate
                                                 text-sm font-semibold
                                                 text-slate-800"
                                         >
@@ -709,6 +822,10 @@
                                                 $schedule->equipment_name
                                                     ?? "Unassigned equipment"
                                             }}
+                                        </p>
+
+                                        <p class="schedule-equipment-meta mt-0.5 max-w-[220px] truncate text-[11px] text-slate-400">
+                                            {{ $equipmentIdentifier ?: 'No asset tag or serial' }}
                                         </p>
 
                                     </div>
@@ -722,10 +839,10 @@
                             {{-- LOCATION --}}
                             {{-- ===================================== --}}
 
-                            <td class="schedule-col-extra px-5 py-4">
+                            <td class="schedule-col-location px-5 py-4">
                                 <div class="flex items-center gap-1.5 text-sm text-slate-600">
                                     <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                    <span class="max-w-[180px] truncate">
+                                    <span class="schedule-room-text max-w-[180px] truncate">
                                         {{ $schedule->room_name ?? "No room assigned" }}
                                     </span>
                                 </div>
@@ -737,34 +854,28 @@
                             {{-- ===================================== --}}
 
                             <td class="px-5 py-4">
-                                @php
-                                    $rowQrCode = trim((string) ($schedule->equipment_qr_code ?? ""));
-                                @endphp
-
                                 @if ($rowQrCode !== "")
-                                    @php
-                                        $rowQrImage = url('/maintenance/equipment/qr-image/'.$rowQrCode);
-                                    @endphp
                                     <button
                                         type="button"
                                         onclick="openScheduleQrModal(@js($rowQrImage), @js($rowQrCode), @js($schedule->equipment_name ?? 'Equipment'))"
-                                        class="flex items-center gap-2.5 rounded-lg text-left transition hover:bg-slate-50"
+                                        class="schedule-qr-btn flex items-center gap-2.5 rounded-lg text-left transition hover:bg-slate-50"
+                                        data-tooltip="{{ $rowQrCode }}"
                                     >
                                         <img
                                             src="{{ $rowQrImage }}"
                                             alt="QR code for {{ $schedule->equipment_name ?? 'equipment' }}"
-                                            class="h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1"
+                                            class="schedule-qr-img h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1"
                                         />
-                                        <span class="max-w-[110px] truncate font-mono text-[11px] text-slate-500" title="{{ $rowQrCode }}">
+                                        <span class="schedule-qr-text min-w-0 truncate font-mono text-[11px] text-slate-500">
                                             {{ $rowQrCode }}
                                         </span>
                                     </button>
                                 @else
-                                    <div class="flex items-center gap-2 text-slate-400">
-                                        <span class="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                    <div class="schedule-qr-btn flex items-center gap-2 text-slate-400">
+                                        <span class="schedule-qr-empty flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
                                             <i data-lucide="qr-code" class="h-4 w-4"></i>
                                         </span>
-                                        <span class="text-[11px]">No QR</span>
+                                        <span class="schedule-qr-text text-[11px]">No QR</span>
                                     </div>
                                 @endif
                             </td>
@@ -772,23 +883,8 @@
 
                             <td class="schedule-col-extra px-5 py-4">
 
-                                <p
-                                    class="max-w-[230px] truncate
-                                        text-sm font-medium text-slate-700"
-                                    data-tooltip="{{ $schedule->maintenance_schedule_title }}"
-                                >
-                                    {{
-                                        $schedule->maintenance_schedule_title
-                                    }}
-                                </p>
-
-                            </td>
-
-
-                            <td class="schedule-col-extra px-5 py-4">
-
                                 <span
-                                    class="inline-flex rounded-md
+                                    class="schedule-frequency-badge inline-flex rounded-md
                                         bg-slate-100 px-2 py-1
                                         text-[11px] font-medium
                                         text-slate-600"
@@ -828,24 +924,6 @@
                                     </span>
 
                                 </div>
-
-                            </td>
-
-
-                            <td class="schedule-col-extra px-5 py-4">
-
-                                <span
-                                    class="whitespace-nowrap
-                                        text-xs text-slate-500"
-                                >
-                                    {{
-                                        $schedule->maintenance_schedule_last_date
-                                            ? Carbon::parse(
-                                                $schedule->maintenance_schedule_last_date
-                                            )->format("M d, Y")
-                                            : "Never"
-                                    }}
-                                </span>
 
                             </td>
 
@@ -989,7 +1067,9 @@
                                                     @js(
                                                         $schedule->equipment_name
                                                             ?? "Unassigned equipment"
-                                                    )
+                                                    ),
+                                                    @js($equipmentIdentifier ?: 'No asset tag or serial'),
+                                                    @js($schedule->room_name ?? 'No room assigned')
                                                 );
                                             "
                                             class="flex w-full items-center gap-2.5
@@ -1052,7 +1132,12 @@
                                                     @js(
                                                         $schedule->maintenance_schedule_title
                                                             ?? "this schedule"
-                                                    )
+                                                    ),
+                                                    @js(
+                                                        $schedule->equipment_name
+                                                            ?? "Unassigned equipment"
+                                                    ),
+                                                    @js($equipmentIdentifier ?: 'No asset tag or serial')
                                                 );
                                             "
                                             class="flex w-full items-center gap-2.5
@@ -1080,17 +1165,11 @@
 
                     @empty
 
-                        <tr>
-
+                        <tr data-empty-row>
                             <td
-                                :colspan="wide ? 9 : 5"
+                                :colspan="7"
                                 class="px-6 py-16 text-center"
                             >
-
-                                {{-- ===================================================== --}}
-                                {{-- EMPTY STATE --}}
-                                {{-- ===================================================== --}}
-
                                 <div class="mx-auto flex max-w-sm flex-col items-center">
 
                                     {{-- ================================================= --}}
@@ -1339,71 +1418,85 @@
             </div>
         </div>
 
-        <div class="mt-auto space-y-5">
+        <div class="space-y-5">
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
             <div class="flex items-baseline justify-between gap-2">
                 <h3 class="text-sm font-semibold text-slate-900">Overdue</h3>
-                @if ($overdueCount > 0)
-                    <p class="text-[11px] text-slate-400">{{ min(2, $overdueCount) }} of {{ $overdueCount }}</p>
-                @endif
+                <p
+                    class="text-[11px] text-slate-400"
+                    x-show="overdueAll.length > 0"
+                    x-text="`${Math.min(sidebarOverdueLimit, overdueAll.length)} of ${overdueAll.length}`"
+                ></p>
             </div>
             <div class="mt-4 space-y-0">
-                @forelse ($overdueItems as $item)
+                <template x-if="visibleOverdue().length === 0">
+                    <p class="text-sm text-slate-400">No overdue schedules.</p>
+                </template>
+                <template x-for="(item, index) in visibleOverdue()" :key="`overdue-${item.id}`">
                     <div class="relative flex gap-3 pb-4 last:pb-0">
-                        @if (!$loop->last)
-                            <span class="absolute left-[5px] top-3 h-full w-px bg-slate-200"></span>
-                        @endif
+                        <span
+                            class="absolute left-[5px] top-3 h-full w-px bg-slate-200"
+                            x-show="index < visibleOverdue().length - 1"
+                        ></span>
                         <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300 ring-1 ring-slate-200"></span>
                         <div class="min-w-0">
-                            <p class="text-[11px] font-medium text-slate-400">
-                                {{ Carbon::parse($item["date"])->format("M d") }}
+                            <p class="text-[11px] font-medium text-slate-400" x-text="formatSidebarDate(item.date)"></p>
+                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800" x-text="item.title"></p>
+                            <p class="truncate text-xs text-slate-400">
+                                <span x-text="item.equipment"></span>
+                                <template x-if="item.equipment_identifier">
+                                    <span x-text="` · ${item.equipment_identifier}`"></span>
+                                </template>
                             </p>
-                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800">{{ $item["title"] }}</p>
-                            <p class="truncate text-xs text-slate-400">{{ $item["equipment"] }}</p>
                         </div>
                     </div>
-                @empty
-                    <p class="text-sm text-slate-400">No overdue schedules.</p>
-                @endforelse
+                </template>
             </div>
-            @if ($overdueCount > 2)
-                <p class="mt-3 text-[11px] font-medium text-rose-500">
-                    +{{ $overdueCount - 2 }} more overdue
-                </p>
-            @endif
+            <p
+                class="mt-3 text-[11px] font-medium text-rose-500"
+                x-show="overdueAll.length > sidebarOverdueLimit"
+                x-text="`+${overdueAll.length - sidebarOverdueLimit} more overdue`"
+            ></p>
         </div>
 
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
             <div class="flex items-baseline justify-between gap-2">
                 <h3 class="text-sm font-semibold text-slate-900">Upcoming</h3>
-                @if ($upcomingCount > 0)
-                    <p class="text-[11px] text-slate-400">{{ min(2, $upcomingCount) }} of {{ $upcomingCount }}</p>
-                @endif
+                <p
+                    class="text-[11px] text-slate-400"
+                    x-show="upcomingAll.length > 0"
+                    x-text="`${Math.min(sidebarUpcomingLimit, upcomingAll.length)} of ${upcomingAll.length}`"
+                ></p>
             </div>
             <div class="mt-4 space-y-0">
-                @forelse ($upcomingItems as $item)
+                <template x-if="visibleUpcoming().length === 0">
+                    <p class="text-sm text-slate-400">No upcoming schedules.</p>
+                </template>
+                <template x-for="(item, index) in visibleUpcoming()" :key="`upcoming-${item.id}`">
                     <div class="relative flex gap-3 pb-4 last:pb-0">
-                        @if (!$loop->last)
-                            <span class="absolute left-[5px] top-3 h-full w-px bg-slate-200"></span>
-                        @endif
+                        <span
+                            class="absolute left-[5px] top-3 h-full w-px bg-slate-200"
+                            x-show="index < visibleUpcoming().length - 1"
+                        ></span>
                         <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300 ring-1 ring-slate-200"></span>
                         <div class="min-w-0">
-                            <p class="text-[11px] font-medium text-slate-400">
-                                {{ Carbon::parse($item["date"])->format("M d") }}
+                            <p class="text-[11px] font-medium text-slate-400" x-text="formatSidebarDate(item.date)"></p>
+                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800" x-text="item.title"></p>
+                            <p class="truncate text-xs text-slate-400">
+                                <span x-text="item.equipment"></span>
+                                <template x-if="item.equipment_identifier">
+                                    <span x-text="` · ${item.equipment_identifier}`"></span>
+                                </template>
                             </p>
-                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800">{{ $item["title"] }}</p>
-                            <p class="truncate text-xs text-slate-400">{{ $item["equipment"] }}</p>
                         </div>
                     </div>
-                @empty
-                    <p class="text-sm text-slate-400">No upcoming schedules.</p>
-                @endforelse
+                </template>
             </div>
-            @if ($upcomingCount > 2)
-                <p class="mt-3 text-[11px] font-medium text-sky-600">
-                    +{{ $upcomingCount - 2 }} more upcoming
-                </p>
-            @endif
+            <p
+                class="mt-3 text-[11px] font-medium text-sky-600"
+                x-show="upcomingAll.length > sidebarUpcomingLimit"
+                x-text="`+${upcomingAll.length - sidebarUpcomingLimit} more upcoming`"
+            ></p>
         </div>
         </div>
     </aside>
@@ -1423,7 +1516,7 @@
             <div class="calendar-sidebar-wave pointer-events-none absolute inset-x-0 top-0 z-0" aria-hidden="true">
                 <svg viewBox="0 0 250 250" preserveAspectRatio="none" class="h-full w-full">
                     <path
-                        fill="#fff200"
+                        fill="#0025cc"
                         d="M0 0 H250 C250 55 210 110 155 160 C110 200 55 210 0 185 Z"
                     ></path>
                 </svg>
@@ -1463,7 +1556,7 @@
                             </button>
                         </div>
 
-                        <div id="calendarMonthList" class="mt-7 flex w-full flex-1 flex-col items-center gap-3 overflow-y-auto pb-2"></div>
+                        <div id="calendarMonthList" class="mt-7 flex w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto px-1 pb-2"></div>
                     </div>
                 </div>
 
@@ -1703,7 +1796,7 @@
         font-weight: 700;
         letter-spacing: -0.04em;
         line-height: 1.1;
-        color: #0f172a;
+        color: #ffffff;
     }
 
     .calendar-sidebar {
@@ -1769,7 +1862,7 @@
         transition: color 0.15s ease;
     }
     .calendar-sidebar-year.is-on-wave {
-        color: #0f172a;
+        color: #ffffff;
     }
     .calendar-sidebar-year:not(.is-on-wave) {
         color: #334155;
@@ -1803,36 +1896,175 @@
     .schedule-list-table:not(.is-wide) .schedule-col-extra {
         display: none;
     }
+    .schedule-list-table:not(.is-wide) {
+        table-layout: fixed;
+        width: 100%;
+        min-width: 0;
+    }
+    .schedule-list-table:not(.is-wide) th,
+    .schedule-list-table:not(.is-wide) td {
+        padding: 0.75rem;
+        overflow: hidden;
+        vertical-align: middle;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(1),
+    .schedule-list-table:not(.is-wide) td:nth-child(1) {
+        width: 24%;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(2),
+    .schedule-list-table:not(.is-wide) td:nth-child(2) {
+        width: 14%;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(3),
+    .schedule-list-table:not(.is-wide) td:nth-child(3) {
+        width: 22%;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(5),
+    .schedule-list-table:not(.is-wide) td:nth-child(5) {
+        width: 14%;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(6),
+    .schedule-list-table:not(.is-wide) td:nth-child(6) {
+        width: 11%;
+    }
+    .schedule-list-table:not(.is-wide) th:nth-child(7),
+    .schedule-list-table:not(.is-wide) td:nth-child(7) {
+        width: 3rem;
+        padding-left: 0.375rem;
+        padding-right: 0.375rem;
+    }
+    .schedule-list-table:not(.is-wide) .schedule-equipment-name,
+    .schedule-list-table:not(.is-wide) .schedule-equipment-meta,
+    .schedule-list-table:not(.is-wide) .schedule-room-text {
+        max-width: 100%;
+    }
+    .schedule-list-table:not(.is-wide) .schedule-qr-text {
+        min-width: 0;
+        max-width: 100%;
+        flex: 1 1 0%;
+    }
+    .schedule-list-table:not(.is-wide) .schedule-qr-btn {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .schedule-list-table.is-wide {
+        table-layout: fixed;
+        width: 100%;
+        min-width: 0;
+    }
+    .schedule-list-table.is-wide th,
+    .schedule-list-table.is-wide td {
+        padding: 0.625rem 0.75rem;
+        overflow: hidden;
+        vertical-align: middle;
+    }
+    .schedule-list-table.is-wide th:nth-child(1),
+    .schedule-list-table.is-wide td:nth-child(1) {
+        width: 22%;
+    }
+    .schedule-list-table.is-wide th:nth-child(2),
+    .schedule-list-table.is-wide td:nth-child(2) {
+        width: 11%;
+    }
+    .schedule-list-table.is-wide th:nth-child(3),
+    .schedule-list-table.is-wide td:nth-child(3) {
+        width: 22%;
+    }
+    .schedule-list-table.is-wide th:nth-child(4),
+    .schedule-list-table.is-wide td:nth-child(4) {
+        width: 10%;
+    }
+    .schedule-list-table.is-wide th:nth-child(5),
+    .schedule-list-table.is-wide td:nth-child(5) {
+        width: 13%;
+    }
+    .schedule-list-table.is-wide th:nth-child(6),
+    .schedule-list-table.is-wide td:nth-child(6) {
+        width: 10%;
+    }
+    .schedule-list-table.is-wide th:nth-child(7),
+    .schedule-list-table.is-wide td:nth-child(7) {
+        width: 3rem;
+        padding-left: 0.375rem;
+        padding-right: 0.375rem;
+    }
+    .schedule-list-table.is-wide .schedule-equipment-icon {
+        height: 2rem;
+        width: 2rem;
+    }
+    .schedule-list-table.is-wide .schedule-equipment-name,
+    .schedule-list-table.is-wide .schedule-equipment-meta,
+    .schedule-list-table.is-wide .schedule-room-text {
+        max-width: 100%;
+    }
+    .schedule-list-table.is-wide .schedule-qr-text {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        flex: 1 1 0%;
+    }
+    .schedule-list-table.is-wide .schedule-qr-img,
+    .schedule-list-table.is-wide .schedule-qr-empty {
+        height: 2.25rem;
+        width: 2.25rem;
+        flex-shrink: 0;
+    }
+    .schedule-list-table.is-wide .schedule-qr-btn {
+        gap: 0.5rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .schedule-list-table.is-wide .schedule-frequency-badge {
+        white-space: nowrap;
+        padding-left: 0.375rem;
+        padding-right: 0.375rem;
+    }
+    .schedule-list-table.is-wide td > .flex.items-center.gap-3 {
+        gap: 0.5rem;
+    }
+    .schedule-drawer-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+    .schedule-drawer-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .schedule-drawer-scroll::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: #cbd5e1;
+    }
     .calendar-month-item {
         border: 0;
         background: transparent;
-        padding: 0;
+        padding: 0.2rem 0.75rem;
+        min-width: 9rem;
         text-align: center;
         font-size: 15px;
         font-weight: 500;
         letter-spacing: -0.025em;
-        color: #94a3b8;
-        transition: color 0.15s ease, transform 0.15s ease, font-size 0.15s ease;
+        color: #64748b;
+        transition: color 0.2s ease, transform 0.15s ease, font-size 0.15s ease, text-shadow 0.2s ease;
         cursor: pointer;
+        border-radius: 9999px;
     }
     .calendar-month-item:hover {
-        color: #64748b;
+        color: #334155;
     }
     .calendar-month-item.is-active {
         font-size: 24px;
         font-weight: 700;
         letter-spacing: -0.045em;
-        color: #0f172a;
+        color: #0025cc;
     }
-    /* Yellow wave — use dark text for contrast */
     .calendar-month-item.is-on-wave {
-        color: #1e293b;
+        color: rgba(255, 255, 255, 0.82);
     }
     .calendar-month-item.is-on-wave:hover {
-        color: #0f172a;
+        color: #ffffff;
     }
     .calendar-month-item.is-on-wave.is-active {
-        color: #0f172a;
+        color: #ffffff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
     }
     .calendar-weekday {
         display: flex;
@@ -2155,7 +2387,7 @@
         const inverse = ctm.inverse();
         const rect = el.getBoundingClientRect();
 
-        // Sample across the label; majority on yellow wave → dark text
+        // Sample across the label; majority on blue wave → light text
         const samples = [
             [0.5, 0.5],
             [0.5, 0.2],
@@ -2744,7 +2976,7 @@
                     .filter((item) => !selectedIds.has(item.id))
                     .filter((item) => {
                         if (!q) return true;
-                        return [item.name, item.room, item.qr, item.assetTag]
+                        return [item.name, item.room, item.qr, item.assetTag, item.serialNumber]
                             .join(' ')
                             .toLowerCase()
                             .includes(q);
@@ -2754,8 +2986,9 @@
             meta(item) {
                 const bits = [];
                 if (item.room) bits.push(item.room);
+                if (item.assetTag) bits.push('Tag: ' + item.assetTag);
+                if (item.serialNumber) bits.push('Serial: ' + item.serialNumber);
                 if (item.qr) bits.push(item.qr);
-                if (item.assetTag) bits.push(item.assetTag);
                 return bits.join(' · ') || 'QR-ready equipment';
             },
             reset() {
@@ -2945,7 +3178,114 @@
         }
     }
     function closeViewModal() {
-        hideModal("viewModal");
+        const modal = document.getElementById("viewModal");
+        const panel = document.getElementById("viewModalPanel");
+
+        panel?.classList.add("translate-x-full");
+        modal?.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+
+        setTimeout(() => {
+            if (panel?.classList.contains("translate-x-full")) {
+                modal?.classList.add("hidden");
+            }
+        }, 300);
+    }
+    let scheduleDrawerCurrentAssetTag = "";
+    let scheduleDrawerCurrentSchedule = null;
+    function switchScheduleDrawerTab(tab) {
+        const equipmentTab = document.getElementById("scheduleDrawer_tab_equipment");
+        const scheduleTab = document.getElementById("scheduleDrawer_tab_schedule");
+        const equipmentPanel = document.getElementById("scheduleDrawerPanelEquipment");
+        const schedulePanel = document.getElementById("scheduleDrawerPanelSchedule");
+        const isEquipment = tab === "equipment";
+
+        equipmentTab?.classList.toggle("border-[#0025cc]", isEquipment);
+        equipmentTab?.classList.toggle("text-[#0025cc]", isEquipment);
+        equipmentTab?.classList.toggle("font-semibold", isEquipment);
+        equipmentTab?.classList.toggle("border-transparent", !isEquipment);
+        equipmentTab?.classList.toggle("text-slate-500", !isEquipment);
+        equipmentTab?.classList.toggle("font-medium", !isEquipment);
+        equipmentTab?.setAttribute("aria-selected", isEquipment ? "true" : "false");
+
+        scheduleTab?.classList.toggle("border-[#0025cc]", !isEquipment);
+        scheduleTab?.classList.toggle("text-[#0025cc]", !isEquipment);
+        scheduleTab?.classList.toggle("font-semibold", !isEquipment);
+        scheduleTab?.classList.toggle("border-transparent", isEquipment);
+        scheduleTab?.classList.toggle("text-slate-500", isEquipment);
+        scheduleTab?.classList.toggle("font-medium", isEquipment);
+        scheduleTab?.setAttribute("aria-selected", !isEquipment ? "true" : "false");
+
+        equipmentPanel?.classList.toggle("hidden", !isEquipment);
+        schedulePanel?.classList.toggle("hidden", isEquipment);
+    }
+    function scheduleDrawerDisplayValue(value) {
+        const text = String(value ?? "").trim();
+        return text !== "" ? text : "—";
+    }
+    function scheduleEquipmentInitials(name) {
+        const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) {
+            return "?";
+        }
+        if (parts.length === 1) {
+            return parts[0].slice(0, 2).toUpperCase();
+        }
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    function scheduleDrawerStatusBadgeClass(status) {
+        switch (String(status || "").toLowerCase()) {
+            case "completed":
+                return "bg-emerald-50 text-emerald-700";
+            case "overdue":
+                return "bg-rose-50 text-rose-700";
+            default:
+                return "bg-sky-50 text-sky-700";
+        }
+    }
+    function scheduleDrawerKvCard(title, rows) {
+        const rowHtml = rows
+            .map(
+                (row) => `
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5 last:border-b-0">
+                        <span class="text-sm text-slate-500">${row.label}</span>
+                        <span class="text-right text-sm font-medium text-slate-800">${row.value}</span>
+                    </div>
+                `,
+            )
+            .join("");
+
+        return `
+            <div>
+                <h4 class="text-sm font-semibold text-slate-900">${title}</h4>
+                <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    ${rowHtml}
+                </div>
+            </div>
+        `;
+    }
+    function copyScheduleAssetTag() {
+        const tag = scheduleDrawerCurrentAssetTag;
+        if (!tag) {
+            return;
+        }
+        navigator.clipboard?.writeText(tag).catch(() => {});
+    }
+    function openViewDrawer() {
+        const modal = document.getElementById("viewModal");
+        const panel = document.getElementById("viewModalPanel");
+
+        modal?.classList.remove("hidden");
+        modal?.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+
+        requestAnimationFrame(() => {
+            panel?.classList.remove("translate-x-full");
+        });
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     }
     function closeCompleteModal() {
         hideModal("completeModal");
@@ -2988,94 +3328,203 @@
         viewSchedule(schedule);
 }
     function viewSchedule(schedule) {
-        // =====================================
-        // SAFE DISPLAY VALUES
-        // =====================================
-        const equipment = escapeCalendarHTML(schedule.equipment || "—");
-        const room = escapeCalendarHTML(schedule.room || "—");
-        const title = escapeCalendarHTML(schedule.title || "—");
-        const frequency = escapeCalendarHTML(schedule.frequency || "—");
-        const nextDate = escapeCalendarHTML(schedule.date || "—");
-        const status = escapeCalendarHTML(schedule.status || "—");
-        const description = escapeCalendarHTML(
-            schedule.description || "No description provided",
-        );
-        const qr = getScheduleQr(schedule.id);
-        const qrCode = escapeCalendarHTML(schedule.qr_code || qr.qr_code || "");
-        const qrImage = schedule.qr_image || qr.qr_image || "";
-        const qrBlock = qrImage
-            ? `
-                <button type="button" onclick="openScheduleQrModal(${JSON.stringify(qrImage)}, ${JSON.stringify(schedule.qr_code || qr.qr_code || '')}, ${JSON.stringify(schedule.equipment || 'Equipment')})" class="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-[#0025cc]/30 hover:bg-[#0025cc]/[0.03]">
-                    <p class="text-slate-400">Equipment QR code</p>
-                    <div class="mt-2 flex items-center gap-3">
-                        <img src="${escapeCalendarHTML(qrImage)}" alt="Equipment QR code" class="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain p-1">
-                        <div class="min-w-0">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">QR code</p>
-                            <p class="truncate font-mono text-sm font-semibold text-slate-900">${qrCode}</p>
-                        </div>
-                    </div>
-                </button>
-            `
-            : `
-                <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-400">
-                    No QR code generated for this equipment.
-                </div>
-            `;
+        scheduleDrawerCurrentSchedule = schedule;
+        scheduleDrawerCurrentAssetTag = String(schedule.asset_tag || "").trim();
 
-        // =====================================
-        // SCHEDULE DETAILS CONTENT
-        // =====================================
-        document.getElementById("scheduleDetails").innerHTML = `
-            <div class="space-y-3 text-sm">
-                ${qrBlock}
-                <div>
-                    <p class="text-slate-400">Equipment</p>
-                    <p class="mt-0.5 font-medium text-slate-900">${equipment}</p>
-                </div>
-                <div>
-                    <p class="text-slate-400">Room</p>
-                    <p class="mt-0.5 font-medium text-slate-900">${room}</p>
-                </div>
-                <div>
-                    <p class="text-slate-400">Title</p>
-                    <p class="mt-0.5 font-medium text-slate-900">${title}</p>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <p class="text-slate-400">Frequency</p>
-                        <p class="mt-0.5 font-medium text-slate-900">${frequency}</p>
-                    </div>
-                    <div>
-                        <p class="text-slate-400">Next date</p>
-                        <p class="mt-0.5 font-medium text-slate-900">${nextDate}</p>
-                    </div>
-                </div>
-                <div>
-                    <p class="text-slate-400">Status</p>
-                    <p class="mt-0.5 font-medium text-slate-900">${status}</p>
-                </div>
-                <div>
-                    <p class="text-slate-400">Description</p>
-                    <p class="mt-0.5 whitespace-pre-wrap break-words leading-6 text-slate-700">${description}</p>
+        const equipment = schedule.equipment || "Unassigned equipment";
+        const room = schedule.room || "No room assigned";
+        const title = schedule.title || "—";
+        const frequency = schedule.frequency || "—";
+        const nextDate = schedule.date || "—";
+        const lastDate = schedule.last_date || "Never";
+        const status = schedule.status || "—";
+        const description = schedule.description || "No description provided";
+        const assetTag = scheduleDrawerDisplayValue(schedule.asset_tag);
+        const serialNumber = scheduleDrawerDisplayValue(schedule.serial_number);
+        const category = scheduleDrawerDisplayValue(schedule.category);
+        const brand = scheduleDrawerDisplayValue(schedule.brand);
+        const model = scheduleDrawerDisplayValue(schedule.model);
+        const inventoryStatus = scheduleDrawerDisplayValue(schedule.inventory_status);
+        const conditionStatus = scheduleDrawerDisplayValue(schedule.condition_status);
+        const qr = getScheduleQr(schedule.id);
+        const qrCode = schedule.qr_code || qr.qr_code || "";
+        const qrImage = schedule.qr_image || qr.qr_image || "";
+
+        document.getElementById("scheduleDrawer_subtitle").textContent =
+            `Review ${equipment} maintenance schedule.`;
+        document.getElementById("scheduleDrawer_profile_name").textContent = equipment;
+        document.getElementById("scheduleDrawerAvatar").textContent =
+            scheduleEquipmentInitials(equipment);
+
+        const statusBadge = document.getElementById("scheduleDrawer_status_badge");
+        if (statusBadge) {
+            statusBadge.textContent = status;
+            statusBadge.className =
+                `inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${scheduleDrawerStatusBadgeClass(status)}`;
+        }
+
+        const categoryBadge = document.getElementById("scheduleDrawer_category_badge");
+        if (categoryBadge) {
+            categoryBadge.textContent = category;
+            categoryBadge.classList.toggle("hidden", category === "—");
+        }
+
+        const inventoryBadge = document.getElementById("scheduleDrawer_inventory_badge");
+        if (inventoryBadge) {
+            inventoryBadge.textContent = inventoryStatus;
+            inventoryBadge.classList.toggle("hidden", inventoryStatus === "—");
+        }
+
+        const frequencyBadge = document.getElementById("scheduleDrawer_frequency_badge");
+        if (frequencyBadge) {
+            frequencyBadge.textContent = frequency;
+            frequencyBadge.classList.toggle("hidden", frequency === "—");
+        }
+
+        document.getElementById("scheduleDrawer_meta_tag").textContent = assetTag;
+        document.getElementById("scheduleDrawer_meta_serial").textContent = serialNumber;
+        document.getElementById("scheduleDrawer_meta_room").textContent = room;
+        document.getElementById("scheduleDrawer_meta_qr").textContent =
+            qrCode || "No QR code";
+
+        const copyTagButton = document.getElementById("scheduleDrawer_copy_tag");
+        if (copyTagButton) {
+            copyTagButton.classList.toggle("hidden", !scheduleDrawerCurrentAssetTag);
+        }
+
+        const viewQrButton = document.getElementById("scheduleDrawer_view_qr");
+        if (viewQrButton) {
+            if (qrImage) {
+                viewQrButton.classList.remove("hidden");
+                viewQrButton.onclick = () =>
+                    openScheduleQrModal(qrImage, qrCode, equipment);
+            } else {
+                viewQrButton.classList.add("hidden");
+                viewQrButton.onclick = null;
+            }
+        }
+
+        document.getElementById("scheduleDrawerPanelEquipment").innerHTML =
+            scheduleDrawerKvCard("Equipment information", [
+                { label: "Equipment", value: escapeCalendarHTML(equipment) },
+                { label: "Asset tag", value: escapeCalendarHTML(assetTag) },
+                { label: "Serial number", value: escapeCalendarHTML(serialNumber) },
+                { label: "Category", value: escapeCalendarHTML(category) },
+                { label: "Brand", value: escapeCalendarHTML(brand) },
+                { label: "Model", value: escapeCalendarHTML(model) },
+                { label: "Room", value: escapeCalendarHTML(room) },
+                { label: "Inventory status", value: escapeCalendarHTML(inventoryStatus) },
+                { label: "Condition", value: escapeCalendarHTML(conditionStatus) },
+            ]);
+
+        document.getElementById("scheduleDrawerPanelSchedule").innerHTML = `
+            ${scheduleDrawerKvCard("Schedule information", [
+                { label: "Title", value: escapeCalendarHTML(title) },
+                { label: "Frequency", value: escapeCalendarHTML(frequency) },
+                {
+                    label: "Next date",
+                    value: `<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar" class="h-3.5 w-3.5 text-slate-400"></i>${escapeCalendarHTML(nextDate)}</span>`,
+                },
+                {
+                    label: "Last date",
+                    value: `<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar-clock" class="h-3.5 w-3.5 text-slate-400"></i>${escapeCalendarHTML(lastDate)}</span>`,
+                },
+                {
+                    label: "Status",
+                    value: `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${scheduleDrawerStatusBadgeClass(status)}">${escapeCalendarHTML(status)}</span>`,
+                },
+            ])}
+            <div>
+                <h4 class="text-sm font-semibold text-slate-900">Description</h4>
+                <div class="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-6 text-slate-700">
+                    ${escapeCalendarHTML(description)}
                 </div>
             </div>
+            ${
+                qrImage
+                    ? `
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-900">Equipment QR code</h4>
+                            <button
+                                type="button"
+                                onclick="openScheduleQrModal(${JSON.stringify(qrImage)}, ${JSON.stringify(qrCode)}, ${JSON.stringify(equipment)})"
+                                class="mt-3 flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-[#0025cc]/30 hover:bg-[#0025cc]/[0.03]"
+                            >
+                                <img src="${escapeCalendarHTML(qrImage)}" alt="Equipment QR code" class="h-16 w-16 rounded-lg border border-slate-200 bg-white object-contain p-1">
+                                <div class="min-w-0">
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">QR code</p>
+                                    <p class="truncate font-mono text-sm font-semibold text-slate-900">${escapeCalendarHTML(qrCode)}</p>
+                                </div>
+                            </button>
+                        </div>
+                    `
+                    : ""
+            }
         `;
 
-        // =====================================
-        // OPEN SCHEDULE DETAILS MODAL
-        // =====================================
-        showModal("viewModal");
+        const primaryAction = document.getElementById("scheduleDrawer_primary_action");
+        if (primaryAction) {
+            if (String(status).toLowerCase() === "completed") {
+                primaryAction.innerHTML =
+                    '<i data-lucide="x" class="h-4 w-4"></i> Close';
+                primaryAction.onclick = closeViewModal;
+            } else {
+                primaryAction.innerHTML =
+                    '<i data-lucide="circle-check" class="h-4 w-4"></i> Mark complete';
+                primaryAction.onclick = () => {
+                    closeViewModal();
+                    openCompleteModal(
+                        schedule.id,
+                        equipment,
+                        schedule.equipment_identifier || "No asset tag or serial",
+                        schedule.room || "No room assigned",
+                    );
+                };
+            }
+        }
+
+        switchScheduleDrawerTab("equipment");
+        openViewDrawer();
     }
-    function openCompleteModal(id, name) {
+    function openCompleteModal(id, name, identifier = "", room = "") {
+        const equipmentName = name || "Unassigned equipment";
+        const equipmentIdentifier = identifier || "No asset tag or serial";
+        const equipmentRoom = room || "No room assigned";
+        const qr = getScheduleQr(id);
+        const qrCode = qr.qr_code || "";
+
         document.getElementById("completeScheduleId").value = id;
-        document.getElementById("completeEquipmentName").innerText = name;
-        fillScheduleQr("complete", id);
+        document.getElementById("completeEquipmentName").textContent = equipmentName;
+        document.getElementById("completeEquipmentAvatar").textContent =
+            scheduleEquipmentInitials(equipmentName);
+        document.getElementById("completeEquipmentIdentifier").textContent =
+            equipmentIdentifier;
+
+        const roomEl = document.getElementById("completeEquipmentRoom");
+        if (roomEl) {
+            roomEl.innerHTML = `<i data-lucide="map-pin" class="h-3 w-3 shrink-0"></i><span class="truncate">${escapeCalendarHTML(equipmentRoom)}</span>`;
+        }
+
+        const qrEl = document.getElementById("completeEquipmentQr");
+        if (qrEl) {
+            if (qrCode) {
+                qrEl.textContent = qrCode;
+                qrEl.classList.remove("hidden");
+            } else {
+                qrEl.textContent = "";
+                qrEl.classList.add("hidden");
+            }
+        }
+
         const proofInput = document.getElementById("completeProofImage");
         if (proofInput) {
             proofInput.value = "";
             proofInput.dispatchEvent(new Event("change"));
         }
         showModal("completeModal");
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     }
     function completeProofUploader() {
         const formatSize = (bytes) => {
@@ -3163,9 +3612,13 @@
         fillScheduleQr("reschedule", id);
         showModal("rescheduleModal");
     }
-    function openDeleteModal(id, title) {
+    function openDeleteModal(id, title, equipmentName, identifier) {
         document.getElementById("deleteScheduleId").value = id;
-        document.getElementById("deleteScheduleTitle").innerText =
+        document.getElementById("deleteScheduleEquipmentName").textContent =
+            equipmentName || "Unassigned equipment";
+        document.getElementById("deleteScheduleIdentifier").textContent =
+            identifier || "No asset tag or serial";
+        document.getElementById("deleteScheduleTitle").textContent =
             `Are you sure you want to delete "${title}"?`;
         showModal("deleteModal");
     }
@@ -3179,6 +3632,8 @@
         openCompleteModal(
             calendarSelectedSchedule.id,
             calendarSelectedSchedule.equipment,
+            calendarSelectedSchedule.equipment_identifier || "No asset tag or serial",
+            calendarSelectedSchedule.room || "No room assigned",
         );
         closeEventPopover();
     }
@@ -3261,6 +3716,15 @@
             !event.target.closest(".calendar-event")
         )
             closeEventPopover();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") {
+            return;
+        }
+        const modal = document.getElementById("viewModal");
+        if (modal && !modal.classList.contains("hidden")) {
+            closeViewModal();
+        }
     });
     window.addEventListener("resize", closeEventPopover);
 </script>

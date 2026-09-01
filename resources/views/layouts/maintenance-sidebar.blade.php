@@ -138,6 +138,14 @@
         </a>
 
         <a
+            href="{{ route('maintenance.reports.log') }}"
+            class="menu-item {{ request()->is('maintenance/reports/log*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="clipboard-pen"></i>
+            <span>Log Walk-in Report</span>
+        </a>
+
+        <a
             href="/maintenance/reporters"
             class="menu-item {{ request()->is('maintenance/reporters') ? 'active' : '' }} mt-2"
         >

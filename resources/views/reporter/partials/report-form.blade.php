@@ -130,7 +130,7 @@
     .rf-picker-overlay {
         position: fixed;
         inset: 0;
-        z-index: 80;
+        z-index: 100050;
         display: none;
         align-items: flex-end;
         justify-content: center;
@@ -138,15 +138,22 @@
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
         padding: 12px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        overscroll-behavior: contain;
+        touch-action: manipulation;
     }
 
     .rf-picker-overlay.is-open {
-        display: flex;
+        display: flex !important;
+    }
+
+    .rf-picker-overlay[hidden] {
+        display: none !important;
     }
 
     .rf-picker-sheet {
         width: min(100%, 480px);
-        max-height: min(78vh, 640px);
+        max-height: min(78dvh, 640px);
         background: #fff;
         border-radius: 24px 24px 18px 18px;
         box-shadow: 0 28px 70px rgba(15, 23, 42, .22);
@@ -154,6 +161,7 @@
         flex-direction: column;
         overflow: hidden;
         font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+        transform: translateZ(0);
     }
 
     @media (min-width: 768px) {
@@ -166,8 +174,32 @@
     }
 
     .rf-picker-head {
-        padding: 18px 18px 12px;
+        position: relative;
+        padding: 18px 52px 12px 18px;
         border-bottom: 1px solid #e8ecf4;
+    }
+
+    .rf-picker-dismiss {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e8ecf4;
+        border-radius: 12px;
+        background: #fff;
+        color: #6b7280;
+        cursor: pointer;
+        transition: background .2s ease, border-color .2s ease, color .2s ease;
+    }
+
+    .rf-picker-dismiss:hover {
+        background: #f3f6ff;
+        border-color: #dbe3ff;
+        color: #1a1a2e;
     }
 
     .rf-picker-kicker {
@@ -287,7 +319,7 @@
 
     .rf-dropdown-menu {
         position: fixed;
-        z-index: 90;
+        z-index: 100060;
         display: none;
         box-sizing: border-box;
         background: #fff;
@@ -299,8 +331,46 @@
         font-family: "Plus Jakarta Sans", "Inter", sans-serif;
     }
 
+    .rf-dropdown-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 2px 2px 6px;
+        padding: 0 10px;
+        height: 40px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e8ecf4;
+    }
+
+    .rf-dropdown-search input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    .rf-dropdown-search input::placeholder {
+        color: #94a3b8;
+        font-weight: 500;
+    }
+
+    .rf-dropdown-search svg {
+        color: #0025cc;
+        flex-shrink: 0;
+    }
+
     .rf-dropdown-menu.is-open {
-        display: block;
+        display: block !important;
+    }
+
+    .rf-dropdown-menu[hidden] {
+        display: none !important;
     }
 
     .rf-dropdown-list {
@@ -349,6 +419,52 @@
         transition: background 0.15s ease, color 0.15s ease;
     }
 
+    .rf-dropdown-item.rf-dropdown-item--equipment {
+        height: auto;
+        min-height: 58px;
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        padding: 11px 14px;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .rf-equipment-option-main {
+        display: block;
+        width: 100%;
+        font-size: 13.5px;
+        font-weight: 600;
+        line-height: 1.4;
+        color: inherit;
+    }
+
+    .rf-equipment-option-sub {
+        display: block;
+        width: 100%;
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1.35;
+        color: #b45309;
+    }
+
+    .rf-dropdown-item.is-active .rf-equipment-option-sub,
+    .rf-picker-item.is-active .rf-equipment-option-sub {
+        color: #fde68a;
+    }
+
+    .rf-picker-item.rf-picker-item--equipment {
+        height: auto;
+        min-height: 62px;
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        padding: 12px 14px;
+        white-space: normal;
+    }
+
     .rf-dropdown-item:hover {
         background: #f3f6ff;
         color: #0025cc;
@@ -373,7 +489,7 @@
 
     .rf-option-tip {
         position: fixed;
-        z-index: 120;
+        z-index: 100070;
         max-width: min(360px, calc(100vw - 24px));
         padding: 8px 10px;
         border-radius: 10px;
@@ -707,6 +823,13 @@
         /* Firefox */
         scrollbar-width: thin;
         scrollbar-color: #cbd5e1 #f8fafc;
+    }
+
+    @media (max-width: 1023px) {
+        #reportModal .report-form-scroll {
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
+        }
     }
 
     /* Chrome, Edge, Safari */
@@ -1244,9 +1367,20 @@
     @media (max-width: 1023px) {
         #reportModal .report-form-shell {
             overflow-y: auto !important;
+            overflow-x: hidden !important;
             max-height: calc(100dvh - 16px);
+            height: auto !important;
+            min-height: 0;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
+        }
+
+        #reportModal .report-form-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: none !important;
+            min-height: auto !important;
+            height: auto !important;
         }
 
         #reportModal .report-form-scroll,
@@ -1255,6 +1389,23 @@
             overflow: visible !important;
             height: auto !important;
             max-height: none !important;
+            min-height: auto !important;
+            flex: none !important;
+        }
+
+        #reportModal .report-form-scroll {
+            border-right: 0 !important;
+        }
+
+        #reportModal .report-form-aside {
+            border-top: 1px solid #e8ecf4 !important;
+        }
+
+        #reportModal .report-form-aside-actions {
+            position: static !important;
+            margin: 0 !important;
+            background: transparent !important;
+            padding-top: 0 !important;
         }
     }
 
@@ -1262,41 +1413,179 @@
         #reportModal {
             align-items: stretch;
             overflow: hidden !important;
-            padding: 8px !important;
+            padding: 0 !important;
         }
 
         #reportModal > div,
+        #reportModal .report-modal-wrap,
         #reportForm,
         #reportModal .report-form-frame {
-            max-height: 100%;
-            height: 100%;
+            max-height: 100dvh;
+            height: auto;
+            min-height: 0;
+        }
+
+        #reportModal .report-form-frame {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            max-width: 100%;
         }
 
         #reportModal .report-form-shell {
-            max-height: 100%;
-            height: 100%;
+            max-height: 100dvh;
+            height: auto;
+            min-height: 0;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
             scrollbar-width: thin;
-            border-radius: 24px !important;
+            border-radius: 0 !important;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         #reportModal .report-form-scroll {
             overflow: visible !important;
             max-height: none;
             height: auto !important;
-            padding: 20px 18px 12px !important;
+            min-height: auto !important;
+            padding: 20px 20px 12px !important;
         }
 
-        .report-form-aside {
-            padding: 16px 18px 22px !important;
-            overflow: visible !important;
-            height: auto !important;
+        #reportModal .rf-header {
+            margin-bottom: 1.25rem !important;
+            gap: 12px;
         }
 
         #reportModal .report-form-scroll h2 {
-            font-size: 1.35rem !important;
+            font-size: 1.25rem !important;
+            line-height: 1.15 !important;
+        }
+
+        #reportModal .report-form-scroll h2 + p {
+            font-size: 0.82rem !important;
+        }
+
+        .report-form-aside {
+            padding: 16px 20px calc(20px + env(safe-area-inset-bottom)) !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: auto !important;
+            gap: 1rem !important;
+        }
+
+        #reportModal .report-form-aside-body {
+            gap: 1rem !important;
+        }
+
+        #reportModal .report-form-aside-actions {
+            position: static !important;
+            margin: 0 !important;
+            background: transparent !important;
+            padding: 8px 0 calc(8px + env(safe-area-inset-bottom)) !important;
+        }
+
+        #reportModal .rf-input,
+        #reportModal .rf-picker-trigger {
+            height: 48px !important;
+            font-size: 16px !important;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        #reportModal #problemDescription {
+            min-height: 120px !important;
+            font-size: 16px !important;
+            width: 100%;
+        }
+
+        #reportModal .priority-card {
+            padding: 12px 14px;
+        }
+
+        #reportModal .upload-zone {
+            min-height: 120px;
+        }
+
+        #reportModal .rf-equipment-row {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        #reportModal .rf-equipment-row .rf-select-wrap,
+        #reportModal .rf-equipment-row .rf-input {
+            min-width: 0;
+            width: 100%;
+        }
+
+        #reportModal #addEquipmentBtn,
+        #reportModal #addManualEquipmentBtn {
+            min-width: 72px;
+            width: auto;
+            align-self: stretch;
+            white-space: nowrap;
+        }
+
+        #reportModal #equipmentDropdownContainer,
+        #reportModal #equipmentManualContainer {
+            width: 100%;
+            min-width: 0;
+        }
+
+        #reportModal .rf-details-block,
+        #reportModal .rf-details-field {
+            width: 100%;
+            min-width: 0;
+        }
+
+        #reportModal .issue-btn {
+            font-size: 13px;
+            padding: 10px 14px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        #reportModal .report-form-scroll {
+            padding: 18px 16px 10px !important;
+        }
+
+        .report-form-aside {
+            padding: 14px 16px calc(18px + env(safe-area-inset-bottom)) !important;
+        }
+
+        #reportModal .report-form-aside-actions {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        #reportModal .rf-header-icon {
+            width: 40px !important;
+            height: 40px !important;
+        }
+
+        #reportModal .rf-kicker {
+            font-size: 9px;
+            margin-bottom: 6px;
+        }
+
+        #reportModal .rf-label {
+            font-size: 10px;
+        }
+
+        #reportModal #toggleEquipmentInput {
+            font-size: 10px !important;
+        }
+
+        #reportModal .rf-equipment-row {
+            grid-template-columns: 1fr;
+        }
+
+        #reportModal #addEquipmentBtn,
+        #reportModal #addManualEquipmentBtn {
+            width: 100%;
+            min-height: 44px;
         }
     }
 </style>
@@ -1432,6 +1721,117 @@
         }
 
     }
+
+    /* =====================================================
+    PAAYO SWAL (success / error)
+    ===================================================== */
+
+    .swal2-container .swal2-popup.paayo-swal {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        width: 400px !important;
+        max-width: calc(100vw - 32px) !important;
+        border-radius: 28px !important;
+        border: 1px solid #e8ecf4 !important;
+        background:
+            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(199, 216, 255, .45), transparent 62%),
+            #ffffff !important;
+        box-shadow: 0 32px 80px rgba(15, 23, 42, .18) !important;
+        padding: 2.1rem 1.75rem 1.5rem !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-title,
+    .paayo-swal-heading {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 1.4rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -.035em !important;
+        color: #1a1a2e !important;
+        line-height: 1.2 !important;
+        margin: 0 0 8px !important;
+        padding: 0 !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-html-container,
+    .paayo-swal-text {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        color: #6b7280 !important;
+        font-size: .95rem !important;
+        line-height: 1.55 !important;
+        margin: 0 auto !important;
+        max-width: 300px;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-actions {
+        margin: 22px 0 0 !important;
+        width: 100% !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-confirm,
+    .paayo-swal-btn {
+        background: #0025cc !important;
+        color: #fff !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: .95rem !important;
+        padding: 12px 32px !important;
+        min-width: 140px !important;
+        box-shadow: 0 12px 28px rgba(0, 37, 204, .24) !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-confirm:hover,
+    .paayo-swal-btn:hover {
+        background: #001ca3 !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-icon {
+        border: 0 !important;
+        width: 58px !important;
+        height: 58px !important;
+        margin: 0 auto 1.05rem !important;
+        border-radius: 18px !important;
+        box-shadow: 0 12px 24px rgba(0, 37, 204, .18);
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-icon.swal2-success,
+    .swal2-container .swal2-popup.paayo-swal .paayo-icon-success {
+        background: #0025cc !important;
+        color: #fff !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-icon.swal2-error,
+    .swal2-container .swal2-popup.paayo-swal .paayo-icon-error {
+        background: #fef2f2 !important;
+        color: #dc2626 !important;
+        box-shadow: 0 12px 24px rgba(220, 38, 38, .12);
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-success-ring,
+    .swal2-container .swal2-popup.paayo-swal .swal2-success-circular-line-left,
+    .swal2-container .swal2-popup.paayo-swal .swal2-success-circular-line-right,
+    .swal2-container .swal2-popup.paayo-swal .swal2-success-fix {
+        display: none !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-icon svg {
+        width: 26px !important;
+        height: 26px !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .modern-success-progress {
+        background: #0025cc !important;
+        height: 3px !important;
+    }
+
+    .paayo-swal-in {
+        animation: paayoSwalIn .28s ease;
+    }
+
+    @keyframes paayoSwalIn {
+        from { opacity: 0; transform: translateY(18px) scale(.97); }
+        to { opacity: 1; transform: none; }
+    }
 </style>
 
 <form
@@ -1442,7 +1842,7 @@
 >
     @csrf
 
-    <div class="report-form-frame mx-auto w-full max-w-6xl px-2">
+    <div class="report-form-frame mx-auto w-full max-w-6xl px-0 sm:px-2">
         <div
             class="report-form-shell overflow-hidden rounded-3xl"
             style="
@@ -1464,14 +1864,16 @@
                 <div
                     class="
                         report-form-scroll
-                        min-h-0
-                        overflow-y-auto
+                        max-lg:min-h-0
+                        max-lg:overflow-visible
+                        lg:overflow-y-auto
                         bg-white
                         p-6
                         sm:p-7
 
                         lg:col-span-8
                         lg:h-full
+                        lg:min-h-0
                         lg:p-9
                     "
                     style="border-right: 1px solid rgba(255, 255, 255, 0.07);"
@@ -1690,7 +2092,7 @@
                                     <option value="">Select Location</option>
                                     @foreach ($rooms as $room)
                                         <option value="{{ $room->room_id }}">
-                                            {{ $room->floor_level }} - {{ $room->room_name }}
+                                            {{ $room->floor_level }} - {{ $room->room_name }} - {{ (int) ($room->equipment_count ?? 0) }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -1700,14 +2102,15 @@
                         </div>
 
                         {{-- EQUIPMENT (one-to-many) --}}
-                        <div>
-                            <div class="mb-2 flex items-center justify-between">
+                        <div class="min-w-0">
+                            <div class="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                 <label class="rf-label" style="margin-bottom: 0"
                                     >Equipment</label
                                 >
                                 <button
                                     type="button"
                                     id="toggleEquipmentInput"
+                                    class="self-start sm:self-auto"
                                     style="
                                         font-size: 11px;
                                         font-weight: 700;
@@ -1725,9 +2128,9 @@
                             </div>
 
                             <div id="equipmentDropdownContainer">
-                                <div class="flex items-center gap-2">
+                                <div class="rf-equipment-row flex items-center gap-2">
                                     <div
-                                        class="rf-select-wrap"
+                                        class="rf-select-wrap min-w-0"
                                         style="flex: 1; min-width: 0"
                                     >
                                         <select
@@ -1757,12 +2160,12 @@
                             </div>
 
                             <div id="equipmentManualContainer" class="hidden">
-                                <div class="flex items-center gap-2">
+                                <div class="rf-equipment-row flex items-center gap-2">
                                     <input
                                         type="text"
                                         id="equipmentManualInput"
                                         placeholder="Enter equipment name manually..."
-                                        class="rf-input details-textarea"
+                                        class="rf-input details-textarea min-w-0"
                                         style="height: 48px; flex: 1; min-width: 0"
                                     />
                                     <button
@@ -2191,6 +2594,9 @@
         <div class="rf-picker-head">
             <div class="rf-picker-kicker">Choose an option</div>
             <div class="rf-picker-title" id="rfPickerTitle">Select</div>
+            <button type="button" class="rf-picker-dismiss" id="rfPickerDismiss" aria-label="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
         </div>
         <div class="rf-picker-search">
             <i data-lucide="search" class="h-4 w-4" style="color:#0025cc;"></i>
@@ -2202,6 +2608,10 @@
 </div>
 
 <div id="rfDropdownMenu" class="rf-dropdown-menu" hidden>
+    <div class="rf-dropdown-search" id="rfDropdownSearchWrap" hidden>
+        <i data-lucide="search" class="h-4 w-4"></i>
+        <input type="search" id="rfDropdownSearch" placeholder="Search rooms" autocomplete="off">
+    </div>
     <div class="rf-dropdown-list" id="rfDropdownList"></div>
 </div>
 <div id="rfOptionTip" class="rf-option-tip" hidden></div>
@@ -2647,7 +3057,66 @@ toggleRoomBtn.addEventListener('click', function () {
     /** @type {{type: 'id'|'manual', id?: string, name: string, issue: string}[]} */
     let selectedEquipmentItems = [];
 
-    function formatEquipmentLabel(equipment) {
+    /** @type {Record<string, unknown>[]} */
+    let roomEquipmentCache = [];
+
+    function getAddedEquipmentIds() {
+        return new Set(
+            selectedEquipmentItems
+                .filter(function (item) {
+                    return item.type === "id" && item.id;
+                })
+                .map(function (item) {
+                    return String(item.id);
+                }),
+        );
+    }
+
+    function rebuildEquipmentSelect() {
+        if (!equipmentSelect) {
+            return;
+        }
+
+        const addedIds = getAddedEquipmentIds();
+        const previousValue = equipmentSelect.value;
+
+        equipmentSelect.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select Equipment";
+        equipmentSelect.appendChild(placeholder);
+
+        roomEquipmentCache.forEach(function (equipment) {
+            const equipmentId = String(equipment.equipment_id || "");
+            if (!equipmentId || addedIds.has(equipmentId)) {
+                return;
+            }
+
+            const option = document.createElement("option");
+            option.value = equipmentId;
+            option.textContent = formatEquipmentPrimaryLabel(equipment);
+            option.dataset.openReport = String(
+                equipment.open_report_ticket_code || "",
+            );
+            option.dataset.searchText = formatEquipmentSearchText(equipment);
+            equipmentSelect.appendChild(option);
+        });
+
+        if (
+            previousValue &&
+            !addedIds.has(String(previousValue)) &&
+            equipmentSelect.querySelector('option[value="' + previousValue + '"]')
+        ) {
+            equipmentSelect.value = previousValue;
+        } else {
+            equipmentSelect.value = "";
+            lastSelectedEquipment = "";
+        }
+
+        syncEquipmentSelectTrigger();
+    }
+
+    function formatEquipmentPrimaryLabel(equipment) {
         const name = String(equipment.equipment_name || "Equipment").trim();
         const parts = [];
 
@@ -2678,6 +3147,40 @@ toggleRoomBtn.addEventListener('click', function () {
         }
 
         return parts.length ? name + " · " + parts.join(" · ") : name;
+    }
+
+    function formatEquipmentSearchText(equipment) {
+        const primary = formatEquipmentPrimaryLabel(equipment);
+        const openReport = String(equipment.open_report_ticket_code || "").trim();
+
+        return openReport ? primary + " Open report: " + openReport : primary;
+    }
+
+    function formatEquipmentLabel(equipment) {
+        return formatEquipmentPrimaryLabel(equipment);
+    }
+
+    function equipmentOptionMarkup(option) {
+        const main = option.textContent.trim();
+        const openReport = option.dataset.openReport || "";
+
+        if (!openReport) {
+            return '<span class="rf-equipment-option-main"></span>';
+        }
+
+        return (
+            '<span class="rf-equipment-option-main"></span>' +
+            '<span class="rf-equipment-option-sub">Open report: ' +
+            openReport +
+            "</span>"
+        );
+    }
+
+    function fillEquipmentOptionMarkup(container, option) {
+        const mainEl = container.querySelector(".rf-equipment-option-main");
+        if (mainEl) {
+            mainEl.textContent = option.textContent.trim();
+        }
     }
 
     function syncEquipmentSelectTrigger() {
@@ -2763,6 +3266,15 @@ toggleRoomBtn.addEventListener('click', function () {
             row.querySelector("[data-eq-issue]").textContent = item.issue
                 ? "Issue: " + item.issue
                 : "No suggested issue";
+            if (item.openReportTicket) {
+                const openNote = document.createElement("p");
+                openNote.className = "mt-0.5 truncate text-xs font-medium text-amber-700";
+                openNote.textContent =
+                    "Open report " +
+                    item.openReportTicket +
+                    " — submit will add your update there.";
+                row.querySelector(".min-w-0").appendChild(openNote);
+            }
             selectedEquipmentList.appendChild(row);
 
 
@@ -2800,6 +3312,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     const idx = Number(this.getAttribute("data-remove-equipment"));
                     selectedEquipmentItems.splice(idx, 1);
                     renderSelectedEquipment();
+                    rebuildEquipmentSelect();
                 });
             });
     }
@@ -2841,14 +3354,21 @@ toggleRoomBtn.addEventListener('click', function () {
             return;
         }
 
+        const equipmentFromCache = roomEquipmentCache.find(function (equipment) {
+            return String(equipment.equipment_id || "") === String(equipmentId);
+        });
+        const openReportTicket = equipmentFromCache?.open_report_ticket_code || "";
+
         selectedEquipmentItems.push({
             type: "id",
             id: String(equipmentId),
             name: equipmentName || `Equipment #${equipmentId}`,
             issue: selectedIssue,
+            openReportTicket: openReportTicket,
         });
 
         renderSelectedEquipment();
+        rebuildEquipmentSelect();
         lastSelectedEquipment = "";
         equipmentSelect.value = "";
         syncEquipmentSelectTrigger();
@@ -3456,10 +3976,20 @@ toggleRoomBtn.addEventListener('click', function () {
         const searchEl = document.getElementById("rfPickerSearch");
         const listEl = document.getElementById("rfPickerList");
         const closeEl = document.getElementById("rfPickerClose");
+        const dismissEl = document.getElementById("rfPickerDismiss");
         const dropdownMenu = document.getElementById("rfDropdownMenu");
         const dropdownList = document.getElementById("rfDropdownList");
+        const dropdownSearchWrap = document.getElementById("rfDropdownSearchWrap");
+        const dropdownSearchEl = document.getElementById("rfDropdownSearch");
         const optionTip = document.getElementById("rfOptionTip");
         if (!overlay || !dropdownMenu || !dropdownList) return;
+
+        // Mount outside #reportModal so overflow:hidden and transforms don't clip fixed pickers.
+        [overlay, dropdownMenu, optionTip].forEach(function (el) {
+            if (el && el.parentElement !== document.body) {
+                document.body.appendChild(el);
+            }
+        });
 
         const ITEM_HEIGHT = 44;
         const VISIBLE_ITEMS = 5;
@@ -3562,10 +4092,15 @@ toggleRoomBtn.addEventListener('click', function () {
             dropdownMenu.classList.remove("is-open");
             dropdownMenu.hidden = true;
             dropdownList.innerHTML = "";
+            if (dropdownSearchWrap) dropdownSearchWrap.hidden = true;
+            if (dropdownSearchEl) dropdownSearchEl.value = "";
             setTriggerOpen(activeSelect, false);
         }
 
         function closeSheet() {
+            if (activeSelect) {
+                setTriggerOpen(activeSelect, false);
+            }
             overlay.classList.remove("is-open");
             overlay.hidden = true;
             if (searchEl) searchEl.value = "";
@@ -3582,9 +4117,27 @@ toggleRoomBtn.addEventListener('click', function () {
             const q = (query || "").trim().toLowerCase();
             return Array.from(select.options).filter(function (option) {
                 if (option.value === "") return false;
-                const text = option.textContent.trim();
+                const text = (
+                    option.dataset.searchText || option.textContent
+                ).trim();
                 return !q || text.toLowerCase().includes(q);
             });
+        }
+
+        function dropdownItemHeight(select) {
+            return selectIsEquipment(select) ? 62 : ITEM_HEIGHT;
+        }
+
+        function renderEquipmentPickerItem(item, option) {
+            item.className += " rf-dropdown-item--equipment";
+            item.innerHTML = equipmentOptionMarkup(option);
+            fillEquipmentOptionMarkup(item, option);
+        }
+
+        function renderEquipmentSheetItem(item, option) {
+            item.className += " rf-picker-item--equipment";
+            item.innerHTML = equipmentOptionMarkup(option);
+            fillEquipmentOptionMarkup(item, option);
         }
 
         function bindOptionClick(item, select, option, closeAfter) {
@@ -3606,8 +4159,12 @@ toggleRoomBtn.addEventListener('click', function () {
                 const item = document.createElement("button");
                 item.type = "button";
                 item.className = "rf-picker-item" + (option.value === select.value ? " is-active" : "");
-                item.innerHTML = "<span></span>";
-                item.querySelector("span").textContent = text;
+                if (selectIsEquipment(select)) {
+                    renderEquipmentSheetItem(item, option);
+                } else {
+                    item.innerHTML = "<span></span>";
+                    item.querySelector("span").textContent = text;
+                }
                 if (selectIsEquipment(select)) {
                     item.dataset.showTip = "1";
                     bindUniquenessTip(item, text);
@@ -3623,8 +4180,8 @@ toggleRoomBtn.addEventListener('click', function () {
             if (window.lucide) lucide.createIcons();
         }
 
-        function renderDropdownList(select) {
-            const options = optionList(select, "");
+        function renderDropdownList(select, query) {
+            const options = optionList(select, query);
             dropdownList.innerHTML = "";
             hideOptionTip();
 
@@ -3633,7 +4190,11 @@ toggleRoomBtn.addEventListener('click', function () {
                 const item = document.createElement("button");
                 item.type = "button";
                 item.className = "rf-dropdown-item" + (option.value === select.value ? " is-active" : "");
-                item.textContent = text;
+                if (selectIsEquipment(select)) {
+                    renderEquipmentPickerItem(item, option);
+                } else {
+                    item.textContent = text;
+                }
                 if (selectIsEquipment(select)) {
                     item.dataset.showTip = "1";
                     bindUniquenessTip(item, text);
@@ -3645,17 +4206,28 @@ toggleRoomBtn.addEventListener('click', function () {
             });
 
             if (options.length === 0) {
-                dropdownList.innerHTML = '<div class="rf-dropdown-empty">No options available.</div>';
+                dropdownList.innerHTML = '<div class="rf-dropdown-empty">' +
+                    ((query || "").trim()
+                        ? "No matches. Try another search."
+                        : "No options available.") +
+                    "</div>";
             }
+        }
+
+        function dropdownSearchEnabled(select) {
+            return !!(select && select.dataset.pickerSearch);
         }
 
         function positionDropdown(trigger) {
             const rect = trigger.getBoundingClientRect();
-            const maxHeight = ITEM_HEIGHT * VISIBLE_ITEMS;
+            const select = activeSelect;
+            const itemHeight = select ? dropdownItemHeight(select) : ITEM_HEIGHT;
+            const searchHeight = dropdownSearchWrap && !dropdownSearchWrap.hidden ? 46 : 0;
+            const maxHeight = itemHeight * VISIBLE_ITEMS;
             const spaceBelow = window.innerHeight - rect.bottom - 10;
             const spaceAbove = rect.top - 10;
-            const openUp = spaceBelow < Math.min(maxHeight, ITEM_HEIGHT * 3) && spaceAbove > spaceBelow;
-            const available = Math.max(ITEM_HEIGHT, openUp ? spaceAbove : spaceBelow);
+            const openUp = spaceBelow < Math.min(maxHeight, itemHeight * 3) + searchHeight && spaceAbove > spaceBelow;
+            const available = Math.max(itemHeight, (openUp ? spaceAbove : spaceBelow) - searchHeight);
 
             dropdownMenu.style.width = rect.width + "px";
             dropdownMenu.style.left = Math.max(8, rect.left) + "px";
@@ -3677,8 +4249,13 @@ toggleRoomBtn.addEventListener('click', function () {
             searchEl.value = "";
             overlay.hidden = false;
             overlay.classList.add("is-open");
+            setTriggerOpen(select, true);
             renderSheetList(select, "");
-            setTimeout(function () { searchEl.focus(); }, 50);
+            if (window.lucide) lucide.createIcons();
+            // Avoid auto-focus on mobile — keyboard resize was instantly closing the sheet.
+            if (!isMobilePicker()) {
+                setTimeout(function () { searchEl.focus({ preventScroll: true }); }, 50);
+            }
         }
 
         function openDropdown(select) {
@@ -3686,16 +4263,35 @@ toggleRoomBtn.addEventListener('click', function () {
             if (!trigger) return;
             activeSelect = select;
             setTriggerOpen(select, true);
-            renderDropdownList(select);
+
+            if (dropdownSearchWrap && dropdownSearchEl) {
+                const showSearch = dropdownSearchEnabled(select);
+                dropdownSearchWrap.hidden = !showSearch;
+                dropdownSearchEl.placeholder = select.dataset.pickerSearch || "Search";
+                dropdownSearchEl.value = "";
+            }
+
+            renderDropdownList(select, "");
             dropdownMenu.hidden = false;
             dropdownMenu.classList.add("is-open");
             positionDropdown(trigger);
-            dropdownList.addEventListener("scroll", hideOptionTip, { passive: true });
+
+            if (dropdownSearchEnabled(select) && dropdownSearchEl) {
+                setTimeout(function () {
+                    dropdownSearchEl.focus({ preventScroll: true });
+                }, 30);
+            }
+
+            if (window.lucide) lucide.createIcons();
 
             const active = dropdownList.querySelector(".is-active");
             if (active) {
                 active.scrollIntoView({ block: "nearest", behavior: "smooth" });
             }
+        }
+
+        if (dropdownList) {
+            dropdownList.addEventListener("scroll", hideOptionTip, { passive: true });
         }
 
         function openPicker(select) {
@@ -3730,6 +4326,7 @@ toggleRoomBtn.addEventListener('click', function () {
             syncTrigger(select);
 
             trigger.addEventListener("click", function (e) {
+                e.preventDefault();
                 e.stopPropagation();
                 openPicker(select);
             });
@@ -3737,7 +4334,7 @@ toggleRoomBtn.addEventListener('click', function () {
             new MutationObserver(function () {
                 syncTrigger(select);
                 if (activeSelect === select && dropdownMenu.classList.contains("is-open")) {
-                    renderDropdownList(select);
+                    renderDropdownList(select, dropdownSearchEl ? dropdownSearchEl.value : "");
                     positionDropdown(trigger);
                 }
             }).observe(select, { childList: true, subtree: true, attributes: true });
@@ -3747,9 +4344,39 @@ toggleRoomBtn.addEventListener('click', function () {
             if (activeSelect) renderSheetList(activeSelect, searchEl.value);
         });
 
-        closeEl.addEventListener("click", closePicker);
+        if (dropdownSearchEl) {
+            dropdownSearchEl.addEventListener("input", function () {
+                if (activeSelect && dropdownMenu.classList.contains("is-open")) {
+                    renderDropdownList(activeSelect, dropdownSearchEl.value);
+                }
+            });
+
+            dropdownSearchEl.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") {
+                    e.stopPropagation();
+                    closePicker();
+                }
+            });
+        }
+
+        closeEl.addEventListener("click", function (e) {
+            e.stopPropagation();
+            closePicker();
+        });
+
+        if (dismissEl) {
+            dismissEl.addEventListener("click", function (e) {
+                e.stopPropagation();
+                closePicker();
+            });
+        }
+
         overlay.addEventListener("click", function (e) {
             if (e.target === overlay) closePicker();
+        });
+
+        overlay.querySelector(".rf-picker-sheet")?.addEventListener("click", function (e) {
+            e.stopPropagation();
         });
 
         document.addEventListener("click", function (e) {
@@ -3763,12 +4390,39 @@ toggleRoomBtn.addEventListener('click', function () {
             if (e.key === "Escape") closePicker();
         });
 
-        window.addEventListener("resize", closePicker);
-        document.querySelectorAll(".report-form-scroll, .report-form-aside-body").forEach(function (scroller) {
-            scroller.addEventListener("scroll", closePicker, { passive: true });
+        window.addEventListener("resize", function () {
+            if (overlay.classList.contains("is-open")) {
+                return;
+            }
+            if (dropdownMenu.classList.contains("is-open") && activeSelect) {
+                const trigger = triggerFor(activeSelect);
+                if (trigger) positionDropdown(trigger);
+                return;
+            }
+            closePicker();
+        });
+
+        document.querySelectorAll(
+            ".report-form-scroll, .report-form-aside-body, .report-form-shell, #reportModal .report-modal-wrap"
+        ).forEach(function (scroller) {
+            scroller.addEventListener("scroll", function () {
+                if (overlay.classList.contains("is-open")) return;
+                closePicker();
+            }, { passive: true });
         });
 
         if (window.lucide) lucide.createIcons();
+
+        window.closeReportPickers = closePicker;
+
+        const reportModalEl = document.getElementById("reportModal");
+        if (reportModalEl) {
+            new MutationObserver(function () {
+                if (reportModalEl.classList.contains("hidden")) {
+                    closePicker();
+                }
+            }).observe(reportModalEl, { attributes: true, attributeFilter: ["class"] });
+        }
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -4094,6 +4748,7 @@ toggleRoomBtn.addEventListener('click', function () {
             lastSelectedEquipment = "";
             selectedEquipmentItems = [];
             renderSelectedEquipment();
+            roomEquipmentCache = [];
 
             const roomId = this.value;
 
@@ -4123,20 +4778,8 @@ toggleRoomBtn.addEventListener('click', function () {
             fetch(`/get-equipment/${roomId}`)
                 .then((r) => r.json())
                 .then((data) => {
-                    equipSelect.innerHTML = "";
-                    const placeholder = document.createElement("option");
-                    placeholder.value = "";
-                    placeholder.textContent = "Select Equipment";
-                    equipSelect.appendChild(placeholder);
-
-                    data.forEach((e) => {
-                        const option = document.createElement("option");
-                        option.value = e.equipment_id;
-                        option.textContent = formatEquipmentLabel(e);
-                        equipSelect.appendChild(option);
-                    });
-
-                    syncEquipmentSelectTrigger();
+                    roomEquipmentCache = Array.isArray(data) ? data : [];
+                    rebuildEquipmentSelect();
                 });
         });
 
@@ -4196,6 +4839,42 @@ toggleRoomBtn.addEventListener('click', function () {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+    function paayoSwal(options) {
+        const tone = options.tone || "success";
+        const swalIcon = tone === "error" ? "error" : "success";
+        const icons = {
+            success:
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+            error:
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>',
+        };
+
+        return Swal.fire({
+            icon: swalIcon,
+            iconHtml: icons[tone] || icons.success,
+            title: options.title || "",
+            text: options.html ? undefined : (options.text || ""),
+            html: options.html || undefined,
+            showConfirmButton: options.showConfirmButton !== false,
+            confirmButtonText: options.confirmText || "OK",
+            buttonsStyling: false,
+            backdrop: "rgba(11, 18, 32, 0.7)",
+            width: 400,
+            timer: options.timer,
+            timerProgressBar: !!options.timer,
+            allowOutsideClick: options.allowOutsideClick !== false,
+            showClass: { popup: "swal2-show paayo-swal-in" },
+            customClass: {
+                popup: "paayo-swal",
+                title: "paayo-swal-heading",
+                htmlContainer: "paayo-swal-text",
+                confirmButton: "paayo-swal-btn",
+                icon: "paayo-icon-" + tone,
+                timerProgressBar: "modern-success-progress",
+            },
+        });
+    }
+
     document
         .getElementById("reportForm")
         .addEventListener("submit", async function (e) {
@@ -4347,31 +5026,32 @@ toggleRoomBtn.addEventListener('click', function () {
                             : null) ||
                         "Could not submit the report. Please try again.";
 
-                    await Swal.fire({
-                        icon: "error",
+                    await paayoSwal({
+                        tone: "error",
                         title: "Submit failed",
                         text: String(validationMessage),
-                        confirmButtonColor: "#0025cc",
+                        confirmText: "Try again",
                     });
                     return;
                 }
 
-                await Swal.fire({
-                    icon: "success",
-                    title: "Report submitted",
+                await paayoSwal({
+                    tone: "success",
+                    title: data.merged ? "Update added" : "Report submitted",
                     text:
                         data.message ||
-                        "Maintenance report #" +
-                            (data.report_id || "") +
-                            " submitted successfully.",
-                    confirmButtonColor: "#0025cc",
+                        (data.ticket_code
+                            ? "Maintenance report " + data.ticket_code + " submitted successfully."
+                            : "Report submitted successfully."),
+                    confirmText: "OK",
                     timer: 4000,
-                    timerProgressBar: true,
                 });
 
                 selectedEquipmentItems = [];
                 renderSelectedEquipment();
                 form.reset();
+                roomEquipmentCache = [];
+                rebuildEquipmentSelect();
                 reporterVerified = false;
                 clearSuggestedIssue();
                 showIssuePlaceholder();
@@ -4379,12 +5059,11 @@ toggleRoomBtn.addEventListener('click', function () {
                     closeReportModal();
                 }
             } catch (error) {
-                await Swal.fire({
-                    icon: "error",
+                await paayoSwal({
+                    tone: "error",
                     title: "Submit failed",
-                    text:
-                        "Network or server error while submitting. Check your connection and try again.",
-                    confirmButtonColor: "#0025cc",
+                    text: "Network or server error while submitting. Check your connection and try again.",
+                    confirmText: "Try again",
                 });
             }
         });

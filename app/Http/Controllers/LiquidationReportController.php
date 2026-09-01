@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
 
@@ -491,6 +492,10 @@ class LiquidationReportController extends Controller
             )
             ->where('receiving_reports_table.receiving_report_status', 'Completed')
             ->where(function ($q) {
+                $q->where('authority_to_purchase_table.authority_purchase_payment_path', ProcurementPaymentPath::CASH_ADVANCE)
+                    ->orWhere('request_check_table.request_check_funding_type', ProcurementPaymentPath::CASH_ADVANCE);
+            })
+            ->where(function ($q) {
                 $q->whereNull('receiving_reports_table.receiving_report_is_archived')
                     ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
             })
@@ -607,13 +612,38 @@ class LiquidationReportController extends Controller
             return $required ? 'Select a completed Receiving Report before submitting.' : null;
         }
 
-        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->first();
+        $rr = DB::table('receiving_reports_table')
+            ->leftJoin(
+                'request_check_table',
+                'receiving_reports_table.receiving_report_request_check_id',
+                '=',
+                'request_check_table.request_check_id'
+            )
+            ->leftJoin(
+                'authority_to_purchase_table',
+                'request_check_table.request_check_authority_purchase_id',
+                '=',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
+            ->where('receiving_reports_table.receiving_report_id', $rrId)
+            ->select(
+                'receiving_reports_table.*',
+                'request_check_table.request_check_funding_type',
+                'authority_to_purchase_table.authority_purchase_payment_path'
+            )
+            ->first();
         if (
             !$rr
-            || $rr->receiving_report_status !== 'Completed'
+            || !in_array($rr->receiving_report_status, ['Completed', 'Accepted'], true)
             || !empty($rr->receiving_report_is_archived)
         ) {
             return 'Only a completed Receiving Report can be used for a Liquidation Report.';
+        }
+
+        $path = $rr->authority_purchase_payment_path
+            ?? ($rr->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+        if ($path !== ProcurementPaymentPath::CASH_ADVANCE) {
+            return 'Liquidation Reports apply only to Cash Advance workflows. Request for Check ends after the Receiving Report.';
         }
 
         if ($this->hasBlocking($rrId, $ignoreId)) {

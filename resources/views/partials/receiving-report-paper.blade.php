@@ -1,5 +1,7 @@
 @php
     $editable = $editable ?? false;
+    $allowMultiSupplier = $allowMultiSupplier ?? false;
+    $suppliers = $suppliers ?? collect();
     $signSecondCount = $signSecondCount ?? false;
     $rr = $rr ?? null;
     $rows = $rows ?? collect();
@@ -97,6 +99,10 @@
                 <th class="w-24 border border-black py-1 font-semibold">QUANTITY</th>
                 <th class="w-24 border border-black py-1 font-semibold">UNIT</th>
                 <th class="border border-black py-1 font-semibold">ARTICLE</th>
+                @if($allowMultiSupplier && $editable)
+                    <th class="w-40 border border-black py-1 font-semibold">SUPPLIER</th>
+                    <th class="w-24 border border-black py-1 font-semibold">UNIT PRICE</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -106,6 +112,9 @@
                     $qty = is_array($row) ? ($row['quantity'] ?? '') : ($row->receiving_report_item_quantity ?? '');
                     $unit = is_array($row) ? ($row['unit'] ?? '') : ($row->receiving_report_item_unit ?? '');
                     $article = is_array($row) ? ($row['article'] ?? '') : ($row->receiving_report_item_article ?? '');
+                    $unitPrice = is_array($row) ? ($row['unit_price'] ?? '') : ($row->receiving_report_item_unit_price ?? '');
+                    $supplierId = is_array($row) ? ($row['supplier_id'] ?? '') : ($row->receiving_report_item_supplier_id ?? '');
+                    $supplierName = is_array($row) ? ($row['supplier_name'] ?? '') : ($row->receiving_report_item_supplier_name ?? '');
                 @endphp
                 <tr class="h-8">
                     <td class="border border-black">
@@ -129,6 +138,28 @@
                             {{ $article }}
                         @endif
                     </td>
+                    @if($allowMultiSupplier && $editable)
+                        <td class="border border-black px-1">
+                            <select name="items[{{ $i }}][supplier_id]" class="h-7 w-full border-0 bg-transparent text-xs outline-none" onchange="const o=this.options[this.selectedIndex]; const n=this.form.querySelector('[name=\'items[{{ $i }}][supplier_name]\']'); if(n) n.value=o.dataset.name||'';">
+                                <option value="">—</option>
+                                @foreach($suppliers as $supplier)
+                                    @php
+                                        $sName = $supplier->supplier_store_type === 'Physical Store'
+                                            ? ($supplier->company_name ?? '')
+                                            : ($supplier->shop_name ?? '');
+                                    @endphp
+                                    <option value="{{ $supplier->supplier_id }}" data-name="{{ $sName }}" {{ (string) $supplierId === (string) $supplier->supplier_id ? 'selected' : '' }}>{{ $sName }}</option>
+                                @endforeach
+                            </select>
+                            <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $supplierName }}">
+                        </td>
+                        <td class="border border-black">
+                            <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none">
+                        </td>
+                    @elseif($allowMultiSupplier && !$editable)
+                        <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>
+                        <td class="border border-black text-xs">{{ $unitPrice !== '' && $unitPrice !== null ? number_format((float) $unitPrice, 2) : '—' }}</td>
+                    @endif
                 </tr>
             @endfor
         </tbody>

@@ -19,6 +19,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
 use App\Http\Controllers\ReceivingReportController;
 use App\Http\Controllers\LiquidationReportController;
+use App\Http\Controllers\ProcurementRecordPackageController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\UomController;
@@ -691,6 +692,16 @@ Route::middleware(['auth'])->group(function () {
         [MaintenanceController::class, 'updateStatus']
     );
 
+    Route::get(
+        '/maintenance/reports/log',
+        [MaintenanceController::class, 'createWalkInReport']
+    )->name('maintenance.reports.log');
+
+    Route::post(
+        '/maintenance/reports/log',
+        [MaintenanceController::class, 'storeReport']
+    )->name('maintenance.reports.log.store');
+
 });
 
 //Report Details
@@ -915,6 +926,11 @@ Route::get(
 Route::get(
     '/maintenance/equipment/lifecycle/{id}',
     [MaintenanceController::class, 'equipmentLifecycle']
+);
+
+Route::get(
+    '/maintenance/equipment/timeline/{id}',
+    [MaintenanceController::class, 'equipmentTimeline']
 );
 
 
@@ -1661,6 +1677,11 @@ Route::middleware([
         )->name('atp.submit');
 
         Route::post(
+            '/authority-to-purchase/{id}/payment-path',
+            [AuthorityToPurchaseController::class, 'choosePaymentPath']
+        )->name('atp.payment-path');
+
+        Route::post(
             '/authority-to-purchase/{id}/archive',
             [AuthorityToPurchaseController::class, 'archive']
         )->name('atp.archive');
@@ -1814,6 +1835,14 @@ Route::middleware([
 
 
         // =====================================================
+        // COMPILED PROCUREMENT RECORDS
+        // =====================================================
+
+        Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'index'])->name('procurement-records.index');
+        Route::post('/procurement-records', [ProcurementRecordPackageController::class, 'store'])->name('procurement-records.store');
+
+
+        // =====================================================
         // SUPPLIERS
         // =====================================================
 
@@ -1929,6 +1958,11 @@ Route::middleware([
         )->name('reports.urgent.accept');
 
         Route::post(
+            '/reports/urgent/{reportId}/reject',
+            [PurchaserController::class, 'rejectUrgentReport']
+        )->name('reports.urgent.reject');
+
+        Route::post(
             '/reports/urgent/{reportId}/resolve',
             [PurchaserController::class, 'resolveUrgentReport']
         )->name('reports.urgent.resolve');
@@ -2010,6 +2044,12 @@ Route::middleware([
             '/reports/monthly-summary',
             [PresidentController::class, 'monthlySummary']
         )->name('reports.monthly-summary');
+
+        Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'presidentIndex'])->name('procurement-records.index');
+        Route::get('/procurement-records/{package}/view/{type}/{docId}', [ProcurementRecordPackageController::class, 'presidentViewDocument'])->name('procurement-records.view');
+        Route::get('/procurement-records/{package}/export/{type}/{docId}/{format}', [ProcurementRecordPackageController::class, 'presidentExportDocument'])->name('procurement-records.export');
+        Route::get('/procurement-records/{package}/attachments/{attachmentId}', [ProcurementRecordPackageController::class, 'presidentDownloadAttachment'])->name('procurement-records.attachment');
+        Route::get('/procurement-records/{id}', [ProcurementRecordPackageController::class, 'presidentShow'])->name('procurement-records.show');
 
         // =====================================================
         // APPROVAL DECISION ENDPOINTS
@@ -2143,6 +2183,12 @@ Route::middleware(['auth', 'accounting'])
 
         Route::get('/history', [AccountingController::class, 'history']);
         Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
+        Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'accountingIndex'])->name('accounting.procurement-records.index');
+        Route::get('/procurement-records/{package}/view/{type}/{docId}', [ProcurementRecordPackageController::class, 'accountingViewDocument'])->name('accounting.procurement-records.view');
+        Route::get('/procurement-records/{package}/export/{type}/{docId}/{format}', [ProcurementRecordPackageController::class, 'accountingExportDocument'])->name('accounting.procurement-records.export');
+        Route::get('/procurement-records/{package}/attachments/{attachmentId}', [ProcurementRecordPackageController::class, 'accountingDownloadAttachment'])->name('accounting.procurement-records.attachment');
+        Route::get('/procurement-records/{id}', [ProcurementRecordPackageController::class, 'accountingShow'])->name('accounting.procurement-records.show');
+        Route::post('/procurement-records/{id}/forward-president', [ProcurementRecordPackageController::class, 'forwardToPresident'])->name('accounting.procurement-records.forward');
         Route::get('/notifications', [AccountingController::class, 'notifications']);
 
         Route::get('/profile', [AccountingController::class, 'profile'])->name('accounting.profile');

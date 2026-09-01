@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ReportSubmissionService;
+use App\Support\EquipmentTimeline;
 use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
@@ -3674,6 +3676,13 @@ class MaintenanceController extends Controller
                 'reporters_table.reporter_employee_id'
             )
 
+            ->leftJoin(
+                'users_table as logged_by_user',
+                'reports_table.report_logged_by',
+                '=',
+                'logged_by_user.user_id'
+            )
+
             // =====================================================
             // SELECT REPORT INFORMATION
             // =====================================================
@@ -3721,7 +3730,9 @@ class MaintenanceController extends Controller
 
                 'reporters_table.reporter_employee_id',
 
-                'reporters_table.reporter_contact_number'
+                'reporters_table.reporter_contact_number',
+
+                'logged_by_user.user_full_name as report_logged_by_name'
 
             )
 
@@ -4151,14 +4162,6 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // CHECK IF THIS IS AN UNDO REQUEST HERE
-        // =====================================================
-
-        $undoRequested =
-            (bool) $request->boolean('undo');
-
-
-        // =====================================================
         // DATABASE TRANSACTION HERE
         // =====================================================
 
@@ -4173,8 +4176,6 @@ class MaintenanceController extends Controller
             $personnelId,
 
             $newStatus,
-
-            $undoRequested,
 
             $imagePath,
 
@@ -4225,115 +4226,6 @@ class MaintenanceController extends Controller
                 return back()->with(
                     'error',
                     'Archived reports cannot be updated.'
-                );
-
-            }
-
-
-            // =================================================
-            // HANDLE UNDO REQUEST HERE
-            //
-            // KEEPING YOUR CURRENT UNDO BEHAVIOR.
-            //
-            // NOTE:
-            // THIS SHOULD LATER BE REFACTORED BECAUSE ACCEPTING
-            // A STATUS FROM THE REQUEST IS NOT STRONG ENOUGH
-            // SERVER SIDE VALIDATION FOR UNDO.
-            // =================================================
-
-            // =====================================================
-            // HANDLE UNDO REQUEST HERE
-            //
-            // ONLY ALLOW:
-            //
-            // PROCESSING -> PENDING
-            //
-            // THIS IS SAFE BECAUSE START PROCESSING HAS NOT CREATED
-            // PROCUREMENT REQUESTS OR RESOLUTION DATA.
-            // =====================================================
-
-            if ($undoRequested) {
-
-                // =================================================
-                // REPORT MUST CURRENTLY BE PROCESSING
-                // =================================================
-
-                if (
-                    $report->report_current_status
-                    !==
-                    'Processing'
-                ) {
-
-                    return back()->with(
-                        'error',
-                        'This report cannot be reverted.'
-                    );
-
-                }
-
-
-                // =================================================
-                // REPORT MUST BELONG TO CURRENT MAINTENANCE USER
-                // =================================================
-
-                if (
-                    (int) $report->report_assigned_personnel_id
-                    !==
-                    (int) $personnelId
-                ) {
-
-                    return back()->with(
-                        'error',
-                        'You are not assigned to this report.'
-                    );
-
-                }
-
-
-                // =================================================
-                // PURCHASER MUST NOT OWN REPORT
-                // =================================================
-
-                if (
-                    $report->report_assigned_purchaser_id
-                    !==
-                    null
-                ) {
-
-                    return back()->with(
-                        'error',
-                        'This urgent report is being handled by the Purchaser.'
-                    );
-
-                }
-
-
-                // =================================================
-                // RETURN REPORT TO PENDING
-                //
-                // IMPORTANT:
-                // CLEAR MAINTENANCE ASSIGNMENT SO ANOTHER PERSONNEL
-                // CAN CLAIM THE REPORT.
-                // =================================================
-
-                $this->applyReportStatusUpdate($id, $report, [
-                    'report_current_status' => 'Pending',
-                    'report_assigned_personnel_id' => null,
-                    'report_updated_at' => now(),
-                ]);
-
-                    $this->logActivity(
-                        'Returned report to pending',
-                        'Reports',
-                        'reports_table',
-                        (int) $id,
-                        'Returned Report #' . $id . ' from Processing to Pending.'
-                    );
-
-
-                return back()->with(
-                    'success',
-                    'Report returned to Pending successfully.'
                 );
 
             }
@@ -4473,16 +4365,6 @@ class MaintenanceController extends Controller
                         ->with(
                             'success',
                             'Report is now being processed.'
-                        )
-
-                        ->with(
-                            'undo_report_id',
-                            $id
-                        )
-
-                        ->with(
-                            'undo_previous_status',
-                            $report->report_current_status
                         );
 
                 }
@@ -4520,16 +4402,6 @@ class MaintenanceController extends Controller
                         ->with(
                             'success',
                             'Report rejected successfully.'
-                        )
-
-                        ->with(
-                            'undo_report_id',
-                            $id
-                        )
-
-                        ->with(
-                            'undo_previous_status',
-                            $report->report_current_status
                         );
 
                 }
@@ -4657,16 +4529,6 @@ class MaintenanceController extends Controller
                         ->with(
                             'success',
                             'Report resolved successfully.'
-                        )
-
-                        ->with(
-                            'undo_report_id',
-                            $id
-                        )
-
-                        ->with(
-                            'undo_previous_status',
-                            $report->report_current_status
                         );
 
                 }
@@ -4860,16 +4722,6 @@ class MaintenanceController extends Controller
                             $partialReplacement
                                 ? 'Selected equipment submitted for replacement. Other items on this report can still be resolved separately.'
                                 : 'Report submitted for replacement successfully.'
-                        )
-
-                        ->with(
-                            'undo_report_id',
-                            $id
-                        )
-
-                        ->with(
-                            'undo_previous_status',
-                            $report->report_current_status
                         );
 
                 }
@@ -7408,9 +7260,11 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_inventory_status',
                 'equipment_table.equipment_condition_status',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
                 'equipment_categories_table.equipment_category_name',
                 'rooms_table.room_name',
-                DB::raw('COUNT(reports_table.report_id) as report_count'),
+                DB::raw('COUNT(DISTINCT reports_table.report_id) as report_count'),
                 DB::raw('MAX(reports_table.report_submitted_at) as last_reported_at')
             )
             ->groupBy(
@@ -7418,52 +7272,89 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_inventory_status',
                 'equipment_table.equipment_condition_status',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
                 'equipment_categories_table.equipment_category_name',
                 'rooms_table.room_name'
             );
 
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            $query->addSelect(DB::raw(
+                '(SELECT COUNT(*) FROM equipment_transfer_history_table
+                  WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id) as transfer_count'
+            ));
+            $query->addSelect(DB::raw(
+                '(SELECT MAX(created_at) FROM equipment_transfer_history_table
+                  WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id) as last_transfer_at'
+            ));
+        } else {
+            $query->addSelect(DB::raw('0 as transfer_count'));
+            $query->addSelect(DB::raw('NULL as last_transfer_at'));
+        }
+
+        if (Schema::hasTable('equipment_maintenance_history_table')) {
+            $query->addSelect(DB::raw(
+                '(SELECT COUNT(*) FROM equipment_maintenance_history_table
+                  WHERE equipment_maintenance_history_table.equipment_maintenance_equipment_id = equipment_table.equipment_id) as maintenance_count'
+            ));
+            $query->addSelect(DB::raw(
+                '(SELECT MAX(COALESCE(equipment_maintenance_completed_at, equipment_maintenance_created_at))
+                  FROM equipment_maintenance_history_table
+                  WHERE equipment_maintenance_history_table.equipment_maintenance_equipment_id = equipment_table.equipment_id) as last_maintenance_at'
+            ));
+        } else {
+            $query->addSelect(DB::raw('0 as maintenance_count'));
+            $query->addSelect(DB::raw('NULL as last_maintenance_at'));
+        }
+
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
-                $q->where('equipment_table.equipment_name', 'LIKE', '%'.$request->search.'%')
-                    ->orWhere('rooms_table.room_name', 'LIKE', '%'.$request->search.'%')
-                    ->orWhere('equipment_categories_table.equipment_category_name', 'LIKE', '%'.$request->search.'%');
+                $search = '%'.$request->search.'%';
+                $q->where('equipment_table.equipment_name', 'LIKE', $search)
+                    ->orWhere('rooms_table.room_name', 'LIKE', $search)
+                    ->orWhere('equipment_categories_table.equipment_category_name', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_asset_tag', 'LIKE', $search)
+                    ->orWhere('equipment_table.equipment_serial_number', 'LIKE', $search);
             });
         }
 
+        $selectedTypes = collect((array) $request->input('types', []))
+            ->filter()
+            ->values()
+            ->all();
+
+        $matchingIds = EquipmentTimeline::matchingEquipmentIds(
+            $request->input('date_from'),
+            $request->input('date_to'),
+            $selectedTypes ?: null
+        );
+
+        if ($matchingIds !== null) {
+            if ($matchingIds->isEmpty()) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('equipment_table.equipment_id', $matchingIds);
+            }
+        }
+
         $equipment = $query
-            ->orderByDesc('last_reported_at')
+            ->orderByDesc(DB::raw('COALESCE(MAX(reports_table.report_submitted_at), equipment_table.equipment_created_at)'))
             ->orderBy('equipment_table.equipment_name')
             ->paginate(12)
             ->withQueryString();
 
-        $historyByEquipment = collect();
-        $ids = $equipment->getCollection()->pluck('equipment_id')->filter();
+        $equipment->getCollection()->transform(function ($item) {
+            $timestamps = collect([
+                $item->last_reported_at,
+                $item->last_transfer_at ?? null,
+                $item->last_maintenance_at ?? null,
+            ])->filter();
 
-        if ($ids->isNotEmpty()) {
-            $historyByEquipment = DB::table('reports_table')
-                ->leftJoin(
-                    'reporters_table',
-                    'reports_table.report_reporter_employee_id',
-                    '=',
-                    'reporters_table.reporter_employee_id'
-                )
-                ->whereIn('reports_table.report_equipment_id', $ids)
-                ->orderByDesc('reports_table.report_submitted_at')
-                ->select(
-                    'reports_table.report_id',
-                    'reports_table.report_equipment_id',
-                    'reports_table.report_current_status',
-                    'reports_table.report_urgency_level',
-                    'reports_table.report_suggested_issue',
-                    'reports_table.report_submitted_at',
-                    'reporters_table.reporter_full_name'
-                )
-                ->get()
-                ->groupBy('report_equipment_id');
-        }
+            $item->last_activity_at = $timestamps->max();
+            $item->event_count = (int) $item->report_count
+                + (int) ($item->transfer_count ?? 0)
+                + (int) ($item->maintenance_count ?? 0);
 
-        $equipment->getCollection()->transform(function ($item) use ($historyByEquipment) {
-            $item->history = $historyByEquipment->get($item->equipment_id, collect());
             return $item;
         });
 
@@ -7554,6 +7445,8 @@ class MaintenanceController extends Controller
             ]);
         }
 
+        $eventTypes = EquipmentTimeline::eventTypes();
+
         return view(
             'maintenance-personnel.equipment.history',
             compact(
@@ -7565,9 +7458,26 @@ class MaintenanceController extends Controller
                 'openReports',
                 'openReportsPercentage',
                 'reportsMonthlyPercentage',
-                'reportsMonthlyTrend'
+                'reportsMonthlyTrend',
+                'selectedTypes',
+                'eventTypes'
             )
         );
+    }
+
+    public function equipmentTimeline(Request $request, $id)
+    {
+        $payload = EquipmentTimeline::forEquipment((int) $id, [
+            'from' => $request->input('from', $request->input('date_from')),
+            'to' => $request->input('to', $request->input('date_to')),
+            'types' => $request->input('types'),
+        ]);
+
+        if (! $payload['equipment']) {
+            return response()->json(['message' => 'Equipment not found.'], 404);
+        }
+
+        return response()->json($payload);
     }
 
     /*
@@ -10741,11 +10651,25 @@ class MaintenanceController extends Controller
                 'rooms_table.room_id'
             )
 
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+
             ->select(
                 'maintenance_schedules_table.*',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_qr_code',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
                 'equipment_table.equipment_room_id',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_condition_status',
+                'equipment_categories_table.equipment_category_name',
                 'rooms_table.room_name'
             );
 
@@ -10802,6 +10726,18 @@ class MaintenanceController extends Controller
 
                 ->orWhere(
                     'maintenance_schedules_table.maintenance_schedule_description',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_asset_tag',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_serial_number',
                     'LIKE',
                     '%' . $request->search . '%'
                 );
@@ -10864,7 +10800,7 @@ class MaintenanceController extends Controller
                 'asc'
             )
 
-            ->paginate(10)
+            ->paginate(12)
 
             ->withQueryString();
 
@@ -10909,6 +10845,7 @@ class MaintenanceController extends Controller
             'room' => (string) ($item->room_name ?? ''),
             'qr' => (string) ($item->equipment_qr_code ?? ''),
             'assetTag' => (string) ($item->equipment_asset_tag ?? ''),
+            'serialNumber' => (string) ($item->equipment_serial_number ?? ''),
         ])->values();
 
 
@@ -13211,346 +13148,180 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE REPORTER
+    | LOG WALK-IN REPORT
     |--------------------------------------------------------------------------
     */
 
-    public function storeReport(Request $request)
-        {
-            // =====================================================
-            // VALIDATE REPORT FORM
-            // =====================================================
+    public function createWalkInReport()
+    {
+        $walkInReports = ReportGrouping::hasLoggedByColumn()
+            ? $this->walkInReportsQuery()->paginate(10)->withQueryString()
+            : collect();
 
-            $request->validate([
-                'report_reporter_employee_id' => 'required|string',
-                'report_room_id' => 'required|integer',
-                'report_equipment_id' => 'nullable|integer',
-                'report_equipment_manual' => 'nullable|string|max:255',
-                'report_suggested_issue' => 'nullable|string|max:255',
-                'report_problem_description' => 'nullable|string',
-                'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
-                'report_preferred_action_date' => ReportGrouping::preferredActionDateRules(),
-                'report_uploaded_image' => 'nullable|image|max:5120',
-            ]);
+        if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
+            ReportItems::attachToReports($walkInReports->getCollection());
+        }
 
+        return view('maintenance-personnel.reports.log-report', [
+            'rooms' => $this->roomsForWalkInReport(),
+            'walkInReports' => $walkInReports,
+        ]);
+    }
 
-            // =====================================================
-            // FIND REPORTER
-            // =====================================================
+    private function walkInReportsQuery()
+    {
+        return DB::table('reports_table')
+            ->whereNotNull('reports_table.report_logged_by')
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'reporters_table',
+                'reports_table.report_reporter_employee_id',
+                '=',
+                'reporters_table.reporter_employee_id'
+            )
+            ->leftJoin(
+                'users_table as logged_by_user',
+                'reports_table.report_logged_by',
+                '=',
+                'logged_by_user.user_id'
+            )
+            ->select(
+                'reports_table.*',
+                'rooms_table.room_name',
+                'floors_table.floor_level',
+                'equipment_table.equipment_name',
+                'reporters_table.reporter_full_name',
+                'logged_by_user.user_full_name as report_logged_by_name'
+            )
+            ->orderByDesc('reports_table.report_submitted_at');
+    }
 
-            $reporter = DB::table('reporters_table')
-                ->where(
-                    'reporter_employee_id',
-                    $request->report_reporter_employee_id
-                )
-                ->first();
+    private function roomsForWalkInReport()
+    {
+        $equipmentCountSub = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
+                ->whereNotNull('equipment_room_id')
+                ->groupBy('equipment_room_id')
+        );
 
+        return DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('rooms_table.room_is_archived', false)
+            )
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+            ->leftJoinSub(
+                $equipmentCountSub,
+                'room_equipment_counts',
+                'rooms_table.room_id',
+                '=',
+                'room_equipment_counts.equipment_room_id'
+            )
+            ->select(
+                'rooms_table.*',
+                'floors_table.floor_level',
+                'buildings_table.building_name',
+                DB::raw('COALESCE(room_equipment_counts.equipment_count, 0) as equipment_count')
+            )
+            ->orderByRaw("
+                CASE
+                    WHEN floors_table.floor_level LIKE '2nd%' THEN 1
+                    WHEN floors_table.floor_level LIKE '3rd%' THEN 2
+                    ELSE 99
+                END ASC
+            ")
+            ->orderByRaw(
+                "CASE WHEN floors_table.floor_level LIKE '3rd%' AND rooms_table.room_type = ? THEN 0 ELSE 1 END ASC",
+                ['Lecture Room']
+            )
+            ->orderBy('rooms_table.room_name')
+            ->get();
+    }
 
-            // =====================================================
-            // REPORTER DOES NOT EXIST
-            // =====================================================
+    /*
+    |--------------------------------------------------------------------------
+    | STORE WALK-IN REPORT
+    |--------------------------------------------------------------------------
+    */
 
-            if (!$reporter) {
+    public function storeReport(Request $request, ReportSubmissionService $reports)
+    {
+        $result = $reports->submit($request, (int) Auth::id());
 
-                return back()
-                    ->withErrors([
-                        'report_reporter_employee_id'
-                            => 'Employee ID not recognized.',
-                    ])
-                    ->withInput();
-            }
+        if (! ($result['success'] ?? false)) {
+            return back()
+                ->withErrors($result['errors'] ?? ['general' => $result['message'] ?? 'Unable to log report.'])
+                ->withInput();
+        }
 
+        $reportId = (int) ($result['report_id'] ?? 0);
+        $isUrgent = $request->report_urgency_level === 'Urgent';
+        $merged = (bool) ($result['merged'] ?? false);
 
-            // =====================================================
-            // BLOCK INACTIVE REPORTER
-            // =====================================================
-
-            if ($reporter->reporter_status !== 'Active') {
-
-                return back()
-                    ->withErrors([
-                        'report_reporter_employee_id'
-                            => 'Reporter account is inactive. You cannot submit reports.',
-                    ])
-                    ->withInput();
-            }
-
-
-            // =====================================================
-            // VALIDATE EQUIPMENT SELECTION
-            // MUST SELECT EQUIPMENT OR ENTER MANUALLY
-            // =====================================================
-
-            if (
-                !$request->filled('report_equipment_id')
-                && !$request->filled('report_equipment_manual')
-            ) {
-
-                return back()
-                    ->withErrors([
-                        'report_equipment_id'
-                            => 'Please select or enter an equipment.',
-                    ])
-                    ->withInput();
-            }
-
-            if (
-                !$request->filled('report_suggested_issue')
-                && !$request->filled('report_problem_description')
-            ) {
-                return back()
-                    ->withErrors([
-                        'report_suggested_issue'
-                            => 'Please select a suggested issue or provide additional details.',
-                    ])
-                    ->withInput();
-            }
-
-
-            // =====================================================
-            // UPLOAD REPORT IMAGE
-            // =====================================================
-
-            $imagePath = null;
-
-            if ($request->hasFile('report_uploaded_image')) {
-
-                $imagePath = $request
-                    ->file('report_uploaded_image')
-                    ->store(
-                        'report-images',
-                        'public'
-                    );
-            }
-
-
-            // =====================================================
-            // MERGE INTO OPEN REPORT FOR THE SAME EQUIPMENT
-            // =====================================================
-
-            if ($request->filled('report_equipment_id')) {
-                if (ReportGrouping::equipmentIsForReplacement((int) $request->report_equipment_id)) {
-                    return back()
-                        ->withErrors([
-                            'report_equipment_id' =>
-                                'This equipment is already marked for replacement and cannot be reported again.',
-                        ])
-                        ->withInput();
-                }
-
-                $openReport = ReportGrouping::findOpenReport(
-                    (int) $request->report_equipment_id,
-                    (int) $request->report_room_id
-                );
-
-                if ($openReport) {
-                    ReportGrouping::mergeIntoOpenReport($openReport, [
-                        'reporter_id' => $reporter->reporter_employee_id,
-                        'urgency' => $request->report_urgency_level,
-                        'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
-                            $request->report_urgency_level,
-                            $request->report_preferred_action_date
-                        ),
-                        'issue' => $request->report_suggested_issue
-                            ?: $request->report_problem_description,
-                    ]);
-
-                    return back()->with(
-                        'success',
-                        'This equipment already has an open report. Your report was added to it instead of creating a duplicate.'
-                    );
-                }
-            }
-
-            // =====================================================
-            // INSERT REPORT
-            // CHANGED FROM insert() TO insertGetId()
-            // THIS GIVES US THE NEW REPORT ID
-            // =====================================================
-
-            $reportPayload = [
-
-                    'report_reporter_employee_id'
-                        => $reporter->reporter_employee_id,
-
-                    'report_room_id'
-                        => $request->report_room_id,
-
-                    'report_equipment_id'
-                        => $request->report_equipment_id,
-
-                    'report_unlisted_equipment_name'
-                        => $request->report_equipment_manual,
-
-                    'report_problem_description'
-                        => $request->report_problem_description,
-
-                    'report_suggested_issue'
-                        => $request->report_suggested_issue,
-
-                    'report_urgency_level'
-                        => $request->report_urgency_level,
-
-                    'report_current_status'
-                        => 'Pending',
-
-                    'report_uploaded_image'
-                        => $imagePath,
-
-                    'report_is_overdue'
-                        => false,
-
-                    'report_is_archived'
-                        => false,
-
-                    'report_submitted_at'
-                        => now(),
-
-                    'report_updated_at'
-                        => now(),
-
-            ];
-
-            if (ReportGrouping::hasPreferredActionDateColumn()) {
-                $reportPayload['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
-                    $request->report_urgency_level,
-                    $request->report_preferred_action_date
-                );
-            }
-
-            $reportId = DB::table('reports_table')
-                ->insertGetId($reportPayload, 'report_id');
-
-            $itemPayloads = [];
-
-            $equipmentIds = collect($request->input('report_equipment_ids', []))
-                ->when(
-                    $request->filled('report_equipment_id'),
-                    fn ($ids) => $ids->push($request->report_equipment_id)
-                )
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => $id > 0)
-                ->unique()
-                ->values();
-
-            $manualNames = collect($request->input('report_equipment_manuals', []))
-                ->when(
-                    $request->filled('report_equipment_manual'),
-                    fn ($names) => $names->push($request->report_equipment_manual)
-                )
-                ->map(fn ($name) => trim((string) $name))
-                ->filter()
-                ->unique(fn ($name) => mb_strtolower($name))
-                ->values();
-
-            foreach ($equipmentIds as $equipmentId) {
-                $itemPayloads[] = [
-                    'equipment_id' => (int) $equipmentId,
-                    'suggested_issue' => $request->report_suggested_issue,
-                    'problem_description' => $request->report_problem_description,
-                    'uploaded_image' => $imagePath,
-                ];
-            }
-
-            foreach ($manualNames as $manualName) {
-                $itemPayloads[] = [
-                    'unlisted_name' => $manualName,
-                    'suggested_issue' => $request->report_suggested_issue,
-                    'problem_description' => $request->report_problem_description,
-                    'uploaded_image' => $imagePath,
-                ];
-            }
-
-            if ($itemPayloads === [] && ($request->filled('report_equipment_id') || $request->filled('report_equipment_manual'))) {
-                $itemPayloads[] = [
-                    'equipment_id' => $request->report_equipment_id,
-                    'unlisted_name' => $request->report_equipment_manual,
-                    'suggested_issue' => $request->report_suggested_issue,
-                    'problem_description' => $request->report_problem_description,
-                    'uploaded_image' => $imagePath,
-                ];
-            }
-
-            ReportItems::createForReport((int) $reportId, $itemPayloads);
-
-
-            // =====================================================
-            // CHECK IF REPORT IS URGENT
-            // =====================================================
-
-            $isUrgent =
-                $request->report_urgency_level === 'Urgent';
-
-
-            // =====================================================
-            // CREATE MAINTENANCE PERSONNEL ALERT
-            // THIS WILL APPEAR ON THE ALERTS PAGE
-            // =====================================================
-
+        if ($reportId > 0 && ! $merged) {
             DB::table('notifications_table')
                 ->insertOrIgnore([
-
-                    // NULL means this is not for one specific user
-                    'notification_user_id'
-                        => null,
-
-                    // Send this to Maintenance Personnel
-                    'notification_target_role'
-                        => 'Maintenance Personnel',
-
-                    // Different title depending on urgency
-                    'notification_title'
-                        => $isUrgent
-                            ? 'Urgent Report Requires Attention'
-                            : 'New Report Submitted',
-
-                    // Notification description
-                    'notification_message'
-                        => $isUrgent
-                            ? 'Urgent Report #' . $reportId . ' requires immediate attention.'
-                            : 'A new maintenance Report #' . $reportId . ' has been submitted.',
-
-                    // Used to identify the notification type
-                    'notification_type'
-                        => $isUrgent
-                            ? 'urgent_report'
-                            : 'new_report',
-
-                    // Used by your Alerts page filter
-                    'notification_category'
-                        => 'Reports',
-
-                    // Tells the system what record this notification belongs to
-                    'notification_reference_type'
-                        => 'report',
-
-                    // Actual report ID
-                    'notification_reference_id'
-                        => $reportId,
-
-                    // Destination when notification is opened
-                    'notification_url'
-                        => '/maintenance/reports/details/' . $reportId,
-
-                    // Prevent duplicate notification for the same submission
-                    'notification_event_key'
-                        => 'report_submitted_' . $reportId,
-
-                    'notification_created_at'
-                        => now(),
-
+                    'notification_user_id' => null,
+                    'notification_target_role' => 'Maintenance Personnel',
+                    'notification_title' => $isUrgent
+                        ? 'Urgent Report Requires Attention'
+                        : 'New Report Submitted',
+                    'notification_message' => $isUrgent
+                        ? 'Walk-in urgent Report #' . $reportId . ' was logged and requires immediate attention.'
+                        : 'Walk-in maintenance Report #' . $reportId . ' was logged.',
+                    'notification_type' => $isUrgent ? 'urgent_report' : 'new_report',
+                    'notification_category' => 'Reports',
+                    'notification_reference_type' => 'report',
+                    'notification_reference_id' => $reportId,
+                    'notification_url' => '/maintenance/reports/details/' . $reportId,
+                    'notification_event_key' => 'report_submitted_' . $reportId,
+                    'notification_created_at' => now(),
                 ]);
+        }
 
-
-            // =====================================================
-            // RETURN SUCCESS
-            // =====================================================
-
-            return back()->with(
-                'success',
-                'Report submitted successfully.'
+        if ($reportId > 0) {
+            $this->logActivity(
+                'Logged walk-in report',
+                'Reports',
+                'reports_table',
+                $reportId,
+                'Logged walk-in Report #' . $reportId . ' on behalf of ' . $request->report_reporter_employee_id . '.'
             );
         }
+
+        return redirect()
+            ->route('maintenance.reports.log')
+            ->with('success', (string) ($result['message'] ?? 'Report logged successfully.'));
+    }
 
     /*
     |--------------------------------------------------------------------------

@@ -72,10 +72,10 @@ class MicrosoftAuthController extends Controller
         // ROLE CHECK
         // =====================================================
 
-        if ($user->user_role_id != 2) {
+        if (! in_array((int) $user->user_role_id, [2, 3], true)) {
 
             return response()->json([
-                'message' => 'Only Maintenance Personnel can use this app.',
+                'message' => 'Only Maintenance Personnel or Purchaser can use this app.',
             ], 403);
 
         }

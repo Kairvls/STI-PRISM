@@ -94,6 +94,13 @@
 
         <div class="menu-title" id="history-section">HISTORY</div>
         <a
+            href="/accounting/procurement-records"
+            class="menu-item {{ request()->is('accounting/procurement-records*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="folder-archive"></i>
+            <span>Compiled Records</span>
+        </a>
+        <a
             href="/accounting/history"
             class="menu-item {{ request()->is('accounting/history*') || request()->is('accounting/financial-records*') ? 'active' : '' }}"
         >

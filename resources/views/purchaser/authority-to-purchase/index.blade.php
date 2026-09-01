@@ -396,12 +396,27 @@
 
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
                                         @if(!$atp->has_rfc)
-                                            <a
-                                                href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}"
-                                                class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800"
-                                            >
-                                                Create RFC
-                                            </a>
+                                            @if(empty($atp->authority_purchase_payment_path))
+                                                <div class="flex flex-wrap gap-1">
+                                                    <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                        @csrf
+                                                        <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
+                                                        <button type="submit" class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-800">Request for Check</button>
+                                                    </form>
+                                                    <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                        @csrf
+                                                        <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
+                                                        <button type="submit" class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-800">Cash Advance</button>
+                                                    </form>
+                                                </div>
+                                            @else
+                                                <a
+                                                    href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                                    class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                                                >
+                                                    Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                                </a>
+                                            @endif
                                         @else
                                             <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
                                                 RFC Created
@@ -688,12 +703,27 @@
                         <div class="flex gap-2">
                             @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
                                 @if(!$atp->has_rfc)
-                                    <a
-                                        href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}"
-                                        class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
-                                    >
-                                        Create RFC
-                                    </a>
+                                    @if(empty($atp->authority_purchase_payment_path))
+                                        <div class="flex flex-wrap gap-2">
+                                            <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}">
+                                                @csrf
+                                                <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
+                                                <button type="submit" class="h-10 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-800">Request for Check</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}">
+                                                @csrf
+                                                <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
+                                                <button type="submit" class="h-10 rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-medium text-violet-800">Cash Advance</button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <a
+                                            href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                            class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
+                                        >
+                                            Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                        </a>
+                                    @endif
                                 @else
                                     <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">
                                         RFC Created

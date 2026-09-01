@@ -1,7 +1,7 @@
 @extends('layouts.purchaser-layout')
 
-@section('page-title', 'Request for Check')
-@section('page-subtitle', 'Create, submit, print, and archive Request for Check records.')
+@section('page-title', 'Funding Requests')
+@section('page-subtitle', 'Request for Check and Cash Advance — create, submit, print, and archive funding requests.')
 
 @section('content')
 
@@ -177,7 +177,7 @@
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
-                    Create RFC
+                    Create {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
                 </button>
             </div>
         @endunless
@@ -468,8 +468,10 @@
                             <i data-lucide="receipt-text" class="h-5 w-5"></i>
                         </div>
                         <div>
-                            <h3 id="rfc-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Request for Check</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Select an approved ATP. Submit sends this to Accounting.</p>
+                            <h3 id="rfc-create-title" class="text-lg font-semibold tracking-tight text-slate-900">
+                                Create {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }}
+                            </h3>
+                            <p class="mt-0.5 text-sm text-gray-500">Select an approved ATP with matching payment path. Submit sends this to Accounting.</p>
                         </div>
                     </div>
                     <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
@@ -482,6 +484,7 @@
                     <form method="POST" action="{{ route('purchaser.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
+                        <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
                         <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                             <div class="mx-auto mb-4 w-[297mm] max-w-full">
                                 <label class="text-xs font-medium text-gray-500">Approved ATP</label>

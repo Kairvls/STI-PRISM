@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use App\Support\PurchaserAttentionSummary;
 use App\Support\ReportGrouping;
+use App\Support\ReportItems;
 use App\Support\RisWorkflow;
 
 class PurchaserController extends Controller
@@ -138,6 +139,8 @@ class PurchaserController extends Controller
         });
 
         $this->attachEquipmentReportHistory($reports->getCollection());
+        ReportItems::attachToReports($reports->getCollection());
+        ReportItems::attachTimelines($reports->getCollection());
 
         return view('purchaser.reports.urgent-reports', [
             'reports' => $reports,
@@ -160,12 +163,19 @@ class PurchaserController extends Controller
             ->when(
                 $request->filled('search'),
                 function ($query) use ($request) {
-                    $query->where(function ($subQuery) use ($request) {
+                    $search = trim((string) $request->search);
+                    $ticketId = ReportGrouping::parseTicketSearch($search);
+
+                    $query->where(function ($subQuery) use ($search, $ticketId) {
                         $subQuery
-                            ->where('reports_table.report_id', 'LIKE', '%' . $request->search . '%')
-                            ->orWhere('equipment_table.equipment_name', 'LIKE', $request->search . '%')
-                            ->orWhere('rooms_table.room_name', 'LIKE', $request->search . '%')
-                            ->orWhere('reporters_table.reporter_full_name', 'LIKE', $request->search . '%');
+                            ->where('reports_table.report_id', 'LIKE', '%'.$search.'%')
+                            ->orWhere('equipment_table.equipment_name', 'LIKE', $search.'%')
+                            ->orWhere('rooms_table.room_name', 'LIKE', $search.'%')
+                            ->orWhere('reporters_table.reporter_full_name', 'LIKE', $search.'%');
+
+                        if ($ticketId !== null) {
+                            $subQuery->orWhere('reports_table.report_id', $ticketId);
+                        }
                     });
                 }
             )
@@ -347,7 +357,11 @@ class PurchaserController extends Controller
                     'report_current_status' => 'Processing',
                     'report_assigned_purchaser_id' => $purchaserId,
                     'report_purchaser_assigned_at' => now(),
+                    'report_updated_at' => now(),
                 ]);
+
+            ReportItems::ensureLegacyItem($report);
+            ReportItems::syncAllItemStatuses((int) $reportId, 'Processing');
 
             return back()->with('success', 'Urgent report accepted successfully.');
         });
@@ -359,18 +373,25 @@ class PurchaserController extends Controller
         $request->validate([
             'resolution_notes' => 'nullable|string|max:5000',
             'resolution_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'report_item_ids' => 'nullable|array',
+            'report_item_ids.*' => 'integer',
         ]);
 
         $purchaserId = Auth::id();
 
-        // Store file before the DB transaction so we don't hold the row lock while uploading
         $resolutionImagePath = null;
 
         if ($request->hasFile('resolution_image')) {
             $resolutionImagePath = $request->file('resolution_image')->store('report-resolutions', 'public');
         }
 
-        return DB::transaction(function () use ($request, $reportId, $purchaserId, $resolutionImagePath) {
+        $selectedItemIds = collect($request->input('report_item_ids', []))
+            ->map(fn ($itemId) => (int) $itemId)
+            ->filter(fn ($itemId) => $itemId > 0)
+            ->unique()
+            ->values();
+
+        return DB::transaction(function () use ($request, $reportId, $purchaserId, $resolutionImagePath, $selectedItemIds) {
 
             $report = DB::table('reports_table')
                 ->where('report_id', $reportId)
@@ -383,7 +404,6 @@ class PurchaserController extends Controller
                 return back()->with('error', 'Archived reports cannot be resolved.');
             }
 
-            // Report must be urgent, processing, owned by this purchaser, and not owned by maintenance
             if (
                 $report->report_urgency_level !== 'Urgent'
                 || $report->report_current_status !== 'Processing'
@@ -393,14 +413,35 @@ class PurchaserController extends Controller
                 return back()->with('error', 'You cannot resolve this urgent report.');
             }
 
-            DB::table('reports_table')
-                ->where('report_id', $reportId)
-                ->update([
-                    'report_current_status' => 'Resolved',
-                    'report_resolution_notes' => $request->resolution_notes,
-                    'report_resolution_image' => $resolutionImagePath,
-                    'report_updated_at' => now(),
-                ]);
+            ReportItems::ensureLegacyItem($report);
+            $allItems = ReportItems::forReport((int) $reportId);
+
+            if ($allItems->count() > 1 && $selectedItemIds->isNotEmpty()) {
+                $targets = $allItems->whereIn('report_item_id', $selectedItemIds->all());
+
+                if ($targets->isEmpty()) {
+                    return back()->with('error', 'Select at least one equipment item to resolve.');
+                }
+
+                foreach ($targets as $item) {
+                    ReportItems::updateItem((int) $item->report_item_id, 'Resolved', [
+                        'report_item_resolution_notes' => $request->resolution_notes,
+                        'report_item_resolution_image' => $resolutionImagePath,
+                    ]);
+                }
+
+                return back()->with(
+                    'success',
+                    'Selected equipment marked as resolved. Remaining items can still be fixed or sent for replacement.'
+                );
+            }
+
+            $this->applyUrgentReportStatusUpdate($reportId, $report, [
+                'report_current_status' => 'Resolved',
+                'report_resolution_notes' => $request->resolution_notes,
+                'report_resolution_image' => $resolutionImagePath,
+                'report_updated_at' => now(),
+            ]);
 
             return back()->with('success', 'Urgent report resolved successfully.');
         });
@@ -412,18 +453,34 @@ class PurchaserController extends Controller
         $request->validate([
             'replacement_notes' => 'required|string|max:5000',
             'replacement_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'report_item_ids' => 'nullable|array',
+            'report_item_ids.*' => 'integer',
         ]);
 
         $purchaserId = Auth::id();
 
-        // Store file before the DB transaction so we don't hold the row lock while uploading
         $replacementImagePath = null;
 
         if ($request->hasFile('replacement_image')) {
             $replacementImagePath = $request->file('replacement_image')->store('report-replacements', 'public');
         }
 
-        return DB::transaction(function () use ($request, $reportId, $purchaserId, $replacementImagePath) {
+        $selectedItemIds = collect($request->input('report_item_ids', []))
+            ->map(fn ($itemId) => (int) $itemId)
+            ->filter(fn ($itemId) => $itemId > 0)
+            ->unique()
+            ->values();
+
+        $equipmentForReplacement = [];
+
+        $response = DB::transaction(function () use (
+            $request,
+            $reportId,
+            $purchaserId,
+            $replacementImagePath,
+            $selectedItemIds,
+            &$equipmentForReplacement
+        ) {
 
             $report = DB::table('reports_table')
                 ->where('report_id', $reportId)
@@ -436,7 +493,6 @@ class PurchaserController extends Controller
                 return back()->with('error', 'Archived reports cannot be sent for replacement.');
             }
 
-            // Report must be urgent, processing, owned by this purchaser, and not owned by maintenance
             if (
                 $report->report_urgency_level !== 'Urgent'
                 || $report->report_current_status !== 'Processing'
@@ -446,15 +502,64 @@ class PurchaserController extends Controller
                 return back()->with('error', 'You cannot send this urgent report for replacement.');
             }
 
-            DB::table('reports_table')
-                ->where('report_id', $reportId)
-                ->update([
+            ReportItems::ensureLegacyItem($report);
+            $allItems = ReportItems::forReport((int) $reportId);
+            $partialReplacement = $allItems->count() > 1 && $selectedItemIds->isNotEmpty();
+
+            if ($partialReplacement) {
+                $targets = $allItems->whereIn('report_item_id', $selectedItemIds->all());
+
+                if ($targets->isEmpty()) {
+                    return back()->with('error', 'Select at least one equipment item for replacement.');
+                }
+
+                foreach ($targets as $item) {
+                    ReportItems::updateItem((int) $item->report_item_id, 'For Replacement', [
+                        'report_item_replacement_notes' => $request->replacement_notes,
+                        'report_item_replacement_image' => $replacementImagePath,
+                    ]);
+
+                    if (! empty($item->report_item_equipment_id)) {
+                        $equipmentForReplacement[] = (int) $item->report_item_equipment_id;
+                    }
+                }
+
+                DB::table('reports_table')
+                    ->where('report_id', $reportId)
+                    ->update([
+                        'report_replacement_notes' => $request->replacement_notes,
+                        'report_replacement_image' => $replacementImagePath,
+                        'report_replacement_submitted_to_purchaser' => 1,
+                        'report_updated_at' => now(),
+                    ]);
+
+                ReportItems::refreshParentStatus((int) $reportId);
+            } else {
+                $this->applyUrgentReportStatusUpdate($reportId, $report, [
                     'report_current_status' => 'For Replacement',
                     'report_replacement_notes' => $request->replacement_notes,
                     'report_replacement_image' => $replacementImagePath,
                     'report_replacement_submitted_to_purchaser' => 1,
                     'report_updated_at' => now(),
                 ]);
+
+                $replacementItems = $allItems->filter(
+                    fn ($item) => in_array($item->report_item_status, ReportItems::openStatuses(), true)
+                );
+
+                if ($replacementItems->isEmpty() && $allItems->isEmpty() && ! empty($report->report_equipment_id)) {
+                    $replacementItems = collect([(object) [
+                        'report_item_equipment_id' => $report->report_equipment_id,
+                    ]]);
+                }
+
+                foreach ($replacementItems as $item) {
+                    $equipmentId = (int) ($item->report_item_equipment_id ?? 0);
+                    if ($equipmentId > 0) {
+                        $equipmentForReplacement[] = $equipmentId;
+                    }
+                }
+            }
 
             $procurementRequestExists = DB::table('procurement_requests_table')
                 ->where('procurement_request_report_id', $reportId)
@@ -469,7 +574,64 @@ class PurchaserController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Urgent report sent for replacement successfully.');
+            return back()->with(
+                'success',
+                $partialReplacement
+                    ? 'Selected equipment submitted for replacement. Other items on this report can still be resolved separately.'
+                    : 'Urgent report sent for replacement successfully.'
+            );
+        });
+
+        foreach (array_unique($equipmentForReplacement) as $equipmentId) {
+            ReportGrouping::markEquipmentForReplacement((int) $equipmentId);
+        }
+
+        return $response;
+    }
+
+    // PURCHASER REJECT URGENT REPORT
+    public function rejectUrgentReport(Request $request, $reportId)
+    {
+        $request->validate([
+            'rejection_notes' => 'required|string|max:5000',
+        ]);
+
+        return DB::transaction(function () use ($request, $reportId) {
+
+            $report = DB::table('reports_table')
+                ->where('report_id', $reportId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$report, 404);
+
+            if ($report->report_urgency_level !== 'Urgent') {
+                return back()->with('error', 'Only urgent reports can be rejected here.');
+            }
+
+            if ($report->report_is_archived) {
+                return back()->with('error', 'Archived reports cannot be rejected.');
+            }
+
+            if ($report->report_current_status !== 'Pending') {
+                return back()->with('error', 'This urgent report is no longer available.');
+            }
+
+            if ($report->report_assigned_personnel_id !== null) {
+                return back()->with('error', 'Maintenance personnel is already handling this report.');
+            }
+
+            if ($report->report_assigned_purchaser_id !== null) {
+                return back()->with('error', 'Another purchaser is already handling this report.');
+            }
+
+            $this->applyUrgentReportStatusUpdate($reportId, $report, [
+                'report_current_status' => 'Rejected',
+                'report_rejection_notes' => $request->rejection_notes,
+                'report_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Urgent report rejected successfully.');
         });
     }
 
@@ -492,15 +654,20 @@ class PurchaserController extends Controller
             }
 
             if ((int) $report->report_assigned_purchaser_id !== (int) $purchaserId) {
-                return back()->with('error', 'You can only archive urgent reports assigned to you.');
+                $isOpenRejected = $report->report_current_status === 'Rejected'
+                    && $report->report_assigned_purchaser_id === null;
+
+                if (! $isOpenRejected) {
+                    return back()->with('error', 'You can only archive urgent reports assigned to you.');
+                }
             }
 
             if ($report->report_assigned_personnel_id !== null) {
                 return back()->with('error', 'This report belongs to maintenance personnel.');
             }
 
-            // Report must be finished: Resolved or For Replacement
-            if (!in_array($report->report_current_status, ['Resolved', 'For Replacement'], true)) {
+            // Report must be finished: Resolved, Rejected, or For Replacement
+            if (!in_array($report->report_current_status, ['Resolved', 'Rejected', 'For Replacement'], true)) {
                 return back()->with('error', 'Only completed urgent reports can be archived.');
             }
 
@@ -551,8 +718,61 @@ class PurchaserController extends Controller
                 ]);
 
             return redirect()
-                ->route('purchaser.reports.urgent', ['archive' => 1])
+                ->route('purchaser.reports.urgent')
                 ->with('success', 'Urgent report restored successfully.');
         });
+    }
+
+    private function applyUrgentReportStatusUpdate(int $id, object $report, array $updates): void
+    {
+        DB::table('reports_table')
+            ->where('report_id', $id)
+            ->update($updates);
+
+        if (! ReportItems::tableExists()) {
+            ReportGrouping::syncOpenSiblings($report, $updates);
+
+            return;
+        }
+
+        ReportItems::ensureLegacyItem($report);
+
+        $itemExtra = [];
+        $status = $updates['report_current_status'] ?? null;
+
+        if (array_key_exists('report_resolution_notes', $updates)) {
+            $itemExtra['report_item_resolution_notes'] = $updates['report_resolution_notes'];
+        }
+        if (array_key_exists('report_resolution_image', $updates)) {
+            $itemExtra['report_item_resolution_image'] = $updates['report_resolution_image'];
+        }
+        if (array_key_exists('report_replacement_notes', $updates)) {
+            $itemExtra['report_item_replacement_notes'] = $updates['report_replacement_notes'];
+        }
+        if (array_key_exists('report_replacement_image', $updates)) {
+            $itemExtra['report_item_replacement_image'] = $updates['report_replacement_image'];
+        }
+        if (array_key_exists('report_rejection_notes', $updates)) {
+            $itemExtra['report_item_rejection_notes'] = $updates['report_rejection_notes'];
+        }
+
+        if ($status) {
+            $payload = array_merge($itemExtra, [
+                'report_item_status' => $status,
+                'report_item_updated_at' => now(),
+            ]);
+
+            $query = DB::table('report_items_table')
+                ->where('report_id', $id);
+
+            if (in_array($status, ReportItems::terminalStatuses(), true)) {
+                $query->whereIn('report_item_status', ReportItems::openStatuses());
+            }
+
+            $query->update($payload);
+            ReportItems::refreshParentStatus($id);
+        }
+
+        ReportGrouping::syncOpenSiblings($report, $updates);
     }
 }

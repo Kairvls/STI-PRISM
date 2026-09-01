@@ -1,7 +1,7 @@
 @extends('layouts.purchaser-layout')
 
 @section('page-title', 'Receiving Reports')
-@section('page-subtitle', 'Create receiving reports from approved Request for Check.')
+@section('page-subtitle', 'Create receiving reports from approved funding requests (Request for Check or Cash Advance).')
 
 @section('content')
 
@@ -15,6 +15,12 @@
         emptyOpen: false,
         selectedRr: {{ !empty($viewRrId) ? (int) $viewRrId : 'null' }},
         rfcPrefill: JSON.parse(document.getElementById('rr-rfc-prefill').textContent || '{}'),
+        cashAdvancePath: 'cash_advance',
+
+        isCashAdvance(rfcId) {
+            const data = this.rfcPrefill[String(rfcId)];
+            return data && data.payment_path === this.cashAdvancePath;
+        },
 
         openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; },
         openEdit(id) { this.selectedRr = id; this.editOpen = true; this.viewOpen = false; },
@@ -34,9 +40,13 @@
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
                 const article = form.querySelector('[name=\'items[' + i + '][article]\']');
+                const unitPrice = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
+                const supplier = form.querySelector('[name=\'items[' + i + '][supplier_id]\']');
                 if (qty) qty.value = item.quantity ?? '';
                 if (unit) unit.value = item.unit ?? '';
                 if (article) article.value = item.article ?? '';
+                if (unitPrice) unitPrice.value = item.unit_price ?? '';
+                if (supplier && item.supplier_id) supplier.value = item.supplier_id;
             }
         },
 
@@ -154,7 +164,7 @@
                 </div>
             </div>
             <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Approved and ready for liquidation</span>
+                <span>Approved by Receiving Officer</span>
                 <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
         </a>
@@ -300,12 +310,14 @@
                                             <button type="submit" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Submit</button>
                                         </form>
                                     @endif
-                                    @if(!$archiveView && $rr->receiving_report_status === 'Completed')
+                                    @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                                         @if(!$rr->has_liq)
                                             <a href="{{ route('purchaser.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
                                         @else
                                             <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">Liquidation Created</span>
                                         @endif
+                                    @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && empty($rr->requires_liquidation))
+                                        <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">Workflow complete</span>
                                     @endif
                                     @if($archiveView)
                                         <form method="POST" action="{{ route('purchaser.rr.restore', $rr->receiving_report_id) }}">
@@ -389,7 +401,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.receiving-report-paper', ['editable' => true, 'rr' => null, 'rows' => collect()])
+                            @include('partials.receiving-report-paper', ['editable' => true, 'rr' => null, 'rows' => collect(), 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect()])
                         </div>
                         <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                             <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
@@ -449,12 +461,14 @@
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
                     </div>
                     <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                        @if(!$archiveView && $rr->receiving_report_status === 'Completed')
+                        @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                             @if(!$rr->has_liq)
                                 <a href="{{ route('purchaser.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
                             @else
                                 <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Liquidation Created</span>
                             @endif
+                        @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && empty($rr->requires_liquidation))
+                            <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Workflow complete</span>
                         @endif
                         <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Print</button>
                         <a href="{{ route('purchaser.rr.export-xlsx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
@@ -498,7 +512,7 @@
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="receiving_report_request_check_id" value="{{ $rr->receiving_report_request_check_id }}">
                             <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                                @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems])
+                                @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems, 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect()])
                             </div>
                             <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                                 <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Update Draft</button>

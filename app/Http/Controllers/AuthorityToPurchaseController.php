@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
@@ -230,6 +231,7 @@ class AuthorityToPurchaseController extends Controller
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
         $ris = DB::table('requisition_issue_slip_table')
@@ -313,6 +315,53 @@ class AuthorityToPurchaseController extends Controller
         return redirect()->route('purchaser.atp.index', ['edit_atp' => $id]);
     }
 
+    public function choosePaymentPath(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'authority_purchase_payment_path' => [
+                'required',
+                Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE]),
+            ],
+        ]);
+
+        $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first();
+        if (!$atp) {
+            return back()->with('error', 'Authority to Purchase not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        if ($atp->authority_purchase_status !== 'Approved') {
+            return back()->with('error', 'Payment path can only be chosen after ATP is approved.');
+        }
+
+        if (
+            filled($atp->authority_purchase_payment_path ?? null)
+            && Schema::hasTable('request_check_table')
+            && DB::table('request_check_table')
+                ->where('request_check_authority_purchase_id', $id)
+                ->where('request_check_status', '!=', 'Rejected')
+                ->exists()
+        ) {
+            return back()->with('error', 'Payment path cannot be changed after a funding request has been created.');
+        }
+
+        DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $id)
+            ->update([
+                'authority_purchase_payment_path' => $validated['authority_purchase_payment_path'],
+                'authority_purchase_payment_path_chosen_at' => now(),
+                'authority_purchase_updated_at' => now(),
+            ]);
+
+        $label = ProcurementPaymentPath::label($validated['authority_purchase_payment_path']);
+        $route = $validated['authority_purchase_payment_path'] === ProcurementPaymentPath::CASH_ADVANCE
+            ? route('purchaser.rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::CASH_ADVANCE])
+            : route('purchaser.rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::REQUEST_FOR_CHECK]);
+
+        return redirect($route)->with('success', "Payment path set to {$label}. You may now create the funding request.");
+    }
+
     public function update(Request $request, $id)
     {
         $atp = DB::table('authority_to_purchase_table')
@@ -354,6 +403,7 @@ class AuthorityToPurchaseController extends Controller
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
         $items = $this->filterItemRows($validated['items'] ?? []);
@@ -828,6 +878,9 @@ class AuthorityToPurchaseController extends Controller
                     'unit_price' => isset($item['unit_price']) && $item['unit_price'] !== ''
                         ? (float) $item['unit_price']
                         : null,
+                    'supplier_stock' => isset($item['supplier_stock']) && $item['supplier_stock'] !== ''
+                        ? (int) $item['supplier_stock']
+                        : null,
                 ];
             })
             ->values();
@@ -881,7 +934,13 @@ class AuthorityToPurchaseController extends Controller
             $quantity = $item['quantity'] ?? null;
             $unitPrice = $item['unit_price'] ?? null;
 
-            $rows[] = [
+            $supplierStock = $item['supplier_stock'] ?? null;
+            $backOrderQty = null;
+            if ($quantity !== null && $supplierStock !== null && $quantity > $supplierStock) {
+                $backOrderQty = $quantity - $supplierStock;
+            }
+
+            $row = [
                 'authority_purchase_id' => $authorityPurchaseId,
                 'atp_description' => $item['description'],
                 'atp_quantity' => $quantity,
@@ -891,6 +950,15 @@ class AuthorityToPurchaseController extends Controller
                     ? $quantity * $unitPrice
                     : null,
             ];
+
+            if (Schema::hasColumn('authority_to_purchase_items_table', 'atp_supplier_stock')) {
+                $row['atp_supplier_stock'] = $supplierStock;
+            }
+            if (Schema::hasColumn('authority_to_purchase_items_table', 'atp_back_order_qty')) {
+                $row['atp_back_order_qty'] = $backOrderQty;
+            }
+
+            $rows[] = $row;
         }
         if ($rows !== []) {
             DB::table('authority_to_purchase_items_table')->insert($rows);

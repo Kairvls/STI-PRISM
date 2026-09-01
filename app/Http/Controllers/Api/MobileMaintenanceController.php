@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\MaintenanceReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
@@ -1100,5 +1101,78 @@ class MobileMaintenanceController extends Controller
             'message' => 'Maintenance schedule updated successfully.'
 
         ]);
+    }
+
+    // =====================================================
+    // LIST MAINTENANCE REPORTS
+    // =====================================================
+
+    public function listReports(Request $request, MaintenanceReportService $reports): JsonResponse
+    {
+        $payload = $reports->listReports([
+            'search' => $request->query('search'),
+            'status' => $request->query('status'),
+            'urgency' => $request->query('urgency'),
+            'archive' => $request->boolean('archive'),
+            'limit' => $request->query('limit', 50),
+        ]);
+
+        return response()->json($payload);
+    }
+
+    // =====================================================
+    // SHOW MAINTENANCE REPORT
+    // =====================================================
+
+    public function showReport(int $id, MaintenanceReportService $reports): JsonResponse
+    {
+        $payload = $reports->getReport($id);
+
+        if (! ($payload['success'] ?? false)) {
+            return response()->json($payload, 404);
+        }
+
+        return response()->json($payload);
+    }
+
+    // =====================================================
+    // UPDATE MAINTENANCE REPORT STATUS
+    // =====================================================
+
+    public function updateReportStatus(
+        Request $request,
+        int $id,
+        MaintenanceReportService $reports
+    ): JsonResponse {
+        $validated = $request->validate([
+            'status' => 'required|in:Processing,Resolved,For Replacement,Rejected',
+            'remarks' => 'nullable|string',
+            'proof_image' => 'nullable|image|max:5120',
+            'report_item_ids' => 'nullable|array',
+            'report_item_ids.*' => 'integer',
+        ]);
+
+        $imagePath = null;
+
+        if ($request->hasFile('proof_image')) {
+            $imagePath = $request
+                ->file('proof_image')
+                ->store('maintenance-proofs', 'public');
+        }
+
+        $payload = $reports->updateStatus(
+            $id,
+            (int) $request->user()->user_id,
+            [
+                'status' => $validated['status'],
+                'remarks' => $validated['remarks'] ?? null,
+                'report_item_ids' => $validated['report_item_ids'] ?? [],
+            ],
+            $imagePath
+        );
+
+        $status = ($payload['success'] ?? false) ? 200 : 422;
+
+        return response()->json($payload, $status);
     }
 }

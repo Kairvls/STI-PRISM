@@ -83,13 +83,16 @@ class MobileReportController extends Controller
             }
         }
 
-        $equipment = ReportGrouping::applyReporterEquipmentFilters(
-            DB::table('equipment_table')
-                ->where('equipment_room_id', $roomId)
-        )
-            ->select($columns)
-            ->orderBy('equipment_name')
-            ->get();
+        $equipment = ReportGrouping::enrichEquipmentWithOpenReports(
+            ReportGrouping::applyReporterEquipmentFilters(
+                DB::table('equipment_table')
+                    ->where('equipment_room_id', $roomId)
+            )
+                ->select($columns)
+                ->orderBy('equipment_name')
+                ->get(),
+            (int) $roomId
+        );
 
         return response()->json($equipment);
     }
@@ -452,6 +455,7 @@ class MobileReportController extends Controller
         $totalSelected = $equipmentIds->count() + $manualNames->count();
         $isMultiItemSubmit = $totalSelected > 1;
         $newEquipmentIds = collect();
+        $mergedReports = [];
 
         if (! $isMultiItemSubmit && $equipmentIds->count() === 1 && $manualNames->isEmpty()) {
             $equipmentId = (int) $equipmentIds->first();
@@ -473,27 +477,56 @@ class MobileReportController extends Controller
                 return response()->json([
                     'success' => true,
                     'merged' => true,
-                    'message' => 'This equipment already has an open report (#'.$openReport->report_id.'). Your update was added to it instead of creating a duplicate.',
+                    'message' => 'This equipment already has an open report ('.ReportGrouping::ticketCode($openReport).'). Your update was added to it instead of creating a duplicate.',
                 ]);
             }
 
             $newEquipmentIds->push($equipmentId);
         } else {
             foreach ($equipmentIds as $equipmentId) {
+                $equipmentId = (int) $equipmentId;
                 $openReport = ReportGrouping::findOpenReport(
-                    (int) $equipmentId,
+                    $equipmentId,
                     (int) $request->room_id
                 );
 
                 if ($openReport) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'One or more selected equipment already have an open report. Remove those items and submit again.',
-                    ], 422);
+                    $itemIssue = $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '');
+
+                    ReportGrouping::mergeIntoOpenReport($openReport, [
+                        'reporter_id' => $request->employee_id,
+                        'urgency' => $request->priority,
+                        'preferred_action_date' => $preferredDate,
+                        'issue' => $itemIssue,
+                    ]);
+
+                    $mergedReports[(int) $openReport->report_id] = $openReport;
+
+                    continue;
                 }
 
-                $newEquipmentIds->push((int) $equipmentId);
+                $newEquipmentIds->push($equipmentId);
             }
+        }
+
+        if ($newEquipmentIds->isEmpty() && $manualNames->isEmpty()) {
+            $mergedCount = count($mergedReports);
+
+            if ($mergedCount === 1) {
+                $openReport = reset($mergedReports);
+
+                return response()->json([
+                    'success' => true,
+                    'merged' => true,
+                    'message' => 'Your update was added to the existing open report ('.ReportGrouping::ticketCode($openReport).').',
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'merged' => true,
+                'message' => 'Your updates were added to '.$mergedCount.' existing open reports instead of creating duplicates.',
+            ]);
         }
 
         /*

@@ -1,7 +1,7 @@
 @extends('layouts.purchaser-layout')
 
 @section('page-title', 'Liquidation Reports')
-@section('page-subtitle', 'Liquidate cash advances from completed receiving reports.')
+@section('page-subtitle', 'Liquidate cash advances from completed receiving reports. Request for Check workflows end at Receiving Report.')
 
 @section('content')
 <script type="application/json" id="liq-rr-prefill">{!! json_encode($rrPrefill ?? []) !!}</script>

@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'accounting' => \App\Http\Middleware\AccountingMiddleware::class,
 
             'receiving' => \App\Http\Middleware\ReceivingMiddleware::class,
+            'purchaser.api' => \App\Http\Middleware\PurchaserApiMiddleware::class,
         ]);
 
         

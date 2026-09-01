@@ -654,6 +654,20 @@
                         </p>
                     </div>
 
+                    @if (! empty($report->report_logged_by) && ! empty($report->report_logged_by_name))
+                        <div class="mt-5 border-t border-gray-100 pt-4">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                Logged by (walk-in)
+                            </p>
+                            <p class="mt-1.5 text-sm font-medium text-gray-700">
+                                {{ $report->report_logged_by_name }}
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                This report was entered by maintenance on behalf of the reporter above.
+                            </p>
+                        </div>
+                    @endif
+
                 </section>
 
 

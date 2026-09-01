@@ -17,6 +17,20 @@ $statusMap = [
 
 $currentStatus = $report->report_current_status;
 
+$canClaimPurchaserUrgent = $isPurchaserUrgent
+    && $currentStatus === 'Pending'
+    && empty($report->report_assigned_personnel_id)
+    && empty($report->report_assigned_purchaser_id);
+
+$canArchivePurchaserUrgent = $isPurchaserUrgent
+    && ! $report->report_is_archived
+    && empty($report->report_assigned_personnel_id)
+    && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement'], true)
+    && (
+        (int) $report->report_assigned_purchaser_id === (int) auth()->id()
+        || ($currentStatus === 'Rejected' && empty($report->report_assigned_purchaser_id))
+    );
+
 $statusPill =
     $statusMap[$currentStatus]
     ?? "bg-slate-100 text-slate-600";
@@ -159,13 +173,16 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
         <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
             <div class="flex flex-wrap items-center gap-1.5">
                 @if ($isPurchaserUrgent)
-                    @if ($currentStatus === 'Pending')
+                    @if ($canClaimPurchaserUrgent)
                         <form method="POST" action="{{ route('purchaser.reports.urgent.accept', $report->report_id) }}">
                             @csrf
                             <button type="submit" class="h-9 rounded-lg bg-rose-600 px-3.5 text-xs font-semibold text-white transition hover:bg-rose-700">
-                                Accept Report
+                                Start Processing
                             </button>
                         </form>
+                        <button type="button" onclick="openReportModal('purchaser-reject-modal-{{ $report->report_id }}')" class="h-9 rounded-lg border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
+                            Reject
+                        </button>
                     @endif
                     @if (
                         $currentStatus === 'Processing'
@@ -226,11 +243,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                 @endif
 
                 @if ($isPurchaserUrgent)
-                    @if (
-                        !$report->report_is_archived
-                        && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
-                        && in_array($currentStatus, ['Resolved', 'For Replacement'], true)
-                    )
+                    @if ($canArchivePurchaserUrgent)
                         <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
                             @csrf
                             <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
