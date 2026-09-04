@@ -125,7 +125,7 @@
                         title="Date the RIS was submitted"
                     >
 
-                        {{ $history->ris_requested_by_date ?? 'N/A' }}
+                        {{ $history->ris_requested_by_date ? \Carbon\Carbon::parse($history->ris_requested_by_date)->format('d/m/Y') : 'N/A' }}
 
                     </div>
 

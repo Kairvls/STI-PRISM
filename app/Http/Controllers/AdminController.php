@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 
 class AdminController extends Controller
@@ -2591,11 +2592,93 @@ class AdminController extends Controller
                 ->get();
         }
 
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+
         return view('admin.procurement-review._direct-approve-form', [
             'ris' => $ris,
             'risItems' => $risItems,
             'mode' => $mode,
             'supportingDocuments' => $supportingDocuments,
+            'savedSignatures' => $savedSignatures,
+        ]);
+    }
+
+    public function storeSavedSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature_label' => ['nullable', 'string', 'max:120'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $label = isset($validated['signature_label']) ? trim((string) $validated['signature_label']) : null;
+
+        if (!UserSignatureLibrary::canSaveMore($userId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'You can save up to 4 signatures only. Remove one from your list first.',
+                'max' => UserSignatureLibrary::MAX_PER_USER,
+                'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                    'id' => (int) $item->user_signature_id,
+                    'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                    'preview_url' => (string) ($item->preview_url ?? ''),
+                ])->values(),
+            ], 422);
+        }
+
+        $row = null;
+
+        if ($request->hasFile('signature_file')) {
+            $row = UserSignatureLibrary::storeFromUpload($userId, $request->file('signature_file'), $label);
+        } else {
+            $row = UserSignatureLibrary::storeFromDataUrl(
+                $userId,
+                (string) ($validated['signature_image'] ?? ''),
+                $label
+            );
+        }
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save that signature. Use a PNG/JPG under 2 MB.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signature' => [
+                'id' => (int) $row->user_signature_id,
+                'label' => (string) ($row->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($row->preview_url ?? ''),
+            ],
+            'max' => UserSignatureLibrary::MAX_PER_USER,
+            'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
+    }
+
+    public function destroySavedSignature(Request $request, $signatureId)
+    {
+        $deleted = UserSignatureLibrary::deleteForUser((int) Auth::id(), (int) $signatureId);
+        if (!$deleted) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Signature not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signatures' => UserSignatureLibrary::forUser((int) Auth::id())->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
         ]);
     }
 

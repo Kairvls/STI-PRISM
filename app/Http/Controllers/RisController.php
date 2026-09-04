@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\RisFormExporter;
@@ -73,6 +74,14 @@ class RisController extends Controller
                 'equipment_table.equipment_asset_tag',
                 'rooms_table.room_name',
             );
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
+            $risQuery->addSelect('requisition_issue_slip_table.ris_requested_by_signature_image');
+        }
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')) {
+            $risQuery->addSelect('requisition_issue_slip_table.ris_direct_approval_by');
+        }
 
         PurchaserDocumentAccess::scopeOwned($risQuery, 'ris', 'requisition_issue_slip_table');
 
@@ -244,6 +253,13 @@ class RisController extends Controller
             $ris->supplier_display_name = optional($supplierNames->get($ris->ris_supplier_id ?? null))->display_name;
         }
 
+        $suggestedRisFormNumber = $isAjax ? null : $this->nextSuggestedRisFormNumber();
+        $defaultRequestedBy = $isAjax ? null : (Auth::user()->user_full_name ?? '');
+        $defaultRequestedByDate = $isAjax ? null : now()->format('d/m/Y');
+        $savedSignatures = $isAjax
+            ? collect()
+            : UserSignatureLibrary::forUser((int) Auth::id());
+
         return view('purchaser.ris.index', compact(
             'risRecords',
             'risSummary',
@@ -254,8 +270,91 @@ class RisController extends Controller
             'replacementSourceError',
             'activeSuppliers',
             'uoms',
-            'brands'
+            'brands',
+            'suggestedRisFormNumber',
+            'defaultRequestedBy',
+            'defaultRequestedByDate',
+            'savedSignatures'
         ));
+    }
+
+    public function storeSavedSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature_label' => ['nullable', 'string', 'max:120'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $label = isset($validated['signature_label']) ? trim((string) $validated['signature_label']) : null;
+
+        if (!UserSignatureLibrary::canSaveMore($userId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'You can save up to 4 signatures only. Remove one from your list first.',
+                'max' => UserSignatureLibrary::MAX_PER_USER,
+                'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                    'id' => (int) $item->user_signature_id,
+                    'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                    'preview_url' => (string) ($item->preview_url ?? ''),
+                ])->values(),
+            ], 422);
+        }
+
+        $row = null;
+
+        if ($request->hasFile('signature_file')) {
+            $row = UserSignatureLibrary::storeFromUpload($userId, $request->file('signature_file'), $label);
+        } else {
+            $row = UserSignatureLibrary::storeFromDataUrl(
+                $userId,
+                (string) ($validated['signature_image'] ?? ''),
+                $label
+            );
+        }
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save that signature. Use a PNG/JPG under 2 MB.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signature' => [
+                'id' => (int) $row->user_signature_id,
+                'label' => (string) ($row->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($row->preview_url ?? ''),
+            ],
+            'max' => UserSignatureLibrary::MAX_PER_USER,
+            'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
+    }
+
+    public function destroySavedSignature(Request $request, $signatureId)
+    {
+        $deleted = UserSignatureLibrary::deleteForUser((int) Auth::id(), (int) $signatureId);
+        if (!$deleted) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Signature not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signatures' => UserSignatureLibrary::forUser((int) Auth::id())->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
     }
 
 // =====================================================
@@ -376,6 +475,12 @@ class RisController extends Controller
                 'date_format:d/m/Y',
             ],
 
+            'signature_data' => [
+                'required',
+                'string',
+                'max:2000000',
+            ],
+
             // =============================================
             // THESE ARE NOT ENTERED BY PURCHASER
             // They are completed later in the workflow.
@@ -447,6 +552,9 @@ class RisController extends Controller
 
             'ris_requested_by_date.date_format' =>
                 'Requested By date must use dd/mm/yyyy format.',
+
+            'signature_data.required' =>
+                'Please sign the RIS before saving.',
 
             'ris_items.*.quantity_requested.integer' =>
                 'Quantity Requested must be a whole number.',
@@ -537,6 +645,13 @@ class RisController extends Controller
             )->format('Y-m-d');
         }
 
+        $requestedByImage = RisWorkflow::normalizeDrawnSignature($validated['signature_data'] ?? null);
+        if (!$requestedByImage) {
+            return back()
+                ->withInput()
+                ->with('error', 'Please sign the RIS before saving.');
+        }
+
 
         // =====================================================
         // 6. VALIDATE REPLACEMENT REQUEST SOURCE
@@ -599,7 +714,8 @@ class RisController extends Controller
             $items,
             $isDraft,
             $procurementRequestId,
-            $requestedByDate
+            $requestedByDate,
+            $requestedByImage
         ) {
 
             $source = $procurementRequestId
@@ -650,7 +766,13 @@ class RisController extends Controller
                 $risPayload['ris_created_by'] = Auth::id();
             }
 
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
+                $risPayload['ris_requested_by_signature_image'] = $requestedByImage;
+            }
+
             $risId = DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
+
+            RisWorkflow::storeRequestedBySignature((int) $risId, (string) $requestedByImage);
 
 
             // =====================================================
@@ -950,6 +1072,12 @@ public function update(Request $request, $risId)
             'date_format:d/m/Y',
         ],
 
+        'signature_data' => [
+            'nullable',
+            'string',
+            'max:2000000',
+        ],
+
 
         // =============================================
         // ATTACHMENTS
@@ -1145,6 +1273,11 @@ public function update(Request $request, $risId)
                 now(),
         ];
 
+        $requestedByImage = RisWorkflow::normalizeDrawnSignature($validated['signature_data'] ?? null);
+        if ($requestedByImage && Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
+            $updateData['ris_requested_by_signature_image'] = $requestedByImage;
+        }
+
 
         // =================================================
         // SUBMISSION TRACKING
@@ -1168,6 +1301,10 @@ public function update(Request $request, $risId)
         DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->update($updateData);
+
+        if ($requestedByImage) {
+            RisWorkflow::storeRequestedBySignature((int) $risId, $requestedByImage);
+        }
 
 
         // =================================================
@@ -1666,6 +1803,28 @@ public function submit($risId)
             'digits:8',
             $unique,
         ];
+    }
+
+    /**
+     * Next editable default for the RIS "No." field (8 zero-padded digits).
+     */
+    private function nextSuggestedRisFormNumber(): string
+    {
+        $max = 0;
+
+        foreach (
+            DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_form_number')
+                ->pluck('ris_form_number') as $formNumber
+        ) {
+            if (preg_match('/^\d{8}$/', (string) $formNumber)) {
+                $max = max($max, (int) $formNumber);
+            }
+        }
+
+        $next = min($max + 1, 99999999);
+
+        return str_pad((string) $next, 8, '0', STR_PAD_LEFT);
     }
 
     /**

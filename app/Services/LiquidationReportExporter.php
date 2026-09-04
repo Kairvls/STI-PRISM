@@ -505,7 +505,7 @@ class LiquidationReportExporter
         $table->addCell(1900)->addText((string) $v2, ['size' => 9], ['alignment' => Jc::END]);
     }
 
-    protected function d($value, string $format = 'm/d/Y'): string
+    protected function d($value, string $format = 'd/m/Y'): string
     {
         return $this->formatDate($value, $format);
     }

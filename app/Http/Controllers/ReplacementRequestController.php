@@ -71,12 +71,24 @@ class ReplacementRequestController extends Controller
         }
 
         if ($request->filled('search')) {
-            $query->where(function ($subQuery) use ($request) {
+            $search = trim((string) $request->search);
+            $requestIdFromCode = \App\Support\ReplacementRequestCode::parseSearch($search);
+            $reportIdFromCode = \App\Support\ReportGrouping::parseTicketSearch($search);
+
+            $query->where(function ($subQuery) use ($search, $requestIdFromCode, $reportIdFromCode) {
                 $subQuery
-                    ->where('procurement_requests_table.procurement_request_id', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('reports_table.report_id', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('rooms_table.room_name', 'LIKE', '%' . $request->search . '%');
+                    ->where('procurement_requests_table.procurement_request_id', 'LIKE', '%' . $search . '%')
+                    ->orWhere('reports_table.report_id', 'LIKE', '%' . $search . '%')
+                    ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $search . '%')
+                    ->orWhere('rooms_table.room_name', 'LIKE', '%' . $search . '%');
+
+                if ($requestIdFromCode) {
+                    $subQuery->orWhere('procurement_requests_table.procurement_request_id', $requestIdFromCode);
+                }
+
+                if ($reportIdFromCode) {
+                    $subQuery->orWhere('reports_table.report_id', $reportIdFromCode);
+                }
             });
         }
 

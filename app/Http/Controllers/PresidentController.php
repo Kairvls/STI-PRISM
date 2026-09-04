@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 
 class PresidentController extends Controller
@@ -220,31 +221,42 @@ class PresidentController extends Controller
         // ================================
         // Base query: records forwarded to President
         // ================================
+        $pendingSelect = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+            'ris.ris_approved_by_signature',
+            'ris.ris_requested_by_signature',
+            'ris.ris_created_at',
+            DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
+        ];
+        $pendingGroupBy = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+            'ris.ris_approved_by_signature',
+            'ris.ris_requested_by_signature',
+            'ris.ris_created_at',
+        ];
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
+            $pendingSelect[] = 'ris.ris_forward_details';
+            $pendingGroupBy[] = 'ris.ris_forward_details';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')) {
+            $pendingSelect[] = 'ris.ris_forward_attachment_path';
+            $pendingGroupBy[] = 'ris.ris_forward_attachment_path';
+        }
+
         $query = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
-            ->select(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_purpose_description',
-                'ris.ris_status',
-                'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_requested_by_signature',
-                'ris.ris_created_at',
-                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
-            )
+            ->select($pendingSelect)
             ->whereNotNull('ris.ris_requested_by_date')
             ->where('ris.ris_status', '!=', 'Directly Approved')
-            ->groupBy(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_purpose_description',
-                'ris.ris_status',
-                'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_requested_by_signature',
-                'ris.ris_created_at'
-            );
+            ->groupBy($pendingGroupBy);
 
         $query->where(function ($q) {
             $this->scopeAwaitingPresident($q, 'ris.');
@@ -277,20 +289,41 @@ class PresidentController extends Controller
         // ================================
         // Approved but not yet notified (eligible to pin / stay in queue)
         // ================================
+        $awaitingSelect = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+            'ris.ris_approved_by_signature',
+            'ris.ris_requested_by_signature',
+            'ris.ris_issued_by_signature',
+            'ris.ris_created_at',
+            DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
+        ];
+        $awaitingGroupBy = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+            'ris.ris_approved_by_signature',
+            'ris.ris_requested_by_signature',
+            'ris.ris_issued_by_signature',
+            'ris.ris_created_at',
+        ];
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
+            $awaitingSelect[] = 'ris.ris_forward_details';
+            $awaitingGroupBy[] = 'ris.ris_forward_details';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')) {
+            $awaitingSelect[] = 'ris.ris_forward_attachment_path';
+            $awaitingGroupBy[] = 'ris.ris_forward_attachment_path';
+        }
+
         $awaitingNotifyRis = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
-            ->select(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_purpose_description',
-                'ris.ris_status',
-                'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_requested_by_signature',
-                'ris.ris_issued_by_signature',
-                'ris.ris_created_at',
-                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
-            )
+            ->select($awaitingSelect)
             ->where(function ($q) {
                 $this->scopePresidentApproved($q, 'ris.');
             })
@@ -298,17 +331,7 @@ class PresidentController extends Controller
                 $q->whereNull('ris.ris_issued_by_signature')
                     ->orWhere('ris.ris_issued_by_signature', '');
             })
-            ->groupBy(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_purpose_description',
-                'ris.ris_status',
-                'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_requested_by_signature',
-                'ris.ris_issued_by_signature',
-                'ris.ris_created_at'
-            )
+            ->groupBy($awaitingGroupBy)
             ->orderBy('ris.ris_approved_by_date')
             ->orderBy('ris.ris_id')
             ->get()
@@ -370,6 +393,30 @@ class PresidentController extends Controller
                 $ris->admin_notified = $isApproved && $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
                 $ris->awaiting_notify = $isApproved && !$ris->admin_notified
                     && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
+
+                return $ris;
+            })
+        );
+
+        $recentAttachmentFiles = collect();
+        if (Schema::hasTable('ris_attachments_table') && $recentRis->count() > 0) {
+            $recentAttachmentFiles = DB::table('ris_attachments_table')
+                ->whereIn('ris_id', $recentRis->getCollection()->pluck('ris_id'))
+                ->orderBy('ris_attachment_original_name')
+                ->get()
+                ->groupBy('ris_id');
+        }
+
+        $recentRis->setCollection(
+            $recentRis->getCollection()->map(function ($ris) use ($recentAttachmentFiles) {
+                $ris->supportingDocuments = ($recentAttachmentFiles->get($ris->ris_id, collect()))
+                    ->map(fn ($file) => [
+                        'id' => $file->ris_attachment_id,
+                        'name' => $file->ris_attachment_original_name,
+                        'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
+                    ])
+                    ->values()
+                    ->all();
 
                 return $ris;
             })
@@ -731,12 +778,22 @@ class PresidentController extends Controller
         ];
 
         if ($decision === 'Approved') {
-            $presidentName = Auth::user()->user_full_name ?? 'President';
+            $presidentName = trim((string) $request->input('ris_approved_by', ''));
+            if ($presidentName === '') {
+                $presidentName = Auth::user()->user_full_name ?? 'President';
+            }
+
             $signature = trim((string) $request->input('signature_data', ''));
-            $updateValues['ris_approved_by_signature'] = $signature !== '' && str_starts_with($signature, 'data:image')
-                ? $signature
-                : $presidentName;
-            $updateValues['ris_approved_by_date'] = now()->toDateString();
+            if ($signature === '' || !str_starts_with($signature, 'data:image/')) {
+                return $fail('Please add a signature before approving (draw, upload, or pick a saved one).');
+            }
+            if (strlen($signature) > 2000000) {
+                return $fail('Signature image is too large. Please use a smaller drawing or upload.');
+            }
+
+            $updateValues['ris_approved_by_signature'] = $signature;
+            $approvedDate = $this->parseFlexibleDate($request->input('ris_approved_by_date'));
+            $updateValues['ris_approved_by_date'] = $approvedDate ?: now()->toDateString();
         }
 
         try {
@@ -1730,10 +1787,91 @@ class PresidentController extends Controller
         }
 
         $risItems = $this->risItemsWithUom($risId);
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
 
         return view('president.approvals._approve-form', [
             'ris' => $ris,
             'risItems' => $risItems,
+            'savedSignatures' => $savedSignatures,
+        ]);
+    }
+
+    public function storeSavedSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature_label' => ['nullable', 'string', 'max:120'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $label = isset($validated['signature_label']) ? trim((string) $validated['signature_label']) : null;
+
+        if (!UserSignatureLibrary::canSaveMore($userId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'You can save up to 4 signatures only. Remove one from your list first.',
+                'max' => UserSignatureLibrary::MAX_PER_USER,
+                'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                    'id' => (int) $item->user_signature_id,
+                    'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                    'preview_url' => (string) ($item->preview_url ?? ''),
+                ])->values(),
+            ], 422);
+        }
+
+        $row = null;
+
+        if ($request->hasFile('signature_file')) {
+            $row = UserSignatureLibrary::storeFromUpload($userId, $request->file('signature_file'), $label);
+        } else {
+            $row = UserSignatureLibrary::storeFromDataUrl(
+                $userId,
+                (string) ($validated['signature_image'] ?? ''),
+                $label
+            );
+        }
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save that signature. Use a PNG/JPG under 2 MB.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signature' => [
+                'id' => (int) $row->user_signature_id,
+                'label' => (string) ($row->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($row->preview_url ?? ''),
+            ],
+            'max' => UserSignatureLibrary::MAX_PER_USER,
+            'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
+    }
+
+    public function destroySavedSignature(Request $request, $signatureId)
+    {
+        $deleted = UserSignatureLibrary::deleteForUser((int) Auth::id(), (int) $signatureId);
+        if (!$deleted) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Signature not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signatures' => UserSignatureLibrary::forUser((int) Auth::id())->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
         ]);
     }
 

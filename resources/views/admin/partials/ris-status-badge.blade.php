@@ -16,9 +16,9 @@
         $risStatusClass = 'border-violet-200 bg-violet-50 text-violet-700';
         $risStatusTitle = 'Accepted — ready for Forward / Approve Directly / Return on Sign RIS';
     } elseif ($risStatus === 'Directly Approved') {
-        $risStatusLabel = 'Admin Approved';
+        $risStatusLabel = 'Directly approved by the Administrator';
         $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';
-        $risStatusTitle = 'Approved by Admin and returned to Purchaser';
+        $risStatusTitle = 'Directly approved by the Administrator and returned to Purchaser';
     } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && ($presidentSig === '' || !$presidentImage))) {
         $risStatusLabel = 'Forwarded to President';
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';

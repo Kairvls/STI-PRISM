@@ -2,6 +2,10 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+
 class RisWorkflow
 {
     public const ACCEPTED = 'Accepted';
@@ -151,7 +155,7 @@ class RisWorkflow
         }
 
         if ($status === self::DIRECTLY_APPROVED) {
-            return 'Admin Approved';
+            return 'Directly approved by the Administrator';
         }
 
         if (self::isPresidentRejected($ris)) {
@@ -252,6 +256,221 @@ class RisWorkflow
         $sig = trim((string) $signatureData);
 
         return self::isDrawnSignature($sig) ? $sig : $fallback;
+    }
+
+    public static function normalizeDrawnSignature(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '' || !self::isDrawnSignature($value) || strlen($value) > 2000000) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    public static function requestedBySignatureDiskPath(int $risId): string
+    {
+        return 'ris-requested-by/'.$risId.'.png';
+    }
+
+    public static function storeRequestedBySignature(int $risId, string $dataUrl): ?string
+    {
+        $normalized = self::normalizeDrawnSignature($dataUrl);
+        if (!$normalized || !preg_match('#^data:image/(png|jpeg|jpg);base64,(.+)$#is', $normalized, $matches)) {
+            return null;
+        }
+
+        $binary = base64_decode($matches[2], true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        Storage::disk('public')->put(self::requestedBySignatureDiskPath($risId), $binary);
+
+        return $normalized;
+    }
+
+    public static function requestedByDrawnSignature(?object $ris): string
+    {
+        if (!$ris) {
+            return '';
+        }
+
+        $id = (int) ($ris->ris_id ?? 0);
+        if ($id > 0) {
+            $path = self::requestedBySignatureDiskPath($id);
+            if (Storage::disk('public')->exists($path)) {
+                $binary = Storage::disk('public')->get($path);
+                if (is_string($binary) && $binary !== '') {
+                    return 'data:image/png;base64,'.base64_encode($binary);
+                }
+            }
+        }
+
+        $image = self::normalizeDrawnSignature($ris->ris_requested_by_signature_image ?? null);
+        if ($image) {
+            return $image;
+        }
+
+        return self::normalizeDrawnSignature($ris->ris_requested_by_signature ?? null) ?? '';
+    }
+
+    public static function requestedByPrintedName(?object $ris): string
+    {
+        if (!$ris) {
+            return '';
+        }
+
+        $name = trim((string) ($ris->ris_requested_by_signature ?? ''));
+        if ($name === '' || self::isDrawnSignature($name)) {
+            return '';
+        }
+
+        return $name;
+    }
+
+    /**
+     * Printed name under Approved by / Checked by when the stored value is a drawn signature image.
+     */
+    public static function approvedByPrintedName(?object $ris, ?string $fallback = null): string
+    {
+        if (!$ris) {
+            return trim((string) ($fallback ?? ''));
+        }
+
+        $raw = trim((string) ($ris->ris_approved_by_signature ?? ''));
+        if ($raw === '') {
+            return '';
+        }
+
+        if (!self::isDrawnSignature($raw)) {
+            return $raw;
+        }
+
+        $named = trim((string) ($ris->ris_approved_by_name ?? ''));
+        if ($named !== '') {
+            return $named;
+        }
+
+        $isDirect = (($ris->ris_status ?? '') === self::DIRECTLY_APPROVED);
+        $fromActor = self::resolveActorFullName($ris, $isDirect
+            ? ['Admin Approval', 'Admin']
+            : ['President']);
+        if ($fromActor !== '') {
+            return $fromActor;
+        }
+
+        if (
+            $isDirect
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')
+            && !empty($ris->ris_direct_approval_by)
+            && Schema::hasTable('users_table')
+        ) {
+            try {
+                $admin = DB::table('users_table')
+                    ->where('user_id', (int) $ris->ris_direct_approval_by)
+                    ->value('user_full_name');
+                $adminName = trim((string) ($admin ?? ''));
+                if ($adminName !== '') {
+                    return $adminName;
+                }
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        $fallback = trim((string) ($fallback ?? ''));
+        if ($fallback !== '') {
+            return $fallback;
+        }
+
+        return $isDirect ? 'Administrator' : 'President';
+    }
+
+    /**
+     * Printed name under Issued by when the stored value is a drawn signature image.
+     */
+    public static function issuedByPrintedName(?object $ris, ?string $fallback = null): string
+    {
+        if (!$ris) {
+            return trim((string) ($fallback ?? ''));
+        }
+
+        $raw = trim((string) ($ris->ris_issued_by_signature ?? ''));
+        if ($raw === '') {
+            return '';
+        }
+
+        if (!self::isDrawnSignature($raw)) {
+            return $raw;
+        }
+
+        $named = trim((string) ($ris->ris_issued_by_name ?? ''));
+        if ($named !== '') {
+            return $named;
+        }
+
+        $fromActor = self::resolveActorFullName($ris, ['Admin Co-sign', 'Admin Approval', 'Admin']);
+        if ($fromActor !== '') {
+            return $fromActor;
+        }
+
+        if (
+            Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')
+            && !empty($ris->ris_direct_approval_by)
+            && Schema::hasTable('users_table')
+        ) {
+            try {
+                $admin = DB::table('users_table')
+                    ->where('user_id', (int) $ris->ris_direct_approval_by)
+                    ->value('user_full_name');
+                $adminName = trim((string) ($admin ?? ''));
+                if ($adminName !== '') {
+                    return $adminName;
+                }
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        $fallback = trim((string) ($fallback ?? ''));
+
+        return $fallback !== '' ? $fallback : 'Administrator';
+    }
+
+    public static function approvedByColumnLabel(?object $ris): string
+    {
+        return (($ris->ris_status ?? '') === self::DIRECTLY_APPROVED)
+            ? 'Checked by:'
+            : 'Approved by:';
+    }
+
+    private static function resolveActorFullName(?object $ris, array $levels): string
+    {
+        $risId = (int) ($ris->ris_id ?? 0);
+        if (
+            $risId <= 0
+            || $levels === []
+            || !Schema::hasTable('approval_logs_table')
+            || !Schema::hasTable('users_table')
+        ) {
+            return '';
+        }
+
+        try {
+            $row = DB::table('approval_logs_table')
+                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                ->where('approval_logs_table.approval_log_reference_id', $risId)
+                ->whereIn('approval_logs_table.approval_log_level', $levels)
+                ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                ->select('users_table.user_full_name')
+                ->first();
+
+            return trim((string) ($row->user_full_name ?? ''));
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     public static function equipmentLabel(object $source): string

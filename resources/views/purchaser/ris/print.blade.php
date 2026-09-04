@@ -6,7 +6,7 @@
     <title>RIS Preview</title>
     <style>
         * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-        body { margin: 0; padding: 0; background: transparent; }
+        html, body { margin: 0; padding: 0; background: transparent; }
         .ris-document {
             width: 11in;
             min-height: 8.5in;
@@ -14,7 +14,7 @@
             background: white;
             position: relative;
         }
-        .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
+        .header { position: relative; margin-top: 24px; margin-bottom: 10px; text-align: center; }
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
         .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
         .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
@@ -25,49 +25,93 @@
         .item-col { width: 20%; }
         .brand-col { width: 10%; }
         .unit-col { width: 7%; }
+        .supplier-col { width: 14%; }
         .qty-col { width: 9%; }
         .cost-col { width: 12%; }
         .amount-col { width: 14%; }
         .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
-        .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
-        .signature-box { position: relative; }
+        .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; position: relative; z-index: 50; page-break-inside: avoid; break-inside: avoid; }
+        .signature-box { position: relative; z-index: 50; }
         .signature-box p { margin: 0 0 6px; }
-        .signature-line { border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
+        .signature-line {
+            border-bottom: 1px solid #111827;
+            min-height: 36px;
+            text-align: center;
+            font-size: 12px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 2px;
+        }
         .signature-name-wrapper { position: relative; display: inline-block; width: 100%; text-align: center; }
-        .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-name { font-size: 11px; text-transform: none; letter-spacing: 0; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
-        .signature-image { max-height: 36px; width: auto; position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: -8px; z-index: 10; }
+        .signature-image {
+            max-height: 36px;
+            width: auto;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 12px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .signature-line .signature-name { display: block; line-height: 20px; }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         @media print {
-            body { background: white; }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+            }
             .ris-document {
-                width: 100%;
+                width: 100% !important;
+                max-width: 100% !important;
                 min-height: auto;
+                height: auto;
+                max-height: none;
                 margin: 0;
                 padding: 0.2in;
                 position: relative;
+                overflow: visible !important;
             }
-            .header { margin-top: 140px; }
+            .header { margin-top: 24px; margin-bottom: 8px; }
+            .ris-table { width: 100% !important; }
+            .signatures { margin-top: 16px; }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
+    @include('partials.ris-signature-overlay-styles')
 </head>
 <body>
 
-{{-- Toolbar removed --}}
+@php
+    $isDirectlyApproved = ($ris->ris_status ?? '') === 'Directly Approved';
+    $approvedLabel = \App\Support\RisWorkflow::approvedByColumnLabel($ris);
+    $approvedRaw = trim((string) ($ris->ris_approved_by_signature ?? ''));
+    $approvedImage = \App\Support\RisWorkflow::isDrawnSignature($approvedRaw) ? $approvedRaw : '';
+    $approvedName = \App\Support\RisWorkflow::approvedByPrintedName($ris, $presidentName ?? null);
+
+    $issuedRaw = trim((string) ($ris->ris_issued_by_signature ?? ''));
+    $issuedImage = \App\Support\RisWorkflow::isDrawnSignature($issuedRaw) ? $issuedRaw : '';
+    $issuedName = \App\Support\RisWorkflow::issuedByPrintedName($ris);
+    $hasIssued = $issuedRaw !== '';
+
+    $receivedRaw = trim((string) ($ris->ris_received_by_signature ?? ''));
+    $receivedImage = \App\Support\RisWorkflow::isDrawnSignature($receivedRaw) ? $receivedRaw : '';
+    $receivedName = ($receivedImage === '' && $receivedRaw !== '') ? $receivedRaw : '';
+
+    $fullyReleased = $hasIssued && ($isDirectlyApproved || $approvedRaw !== '');
+@endphp
 
     <main class="ris-document">
-        @php
-            $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
-            $presidentImage = trim((string) ($ris->ris_approved_by_signature ?? '')) !== ''
-                && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
-            $fullyReleased = $issuedBy !== '' && (
-                ($ris->ris_status ?? '') === 'Directly Approved' || $presidentImage
-            );
-        @endphp
-        @if ($fullyReleased)
+        @if ($isDirectlyApproved)
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'ADMIN APPROVED'])
+        @elseif ($fullyReleased)
             @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
         @endif
 
@@ -121,59 +165,49 @@
         <section class="signatures">
             <div class="signature-box">
                 <p>Requested by:</p>
-                <div class="signature-line">{{ $ris->ris_requested_by_signature }}</div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date }}</div></div>
+                @include('partials.ris-requested-by-signatory', ['ris' => $ris])
+                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : '' }}</div></div>
             </div>
-<div class="signature-box">
-                <p>{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by:' : 'Approved by:' }}</p>
-                <div class="signature-line"></div>
-                <div class="signature-name-wrapper">
-                    @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
-                        <div class="signature-name">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : ($presidentName ?? 'President') }}</div>
-                        <div class="signature-position">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : 'President' }}</div>
-                        <img src="{{ $ris->ris_approved_by_signature }}" alt="{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by' : 'Approved by' }} signature" class="signature-image" />
-                    @elseif (!empty(trim((string) ($ris->ris_approved_by_signature ?? ''))))
-                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
-                        <div class="signature-position">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : 'President' }}</div>
-                    @else
-                        <div class="signature-name" style="color:#94a3b8;">—</div>
+            <div class="signature-box">
+                <p>{{ $approvedLabel }}</p>
+                <div class="signature-line">
+                    @if ($approvedImage !== '')
+                        <img src="{{ $approvedImage }}" alt="{{ rtrim($approvedLabel, ':') }} signature" class="signature-image" />
+                    @endif
+                    @if ($approvedName !== '')
+                        <span class="signature-name">{{ $approvedName }}</span>
                     @endif
                 </div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ?? '—' }}</div></div>
+                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : '' }}</div></div>
             </div>
-<div class="signature-box">
+            <div class="signature-box">
                 <p>Issued by:</p>
-                <div class="signature-line"></div>
-                <div class="signature-name-wrapper">
-                    @php
-                        $isCoSigned = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
-                    @endphp
-
-                    @if ($isCoSigned)
-                        {{-- Co-signed by Admin --}}
-                        <div class="signature-name">{{ $ris->ris_issued_by_signature }}</div>
-                        <div class="signature-position">Admin</div>
-                    @else
-                        <div class="signature-name" style="color:#94a3b8;">—</div>
+                <div class="signature-line">
+                    @if ($issuedImage !== '')
+                        <img src="{{ $issuedImage }}" alt="Issued by signature" class="signature-image" />
+                    @endif
+                    @if ($issuedName !== '' || ($hasIssued && !$issuedImage))
+                        <span class="signature-name">{{ $issuedName !== '' ? $issuedName : $issuedRaw }}</span>
                     @endif
                 </div>
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        @php
-                            if ($isCoSigned) {
-                                echo $ris->ris_issued_by_date ?? '—';
-                            } else {
-                                echo '—';
-                            }
-                        @endphp
+                        {{ $hasIssued && $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
             <div class="signature-box">
                 <p>Received by:</p>
-                <div class="signature-line">{{ $ris->ris_received_by_signature }}</div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ?? '' }}</div></div>
+                <div class="signature-line">
+                    @if ($receivedImage !== '')
+                        <img src="{{ $receivedImage }}" alt="Received by signature" class="signature-image" />
+                    @endif
+                    @if ($receivedName !== '')
+                        <span class="signature-name">{{ $receivedName }}</span>
+                    @endif
+                </div>
+                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : '' }}</div></div>
             </div>
         </section>
     </main>

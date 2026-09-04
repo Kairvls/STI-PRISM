@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Support\RisWorkflow;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Shared\Converter;
@@ -210,11 +212,18 @@ class RisFormExporter
             ['Issued by:', $this->plainName($ris->ris_issued_by_signature ?? ''), $ris->ris_issued_by_date ?? null],
             ['Received by:', $this->plainName($ris->ris_received_by_signature ?? ''), $ris->ris_received_by_date ?? null],
         ];
+        $sigImages = [
+            RisWorkflow::requestedByDrawnSignature($ris),
+            RisWorkflow::isDrawnSignature($ris->ris_approved_by_signature ?? null) ? (string) $ris->ris_approved_by_signature : '',
+            RisWorkflow::isDrawnSignature($ris->ris_issued_by_signature ?? null) ? (string) $ris->ris_issued_by_signature : '',
+            '',
+        ];
 
         $labelRow = $purposeRow;
         $lineRow = $purposeRow + 1;
         $dateLabelRow = $purposeRow + 2;
         $dateLineRow = $purposeRow + 3;
+        $excelSignatureTemps = [];
 
         foreach ($sigs as $i => $sig) {
             [$startCol, $endCol] = $sigCols[$i];
@@ -233,10 +242,21 @@ class RisFormExporter
             $sheet->getStyle("{$startCol}{$lineRow}")->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
             $sheet->getStyle("{$startCol}{$lineRow}:{$endCol}{$lineRow}")->applyFromArray($bottom);
 
+            $imagePath = $this->signatureImagePath($sigImages[$i] ?? '');
+            if ($imagePath) {
+                $drawing = new Drawing();
+                $drawing->setPath($imagePath);
+                $drawing->setHeight(28);
+                $drawing->setCoordinates($startCol.$lineRow);
+                $drawing->setOffsetY(2);
+                $drawing->setWorksheet($sheet);
+                $excelSignatureTemps[] = $imagePath;
+            }
+
             $sheet->setCellValue("{$startCol}{$dateLabelRow}", 'Date:');
             $sheet->getStyle("{$startCol}{$dateLabelRow}")->getFont()->setName('Arial')->setSize(8);
 
-            $sheet->setCellValue("{$startCol}{$dateLineRow}", $this->d($sig[2], 'M d, Y'));
+            $sheet->setCellValue("{$startCol}{$dateLineRow}", $this->d($sig[2], 'd/m/Y'));
             $sheet->getStyle("{$startCol}{$dateLineRow}")->getFont()->setName('Arial')->setSize(9);
             $sheet->getStyle("{$startCol}{$dateLineRow}")->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
             $sheet->getStyle("{$startCol}{$dateLineRow}:{$endCol}{$dateLineRow}")->applyFromArray($bottom);
@@ -253,8 +273,11 @@ class RisFormExporter
 
         $filename = ($ris->ris_form_number ?: 'blank-ris') . '.xlsx';
 
-        return new StreamedResponse(function () use ($spreadsheet) {
+        return new StreamedResponse(function () use ($spreadsheet, $excelSignatureTemps) {
             (new Xlsx($spreadsheet))->save('php://output');
+            foreach ($excelSignatureTemps as $tmp) {
+                @unlink($tmp);
+            }
         }, 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -413,10 +436,10 @@ class RisFormExporter
         ]);
 
         $sigData = [
-            ['Requested by:', $this->plainName($ris->ris_requested_by_signature ?? ''), $ris->ris_requested_by_date ?? null],
-            ['Approved by:', $this->plainName($ris->ris_approved_by_signature ?? ''), $ris->ris_approved_by_date ?? null],
-            ['Issued by:', $this->plainName($ris->ris_issued_by_signature ?? ''), $ris->ris_issued_by_date ?? null],
-            ['Received by:', $this->plainName($ris->ris_received_by_signature ?? ''), $ris->ris_received_by_date ?? null],
+            ['Requested by:', $this->plainName($ris->ris_requested_by_signature ?? ''), $ris->ris_requested_by_date ?? null, RisWorkflow::requestedByDrawnSignature($ris)],
+            ['Approved by:', $this->plainName($ris->ris_approved_by_signature ?? ''), $ris->ris_approved_by_date ?? null, RisWorkflow::isDrawnSignature($ris->ris_approved_by_signature ?? null) ? (string) $ris->ris_approved_by_signature : ''],
+            ['Issued by:', $this->plainName($ris->ris_issued_by_signature ?? ''), $ris->ris_issued_by_date ?? null, RisWorkflow::isDrawnSignature($ris->ris_issued_by_signature ?? null) ? (string) $ris->ris_issued_by_signature : ''],
+            ['Received by:', $this->plainName($ris->ris_received_by_signature ?? ''), $ris->ris_received_by_date ?? null, ''],
         ];
 
         $sigs->addRow();
@@ -433,11 +456,25 @@ class RisFormExporter
                 'width' => $innerW,
             ]);
             $line->addRow(Converter::cmToTwip(1.0));
-            $line->addCell($innerW, [
+            $nameCell = $line->addCell($innerW, [
                 'borderBottomSize' => 6,
                 'borderBottomColor' => '1F2937',
                 'valign' => VerticalJc::BOTTOM,
-            ])->addText($sig[1], ['size' => 8], ['alignment' => Jc::CENTER]);
+            ]);
+            $imagePath = $this->signatureImagePath($sig[3] ?? '');
+            if ($imagePath) {
+                try {
+                    $nameCell->addImage($imagePath, [
+                        'width' => 90,
+                        'height' => 28,
+                        'alignment' => Jc::CENTER,
+                    ]);
+                } catch (\Throwable $e) {
+                    // Keep the printed name even if the image cannot be embedded.
+                }
+                @unlink($imagePath);
+            }
+            $nameCell->addText($sig[1], ['size' => 8], ['alignment' => Jc::CENTER]);
 
             $sigCell->addText('Date:', ['size' => 8], ['spaceBefore' => 120, 'spaceAfter' => 40]);
             $dateLine = $sigCell->addTable([
@@ -451,7 +488,7 @@ class RisFormExporter
                 'borderBottomSize' => 6,
                 'borderBottomColor' => '1F2937',
                 'valign' => VerticalJc::BOTTOM,
-            ])->addText($this->d($sig[2], 'M d, Y'), ['size' => 8], ['alignment' => Jc::CENTER]);
+            ])->addText($this->d($sig[2], 'd/m/Y'), ['size' => 8], ['alignment' => Jc::CENTER]);
         }
 
         $filename = ($ris->ris_form_number ?: 'blank-ris') . '.docx';
@@ -515,7 +552,7 @@ class RisFormExporter
         return number_format((float) $value, 2);
     }
 
-    protected function d($value, string $format = 'M d, Y'): string
+    protected function d($value, string $format = 'd/m/Y'): string
     {
         return $this->formatDate($value, $format);
     }

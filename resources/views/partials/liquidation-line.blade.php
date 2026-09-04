@@ -15,7 +15,7 @@
     @else
         <span class="min-h-[2rem] flex-1 border-b border-black pb-0.5 leading-8">
             @if($type === 'date' && $value)
-                {{ \Carbon\Carbon::parse($value)->format('m/d/Y') }}
+                {{ \Carbon\Carbon::parse($value)->format('d/m/Y') }}
             @elseif($type === 'number' && $value !== '' && $value !== null)
                 {{ number_format((float) $value, 2) }}
             @else

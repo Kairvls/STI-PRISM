@@ -30,7 +30,7 @@
         .signature-box p { margin: 0 0 6px; }
         .signature-line { position: relative; border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
         .signature-name-wrapper { position: relative; display: inline-block; width: 100%; text-align: center; }
-        .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-name { font-size: 11px; text-transform: none; letter-spacing: 0; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
         .signature-name-wrapper .signature-image,
         .signature-line .signature-image {
@@ -51,4 +51,5 @@
     @endpush
 @endonce
 
+@include('partials.ris-signature-overlay-styles')
 @include('partials.ris-document-paper', compact('ris', 'risItems', 'presidentName', 'isScreenPreview'))

@@ -75,9 +75,14 @@
             'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Resubmitted' => 'border-amber-200 bg-amber-50 text-amber-700',
+            'Accepted' => 'border-violet-200 bg-violet-50 text-violet-700',
             'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
+            'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
+            'Directly Approved' => 'border-slate-200 bg-slate-50 text-slate-600',
             'Approved' => 'border-green-200 bg-green-50 text-green-700',
+            'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
             'Rejected' => 'border-red-200 bg-red-50 text-red-700',
+            'Rejected by the President' => 'border-slate-500 bg-slate-800 text-slate-100',
         ];
 
         $totalRequests = method_exists($replacementRequests, 'total')
@@ -255,13 +260,21 @@
                             // =====================================================
                             $hasRis = !empty($request->ris_id);
                             $canCreateRis = $request->procurement_request_status === 'Approved' && !$hasRis;
+                            $requestCode = \App\Support\ReplacementRequestCode::code($request);
+                            $reportCode = \App\Support\ReportGrouping::ticketCode(
+                                $request->report_id ?? null,
+                                $request->report_submitted_at ?? null
+                            );
+                            $risStatusLabel = $hasRis
+                                ? \App\Support\RisWorkflow::statusLabel($request)
+                                : '';
                             $risStatusClass = $risStatusClasses[$request->ris_status ?? ''] ?? 'border-gray-200 bg-gray-100 text-gray-700';
                         @endphp
 
                         <tr
                             x-show="matchesSearch({
-                                id: @js($request->procurement_request_id),
-                                report: @js($request->report_id ?? ''),
+                                id: @js($requestCode),
+                                report: @js($reportCode),
                                 equipment: @js($equipmentName),
                                 room: @js($request->room_name ?? ''),
                                 problem: @js($request->report_problem_description ?? ''),
@@ -270,8 +283,8 @@
                             class="transition hover:bg-gray-50/70"
                         >
                             <td class="px-5 py-4">
-                                <p class="font-semibold text-gray-900">#{{ $request->procurement_request_id }}</p>
-                                <p class="mt-1 text-xs text-gray-400">Report #{{ $request->report_id ?? 'N/A' }}</p>
+                                <p class="font-semibold text-gray-900" title="Request #{{ $request->procurement_request_id }}">{{ $requestCode }}</p>
+                                <p class="mt-1 text-xs text-gray-400" title="Report #{{ $request->report_id ?? 'N/A' }}">{{ $reportCode }}</p>
                             </td>
 
                             <td class="px-5 py-4">
@@ -317,8 +330,8 @@
                                     <p class="text-xs font-semibold text-gray-800">
                                         {{ $request->ris_form_number ?: 'RIS #' . $request->ris_id }}
                                     </p>
-                                    <span class="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium {{ $risStatusClass }}">
-                                        {{ $request->ris_status }}
+                                    <span class="mt-1 inline-flex max-w-[180px] rounded-full border px-2 py-0.5 text-[11px] font-medium {{ $risStatusClass }}" title="{{ $risStatusLabel }}">
+                                        {{ $risStatusLabel }}
                                     </span>
                                 @else
                                     <span class="text-xs text-gray-400">{{ $canCreateRis ? 'Ready for RIS' : 'Not created' }}</span>
@@ -450,15 +463,15 @@
                                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
                                         <div>
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <h2 class="text-xl font-semibold tracking-tight text-gray-950">
-                                                    Replacement Request #{{ $request->procurement_request_id }}
+                                                <h2 class="text-xl font-semibold tracking-tight text-gray-950" title="Request #{{ $request->procurement_request_id }}">
+                                                    {{ $requestCode }}
                                                 </h2>
                                                 <span class="rounded-full border px-2.5 py-1 text-xs font-medium {{ $requestStatusClass }}">
                                                     {{ $request->procurement_request_status }}
                                                 </span>
                                             </div>
-                                            <p class="mt-1 text-sm text-gray-500">
-                                                Report #{{ $request->report_id ?? 'N/A' }} · {{ $request->room_name ?? 'Unknown Room' }}
+                                            <p class="mt-1 text-sm text-gray-500" title="Report #{{ $request->report_id ?? 'N/A' }}">
+                                                {{ $reportCode }} · {{ $request->room_name ?? 'Unknown Room' }}
                                             </p>
                                         </div>
 
@@ -497,8 +510,8 @@
                                                         Procurement paperwork has started for this replacement request.
                                                     </p>
                                                 </div>
-                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium {{ $risStatusClass }}">
-                                                    {{ $request->ris_status }}
+                                                <span class="inline-flex max-w-[220px] shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium {{ $risStatusClass }}" title="{{ $risStatusLabel }}">
+                                                    {{ $risStatusLabel }}
                                                 </span>
                                             </div>
                                         @elseif($request->procurement_request_status === 'Approved')
@@ -531,7 +544,7 @@
                                                     </div>
                                                     <div>
                                                         <p class="text-xs text-gray-400">Report</p>
-                                                        <p class="mt-1 text-sm font-medium text-gray-700">#{{ $request->report_id ?? 'N/A' }}</p>
+                                                        <p class="mt-1 text-sm font-medium text-gray-700" title="Report #{{ $request->report_id ?? 'N/A' }}">{{ $reportCode }}</p>
                                                     </div>
                                                     <div>
                                                         <p class="text-xs text-gray-400">Submitted</p>

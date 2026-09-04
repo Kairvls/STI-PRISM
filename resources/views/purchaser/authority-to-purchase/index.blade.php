@@ -71,11 +71,16 @@
         },
 
         printAtp(id) {
-            document.querySelectorAll('.atp-print-sheet').forEach(function (sheet) {
-                sheet.classList.remove('atp-print-active');
-            });
-            const sheet = document.getElementById(id === 'blank' ? 'atp-print-blank' : ('atp-print-' + id));
+            const sheetId = id === 'blank' ? 'atp-print-blank' : ('atp-print-' + id);
+            if (window.purchaserPrintSheet) {
+                window.purchaserPrintSheet(sheetId, 'atp-print-active');
+                return;
+            }
+            const sheet = document.getElementById(sheetId);
             if (sheet) {
+                document.querySelectorAll('.atp-print-sheet').forEach(function (el) {
+                    el.classList.remove('atp-print-active');
+                });
                 sheet.classList.add('atp-print-active');
             }
             window.print();
@@ -952,23 +957,12 @@
     }
 
     @media print {
-        body * {
-            visibility: hidden !important;
-        }
-
-        .atp-print-active,
-        .atp-print-active * {
-            visibility: visible !important;
+        @page {
+            size: A4 portrait;
+            margin: 8mm;
         }
 
         .atp-print-active {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            margin: 0 !important;
-            box-shadow: none !important;
             background: #fff !important;
         }
     }

@@ -3,7 +3,7 @@
 <div id="directApproveModal" class="fixed inset-0 z-[12000] hidden">
     <div
         class="absolute inset-0 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
-        onclick="if (event.target === this) closeDirectApproveModal()"
+        onclick="if (event.target === this && !window._adminDaFileDialogOpen) closeDirectApproveModal()"
     >
         <div
             class="relative flex h-auto max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200/80"
@@ -14,7 +14,7 @@
         >
             <button
                 type="button"
-                onclick="closeDirectApproveModal()"
+                onclick="if (!window._adminDaFileDialogOpen) closeDirectApproveModal()"
                 class="absolute right-2.5 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 title="Close"
                 aria-label="Close"
@@ -127,6 +127,8 @@
 </div>
 
 <script>
+    window._adminDaFileDialogOpen = false;
+
     (function () {
         function mountAdminModalsToBody() {
             ['directApproveModal', 'amendModal'].forEach(function (id) {
@@ -143,6 +145,15 @@
             mountAdminModalsToBody();
         }
     })();
+
+    window.markAdminDaFileDialog = function (isOpen) {
+        window._adminDaFileDialogOpen = !!isOpen;
+        if (isOpen) {
+            window.setTimeout(function () {
+                window._adminDaFileDialogOpen = false;
+            }, 1500);
+        }
+    };
 
     window.openDirectApproveModal = function (risId, mode) {
         var modal = document.getElementById('directApproveModal');
@@ -192,17 +203,11 @@
         })
         .then(function (html) {
             body.innerHTML = html;
-            var dateInput = document.getElementById('da_issued_by_date');
-            if (dateInput) {
-                dateInput.addEventListener('input', function () {
-                    var digits = this.value.replace(/\D/g, '').slice(0, 8);
-                    var parts = [];
-                    if (digits.length > 0) parts.push(digits.slice(0, 2));
-                    if (digits.length > 2) parts.push(digits.slice(2, 4));
-                    if (digits.length > 4) parts.push(digits.slice(4, 8));
-                    this.value = parts.join('/');
-                });
-            }
+            Array.prototype.slice.call(body.querySelectorAll('script')).forEach(function (oldScript) {
+                var script = document.createElement('script');
+                script.textContent = oldScript.textContent;
+                oldScript.parentNode.replaceChild(script, oldScript);
+            });
         })
         .catch(function (err) {
             var msg = (err && err.message) ? err.message : 'Failed to load RIS form. Please try again.';
@@ -211,6 +216,13 @@
     };
 
     window.closeDirectApproveModal = function () {
+        if (window._adminDaFileDialogOpen) return;
+        ['adminDaSignPadModal', 'adminDaNameSigModal', 'adminDaDeleteSigModal', 'adminDaNotice'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && el.parentElement === document.body) {
+                el.remove();
+            }
+        });
         var modal = document.getElementById('directApproveModal');
         var body = document.getElementById('directApproveModalBody');
         if (body) body.innerHTML = '';
@@ -244,4 +256,29 @@
             document.body.style.overflow = '';
         }
     };
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        var nameModal = document.getElementById('adminDaNameSigModal');
+        if (nameModal && !nameModal.classList.contains('hidden')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            nameModal.classList.add('hidden');
+            return;
+        }
+        var deleteModal = document.getElementById('adminDaDeleteSigModal');
+        if (deleteModal && !deleteModal.classList.contains('hidden')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            deleteModal.classList.add('hidden');
+            return;
+        }
+        var pad = document.getElementById('adminDaSignPadModal');
+        if (pad && !pad.classList.contains('hidden')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            pad.classList.add('hidden');
+        }
+    }, true);
 </script>
+@include('partials.signature-pad', ['renderPad' => false])

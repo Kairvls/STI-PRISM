@@ -77,36 +77,9 @@
     </section>
 </div>
 
-<div id="risViewModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-8 modal-overlay" onclick="closeRisViewModal()">
-        <div class="relative w-full h-full flex items-center justify-center" onclick="event.stopPropagation()">
-            <div class="relative" style="transform-origin: center center;">
-                <iframe id="risViewIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; min-width: 800px; max-width: 100%; border: 1px solid #e5e7eb;" src="about:blank"></iframe>
-            </div>
-            <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" data-tip="Print RIS" aria-label="Print RIS">
-                    <i data-lucide="printer" class="h-4 w-4"></i>
-                    <span class="ml-1.5">Print</span>
-                </button>
-                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" data-tip="Close" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    #risViewModal .modal-content {
-        transform: scale(0.95);
-        opacity: 0;
-        transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-    #risViewModal:not(.hidden) .modal-content {
-        transform: scale(1);
-        opacity: 1;
-    }
-</style>
+{{-- Shared fit-to-screen RIS viewer (same as Approved Reports / RIS Approvals) --}}
+@include('president.partials.ris-readonly-modal')
+@include('president.partials.ris-fit-viewer')
 
 <style>
     @keyframes fadeIn {
@@ -119,16 +92,6 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes modalIn {
-        from { opacity: 0; transform: scale(0.95) translateY(10px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    @keyframes overlayIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
     .fade-in {
         animation: fadeIn 0.4s ease-out forwards;
     }
@@ -136,14 +99,6 @@
     .slide-up {
         opacity: 0;
         animation: slideUp 0.5s ease-out forwards;
-    }
-
-    .modal-overlay {
-        animation: overlayIn 0.2s ease-out forwards;
-    }
-
-    .modal-content {
-        animation: modalIn 0.25s ease-out forwards;
     }
 
     .history-row {
@@ -172,77 +127,12 @@
 </style>
 
 <script>
-    function openRisViewModal(risId) {
-        const modal = document.getElementById('risViewModal');
-        const iframe = document.getElementById('risViewIframe');
-        if (!modal || !iframe) return;
-        iframe.src = `/president/ris/${risId}/print?ts=${Date.now()}`;
-        modal.classList.remove('hidden');
-        scaleRisToFit();
-    }
-
-    function closeRisViewModal() {
-        const modal = document.getElementById('risViewModal');
-        const iframe = document.getElementById('risViewIframe');
-        if (iframe) iframe.src = 'about:blank';
-        if (modal) modal.classList.add('hidden');
-    }
-
-    function printRis() {
-        const iframe = document.getElementById('risViewIframe');
-        if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            return;
-        }
-    }
-
-    window.printRisDocument = function (risId) {
-        if (!risId) return;
-        const win = window.open('/president/ris/' + risId + '/print', '_blank', 'noopener,noreferrer,width=1200,height=860');
-        if (!win) return;
-        const triggerPrint = function () {
-            try { win.focus(); win.print(); } catch (e) {}
-        };
-        win.onload = triggerPrint;
-        setTimeout(triggerPrint, 1200);
-    };
-
-    function scaleRisToFit() {
-        const modal = document.getElementById('risViewModal');
-        const iframe = document.getElementById('risViewIframe');
-        if (!modal || !iframe) return;
-
-        const viewportWidth = window.innerWidth - 80;
-        const viewportHeight = window.innerHeight - 80;
-        const documentWidth = 11 * 96;
-        const documentHeight = 8.5 * 96;
-
-        const scaleX = viewportWidth / documentWidth;
-        const scaleY = viewportHeight / documentHeight;
-        const scale = Math.min(scaleX, scaleY, 1);
-
-        const scaledWidth = documentWidth * scale;
-        const scaledHeight = documentHeight * scale;
-
-        iframe.style.width = scaledWidth + 'px';
-        iframe.style.height = scaledHeight + 'px';
-        iframe.style.minWidth = 'auto';
-        iframe.style.maxWidth = '100%';
-    }
-
-    window.addEventListener('resize', () => {
-        const modal = document.getElementById('risViewModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            scaleRisToFit();
-        }
-    });
-
-    // Close modal on Escape key
+    // Close modal on Escape key (shared viewer handles fullscreen Escape)
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            const risModal = document.getElementById('risViewModal');
+            const risModal = document.getElementById('historyRisModal');
             if (risModal && !risModal.classList.contains('hidden')) {
+                if (risModal.dataset.fullscreen === '1') return;
                 closeRisViewModal();
             }
         }

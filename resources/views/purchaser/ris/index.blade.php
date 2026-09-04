@@ -26,6 +26,14 @@
         'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
         'createItems' => $createItemsInit,
         'purposeText' => (string) old('ris_purpose_description', ''),
+        'createSignaturePreview' => (string) old('signature_data', ''),
+        'savedSignatures' => collect($savedSignatures ?? [])->map(function ($item) {
+            return [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ];
+        })->values()->all(),
         'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
         'lockedReplacement' => request()->filled('replacement_request') || (string) old('source_locked') === '1',
         'supplierWarnings' => collect($activeSuppliers ?? [])->mapWithKeys(function ($supplier) {
@@ -47,6 +55,9 @@
                 'reason' => $request->report_replacement_notes ?? '',
             ];
         })->values(),
+        'savedSignatureStoreUrl' => route('purchaser.ris.saved-signatures.store'),
+        'savedSignatureDestroyBaseUrl' => url('/purchaser/ris/saved-signatures'),
+        'risIndexUrl' => route('purchaser.ris.index'),
     ];
 @endphp
 
@@ -54,6 +65,11 @@
 
 <div
     x-data="{
+        createSignaturePreview: '',
+        savedSignatures: [],
+        savedSignatureStoreUrl: '',
+        savedSignatureDestroyBaseUrl: '',
+        risIndexUrl: '',
         ...JSON.parse(document.getElementById('ris-page-boot').textContent),
         editRisModal: null,
         submitRisConfirm: null,
@@ -78,7 +94,245 @@
             this.submitRisConfirm = null;
         },
         createRisFullscreen: false,
+        createSignModal: false,
+        createSignSubmitting: false,
+        createSignPendingSave: false,
         createAttachmentName: '',
+        createSigUploadName: '',
+        createSaveOnUpload: true,
+        createSaveOnDraw: true,
+        createNameSigModal: false,
+        createDeleteSigModal: false,
+        createPendingSaveLabel: '',
+        createPendingDeleteId: null,
+        createPendingDeleteLabel: '',
+        createSigNotice: '',
+        maxSavedSignatures: 4,
+        csrfToken() {
+            var meta = document.querySelector('meta[name=csrf-token]');
+            return (meta && meta.getAttribute('content')) || '';
+        },
+        applyCreateSignature(dataUrl) {
+            const url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? String(dataUrl) : '';
+            this.createSignaturePreview = url;
+            const hidden = document.getElementById('purchaserRisSignatureData');
+            if (hidden) hidden.value = url;
+            if (!url) {
+                this.createSigUploadName = '';
+                if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
+            }
+        },
+        clearCreateSignature() {
+            if (window.clearSignaturePad) {
+                window.clearSignaturePad('purchaserRisSignatureCanvas', 'purchaserRisPadScratch');
+            }
+            this.applyCreateSignature('');
+        },
+        openCreateSignModal(pendingSave = false) {
+            if (this.risHasOverflow(this.createItems) || this.createSignSubmitting) return;
+            this.createSignPendingSave = !!pendingSave;
+            this.createSignModal = true;
+            this.$nextTick(() => {
+                if (window.initSignaturePad) {
+                    window.initSignaturePad('purchaserRisSignatureCanvas');
+                }
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            });
+        },
+        closeCreateSignModal() {
+            if (this.createSignSubmitting) return;
+            this.createSignModal = false;
+            this.createSignPendingSave = false;
+        },
+        canvasHasDrawing(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return false;
+            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 3; i < pixels.length; i += 4) {
+                if (pixels[i] > 0) return true;
+            }
+            return false;
+        },
+        showCreateSigNotice(message) {
+            this.createSigNotice = message || '';
+            if (!message) return;
+            window.clearTimeout(this._createSigNoticeTimer);
+            this._createSigNoticeTimer = window.setTimeout(() => {
+                this.createSigNotice = '';
+            }, 2800);
+        },
+        async saveSignatureToLibrary({ dataUrl = '', file = null, label = '' } = {}) {
+            const headers = {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.csrfToken(),
+            };
+            let body;
+            if (file) {
+                body = new FormData();
+                body.append('signature_file', file);
+                if (label) body.append('signature_label', label);
+                body.append('_token', this.csrfToken());
+            } else {
+                if (!dataUrl || String(dataUrl).indexOf('data:image/') !== 0) {
+                    throw new Error('No signature to save.');
+                }
+                headers['Content-Type'] = 'application/json';
+                body = JSON.stringify({
+                    signature_image: dataUrl,
+                    signature_label: label || null,
+                    _token: this.csrfToken(),
+                });
+            }
+            const response = await fetch(this.savedSignatureStoreUrl, {
+                method: 'POST',
+                headers,
+                body,
+                credentials: 'same-origin',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.ok) {
+                throw new Error((payload && payload.message) || 'Could not save signature.');
+            }
+            this.savedSignatures = Array.isArray(payload.signatures) ? payload.signatures : [];
+            return payload;
+        },
+        async deleteSavedSignature(id) {
+            const response = await fetch(this.savedSignatureDestroyBaseUrl + '/' + id, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken(),
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ _token: this.csrfToken() }),
+                credentials: 'same-origin',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.ok) {
+                throw new Error((payload && payload.message) || 'Could not delete signature.');
+            }
+            this.savedSignatures = Array.isArray(payload.signatures) ? payload.signatures : [];
+            return payload;
+        },
+        async applyCreatePadSignature() {
+            if (this.createSignSubmitting) return;
+            const canvas = document.getElementById('purchaserRisSignatureCanvas');
+            if (!this.canvasHasDrawing('purchaserRisSignatureCanvas')) {
+                this.showCreateSigNotice('Please sign before applying.');
+                return;
+            }
+            const dataUrl = canvas.toDataURL('image/png');
+            this.applyCreateSignature(dataUrl);
+            this.createSigUploadName = '';
+            if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
+            this.createSignModal = false;
+            const shouldSubmit = this.createSignPendingSave;
+            this.createSignPendingSave = false;
+            if (this.createSaveOnDraw && this.savedSignatures.length < this.maxSavedSignatures) {
+                try {
+                    await this.saveSignatureToLibrary({ dataUrl, label: 'Drawn signature' });
+                } catch (err) {
+                    this.showCreateSigNotice(err.message || 'Could not save signature to your list.');
+                }
+            } else if (this.createSaveOnDraw && this.savedSignatures.length >= this.maxSavedSignatures) {
+                this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this drawing.');
+            }
+            if (shouldSubmit) {
+                this.submitCreateRisForm();
+            }
+        },
+        saveCreateRis() {
+            if (this.risHasOverflow(this.createItems) || this.createSignSubmitting) return;
+            if (!this.createSignaturePreview || String(this.createSignaturePreview).indexOf('data:image/') !== 0) {
+                this.openCreateSignModal(true);
+                return;
+            }
+            this.submitCreateRisForm();
+        },
+        submitCreateRisForm() {
+            const hidden = document.getElementById('purchaserRisSignatureData');
+            if (hidden) hidden.value = this.createSignaturePreview || '';
+            this.createSignSubmitting = true;
+            this.createSignModal = false;
+            this.$nextTick(() => {
+                if (this.$refs.createRisForm) {
+                    this.$refs.createRisForm.submit();
+                }
+            });
+        },
+        async onCreateSigUploadChange(event) {
+            const file = event.target.files && event.target.files[0];
+            this.createSigUploadName = file ? file.name : '';
+            if (!file) return;
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                this.applyCreateSignature(dataUrl || '');
+                if (this.createSaveOnUpload) {
+                    if (this.savedSignatures.length >= this.maxSavedSignatures) {
+                        this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this upload.');
+                    } else {
+                        const label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
+                        await this.saveSignatureToLibrary({ file, label });
+                        this.showCreateSigNotice('Signature saved to your list.');
+                    }
+                }
+            } catch (err) {
+                this.showCreateSigNotice(err.message || 'Could not read that signature file.');
+            }
+        },
+        openCreateNameSigModal() {
+            if (!this.createSignaturePreview || String(this.createSignaturePreview).indexOf('data:image/') !== 0) {
+                this.showCreateSigNotice('Apply or upload a signature first.');
+                return;
+            }
+            if (this.savedSignatures.length >= this.maxSavedSignatures) {
+                this.showCreateSigNotice('You can save up to 4 signatures only. Remove one first.');
+                return;
+            }
+            this.createPendingSaveLabel = 'My signature';
+            this.createNameSigModal = true;
+        },
+        async confirmCreateNameSig() {
+            try {
+                await this.saveSignatureToLibrary({
+                    dataUrl: this.createSignaturePreview,
+                    label: String(this.createPendingSaveLabel || '').trim() || 'My signature',
+                });
+                this.createNameSigModal = false;
+                this.showCreateSigNotice('Signature saved to your list.');
+            } catch (err) {
+                this.showCreateSigNotice(err.message || 'Could not save signature.');
+            }
+        },
+        openCreateDeleteSigModal(id, label) {
+            this.createPendingDeleteId = id;
+            this.createPendingDeleteLabel = label || 'This signature';
+            this.createDeleteSigModal = true;
+        },
+        async confirmCreateDeleteSig() {
+            if (!this.createPendingDeleteId) return;
+            try {
+                await this.deleteSavedSignature(this.createPendingDeleteId);
+                this.createDeleteSigModal = false;
+                this.createPendingDeleteId = null;
+                this.showCreateSigNotice('Signature removed from your list.');
+            } catch (err) {
+                this.showCreateSigNotice(err.message || 'Could not delete signature.');
+            }
+        },
+        // kept for compatibility with older handlers
+        confirmCreateSignature() {
+            this.applyCreatePadSignature();
+        },
         onCreateAttachmentsChange(event) {
             const file = event.target.files && event.target.files[0];
             this.createAttachmentName = file ? file.name : '';
@@ -202,7 +456,7 @@
                     }
                 });
             }
-            this.refreshRisRecords(@js(route('purchaser.ris.index')));
+            this.refreshRisRecords(this.risIndexUrl);
         },
         async refreshRisRecords(url = null) {
             const form = this.getRisFilterForm();
@@ -441,7 +695,7 @@
 
                     <div
                         id="print-empty-ris-content"
-                        class="ris-original-form mx-auto bg-white text-black"
+                        class="ris-original-form ris-print-sheet mx-auto bg-white text-black"
                     >
 
                         <div class="ris-document-header">
@@ -689,7 +943,7 @@
 
                     <button
                         type="button"
-                        onclick="printRis('print-empty-ris-content')"
+                        onclick="printPurchaserRisBlank()"
                         class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px]  flex items-center justify-center gap-2 font-medium hover:bg-blue-800"
                     >
                         <i data-lucide="printer" class="h-4 w-4"></i>
@@ -1134,7 +1388,7 @@
         }
         .ris-signature-line {
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .ris-signature-line img {
@@ -1143,6 +1397,29 @@
             object-fit: contain;
             display: block;
             margin: auto;
+        }
+
+        .ris-signature-line img.signature-image {
+            position: absolute;
+            left: 50%;
+            bottom: 10px;
+            z-index: 2;
+            max-height: 42px;
+            max-width: 92%;
+            width: auto;
+            height: auto;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .ris-signature-line .signature-name {
+            display: block;
+            width: 100%;
+            line-height: 20px;
+            text-align: center;
+            font-size: 11px;
+            letter-spacing: 0;
+            text-transform: none;
         }
 
         .ris-signature-line span {
@@ -1154,11 +1431,12 @@
         }
 
     </style>
+    @include('partials.ris-signature-overlay-styles')
     <div
         x-cloak
         x-show="createRisModal"
         x-transition.opacity
-        x-on:keydown.escape.window="createRisModal = false; createRisFullscreen = false"
+        x-on:keydown.escape.window="if (createSignModal) { closeCreateSignModal(); } else { createRisModal = false; createRisFullscreen = false }"
         class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50"
         x-bind:class="createRisFullscreen ? 'p-0' : 'p-4 md:p-8'"
         x-effect="window.purDialog && window.purDialog.sync(createRisModal, $el)"
@@ -1177,9 +1455,10 @@
                     ? 'my-0 min-h-full max-w-none rounded-none shadow-none'
                     : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
-                <form method="POST" action="{{ route('purchaser.ris.store') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('purchaser.ris.store') }}" enctype="multipart/form-data" x-ref="createRisForm" x-on:submit.prevent="saveCreateRis()">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
+                    <input type="hidden" name="signature_data" id="purchaserRisSignatureData" value="{{ old('signature_data') }}" x-bind:value="createSignaturePreview">
 
                     {{-- HEADER --}}
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
@@ -1349,11 +1628,12 @@
                                         <input
                                             type="text"
                                             name="ris_form_number"
-                                            value="{{ old('ris_form_number') }}"
+                                            value="{{ old('ris_form_number', $suggestedRisFormNumber ?? '') }}"
                                             inputmode="numeric"
                                             pattern="\d{8}"
                                             maxlength="8"
                                             title="Enter exactly 8 digits"
+                                            autocomplete="off"
                                             x-on:input="$el.value = $el.value.replace(/\D/g, '').slice(0, 8)"
                                             class="w-28 border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-xs outline-none focus:ring-0 sm:w-40 sm:text-sm"
                                         >
@@ -1448,9 +1728,18 @@
                             <div class="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 sm:mt-10 sm:gap-x-8 md:grid-cols-4">
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Requested by:</label>
-                                    <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by') }}" class="mt-3 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:mt-5 sm:text-sm">
+                                    <div class="relative mt-3 sm:mt-5">
+                                        <img
+                                            x-show="createSignaturePreview"
+                                            x-cloak
+                                            x-bind:src="createSignaturePreview"
+                                            alt=""
+                                            class="pointer-events-none absolute left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 bottom-2"
+                                        >
+                                        <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                    </div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
-                                    <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date') }}" placeholder="dd/mm/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                    <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date', $defaultRequestedByDate ?? '') }}" placeholder="dd/mm/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Approved by:</label>
@@ -1519,14 +1808,272 @@
                                 </label>
                             </div>
                         </div>
+
+                        <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-slate-900">Purchaser signature</h4>
+                                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                                        Pick a saved signature, draw one, or upload. It overlays <strong>Requested by</strong> on the form above.
+                                    </p>
+                                </div>
+                                <div
+                                    x-show="createSignaturePreview"
+                                    x-cloak
+                                    class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700"
+                                >
+                                    Signature added
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-medium text-slate-700">My saved signatures</p>
+                                    <span
+                                        class="text-[11px]"
+                                        x-bind:class="savedSignatures.length >= maxSavedSignatures ? 'font-semibold text-amber-600' : 'text-slate-400'"
+                                        x-text="savedSignatures.length + ' / ' + maxSavedSignatures + ' saved'"
+                                    ></span>
+                                </div>
+                                <div class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+                                    <template x-for="sig in savedSignatures" :key="sig.id">
+                                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5">
+                                            <button
+                                                type="button"
+                                                class="flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left"
+                                                title="Use this signature"
+                                                x-on:click="applyCreateSignature(sig.preview_url)"
+                                            >
+                                                <span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
+                                                    <img x-bind:src="sig.preview_url" alt="" class="max-h-10 w-auto max-w-[90%] object-contain">
+                                                </span>
+                                                <span class="w-full truncate text-center text-[11px] font-medium text-slate-600" x-text="sig.label || 'Signature'"></span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-400 opacity-0 shadow-sm ring-1 ring-slate-200/80 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                                                title="Remove from list"
+                                                aria-label="Remove saved signature"
+                                                x-on:click="openCreateDeleteSigModal(sig.id, sig.label || 'Signature')"
+                                            >
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <div
+                                        x-show="!savedSignatures.length"
+                                        class="col-span-full rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-4 text-center text-xs text-slate-500"
+                                    >
+                                        No saved signatures yet. Upload or draw one below, then save it for next time.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-xl bg-[#0025cc] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                                    x-on:click="openCreateSignModal(false)"
+                                >
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4l10.5-10.5a2.5 2.5 0 00-3.536-3.536L4 16.464V20z"></path>
+                                    </svg>
+                                    <span x-text="createSignaturePreview ? 'Redraw signature' : 'Draw signature'"></span>
+                                </button>
+                                <button
+                                    type="button"
+                                    x-show="createSignaturePreview"
+                                    x-cloak
+                                    class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                    x-on:click="clearCreateSignature()"
+                                >
+                                    Clear signature
+                                </button>
+                                <button
+                                    type="button"
+                                    x-show="createSignaturePreview"
+                                    x-cloak
+                                    class="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
+                                    x-bind:title="savedSignatures.length >= maxSavedSignatures ? 'Maximum of 4 saved signatures reached' : ''"
+                                    x-on:click="openCreateNameSigModal()"
+                                >
+                                    Save to my list
+                                </button>
+                            </div>
+
+                            <label class="relative mt-3 flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 transition hover:border-slate-300 hover:bg-slate-50">
+                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                </span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
+                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
+                                    <span x-show="createSigUploadName" x-cloak class="mt-1 block truncate text-[11px] font-medium text-slate-600" x-text="createSigUploadName"></span>
+                                </span>
+                                <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
+                                    Choose file
+                                </span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                                    x-ref="createSigUpload"
+                                    x-on:change="onCreateSigUploadChange($event)"
+                                >
+                            </label>
+
+                            <label class="mt-3 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
+                                <input
+                                    type="checkbox"
+                                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                    x-model="createSaveOnUpload"
+                                    x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
+                                >
+                                <span class="min-w-0">
+                                    <span class="block text-xs font-medium text-slate-700">Save uploaded signature to my list</span>
+                                    <span class="mt-0.5 block text-[11px] text-slate-400">Keeps up to 4 signatures for the next RIS.</span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" x-on:click="createRisModal = false; createRisFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950">Cancel</button>
-                        <button type="submit" x-bind:disabled="risHasOverflow(createItems)" class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-sm font-medium hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">Save RIS</button>
+                        <button type="button" x-on:click="saveCreateRis()" x-bind:disabled="risHasOverflow(createItems) || createSignSubmitting" class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-sm font-medium hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">Save RIS</button>
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <div
+        x-cloak
+        x-show="createSignModal"
+        x-transition.opacity
+        class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="purchaser-ris-sign-title"
+    >
+        <div class="absolute inset-0 bg-slate-900/40" x-on:click="closeCreateSignModal()"></div>
+        <div class="relative w-full max-w-[560px] rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.2)]" x-on:click.stop>
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 id="purchaser-ris-sign-title" class="text-lg font-bold text-slate-900">Sign the RIS</h3>
+                    <p class="mt-1.5 text-sm leading-6 text-slate-500">Sign over your printed name. This overlays <strong>Requested by</strong>.</p>
+                </div>
+                <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" x-on:click="closeCreateSignModal()" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <div class="mt-4">
+                @include('partials.signature-pad', [
+                    'canvasId' => 'purchaserRisSignatureCanvas',
+                    'hiddenName' => 'signature_pad_unused',
+                    'hiddenId' => 'purchaserRisPadScratch',
+                    'label' => 'Digital signature',
+                    'hint' => 'Sign to overlay Requested by.',
+                    'requiredMessage' => 'Please sign before applying.',
+                ])
+            </div>
+            <label class="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
+                <input
+                    type="checkbox"
+                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                    x-model="createSaveOnDraw"
+                    x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
+                >
+                <span class="min-w-0">
+                    <span class="block text-xs font-medium text-slate-700">Also save this drawing to my list</span>
+                    <span class="mt-0.5 block text-[11px] text-slate-400">Maximum 4 saved signatures.</span>
+                </span>
+            </label>
+            <div class="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:text-slate-950" x-on:click="closeCreateSignModal()">Cancel</button>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    x-bind:disabled="createSignSubmitting"
+                    x-on:click="applyCreatePadSignature()"
+                >
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                    <span x-text="createSignPendingSave ? 'Apply & Save RIS' : 'Apply signature'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-cloak
+        x-show="createNameSigModal"
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div class="absolute inset-0" x-on:click="createNameSigModal = false"></div>
+        <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80" x-on:click.stop>
+            <div class="border-b border-slate-100 px-5 pb-3 pt-4">
+                <h3 class="text-base font-semibold tracking-tight text-slate-900">Save to my list</h3>
+                <p class="mt-1 text-sm leading-relaxed text-slate-500">Give this signature a short name so it’s easy to reuse later.</p>
+            </div>
+            <div class="space-y-3 px-5 py-4">
+                <div class="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
+                    <img x-bind:src="createSignaturePreview" alt="Signature preview" class="max-h-14 w-auto max-w-full object-contain">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700">Signature name <span class="font-normal text-slate-400">(optional)</span></label>
+                    <input
+                        type="text"
+                        maxlength="120"
+                        placeholder="e.g. My official signature"
+                        class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                        x-model="createPendingSaveLabel"
+                        x-on:keydown.enter.prevent="confirmCreateNameSig()"
+                    >
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+                <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" x-on:click="createNameSigModal = false">Cancel</button>
+                <button type="button" class="rounded-xl bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800" x-on:click="confirmCreateNameSig()">Save signature</button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-cloak
+        x-show="createDeleteSigModal"
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div class="absolute inset-0" x-on:click="createDeleteSigModal = false"></div>
+        <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80" x-on:click.stop>
+            <div class="px-5 pb-2 pt-5">
+                <h3 class="text-base font-semibold tracking-tight text-slate-900">Remove signature?</h3>
+                <p class="mt-1.5 text-sm leading-relaxed text-slate-500">
+                    <span class="font-medium text-slate-700" x-text="createPendingDeleteLabel || 'This signature'"></span> will be removed from your saved list. You can always upload or draw it again later.
+                </p>
+            </div>
+            <div class="mt-2 flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+                <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" x-on:click="createDeleteSigModal = false">Keep it</button>
+                <button type="button" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700" x-on:click="confirmCreateDeleteSig()">Remove</button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-cloak
+        x-show="createSigNotice"
+        x-transition.opacity
+        class="pointer-events-none fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4"
+    >
+        <div class="pointer-events-auto max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg shadow-slate-900/10 ring-1 ring-slate-100">
+            <span x-text="createSigNotice"></span>
         </div>
     </div>
 
@@ -1713,13 +2260,13 @@
                                     @php $attachment = $ris->risAttachments->first(); @endphp
                                     <a
                                         href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                        class="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-gray-900 hover:underline"
+                                        class="inline-flex max-w-[220px] items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         title="Download {{ $attachment->ris_attachment_original_name }}"
                                     >
-                                        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="h-4 w-4 shrink-0 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
                                         </svg>
-                                        <span>1 file</span>
+                                        <span class="truncate">{{ $attachment->ris_attachment_original_name }}</span>
                                     </a>
                                 @elseif($ris->risAttachments->isNotEmpty())
                                     <div
@@ -1730,9 +2277,9 @@
                                         <button
                                             type="button"
                                             @click="openFiles = !openFiles"
-                                            class="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-gray-900 hover:underline"
+                                            class="inline-flex items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         >
-                                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="h-4 w-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
                                             </svg>
                                             <span>{{ $ris->risAttachments->count() }} files</span>
@@ -1747,7 +2294,7 @@
                                             @foreach($ris->risAttachments as $attachment)
                                                 <a
                                                     href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                                    class="block truncate px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                    class="block truncate px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-50 hover:underline"
                                                     title="{{ $attachment->ris_attachment_original_name }}"
                                                 >
                                                     {{ $attachment->ris_attachment_original_name }}
@@ -1807,6 +2354,27 @@
                                         >
                                             <i data-lucide="send" class="h-4 w-4"></i>
                                         </button>
+                                    @endif
+
+                                    @if(!empty($ris->can_create_atp))
+                                        @if(!$ris->has_atp)
+                                            <a
+                                                href="{{ route('purchaser.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                title="Create ATP"
+                                                aria-label="Create ATP"
+                                            >
+                                                <i data-lucide="file-plus" class="h-4 w-4"></i>
+                                            </a>
+                                        @else
+                                            <span
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700"
+                                                title="ATP Created"
+                                                aria-label="ATP Created"
+                                            >
+                                                <i data-lucide="file-check" class="h-4 w-4"></i>
+                                            </span>
+                                        @endif
                                     @endif
                                 </div>
                             </td>
@@ -1890,7 +2458,7 @@
                     <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                         <button
                             type="button"
-                            onclick="printRis('view-ris-content-{{ $ris->ris_id }}')"
+                            onclick="printPurchaserRis({{ (int) $ris->ris_id }})"
                             data-tooltip="Print RIS"
                             aria-label="Print RIS"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-slate-300 "
@@ -2030,43 +2598,18 @@
                             </div>
 
                             <div class="ris-signatures">
-                                @foreach([
-                                    ['Requested by:', $ris->ris_requested_by_signature, $ris->ris_requested_by_date],
-                                    ['Approved by:', ((int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_approved_by_date],
-                                    ['Issued by:', ((int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_issued_by_date],
-                                    ['Received by:', ((int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_received_by_date],
-                                ] as [$label, $signature, $date])
-                                    <div class="ris-signature-column">
-                                        <div class="ris-signature-label">{{ $label }}</div>
-                                        <div class="ris-signature-line ris-value-line">
-
-                                            @if(!empty($signature))
-
-                                                @if(str_starts_with($signature, 'data:image'))
-
-                                                    <img
-                                                        src="{{ $signature }}"
-                                                        alt="Signature"
-                                                        class="max-h-10 max-w-full object-contain"
-                                                    >
-
-                                                @else
-
-                                                    <span class="block w-full truncate text-center">
-                                                        {{ $signature }}
-                                                    </span>
-
-                                                @endif
-
-                                            @endif
-
-                                        </div>
-                                        <div class="ris-date-label">Date:</div>
-                                        <div class="ris-date-line ris-value-line">
-                                            {{ $date ? \Carbon\Carbon::parse($date)->format('M d, Y') : ' ' }}
-                                        </div>
+                                <div class="ris-signature-column">
+                                    <div class="ris-signature-label">Requested by:</div>
+                                    @include('partials.ris-requested-by-signatory', [
+                                        'ris' => $ris,
+                                        'lineClass' => 'ris-signature-line ris-value-line',
+                                    ])
+                                    <div class="ris-date-label">Date:</div>
+                                    <div class="ris-date-line ris-value-line">
+                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : ' ' }}
                                     </div>
-                                @endforeach
+                                </div>
+                                @include('partials.ris-view-approval-signatories', ['ris' => $ris])
                             </div>
                         </div>
                     </div>
@@ -2330,21 +2873,18 @@
                             </div>
 
                             <div class="ris-signatures">
-                                @foreach([
-                                    ['Requested by:', $ris->ris_requested_by_signature, $ris->ris_requested_by_date],
-                                    ['Approved by:', ((int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_approved_by_date],
-                                    ['Issued by:', ((int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_issued_by_date],
-                                    ['Received by:', ((int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_received_by_date],
-                                ] as [$label, $signature, $date])
-                                    <div class="ris-signature-column">
-                                        <div class="ris-signature-label">{{ $label }}</div>
-                                        <div class="ris-signature-line ris-value-line">{{ $signature ?: ' ' }}</div>
-                                        <div class="ris-date-label">Date:</div>
-                                        <div class="ris-date-line ris-value-line">
-                                            {{ $date ? \Carbon\Carbon::parse($date)->format('M d, Y') : ' ' }}
-                                        </div>
+                                <div class="ris-signature-column">
+                                    <div class="ris-signature-label">Requested by:</div>
+                                    @include('partials.ris-requested-by-signatory', [
+                                        'ris' => $ris,
+                                        'lineClass' => 'ris-signature-line ris-value-line',
+                                    ])
+                                    <div class="ris-date-label">Date:</div>
+                                    <div class="ris-date-line ris-value-line">
+                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : ' ' }}
                                     </div>
-                                @endforeach
+                                </div>
+                                @include('partials.ris-view-approval-signatories', ['ris' => $ris])
                             </div>
                         </div>
                     </div>
@@ -2386,7 +2926,7 @@
                         </a>
                         <button
                             type="button"
-                            onclick="printRis('print-ris-content-{{ $ris->ris_id }}')"
+                            onclick="printPurchaserRis({{ (int) $ris->ris_id }})"
                             class="pur-btn-primary"
                         >
                             Print RIS
@@ -2701,7 +3241,15 @@
                                     <div class="ris-signatures">
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Requested by:</div>
-                                            <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
+                                            <div class="ris-signature-input-wrap">
+                                                @php
+                                                    $editRequestedImage = \App\Support\RisWorkflow::requestedByDrawnSignature($ris);
+                                                @endphp
+                                                @if ($editRequestedImage !== '')
+                                                    <img src="{{ $editRequestedImage }}" alt="" class="signature-image">
+                                                @endif
+                                                <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
+                                            </div>
                                             <div class="ris-date-label">Date:</div>
                                             <input
                                                 type="text"
@@ -2716,8 +3264,24 @@
                                             >
                                         </div>
                                         <div class="ris-signature-column">
-                                            <div class="ris-signature-label">Approved by:</div>
-                                            <div class="ris-signature-line ris-value-line ris-readonly-value">{{ (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
+                                            <div class="ris-signature-label">{{ \App\Support\RisWorkflow::approvedByColumnLabel($ris) }}</div>
+                                            @php
+                                                $editApprovedRaw = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                                                $editApprovedImage = \App\Support\RisWorkflow::isDrawnSignature($editApprovedRaw) ? $editApprovedRaw : '';
+                                                $editApprovedName = \App\Support\RisWorkflow::approvedByPrintedName($ris);
+                                            @endphp
+                                            <div class="ris-signature-line ris-value-line ris-readonly-value">
+                                                @if ($editApprovedImage !== '')
+                                                    <img src="{{ $editApprovedImage }}" alt="" class="signature-image">
+                                                    @if ($editApprovedName !== '')
+                                                        <span class="signature-name">{{ $editApprovedName }}</span>
+                                                    @endif
+                                                @elseif ($editApprovedName !== '')
+                                                    <span class="signature-name">{{ $editApprovedName }}</span>
+                                                @else
+                                                    {{ ' ' }}
+                                                @endif
+                                            </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
                                                 {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2725,7 +3289,23 @@
                                         </div>
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Issued by:</div>
-                                            <div class="ris-signature-line ris-value-line ris-readonly-value">{{ (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
+                                            @php
+                                                $editIssuedRaw = trim((string) ($ris->ris_issued_by_signature ?? ''));
+                                                $editIssuedImage = \App\Support\RisWorkflow::isDrawnSignature($editIssuedRaw) ? $editIssuedRaw : '';
+                                                $editIssuedName = \App\Support\RisWorkflow::issuedByPrintedName($ris);
+                                            @endphp
+                                            <div class="ris-signature-line ris-value-line ris-readonly-value">
+                                                @if ($editIssuedImage !== '')
+                                                    <img src="{{ $editIssuedImage }}" alt="" class="signature-image">
+                                                    @if ($editIssuedName !== '')
+                                                        <span class="signature-name">{{ $editIssuedName }}</span>
+                                                    @endif
+                                                @elseif ($editIssuedName !== '')
+                                                    <span class="signature-name">{{ $editIssuedName }}</span>
+                                                @else
+                                                    {{ ' ' }}
+                                                @endif
+                                            </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
                                                 {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2733,7 +3313,7 @@
                                         </div>
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Received by:</div>
-                                            <div class="ris-signature-line ris-value-line ris-readonly-value">{{ (int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
+                                            <div class="ris-signature-line ris-value-line ris-readonly-value">{{ trim((string) ($ris->ris_received_by_signature ?? '')) !== '' ? $ris->ris_received_by_signature : ' ' }}</div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
                                                 {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2999,609 +3579,80 @@
 </script>
 
 <script>
-    // ============================================================
-    // RIS PRINT
-    // Replace your OLD printRis() function with this whole script.
-    // ============================================================
-
-    function printRis(elementId) {
-
-        // ========================================================
-        // FIND THE RIS DOCUMENT
-        // ========================================================
-        const printElement = document.getElementById(elementId);
-
-        if (!printElement) {
-            console.error('RIS print element not found:', elementId);
-            alert('Unable to find the RIS document to print.');
-            return;
+    window.printPurchaserRis = function (risId) {
+        if (!risId) return;
+        var url = @json(url('/purchaser/ris')) + '/' + encodeURIComponent(String(risId)) + '/print?ts=' + Date.now();
+        var iframe = document.getElementById('purchaserRisPrintFrame');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'purchaserRisPrintFrame';
+            iframe.setAttribute('title', 'Print RIS');
+            iframe.setAttribute('aria-hidden', 'true');
+            iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+            document.body.appendChild(iframe);
         }
 
-
-        // ========================================================
-        // CREATE A CLEAN COPY
-        // This prevents us from modifying the actual modal.
-        // ========================================================
-        const printableElement = printElement.cloneNode(true);
-
-
-        // ========================================================
-        // REMOVE THINGS THAT SHOULD NEVER APPEAR IN PRINT
-        // ========================================================
-        printableElement.querySelectorAll(
-            '.no-print, button, script'
-        ).forEach(function (element) {
-            element.remove();
-        });
-
-
-        // ========================================================
-        // CLEAN RIS VALUES
-        //
-        // This is important for your issue.
-        // We only keep visible text inside the printed RIS.
-        // ========================================================
-        printableElement.querySelectorAll('.ris-value-line').forEach(function (element) {
-
-            const cleanText = (element.textContent || '')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            element.textContent = cleanText;
-        });
-
-
-        // ========================================================
-        // OPEN PRINT WINDOW
-        // ========================================================
-        const printWindow = window.open(
-            '',
-            '_blank',
-            'width=1200,height=900'
-        );
-
-        if (!printWindow) {
-            alert('Please allow popups to print the RIS.');
-            return;
-        }
-
-
-        // ========================================================
-        // BUILD PRINT DOCUMENT
-        // ========================================================
-        printWindow.document.open();
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-
-                <meta charset="UTF-8">
-
-                <meta
-                    name="viewport"
-                    content="width=device-width, initial-scale=1.0"
-                >
-
-                <title>Requisition and Issue Slip</title>
-
-                <style>
-
-                    /* ============================================
-                       PAGE
-                       ============================================ */
-
-                    @page {
-                        size: A4 landscape;
-                        margin: 4mm;
-                    }
-
-                    * {
-                        box-sizing: border-box;
-                    }
-
-                    html,
-                    body {
-                        margin: 0;
-                        padding: 0;
-                        width: 100%;
-                        background: #ffffff;
-                        color: #000000;
-
-                        font-family:
-                            Arial,
-                            Helvetica,
-                            sans-serif;
-                    }
-
-                    body {
-                        padding: 0;
-                    }
-
-
-                    /* ============================================
-                       MAIN RIS FORM
-                       ============================================ */
-
-                    .ris-original-form {
-                        width: 100%;
-                        max-width: 100%;
-
-                        margin: 0;
-
-                        border: 1.5px solid #1f2937;
-
-                        padding:
-                            7mm
-                            6mm
-                            6mm
-                            6mm;
-
-                        font-family:
-                            Arial,
-                            Helvetica,
-                            sans-serif;
-
-                        color: #000000;
-
-                        background: #ffffff;
-
-                        page-break-inside: avoid;
-                        break-inside: avoid;
-
-                        overflow: hidden;
-                    }
-
-
-                    /* ============================================
-                       DOCUMENT HEADER
-                       ============================================ */
-
-                    .ris-document-header {
-                        position: relative;
-
-                        height: 29mm;
-
-                        text-align: center;
-                    }
-
-                    .ris-school-name {
-                        margin: 0;
-
-                        font-size: 14pt;
-                        line-height: 1.15;
-
-                        font-weight: 700;
-                    }
-
-                    .ris-document-title {
-                        margin-top: 3mm;
-
-                        font-size: 10.5pt;
-                        line-height: 1.15;
-
-                        font-weight: 700;
-                    }
-
-
-                    /* ============================================
-                       RIS NUMBER
-                       ============================================ */
-
-                    .ris-number-area {
-                        position: absolute;
-
-                        right: 0;
-                        bottom: 3mm;
-
-                        display: flex;
-
-                        align-items: flex-end;
-
-                        gap: 3mm;
-                    }
-
-                    .ris-number-label {
-                        font-size: 10pt;
-
-                        font-weight: 600;
-
-                        white-space: nowrap;
-                    }
-
-                    .ris-number-line {
-                        display: flex;
-
-                        align-items: flex-end;
-                        justify-content: center;
-
-                        width: 42mm;
-                        min-height: 6mm;
-
-                        padding:
-                            0
-                            1.5mm
-                            1mm;
-
-                        border-bottom:
-                            0.3mm solid #1f2937;
-
-                        font-size: 8pt;
-
-                        line-height: 1.25;
-
-                        text-align: center;
-
-                        white-space: normal;
-
-                        overflow-wrap: anywhere;
-
-                        word-break: normal;
-                    }
-
-
-                    /* ============================================
-                       RIS ITEMS TABLE
-                       ============================================ */
-
-                    .ris-items-table {
-                        width: 100%;
-
-                        border-collapse: collapse;
-
-                        table-layout: fixed;
-
-                        margin: 0;
-                    }
-
-                    .ris-items-table th,
-                    .ris-items-table td {
-                        border:
-                            0.3mm solid #1f2937;
-                    }
-
-                    .ris-items-table th {
-                        padding:
-                            2mm
-                            1mm;
-
-                        text-align: center;
-
-                        vertical-align: middle;
-
-                        font-size: 8pt;
-
-                        line-height: 1.1;
-
-                        font-weight: 700;
-                    }
-
-                    .ris-items-table tbody td {
-                        height: 10.5mm;
-
-                        padding:
-                            1mm
-                            2mm;
-
-                        vertical-align: middle;
-
-                        font-size: 8pt;
-
-                        overflow-wrap: anywhere;
-                    }
-
-
-                    /* ============================================
-                       TABLE COLUMN WIDTHS
-                       ============================================ */
-
-                    .ris-item-column {
-                        width: 20%;
-                    }
-
-                    .ris-brand-column {
-                        width: 10%;
-                    }
-
-                    .ris-unit-column {
-                        width: 7%;
-                    }
-
-                    .ris-supplier-column {
-                        width: 14%;
-                    }
-
-                    .ris-quantity-header {
-                        width: 20%;
-                    }
-
-                    .ris-requested-column {
-                        width: 10%;
-
-                        font-size: 7pt !important;
-                    }
-
-                    .ris-issued-column {
-                        width: 10%;
-
-                        font-size: 7pt !important;
-                    }
-
-                    .ris-unit-cost-column {
-                        width: 15%;
-                    }
-
-                    .ris-amount-column {
-                        width: 15%;
-                    }
-
-
-                    /* ============================================
-                       PURPOSE
-                       ============================================ */
-
-                    .ris-purpose-area {
-                        margin-top: 7mm;
-                    }
-
-                    .ris-purpose-label {
-                        font-size: 8.5pt;
-
-                        font-weight: 700;
-                    }
-
-                    .ris-purpose-line-row {
-                        display: flex;
-
-                        align-items: flex-end;
-
-                        margin-top: 6mm;
-
-                        width: 100%;
-                    }
-
-                    .ris-purpose-spacer {
-                        width: 21mm;
-
-                        flex-shrink: 0;
-                    }
-
-                    .ris-purpose-line {
-                        flex: 1;
-
-                        min-width: 0;
-
-                        min-height: 6mm;
-
-                        padding:
-                            0
-                            1.5mm
-                            1mm;
-
-                        border-bottom:
-                            0.3mm solid #1f2937;
-
-                        font-size: 8pt;
-
-                        line-height: 1.25;
-
-                        overflow-wrap: anywhere;
-                    }
-
-
-                    /* ============================================
-                       SIGNATURE SECTION
-                       ============================================ */
-
-                    .ris-signatures {
-                        display: grid;
-
-                        grid-template-columns:
-                            repeat(4, minmax(0, 1fr));
-
-                        column-gap: 8mm;
-
-                        margin-top: 8mm;
-
-                        page-break-inside: avoid;
-
-                        break-inside: avoid;
-                    }
-
-                    .ris-signature-column {
-                        min-width: 0;
-
-                        overflow: hidden;
-                    }
-
-                    .ris-signature-label {
-                        font-size: 7.5pt;
-                    }
-
-                    .ris-signature-line {
-                        display: flex;
-
-                        align-items: flex-end;
-
-                        justify-content: center;
-
-                        width: 100%;
-
-                        height: 10mm;
-
-                        min-width: 0;
-
-                        padding:
-                            0
-                            1.5mm
-                            1mm;
-
-                        border-bottom:
-                            0.3mm solid #1f2937;
-
-                        font-size: 8pt;
-
-                        line-height: 1.25;
-
-                        text-align: center;
-
-                        overflow: hidden;
-
-                        overflow-wrap: anywhere;
-
-                        word-break: normal;
-                    }
-
-
-                    /* ============================================
-                       SIGNATURE DATE
-                       ============================================ */
-
-                    .ris-date-label {
-                        margin-top: 3mm;
-
-                        font-size: 7.5pt;
-                    }
-
-                    .ris-date-line {
-                        display: flex;
-
-                        align-items: flex-end;
-
-                        justify-content: center;
-
-                        width: 100%;
-
-                        height: 6mm;
-
-                        min-width: 0;
-
-                        padding:
-                            0
-                            1.5mm
-                            1mm;
-
-                        border-bottom:
-                            0.3mm solid #1f2937;
-
-                        font-size: 8pt;
-
-                        line-height: 1.25;
-
-                        text-align: center;
-
-                        overflow: hidden;
-
-                        overflow-wrap: anywhere;
-                    }
-
-
-                    /* ============================================
-                       VALUE LINES
-                       ============================================ */
-
-                    .ris-value-line {
-                        min-width: 0;
-
-                        max-width: 100%;
-
-                        font-size: 8pt;
-
-                        line-height: 1.25;
-                    }
-
-
-                    /* ============================================
-                       BASIC HELPERS
-                       ============================================ */
-
-                    .text-center {
-                        text-align: center;
-                    }
-
-                    .text-right {
-                        text-align: right;
-                    }
-
-                    .font-bold,
-                    .font-semibold {
-                        font-weight: bold;
-                    }
-
-                    .uppercase {
-                        text-transform: uppercase;
-                    }
-
-
-                    /* ============================================
-                       NEVER PRINT THESE
-                       ============================================ */
-
-                    button,
-                    .no-print {
-                        display: none !important;
-                    }
-
-
-                    /* ============================================
-                       PRINT
-                       ============================================ */
-
-                    @media print {
-
-                        html,
-                        body {
-                            width: 100%;
-
-                            margin: 0 !important;
-
-                            padding: 0 !important;
-                        }
-
-                        .ris-original-form {
-                            width: 100%;
-
-                            margin: 0 !important;
-
-                            page-break-inside: avoid;
-
-                            break-inside: avoid;
-                        }
-
-                    }
-
-                </style>
-
-            </head>
-
-            <body>
-
-                ${printableElement.outerHTML}
-
-            </body>
-
-            </html>
-        `);
-
-        printWindow.document.close();
-
-
-        // ========================================================
-        // WAIT UNTIL THE NEW PRINT WINDOW IS READY
-        // ========================================================
-        printWindow.onload = function () {
-
-            printWindow.focus();
-
-            setTimeout(function () {
-
-                printWindow.print();
-
-            }, 300);
-
+        var printed = false;
+        var tryPrint = function () {
+            if (printed) return;
+            if (!iframe.contentWindow) return;
+            printed = true;
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) { /* ignore */ }
         };
 
-    }
+        iframe.onload = function () {
+            setTimeout(tryPrint, 300);
+        };
+        iframe.src = url;
+    };
+
+    window.printPurchaserRisBlank = function () {
+        if (window.purchaserPrintSheet) {
+            window.purchaserPrintSheet('print-empty-ris-content', 'ris-print-active');
+            return;
+        }
+        document.querySelectorAll('.ris-print-sheet').forEach(function (sheet) {
+            sheet.classList.remove('ris-print-active');
+        });
+        var sheet = document.getElementById('print-empty-ris-content');
+        if (sheet) sheet.classList.add('ris-print-active');
+        window.print();
+        window.setTimeout(function () {
+            if (sheet) sheet.classList.remove('ris-print-active');
+        }, 500);
+    };
+
+    // Back-compat alias
+    window.printRis = function (target) {
+        if (typeof target === 'number' || (/^\d+$/).test(String(target || ''))) {
+            window.printPurchaserRis(target);
+            return;
+        }
+        if (String(target || '').indexOf('print-empty-ris-content') !== -1) {
+            window.printPurchaserRisBlank();
+            return;
+        }
+        var match = String(target || '').match(/(\d+)/);
+        if (match) {
+            window.printPurchaserRis(match[1]);
+            return;
+        }
+        window.printPurchaserRisBlank();
+    };
 </script>
+
+<style>
+    @media print {
+        @page { size: landscape; margin: 0.25in; }
+        .ris-print-active {
+            background: #fff !important;
+            border: 0 !important;
+        }
+        .print-hidden { display: none !important; }
+    }
+</style>
 
 @endsection

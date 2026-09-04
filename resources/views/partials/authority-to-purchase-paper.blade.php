@@ -69,7 +69,7 @@
                 @elseif($isBlank)
                     ______________
                 @else
-                    {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('F d, Y') : '—' }}
+                    {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '—' }}
                 @endif
             </div>
         </div>

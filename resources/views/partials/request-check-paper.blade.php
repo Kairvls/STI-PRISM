@@ -27,7 +27,7 @@
             @if($editable)
                 <input type="date" name="request_check_date" value="{{ $dateValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
-                <span class="flex-1 border-b border-black px-1 pb-0.5">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('F d, Y') : '' }}</span>
+                <span class="flex-1 border-b border-black px-1 pb-0.5">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '' }}</span>
             @endif
         </div>
     </div>

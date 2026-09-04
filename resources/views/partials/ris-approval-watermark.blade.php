@@ -1,6 +1,7 @@
 {{--
   Diagonal APPROVED watermark for on-screen RIS preview only.
-  Exactly 3 stamps. Hidden when printing (@media print).
+  Exactly 3 stamps, horizontally centered and split vertically.
+  Hidden when printing (@media print).
   Optional: $watermarkLabel (default: APPROVED)
 --}}
 @php
@@ -24,20 +25,22 @@
     }
     .approval-watermark-stamp {
         position: absolute;
-        left: 50%;
+        top: 48%;
         font-family: Arial, Helvetica, sans-serif;
         font-size: 72px;
         font-weight: 800;
         letter-spacing: 0.14em;
         line-height: 1;
-        color: rgba(15, 23, 42, 0.16);
+        color: rgba(15, 23, 42, 0.03);
         text-transform: uppercase;
         white-space: nowrap;
-        transform: translateX(-50%) rotate(-32deg);
+        transform: translate(-50%, -50%) rotate(-32deg);
     }
-    .approval-watermark-stamp:nth-child(1) { top: 18%; }
-    .approval-watermark-stamp:nth-child(2) { top: 48%; }
-    .approval-watermark-stamp:nth-child(3) { top: 78%; }
+    /* Horizontally aligned (same row), split across the page */
+    .approval-watermark-stamp:nth-child(1) { left: 22%; }
+    .approval-watermark-stamp:nth-child(2) { left: 50%; }
+    .approval-watermark-stamp:nth-child(3) { left: 78%; }
+
     html.screen-preview .approval-watermark {
         animation: approvalWatermarkIn 0.55s ease both;
     }

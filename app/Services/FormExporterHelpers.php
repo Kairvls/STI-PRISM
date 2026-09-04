@@ -27,7 +27,7 @@ trait FormExporterHelpers
         return $value;
     }
 
-    protected function formatDate($value, string $format = 'F d, Y'): string
+    protected function formatDate($value, string $format = 'd/m/Y'): string
     {
         if (blank($value)) {
             return '';
@@ -40,7 +40,7 @@ trait FormExporterHelpers
         }
     }
 
-    protected function d($value, string $format = 'F d, Y'): string
+    protected function d($value, string $format = 'd/m/Y'): string
     {
         return $this->formatDate($value, $format);
     }
@@ -99,5 +99,40 @@ trait FormExporterHelpers
         }
 
         return $docOrData;
+    }
+
+    protected function signatureImagePath(?string $dataUrl): ?string
+    {
+        $dataUrl = trim((string) $dataUrl);
+        if ($dataUrl === '') {
+            return null;
+        }
+
+        $binary = null;
+        $ext = 'png';
+
+        if (str_starts_with($dataUrl, 'data:image')) {
+            if (!preg_match('#^data:image/(png|jpeg|jpg);base64,(.+)$#is', $dataUrl, $matches)) {
+                return null;
+            }
+
+            $binary = base64_decode($matches[2], true);
+            $ext = strtolower($matches[1]) === 'jpg' ? 'jpeg' : strtolower($matches[1]);
+        } else {
+            $path = parse_url($dataUrl, PHP_URL_PATH) ?: $dataUrl;
+            $relative = ltrim((string) preg_replace('#^.*?/storage/#', '', str_replace('\\', '/', (string) $path)), '/');
+            if ($relative !== '' && \Illuminate\Support\Facades\Storage::disk('public')->exists($relative)) {
+                $binary = \Illuminate\Support\Facades\Storage::disk('public')->get($relative);
+            }
+        }
+
+        if ($binary === false || $binary === null || $binary === '') {
+            return null;
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'sig') . '.' . $ext;
+        file_put_contents($path, $binary);
+
+        return $path;
     }
 }

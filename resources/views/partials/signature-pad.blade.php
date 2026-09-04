@@ -5,7 +5,9 @@
     $label = $label ?? 'Digital signature';
     $hint = $hint ?? 'Sign in the box. This is required.';
     $requiredMessage = $requiredMessage ?? 'Please sign before continuing.';
+    $renderPad = $renderPad ?? true;
 @endphp
+@if ($renderPad)
 <div class="signature-pad" data-required-message="{{ $requiredMessage }}">
     <label class="block text-sm font-medium text-slate-700">{{ $label }}</label>
     <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
@@ -18,6 +20,7 @@
     ></canvas>
     <button type="button" class="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" onclick="window.clearSignaturePad('{{ $canvasId }}', '{{ $hiddenId }}')">Clear</button>
 </div>
+@endif
 @once
 <style>
     .signature-pad-canvas { height: 160px; touch-action: none; max-width: 100%; }

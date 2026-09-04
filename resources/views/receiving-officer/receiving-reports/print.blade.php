@@ -47,7 +47,7 @@
             <p class="muted">STI College Ormoc · Receiving Officer</p>
         </div>
         <div class="muted" style="text-align:right;">
-            Printed {{ now()->format('M d, Y g:i A') }}
+            Printed {{ now()->format('d/m/Y g:i A') }}
         </div>
     </div>
 
@@ -59,7 +59,7 @@
         <tr><td><strong>Supplier</strong></td><td>{{ $row->supplier_name }}</td></tr>
         <tr><td><strong>PO / OR</strong></td><td>{{ $row->authority_purchase_reference_po_no ?? '—' }} / {{ $row->official_receipt ?? '—' }}</td></tr>
         <tr><td><strong>Received by</strong></td><td>{{ $officerName }}</td></tr>
-        <tr><td><strong>Date</strong></td><td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('F d, Y g:i A') : '—' }}</td></tr>
+        <tr><td><strong>Date</strong></td><td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('d/m/Y g:i A') : '—' }}</td></tr>
         @if(!empty($row->receiving_report_remarks))
             <tr><td><strong>Remarks</strong></td><td>{{ $row->receiving_report_remarks }}</td></tr>
         @endif

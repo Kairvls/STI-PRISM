@@ -45,7 +45,7 @@
             justify-content: center;
             padding-bottom: 2px;
         }
-        .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-name { font-size: 11px; text-transform: none; letter-spacing: 0; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
         .signature-image {
             max-height: 36px;
@@ -53,10 +53,11 @@
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
-            bottom: 100%;
-            margin-bottom: -6px;
+            bottom: 12px;
             z-index: 10;
+            pointer-events: none;
         }
+        .signature-line .signature-name { display: block; line-height: 20px; }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         /* Modal / screen preview */
@@ -92,21 +93,30 @@
         }
 
         @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+            }
             body { background: white; }
             .ris-document {
-                width: 100%;
+                width: 100% !important;
+                max-width: 100% !important;
                 min-height: auto;
                 height: auto;
                 max-height: none;
                 margin: 0;
                 padding: 0.2in;
                 position: relative;
-                overflow: visible;
+                overflow: visible !important;
             }
             .header { margin-top: 24px; }
+            .ris-table { width: 100% !important; }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
+    @include('partials.ris-signature-overlay-styles')
 </head>
 <body>
 @php
@@ -216,11 +226,11 @@
         <section class="signatures">
             <div class="signature-box">
                 <p>Requested by:</p>
-                <div class="signature-line">{{ $ris->ris_requested_by_signature ?: '' }}</div>
+                @include('partials.ris-requested-by-signatory', ['ris' => $ris])
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : '' }}
+                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -248,7 +258,7 @@
                         @php
                             $secondColDate = $isDirectlyApproved ? $checkedDate : $approvedDate;
                         @endphp
-                        {{ $secondColDate ? \Carbon\Carbon::parse($secondColDate)->format('M d, Y') : '' }}
+                        {{ $secondColDate ? \Carbon\Carbon::parse($secondColDate)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -270,7 +280,7 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('M d, Y') : '' }}
+                        {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -281,7 +291,7 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('M d, Y') : '' }}
+                        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>

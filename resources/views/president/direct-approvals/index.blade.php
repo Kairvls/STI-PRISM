@@ -154,23 +154,25 @@
     </div>
 </div>
 
-<div id="risViewModal" class="fixed inset-0 z-[12000] hidden">
-    <div class="absolute inset-0 flex items-center justify-center bg-slate-900/75 p-3 sm:p-5" onclick="closeRisViewModal()">
+<div id="risViewModal" class="fixed inset-0 z-[12000] hidden" data-fullscreen="0">
+    <div id="risViewBackdrop" class="absolute inset-0 flex items-center justify-center bg-slate-900/75 p-3 sm:p-5" onclick="closeRisViewModal()">
         <div
             id="risViewPanel"
             class="relative overflow-hidden rounded-xl bg-white shadow-2xl"
             style="width: max-content; max-width: 98vw; height: fit-content; max-height: 96vh;"
             onclick="event.stopPropagation()"
         >
-            <div id="risViewFrameWrap" style="line-height: 0; font-size: 0;">
-                <iframe
-                    id="risViewIframe"
-                    class="block bg-white"
-                    scrolling="no"
-                    style="width: 11in; height: 0; max-width: 100%; border: 0; overflow: hidden;"
-                    src="about:blank"
-                    title="RIS Form Preview"
-                ></iframe>
+            <div id="risViewStage" class="ris-view-stage">
+                <div id="risViewFrameWrap" style="line-height: 0; font-size: 0;">
+                    <iframe
+                        id="risViewIframe"
+                        class="block bg-white"
+                        scrolling="no"
+                        style="width: 11in; height: 0; max-width: none; border: 0; overflow: hidden; transform-origin: top left;"
+                        src="about:blank"
+                        title="RIS Form Preview"
+                    ></iframe>
+                </div>
             </div>
             <div
                 id="risViewAttachments"
@@ -181,9 +183,24 @@
                 <div class="mt-1.5 flex flex-wrap gap-1.5" id="risViewAttachmentList"></div>
             </div>
             <div class="absolute right-3 top-3 z-10 flex items-center gap-2" style="line-height: normal; font-size: medium;">
+                <button
+                    type="button"
+                    id="risViewFsBtn"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-500 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90"
+                    onclick="toggleRisViewFullscreen()"
+                    data-tip="Full screen"
+                    title="Full screen"
+                    aria-label="Full screen"
+                >
+                    <svg data-fs-icon="expand" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"></path>
+                    </svg>
+                    <svg data-fs-icon="collapse" class="hidden h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4H5v4M15 4h4v4M9 20H5v-4M15 20h4v-4"></path>
+                    </svg>
+                </button>
                 <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" data-tip="Print RIS" aria-label="Print RIS">
                     <i data-lucide="printer" class="h-4 w-4"></i>
-                    <span class="ml-1.5">Print</span>
                 </button>
                 <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" data-tip="Close" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -230,31 +247,59 @@
         color: #0f172a;
     }
     .ris-doc-link {
-        display: inline-flex;
+        display: inline-block;
         max-width: 100%;
-        align-items: center;
-        gap: 0.4rem;
-        border-radius: 0.7rem;
-        border: 1px solid #bfdbfe;
-        background: #eff6ff;
-        padding: 0.4rem 0.7rem;
         font-size: 0.8125rem;
-        font-weight: 600;
-        color: #3b82f6;
+        font-weight: 500;
+        color: #0ea5e9;
         text-decoration: none;
-        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        background: none;
+        border: 0;
+        padding: 0;
+        border-radius: 0;
     }
     .ris-doc-link:hover {
-        background: #dbeafe;
-        border-color: #93c5fd;
-        color: #2563eb;
+        color: #0284c7;
         text-decoration: underline;
+        background: none;
+        border: 0;
     }
     .ris-doc-link svg {
-        width: 0.9rem;
-        height: 0.9rem;
+        display: none;
+    }
+
+    #risViewModal.is-fullscreen #risViewBackdrop {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+    }
+    #risViewModal.is-fullscreen #risViewPanel {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        display: flex;
+        flex-direction: column;
+    }
+    #risViewModal.is-fullscreen #risViewStage {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        background: #e5e7eb;
+        padding: 12px 0;
+    }
+    #risViewModal.is-fullscreen #risViewFrameWrap {
+        margin: 0 auto;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        background: #fff;
+    }
+    #risViewModal.is-fullscreen #risViewAttachments {
         flex-shrink: 0;
-        color: #60a5fa;
     }
 </style>
 
@@ -363,8 +408,7 @@
                     var name = (file && file.name) ? String(file.name) : 'Attachment';
                     var url = (file && file.url) ? String(file.url) : '#';
                     return '<a href="' + url + '" target="_blank" rel="noopener" download class="ris-doc-link" title="Download ' + name.replace(/"/g, '&quot;') + '">'
-                        + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>'
-                        + '<span class="truncate">' + name.replace(/</g, '&lt;') + '</span>'
+                        + name.replace(/</g, '&lt;')
                         + '</a>';
                 }).join('');
             }
@@ -390,11 +434,50 @@
         }
     };
 
+    function syncRisViewFsButton(isFs) {
+        var btn = document.getElementById('risViewFsBtn');
+        if (!btn) return;
+        var expand = btn.querySelector('[data-fs-icon="expand"]');
+        var collapse = btn.querySelector('[data-fs-icon="collapse"]');
+        if (expand) expand.classList.toggle('hidden', !!isFs);
+        if (collapse) collapse.classList.toggle('hidden', !isFs);
+        btn.title = isFs ? 'Exit full screen' : 'Full screen';
+        btn.setAttribute('aria-label', isFs ? 'Exit full screen' : 'Full screen');
+        btn.setAttribute('data-tip', isFs ? 'Exit full screen' : 'Full screen');
+    }
+
+    window.setRisViewFullscreen = function (enabled) {
+        var modal = document.getElementById('risViewModal');
+        if (!modal) return;
+        var isFs = !!enabled;
+        modal.classList.toggle('is-fullscreen', isFs);
+        modal.dataset.fullscreen = isFs ? '1' : '0';
+        syncRisViewFsButton(isFs);
+        requestAnimationFrame(function () {
+            fitRisViewIframe();
+            requestAnimationFrame(fitRisViewIframe);
+        });
+    };
+
+    window.toggleRisViewFullscreen = function () {
+        var modal = document.getElementById('risViewModal');
+        if (!modal) return;
+        window.setRisViewFullscreen(modal.dataset.fullscreen !== '1');
+    };
+
     function fitRisViewIframe() {
         var iframe = document.getElementById('risViewIframe');
         var panel = document.getElementById('risViewPanel');
+        var wrap = document.getElementById('risViewFrameWrap');
+        var stage = document.getElementById('risViewStage');
         var attach = document.getElementById('risViewAttachments');
+        var modal = document.getElementById('risViewModal');
         if (!iframe) return;
+
+        var isFs = modal && modal.dataset.fullscreen === '1';
+        var docW = 11 * 96;
+        var docH = 0;
+
         try {
             var doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
             if (!doc || !doc.body) return;
@@ -408,28 +491,64 @@
                 root.style.height = 'auto';
             }
 
-            var height = Math.ceil(
+            docH = Math.ceil(
                 Math.max(
                     root.scrollHeight || 0,
                     root.offsetHeight || 0,
                     root.getBoundingClientRect ? root.getBoundingClientRect().height : 0
                 )
             );
+        } catch (e) {
+            docH = 720;
+        }
 
-            if (height > 0) {
-                iframe.style.height = height + 'px';
+        if (!docH || docH < 240) docH = 560;
+
+        iframe.style.width = docW + 'px';
+        iframe.style.height = docH + 'px';
+        iframe.style.maxWidth = 'none';
+        iframe.style.display = 'block';
+        iframe.style.transformOrigin = 'top left';
+
+        if (isFs) {
+            var stageW = Math.max(320, (stage && stage.clientWidth) || window.innerWidth);
+            var scale = Math.min(stageW / docW, 1.5);
+            if (!isFinite(scale) || scale <= 0.05) scale = 1;
+            var scaledW = Math.max(280, Math.floor(docW * scale));
+            var scaledH = Math.max(200, Math.floor(docH * scale));
+
+            iframe.style.transform = 'scale(' + scale + ')';
+            if (wrap) {
+                wrap.style.width = scaledW + 'px';
+                wrap.style.height = scaledH + 'px';
+                wrap.style.overflow = 'hidden';
+                wrap.style.lineHeight = '0';
+                wrap.style.margin = '0 auto';
             }
-
-            // Lock panel to exact content height so no empty white band remains under docs.
             if (panel) {
-                var total = iframe.offsetHeight;
+                panel.style.width = '100vw';
+                panel.style.maxWidth = '100vw';
+                panel.style.height = '100vh';
+                panel.style.maxHeight = '100vh';
+            }
+        } else {
+            iframe.style.transform = 'none';
+            if (wrap) {
+                wrap.style.width = '';
+                wrap.style.height = '';
+                wrap.style.overflow = '';
+                wrap.style.margin = '';
+            }
+            if (panel) {
+                var total = docH;
                 if (attach && !attach.classList.contains('hidden')) {
                     total += attach.offsetHeight;
                 }
+                panel.style.width = '';
+                panel.style.maxWidth = '98vw';
                 panel.style.height = total + 'px';
+                panel.style.maxHeight = '96vh';
             }
-        } catch (e) {
-            iframe.style.height = '720px';
         }
     }
 
@@ -458,11 +577,7 @@
                     link.download = '';
                     link.className = 'ris-doc-link';
                     link.title = 'Download ' + (file.name || 'attachment');
-                    link.innerHTML =
-                        '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>'
-                        + '<span class="truncate"></span>';
-                    var label = link.querySelector('span');
-                    if (label) label.textContent = file.name || 'Attachment';
+                    link.textContent = file.name || 'Attachment';
                     list.appendChild(link);
                 });
                 box.classList.remove('hidden');
@@ -477,11 +592,13 @@
         var iframe = document.getElementById('risViewIframe');
         var panel = document.getElementById('risViewPanel');
         if (!modal || !iframe) return;
+        window.currentDirectRisId = risId;
 
         if (modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
 
+        window.setRisViewFullscreen(false);
         if (panel) panel.style.height = 'auto';
 
         iframe.onload = function () {
@@ -503,10 +620,12 @@
         var panel = document.getElementById('risViewPanel');
         var box = document.getElementById('risViewAttachments');
         var list = document.getElementById('risViewAttachmentList');
+        window.setRisViewFullscreen(false);
         if (iframe) {
             iframe.onload = null;
             iframe.src = 'about:blank';
             iframe.style.height = '0px';
+            iframe.style.transform = 'none';
         }
         if (panel) panel.style.height = 'auto';
         if (list) list.innerHTML = '';
@@ -520,6 +639,14 @@
 
     window.printRis = function () {
         var iframe = document.getElementById('risViewIframe');
+        var src = iframe && iframe.getAttribute('src');
+        var match = src && src.match(/\/president\/ris\/([^/?#]+)/);
+        var risId = (match && match[1]) || window.currentDirectRisId || null;
+        // Use dedicated landscape print layout — preview iframe is screen-sized and gets clipped
+        if (risId && typeof window.printRisDocument === 'function') {
+            window.printRisDocument(risId);
+            return;
+        }
         if (iframe && iframe.contentWindow) {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
@@ -527,13 +654,52 @@
     };
 
     window.printRisDocument = function (risId) {
-        window.open('/president/ris/' + encodeURIComponent(risId) + '/print', '_blank');
+        if (!risId) return;
+        var url = '/president/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var iframe = document.getElementById('presidentRisPrintFrame');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'presidentRisPrintFrame';
+            iframe.setAttribute('title', 'Print RIS');
+            iframe.setAttribute('aria-hidden', 'true');
+            iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+            document.body.appendChild(iframe);
+        }
+
+        var printed = false;
+        var tryPrint = function () {
+            if (printed) return;
+            if (!iframe.contentWindow) return;
+            printed = true;
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) { /* ignore */ }
+        };
+
+        iframe.onload = function () {
+            setTimeout(tryPrint, 300);
+        };
+        iframe.src = url;
     };
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
+        var risModal = document.getElementById('risViewModal');
+        if (risModal && !risModal.classList.contains('hidden') && risModal.dataset.fullscreen === '1') {
+            event.preventDefault();
+            window.setRisViewFullscreen(false);
+            return;
+        }
         closeDirectApprovalDetail();
         closeRisViewModal();
+    });
+
+    window.addEventListener('resize', function () {
+        var risModal = document.getElementById('risViewModal');
+        if (risModal && !risModal.classList.contains('hidden')) {
+            fitRisViewIframe();
+        }
     });
 })();
 </script>

@@ -38,9 +38,18 @@
             }
         },
         printLiq(id) {
-            document.querySelectorAll('.liq-print-sheet').forEach(function (s) { s.classList.remove('liq-print-active'); });
-            const sheet = document.getElementById(id === 'blank' ? 'liq-print-blank' : ('liq-print-' + id));
-            if (sheet) sheet.classList.add('liq-print-active');
+            const sheetId = id === 'blank' ? 'liq-print-blank' : ('liq-print-' + id);
+            if (window.purchaserPrintSheet) {
+                window.purchaserPrintSheet(sheetId, 'liq-print-active');
+                return;
+            }
+            const sheet = document.getElementById(sheetId);
+            if (sheet) {
+                document.querySelectorAll('.liq-print-sheet').forEach(function (s) {
+                    s.classList.remove('liq-print-active');
+                });
+                sheet.classList.add('liq-print-active');
+            }
             window.print();
         }
     }"
@@ -564,10 +573,8 @@
 <style>
 [x-cloak]{display:none!important}
 @media print {
-    body * { visibility: hidden !important; }
-    .liq-print-active, .liq-print-active * { visibility: visible !important; }
-    .liq-print-active { position:absolute!important; left:0; top:0; width:297mm!important; box-shadow:none!important; }
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: A4 landscape; margin: 8mm; }
+    .liq-print-active { background: #fff !important; }
 }
 </style>
 @endsection

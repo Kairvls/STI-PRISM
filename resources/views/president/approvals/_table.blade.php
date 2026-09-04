@@ -24,6 +24,8 @@
                             ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('M d, Y')
                             : ($ris->ris_created_at ? \Carbon\Carbon::parse($ris->ris_created_at)->format('M d, Y') : '—');
                         $sortDate = $ris->ris_approved_by_date ?: $ris->ris_created_at;
+                        $hasAdminForward = trim((string) ($ris->ris_forward_details ?? '')) !== ''
+                            || trim((string) ($ris->ris_forward_attachment_path ?? '')) !== '';
                     @endphp
                     <tr
                         class="queue-row queue-row-approved"
@@ -50,6 +52,11 @@
                                 <button type="button" class="icon-btn pin-btn" data-tip="Pin to top" aria-label="Pin to top" onclick="event.stopPropagation(); toggleRisPin({{ $ris->ris_id }})">
                                     <i data-lucide="pin" class="h-4 w-4"></i>
                                 </button>
+                                @if ($hasAdminForward)
+                                    <button type="button" class="icon-btn" data-tip="Admin supporting details" aria-label="Admin supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
+                                        <i data-lucide="message-square" class="h-4 w-4"></i>
+                                    </button>
+                                @endif
                                 <button type="button" class="icon-btn" data-tip="Review approved RIS" aria-label="Review approved RIS" onclick="event.stopPropagation(); openApprovedRisPreviewModal({{ $ris->ris_id }})">
                                     <i data-lucide="eye" class="h-4 w-4"></i>
                                 </button>
@@ -66,6 +73,8 @@
                         $submitted = $ris->ris_created_at
                             ? \Carbon\Carbon::parse($ris->ris_created_at)->format('M d, Y')
                             : '—';
+                        $hasAdminForward = trim((string) ($ris->ris_forward_details ?? '')) !== ''
+                            || trim((string) ($ris->ris_forward_attachment_path ?? '')) !== '';
                     @endphp
                     <tr
                         class="queue-row queue-row-pending"
@@ -89,6 +98,11 @@
                         </td>
                         <td class="col-actions">
                             <div class="row-actions">
+                                @if ($hasAdminForward)
+                                    <button type="button" class="icon-btn" data-tip="Admin supporting details" aria-label="Admin supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
+                                        <i data-lucide="message-square" class="h-4 w-4"></i>
+                                    </button>
+                                @endif
                                 <button type="button" class="icon-btn" data-tip="Review RIS" aria-label="Review RIS" onclick="event.stopPropagation(); openRisReviewModal({{ $ris->ris_id }})">
                                     <i data-lucide="eye" class="h-4 w-4"></i>
                                 </button>

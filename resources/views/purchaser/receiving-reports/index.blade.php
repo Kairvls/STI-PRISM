@@ -51,11 +51,18 @@
         },
 
         printRr(id) {
-            document.querySelectorAll('.rr-print-sheet').forEach(function (sheet) {
-                sheet.classList.remove('rr-print-active');
-            });
-            const sheet = document.getElementById('rr-print-' + id);
-            if (sheet) sheet.classList.add('rr-print-active');
+            const sheetId = 'rr-print-' + id;
+            if (window.purchaserPrintSheet) {
+                window.purchaserPrintSheet(sheetId, 'rr-print-active');
+                return;
+            }
+            const sheet = document.getElementById(sheetId);
+            if (sheet) {
+                document.querySelectorAll('.rr-print-sheet').forEach(function (el) {
+                    el.classList.remove('rr-print-active');
+                });
+                sheet.classList.add('rr-print-active');
+            }
             window.print();
         }
     }"
@@ -589,18 +596,8 @@
 <style>
     [x-cloak] { display: none !important; }
     @media print {
-        body * { visibility: hidden !important; }
-        .rr-print-active, .rr-print-active * { visibility: visible !important; }
-        .rr-print-active {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-        }
-        @page { size: A4 portrait; margin: 10mm; }
+        @page { size: A4 portrait; margin: 8mm; }
+        .rr-print-active { background: #fff !important; }
     }
 </style>
 @endsection

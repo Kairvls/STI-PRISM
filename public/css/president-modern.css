@@ -11,6 +11,8 @@
     --pm-primary-dark: #1D4ED8;
     --pm-primary-light: #EFF6FF;
     --pm-primary-soft: #F8FAFC;
+    --pm-btn-solid: #0025cc;
+    --pm-btn-solid-hover: #001db0;
     --pm-bg: #F8FAFC;
     --pm-card: #FFFFFF;
     --pm-text: #0F172A;
@@ -343,11 +345,11 @@
 }
 
 .pm-btn-primary {
-    background: #0f172a;
+    background: var(--pm-btn-solid);
     color: #ffffff;
 }
 .pm-btn-primary:hover {
-    background: #1e293b;
+    background: var(--pm-btn-solid-hover);
 }
 
 .pm-btn-amber {
@@ -359,19 +361,19 @@
 }
 
 .pm-btn-success {
-    background: #0f172a;
+    background: var(--pm-btn-solid);
     color: #ffffff;
 }
 .pm-btn-success:hover {
-    background: #1e293b;
+    background: var(--pm-btn-solid-hover);
 }
 
 .pm-btn-danger {
-    background: #334155;
+    background: #ef0000;
     color: #ffffff;
 }
 .pm-btn-danger:hover {
-    background: #1e293b;
+    background: #c40000;
 }
 
 .pm-btn-outline {
@@ -601,8 +603,8 @@
     transform: scale(0.92);
 }
 .pm-page-btn.active {
-    background: #0F172A;
-    border-color: #0F172A;
+    background: var(--pm-btn-solid);
+    border-color: var(--pm-btn-solid);
     color: #ffffff;
     font-weight: 600;
 }
@@ -1365,9 +1367,9 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     gap: 6px;
     height: 34px;
     padding: 0 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid transparent;
     border-radius: 10px;
-    background: #0f172a;
+    background: var(--pm-btn-solid);
     color: #fff;
     font-size: 0.75rem;
     font-weight: 500;
@@ -1375,7 +1377,7 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     transition: background .18s ease, transform .18s ease;
 }
 .pm-table-word-btn:hover {
-    background: #1e293b;
+    background: var(--pm-btn-solid-hover);
 }
 .pm-table-word-btn:active {
     transform: scale(0.96);
@@ -1383,4 +1385,20 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
 .pm-table-word-btn svg {
     width: 14px;
     height: 14px;
+}
+
+/* Black/slate solid buttons → brand blue across President panel */
+.pp-layout button.bg-slate-900,
+.pp-layout a.bg-slate-900,
+.pp-layout .inline-flex.bg-slate-900,
+.pp-layout span.bg-slate-900 {
+    background-color: var(--pm-btn-solid) !important;
+}
+.pp-layout button.bg-slate-900:hover,
+.pp-layout a.bg-slate-900:hover {
+    background-color: var(--pm-btn-solid-hover) !important;
+}
+.pp-layout button.hover\:bg-slate-800:hover,
+.pp-layout button.hover\:bg-gray-800:hover {
+    background-color: var(--pm-btn-solid-hover) !important;
 }

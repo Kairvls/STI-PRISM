@@ -193,6 +193,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'returnRisForRevision']
         )->name('digital-signatures.ris.return-revision');
 
+        Route::post(
+            '/digital-signatures/saved-signatures',
+            [AdminController::class, 'storeSavedSignature']
+        )->name('digital-signatures.saved-signatures.store');
+
+        Route::delete(
+            '/digital-signatures/saved-signatures/{signature}',
+            [AdminController::class, 'destroySavedSignature']
+        )->whereNumber('signature')->name('digital-signatures.saved-signatures.destroy');
+
         // ==========================================
         // NOTIFICATIONS
         // ==========================================
@@ -1603,6 +1613,16 @@ Route::middleware([
             [RisController::class, 'store']
         )->name('ris.store');
 
+        Route::post(
+            '/ris/saved-signatures',
+            [RisController::class, 'storeSavedSignature']
+        )->name('ris.saved-signatures.store');
+
+        Route::delete(
+            '/ris/saved-signatures/{signature}',
+            [RisController::class, 'destroySavedSignature']
+        )->whereNumber('signature')->name('ris.saved-signatures.destroy');
+
         // RIS: supporting attachment download
         // Keep this static route before /ris/{risId}
         Route::get(
@@ -2099,6 +2119,16 @@ Route::middleware([
             '/approvals/ris/decide',
             [PresidentController::class, 'decideRis']
         )->name('approvals.ris.decide');
+
+        Route::post(
+            '/approvals/saved-signatures',
+            [PresidentController::class, 'storeSavedSignature']
+        )->name('approvals.saved-signatures.store');
+
+        Route::delete(
+            '/approvals/saved-signatures/{signature}',
+            [PresidentController::class, 'destroySavedSignature']
+        )->whereNumber('signature')->name('approvals.saved-signatures.destroy');
 
         Route::post(
             '/approvals/procurement/decide',

@@ -35,6 +35,7 @@
         }
     </style>
     @stack('head')
+    @include('partials.ris-signature-overlay-styles')
 </head>
 <body>
     <div class="document-viewer-shell">

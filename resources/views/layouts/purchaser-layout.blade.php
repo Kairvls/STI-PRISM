@@ -27,4 +27,5 @@
 
 @push('scripts')
     @include('layouts.partials.purchaser-daily-reminder')
+    @include('partials.purchaser-print-sheet-helper')
 @endpush

@@ -212,7 +212,7 @@ class ReceivingReportFormExporter
         return response()->download($tmp, $filename)->deleteFileAfterSend(true);
     }
 
-    protected function d($value, string $format = 'M d, Y'): string
+    protected function d($value, string $format = 'd/m/Y'): string
     {
         return $this->formatDate($value, $format);
     }

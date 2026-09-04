@@ -142,7 +142,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('m/d/Y') : '' }}
+                        {{ $liq?->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -160,7 +160,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('m/d/Y') : '' }}
+                        {{ $liq?->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -176,7 +176,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('m/d/Y') : '' }}
+                        {{ $liq?->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('d/m/Y') : '' }}
                     </div>
                 </div>
             </div>

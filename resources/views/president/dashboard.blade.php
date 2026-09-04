@@ -343,13 +343,32 @@
 <script>
     window.printRisDocument = function (risId) {
         if (!risId) return;
-        const win = window.open('/president/ris/' + risId + '/print', '_blank', 'noopener,noreferrer,width=1200,height=860');
-        if (!win) return;
-        const triggerPrint = function () {
-            try { win.focus(); win.print(); } catch (e) {}
+        var url = '/president/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var iframe = document.getElementById('presidentRisPrintFrame');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'presidentRisPrintFrame';
+            iframe.setAttribute('title', 'Print RIS');
+            iframe.setAttribute('aria-hidden', 'true');
+            iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+            document.body.appendChild(iframe);
+        }
+
+        var printed = false;
+        var tryPrint = function () {
+            if (printed) return;
+            if (!iframe.contentWindow) return;
+            printed = true;
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) { /* ignore */ }
         };
-        win.onload = triggerPrint;
-        setTimeout(triggerPrint, 1200);
+
+        iframe.onload = function () {
+            setTimeout(tryPrint, 300);
+        };
+        iframe.src = url;
     };
 
     document.addEventListener('DOMContentLoaded', () => {

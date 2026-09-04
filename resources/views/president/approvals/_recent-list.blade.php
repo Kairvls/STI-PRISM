@@ -13,6 +13,21 @@
         <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</p>
             <p class="truncate text-xs text-gray-500">{{ Str::limit($ris->ris_purpose_description ?? '—', 42) }}</p>
+            @php $recentDocs = $ris->supportingDocuments ?? []; @endphp
+            @if (count($recentDocs) > 0)
+                <div class="mt-1 space-y-0.5">
+                    @foreach ($recentDocs as $file)
+                        <a
+                            href="{{ $file['url'] }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="block max-w-full truncate text-xs text-sky-600 hover:text-sky-700 hover:underline"
+                            title="{{ $file['name'] }}"
+                            onclick="event.stopPropagation()"
+                        >{{ $file['name'] }}</a>
+                    @endforeach
+                </div>
+            @endif
         </div>
         <span class="status-pill {{ $statusClass }}">{{ $displayStatus }}</span>
         <div class="row-actions">
