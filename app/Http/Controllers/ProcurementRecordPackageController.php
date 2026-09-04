@@ -523,6 +523,11 @@ class ProcurementRecordPackageController extends Controller
             $select[] = 'uom_table.uom_name';
         }
 
+        if (Schema::hasTable('brands_table') && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')) {
+            $query->leftJoin('brands_table', 'brands_table.brand_id', '=', 'requisition_issue_slip_items_table.ris_item_brand_id');
+            $select[] = 'brands_table.brand_name';
+        }
+
         if (Schema::hasTable('suppliers_table') && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
             $query
                 ->leftJoin('suppliers_table', 'suppliers_table.supplier_id', '=', 'requisition_issue_slip_items_table.ris_item_supplier_id')

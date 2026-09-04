@@ -18,40 +18,14 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            View every RIS form in the log, including incomplete or still-in-progress records.
+            Permanent log of RIS outcomes. Direct approvals stay under <strong>Admin Approved</strong> with reason, proof, and supporting documents.
         </p>
 
     </div>
 
 
     {{-- ===================================================== --}}
-    {{-- SUCCESS MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('success'))
-
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- ===================================================== --}}
-    {{-- ERROR MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('error'))
-
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ session('error') }}
-        </div>
-
-    @endif
-
-
-    {{-- ===================================================== --}}
-    {{-- SIGNATURE HISTORY CONTENT (STATS + TOGGLE + TABLE + PAGINATION) --}}
+    {{-- HISTORY CONTENT --}}
     {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
     {{-- ===================================================== --}}
 

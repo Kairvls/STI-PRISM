@@ -4,20 +4,6 @@
 
 @section ("content")
     <div>
-        <!-- SUCCESS MESSAGE -->
-        @if (session("success"))
-            <div
-                class="mb-6 rounded-2xl border border-green-500/20 bg-green-500/10 px-5 py-4 text-green-400"
-            >
-                {{
-                    session(
-                        "success",
-                    )
-                }}
-            </div>
-
-        @endif
-
         <!-- REPORT INFORMATION -->
         <div class="mb-8 rounded-3xl bg-[#1E293B] p-8">
             <div class="mb-6 flex items-center justify-between">

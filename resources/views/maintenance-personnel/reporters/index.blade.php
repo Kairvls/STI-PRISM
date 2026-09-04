@@ -2,39 +2,6 @@
 
 @section ("content")
 
-    @if ($errors->any())
-
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Please check the form',
-                    html: `
-                        <div class="text-left">
-                            <ul class="space-y-1 text-sm text-slate-600">
-                                @foreach ($errors->all() as $error)
-                                    <li>
-                                        • {{ $error }}
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    `,
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#0f172a',
-                    allowOutsideClick: false,
-                    customClass: {
-                        popup: 'rounded-2xl',
-                        confirmButton: 'rounded-xl px-5 py-2.5'
-                    }
-                });
-
-            });
-        </script>
-
-    @endif
-
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
@@ -456,52 +423,6 @@
         
 
     <div class="rounded-3xl border border-slate-100 bg-white shadow-sm">
-        @if (session('success'))
-
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: @js(session('success')),
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#0f172a',
-                        timer: 2500,
-                        timerProgressBar: true,
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-xl px-5 py-2.5'
-                        }
-                    });
-
-                });
-            </script>
-
-        @endif
-
-
-        @if (session('error'))
-
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Something went wrong',
-                        text: @js(session('error')),
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#0f172a',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-xl px-5 py-2.5'
-                        }
-                    });
-
-                });
-            </script>
-
-        @endif
 
         
 

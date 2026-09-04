@@ -171,7 +171,7 @@
             <span class="menu-icon-wrap">
                 <i data-lucide="clipboard-check"></i>
                 @if(($adminSidebarPendingRis ?? 0) > 0)
-                    <span class="menu-notif-dot" title="{{ $adminSidebarPendingRis }} pending RIS"></span>
+                    <span class="menu-notif-dot" title="{{ $adminSidebarPendingRis }} pending accept"></span>
                 @endif
             </span>
 
@@ -196,7 +196,7 @@
             <span class="menu-icon-wrap">
                 <i data-lucide="pen-tool"></i>
                 @if(($adminSidebarAwaitingCosign ?? 0) > 0)
-                    <span class="menu-notif-dot" title="{{ $adminSidebarAwaitingCosign }} awaiting signature"></span>
+                    <span class="menu-notif-dot" title="{{ $adminSidebarAwaitingCosign }} awaiting Sign RIS action"></span>
                 @endif
             </span>
 

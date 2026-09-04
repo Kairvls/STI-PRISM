@@ -8,40 +8,25 @@
 @php
     $isActive = (int) ($supplier->supplier_is_active ?? 1) === 1;
     $isBlacklisted = (int) ($supplier->supplier_is_blacklisted ?? 0) === 1;
-    $supplierName = $supplier->company_name ?? $supplier->shop_name ?? ('Supplier #' . $supplier->supplier_id);
+    $supplierName = $supplier->company_name ?? $supplier->shop_name ?? 'Unnamed Supplier';
+    $supplierCode = $supplier->supplier_code
+        ?: \App\Support\SupplierCode::generate(
+            (string) $supplier->supplier_store_type,
+            $supplierName,
+            $supplier->supplier_created_at
+        );
 @endphp
 
 <div class="space-y-6" x-data="{ trailTab: 'All' }">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
             <h2 class="pur-page-title">{{ $supplierName }}</h2>
-            <p class="pur-page-subtitle">Supplier #{{ $supplier->supplier_id }} · {{ $supplier->supplier_store_type }}</p>
+            <p class="pur-page-subtitle">{{ $supplierCode }} · {{ $supplier->supplier_store_type }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('purchaser.suppliers.edit', $supplier->supplier_id) }}" class="pur-btn-secondary">Edit</a>
             <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Back to suppliers</a>
         </div>
     </div>
-
-    @if(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {{ session('error') }}
-        </div>
-    @endif
-    @if($errors->any())
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <ul class="list-disc pl-5">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <div class="grid gap-6 lg:grid-cols-2">
         <section class="pur-card p-6">
@@ -93,11 +78,21 @@
                     </div>
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-slate-500">Contact number</dt>
-                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->contact_number ?? '—' }}</dd>
+                        <dd class="mt-1 text-sm text-slate-700">{{ \App\Support\PhoneNumber::formatForDisplay($supplier->contact_number) ?? '—' }}</dd>
                     </div>
+                    @if($supplier->supplier_store_type === 'Physical Store')
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Landline number</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ \App\Support\PhoneNumber::formatLandlineForDisplay($supplier->landline_number) ?? '—' }}</dd>
+                    </div>
+                    @endif
                     <div class="sm:col-span-2">
                         <dt class="text-xs uppercase tracking-wide text-slate-500">Company address</dt>
                         <dd class="mt-1 text-sm text-slate-700">{{ $supplier->company_address ?? '—' }}</dd>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Operating hours</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->operating_hours ?? '—' }}</dd>
                     </div>
                 @else
                     <div>
@@ -108,9 +103,35 @@
                         <dt class="text-xs uppercase tracking-wide text-slate-500">App used</dt>
                         <dd class="mt-1 text-sm text-slate-700">{{ $supplier->app_used ?? '—' }}</dd>
                     </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Contact person</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->contact_person ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Contact number</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ \App\Support\PhoneNumber::formatForDisplay($supplier->contact_number) ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Email address</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->email_address ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Store URL</dt>
+                        <dd class="mt-1 text-sm text-slate-700">
+                            @if(!empty($supplier->store_url))
+                                <a href="{{ $supplier->store_url }}" target="_blank" rel="noopener noreferrer" class="break-all text-blue-700 hover:underline">{{ $supplier->store_url }}</a>
+                            @else
+                                —
+                            @endif
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Seller / Store ID</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->seller_id ?? '—' }}</dd>
+                    </div>
                     <div class="sm:col-span-2">
-                        <dt class="text-xs uppercase tracking-wide text-slate-500">Order ID</dt>
-                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->order_id ?? '—' }}</dd>
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Operating hours</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->operating_hours ?? '—' }}</dd>
                     </div>
                 @endif
             </dl>
@@ -274,5 +295,4 @@
         @endif
     </section>
 </div>
-
 @endsection

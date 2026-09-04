@@ -1414,24 +1414,6 @@
                 });
             }
 
-            @if (session('success'))
-                paayoSwal({
-                    tone: 'success',
-                    title: 'Report logged',
-                    text: @json(session('success')),
-                    confirmText: 'OK',
-                    timer: 4000,
-                });
-            @endif
-
-            @if ($errors->any())
-                paayoSwal({
-                    tone: 'error',
-                    title: 'Please check the form',
-                    html: `{!! implode('<br>', array_map('e', $errors->all())) !!}`,
-                    confirmText: 'OK',
-                });
-            @endif
         });
     </script>
 @endsection

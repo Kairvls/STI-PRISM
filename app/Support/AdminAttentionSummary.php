@@ -42,8 +42,12 @@ class AdminAttentionSummary
                 ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
                 ->count();
 
-            // Match AdminController::applyRisAwaitingAdminActionScope
-            $awaitingCosign = (int) DB::table('requisition_issue_slip_table')
+            $acceptedForDecision = (int) (clone $base)
+                ->where('ris_status', 'Accepted')
+                ->count();
+
+            // Sign RIS workload: Accepted (decision) + President-approved awaiting Issued by
+            $awaitingIssuedBy = (int) DB::table('requisition_issue_slip_table')
                 ->where(function ($q) {
                     $q->where('ris_status', 'Approved by the President')
                         ->orWhere(function ($legacy) {
@@ -58,6 +62,8 @@ class AdminAttentionSummary
                         ->orWhere('ris_issued_by_signature', '');
                 })
                 ->count();
+
+            $awaitingCosign = $acceptedForDecision + $awaitingIssuedBy;
         }
 
         self::$cached = [

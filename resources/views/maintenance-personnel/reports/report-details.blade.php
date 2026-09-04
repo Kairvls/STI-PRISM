@@ -163,28 +163,6 @@
 
 
         {{-- ================================================= --}}
-        {{-- SUCCESS MESSAGE --}}
-        {{-- ================================================= --}}
-
-        @if (session("success"))
-
-            <div
-                class="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800"
-            >
-                <i
-                    data-lucide="circle-check"
-                    class="mt-0.5 h-4 w-4 shrink-0"
-                ></i>
-
-                <span>
-                    {{ session("success") }}
-                </span>
-            </div>
-
-        @endif
-
-
-        {{-- ================================================= --}}
         {{-- MAIN LAYOUT --}}
         {{-- ================================================= --}}
 

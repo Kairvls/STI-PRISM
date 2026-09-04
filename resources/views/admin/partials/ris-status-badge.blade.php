@@ -10,7 +10,11 @@
     if (in_array($risStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
         $risStatusLabel = 'Pending';
         $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
-        $risStatusTitle = 'This RIS is waiting for review';
+        $risStatusTitle = 'Waiting for Admin to accept this procurement request';
+    } elseif ($risStatus === 'Accepted') {
+        $risStatusLabel = 'Accepted';
+        $risStatusClass = 'border-violet-200 bg-violet-50 text-violet-700';
+        $risStatusTitle = 'Accepted — ready for Forward / Approve Directly / Return on Sign RIS';
     } elseif ($risStatus === 'Directly Approved') {
         $risStatusLabel = 'Admin Approved';
         $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';
@@ -43,7 +47,7 @@
 @endphp
 
 <span
-    class="inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-semibold {{ $risStatusClass }}"
+    class="inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $risStatusClass }}"
     title="{{ $risStatusTitle }}"
 >
     {{ $risStatusLabel }}

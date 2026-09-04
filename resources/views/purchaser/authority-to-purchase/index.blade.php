@@ -94,26 +94,6 @@
     {{-- FLASH MESSAGES --}}
     {{-- ========================================================= --}}
 
-    @if(session('success'))
-        <div class="pur-alert-success">{{ session('success') }}</div>
-    @endif
-
-    @if(session('error'))
-        <div class="pur-alert-error">{{ session('error') }}</div>
-    @endif
-
-    @if($errors->any())
-        <div class="pur-alert-error">
-            <p class="font-medium">Please check the following:</p>
-            <ul class="mt-2 list-disc space-y-1 pl-5">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="ATP list view">
             <a
@@ -358,20 +338,24 @@
                                 ])
                             </td>
                             <td class="px-5 py-4">
-                                <div class="flex flex-wrap justify-end gap-2">
+                                <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button
                                         type="button"
                                         @click="openView({{ $atp->authority_purchase_id }})"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="View"
+                                        aria-label="View"
                                     >
-                                        View
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
                                     </button>
                                     <button
                                         type="button"
                                         @click="printAtp({{ $atp->authority_purchase_id }})"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Print"
+                                        aria-label="Print"
                                     >
-                                        Print
+                                        <i data-lucide="printer" class="h-4 w-4"></i>
                                     </button>
 
                                     @if(
@@ -382,14 +366,21 @@
                                         <button
                                             type="button"
                                             @click="openEdit({{ $atp->authority_purchase_id }})"
-                                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            title="Edit"
+                                            aria-label="Edit"
                                         >
-                                            Edit
+                                            <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
                                         <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">
-                                                Submit
+                                            <button
+                                                type="submit"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                title="Submit"
+                                                aria-label="Submit"
+                                            >
+                                                <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
                                         </form>
                                     @endif
@@ -397,29 +388,45 @@
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
                                         @if(!$atp->has_rfc)
                                             @if(empty($atp->authority_purchase_payment_path))
-                                                <div class="flex flex-wrap gap-1">
+                                                <div class="flex flex-wrap gap-1.5">
                                                     <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
-                                                        <button type="submit" class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-800">Request for Check</button>
+                                                        <button
+                                                            type="submit"
+                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-800 transition hover:bg-blue-100"
+                                                            title="Request for Check"
+                                                            aria-label="Request for Check"
+                                                        >
+                                                            <i data-lucide="file-check-2" class="h-4 w-4"></i>
+                                                        </button>
                                                     </form>
                                                     <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
-                                                        <button type="submit" class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-800">Cash Advance</button>
+                                                        <button
+                                                            type="submit"
+                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
+                                                            title="Cash Advance"
+                                                            aria-label="Cash Advance"
+                                                        >
+                                                            <i data-lucide="banknote" class="h-4 w-4"></i>
+                                                        </button>
                                                     </form>
                                                 </div>
                                             @else
                                                 <a
                                                     href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
-                                                    class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                    title="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
+                                                    aria-label="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
                                                 >
-                                                    Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                                    <i data-lucide="file-plus-2" class="h-4 w-4"></i>
                                                 </a>
                                             @endif
                                         @else
-                                            <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                                                RFC Created
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RFC Created" aria-label="RFC Created">
+                                                <i data-lucide="circle-check" class="h-4 w-4"></i>
                                             </span>
                                         @endif
                                     @endif
@@ -427,15 +434,25 @@
                                     @if($archiveView)
                                         <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">
-                                                Restore
+                                            <button
+                                                type="submit"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                title="Restore"
+                                                aria-label="Restore"
+                                            >
+                                                <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
                                         </form>
                                     @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
                                         <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100">
-                                                Archive
+                                            <button
+                                                type="submit"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100"
+                                                title="Archive"
+                                                aria-label="Archive"
+                                            >
+                                                <i data-lucide="archive" class="h-4 w-4"></i>
                                             </button>
                                         </form>
                                     @endif

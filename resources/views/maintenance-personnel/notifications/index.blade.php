@@ -64,13 +64,6 @@
         </div>
     </header>
 
-    @if (session('success'))
-        <div class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800">
-            <i data-lucide="circle-check" class="mt-0.5 h-4 w-4 shrink-0"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    @endif
-
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
             <div class="flex items-start justify-between">

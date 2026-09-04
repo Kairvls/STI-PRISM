@@ -297,12 +297,6 @@
     }"
     x-init="$nextTick(() => bindSidebarLimits())"
 >
-    @if (session("success"))
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-            {{ session("success") }}
-        </div>
-    @endif
-
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]" x-show="!calendarFull">
         <div class="relative overflow-hidden rounded-2xl border border-stone-200/80 bg-[#f5f6f8] px-7 py-8 text-slate-900">
             <img

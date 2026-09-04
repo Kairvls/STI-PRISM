@@ -129,20 +129,7 @@
     @keydown.escape.window="closeAll()"
     class="space-y-6"
 >
-    @if(session('success'))
-        <div class="pur-alert-success">{{ session('success') }}</div>
-    @endif
     <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
-    @if(session('error'))
-        <div class="pur-alert-error">{{ session('error') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="pur-alert-error">
-            <p class="mb-1 font-medium">Please fix the following:</p>
-            <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-        </div>
-    @endif
-
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="RFC list view">
             <a
@@ -385,34 +372,34 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4">
-                                <div class="flex flex-wrap justify-end gap-2">
-                                    <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">View</button>
-                                    <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Print</button>
+                                <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                    <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
-                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Edit</button>
+                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         <form method="POST" action="{{ route('purchaser.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Submit</button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex items-center rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800">Create RR</a>
+                                            <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
-                                            <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">Waiting for funds</span>
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
-                                            <span class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">RR Created</span>
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RR Created" aria-label="RR Created"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                         @endif
                                     @endif
                                     @if($archiveView)
                                         <form method="POST" action="{{ route('purchaser.rfc.restore', $rfc->request_check_id) }}">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Restore</button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rfc->request_check_status, ['Approved', 'Rejected'], true))
                                         <form method="POST" action="{{ route('purchaser.rfc.archive', $rfc->request_check_id) }}" onsubmit="return confirm('Archive this Request for Check?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100">Archive</button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                 </div>

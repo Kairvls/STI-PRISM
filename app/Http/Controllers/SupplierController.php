@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SupplierRequest;
+use App\Support\PhoneNumber;
+use App\Support\SupplierCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +19,15 @@ class SupplierController extends Controller
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('suppliers_table.supplier_id', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('suppliers_table.supplier_code', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('suppliers_table.supplier_store_type', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('physical_suppliers_table.company_name', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('physical_suppliers_table.contact_person', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('online_suppliers_table.shop_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('online_suppliers_table.app_used', 'LIKE', '%' . $request->search . '%');
+                    ->orWhere('online_suppliers_table.contact_person', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('online_suppliers_table.contact_number', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('online_suppliers_table.app_used', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('online_suppliers_table.seller_id', 'LIKE', '%' . $request->search . '%');
             });
         }
 
@@ -216,6 +222,12 @@ class SupplierController extends Controller
         }
 
         return DB::transaction(function () use ($request, $id, $supplier) {
+            if (Schema::hasColumn('suppliers_table', 'operating_hours')) {
+                DB::table('suppliers_table')->where('supplier_id', $id)->update([
+                    'operating_hours' => $request->operating_hours ? trim($request->operating_hours) : null,
+                ]);
+            }
+
             // ADDED SUPPLIERS MODULE: keep existing parent supplier type, update only type-specific details.
             if ($supplier->supplier_store_type === 'Physical Store') {
                 DB::table('physical_suppliers_table')->updateOrInsert(
@@ -224,7 +236,8 @@ class SupplierController extends Controller
                         'company_name' => trim($request->company_name),
                         'contact_person' => $request->contact_person ? trim($request->contact_person) : null,
                         'email_address' => $request->email_address ? trim($request->email_address) : null,
-                        'contact_number' => $request->contact_number ? trim($request->contact_number) : null,
+                        'contact_number' => PhoneNumber::normalizeForStorage($request->contact_number),
+                        'landline_number' => PhoneNumber::normalizeLandlineForStorage($request->landline_number),
                         'company_address' => $request->company_address ? trim($request->company_address) : null,
                     ]
                 );
@@ -234,6 +247,11 @@ class SupplierController extends Controller
                     [
                         'app_used' => trim($request->app_used),
                         'shop_name' => trim($request->shop_name),
+                        'contact_person' => $request->contact_person ? trim($request->contact_person) : null,
+                        'email_address' => $request->email_address ? trim($request->email_address) : null,
+                        'contact_number' => PhoneNumber::normalizeForStorage($request->contact_number),
+                        'store_url' => $request->store_url ? trim($request->store_url) : null,
+                        'seller_id' => $request->seller_id ? trim($request->seller_id) : null,
                         'order_id' => $request->order_id ? trim($request->order_id) : null,
                     ]
                 );
@@ -279,26 +297,46 @@ class SupplierController extends Controller
             ->select(
                 'suppliers_table.*',
                 'physical_suppliers_table.company_name',
-                'physical_suppliers_table.contact_person',
-                'physical_suppliers_table.email_address',
-                'physical_suppliers_table.contact_number',
+                'physical_suppliers_table.landline_number',
                 'physical_suppliers_table.company_address',
                 'online_suppliers_table.app_used',
                 'online_suppliers_table.shop_name',
-                'online_suppliers_table.order_id'
+                'online_suppliers_table.store_url',
+                'online_suppliers_table.seller_id',
+                'online_suppliers_table.order_id',
+                DB::raw('COALESCE(physical_suppliers_table.contact_person, online_suppliers_table.contact_person) as contact_person'),
+                DB::raw('COALESCE(physical_suppliers_table.email_address, online_suppliers_table.email_address) as email_address'),
+                DB::raw('COALESCE(physical_suppliers_table.contact_number, online_suppliers_table.contact_number) as contact_number')
             );
     }
 
     private function createSupplier(SupplierRequest $request): int
     {
+        $createdAt = now();
+        $name = $request->supplier_store_type === 'Physical Store'
+            ? trim((string) $request->company_name)
+            : trim((string) $request->shop_name);
+
         $payload = [
             'supplier_store_type' => $request->supplier_store_type,
             'supplier_is_active' => 1,
-            'supplier_created_at' => now(),
+            'supplier_created_at' => $createdAt,
         ];
+
+        if (Schema::hasColumn('suppliers_table', 'operating_hours')) {
+            $payload['operating_hours'] = $request->operating_hours ? trim($request->operating_hours) : null;
+        }
 
         if (Schema::hasColumn('suppliers_table', 'supplier_is_blacklisted')) {
             $payload['supplier_is_blacklisted'] = 0;
+        }
+
+        if (Schema::hasColumn('suppliers_table', 'supplier_code')) {
+            $payload['supplier_code'] = $this->makeUniqueSupplierCode(
+                (string) $request->supplier_store_type,
+                $name,
+                $createdAt
+            );
         }
 
         $supplierId = DB::table('suppliers_table')->insertGetId($payload);
@@ -309,7 +347,8 @@ class SupplierController extends Controller
                 'company_name' => trim($request->company_name),
                 'contact_person' => $request->contact_person ? trim($request->contact_person) : null,
                 'email_address' => $request->email_address ? trim($request->email_address) : null,
-                'contact_number' => $request->contact_number ? trim($request->contact_number) : null,
+                'contact_number' => PhoneNumber::normalizeForStorage($request->contact_number),
+                'landline_number' => PhoneNumber::normalizeLandlineForStorage($request->landline_number),
                 'company_address' => $request->company_address ? trim($request->company_address) : null,
             ]);
         } else {
@@ -317,13 +356,33 @@ class SupplierController extends Controller
                 'supplier_id' => $supplierId,
                 'app_used' => trim($request->app_used),
                 'shop_name' => trim($request->shop_name),
+                'contact_person' => $request->contact_person ? trim($request->contact_person) : null,
+                'email_address' => $request->email_address ? trim($request->email_address) : null,
+                'contact_number' => PhoneNumber::normalizeForStorage($request->contact_number),
+                'store_url' => $request->store_url ? trim($request->store_url) : null,
+                'seller_id' => $request->seller_id ? trim($request->seller_id) : null,
                 'order_id' => $request->order_id ? trim($request->order_id) : null,
             ]);
         }
 
-        $this->writeSupplierAudit('Created supplier', $supplierId, 'Supplier #' . $supplierId . ' created.');
+        $code = $payload['supplier_code'] ?? ('#' . $supplierId);
+        $this->writeSupplierAudit('Created supplier', $supplierId, 'Supplier ' . $code . ' created.');
 
         return $supplierId;
+    }
+
+    private function makeUniqueSupplierCode(string $storeType, ?string $name, $createdAt): string
+    {
+        $base = SupplierCode::generate($storeType, $name, $createdAt);
+        $code = $base;
+        $n = 2;
+
+        while (DB::table('suppliers_table')->where('supplier_code', $code)->exists()) {
+            $code = $base . '-' . str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+            $n++;
+        }
+
+        return $code;
     }
 
     private function insertSupplierNote(int $supplierId, string $type, string $body): void

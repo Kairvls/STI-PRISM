@@ -117,12 +117,12 @@
                         <i data-lucide="bell-ringing"></i>
                     </div>
                     <div>
-                        <h3 class="hero-alert-title">{{ $pendingRis }} RIS {{ $pendingRis === 1 ? 'is' : 'are' }} pending your review</h3>
-                        <p class="hero-alert-desc">These Requisition Issue Slips need your decision — forward to President, admin approve, or return for amendment.</p>
+                        <h3 class="hero-alert-title">{{ $pendingRis }} RIS {{ $pendingRis === 1 ? 'is' : 'are' }} waiting for accept</h3>
+                        <p class="hero-alert-desc">Accept these purchaser submissions on Procurement Requests, then decide them on Sign RIS.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="hero-alert-btn">
-                    Review Now
+                    Accept Now
                     <i data-lucide="arrow-right" class="h-4 w-4"></i>
                 </a>
             </div>
@@ -154,12 +154,12 @@
                         <i data-lucide="signature"></i>
                     </div>
                     <div>
-                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your action</h3>
-                        <p class="hero-alert-desc">President-approved RIS waiting for your Issued by signature so they can return to the Purchaser.</p>
+                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} Sign RIS action</h3>
+                        <p class="hero-alert-desc">Accepted decisions or President-approved RIS waiting for Issued by.</p>
                     </div>
                 </div>
-                <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']) }}" class="hero-alert-btn hero-alert-btn-violet">
-                    Review Now
+                <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="hero-alert-btn hero-alert-btn-violet">
+                    Open Sign RIS
                     <i data-lucide="arrow-right" class="h-4 w-4"></i>
                 </a>
             </div>

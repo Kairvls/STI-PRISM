@@ -21,14 +21,16 @@ class RisFormExporter
     /** Usable table width in twips for A4 landscape with ~4mm page margins + form padding. */
     private const WORD_TABLE_WIDTH = 15200;
 
-    /** Column widths matching print CSS: 32 / 18 / 10 / 10 / 15 / 15. */
+    /** Column widths matching print CSS with BRAND: item / brand / unit / supplier / qty×2 / cost / amount. */
     private const WORD_COLS = [
-        'item' => 4864,
-        'supplier' => 2736,
-        'requested' => 1520,
-        'issued' => 1520,
-        'unit_cost' => 2280,
-        'amount' => 2280,
+        'item' => 3040,
+        'brand' => 1520,
+        'unit' => 1064,
+        'supplier' => 2128,
+        'requested' => 1368,
+        'issued' => 1368,
+        'unit_cost' => 2356,
+        'amount' => 2356,
     ];
 
     public static function blankData(): array
@@ -85,34 +87,36 @@ class RisFormExporter
             ->setLeft(0.16)
             ->setRight(0.16);
 
-        // Column widths (~print proportions)
-        $sheet->getColumnDimension('A')->setWidth(34);
-        $sheet->getColumnDimension('B')->setWidth(20);
-        $sheet->getColumnDimension('C')->setWidth(11);
-        $sheet->getColumnDimension('D')->setWidth(11);
-        $sheet->getColumnDimension('E')->setWidth(14);
-        $sheet->getColumnDimension('F')->setWidth(14);
+        // Column widths (~print proportions with brand)
+        $sheet->getColumnDimension('A')->setWidth(22);
+        $sheet->getColumnDimension('B')->setWidth(12);
+        $sheet->getColumnDimension('C')->setWidth(9);
+        $sheet->getColumnDimension('D')->setWidth(16);
+        $sheet->getColumnDimension('E')->setWidth(10);
+        $sheet->getColumnDimension('F')->setWidth(10);
+        $sheet->getColumnDimension('G')->setWidth(13);
+        $sheet->getColumnDimension('H')->setWidth(13);
 
         // Header
-        $sheet->mergeCells('A1:F1');
+        $sheet->mergeCells('A1:H1');
         $sheet->setCellValue('A1', 'STI COLLEGE - ORMOC, INC.');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setName('Arial')->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal($center)->setVertical($middle);
         $sheet->getRowDimension(1)->setRowHeight(22);
 
-        $sheet->mergeCells('A2:F2');
+        $sheet->mergeCells('A2:H2');
         $sheet->setCellValue('A2', 'REQUISITION AND ISSUE SLIP');
         $sheet->getStyle('A2')->getFont()->setBold(true)->setName('Arial')->setSize(11);
         $sheet->getStyle('A2')->getAlignment()->setHorizontal($center)->setVertical($middle);
         $sheet->getRowDimension(2)->setRowHeight(18);
 
-        $sheet->setCellValue('E3', 'No.');
-        $sheet->getStyle('E3')->getFont()->setBold(true)->setName('Arial')->setSize(10);
-        $sheet->getStyle('E3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_BOTTOM);
-        $sheet->setCellValue('F3', (string) ($ris->ris_form_number ?? ''));
-        $sheet->getStyle('F3')->getFont()->setName('Arial')->setSize(9);
-        $sheet->getStyle('F3')->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
-        $sheet->getStyle('F3')->applyFromArray($bottom);
+        $sheet->setCellValue('G3', 'No.');
+        $sheet->getStyle('G3')->getFont()->setBold(true)->setName('Arial')->setSize(10);
+        $sheet->getStyle('G3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_BOTTOM);
+        $sheet->setCellValue('H3', (string) ($ris->ris_form_number ?? ''));
+        $sheet->getStyle('H3')->getFont()->setName('Arial')->setSize(9);
+        $sheet->getStyle('H3')->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
+        $sheet->getStyle('H3')->applyFromArray($bottom);
         $sheet->getRowDimension(3)->setRowHeight(20);
         $sheet->getRowDimension(4)->setRowHeight(8);
 
@@ -120,19 +124,23 @@ class RisFormExporter
         $sheet->mergeCells('A5:A6');
         $sheet->setCellValue('A5', 'ITEM');
         $sheet->mergeCells('B5:B6');
-        $sheet->setCellValue('B5', 'SUPPLIER');
-        $sheet->mergeCells('C5:D5');
-        $sheet->setCellValue('C5', 'QUANTITY');
-        $sheet->setCellValue('C6', 'REQUESTED');
-        $sheet->setCellValue('D6', 'ISSUED');
-        $sheet->mergeCells('E5:E6');
-        $sheet->setCellValue('E5', 'UNIT COST');
-        $sheet->mergeCells('F5:F6');
-        $sheet->setCellValue('F5', 'AMOUNT');
+        $sheet->setCellValue('B5', 'BRAND');
+        $sheet->mergeCells('C5:C6');
+        $sheet->setCellValue('C5', 'UNIT');
+        $sheet->mergeCells('D5:D6');
+        $sheet->setCellValue('D5', 'SUPPLIER');
+        $sheet->mergeCells('E5:F5');
+        $sheet->setCellValue('E5', 'QUANTITY');
+        $sheet->setCellValue('E6', 'REQUESTED');
+        $sheet->setCellValue('F6', 'ISSUED');
+        $sheet->mergeCells('G5:G6');
+        $sheet->setCellValue('G5', 'UNIT COST');
+        $sheet->mergeCells('H5:H6');
+        $sheet->setCellValue('H5', 'AMOUNT');
 
-        $sheet->getStyle('A5:F6')->getFont()->setBold(true)->setName('Arial')->setSize(9);
-        $sheet->getStyle('A5:F6')->getAlignment()->setHorizontal($center)->setVertical($middle)->setWrapText(true);
-        $sheet->getStyle('A5:F6')->applyFromArray($borderAll);
+        $sheet->getStyle('A5:H6')->getFont()->setBold(true)->setName('Arial')->setSize(9);
+        $sheet->getStyle('A5:H6')->getAlignment()->setHorizontal($center)->setVertical($middle)->setWrapText(true);
+        $sheet->getStyle('A5:H6')->applyFromArray($borderAll);
         $sheet->getRowDimension(5)->setRowHeight(18);
         $sheet->getRowDimension(6)->setRowHeight(16);
 
@@ -143,26 +151,30 @@ class RisFormExporter
             $row = $rows[$i] ?? null;
 
             $sheet->setCellValue("A{$r}", $row['item'] ?? '');
-            $sheet->setCellValue("B{$r}", $row['supplier'] ?? '');
-            $sheet->setCellValue("C{$r}", $row['requested'] ?? '');
-            $sheet->setCellValue("D{$r}", $row['issued'] ?? '');
-            $sheet->setCellValue("E{$r}", $row['unit_cost'] ?? '');
-            $sheet->setCellValue("F{$r}", $row['amount'] ?? '');
+            $sheet->setCellValue("B{$r}", $row['brand'] ?? '');
+            $sheet->setCellValue("C{$r}", $row['unit'] ?? '');
+            $sheet->setCellValue("D{$r}", $row['supplier'] ?? '');
+            $sheet->setCellValue("E{$r}", $row['requested'] ?? '');
+            $sheet->setCellValue("F{$r}", $row['issued'] ?? '');
+            $sheet->setCellValue("G{$r}", $row['unit_cost'] ?? '');
+            $sheet->setCellValue("H{$r}", $row['amount'] ?? '');
 
             if (($row['unit_cost'] ?? '') !== '') {
-                $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->getStyle("G{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
             }
             if (($row['amount'] ?? '') !== '') {
-                $sheet->getStyle("F{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->getStyle("H{$r}")->getNumberFormat()->setFormatCode('#,##0.00');
             }
 
-            $sheet->getStyle("A{$r}:F{$r}")->applyFromArray($borderAll);
-            $sheet->getStyle("A{$r}:B{$r}")->getFont()->setName('Arial')->setSize(9);
-            $sheet->getStyle("C{$r}:D{$r}")->getFont()->setName('Arial')->setSize(9);
+            $sheet->getStyle("A{$r}:H{$r}")->applyFromArray($borderAll);
+            $sheet->getStyle("A{$r}:D{$r}")->getFont()->setName('Arial')->setSize(9);
             $sheet->getStyle("E{$r}:F{$r}")->getFont()->setName('Arial')->setSize(9);
-            $sheet->getStyle("A{$r}:B{$r}")->getAlignment()->setVertical($middle)->setWrapText(true);
-            $sheet->getStyle("C{$r}:D{$r}")->getAlignment()->setHorizontal($center)->setVertical($middle);
-            $sheet->getStyle("E{$r}:F{$r}")->getAlignment()->setHorizontal($right)->setVertical($middle);
+            $sheet->getStyle("G{$r}:H{$r}")->getFont()->setName('Arial')->setSize(9);
+            $sheet->getStyle("A{$r}")->getAlignment()->setVertical($middle)->setWrapText(true);
+            $sheet->getStyle("B{$r}:C{$r}")->getAlignment()->setHorizontal($center)->setVertical($middle);
+            $sheet->getStyle("D{$r}")->getAlignment()->setVertical($middle)->setWrapText(true);
+            $sheet->getStyle("E{$r}:F{$r}")->getAlignment()->setHorizontal($center)->setVertical($middle);
+            $sheet->getStyle("G{$r}:H{$r}")->getAlignment()->setHorizontal($right)->setVertical($middle);
             $sheet->getRowDimension($r)->setRowHeight(28);
         }
 
@@ -177,20 +189,20 @@ class RisFormExporter
         $purposeRow++;
 
         $sheet->setCellValue("A{$purposeRow}", '');
-        $sheet->mergeCells("B{$purposeRow}:F{$purposeRow}");
+        $sheet->mergeCells("B{$purposeRow}:H{$purposeRow}");
         $sheet->setCellValue("B{$purposeRow}", (string) ($ris->ris_purpose_description ?? ''));
         $sheet->getStyle("B{$purposeRow}")->getFont()->setName('Arial')->setSize(9);
         $sheet->getStyle("B{$purposeRow}")->getAlignment()->setVertical(Alignment::VERTICAL_BOTTOM)->setWrapText(true);
-        $sheet->getStyle("B{$purposeRow}:F{$purposeRow}")->applyFromArray($bottom);
+        $sheet->getStyle("B{$purposeRow}:H{$purposeRow}")->applyFromArray($bottom);
         $sheet->getRowDimension($purposeRow)->setRowHeight(24);
         $purposeRow += 2;
 
-        // Signatures — 4 balanced blocks across A–F
+        // Signatures — 4 balanced blocks across A–H
         $sigCols = [
-            ['A', 'A'],
-            ['B', 'C'],
-            ['D', 'D'],
+            ['A', 'B'],
+            ['C', 'D'],
             ['E', 'F'],
+            ['G', 'H'],
         ];
         $sigs = [
             ['Requested by:', $this->plainName($ris->ris_requested_by_signature ?? ''), $ris->ris_requested_by_date ?? null],
@@ -235,8 +247,8 @@ class RisFormExporter
         $sheet->getRowDimension($dateLabelRow)->setRowHeight(16);
         $sheet->getRowDimension($dateLineRow)->setRowHeight(22);
 
-        $sheet->getStyle('A1:F'.$dateLineRow)->getFont()->setName('Arial');
-        $sheet->getPageSetup()->setPrintArea('A1:F'.$dateLineRow);
+        $sheet->getStyle('A1:H'.$dateLineRow)->getFont()->setName('Arial');
+        $sheet->getPageSetup()->setPrintArea('A1:H'.$dateLineRow);
         $sheet->getPageSetup()->setHorizontalCentered(true);
 
         $filename = ($ris->ris_form_number ?: 'blank-ris') . '.xlsx';
@@ -340,6 +352,8 @@ class RisFormExporter
 
         $table->addRow(Converter::cmToTwip(0.55));
         $table->addCell($cols['item'], array_merge($cellCenter, ['vMerge' => 'restart']))->addText('ITEM', $h, $c);
+        $table->addCell($cols['brand'], array_merge($cellCenter, ['vMerge' => 'restart']))->addText('BRAND', $h, $c);
+        $table->addCell($cols['unit'], array_merge($cellCenter, ['vMerge' => 'restart']))->addText('UNIT', $h, $c);
         $table->addCell($cols['supplier'], array_merge($cellCenter, ['vMerge' => 'restart']))->addText('SUPPLIER', $h, $c);
         $table->addCell($cols['requested'] + $cols['issued'], array_merge($cellCenter, ['gridSpan' => 2]))->addText('QUANTITY', $h, $c);
         $table->addCell($cols['unit_cost'], array_merge($cellCenter, ['vMerge' => 'restart']))->addText('UNIT COST', $h, $c);
@@ -347,6 +361,8 @@ class RisFormExporter
 
         $table->addRow(Converter::cmToTwip(0.45));
         $table->addCell($cols['item'], ['vMerge' => 'continue']);
+        $table->addCell($cols['brand'], ['vMerge' => 'continue']);
+        $table->addCell($cols['unit'], ['vMerge' => 'continue']);
         $table->addCell($cols['supplier'], ['vMerge' => 'continue']);
         $table->addCell($cols['requested'], $cellCenter)->addText('REQUESTED', ['bold' => true, 'size' => 7], $c);
         $table->addCell($cols['issued'], $cellCenter)->addText('ISSUED', ['bold' => true, 'size' => 7], $c);
@@ -357,6 +373,8 @@ class RisFormExporter
             $row = $rows[$i] ?? null;
             $table->addRow(Converter::cmToTwip(1.05));
             $table->addCell($cols['item'], $cellCenter)->addText((string) ($row['item'] ?? ''), $body);
+            $table->addCell($cols['brand'], $cellCenter)->addText((string) ($row['brand'] ?? ''), $body, $c);
+            $table->addCell($cols['unit'], $cellCenter)->addText((string) ($row['unit'] ?? ''), $body, $c);
             $table->addCell($cols['supplier'], $cellCenter)->addText((string) ($row['supplier'] ?? ''), $body);
             $table->addCell($cols['requested'], $cellCenter)->addText($this->cellText($row['requested'] ?? ''), $body, $c);
             $table->addCell($cols['issued'], $cellCenter)->addText($this->cellText($row['issued'] ?? ''), $body, $c);
@@ -447,7 +465,7 @@ class RisFormExporter
      * Normalize up to 8 print rows from RIS items.
      *
      * @param  \Illuminate\Support\Collection  $items
-     * @return array<int, array{item:string,supplier:string,requested:int|float|string|null,issued:int|float|string|null,unit_cost:float|string|null,amount:float|string|null}>
+     * @return array<int, array{item:string,brand:string,unit:string,supplier:string,requested:int|float|string|null,issued:int|float|string|null,unit_cost:float|string|null,amount:float|string|null}>
      */
     protected function normalizedItemRows($items): array
     {
@@ -455,10 +473,8 @@ class RisFormExporter
 
         foreach ($items->take(8) as $item) {
             $name = trim((string) ($item->ris_item_name_description ?? ''));
+            $brand = trim((string) ($item->brand_name ?? ''));
             $uom = trim((string) ($item->uom_name ?? ''));
-            if ($name !== '' && $uom !== '') {
-                $name .= ' ('.$uom.')';
-            }
 
             $unitCost = $item->ris_unit_cost ?? null;
             $amount = $item->ris_total_amount ?? null;
@@ -468,6 +484,8 @@ class RisFormExporter
 
             $rows[] = [
                 'item' => $name,
+                'brand' => $brand,
+                'unit' => $uom,
                 'supplier' => (string) ($item->supplier_display_name ?? ''),
                 'requested' => $item->ris_quantity_requested ?? null,
                 'issued' => $item->ris_quantity_issued ?? null,

@@ -15,16 +15,6 @@
     }"
     class="space-y-6"
 >
-    @if(session('success'))
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ $errors->first() }}</div>
-    @endif
-
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Request for Check Approval</h1>
         <p class="mt-1 text-sm text-gray-600">Sign as Administrator after Accounting has verified the request.</p>

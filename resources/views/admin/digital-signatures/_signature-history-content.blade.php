@@ -26,7 +26,7 @@
                 'label' => 'Admin Approved',
                 'count' => $directApprovedCount ?? 0,
                 'color' => 'text-sky-600',
-                'title' => 'Show RIS forms approved directly by Admin',
+                'title' => 'Permanent admin record of RIS forms approved directly (with reason and proof)',
             ],
             [
                 'filter' => 'president_approved',

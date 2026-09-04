@@ -95,7 +95,12 @@
 
                     <div>
                         <label class="mb-1.5 block text-xs font-semibold text-slate-600" for="user_contact_number">Contact number</label>
-                        <input id="user_contact_number" name="user_contact_number" type="text" value="{{ old('user_contact_number', $user->user_contact_number) }}" class="acc-search w-full max-w-none">
+                        @include('partials.phone-input', [
+                            'name' => 'user_contact_number',
+                            'value' => old('user_contact_number', $user->user_contact_number),
+                            'id' => 'accounting-user-contact-number',
+                            'inputClass' => 'acc-search w-full max-w-none',
+                        ])
                         @error('user_contact_number') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
 

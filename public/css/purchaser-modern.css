@@ -1,7 +1,7 @@
-/* Purchaser modules — STI yellow tokens (scoped to .pur-* only) */
+/* Purchaser modules — primary action tokens (scoped to .pur-* only; sidebar keeps its own yellow) */
 :root {
-    --pur-primary: #fff200;
-    --pur-primary-hover: #e6dc00;
+    --pur-primary: #0025cc;
+    --pur-primary-hover: #001fa8;
     --pur-ink: #0f172a;
     --pur-muted: #64748b;
     --pur-border: #e2e8f0;
@@ -66,12 +66,14 @@
 
 .pur-btn-primary {
     background: var(--pur-primary);
-    color: var(--pur-ink);
-    border: 1px solid #e8de00;
+    color: #ffffff;
+    border: 1px solid #0025cc;
 }
 
 .pur-btn-primary:hover {
     background: var(--pur-primary-hover);
+    border-color: var(--pur-primary-hover);
+    color: #ffffff;
 }
 
 .pur-btn-secondary {
@@ -147,7 +149,7 @@
 }
 
 .pur-table tbody tr:hover {
-    background: rgba(255, 242, 0, 0.08);
+    background: rgba(0, 37, 204, 0.04);
 }
 
 .pur-table tbody tr:last-child td {
@@ -203,8 +205,8 @@
 
 .pur-filter-chip.is-active {
     background: var(--pur-primary);
-    border-color: #e8de00;
-    color: var(--pur-ink);
+    border-color: #0025cc;
+    color: #ffffff;
 }
 
 .pur-empty {
@@ -339,8 +341,8 @@
 }
 
 .pur-tab.is-active {
-    color: #0f172a;
+    color: #ffffff;
     font-weight: 700;
-    background: #fff200;
+    background: #0025cc;
     border-bottom-color: transparent;
 }

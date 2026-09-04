@@ -22,10 +22,11 @@
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
         .ris-table th { text-align: center; font-weight: 700; }
-        .item-col { width: 40%; }
+        .item-col { width: 26%; }
+        .unit-col { width: 8%; }
         .qty-col { width: 10%; }
-        .cost-col { width: 10%; }
-        .amount-col { width: 30%; }
+        .cost-col { width: 13%; }
+        .amount-col { width: 15%; }
         .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
@@ -66,13 +67,18 @@
 
         html.screen-preview,
         html.screen-preview body {
-            overflow: auto;
+            margin: 0;
+            padding: 0;
+            height: auto;
+            min-height: 0;
+            overflow: hidden;
             background: #fff;
         }
         html.screen-preview .ris-document {
             width: 11in;
             min-height: 0;
-            padding: 0.12in 0.28in 0.22in;
+            height: auto;
+            padding: 0.12in 0.28in 0.1in;
         }
         html.screen-preview .header {
             margin-top: 6px;

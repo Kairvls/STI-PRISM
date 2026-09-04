@@ -11,7 +11,7 @@
     {{-- ===================================================== --}}
 
     @php
-        $filter = $filter ?? 'for_cosign';
+        $filter = $filter ?? 'pending';
         $search = $search ?? '';
         $signRisCards = [
             [
@@ -20,15 +20,31 @@
                 'count' => $allCount ?? ($signableRisRecords->total() ?? 0),
                 'amount' => $allAmount ?? 0,
                 'color' => 'text-slate-900',
-                'title' => 'Show all President-decision RIS records',
+                'title' => 'Show all Sign RIS records',
+            ],
+            [
+                'filter' => 'pending',
+                'label' => 'Pending',
+                'count' => $pendingActionCount ?? (($forDecisionCount ?? 0) + ($forCosignCount ?? 0)),
+                'amount' => $pendingActionAmount ?? 0,
+                'color' => 'text-sky-600',
+                'title' => 'Accepted decisions plus Issued by awaiting signature',
+            ],
+            [
+                'filter' => 'for_decision',
+                'label' => 'For Decision',
+                'count' => $forDecisionCount ?? 0,
+                'amount' => $forDecisionAmount ?? 0,
+                'color' => 'text-violet-600',
+                'title' => 'Accepted RIS ready to Forward, Approve Directly, or Return',
             ],
             [
                 'filter' => 'for_cosign',
-                'label' => 'Pending',
+                'label' => 'Awaiting Issued by',
                 'count' => $forCosignCount ?? 0,
                 'amount' => $forCosignAmount ?? 0,
-                'color' => 'text-sky-600',
-                'title' => 'Show RIS records awaiting your Issued by signature',
+                'color' => 'text-amber-600',
+                'title' => 'President-approved RIS awaiting Issued by',
             ],
             [
                 'filter' => 'cosigned',
@@ -36,7 +52,7 @@
                 'count' => $cosignedCount ?? 0,
                 'amount' => $cosignedAmount ?? 0,
                 'color' => 'text-blue-600',
-                'title' => 'Show RIS records you signed after the President approved',
+                'title' => 'RIS you signed after the President approved',
             ],
             [
                 'filter' => 'president_rejected',
@@ -44,7 +60,7 @@
                 'count' => $presidentRejectedCount ?? 0,
                 'amount' => $presidentRejectedAmount ?? 0,
                 'color' => 'text-amber-700',
-                'title' => 'Show RIS records rejected by the President',
+                'title' => 'President-rejected RIS that can be returned for revision',
             ],
         ];
     @endphp
@@ -54,7 +70,7 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         @foreach ($signRisCards as $card)
             <button
                 type="button"
@@ -108,11 +124,11 @@
                     <div>
 
                         <h2 class="text-sm font-semibold text-gray-900">
-                            President-Returned RIS
+                            Sign RIS
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            Return President-approved RIS to the Purchaser. Rejections are logged and do not need admin action.
+                            Forward to President, approve directly, return for revision, or sign Issued by after the President approves.
                         </p>
 
                     </div>

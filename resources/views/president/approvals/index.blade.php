@@ -84,6 +84,11 @@
                 <iframe id="risReviewIframe" title="RIS document" scrolling="no" src="about:blank"></iframe>
             </div>
         </div>
+        <div id="reviewAdminForward" class="review-attachments hidden">
+            <p class="review-attachments-label">Admin supporting details</p>
+            <p id="reviewForwardDetails" class="review-forward-details hidden"></p>
+            <div id="reviewForwardAttachmentList" class="review-attachments-list"></div>
+        </div>
         <div id="reviewAttachments" class="review-attachments hidden">
             <p class="review-attachments-label">Supporting documents</p>
             <div id="reviewAttachmentsList" class="review-attachments-list"></div>
@@ -442,6 +447,39 @@
                         list.appendChild(link);
                     });
                     box.classList.toggle('hidden', files.length === 0);
+                }
+
+                const adminBox = document.getElementById('reviewAdminForward');
+                const detailsEl = document.getElementById('reviewForwardDetails');
+                const adminList = document.getElementById('reviewForwardAttachmentList');
+                if (adminBox && detailsEl && adminList) {
+                    adminList.innerHTML = '';
+                    const details = (data.forward_details || '').trim();
+                    const adminFile = data.forward_attachment || null;
+                    let hasAdminInfo = false;
+
+                    if (details) {
+                        detailsEl.textContent = details;
+                        detailsEl.classList.remove('hidden');
+                        hasAdminInfo = true;
+                    } else {
+                        detailsEl.textContent = '';
+                        detailsEl.classList.add('hidden');
+                    }
+
+                    if (adminFile && adminFile.url) {
+                        const link = document.createElement('a');
+                        link.href = adminFile.url;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.className = 'review-attachment-link';
+                        link.textContent = adminFile.name || 'Admin attachment';
+                        link.setAttribute('data-tip', 'Open admin attachment');
+                        adminList.appendChild(link);
+                        hasAdminInfo = true;
+                    }
+
+                    adminBox.classList.toggle('hidden', !hasAdminInfo);
                 }
             }).catch(() => {});
     };

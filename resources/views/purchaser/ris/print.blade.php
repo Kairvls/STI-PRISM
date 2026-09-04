@@ -22,10 +22,12 @@
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
         .ris-table th { text-align: center; font-weight: 700; }
-        .item-col { width: 40%; }
-        .qty-col { width: 10%; }
-        .cost-col { width: 10%; }
-        .amount-col { width: 30%; }
+        .item-col { width: 20%; }
+        .brand-col { width: 10%; }
+        .unit-col { width: 7%; }
+        .qty-col { width: 9%; }
+        .cost-col { width: 12%; }
+        .amount-col { width: 14%; }
         .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
@@ -82,6 +84,8 @@
             <thead>
                 <tr>
                     <th rowspan="2" class="item-col">ITEM</th>
+                    <th rowspan="2" class="brand-col">BRAND</th>
+                    <th rowspan="2" class="unit-col">UNIT</th>
                     <th rowspan="2">SUPPLIER</th>
                     <th colspan="2">QUANTITY</th>
                     <th rowspan="2" class="cost-col">UNIT COST</th>
@@ -96,10 +100,9 @@
                 @for($row = 0; $row < 10; $row++)
                     @php($item = $risItems[$row] ?? null)
                     <tr>
-                        <td>
-                            {{ $item?->ris_item_name_description ?? '' }}
-                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
-                        </td>
+                        <td>{{ $item?->ris_item_name_description ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->brand_name ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->uom_name ?? '' }}</td>
                         <td>{{ $item?->supplier_display_name ?? '' }}</td>
                         <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
                         <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
@@ -122,13 +125,16 @@
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date }}</div></div>
             </div>
 <div class="signature-box">
-                <p>Approved by:</p>
+                <p>{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by:' : 'Approved by:' }}</p>
                 <div class="signature-line"></div>
                 <div class="signature-name-wrapper">
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
-                        <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
-                        <div class="signature-position">President</div>
-                        <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
+                        <div class="signature-name">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : ($presidentName ?? 'President') }}</div>
+                        <div class="signature-position">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : 'President' }}</div>
+                        <img src="{{ $ris->ris_approved_by_signature }}" alt="{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by' : 'Approved by' }} signature" class="signature-image" />
+                    @elseif (!empty(trim((string) ($ris->ris_approved_by_signature ?? ''))))
+                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
+                        <div class="signature-position">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Admin' : 'President' }}</div>
                     @else
                         <div class="signature-name" style="color:#94a3b8;">—</div>
                     @endif

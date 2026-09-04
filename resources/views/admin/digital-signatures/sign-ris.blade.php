@@ -18,40 +18,14 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            Review President-approved RIS and sign Issued by to return them to the Purchaser.
+            Forward to President, approve directly, return for revision, or sign Issued by after President approval.
         </p>
 
     </div>
 
 
     {{-- ===================================================== --}}
-    {{-- SUCCESS MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('success'))
-
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- ===================================================== --}}
-    {{-- ERROR MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('error'))
-
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ session('error') }}
-        </div>
-
-    @endif
-
-
-    {{-- ===================================================== --}}
-    {{-- SIGN RIS CONTENT (STATS + FILTERS + TABLE + PAGINATION) --}}
+    {{-- SIGN RIS CONTENT --}}
     {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
     {{-- ===================================================== --}}
 
@@ -95,7 +69,7 @@
 
     let signRisSearchTimer = null;
     let signRisFilterFetchTimer = null;
-    let currentFilter = '{{ $filter ?? 'for_cosign' }}';
+    let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
 
 
@@ -107,7 +81,7 @@
 
         const params = new URLSearchParams();
 
-        params.set('filter', filter || 'for_cosign');
+        params.set('filter', filter || 'pending');
 
         if (search) {
             params.set('search', search);
@@ -493,6 +467,82 @@
 
         }
     );
+
+
+    window.risActionMenu = function () {
+        return {
+            open: false,
+            _onScroll: null,
+            init() {
+                this._onScroll = () => {
+                    if (this.open) {
+                        this.open = false;
+                    }
+                };
+                window.addEventListener('scroll', this._onScroll, true);
+                window.addEventListener('resize', this._onScroll);
+            },
+            destroy() {
+                if (this._onScroll) {
+                    window.removeEventListener('scroll', this._onScroll, true);
+                    window.removeEventListener('resize', this._onScroll);
+                }
+            },
+            toggle() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.$nextTick(() => {
+                        this.place();
+                        requestAnimationFrame(() => this.place());
+                    });
+                }
+            },
+            runAction(fn) {
+                this.open = false;
+                if (typeof fn === 'function') {
+                    fn();
+                }
+            },
+            onOutside(event) {
+                if (this.$refs.trigger && this.$refs.trigger.contains(event.target)) {
+                    return;
+                }
+                this.open = false;
+            },
+            place() {
+                const trigger = this.$refs.trigger;
+                const menu = this.$refs.menu;
+                if (!trigger || !menu) {
+                    return;
+                }
+
+                menu.style.top = '0px';
+                menu.style.left = '0px';
+
+                const rect = trigger.getBoundingClientRect();
+                const menuHeight = menu.offsetHeight || 148;
+                const menuWidth = menu.offsetWidth || 224;
+                const gap = 6;
+
+                const spaceBelow = window.innerHeight - rect.bottom - 8;
+                const spaceAbove = rect.top - 8;
+                const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+                let top = openUp
+                    ? rect.top - menuHeight - gap
+                    : rect.bottom + gap;
+                let left = rect.right - menuWidth;
+
+                top = Math.min(Math.max(8, top), window.innerHeight - menuHeight - 8);
+                left = Math.min(Math.max(8, left), window.innerWidth - menuWidth - 8);
+
+                menu.style.top = top + 'px';
+                menu.style.left = left + 'px';
+                menu.style.right = 'auto';
+                menu.style.bottom = 'auto';
+            },
+        };
+    };
 
 
     window.openCoSignModal = function(risId) {

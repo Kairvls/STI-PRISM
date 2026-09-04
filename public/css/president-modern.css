@@ -1217,6 +1217,13 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     text-transform: uppercase;
     color: #64748b;
 }
+.review-forward-details {
+    margin: 6px 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: #334155;
+    white-space: pre-wrap;
+}
 .review-attachments-list {
     margin-top: 6px;
     display: flex;
@@ -1225,7 +1232,7 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
 }
 .review-attachment-link {
     font-size: 0.8125rem;
-    color: #2563eb;
+    color: #0284c7;
     text-decoration: none;
 }
 .review-attachment-link:hover { text-decoration: underline; }

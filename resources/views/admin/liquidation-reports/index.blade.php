@@ -1,8 +1,6 @@
 @extends('layouts.admin-layout')
 @section('content')
 <div x-data="{ viewOpen:false, selectedLiq:null, reviseOpen:false, rejectOpen:false, remarksId:null }" class="space-y-6">
-    @if(session('success'))<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
-    @if(session('error'))<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
     <div>
         <h1 class="text-2xl font-bold">Liquidation Report Approval</h1>
         <p class="text-sm text-gray-600">Endorse and recommend approval after Accounting has checked the report.</p>

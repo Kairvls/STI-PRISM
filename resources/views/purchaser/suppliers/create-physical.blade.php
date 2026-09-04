@@ -27,13 +27,24 @@
 
         <div>
             <label class="text-xs font-medium text-gray-500">Contact Number</label>
-            <input type="text" name="contact_number" class="pur-input mt-1">
+            @include('partials.phone-input', [
+                'name' => 'contact_number',
+                'value' => old('contact_number'),
+                'id' => 'create-physical-contact-number',
+                'placeholder' => '9XX XXX XXXX',
+                'inputClass' => 'phone-input--pur pur-input mt-1',
+            ])
         </div>
 
-        <div>
-            <label class="text-xs font-medium text-gray-500">Company Address</label>
-            <textarea name="company_address" rows="4" class="pur-input mt-1"></textarea>
-        </div>
+            <div>
+                <label class="text-xs font-medium text-gray-500">Company Address</label>
+                <textarea name="company_address" rows="4" class="pur-input mt-1"></textarea>
+            </div>
+
+            <div>
+                <label class="text-xs font-medium text-gray-500">Operating Hours</label>
+                <input type="text" name="operating_hours" value="{{ old('operating_hours') }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="255" class="pur-input mt-1">
+            </div>
 
         <div class="flex justify-end gap-2">
             <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>

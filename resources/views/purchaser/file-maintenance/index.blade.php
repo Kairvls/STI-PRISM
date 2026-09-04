@@ -15,22 +15,6 @@
 
 @section('content')
 
-    @if(session('success'))
-        <div class="pur-alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="pur-alert-error">{{ session('error') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="pur-alert-error">
-            <ul class="list-disc space-y-1 pl-5">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     @if($tab === 'brands')
         @include('purchaser.file-maintenance.partials.brands')
     @elseif($tab === 'uom')

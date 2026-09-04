@@ -17,10 +17,12 @@
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
         .ris-table th { text-align: center; font-weight: 700; }
-        .item-col { width: 40%; }
-        .qty-col { width: 10%; }
-        .cost-col { width: 10%; }
-        .amount-col { width: 30%; }
+        .item-col { width: 20%; }
+        .brand-col { width: 10%; }
+        .unit-col { width: 7%; }
+        .qty-col { width: 9%; }
+        .cost-col { width: 12%; }
+        .amount-col { width: 14%; }
         .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }

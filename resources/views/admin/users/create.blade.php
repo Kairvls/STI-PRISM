@@ -50,10 +50,12 @@
 
         <div>
             <label>Contact Number</label>
-
-            <input type="text"
-                name="contact_number"
-                class="w-full border p-2 rounded">
+            @include('partials.phone-input', [
+                'name' => 'contact_number',
+                'value' => old('contact_number'),
+                'id' => 'admin-create-user-contact-number',
+                'inputClass' => 'w-full border p-2 rounded',
+            ])
         </div>
 
         <div>

@@ -910,6 +910,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @include('layouts.partials.flash-swal')
 
     <script>
 

@@ -12,6 +12,7 @@
     for ($i = 0; $i < 8; $i++) {
         $createItemsInit[] = [
             'name_description' => $oldRisItems[$i]['name_description'] ?? '',
+            'brand_id' => (string) ($oldRisItems[$i]['brand_id'] ?? ''),
             'supplier_id' => (string) ($oldRisItems[$i]['supplier_id'] ?? ''),
             'uom_id' => (string) ($oldRisItems[$i]['uom_id'] ?? ''),
             'quantity_requested' => $oldRisItems[$i]['quantity_requested'] ?? '',
@@ -55,11 +56,26 @@
     x-data="{
         ...JSON.parse(document.getElementById('ris-page-boot').textContent),
         editRisModal: null,
+        submitRisConfirm: null,
+        submitRisSending: false,
         closeEditRis(risId, returnToView = true) {
             this.editRisModal = null;
             if (returnToView) {
                 this.openModal = 'ris-' + risId;
             }
+        },
+        openSubmitRis(id, number, action) {
+            this.submitRisSending = false;
+            this.submitRisConfirm = { id, number, action };
+            this.$nextTick(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            });
+        },
+        closeSubmitRis() {
+            if (this.submitRisSending) return;
+            this.submitRisConfirm = null;
         },
         createRisFullscreen: false,
         createAttachmentName: '',
@@ -140,12 +156,17 @@
         },
         copySplitUom(items, index) {
             const info = this.risSplitInfo(items, index);
-            if (!info || !info.isDuplicate || items[index].uom_id) return;
+            if (!info || !info.isDuplicate) return;
 
             const key = this.risItemKey(items[index].name_description);
             const first = items.find((item) => this.risItemKey(item.name_description) === key);
-            if (first?.uom_id) {
+            if (!first) return;
+
+            if (!items[index].uom_id && first.uom_id) {
                 items[index].uom_id = first.uom_id;
+            }
+            if (!items[index].brand_id && first.brand_id) {
+                items[index].brand_id = first.brand_id;
             }
         },
         formatDateInput(event) {
@@ -266,17 +287,6 @@
     @if(!empty($replacementSourceError))
         <div class="pur-alert-error">
             {{ $replacementSourceError }}
-        </div>
-    @endif
-
-    @if($errors->any())
-        <div class="pur-alert-error">
-            <p class="font-medium">Please fix the following RIS form errors:</p>
-            <ul class="mt-2 list-disc space-y-1 pl-5">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
         </div>
     @endif
 
@@ -466,6 +476,22 @@
                                         ITEM
                                     </th>
 
+                                    {{-- BRAND --}}
+                                    <th
+                                        rowspan="2"
+                                        class="ris-brand-column"
+                                    >
+                                        BRAND
+                                    </th>
+
+                                    {{-- UNIT --}}
+                                    <th
+                                        rowspan="2"
+                                        class="ris-unit-column"
+                                    >
+                                        UNIT
+                                    </th>
+
                                     {{-- SUPPLIER --}}
                                     <th
                                         rowspan="2"
@@ -519,6 +545,8 @@
                                 {{-- ORIGINAL FORM HAS 8 BLANK ROWS --}}
                                 @for($row = 0; $row < 8; $row++)
                                     <tr>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
@@ -754,13 +782,21 @@
             font-size: 12px;
         }
 
-        /* Column widths matching the original (with supplier) */
+        /* Column widths matching the original (with brand + unit + supplier) */
         .ris-item-column {
-            width: 32%;
+            width: 20%;
+        }
+
+        .ris-brand-column {
+            width: 10%;
+        }
+
+        .ris-unit-column {
+            width: 7%;
         }
 
         .ris-supplier-column {
-            width: 18%;
+            width: 14%;
         }
 
         .ris-quantity-header {
@@ -939,7 +975,7 @@
             top: 0;
             left: 0;
             z-index: 6;
-            width: 312.5%; /* ITEM col is 32% of row */
+            width: 384.615%; /* ITEM col is 26% of row */
             height: 100%;
             margin: 0;
             padding: 0;
@@ -1328,16 +1364,20 @@
                             <div class="w-full">
                                 <table class="w-full table-fixed border-collapse border border-gray-800">
                                     <colgroup>
-                                        <col style="width:26%">
                                         <col style="width:18%">
-                                        <col style="width:11%">
-                                        <col style="width:11%">
-                                        <col style="width:16%">
-                                        <col style="width:18%">
+                                        <col style="width:10%">
+                                        <col style="width:9%">
+                                        <col style="width:15%">
+                                        <col style="width:9%">
+                                        <col style="width:9%">
+                                        <col style="width:15%">
+                                        <col style="width:15%">
                                     </colgroup>
                                     <thead>
                                         <tr>
                                             <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Item</th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Brand</th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit</th>
                                             <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Supplier</th>
                                             <th colspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Quantity</th>
                                             <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit Cost</th>
@@ -1353,13 +1393,23 @@
                                             <tr :class="risSplitInfo(createItems, index)?.overflow ? 'bg-red-50' : ''">
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     <input type="text" x-model="item.name_description" x-bind:name="`ris_items[${index}][name_description]`" x-on:input="copySplitUom(createItems, index)" class="w-full min-w-0 border-0 bg-transparent px-1 py-1.5 text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
-                                                    <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="mt-0.5 w-full min-w-0 border-0 border-t border-gray-200 bg-transparent px-1 py-1 text-[10px] text-gray-600 outline-none focus:ring-0 sm:px-2 sm:text-xs">
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
+                                                </td>
+                                                <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
+                                                    <select x-model="item.brand_id" x-bind:name="`ris_items[${index}][brand_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
+                                                        <option value="">Brand</option>
+                                                        @foreach(($brands ?? collect()) as $brand)
+                                                            <option value="{{ $brand->brand_id }}">{{ $brand->brand_name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
+                                                    <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
                                                         <option value="">Unit</option>
                                                         @foreach(($uoms ?? collect()) as $uom)
                                                             <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     <select x-model="item.supplier_id" x-bind:name="`ris_items[${index}][supplier_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
@@ -1724,16 +1774,41 @@
                             </td>
 
                             <td class="px-5 py-4 text-right">
-                                <button
-                                    type="button"
-                                    x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
-                                    class="group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-950"
-                                >
-                                    View
-                                    <svg class="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
-                                    </svg>
-                                </button>
+                                <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                    <button
+                                        type="button"
+                                        x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="View"
+                                        aria-label="View"
+                                    >
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+
+                                    @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
+                                        <button
+                                            type="button"
+                                            x-on:click="editRisModal = 'edit-ris-{{ $ris->ris_id }}'"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            title="Edit RIS"
+                                            aria-label="Edit RIS"
+                                        >
+                                            <i data-lucide="pencil" class="h-4 w-4"></i>
+                                        </button>
+                                    @endif
+
+                                    @if($ris->ris_status === 'Draft')
+                                        <button
+                                            type="button"
+                                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route('purchaser.ris.submit', $ris->ris_id)))"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            title="Submit to Admin"
+                                            aria-label="Submit to Admin"
+                                        >
+                                            <i data-lucide="send" class="h-4 w-4"></i>
+                                        </button>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -1915,6 +1990,8 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
+                                        <th rowspan="2" class="ris-brand-column">BRAND</th>
+                                        <th rowspan="2" class="ris-unit-column">UNIT</th>
                                         <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
@@ -1931,10 +2008,9 @@
                                         $item = $ris->risItems->get($row);
                                     @endphp
                                     <tr>
-                                        <td>
-                                            {{ $item?->ris_item_name_description ?: ' ' }}
-                                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
-                                        </td>
+                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
+                                        <td class="text-center">{{ $item?->brand_name ?: ' ' }}</td>
+                                        <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
                                         <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
@@ -2123,16 +2199,13 @@
 
                     {{-- SUBMIT DRAFT --}}
                     @if($ris->ris_status === 'Draft')
-                        <form method="POST" action="{{ route('purchaser.ris.submit', $ris->ris_id) }}">
-                            @csrf
-                            <button
-                                type="submit"
-                                onclick="return confirm('Submit this RIS to Admin?')"
-                                class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800"
-                            >
-                                Submit to Admin
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route('purchaser.ris.submit', $ris->ris_id)))"
+                            class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800"
+                        >
+                            Submit to Admin
+                        </button>
                     @endif
 
                     {{-- CREATE ATP --}}
@@ -2217,6 +2290,8 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
+                                        <th rowspan="2" class="ris-brand-column">BRAND</th>
+                                        <th rowspan="2" class="ris-unit-column">UNIT</th>
                                         <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
@@ -2233,10 +2308,9 @@
                                         $item = $ris->risItems->get($row);
                                     @endphp
                                     <tr>
-                                        <td>
-                                            {{ $item?->ris_item_name_description ?: ' ' }}
-                                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
-                                        </td>
+                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
+                                        <td class="text-center">{{ $item?->brand_name ?: ' ' }}</td>
+                                        <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
                                         <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
@@ -2329,13 +2403,13 @@
                 x-show="editRisModal === 'edit-ris-{{ $ris->ris_id }}'"
                 x-transition.opacity
                 x-on:keydown.escape.window="closeEditRis({{ $ris->ris_id }})"
-                class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+                class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/50 p-4 md:p-8"
                 x-effect="window.purDialog && window.purDialog.sync(editRisModal === 'edit-ris-{{ $ris->ris_id }}', $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
             >
                 <div
                     x-on:click.self="closeEditRis({{ $ris->ris_id }})"
-                    class="flex min-h-full w-full justify-center"
+                    class="flex h-full max-h-full w-full items-center justify-center"
                 >
                 <div
                     x-data="{
@@ -2343,6 +2417,7 @@
                         @forelse($ris->risItems as $item)
                             {
                                 name_description: @js($item->ris_item_name_description ?? ''),
+                                brand_id: @js((string) ($item->ris_item_brand_id ?? '')),
                                 supplier_id: @js((string) ($item->ris_item_supplier_id ?? '')),
                                 uom_id: @js((string) ($item->ris_item_uom_id ?? '')),
                                 quantity_requested: @js($item->ris_quantity_requested ?? 1),
@@ -2350,12 +2425,12 @@
                                 unit_cost: @js($item->ris_unit_cost ?? 0)
                             }{{ !$loop->last ? ',' : '' }}
                         @empty
-                            { name_description: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 }
+                            { name_description: '', brand_id: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 }
                         @endforelse
                     ],
                     rowDeleteMode: false,
                     addEditItem() {
-                        this.editItems.push({ name_description: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 });
+                        this.editItems.push({ name_description: '', brand_id: '', supplier_id: '', uom_id: '', quantity_requested: '', quantity_issued: '', unit_cost: '' });
                     },
                     removeEditItem(index) {
                         if (this.editItems.length > 1) { this.editItems.splice(index, 1); }
@@ -2375,13 +2450,13 @@
                         el.value = formatted;
                     }
                 }"
-                    class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl"
+                    class="my-auto flex max-h-[min(96vh,calc(100vh-2rem))] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="ris-edit-title-{{ $ris->ris_id }}"
                 >
                     {{-- EDIT MODAL HEADER --}}
-                    <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
                         <div class="flex min-w-0 items-start gap-3">
                             <button
                                 type="button"
@@ -2410,6 +2485,8 @@
                         method="POST"
                         action="{{ route('purchaser.ris.update', $ris->ris_id) }}"
                         enctype="multipart/form-data"
+                        novalidate
+                        class="flex min-h-0 flex-1 flex-col"
                     >
                         @csrf
                         @method('PUT')
@@ -2419,7 +2496,7 @@
                             name="save_action"
                             value="save"
                         >
-                        <div class="p-6">
+                        <div class="min-h-0 flex-1 overflow-y-auto p-6">
 
                             {{-- REVISION INSTRUCTIONS WHILE EDITING --}}
                             @if($ris->ris_status === 'Minor Revision' && $ris->risRevisions->isNotEmpty())
@@ -2475,6 +2552,8 @@
                                         <thead>
                                             <tr>
                                                 <th rowspan="2" class="ris-item-column">ITEM</th>
+                                                <th rowspan="2" class="ris-brand-column">BRAND</th>
+                                                <th rowspan="2" class="ris-unit-column">UNIT</th>
                                                 <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                                                 <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                                 <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
@@ -2489,24 +2568,18 @@
                                             <template x-for="(item, index) in editItems" :key="index">
                                                 <tr
                                                     class="ris-item-row"
-                                                    :class="$root.risSplitInfo(editItems, index)?.overflow ? 'bg-red-50' : ''"
+                                                    :class="risSplitInfo(editItems, index)?.overflow ? 'bg-red-50' : ''"
                                                 >
                                                     <td>
                                                         <div class="ris-edit-item-cell">
-                                                            <input type="text" x-model="item.name_description" x-on:input="$root.copySplitUom(editItems, index)" x-bind:name="`ris_items[${index}][name_description]`" class="ris-cell-input">
-                                                            <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="ris-cell-input text-xs text-gray-600">
-                                                                <option value="">Unit</option>
-                                                                @foreach(($uoms ?? collect()) as $uom)
-                                                                    <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
-                                                                @endforeach
-                                                            </select>
+                                                            <input type="text" x-model="item.name_description" x-on:input="copySplitUom(editItems, index)" x-bind:name="`ris_items[${index}][name_description]`" class="ris-cell-input">
                                                             <p
                                                                 class="mt-1 text-[11px] leading-4"
-                                                                x-show="$root.risSplitInfo(editItems, index)"
+                                                                x-show="risSplitInfo(editItems, index)"
                                                                 x-cloak
-                                                                :class="$root.risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
+                                                                :class="risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
                                                                 x-text="(() => {
-                                                                    const info = $root.risSplitInfo(editItems, index);
+                                                                    const info = risSplitInfo(editItems, index);
                                                                     if (!info) return '';
                                                                     const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
                                                                     return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
@@ -2528,6 +2601,38 @@
                                                         ></button>
                                                     </td>
                                                     <td>
+                                                        <select x-model="item.brand_id" x-bind:name="`ris_items[${index}][brand_id]`" class="ris-cell-input text-center text-xs">
+                                                            <option value="">Brand</option>
+                                                            @foreach(($brands ?? collect()) as $brand)
+                                                                <option value="{{ $brand->brand_id }}">{{ $brand->brand_name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            class="ris-row-delete-hit"
+                                                            x-on:click="removeEditItem(index)"
+                                                            x-bind:disabled="editItems.length === 1"
+                                                            tabindex="-1"
+                                                            aria-label="Remove item row"
+                                                        ></button>
+                                                    </td>
+                                                    <td>
+                                                        <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="ris-cell-input text-center text-xs">
+                                                            <option value="">Unit</option>
+                                                            @foreach(($uoms ?? collect()) as $uom)
+                                                                <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            class="ris-row-delete-hit"
+                                                            x-on:click="removeEditItem(index)"
+                                                            x-bind:disabled="editItems.length === 1"
+                                                            tabindex="-1"
+                                                            aria-label="Remove item row"
+                                                        ></button>
+                                                    </td>
+                                                    <td>
                                                         <select x-model="item.supplier_id" x-bind:name="`ris_items[${index}][supplier_id]`" class="ris-cell-input text-xs">
                                                             <option value="">Select supplier</option>
                                                             @foreach(($activeSuppliers ?? collect()) as $supplier)
@@ -2536,8 +2641,8 @@
                                                         </select>
                                                         <p
                                                             class="mt-1 text-[10px] leading-snug text-amber-700"
-                                                            x-show="$root.supplierWarning(item.supplier_id)"
-                                                            x-text="'Warning: ' + ($root.supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"
+                                                            x-show="supplierWarning(item.supplier_id)"
+                                                            x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"
                                                         ></p>
                                                         <button
                                                             type="button"
@@ -2549,7 +2654,7 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="1" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
+                                                        <input type="number" min="0" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
@@ -2747,7 +2852,14 @@
                         </div>
 
                         {{-- EDIT ACTION BUTTONS --}}
-                        <div class="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                            <p
+                                x-show="risHasOverflow(editItems)"
+                                x-cloak
+                                class="mr-auto text-sm text-red-700"
+                            >
+                                Issued quantity for a split item is higher than requested.
+                            </p>
                             <button
                                 type="button"
                                 x-on:click="closeEditRis({{ $ris->ris_id }})"
@@ -2757,15 +2869,14 @@
                             </button>
                             <button
                                 type="submit"
-                                x-bind:disabled="$root.risHasOverflow(editItems)"
-                                class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                             >
                                 Save Changes
                             </button>
                             @if($ris->ris_status === 'Draft')
                                 <button
                                     type="submit"
-                                    x-bind:disabled="$root.risHasOverflow(editItems)"
+                                    x-bind:disabled="risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='submit'"
                                     class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -2775,7 +2886,7 @@
                             @if($ris->ris_status === 'Minor Revision')
                                 <button
                                     type="submit"
-                                    x-bind:disabled="$root.risHasOverflow(editItems)"
+                                    x-bind:disabled="risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='resubmit'"
                                     class="pur-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -2790,6 +2901,66 @@
         @endif
 
     @endforeach
+    </div>
+
+    <div
+        x-cloak
+        x-show="submitRisConfirm"
+        x-transition.opacity
+        class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-effect="window.purDialog && window.purDialog.sync(!!submitRisConfirm, $el)"
+        @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        @keydown.escape.window="closeSubmitRis()"
+    >
+        <div @click.self="closeSubmitRis()" class="flex min-h-full w-full justify-center">
+            <div class="my-auto w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="ris-submit-title">
+                <form
+                    method="POST"
+                    x-bind:action="submitRisConfirm?.action || '#'"
+                    x-on:submit="submitRisSending = true"
+                >
+                    @csrf
+                    <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc]">
+                                <i data-lucide="send" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <h3 id="ris-submit-title" class="text-lg font-semibold tracking-tight text-gray-950">Submit to Admin</h3>
+                                <p class="mt-0.5 text-sm text-gray-500">This will send the RIS for review.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            x-on:click="closeSubmitRis()"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <div class="px-5 py-5 text-sm leading-6 text-gray-600">
+                        Submit <span class="font-semibold text-gray-900" x-text="submitRisConfirm?.number"></span> to Admin?
+                    </div>
+                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
+                        <button
+                            type="button"
+                            x-on:click="closeSubmitRis()"
+                            class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            x-bind:disabled="submitRisSending"
+                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#001fa8] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Yes, submit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -3125,11 +3296,19 @@
                        ============================================ */
 
                     .ris-item-column {
-                        width: 32%;
+                        width: 20%;
+                    }
+
+                    .ris-brand-column {
+                        width: 10%;
+                    }
+
+                    .ris-unit-column {
+                        width: 7%;
                     }
 
                     .ris-supplier-column {
-                        width: 18%;
+                        width: 14%;
                     }
 
                     .ris-quantity-header {
@@ -3424,49 +3603,5 @@
 
     }
 </script>
-
-@if(session('success') || session('error'))
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!window.Swal) return;
-
-        @if(session('success'))
-            Swal.fire({
-                icon: 'success',
-                title: 'Success',
-                text: @json(session('success')),
-                confirmButtonText: 'OK',
-                buttonsStyling: false,
-                backdrop: 'rgba(15, 23, 42, 0.45)',
-                width: 420,
-                customClass: {
-                    popup: 'rounded-2xl border border-slate-100 shadow-[0_20px_60px_rgba(15,23,42,0.16)] px-2 pt-6 pb-5',
-                    title: 'text-[1.15rem] font-semibold tracking-tight text-slate-950',
-                    htmlContainer: 'text-sm text-slate-500',
-                    confirmButton: 'mt-2 inline-flex min-w-[7.5rem] items-center justify-center rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800',
-                    icon: 'border-0'
-                }
-            });
-        @else
-            Swal.fire({
-                icon: 'error',
-                title: 'Something went wrong',
-                text: @json(session('error')),
-                confirmButtonText: 'OK',
-                buttonsStyling: false,
-                backdrop: 'rgba(15, 23, 42, 0.45)',
-                width: 420,
-                customClass: {
-                    popup: 'rounded-2xl border border-slate-100 shadow-[0_20px_60px_rgba(15,23,42,0.16)] px-2 pt-6 pb-5',
-                    title: 'text-[1.15rem] font-semibold tracking-tight text-slate-950',
-                    htmlContainer: 'text-sm text-slate-500',
-                    confirmButton: 'mt-2 inline-flex min-w-[7.5rem] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800',
-                    icon: 'border-0'
-                }
-            });
-        @endif
-    });
-</script>
-@endif
 
 @endsection

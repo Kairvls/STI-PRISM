@@ -24,9 +24,22 @@
 
 <article class="admin-ris-info-card rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-black shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
     <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h3 class="truncate text-sm font-bold text-black" title="{{ $title }}">{{ $title }}</h3>
-            <p class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $ref }}</p>
+        <div class="flex min-w-0 items-start gap-2.5">
+            @if ($cardMode === 'procurement' && $isPending)
+                <input
+                    type="checkbox"
+                    class="ris-accept-checkbox mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
+                    value="{{ $ris->ris_id }}"
+                    data-ref="{{ $ref }}"
+                    title="Select {{ $ref }}"
+                    aria-label="Select {{ $ref }}"
+                    onchange="typeof window.updateRisAcceptSelection === 'function' && window.updateRisAcceptSelection()"
+                >
+            @endif
+            <div class="min-w-0">
+                <h3 class="truncate text-sm font-bold text-black" title="{{ $title }}">{{ $title }}</h3>
+                <p class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $ref }}</p>
+            </div>
         </div>
         @include('admin.partials.ris-status-badge', ['ris' => $ris])
     </div>
@@ -64,17 +77,29 @@
             </button>
             @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
             @if ($isPending)
-                <button type="button" onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'forward')" title="Forward to President" aria-label="Forward to President"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                @php
+                    $acceptRef = $ris->ris_form_number ?? ('RIS-' . $ris->ris_id);
+                    $acceptDetail = $title;
+                @endphp
+                <button
+                    type="button"
+                    onclick="openAcceptRisModal('{{ $ris->ris_id }}', @js($acceptRef), @js($acceptDetail))"
+                    title="Accept and send to Sign RIS"
+                    aria-label="Accept procurement request"
+                    class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-sky-600 px-2.5 text-xs font-semibold text-white transition hover:bg-sky-700"
+                >
+                    Accept
                 </button>
-                <button type="button" onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'direct')" title="Admin Approve" aria-label="Admin Approve"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white hover:bg-sky-700">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </button>
-                <button type="button" onclick="openAmendModal('{{ $ris->ris_id }}')" title="Amend / return" aria-label="Amend"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <button
+                    type="button"
+                    onclick="openAmendModal('{{ $ris->ris_id }}')"
+                    title="Return this RIS to the Purchaser for revision"
+                    aria-label="Return for revision"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+                >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
                 </button>
             @endif
         @elseif ($cardMode === 'sign')
@@ -83,6 +108,9 @@
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </button>
             @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
+            @if (\App\Support\RisWorkflow::needsSignDecision($ris))
+                @include('admin.procurement-review._ris-action-menu', ['risId' => $ris->ris_id])
+            @endif
             @if ($awaitingSign)
                 <button type="button" onclick="window.openCoSignModal('{{ $ris->ris_id }}')" title="Sign Issued by" aria-label="Sign Issued by"
                     class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white hover:bg-sky-700">

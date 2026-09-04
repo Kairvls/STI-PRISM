@@ -21,6 +21,8 @@
         <thead>
             <tr>
                 <th rowspan="2" class="item-col">ITEM</th>
+                <th rowspan="2" class="brand-col">BRAND</th>
+                <th rowspan="2" class="unit-col">UNIT</th>
                 <th rowspan="2">SUPPLIER</th>
                 <th colspan="2">QUANTITY</th>
                 <th rowspan="2" class="cost-col">UNIT COST</th>
@@ -33,12 +35,13 @@
         </thead>
         <tbody>
             @for($row = 0; $row < 10; $row++)
-                @php($item = $risItems[$row] ?? null)
+                @php
+                    $item = $risItems[$row] ?? null;
+                @endphp
                 <tr>
-                    <td>
-                        {{ $item?->ris_item_name_description ?? '' }}
-                        @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
-                    </td>
+                    <td>{{ $item?->ris_item_name_description ?? '' }}</td>
+                    <td style="text-align: center;">{{ $item?->brand_name ?? '' }}</td>
+                    <td style="text-align: center;">{{ $item?->uom_name ?? '' }}</td>
                     <td>{{ $item?->supplier_display_name ?? '' }}</td>
                     <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
                     <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
@@ -61,11 +64,11 @@
             <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date }}</div></div>
         </div>
         <div class="signature-box">
-            <p>Approved by:</p>
+            <p>{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by:' : 'Approved by:' }}</p>
             <div class="signature-line">
                 @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
-                    <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
-                    <span class="signature-name">{{ $presidentName ?? ($ris->ris_approved_by_name ?? 'President') }}</span>
+                    <img src="{{ $ris->ris_approved_by_signature }}" alt="{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by' : 'Approved by' }} signature" class="signature-image" />
+                    <span class="signature-name">{{ (($ris->ris_status ?? '') === 'Directly Approved') ? ($ris->ris_approved_by_name ?? 'Admin') : ($presidentName ?? ($ris->ris_approved_by_name ?? 'President')) }}</span>
                 @elseif (!empty(trim((string) ($ris->ris_approved_by_signature ?? ''))))
                     <span class="signature-name">{{ $ris->ris_approved_by_signature }}</span>
                 @else

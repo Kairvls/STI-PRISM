@@ -11,13 +11,6 @@
         <p class="admin-page-subtitle">Live accounts from the system. Create a user here. Editing and deactivation are not available on this screen.</p>
     </div>
 
-    @if(session('success'))
-        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-800">{{ session('error') }}</div>
-    @endif
-
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total users</p>
@@ -133,7 +126,7 @@
             <p class="text-xs text-gray-500">
                 Showing
                 <span id="usersShowingFrom" class="font-semibold text-gray-700">0</span>
-                �
+                Â
                 <span id="usersShowingTo" class="font-semibold text-gray-700">0</span>
                 of
                 <span id="usersVisibleCount" class="font-semibold text-gray-700">{{ $totalUsers }}</span>
@@ -218,7 +211,12 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Contact Number</label>
-                        <input type="text" name="contact_number" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" />
+                        @include('partials.phone-input', [
+                            'name' => 'contact_number',
+                            'value' => old('contact_number'),
+                            'id' => 'admin-index-user-contact-number',
+                            'inputClass' => 'mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100',
+                        ])
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Password</label>

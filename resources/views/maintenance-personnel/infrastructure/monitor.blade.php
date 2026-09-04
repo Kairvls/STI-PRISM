@@ -78,26 +78,6 @@
         @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endComlabRowRotation($event); endEquipmentAction($event)"
         class="flex w-full flex-1 flex-col"
     >
-        @if (session("success"))
-            <div
-                x-data="{ show: true }"
-                x-show="show"
-                x-transition
-                class="mb-5 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800"
-            >
-                <span class="flex items-center gap-2"
-                    ><i data-lucide="circle-check" class="h-5 w-5"></i>{{
-                        session(
-                            "success",
-                        )
-                    }}</span
-                >
-                <button @click="show = false" aria-label="Dismiss">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-        @endif
-
         {{-- ========================================================= --}}
         {{-- INFRASTRUCTURE WORKSPACE TOOLBAR --}}
         {{-- ========================================================= --}}
@@ -1870,7 +1850,7 @@
                             <path d="M20 6 9 17l-5-5"/>
                         </svg>
                     </span>
-                    <span class="mp-toast-brand-name">PRISM</span>
+                    <span class="mp-toast-brand-name">PaAyo</span>
                 </div>
                 <div class="mp-toast-actions">
                     <button

@@ -338,6 +338,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'approveRis']
         )->name('procurement-review.ris.approve');
 
+        Route::post(
+            '/procurement-review/ris/{ris}/accept',
+            [AdminController::class, 'acceptRis']
+        )->name('procurement-review.ris.accept');
+
+        Route::post(
+            '/procurement-review/ris/accept-bulk',
+            [AdminController::class, 'bulkAcceptRis']
+        )->name('procurement-review.ris.accept-bulk');
+
         Route::get(
             '/procurement-review/ris/{ris}/direct-approve-form',
             [AdminController::class, 'directApproveForm']
@@ -347,6 +357,16 @@ Route::middleware(['auth', 'admin'])
             '/procurement-review/ris/{ris}/direct-approve',
             [AdminController::class, 'directApproveRis']
         )->name('procurement-review.ris.direct-approve');
+
+        Route::get(
+            '/procurement-review/ris/{ris}/direct-approval-proof',
+            [AdminController::class, 'downloadDirectApprovalProof']
+        )->whereNumber('ris')->name('procurement-review.ris.direct-approval-proof');
+
+        Route::get(
+            '/procurement-review/ris/{ris}/forward-attachment',
+            [AdminController::class, 'downloadForwardAttachment']
+        )->whereNumber('ris')->name('procurement-review.ris.forward-attachment');
 
         Route::post(
             '/procurement-review/ris/{ris}/reject',
@@ -2025,6 +2045,21 @@ Route::middleware([
             '/approvals/history',
             [PresidentController::class, 'approvalHistory']
         )->name('approvals.history');
+
+        Route::get(
+            '/direct-approvals',
+            [PresidentController::class, 'directApprovals']
+        )->name('direct-approvals');
+
+        Route::get(
+            '/direct-approvals/{ris}/proof',
+            [PresidentController::class, 'downloadDirectApprovalProof']
+        )->whereNumber('ris')->name('direct-approvals.proof');
+
+        Route::get(
+            '/ris/{ris}/forward-attachment',
+            [PresidentController::class, 'downloadForwardAttachment']
+        )->whereNumber('ris')->name('ris.forward-attachment');
 
         Route::get(
             '/approvals/digital-signature',

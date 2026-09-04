@@ -158,22 +158,24 @@
                                 </span>
                             </td>
                             <td class="px-5 py-4">
-                                <div class="flex justify-end gap-2">
+                                <div class="flex justify-end gap-1.5">
                                     <button
                                         type="button"
                                         @click="openEdit({ id: {{ $subcategory->item_subcategory_id }}, category_id: @js((string) $subcategory->item_category_id), name: @js($subcategory->item_subcategory_name), description: @js($subcategory->item_subcategory_description ?? ''), status: @js($subcategory->item_subcategory_status) })"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                        title="Edit"
+                                        aria-label="Edit"
                                     >
-                                        <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
-                                        Edit
+                                        <i data-lucide="pencil" class="h-4 w-4"></i>
                                     </button>
                                     <button
                                         type="button"
                                         @click="openDelete({ id: {{ $subcategory->item_subcategory_id }}, name: @js($subcategory->item_subcategory_name) })"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                                        title="Delete"
+                                        aria-label="Delete"
                                     >
-                                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                        Delete
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
                                     </button>
                                 </div>
                             </td>

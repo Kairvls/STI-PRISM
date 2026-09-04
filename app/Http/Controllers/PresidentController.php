@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use App\Support\WorkflowNotifier;
 
@@ -507,6 +508,185 @@ class PresidentController extends Controller
     public function digitalSignature(): View
     {
         return view('president.approvals.digitally-sign');
+    }
+
+    // =====================================================
+    // ADMIN DIRECT APPROVALS (read-only record for President)
+    // =====================================================
+
+    public function directApprovals(Request $request)
+    {
+        $hasReason = Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_reason');
+        $hasProofPath = Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path');
+        $hasProofName = Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_name');
+        $hasApprovedAt = Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_at');
+        $hasApprovedBy = Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by');
+
+        $select = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+            DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
+        ];
+
+        $groupBy = [
+            'ris.ris_id',
+            'ris.ris_form_number',
+            'ris.ris_purpose_description',
+            'ris.ris_status',
+            'ris.ris_approved_by_date',
+        ];
+
+        if ($hasReason) {
+            $select[] = 'ris.ris_direct_approval_reason';
+            $groupBy[] = 'ris.ris_direct_approval_reason';
+        } else {
+            $select[] = DB::raw('NULL as ris_direct_approval_reason');
+        }
+
+        if ($hasProofPath) {
+            $select[] = 'ris.ris_direct_approval_proof_path';
+            $groupBy[] = 'ris.ris_direct_approval_proof_path';
+        } else {
+            $select[] = DB::raw('NULL as ris_direct_approval_proof_path');
+        }
+
+        if ($hasProofName) {
+            $select[] = 'ris.ris_direct_approval_proof_name';
+            $groupBy[] = 'ris.ris_direct_approval_proof_name';
+        } else {
+            $select[] = DB::raw('NULL as ris_direct_approval_proof_name');
+        }
+
+        if ($hasApprovedAt) {
+            $select[] = 'ris.ris_direct_approval_at';
+            $groupBy[] = 'ris.ris_direct_approval_at';
+        } else {
+            $select[] = DB::raw('NULL as ris_direct_approval_at');
+        }
+
+        if ($hasApprovedBy) {
+            $select[] = 'ris.ris_direct_approval_by';
+            $select[] = 'admin.user_full_name as approved_by_name';
+            $groupBy[] = 'ris.ris_direct_approval_by';
+            $groupBy[] = 'admin.user_full_name';
+        } else {
+            $select[] = DB::raw('NULL as ris_direct_approval_by');
+            $select[] = DB::raw('NULL as approved_by_name');
+        }
+
+        $query = DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id');
+
+        if ($hasApprovedBy) {
+            $query->leftJoin('users_table as admin', 'ris.ris_direct_approval_by', '=', 'admin.user_id');
+        }
+
+        $query->select($select)
+            ->where('ris.ris_status', RisWorkflow::DIRECTLY_APPROVED)
+            ->groupBy($groupBy);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search, $hasReason, $hasApprovedBy) {
+                $q->where('ris.ris_id', 'LIKE', "%{$search}%")
+                    ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
+                    ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%");
+
+                if ($hasReason) {
+                    $q->orWhere('ris.ris_direct_approval_reason', 'LIKE', "%{$search}%");
+                }
+                if ($hasApprovedBy) {
+                    $q->orWhere('admin.user_full_name', 'LIKE', "%{$search}%");
+                }
+            });
+        }
+
+        $orderExpr = $hasApprovedAt
+            ? 'COALESCE(ris.ris_direct_approval_at, ris.ris_approved_by_date, ris.ris_created_at)'
+            : 'COALESCE(ris.ris_approved_by_date, ris.ris_created_at)';
+
+        $records = $query
+            ->orderByDesc(DB::raw($orderExpr))
+            ->orderByDesc('ris.ris_id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $this->attachDirectApprovalSupportingDocuments($records);
+
+        if ($request->ajax()) {
+            $tableHtml = view('president.direct-approvals._table', [
+                'records' => $records,
+            ])->render();
+
+            return response()->json([
+                'table_html' => $tableHtml,
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+            ]);
+        }
+
+        return view('president.direct-approvals.index', [
+            'records' => $records,
+        ]);
+    }
+
+    public function downloadDirectApprovalProof($ris)
+    {
+        abort_unless(
+            Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path'),
+            404
+        );
+
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $ris)
+            ->where('ris_status', RisWorkflow::DIRECTLY_APPROVED)
+            ->first();
+
+        abort_if(!$record, 404);
+
+        $path = trim((string) ($record->ris_direct_approval_proof_path ?? ''));
+        abort_if($path === '' || !Storage::disk('public')->exists($path), 404);
+
+        $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
+            ?: basename($path);
+
+        return Storage::disk('public')->download($path, $downloadName);
+    }
+
+    private function attachDirectApprovalSupportingDocuments($records): void
+    {
+        if (!Schema::hasTable('ris_attachments_table')) {
+            foreach ($records as $row) {
+                $row->supportingDocuments = [];
+            }
+            return;
+        }
+
+        $ids = collect($records->items())->pluck('ris_id')->filter()->unique()->values();
+        $files = $ids->isEmpty()
+            ? collect()
+            : DB::table('ris_attachments_table')
+                ->whereIn('ris_id', $ids)
+                ->orderBy('ris_attachment_original_name')
+                ->get()
+                ->groupBy('ris_id');
+
+        foreach ($records as $row) {
+            $row->supportingDocuments = ($files->get($row->ris_id, collect()))
+                ->map(fn ($file) => [
+                    'id' => $file->ris_attachment_id,
+                    'name' => $file->ris_attachment_original_name,
+                    'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
+                ])
+                ->values()
+                ->all();
+        }
     }
 
     // =====================================================
@@ -1381,11 +1561,7 @@ class PresidentController extends Controller
             abort(404, 'RIS not found');
         }
 
-        $risItems = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $ris->ris_id)
-            ->orderBy('ris_item_id')
-            ->get()
-            ->pad(8, null);
+        $risItems = $this->risItemsWithUom($ris->ris_id)->pad(8, null);
 
         if ($request->boolean('preview')) {
             return view('president.ris.viewer', [
@@ -1411,10 +1587,7 @@ class PresidentController extends Controller
 
         abort_if(!$record, 404);
 
-        $items = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $record->ris_id)
-            ->orderBy('ris_item_id')
-            ->get();
+        $items = $this->risItemsWithUom($record->ris_id);
 
         $attachments = collect();
         if (Schema::hasTable('ris_attachments_table')) {
@@ -1426,6 +1599,16 @@ class PresidentController extends Controller
 
         $isPresidentApproved = RisWorkflow::isPresidentApproved($record);
         $adminNotified = $isPresidentApproved && $this->presidentHasNotifiedAdmin((int) $record->ris_id);
+
+        $forwardDetails = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')
+            ? trim((string) ($record->ris_forward_details ?? ''))
+            : '';
+        $forwardAttachmentPath = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')
+            ? trim((string) ($record->ris_forward_attachment_path ?? ''))
+            : '';
+        $forwardAttachmentName = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_name')
+            ? trim((string) ($record->ris_forward_attachment_name ?? ''))
+            : '';
 
         return response()->json([
             'ris_id' => $record->ris_id,
@@ -1443,12 +1626,39 @@ class PresidentController extends Controller
                 'size' => $file->ris_attachment_size ?? null,
                 'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
             ]),
+            'forward_details' => $forwardDetails !== '' ? $forwardDetails : null,
+            'forward_attachment' => $forwardAttachmentPath !== '' ? [
+                'name' => $forwardAttachmentName !== '' ? $forwardAttachmentName : 'Admin attachment',
+                'url' => route('president.ris.forward-attachment', $record->ris_id),
+            ] : null,
             'has_president_signature' => trim((string) ($record->ris_approved_by_signature ?? '')) !== '',
             'is_president_approved' => $isPresidentApproved,
             'admin_notified' => $adminNotified,
             'awaiting_notify' => $isPresidentApproved && !$adminNotified
                 && trim((string) ($record->ris_issued_by_signature ?? '')) === '',
         ]);
+    }
+
+    public function downloadForwardAttachment($ris)
+    {
+        abort_unless(
+            Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path'),
+            404
+        );
+
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $ris)
+            ->first();
+
+        abort_if(!$record, 404);
+
+        $path = trim((string) ($record->ris_forward_attachment_path ?? ''));
+        abort_if($path === '' || !Storage::disk('public')->exists($path), 404);
+
+        $downloadName = trim((string) ($record->ris_forward_attachment_name ?? ''))
+            ?: basename($path);
+
+        return Storage::disk('public')->download($path, $downloadName);
     }
 
     public function sendToAdmin($ris)
@@ -1519,10 +1729,7 @@ class PresidentController extends Controller
             abort(403, 'Only RIS records forwarded by Admin can be signed by the President.');
         }
 
-        $risItems = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $risId)
-            ->orderBy('ris_item_id')
-            ->get();
+        $risItems = $this->risItemsWithUom($risId);
 
         return view('president.approvals._approve-form', [
             'ris' => $ris,
@@ -1672,5 +1879,42 @@ class PresidentController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    private function risItemsWithUom($risId)
+    {
+        $query = DB::table('requisition_issue_slip_items_table')
+            ->where('requisition_issue_slip_items_table.ris_id', $risId)
+            ->orderBy('ris_item_id');
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (
+            Schema::hasTable('uom_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
+        ) {
+            $query->leftJoin(
+                'uom_table',
+                'uom_table.uom_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_uom_id'
+            );
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('brands_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+        ) {
+            $query->leftJoin(
+                'brands_table',
+                'brands_table.brand_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_brand_id'
+            );
+            $select[] = 'brands_table.brand_name';
+        }
+
+        return $query->select($select)->get();
     }
 }

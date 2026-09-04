@@ -56,13 +56,6 @@
     }"
     class="space-y-6 p-6"
 >
-    @if(session('error'))
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ $errors->first() }}</div>
-    @endif
-
     <div>
         <h2 class="text-2xl font-semibold text-slate-900">Receiving Reports</h2>
         <p class="text-sm text-slate-600">Confirm Second Count when delivered items match the report.</p>

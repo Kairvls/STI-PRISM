@@ -7,6 +7,7 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('president/dashboard') => ['Dashboard', 'Overview of RIS decisions and workload.'],
+                request()->is('president/direct-approvals*') => ['Admin Direct Approvals', 'View RIS records Admin approved directly, with reason and proof.'],
                 request()->is('president/approvals/history*') => ['Approval History', 'Past presidential decisions on RIS documents.'],
                 request()->is('president/approvals*') => ['RIS Approvals', 'Review, sign, and notify Admin when ready.'],
                 request()->is('president/reports/monthly-summary*') => ['Reports & Summary', 'Monthly decision trends and totals.'],

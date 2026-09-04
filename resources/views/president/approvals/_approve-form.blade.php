@@ -36,7 +36,9 @@
     .president-ris-form .ris-items-table tbody td {
         height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
     }
-    .president-ris-form .ris-item-column { width: 40%; }
+    .president-ris-form .ris-item-column { width: 24%; }
+    .president-ris-form .ris-brand-column { width: 12%; }
+    .president-ris-form .ris-unit-column { width: 10%; }
     .president-ris-form .ris-quantity-header { width: 23%; }
     .president-ris-form .ris-requested-column { width: 11%; font-size: 11px !important; }
     .president-ris-form .ris-issued-column { width: 12%; font-size: 11px !important; }
@@ -117,6 +119,8 @@
                     <thead>
                         <tr>
                             <th rowspan="2" class="ris-item-column">ITEM</th>
+                            <th rowspan="2" class="ris-brand-column">BRAND</th>
+                            <th rowspan="2" class="ris-unit-column">UNIT</th>
                             <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                             <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                             <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -132,6 +136,8 @@
                             @php $item = $items->get($i); @endphp
                             <tr>
                                 <td>{{ $item->ris_item_name_description ?? '' }}</td>
+                                <td class="text-center">{{ $item?->brand_name ?? '' }}</td>
+                                <td class="text-center">{{ $item?->uom_name ?? '' }}</td>
                                 <td class="text-center">{{ $item->ris_quantity_requested ?? '' }}</td>
                                 <td class="text-center">{{ $item->ris_quantity_issued ?? '' }}</td>
                                 <td class="text-right">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>

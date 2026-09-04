@@ -92,18 +92,6 @@
         $completedCount = $currentCollection->where('procurement_request_status', 'Completed')->count();
     @endphp
 
-    @if(session('success'))
-        <div class="pur-alert-success">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="pur-alert-error">
-            {{ session('error') }}
-        </div>
-    @endif
-
     <div class="pur-card mb-6">
         <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
             <div class="px-5 py-5">
@@ -391,11 +379,12 @@
                                         <button
                                             type="button"
                                             x-on:click="openCreateRis({{ $request->procurement_request_id }})"
-                                            data-tooltip="Create RIS"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            title="Create RIS"
                                             aria-label="Create RIS"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
+                                            data-tooltip="Create RIS"
                                         >
-                                            <i data-lucide="file-plus-2" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="file-plus-2" class="h-4 w-4"></i>
                                         </button>
                                     @elseif($hasRis)
                                         <a

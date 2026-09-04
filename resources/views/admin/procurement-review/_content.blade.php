@@ -24,19 +24,19 @@
             ],
             [
                 'filter' => 'pending',
-                'label' => 'Pending',
+                'label' => 'Pending Accept',
                 'count' => $pendingRis ?? 0,
                 'amount' => $pendingRisAmount ?? 0,
                 'color' => 'text-sky-600',
-                'title' => 'Show RIS forms that still need admin review',
+                'title' => 'Show procurement requests waiting for Admin accept',
             ],
             [
-                'filter' => 'forwarded',
-                'label' => 'Forwarded to President',
-                'count' => $forwardedRis ?? 0,
-                'amount' => $forwardedRisAmount ?? 0,
-                'color' => 'text-amber-600',
-                'title' => 'Show RIS forms currently waiting on the President',
+                'filter' => 'accepted',
+                'label' => 'Accepted',
+                'count' => $acceptedRis ?? 0,
+                'amount' => $acceptedRisAmount ?? 0,
+                'color' => 'text-violet-600',
+                'title' => 'Accepted requests waiting for a Sign RIS decision',
             ],
         ];
     @endphp
@@ -100,11 +100,11 @@
                     <div>
 
                         <h2 class="text-sm font-semibold text-gray-900">
-                            RIS Records
+                            Procurement Requests
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            RIS forms that still need attention. Completed, amended, and admin-approved forms leave this queue.
+                            Accept purchaser submissions to send them to Sign RIS for Forward, Approve Directly, or Return.
                         </p>
 
                     </div>
@@ -116,6 +116,33 @@
                             'switcherId' => 'adminPrViewSwitcher',
                             'btnClass' => 'admin-pr-view-btn',
                         ])
+
+                        <div
+                            id="risBulkAcceptBar"
+                            class="hidden items-center gap-2 rounded-lg border border-[#0025cc]/20 bg-[#0025cc]/5 px-2.5 py-1.5"
+                        >
+                            <span id="risBulkAcceptCount" class="text-xs font-semibold text-[#0025cc]">
+                                0 selected
+                            </span>
+                            <button
+                                type="button"
+                                id="risBulkAcceptBtn"
+                                onclick="typeof window.openSelectedRisAcceptModal === 'function' && window.openSelectedRisAcceptModal()"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Accept selected
+                            </button>
+                            <button
+                                type="button"
+                                onclick="typeof window.clearRisAcceptSelection === 'function' && window.clearRisAcceptSelection()"
+                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                            >
+                                Clear
+                            </button>
+                        </div>
 
                         <a
                             href="{{ route('admin.procurement-review.export-pdf', ['filter' => $filter, 'search' => $search]) }}"

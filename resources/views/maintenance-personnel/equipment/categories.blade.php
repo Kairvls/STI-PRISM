@@ -1547,52 +1547,6 @@
 
 
 
-{{-- Session flash toasts are handled globally by maintenance-layout (showMpToast) --}}
-
-@if(session('error'))
-
-<script>
-
-    document.addEventListener(
-        'DOMContentLoaded',
-        () => {
-
-            // Keep confirm dialog only for hard errors that need acknowledgment
-            if (typeof window.showMpToast === 'function') {
-                return;
-            }
-
-            Swal.fire({
-
-                icon:
-                    'error',
-
-                title:
-                    'Unable to Complete Action',
-
-                text:
-                    @json(session('error')),
-
-                confirmButtonText:
-                    'Close',
-
-                background:
-                    '#ffffff',
-
-                color:
-                    '#0f172a',
-
-                confirmButtonColor:
-                    '#0f172a',
-
-            });
-
-        }
-    );
-
-</script>
-
-@endif
 
 
 <style>

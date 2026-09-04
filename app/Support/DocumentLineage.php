@@ -198,11 +198,14 @@ class DocumentLineage
         if (RisWorkflow::isPresidentApproved($ris) && !RisWorkflow::hasIssuedBy($ris)) {
             return 'Approved by President — waiting on Admin release';
         }
+        if ($status === RisWorkflow::ACCEPTED) {
+            return 'Accepted — waiting on Admin signing decision';
+        }
         if (RisWorkflow::isAwaitingPresident($ris) || $status === RisWorkflow::FORWARDED) {
             return 'Submitted — waiting on President';
         }
-        if (in_array($status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)) {
-            return 'Submitted — waiting on Admin';
+        if (in_array($status, RisWorkflow::incomingStatuses(), true)) {
+            return 'Submitted — waiting on Admin accept';
         }
 
         return self::reviewHint($status, null, 'ris');

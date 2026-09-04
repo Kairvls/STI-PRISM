@@ -1,7 +1,9 @@
 @extends('layouts.admin-layout')
 
+@section('title', 'Procurement Requests')
+
 {{-- ===================================================== --}}
-{{-- PROCUREMENT REQUEST / RIS APPROVAL PAGE --}}
+{{-- PROCUREMENT REQUESTS — ACCEPT STAGE --}}
 {{-- ===================================================== --}}
 
 @section('content')
@@ -16,40 +18,14 @@
     <div>
 
         <h1 class="admin-page-title">
-            Procurement Request
+            Procurement Requests
         </h1>
 
         <p class="admin-page-subtitle">
-            Review and manage Requisition Issue Slips submitted by the Purchaser.
+            Accept purchaser-submitted RIS so they can be decided on Sign RIS.
         </p>
 
     </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- SUCCESS MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('success'))
-
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- ===================================================== --}}
-    {{-- ERROR MESSAGE --}}
-    {{-- ===================================================== --}}
-
-    @if(session('error'))
-
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ session('error') }}
-        </div>
-
-    @endif
 
 
     {{-- ===================================================== --}}
@@ -68,11 +44,14 @@
     {{-- RIS PREVIEW MODAL (purchaser print-preview chrome) --}}
     {{-- ===================================================== --}}
 
-    @include('admin.partials.ris-preview-modal', ['zIndex' => '50'])
+    @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
 
 
     {{-- Direct approve / forward modal and remarks-only amend modal --}}
     @include('admin.procurement-review._direct-approve-modal')
+
+    {{-- Accept confirmation modal --}}
+    @include('admin.procurement-review._accept-modal')
 
 </div>
 
@@ -162,6 +141,13 @@
                 const partial = parsed.querySelector('#risContent')
                     || parsed.querySelector('#risContentContainer');
                 contentContainer.innerHTML = partial ? partial.innerHTML : html;
+
+                if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                    window.Alpine.initTree(contentContainer);
+                }
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
             }
 
 
@@ -379,6 +365,9 @@
         document.querySelectorAll('.admin-pr-view-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 applyAdminPrView(btn.getAttribute('data-view-mode') || btn.getAttribute('data-pr-view') || 'table', true);
+                if (typeof window.clearRisAcceptSelection === 'function') {
+                    window.clearRisAcceptSelection();
+                }
             });
         });
 
@@ -424,7 +413,104 @@
 
         });
 
+        // Keep multi-select accept state in sync after AJAX refresh.
+        if (typeof window.updateRisAcceptSelection === 'function') {
+            window.updateRisAcceptSelection();
+        }
+
     }
+
+
+    // =====================================================
+    // MULTI-SELECT ACCEPT
+    // =====================================================
+
+    function getVisibleRisAcceptRoot() {
+        var table = document.getElementById('risTableContainer');
+        var cards = document.getElementById('risCardsContainer');
+        if (cards && !cards.classList.contains('hidden')) {
+            return cards;
+        }
+        return table || document;
+    }
+
+    function getRisAcceptCheckboxes() {
+        var root = getVisibleRisAcceptRoot();
+        return Array.from(root.querySelectorAll('.ris-accept-checkbox'));
+    }
+
+    function getSelectedRisAcceptIds() {
+        var seen = {};
+        return getRisAcceptCheckboxes()
+            .filter(function (input) { return input.checked; })
+            .map(function (input) { return String(input.value); })
+            .filter(function (id) {
+                if (!id || seen[id]) return false;
+                seen[id] = true;
+                return true;
+            });
+    }
+
+    window.updateRisAcceptSelection = function () {
+        var boxes = getRisAcceptCheckboxes();
+        var selected = getSelectedRisAcceptIds();
+        var selectAll = document.getElementById('risSelectAllPage');
+        var bar = document.getElementById('risBulkAcceptBar');
+        var countEl = document.getElementById('risBulkAcceptCount');
+
+        if (selectAll) {
+            if (!boxes.length) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+                selectAll.disabled = true;
+            } else {
+                selectAll.disabled = false;
+                selectAll.checked = selected.length === boxes.length;
+                selectAll.indeterminate = selected.length > 0 && selected.length < boxes.length;
+            }
+        }
+
+        if (countEl) {
+            countEl.textContent = selected.length === 1
+                ? '1 selected'
+                : (selected.length + ' selected');
+        }
+
+        if (bar) {
+            if (selected.length > 0) {
+                bar.classList.remove('hidden');
+                bar.classList.add('inline-flex');
+            } else {
+                bar.classList.add('hidden');
+                bar.classList.remove('inline-flex');
+            }
+        }
+    };
+
+    window.toggleRisSelectAllPage = function (source) {
+        var checked = !!(source && source.checked);
+        getRisAcceptCheckboxes().forEach(function (input) {
+            input.checked = checked;
+        });
+        window.updateRisAcceptSelection();
+    };
+
+    window.clearRisAcceptSelection = function () {
+        getRisAcceptCheckboxes().forEach(function (input) {
+            input.checked = false;
+        });
+        window.updateRisAcceptSelection();
+    };
+
+    window.openSelectedRisAcceptModal = function () {
+        var ids = getSelectedRisAcceptIds();
+        if (!ids.length) {
+            return;
+        }
+        if (typeof window.openBulkAcceptRisModal === 'function') {
+            window.openBulkAcceptRisModal(ids);
+        }
+    };
 
 
     // =====================================================
@@ -444,6 +530,10 @@
 
             return;
 
+        }
+
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
         }
 
 
@@ -480,23 +570,22 @@
         // =====================================================
 
         modal.classList.remove('hidden');
-        modal.style.display = 'block';
+        modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
-        requestAnimationFrame(function () {
+        const rescheduleScale = function () {
             if (typeof window.scaleRisPreviewIframe === 'function') {
                 window.scaleRisPreviewIframe('risPreviewIframe');
             } else if (typeof window.scaleRisPreviewToFit === 'function') {
                 window.scaleRisPreviewToFit();
             }
-        });
+        };
 
+        // Scale only after the print view has loaded (avoids blank/collapsed preview).
         iframe.onload = function () {
-            if (typeof window.scaleRisPreviewIframe === 'function') {
-                window.scaleRisPreviewIframe('risPreviewIframe');
-            } else if (typeof window.scaleRisPreviewToFit === 'function') {
-                window.scaleRisPreviewToFit();
-            }
+            rescheduleScale();
+            setTimeout(rescheduleScale, 60);
+            setTimeout(rescheduleScale, 250);
         };
 
     };
@@ -529,6 +618,10 @@
         // =====================================================
         // HIDE MODAL
         // =====================================================
+
+        if (typeof window.exitRisPreviewFullscreen === 'function') {
+            window.exitRisPreviewFullscreen('risPreviewModal', 'risPreviewIframe');
+        }
 
         if (modal) {
 
@@ -574,76 +667,89 @@
     };
 
 
-    window.openDirectApproveModal = function(risId, mode) {
-        var modal = document.getElementById('directApproveModal');
-        var body = document.getElementById('directApproveModalBody');
-        var title = document.getElementById('directApproveModalTitle');
-        var subtitle = document.getElementById('directApproveModalSubtitle');
-        if (!modal || !body) return;
+    // =====================================================
+    // RIS ROW ACTION MENU — teleport to body, anchor to ⋯ button
+    // =====================================================
 
-        var actionMode = 'direct';
-        if (mode === 'forward') actionMode = 'forward';
-        if (mode === 'cosign') actionMode = 'cosign';
-        if (title) {
-            title.textContent = actionMode === 'forward'
-                ? 'Forward to President'
-                : (actionMode === 'cosign' ? 'Sign Issued by' : 'Admin Approval');
-        }
-        if (subtitle) {
-            subtitle.textContent = actionMode === 'forward'
-                ? 'Review the RIS form, then forward it to the President. Issued by is signed later on Sign RIS.'
-                : (actionMode === 'cosign'
-                    ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
-                    : 'Sign Issued by on the RIS form, then confirm Admin Approval.');
-        }
+    window.risActionMenu = function () {
+        return {
+            open: false,
+            _onScroll: null,
+            init() {
+                this._onScroll = () => {
+                    if (this.open) {
+                        this.open = false;
+                    }
+                };
+                window.addEventListener('scroll', this._onScroll, true);
+                window.addEventListener('resize', this._onScroll);
+            },
+            destroy() {
+                if (this._onScroll) {
+                    window.removeEventListener('scroll', this._onScroll, true);
+                    window.removeEventListener('resize', this._onScroll);
+                }
+            },
+            toggle() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.$nextTick(() => {
+                        this.place();
+                        requestAnimationFrame(() => this.place());
+                    });
+                }
+            },
+            runAction(fn) {
+                this.open = false;
+                if (typeof fn === 'function') {
+                    fn();
+                }
+            },
+            onOutside(event) {
+                if (this.$refs.trigger && this.$refs.trigger.contains(event.target)) {
+                    return;
+                }
+                this.open = false;
+            },
+            place() {
+                const trigger = this.$refs.trigger;
+                const menu = this.$refs.menu;
+                if (!trigger || !menu) {
+                    return;
+                }
 
-        body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-slate-800"></div>Loading RIS form...</div>';
-        modal.classList.remove('hidden');
+                // Reset so measuring is accurate after teleport.
+                menu.style.top = '0px';
+                menu.style.left = '0px';
 
-        fetch('/admin/procurement-review/ris/' + risId + '/direct-approve-form?mode=' + encodeURIComponent(actionMode), {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'text/html'
-            }
-        })
-        .then(function(response) {
-            if (!response.ok) throw new Error('Failed to load form');
-            return response.text();
-        })
-        .then(function(html) {
-            body.innerHTML = html;
-            var dateInput = document.getElementById('da_issued_by_date');
-            if (dateInput) {
-                dateInput.addEventListener('input', function() {
-                    var digits = this.value.replace(/\D/g, '').slice(0, 8);
-                    var parts = [];
-                    if (digits.length > 0) parts.push(digits.slice(0, 2));
-                    if (digits.length > 2) parts.push(digits.slice(2, 4));
-                    if (digits.length > 4) parts.push(digits.slice(4, 8));
-                    this.value = parts.join('/');
-                });
-            }
-        })
-        .catch(function() {
-            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-slate-600">Failed to load RIS form. Please try again.</div>';
-        });
+                const rect = trigger.getBoundingClientRect();
+                const menuHeight = menu.offsetHeight || 148;
+                const menuWidth = menu.offsetWidth || 224;
+                const gap = 6;
+
+                const spaceBelow = window.innerHeight - rect.bottom - 8;
+                const spaceAbove = rect.top - 8;
+                const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+                let top = openUp
+                    ? rect.top - menuHeight - gap
+                    : rect.bottom + gap;
+                let left = rect.right - menuWidth;
+
+                top = Math.min(Math.max(8, top), window.innerHeight - menuHeight - 8);
+                left = Math.min(Math.max(8, left), window.innerWidth - menuWidth - 8);
+
+                menu.style.top = top + 'px';
+                menu.style.left = left + 'px';
+                menu.style.right = 'auto';
+                menu.style.bottom = 'auto';
+            },
+        };
     };
 
 
-    // =====================================================
-    // CLOSE DIRECT APPROVAL MODAL
-    // =====================================================
-
-    window.closeDirectApproveModal = function() {
-        var modal = document.getElementById('directApproveModal');
-        var body = document.getElementById('directApproveModalBody');
-        if (body) {
-            body.innerHTML = '';
-        }
-        if (modal) {
-            modal.classList.add('hidden');
-        }
-    };
+    // Modal open/close for Direct Approve / Forward / Amend live in
+    // admin.procurement-review._direct-approve-modal
 
 
     // =====================================================
@@ -701,6 +807,10 @@
         function () {
 
             bindRisEventListeners();
+
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
 
         }
     );

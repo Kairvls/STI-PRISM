@@ -224,29 +224,7 @@
 
 
 
-        {{-- ===================================================== --}}
-        {{-- FILE MAINTENANCE SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title" id="file-maintenance-section">
-            FILE MAINTENANCE
-        </div>
-
-        <a
-            href="{{ route('purchaser.suppliers.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="truck" class="h-5 w-5"></i>
-            <span>Suppliers</span>
-        </a>
-
-        <a
-            href="{{ route('purchaser.file-maintenance.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="database" class="h-5 w-5"></i>
-            <span>File Maintenance</span>
-        </a>
+        
 
 
 
@@ -320,7 +298,7 @@
             ></i>
 
             <span>
-                Request Check / Cash Advance
+                RFC / Cash Advance
             </span>
 
         </a>
@@ -381,6 +359,30 @@
                 Compiled Records
             </span>
 
+        </a>
+
+        {{-- ===================================================== --}}
+        {{-- FILE MAINTENANCE SECTION --}}
+        {{-- ===================================================== --}}
+
+        <div class="menu-title" id="file-maintenance-section">
+            FILE MAINTENANCE
+        </div>
+
+        <a
+            href="{{ route('purchaser.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="truck" class="h-5 w-5"></i>
+            <span>Suppliers</span>
+        </a>
+
+        <a
+            href="{{ route('purchaser.file-maintenance.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="database" class="h-5 w-5"></i>
+            <span>File Maintenance</span>
         </a>
 
 

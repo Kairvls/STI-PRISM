@@ -16,13 +16,6 @@
 @include('partials.procurement-records-ui')
 
 <div class="pr-module acc-page fade-in">
-    @if(session('success'))
-        <div class="acc-note acc-note-success mb-4">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="acc-note acc-note-error mb-4">{{ session('error') }}</div>
-    @endif
-
     <div class="pr-detail-head">
         <div class="flex items-start gap-3">
             <a href="{{ route('accounting.procurement-records.index') }}" class="pr-back" aria-label="Back to compiled records">

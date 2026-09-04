@@ -12,28 +12,11 @@
 @endphp
 
 <div class="mx-auto max-w-3xl">
-    @if (session('success'))
-        <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {{ session('success') }}
-        </div>
-    @endif
-
     <div
         id="profilePictureFlash"
         class="mb-6 hidden rounded-xl border px-4 py-3 text-sm"
         role="status"
     ></div>
-
-    @if ($errors->any())
-        <div class="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            <p class="font-semibold">Please check the form.</p>
-            <ul class="mt-2 list-disc space-y-1 pl-5">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <form
         id="profileSettingsForm"
@@ -175,15 +158,13 @@
                 <label for="user_contact_number" class="mb-2 block text-sm font-semibold text-slate-700">
                     Contact number
                 </label>
-                <input
-                    id="user_contact_number"
-                    name="user_contact_number"
-                    type="text"
-                    value="{{ old('user_contact_number', $user->user_contact_number) }}"
-                    maxlength="32"
-                    placeholder="Optional"
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                >
+                @include('partials.phone-input', [
+                    'name' => 'user_contact_number',
+                    'value' => old('user_contact_number', $user->user_contact_number),
+                    'id' => 'maintenance-user-contact-number',
+                    'inputClass' => 'h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100',
+                    'placeholder' => 'XXX XXX XXXX',
+                ])
             </div>
 
             <div>

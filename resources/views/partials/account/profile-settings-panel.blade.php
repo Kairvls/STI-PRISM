@@ -82,13 +82,12 @@
 
             <label class="block">
                 <span class="text-xs font-semibold text-slate-600">Contact number</span>
-                <input
-                    type="tel"
-                    name="user_contact_number"
-                    value="{{ old('user_contact_number', $user->user_contact_number ?? '') }}"
-                    autocomplete="tel"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                >
+                @include('partials.phone-input', [
+                    'name' => 'user_contact_number',
+                    'value' => old('user_contact_number', $user->user_contact_number ?? ''),
+                    'id' => 'account-panel-user-contact-number',
+                    'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
+                ])
             </label>
 
             <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2">

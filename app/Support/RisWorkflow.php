@@ -4,6 +4,7 @@ namespace App\Support;
 
 class RisWorkflow
 {
+    public const ACCEPTED = 'Accepted';
     public const FORWARDED = 'Forwarded to President';
     public const PRESIDENT_APPROVED = 'Approved by the President';
     public const DIRECTLY_APPROVED = 'Directly Approved';
@@ -12,6 +13,29 @@ class RisWorkflow
     public const APPROVED_LEGACY = 'Approved';
     public const REQUEST_TYPE_REPLACEMENT = 'Replacement Procurement';
     public const REQUEST_TYPE_NEW = 'New Procurement';
+
+    /** Purchaser-submitted RIS waiting for Admin accept on Procurement Requests. */
+    public static function incomingStatuses(): array
+    {
+        return ['Pending', 'Submitted', 'Under Review', 'Resubmitted'];
+    }
+
+    public static function isIncoming(object $ris): bool
+    {
+        return in_array((string) ($ris->ris_status ?? ''), self::incomingStatuses(), true);
+    }
+
+    /** Accepted by Admin — ready for Forward / Direct Approve / Return on Sign RIS. */
+    public static function isAccepted(object $ris): bool
+    {
+        return (string) ($ris->ris_status ?? '') === self::ACCEPTED;
+    }
+
+    /** Needs a signing decision (forward / direct approve / return) on Sign RIS. */
+    public static function needsSignDecision(object $ris): bool
+    {
+        return self::isAccepted($ris);
+    }
 
     public static function presidentRejectedStatuses(): array
     {
@@ -118,8 +142,12 @@ class RisWorkflow
     {
         $status = (string) ($ris->ris_status ?? '');
 
-        if (in_array($status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
+        if (in_array($status, self::incomingStatuses(), true)) {
             return 'Pending';
+        }
+
+        if ($status === self::ACCEPTED) {
+            return 'Accepted';
         }
 
         if ($status === self::DIRECTLY_APPROVED) {

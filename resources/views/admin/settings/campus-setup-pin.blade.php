@@ -10,18 +10,6 @@
         <p class="admin-page-subtitle">Campus setup unlock PIN. Other product settings stay in their own modules.</p>
     </div>
 
-    @if (session('success'))
-        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if ($errors->any())
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            Please review the highlighted fields and try again.
-        </div>
-    @endif
-
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="mb-4 flex items-start justify-between gap-4">
             <div>

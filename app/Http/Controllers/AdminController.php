@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use App\Support\RisWorkflow;
@@ -213,7 +214,10 @@ class AdminController extends Controller
         $cosignedCount = 0;
 
         try {
-            $forCosigningCount = $this->applyRisAwaitingAdminActionScope(
+            $acceptedCount = (int) DB::table('requisition_issue_slip_table')
+                ->where('ris_status', RisWorkflow::ACCEPTED)
+                ->count();
+            $forCosigningCount = $acceptedCount + $this->applyRisAwaitingAdminActionScope(
                 DB::table('requisition_issue_slip_table as ris'),
                 'ris'
             )->count();
@@ -661,7 +665,7 @@ class AdminController extends Controller
     $filter = strtolower($request->query('filter', 'pending'));
     $search = trim($request->query('search', ''));
 
-    if (!in_array($filter, ['pending', 'forwarded', 'all'], true)) {
+    if (!in_array($filter, ['pending', 'accepted', 'all'], true)) {
         $filter = 'pending';
     }
 
@@ -754,10 +758,10 @@ class AdminController extends Controller
     // =====================================================
 
     $pendingRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
-    $forwardedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded'));
+    $acceptedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'accepted'));
     $allRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
     $pendingRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
-    $forwardedRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded'));
+    $acceptedRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'accepted'));
     $allRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
     $amendRis = 0;
 
@@ -865,10 +869,10 @@ class AdminController extends Controller
                 'filter',
                 'search',
                 'pendingRis',
-                'forwardedRis',
+                'acceptedRis',
                 'allRis',
                 'pendingRisAmount',
-                'forwardedRisAmount',
+                'acceptedRisAmount',
                 'allRisAmount'
             )
 
@@ -883,10 +887,10 @@ class AdminController extends Controller
             'filter',
             'search',
             'pendingRis',
-            'forwardedRis',
+            'acceptedRis',
             'allRis',
             'pendingRisAmount',
-            'forwardedRisAmount',
+            'acceptedRisAmount',
             'allRisAmount'
         )
     );
@@ -900,14 +904,14 @@ class AdminController extends Controller
 
     public function signRis(Request $request)
 {
-    // President-approved RIS (admin signs Issued by and returns to Purchaser)
-    // and President-rejected RIS (logged only).
+    // Accepted RIS (Forward / Direct Approve / Return) plus
+    // President-approved (Issued by) and President-rejected (return for revision).
 
-    $filter = strtolower($request->query('filter', 'for_cosign'));
+    $filter = strtolower($request->query('filter', 'pending'));
     $search = trim($request->query('search', ''));
 
-    if (!in_array($filter, ['all', 'for_cosign', 'cosigned', 'president_rejected'], true)) {
-        $filter = 'for_cosign';
+    if (!in_array($filter, ['all', 'pending', 'for_decision', 'for_cosign', 'cosigned', 'president_rejected'], true)) {
+        $filter = 'pending';
     }
 
         $releasedJoin = DB::raw('(
@@ -963,7 +967,8 @@ class AdminController extends Controller
             'ris_released.released_ris_id'
         )
         ->where(function ($q) {
-            $q->where(function ($approved) {
+            $q->where('requisition_issue_slip_table.ris_status', 'Accepted')
+            ->orWhere(function ($approved) {
                 $approved->where('requisition_issue_slip_table.ris_status', 'Approved by the President')
                     ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
                     ->whereRaw('TRIM(requisition_issue_slip_table.ris_approved_by_signature) != ""');
@@ -978,6 +983,10 @@ class AdminController extends Controller
                 'Rejected by the President',
             ]);
         });
+
+    $acceptedQuery = function ($query) {
+        $query->where('requisition_issue_slip_table.ris_status', 'Accepted');
+    };
 
     $presidentApprovedQuery = function ($query) {
         $query->where(function ($approved) {
@@ -999,6 +1008,12 @@ class AdminController extends Controller
             });
     };
 
+    $pendingActionQuery = function ($query) use ($acceptedQuery, $awaitingQuery) {
+        $query->where(function ($inner) use ($acceptedQuery, $awaitingQuery) {
+            $inner->where($acceptedQuery)->orWhere($awaitingQuery);
+        });
+    };
+
     $returnedQuery = function ($query) use ($presidentApprovedQuery) {
         $query->where($presidentApprovedQuery)
             ->whereNotNull('requisition_issue_slip_table.ris_issued_by_signature')
@@ -1012,19 +1027,27 @@ class AdminController extends Controller
         ]);
     };
 
+    $forDecisionCount = (clone $baseQuery)->where($acceptedQuery)->count();
     $forCosignCount = (clone $baseQuery)->where($awaitingQuery)->count();
+    $pendingActionCount = $forDecisionCount + $forCosignCount;
     $cosignedCount = (clone $baseQuery)->where($returnedQuery)->count();
     $presidentRejectedCount = (clone $baseQuery)->where($presidentRejectedQuery)->count();
     $allCount = (clone $baseQuery)->count();
 
+    $forDecisionAmount = (clone $baseQuery)->where($acceptedQuery)->sum('ris_items_sum.ris_calculated_total');
     $forCosignAmount = (clone $baseQuery)->where($awaitingQuery)->sum('ris_items_sum.ris_calculated_total');
+    $pendingActionAmount = (float) $forDecisionAmount + (float) $forCosignAmount;
     $cosignedAmount = (clone $baseQuery)->where($returnedQuery)->sum('ris_items_sum.ris_calculated_total');
     $presidentRejectedAmount = (clone $baseQuery)->where($presidentRejectedQuery)->sum('ris_items_sum.ris_calculated_total');
     $allAmount = (clone $baseQuery)->sum('ris_items_sum.ris_calculated_total');
 
     $query = clone $baseQuery;
 
-    if ($filter === 'for_cosign') {
+    if ($filter === 'pending') {
+        $query->where($pendingActionQuery);
+    } elseif ($filter === 'for_decision') {
+        $query->where($acceptedQuery);
+    } elseif ($filter === 'for_cosign') {
         $query->where($awaitingQuery);
     } elseif ($filter === 'cosigned') {
         $query->where($returnedQuery);
@@ -1113,10 +1136,14 @@ class AdminController extends Controller
                 'signableRisRecords',
                 'filter',
                 'search',
+                'pendingActionCount',
+                'forDecisionCount',
                 'forCosignCount',
                 'cosignedCount',
                 'presidentRejectedCount',
                 'allCount',
+                'pendingActionAmount',
+                'forDecisionAmount',
                 'forCosignAmount',
                 'cosignedAmount',
                 'presidentRejectedAmount',
@@ -1133,10 +1160,14 @@ class AdminController extends Controller
             'signableRisRecords',
             'filter',
             'search',
+            'pendingActionCount',
+            'forDecisionCount',
             'forCosignCount',
             'cosignedCount',
             'presidentRejectedCount',
             'allCount',
+            'pendingActionAmount',
+            'forDecisionAmount',
             'forCosignAmount',
             'cosignedAmount',
             'presidentRejectedAmount',
@@ -1468,7 +1499,7 @@ class AdminController extends Controller
 
         return back()->with(
             'error',
-            'Sign Issued by on Sign RIS to return this document to the Purchaser. ATP cannot start without that signature.'
+            'Sign Issued by under Awaiting Issued by to return this document to the Purchaser. ATP cannot start without that signature.'
         );
     }
 
@@ -2296,6 +2327,16 @@ class AdminController extends Controller
     public function approveRis(Request $request, $risId)
     {
         return DB::transaction(function () use ($request, $risId) {
+            $validated = $request->validate([
+                'forward_details' => ['nullable', 'string', 'max:2000'],
+                'forward_attachment' => [
+                    'nullable',
+                    'file',
+                    'max:10240',
+                    'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx',
+                ],
+            ]);
+
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -2303,13 +2344,20 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
-                return back()->with('error', 'Only submitted RIS records can be approved.');
+            if (!RisWorkflow::isAccepted($ris) || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only accepted RIS records can be forwarded to the President.');
             }
 
-            $this->markRisUnderReview($ris);
-
             $adminName = Auth::user()->user_full_name ?? 'Admin';
+            $forwardDetails = trim((string) ($validated['forward_details'] ?? ''));
+
+            $attachmentPath = null;
+            $attachmentName = null;
+            if ($request->hasFile('forward_attachment')) {
+                $file = $request->file('forward_attachment');
+                $attachmentPath = $file->store('ris-forward-attachments/' . $risId, 'public');
+                $attachmentName = $file->getClientOriginalName();
+            }
 
             // Forward only: Approved by stays empty for the President.
             // Issued by is signed later on Sign RIS after President approval.
@@ -2320,6 +2368,17 @@ class AdminController extends Controller
                 'ris_issued_by_signature' => null,
                 'ris_issued_by_date' => null,
             ];
+
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
+                $forwardPayload['ris_forward_details'] = $forwardDetails !== '' ? $forwardDetails : null;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')) {
+                $forwardPayload['ris_forward_attachment_path'] = $attachmentPath;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_name')) {
+                $forwardPayload['ris_forward_attachment_name'] = $attachmentName;
+            }
+
             try {
                 DB::table('requisition_issue_slip_table')
                     ->where('ris_id', $risId)
@@ -2331,6 +2390,14 @@ class AdminController extends Controller
                 );
             }
 
+            $logRemarks = 'RIS forwarded to President by ' . $adminName . '.';
+            if ($forwardDetails !== '') {
+                $logRemarks .= ' Details: ' . $forwardDetails;
+            }
+            if ($attachmentName) {
+                $logRemarks .= ' Attachment: ' . $attachmentName . '.';
+            }
+
             try {
                 DB::table('approval_logs_table')->insert([
                     'approval_log_reference_type' => 'RIS',
@@ -2338,25 +2405,159 @@ class AdminController extends Controller
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Forwarded to President',
-                    'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName . '.',
+                    'approval_log_approval_remarks' => $logRemarks,
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 // Ignore logging failures
             }
 
+            $notifyMessage = ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was forwarded by Admin.';
+            if ($forwardDetails !== '') {
+                $notifyMessage .= ' ' . \Illuminate\Support\Str::limit($forwardDetails, 100);
+            }
+
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PRESIDENT,
                 'RIS ready for presidential review',
-                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was forwarded by Admin.',
+                $notifyMessage,
                 'ris_forwarded',
                 'RIS',
                 (int) $risId,
                 '/president/approvals'
             );
 
-            return back()->with('success', 'Successfully sent to President.');
+            return redirect()
+                ->route('admin.digital-signatures.sign-ris', ['filter' => 'pending'])
+                ->with('success', 'Successfully sent to President.');
         });
+    }
+
+    public function acceptRis(Request $request, $risId)
+    {
+        return DB::transaction(function () use ($risId) {
+            $result = $this->acceptProcurementRisById((int) $risId);
+
+            if ($result === 'not_found') {
+                abort(404);
+            }
+
+            if ($result !== true) {
+                $message = $result === 'not_reviewable'
+                    ? 'Only submitted procurement requests can be accepted.'
+                    : $result;
+
+                return back()->with('error', $message);
+            }
+
+            return redirect()
+                ->route('admin.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+                ->with('success', 'Procurement request accepted. Continue on Sign RIS.');
+        });
+    }
+
+    public function bulkAcceptRis(Request $request)
+    {
+        $validated = $request->validate([
+            'ris_ids' => ['required', 'array', 'min:1'],
+            'ris_ids.*' => ['required', 'integer', 'distinct'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ris_ids'])));
+        $accepted = 0;
+        $skipped = 0;
+
+        try {
+            DB::transaction(function () use ($ids, &$accepted, &$skipped) {
+                foreach ($ids as $risId) {
+                    $result = $this->acceptProcurementRisById($risId);
+
+                    if ($result === true) {
+                        $accepted++;
+                        continue;
+                    }
+
+                    if ($result === 'not_found' || $result === 'not_reviewable') {
+                        $skipped++;
+                        continue;
+                    }
+
+                    throw new \RuntimeException($result);
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        if ($accepted === 0) {
+            return back()->with(
+                'error',
+                'No selected requests could be accepted. Only submitted procurement requests can be accepted.'
+            );
+        }
+
+        $message = $accepted === 1
+            ? '1 procurement request accepted. Continue on Sign RIS.'
+            : $accepted . ' procurement requests accepted. Continue on Sign RIS.';
+
+        if ($skipped > 0) {
+            $message .= ' ' . $skipped . ' selected item' . ($skipped === 1 ? ' was' : 's were') . ' skipped.';
+        }
+
+        return redirect()
+            ->route('admin.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+            ->with('success', $message);
+    }
+
+    /**
+     * Accept a single procurement RIS inside an open DB transaction.
+     *
+     * @return true|string true on success, or an error/skip code string
+     */
+    private function acceptProcurementRisById(int $risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$ris) {
+            return 'not_found';
+        }
+
+        if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
+            return 'not_reviewable';
+        }
+
+        $this->markRisUnderReview($ris);
+
+        $adminName = Auth::user()->user_full_name ?? 'Admin';
+
+        try {
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => RisWorkflow::ACCEPTED,
+                ]);
+        } catch (\Throwable $e) {
+            return 'Could not accept this RIS. Run database migrations so "Accepted" is a valid status.';
+        }
+
+        try {
+            DB::table('approval_logs_table')->insert([
+                'approval_log_reference_type' => 'RIS',
+                'approval_log_reference_id' => $risId,
+                'approval_log_level' => 'Admin',
+                'approval_log_approved_by' => Auth::id(),
+                'approval_log_approval_status' => 'Accepted',
+                'approval_log_approval_remarks' => 'Procurement request accepted by ' . $adminName . '. Ready for Sign RIS decision.',
+                'approval_log_approved_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore logging failures
+        }
+
+        return true;
     }
 
     public function directApproveForm(Request $request, $risId)
@@ -2376,143 +2577,257 @@ class AdminController extends Controller
             if (!RisWorkflow::needsAdminIssuedBy($ris)) {
                 abort(403, 'Only President-approved RIS records awaiting Issued by can be signed here.');
             }
-        } elseif (
-            !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true) ||
-            empty($ris->ris_requested_by_date)
-        ) {
-            abort(403, 'Only submitted pending RIS records can be signed by Admin.');
+        } elseif (!RisWorkflow::isAccepted($ris) || empty($ris->ris_requested_by_date)) {
+            abort(403, 'Only accepted RIS records can be signed by Admin on Sign RIS.');
         }
 
         $risItems = $this->loadRisItemsWithLookups((int) $risId);
+
+        $supportingDocuments = collect();
+        if (Schema::hasTable('ris_attachments_table')) {
+            $supportingDocuments = DB::table('ris_attachments_table')
+                ->where('ris_id', $risId)
+                ->orderBy('ris_attachment_original_name')
+                ->get();
+        }
 
         return view('admin.procurement-review._direct-approve-form', [
             'ris' => $ris,
             'risItems' => $risItems,
             'mode' => $mode,
+            'supportingDocuments' => $supportingDocuments,
         ]);
     }
 
     public function directApproveRis(Request $request, $risId)
-{
-    return DB::transaction(function () use ($request, $risId) {
+    {
+        return DB::transaction(function () use ($request, $risId) {
 
-        // =====================================================
-        // VALIDATE INPUT — Issued by + date only
-        // =====================================================
+            // =====================================================
+            // VALIDATE INPUT — Checked by, Issued by, reason, proof
+            // =====================================================
 
-        $validated = $request->validate([
-            'ris_issued_by' => ['required', 'string', 'max:255'],
-            'ris_issued_by_date' => ['required', 'string', 'max:20'],
-            'ris_issued_by_signature_image' => ['nullable', 'string', 'max:2000000'],
-            'ris_issued_by_signature_file' => ['nullable', 'image', 'max:2048'],
-        ]);
+            $validated = $request->validate([
+                'ris_checked_by' => ['required', 'string', 'max:255'],
+                'ris_checked_by_date' => ['required', 'string', 'max:20'],
+                'ris_checked_by_signature_image' => ['nullable', 'string', 'max:2000000'],
+                'ris_checked_by_signature_file' => ['nullable', 'image', 'max:2048'],
+                'ris_issued_by' => ['required', 'string', 'max:255'],
+                'ris_issued_by_date' => ['required', 'string', 'max:20'],
+                'ris_issued_by_signature_image' => ['nullable', 'string', 'max:2000000'],
+                'ris_issued_by_signature_file' => ['nullable', 'image', 'max:2048'],
+                'direct_approval_reason' => ['required', 'string', 'max:2000'],
+                'direct_approval_proof' => [
+                    'nullable',
+                    'file',
+                    'max:10240',
+                    'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx',
+                ],
+            ]);
 
-        $issuedDate = $this->parseFlexibleDate($validated['ris_issued_by_date']);
-        if (!$issuedDate) {
-            return back()->with(
-                'error',
-                'Issued by date must be a valid date (dd/mm/yyyy).'
+            $checkedDate = $this->parseFlexibleDate($validated['ris_checked_by_date']);
+            if (!$checkedDate) {
+                return back()->with(
+                    'error',
+                    'Checked by date must be a valid date (dd/mm/yyyy).'
+                );
+            }
+
+            $issuedDate = $this->parseFlexibleDate($validated['ris_issued_by_date']);
+            if (!$issuedDate) {
+                return back()->with(
+                    'error',
+                    'Issued by date must be a valid date (dd/mm/yyyy).'
+                );
+            }
+
+            $reason = trim($validated['direct_approval_reason']);
+            if ($reason === '') {
+                return back()->with(
+                    'error',
+                    'Please provide a reason for this direct approval.'
+                );
+            }
+
+            // =====================================================
+            // GET AND LOCK RIS
+            // =====================================================
+
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            // =====================================================
+            // VALIDATE RIS
+            // Only Accepted RIS can be directly approved on Sign RIS
+            // =====================================================
+
+            if (!RisWorkflow::isAccepted($ris) || empty($ris->ris_requested_by_date)) {
+                return back()->with(
+                    'error',
+                    'Only accepted RIS records can be directly approved on Sign RIS.'
+                );
+            }
+
+            // =====================================================
+            // DIRECTLY APPROVE RIS
+            //
+            // Admin fills Checked by + Issued by (bypasses President signing).
+            // Reason/proof are recorded for President viewing.
+            // Status = Directly Approved. Returned to Purchaser.
+            // =====================================================
+
+            $checkedSignature = $this->resolveSignatureFromRequest(
+                $request,
+                trim($validated['ris_checked_by']),
+                'ris_checked_by_signature_image',
+                'ris_checked_by_signature_file'
             );
-        }
+            $issuedSignature = $this->resolveIssuedBySignature($request, trim($validated['ris_issued_by']));
 
-        // =====================================================
-        // GET AND LOCK RIS
-        // =====================================================
+            $proofPath = null;
+            $proofName = null;
+            if ($request->hasFile('direct_approval_proof')) {
+                $proof = $request->file('direct_approval_proof');
+                $proofPath = $proof->store('ris-direct-approval-proofs/' . $risId, 'public');
+                $proofName = $proof->getClientOriginalName();
+            }
 
-        $ris = DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $risId)
-            ->lockForUpdate()
-            ->first();
-
-        abort_if(!$ris, 404);
-
-        // =====================================================
-        // VALIDATE RIS
-        // Only submitted Pending RIS can be directly approved
-        // =====================================================
-
-        // New workflow: Submitted / Under Review / Resubmitted.
-        // Legacy status: Pending.
-        if (
-            !$this->isAdminReviewable($ris->ris_status) ||
-            empty($ris->ris_requested_by_date)
-        ) {
-            return back()->with(
-                'error',
-                'Only submitted RIS records can be directly approved.'
-            );
-        }
-
-        $this->markRisUnderReview($ris);
-
-        // =====================================================
-        // DIRECTLY APPROVE RIS
-        //
-        // Admin signs Issued by only. Approved by stays blank
-        // (reserved for President). Status = Directly Approved.
-        // Returned to Purchaser — never appears in Sign RIS.
-        // =====================================================
-
-        $issuedSignature = $this->resolveIssuedBySignature($request, trim($validated['ris_issued_by']));
-
-        DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $risId)
-            ->update([
+            $updatePayload = [
                 'ris_status' => 'Directly Approved',
+                'ris_approved_by_signature' => $checkedSignature,
+                'ris_approved_by_date' => $checkedDate,
                 'ris_issued_by_signature' => $issuedSignature,
                 'ris_issued_by_date' => $issuedDate,
-                'ris_approved_by_signature' => null,
-                'ris_approved_by_date' => null,
-            ]);
+            ];
 
-        WorkflowNotifier::toUser(
-            $ris->ris_submitted_by,
-            WorkflowNotifier::ROLE_PURCHASER,
-            'RIS approved by Admin',
-            ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was approved. You may create an ATP.',
-            'ris_approved',
-            'RIS',
-            (int) $risId,
-            '/purchaser/ris'
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_reason')) {
+                $updatePayload['ris_direct_approval_reason'] = $reason;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path')) {
+                $updatePayload['ris_direct_approval_proof_path'] = $proofPath;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_name')) {
+                $updatePayload['ris_direct_approval_proof_name'] = $proofName;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_at')) {
+                $updatePayload['ris_direct_approval_at'] = now();
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')) {
+                $updatePayload['ris_direct_approval_by'] = Auth::id();
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update($updatePayload);
+
+            WorkflowNotifier::toUser(
+                $ris->ris_submitted_by,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'RIS approved by Admin',
+                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was approved. You may create an ATP.',
+                'ris_approved',
+                'RIS',
+                (int) $risId,
+                '/purchaser/ris'
+            );
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_PRESIDENT,
+                'Admin direct approval recorded',
+                ($ris->ris_form_number ?: ('RIS #' . $risId))
+                    . ' was directly approved by Admin. Reason: '
+                    . \Illuminate\Support\Str::limit($reason, 120),
+                'ris_direct_approved',
+                'RIS',
+                (int) $risId,
+                '/president/direct-approvals'
+            );
+
+            // =====================================================
+            // APPROVAL LOG
+            // Keep a record that this was a Direct Approval
+            // =====================================================
+
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_level' => 'Admin Approval',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Admin Approved',
+                    'approval_log_approval_remarks' => 'RIS admin approved (Checked by: '
+                        . trim($validated['ris_checked_by'])
+                        . '; Issued by: '
+                        . trim($validated['ris_issued_by'])
+                        . '). Reason: '
+                        . $reason
+                        . ($proofName ? (' Proof: ' . $proofName . '.') : '')
+                        . ' Returned to Purchaser and recorded for President.',
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Approval must still succeed even if logging fails.
+            }
+
+            return redirect()
+                ->route('admin.digital-signatures.history', [
+                    'filter' => 'direct_approved',
+                ])
+                ->with(
+                    'success',
+                    'Directly approved and sent to Purchaser. Kept in Signature History (Admin Approved) and recorded for President.'
+                );
+        });
+    }
+
+    public function downloadDirectApprovalProof($risId)
+    {
+        abort_unless(
+            Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path'),
+            404
         );
 
-        // =====================================================
-        // APPROVAL LOG
-        // Keep a record that this was a Direct Approval
-        // =====================================================
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->where('ris_status', RisWorkflow::DIRECTLY_APPROVED)
+            ->first();
 
-        try {
+        abort_if(!$record, 404);
 
-            DB::table('approval_logs_table')->insert([
-                'approval_log_reference_type' => 'RIS',
-                'approval_log_reference_id' => (int) $risId,
-                'approval_log_level' => 'Admin Approval',
-                'approval_log_approved_by' => Auth::id(),
-                'approval_log_approval_status' => 'Admin Approved',
-                'approval_log_approval_remarks' => 'RIS admin approved by ' . trim($validated['ris_issued_by']) . ' (Issued by) and returned to Purchaser.',
-                'approval_log_approved_at' => now(),
-            ]);
+        $path = trim((string) ($record->ris_direct_approval_proof_path ?? ''));
+        abort_if($path === '' || !Storage::disk('public')->exists($path), 404);
 
-        } catch (\Throwable $e) {
+        $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
+            ?: basename($path);
 
-            // Approval must still succeed even if logging fails.
+        return Storage::disk('public')->download($path, $downloadName);
+    }
 
-        }
+    public function downloadForwardAttachment($risId)
+    {
+        abort_unless(
+            Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path'),
+            404
+        );
 
-        // =====================================================
-        // RETURN TO PROCUREMENT REQUEST TABLE
-        // =====================================================
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
 
-        return redirect()
-            ->route('admin.procurement-review.index', [
-                'filter' => 'all'
-            ])
-            ->with(
-                'success',
-                'Successfully sent to Purchaser.'
-            );
-    });
-}
+        abort_if(!$record, 404);
+
+        $path = trim((string) ($record->ris_forward_attachment_path ?? ''));
+        abort_if($path === '' || !Storage::disk('public')->exists($path), 404);
+
+        $downloadName = trim((string) ($record->ris_forward_attachment_name ?? ''))
+            ?: basename($path);
+
+        return Storage::disk('public')->download($path, $downloadName);
+    }
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: REJECT RIS
@@ -2528,8 +2843,14 @@ public function rejectRis(Request $request, $risId)
 
             abort_if(!$ris, 404);
 
-            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
-                return back()->with('error', 'Only submitted RIS records can be returned for revision.');
+            if (
+                (!$this->isAdminReviewable($ris->ris_status) && !RisWorkflow::isAccepted($ris))
+                || !$ris->ris_requested_by_date
+            ) {
+                return back()->with(
+                    'error',
+                    'Only pending or accepted RIS records can be returned for revision.'
+                );
             }
 
             $remarks = trim((string) $request->input('remarks', ''));
@@ -2537,7 +2858,9 @@ public function rejectRis(Request $request, $risId)
                 return back()->with('error', 'Please provide amendment remarks to inform the Purchaser what needs to be revised.');
             }
 
-            $this->markRisUnderReview($ris);
+            if ($this->isAdminReviewable($ris->ris_status)) {
+                $this->markRisUnderReview($ris);
+            }
 
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
@@ -3169,7 +3492,14 @@ public function rejectRis(Request $request, $risId)
         if ($filter === 'pending') {
             return $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
-                ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
+                RisWorkflow::incomingStatuses()
+            );
+        }
+
+        if ($filter === 'accepted') {
+            return $query->where(
+                'requisition_issue_slip_table.ris_status',
+                RisWorkflow::ACCEPTED
             );
         }
 
@@ -3377,7 +3707,21 @@ public function rejectRis(Request $request, $risId)
 
     private function resolveIssuedBySignature(Request $request, string $typedName): string
     {
-        $dataUrl = trim((string) $request->input('ris_issued_by_signature_image', ''));
+        return $this->resolveSignatureFromRequest(
+            $request,
+            $typedName,
+            'ris_issued_by_signature_image',
+            'ris_issued_by_signature_file'
+        );
+    }
+
+    private function resolveSignatureFromRequest(
+        Request $request,
+        string $typedName,
+        string $imageKey,
+        string $fileKey
+    ): string {
+        $dataUrl = trim((string) $request->input($imageKey, ''));
         if (
             $dataUrl !== ''
             && str_starts_with($dataUrl, 'data:image/')
@@ -3386,8 +3730,8 @@ public function rejectRis(Request $request, $risId)
             return $dataUrl;
         }
 
-        if ($request->hasFile('ris_issued_by_signature_file')) {
-            $file = $request->file('ris_issued_by_signature_file');
+        if ($request->hasFile($fileKey)) {
+            $file = $request->file($fileKey);
             if ($file && $file->isValid()) {
                 $mime = (string) $file->getMimeType();
                 if (str_starts_with($mime, 'image/')) {
@@ -3428,6 +3772,19 @@ public function rejectRis(Request $request, $risId)
                 'requisition_issue_slip_items_table.ris_item_uom_id'
             );
             $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('brands_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+        ) {
+            $query->leftJoin(
+                'brands_table',
+                'brands_table.brand_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_brand_id'
+            );
+            $select[] = 'brands_table.brand_name';
         }
 
         if (
@@ -3524,7 +3881,7 @@ public function rejectRis(Request $request, $risId)
         } catch (\Throwable $e) {
             return view('admin.digital-signatures._sign-ris-quick-access', [
                 'signableRisRecords' => $this->emptyReportPager($request),
-                'filter' => 'for_cosign',
+                'filter' => 'pending',
                 'search' => '',
             ]);
         }

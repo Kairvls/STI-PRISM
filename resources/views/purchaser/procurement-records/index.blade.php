@@ -12,13 +12,6 @@
 @include('partials.procurement-records-ui')
 
 <div class="pr-module space-y-5">
-    @if(session('success'))
-        <div class="pur-alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="pur-alert-error">{{ session('error') }}</div>
-    @endif
-
     <div class="pr-hero">
         <p class="pr-hero-kicker">Purchasing Workflow</p>
         <h1 class="pr-hero-title">Compiled Records</h1>

@@ -237,7 +237,7 @@
                 '<div class="mp-toast-top">' +
                     '<div class="mp-toast-brand">' +
                         '<span class="mp-toast-brand-icon">' + mpToastIconSvg(type) + '</span>' +
-                        '<span class="mp-toast-brand-name">PRISM</span>' +
+                        '<span class="mp-toast-brand-name">PaAyo</span>' +
                     '</div>' +
                     '<div class="mp-toast-actions">' +
                         '<button type="button" class="mp-toast-close" aria-label="Dismiss">' +

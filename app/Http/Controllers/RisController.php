@@ -23,9 +23,13 @@ class RisController extends Controller
 
     private ?bool $risItemsHaveSupplierColumn = null;
 
+    private ?bool $risItemsHaveBrandColumn = null;
+
     private $validUomIds = null;
 
     private $validSupplierIds = null;
+
+    private $validBrandIds = null;
 
     public function index(Request $request)
     {
@@ -227,6 +231,12 @@ class RisController extends Controller
         $uoms = ($isAjax || !$this->uomTableExists())
             ? collect()
             : DB::table('uom_table')->orderBy('uom_name')->get();
+        $brands = ($isAjax || !$this->brandsTableExists())
+            ? collect()
+            : DB::table('brands_table')
+                ->where('brand_status', 'Active')
+                ->orderBy('brand_name')
+                ->get();
 
         $supplierIdsOnPage = $risRecords->getCollection()->pluck('ris_supplier_id')->filter()->unique()->values();
         $supplierNames = $this->supplierOptionsForRis(false, $supplierIdsOnPage)->keyBy('supplier_id');
@@ -243,7 +253,8 @@ class RisController extends Controller
             'availableReplacementRequests',
             'replacementSourceError',
             'activeSuppliers',
-            'uoms'
+            'uoms',
+            'brands'
         ));
     }
 
@@ -306,6 +317,12 @@ class RisController extends Controller
             ],
 
             'ris_items.*.supplier_id' => $this->activeSupplierRule(),
+
+            'ris_items.*.brand_id' => array_values(array_filter([
+                'nullable',
+                'integer',
+                Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
+            ])),
 
             'ris_items.*.uom_id' => array_values(array_filter([
                 'nullable',
@@ -471,6 +488,7 @@ class RisController extends Controller
                     || filled($item['quantity_issued'] ?? null)
                     || filled($item['unit_cost'] ?? null)
                     || filled($item['uom_id'] ?? null)
+                    || filled($item['brand_id'] ?? null)
                     || filled($item['supplier_id'] ?? null);
 
             })
@@ -878,6 +896,12 @@ public function update(Request $request, $risId)
 
         'ris_items.*.supplier_id' => $this->activeSupplierRule(),
 
+        'ris_items.*.brand_id' => array_values(array_filter([
+            'nullable',
+            'integer',
+            Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
+        ])),
+
         'ris_items.*.uom_id' => array_values(array_filter([
             'nullable',
             'integer',
@@ -990,6 +1014,7 @@ public function update(Request $request, $risId)
                 || filled($item['quantity_issued'] ?? null)
                 || filled($item['unit_cost'] ?? null)
                 || filled($item['uom_id'] ?? null)
+                || filled($item['brand_id'] ?? null)
                 || filled($item['supplier_id'] ?? null);
 
         })
@@ -1567,6 +1592,10 @@ public function submit($risId)
             $payload['ris_item_uom_id'] = $this->resolveRisUomId($item['uom_id'] ?? null);
         }
 
+        if ($this->risItemsHaveBrandColumn()) {
+            $payload['ris_item_brand_id'] = $this->resolveRisBrandId($item['brand_id'] ?? null);
+        }
+
         if ($this->risItemsHaveSupplierColumn()) {
             $payload['ris_item_supplier_id'] = $this->resolveRisSupplierId($item['supplier_id'] ?? null);
         }
@@ -1585,6 +1614,19 @@ public function submit($risId)
         }
 
         return isset($this->validUomIds[(int) $uomId]) ? (int) $uomId : null;
+    }
+
+    private function resolveRisBrandId($brandId): ?int
+    {
+        if (!filled($brandId) || !$this->brandsTableExists()) {
+            return null;
+        }
+
+        if ($this->validBrandIds === null) {
+            $this->validBrandIds = DB::table('brands_table')->pluck('brand_id')->flip();
+        }
+
+        return isset($this->validBrandIds[(int) $brandId]) ? (int) $brandId : null;
     }
 
     private function resolveRisSupplierId($supplierId): ?int
@@ -1663,6 +1705,11 @@ public function submit($risId)
         return Schema::hasTable('uom_table');
     }
 
+    private function brandsTableExists(): bool
+    {
+        return Schema::hasTable('brands_table');
+    }
+
     private function risItemsHaveUomColumn(): bool
     {
         return $this->risItemsHaveUomColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id');
@@ -1671,6 +1718,11 @@ public function submit($risId)
     private function risItemsHaveSupplierColumn(): bool
     {
         return $this->risItemsHaveSupplierColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id');
+    }
+
+    private function risItemsHaveBrandColumn(): bool
+    {
+        return $this->risItemsHaveBrandColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id');
     }
 
     private function risItemsWithLookups($risIds)
@@ -1692,6 +1744,19 @@ public function submit($risId)
                 'requisition_issue_slip_items_table.ris_item_uom_id'
             );
             $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('brands_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+        ) {
+            $query->leftJoin(
+                'brands_table',
+                'brands_table.brand_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_brand_id'
+            );
+            $select[] = 'brands_table.brand_name';
         }
 
         if (
