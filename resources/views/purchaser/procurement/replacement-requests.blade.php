@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Replacement Requests')
 @section('page-subtitle', 'Review and manage equipment replacement requests')
@@ -202,7 +202,7 @@
                         class="flex shrink-0 items-center rounded-lg bg-slate-100 h-9 p-1"
                     >
                         <a
-                            href="{{ route('purchaser.procurement.replacement-requests') }}"
+                            href="{{ route(($pp ?? 'purchaser').'.procurement.replacement-requests') }}"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ !$archiveView
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -214,7 +214,7 @@
                         </a>
 
                         <a
-                            href="{{ route('purchaser.procurement.replacement-requests', ['view' => 'archive']) }}"
+                            href="{{ route(($pp ?? 'purchaser').'.procurement.replacement-requests', ['view' => 'archive']) }}"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ $archiveView
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -401,7 +401,7 @@
                                         </button>
                                     @elseif($hasRis)
                                         <a
-                                            href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
+                                            href="{{ route(($pp ?? 'purchaser').'.ris.index') }}?ris_id={{ $request->ris_id }}"
                                             data-tooltip="View RIS"
                                             aria-label="View RIS"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700 transition hover:bg-green-100"
@@ -427,7 +427,7 @@
                                     @elseif($request->procurement_request_is_archived)
                                         <form
                                             method="POST"
-                                            action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}"
+                                            action="{{ route(($pp ?? 'purchaser').'.procurement.replacement-requests.restore', $request->procurement_request_id) }}"
                                         >
                                             @csrf
 
@@ -710,7 +710,7 @@
                             Cancel
                         </button>
                         <a
-                            x-bind:href="'{{ route('purchaser.ris.index') }}?replacement_request=' + createRisModal"
+                            x-bind:href="'{{ route(($pp ?? 'purchaser').'.ris.index') }}?replacement_request=' + createRisModal"
                             class="rounded-lg bg-[#FFF200] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#E6E600]"
                         >
                             Continue to RIS
@@ -757,7 +757,7 @@
 
                 <form
                     method="POST"
-                    x-bind:action="'/purchaser/procurement/replacement-requests/' + archiveModal + '/archive'"
+                    x-bind:action="'{{ url('/'.($pp ?? 'purchaser').'/procurement/replacement-requests') }}/' + archiveModal + '/archive'"
                     class="space-y-4 p-5"
                 >
                     @csrf
@@ -822,7 +822,7 @@
 
                 <form
                     method="POST"
-                    x-bind:action="'/purchaser/procurement/replacement-requests/' + approveModal + '/approve'"
+                    x-bind:action="'{{ url('/'.($pp ?? 'purchaser').'/procurement/replacement-requests') }}/' + approveModal + '/approve'"
                     class="space-y-4 p-5"
                 >
                     @csrf
@@ -886,7 +886,7 @@
 
                 <form
                     method="POST"
-                    x-bind:action="'/purchaser/procurement/replacement-requests/' + rejectModal + '/reject'"
+                    x-bind:action="'{{ url('/'.($pp ?? 'purchaser').'/procurement/replacement-requests') }}/' + rejectModal + '/reject'"
                     class="space-y-4 p-5"
                 >
                     @csrf

@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section("page-title", "Requisition Issue Slip")
 
@@ -55,9 +55,9 @@
                 'reason' => $request->report_replacement_notes ?? '',
             ];
         })->values(),
-        'savedSignatureStoreUrl' => route('purchaser.ris.saved-signatures.store'),
-        'savedSignatureDestroyBaseUrl' => url('/purchaser/ris/saved-signatures'),
-        'risIndexUrl' => route('purchaser.ris.index'),
+        'savedSignatureStoreUrl' => route(($pp ?? 'purchaser').'.ris.saved-signatures.store'),
+        'savedSignatureDestroyBaseUrl' => url('/'.($pp ?? 'purchaser').'/ris/saved-signatures'),
+        'risIndexUrl' => route(($pp ?? 'purchaser').'.ris.index'),
     ];
 @endphp
 
@@ -565,7 +565,7 @@
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
 
         <a
-            href="{{ route('purchaser.ris.index', ['status' => 'Draft']) }}"
+            href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Draft']) }}"
             class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
@@ -586,7 +586,7 @@
         </a>
 
         <a
-            href="{{ route('purchaser.ris.index', ['status' => 'In Review']) }}"
+            href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'In Review']) }}"
             class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
@@ -607,7 +607,7 @@
         </a>
 
         <a
-            href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
+            href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Approved']) }}"
             class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
@@ -628,7 +628,7 @@
         </a>
 
         <a
-            href="{{ route('purchaser.ris.index', ['status' => 'Rejected']) }}"
+            href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Rejected']) }}"
             class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
@@ -914,7 +914,7 @@
                     </button>
 
                     <a
-                        href="{{ route('purchaser.ris.export-blank-xlsx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.ris.export-blank-xlsx') }}"
                         data-tooltip="Export to Excel"
                         aria-label="Export to Excel"
                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300"
@@ -928,7 +928,7 @@
                     </a>
 
                     <a
-                        href="{{ route('purchaser.ris.export-blank-docx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.ris.export-blank-docx') }}"
                         data-tooltip="Export to Word file"
                         aria-label="Export to Word file"
                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300"
@@ -1455,7 +1455,7 @@
                     ? 'my-0 min-h-full max-w-none rounded-none shadow-none'
                     : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
-                <form method="POST" action="{{ route('purchaser.ris.store') }}" enctype="multipart/form-data" x-ref="createRisForm" x-on:submit.prevent="saveCreateRis()">
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.store') }}" enctype="multipart/form-data" x-ref="createRisForm" x-on:submit.prevent="saveCreateRis()">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
                     <input type="hidden" name="signature_data" id="purchaserRisSignatureData" value="{{ old('signature_data') }}" x-bind:value="createSignaturePreview">
@@ -2094,7 +2094,7 @@
                 <form
                     id="ris-filter-form"
                     method="GET"
-                    action="{{ route('purchaser.ris.index') }}"
+                    action="{{ route(($pp ?? 'purchaser').'.ris.index') }}"
                     x-ref="risFilterForm"
                     x-on:submit.prevent="refreshRisRecords()"
                     class="flex flex-col gap-2 sm:flex-row sm:items-center"
@@ -2259,7 +2259,7 @@
                                 @if($ris->risAttachments->count() === 1)
                                     @php $attachment = $ris->risAttachments->first(); @endphp
                                     <a
-                                        href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                        href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
                                         class="inline-flex max-w-[220px] items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         title="Download {{ $attachment->ris_attachment_original_name }}"
                                     >
@@ -2293,7 +2293,7 @@
                                         >
                                             @foreach($ris->risAttachments as $attachment)
                                                 <a
-                                                    href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                                    href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
                                                     class="block truncate px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-50 hover:underline"
                                                     title="{{ $attachment->ris_attachment_original_name }}"
                                                 >
@@ -2347,7 +2347,7 @@
                                     @if($ris->ris_status === 'Draft')
                                         <button
                                             type="button"
-                                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route('purchaser.ris.submit', $ris->ris_id)))"
+                                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)))"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
                                             title="Submit to Admin"
                                             aria-label="Submit to Admin"
@@ -2359,7 +2359,7 @@
                                     @if(!empty($ris->can_create_atp))
                                         @if(!$ris->has_atp)
                                             <a
-                                                href="{{ route('purchaser.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                                href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
                                                 title="Create ATP"
                                                 aria-label="Create ATP"
@@ -2467,7 +2467,7 @@
                         </button>
 
                         <a
-                            href="{{ route('purchaser.ris.export-xlsx', $ris->ris_id) }}"
+                            href="{{ route(($pp ?? 'purchaser').'.ris.export-xlsx', $ris->ris_id) }}"
                             data-tooltip="Export to Excel"
                             aria-label="Export to Excel"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200  transition hover:border-emerald-300 "
@@ -2481,7 +2481,7 @@
                         </a>
 
                         <a
-                            href="{{ route('purchaser.ris.export-docx', $ris->ris_id) }}"
+                            href="{{ route(($pp ?? 'purchaser').'.ris.export-docx', $ris->ris_id) }}"
                             data-tooltip="Export to Word file"
                             aria-label="Export to Word file"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300 "
@@ -2664,7 +2664,7 @@
                                                 </p>
                                             </div>
                                             <a
-                                                href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
                                                 data-tooltip="Download"
                                                 aria-label="Download {{ $attachment->ris_attachment_original_name }}"
                                                 class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
@@ -2744,7 +2744,7 @@
                     @if($ris->ris_status === 'Draft')
                         <button
                             type="button"
-                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route('purchaser.ris.submit', $ris->ris_id)))"
+                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)))"
                             class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800"
                         >
                             Submit to Admin
@@ -2755,7 +2755,7 @@
                     @if(!empty($ris->can_create_atp))
                         @if(!$ris->has_atp)
                             <a
-                                href="{{ route('purchaser.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
                                 Create ATP
@@ -2899,7 +2899,7 @@
                             Cancel
                         </button>
                         <a
-                            href="{{ route('purchaser.ris.export-xlsx', $ris->ris_id) }}"
+                            href="{{ route(($pp ?? 'purchaser').'.ris.export-xlsx', $ris->ris_id) }}"
                             data-tooltip="Export to Excel"
                             aria-label="Export to Excel"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 transition hover:border-emerald-300 hover:bg-emerald-100"
@@ -2912,7 +2912,7 @@
                             </svg>
                         </a>
                         <a
-                            href="{{ route('purchaser.ris.export-docx', $ris->ris_id) }}"
+                            href="{{ route(($pp ?? 'purchaser').'.ris.export-docx', $ris->ris_id) }}"
                             data-tooltip="Export to Word file"
                             aria-label="Export to Word file"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 transition hover:border-blue-300 hover:bg-blue-100"
@@ -3023,7 +3023,7 @@
 
                     <form
                         method="POST"
-                        action="{{ route('purchaser.ris.update', $ris->ris_id) }}"
+                        action="{{ route(($pp ?? 'purchaser').'.ris.update', $ris->ris_id) }}"
                         enctype="multipart/form-data"
                         novalidate
                         class="flex min-h-0 flex-1 flex-col"
@@ -3387,7 +3387,7 @@
                                                 <span class="shrink-0 text-[10px] text-slate-400">{{ number_format($attachment->ris_attachment_size / 1024, 1) }} KB</span>
                                             @endif
                                             <a
-                                                href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
                                                 data-tooltip="Download"
                                                 aria-label="Download {{ $attachment->ris_attachment_original_name }}"
                                                 class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white hover:text-slate-950"
@@ -3581,7 +3581,7 @@
 <script>
     window.printPurchaserRis = function (risId) {
         if (!risId) return;
-        var url = @json(url('/purchaser/ris')) + '/' + encodeURIComponent(String(risId)) + '/print?ts=' + Date.now();
+        var url = @json(url('/'.($pp ?? 'purchaser').'/ris')) + '/' + encodeURIComponent(String(risId)) + '/print?ts=' + Date.now();
         var iframe = document.getElementById('purchaserRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');

@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Supplier Details')
 @section('page-subtitle', 'Profile, notes, blacklist warnings, and linked documents')
@@ -24,7 +24,7 @@
             <p class="pur-page-subtitle">{{ $supplierCode }} · {{ $supplier->supplier_store_type }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Back to suppliers</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-btn-secondary">Back to suppliers</a>
         </div>
     </div>
 
@@ -143,7 +143,7 @@
                 <p class="text-sm text-slate-500">Blacklist is a warning only — the supplier remains selectable on forms.</p>
             </div>
 
-            <form method="POST" action="{{ route('purchaser.suppliers.notes.store', $supplier->supplier_id) }}" class="space-y-3">
+            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.notes.store', $supplier->supplier_id) }}" class="space-y-3">
                 @csrf
                 <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500" for="supplier_note_body">Add note</label>
                 <textarea
@@ -159,7 +159,7 @@
             </form>
 
             @if($isBlacklisted)
-                <form method="POST" action="{{ route('purchaser.suppliers.unblacklist', $supplier->supplier_id) }}" class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.unblacklist', $supplier->supplier_id) }}" class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     @csrf
                     <p class="text-sm font-medium text-slate-800">Clear blacklist</p>
                     <textarea
@@ -172,7 +172,7 @@
                     <button type="submit" class="pur-btn-secondary">Clear blacklist</button>
                 </form>
             @else
-                <form method="POST" action="{{ route('purchaser.suppliers.blacklist', $supplier->supplier_id) }}" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.blacklist', $supplier->supplier_id) }}" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     @csrf
                     <p class="text-sm font-medium text-amber-900">Mark as blacklisted (warning)</p>
                     <textarea

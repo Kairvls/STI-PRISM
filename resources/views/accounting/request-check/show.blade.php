@@ -158,10 +158,13 @@
             <input type="hidden" name="signature_data" id="signatureData" value="" />
             <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
             <div id="signatureBlock" class="hidden mt-4">
-                <label>Digital signature</label>
-                <p class="hint">Sign to approve this Request for Check.</p>
-                <canvas id="signatureCanvas" width="520" height="160"></canvas>
-                <button type="button" class="btn-ghost sm" data-tip="Clear signature" onclick="clearSignature()">Clear</button>
+                @include('accounting.partials.decision-signature-panel', [
+                    'savedSignatures' => $savedSignatures ?? collect(),
+                    'signTitle' => 'Accounting signature',
+                    'signHint' => 'Pick a saved signature, draw one, or upload. It approves this Request for Check.',
+                    'padTitle' => 'Sign the Request for Check',
+                    'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
+                ])
             </div>
             <div class="mt-4">
                 <label>Remarks</label>
@@ -179,7 +182,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
-        initSignatureCanvas();
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -190,12 +192,13 @@
         document.getElementById('targetType').value = type;
         document.getElementById('targetId').value = id;
         document.getElementById('targetDecision').value = presetDecision || '';
-        document.getElementById('signatureData').value = '';
-        document.getElementById('signatureUsed').value = '0';
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
+        else {
+            document.getElementById('signatureData').value = '';
+            document.getElementById('signatureUsed').value = '0';
+        }
         const remarks = form.querySelector('textarea[name="remarks"]');
         if (remarks) remarks.value = '';
-        const canvas = document.getElementById('signatureCanvas');
-        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
         const isApproved = (presetDecision || '').toLowerCase() === 'approved';
         document.getElementById('decisionModalSubtitle').textContent = '{{ $rfc->request_check_form_number ?? ('RFC-'. $rfc->request_check_id) }}';
         form.action = '/accounting/request-check/' + id + (isApproved ? '/approve' : '/revise');
@@ -209,6 +212,7 @@
 
     function closeDecisionModal() {
         document.getElementById('decisionModal').classList.add('hidden');
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
     }
 
     function closeReleaseFundsModal() {
@@ -220,19 +224,17 @@
         const form = document.getElementById('decisionForm');
         document.getElementById('targetDecision').value = decision;
         if (decision === 'Approved') {
-            const canvas = document.getElementById('signatureCanvas');
-            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-            let hasDrawing = false;
-            for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] > 0) { hasDrawing = true; break; } }
-            if (!hasDrawing) {
+            const hasSig = window.accountingSignaturePanel
+                ? window.accountingSignaturePanel.hasSignature()
+                : String(document.getElementById('signatureData').value || '').indexOf('data:image/') === 0;
+            if (!hasSig) {
                 if (typeof window.showMpToast === 'function') {
-                    showMpToast('Please sign the Request Check before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
+                    showMpToast('Please add a signature before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
                 } else {
-                    alert('Please sign the Request Check before approving.');
+                    alert('Please add a signature before approving.');
                 }
                 return;
             }
-            document.getElementById('signatureData').value = canvas.toDataURL('image/png');
             document.getElementById('signatureUsed').value = '1';
         } else {
             const remarksField = form.querySelector('textarea[name="remarks"]');
@@ -268,38 +270,6 @@
             }
         })
         .finally(() => { decideInFlight = false; });
-    }
-
-    function initSignatureCanvas() {
-        const canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#1f2937';
-        let drawing = false, lastX = 0, lastY = 0;
-        function getPos(evt) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
-        }
-        function start(evt) { drawing = true; const p = getPos(evt); lastX = p.x; lastY = p.y; }
-        function move(evt) { if (!drawing) return; const p = getPos(evt); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; }
-        function end() { drawing = false; }
-        canvas.addEventListener('mousedown', start);
-        canvas.addEventListener('mousemove', move);
-        canvas.addEventListener('mouseup', end);
-        canvas.addEventListener('mouseleave', end);
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, { passive: false });
-        canvas.addEventListener('touchend', end);
-    }
-
-    function clearSignature() {
-        const canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById('signatureData').value = '';
-        document.getElementById('signatureUsed').value = '0';
     }
 
     document.addEventListener('keydown', function (e) {

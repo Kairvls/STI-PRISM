@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Suppliers')
 @section('page-subtitle', 'Manage Supplier Records')
@@ -37,7 +37,7 @@
 
     {{-- SUMMARY CARDS --}}
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <a href="{{ route('purchaser.suppliers.index') }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Total Suppliers</p>
@@ -55,7 +55,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.suppliers.index', ['status' => 'Active']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index', ['status' => 'Active']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Active</p>
@@ -73,7 +73,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.suppliers.index', ['status' => 'Inactive']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index', ['status' => 'Inactive']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Inactive</p>
@@ -91,7 +91,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.suppliers.index', ['blacklisted' => 'Yes']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index', ['blacklisted' => 'Yes']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Blacklisted</p>
@@ -126,7 +126,7 @@
 
                 <form
                     method="GET"
-                    action="{{ route('purchaser.suppliers.index') }}"
+                    action="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
                 >
                     <div class="relative">
@@ -171,7 +171,7 @@
 
                     @if(request()->filled('search') || request()->filled('type') || request()->filled('status') || request()->filled('blacklisted'))
                         <a
-                            href="{{ route('purchaser.suppliers.index') }}"
+                            href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}"
                             class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
                         >
                             Clear
@@ -443,14 +443,14 @@
                                         </button>
 
                                         <a
-                                            href="{{ route('purchaser.suppliers.show', $supplier->supplier_id) }}"
+                                            href="{{ route(($pp ?? 'purchaser').'.suppliers.show', $supplier->supplier_id) }}"
                                             class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                                         >
                                             Notes &amp; History
                                         </a>
 
                                         <a
-                                            href="{{ route('purchaser.suppliers.edit', $supplier->supplier_id) }}"
+                                            href="{{ route(($pp ?? 'purchaser').'.suppliers.edit', $supplier->supplier_id) }}"
                                             class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#001fa8]"
                                         >
                                             Edit Supplier
@@ -508,7 +508,7 @@
 
                                     <form
                                         method="POST"
-                                        action="{{ route('purchaser.suppliers.update', $supplier->supplier_id) }}"
+                                        action="{{ route(($pp ?? 'purchaser').'.suppliers.update', $supplier->supplier_id) }}"
                                         class="flex min-h-0 flex-1 flex-col"
                                     >
                                         @csrf
@@ -704,7 +704,7 @@
                     </button>
                 </div>
 
-                <form method="POST" action="{{ route('purchaser.suppliers.store') }}" class="flex min-h-0 flex-1 flex-col">
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.store') }}" class="flex min-h-0 flex-1 flex-col">
                     @csrf
                     <input type="hidden" name="supplier_store_type" x-bind:value="supplierType">
 

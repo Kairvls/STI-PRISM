@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ItemCategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Support\ProcurementPortal;
 
 class ItemCategoryController extends Controller
 {
@@ -24,7 +25,7 @@ class ItemCategoryController extends Controller
             'item_category_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category created successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category created successfully.');
     }
 
     public function update(Request $request, $categoryId)
@@ -49,7 +50,7 @@ class ItemCategoryController extends Controller
             'item_category_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category updated successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category updated successfully.');
     }
 
     public function destroy($categoryId)
@@ -57,11 +58,11 @@ class ItemCategoryController extends Controller
         $category = ItemCategory::withCount('subcategories')->findOrFail($categoryId);
 
         if ($category->subcategories_count > 0) {
-            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('error', 'This category has sub categories and cannot be deleted.');
+            return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'categories'])->with('error', 'This category has sub categories and cannot be deleted.');
         }
 
         $category->delete();
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category deleted successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category deleted successfully.');
     }
 }

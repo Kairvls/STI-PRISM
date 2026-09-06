@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Authority to Purchase')
 @section('page-subtitle', 'Create, manage, print, and archive Authority to Purchase records.')
@@ -26,6 +26,29 @@
             this.selectedAtp = id;
             this.editOpen = true;
             this.viewOpen = false;
+            this.bindDocSig('atp-' + id, 'Received by signature');
+        },
+
+        openCreate() {
+            this.createOpen = true;
+            this.bindDocSig('atp-create', 'Received by signature');
+        },
+
+        bindDocSig(key, title) {
+            this.$nextTick(() => {
+                if (window.purchaserDocumentSignature) {
+                    window.purchaserDocumentSignature.bind({
+                        key: key,
+                        hiddenId: 'purSigImage-' + key,
+                        nameId: 'purSigName-' + key,
+                        previewId: 'purSigPreview-' + key,
+                        slotId: 'purSigSlot-' + key,
+                        title: title || 'Purchaser signature',
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                    });
+                }
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
         },
 
         closeAll() {
@@ -87,8 +110,14 @@
         }
     }"
     x-init="
-        if (createOpen && '{{ $selectedRisId ?? '' }}') {
-            $nextTick(() => applyRisPrefill('{{ $selectedRisId ?? '' }}'));
+        if (createOpen) {
+            $nextTick(() => {
+                bindDocSig('atp-create', 'Received by signature');
+                if ('{{ $selectedRisId ?? '' }}') applyRisPrefill('{{ $selectedRisId ?? '' }}');
+            });
+        }
+        if (editOpen && selectedAtp) {
+            $nextTick(() => bindDocSig('atp-' + selectedAtp, 'Received by signature'));
         }
     "
     @keydown.escape.window="closeAll()"
@@ -102,14 +131,14 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="ATP list view">
             <a
-                href="{{ route('purchaser.atp.index') }}"
+                href="{{ route(($pp ?? 'purchaser').'.atp.index') }}"
                 class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
-                href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
+                href="{{ route(($pp ?? 'purchaser').'.atp.index', ['view' => 'archive']) }}"
                 class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -129,7 +158,7 @@
                 </button>
                 <button
                     type="button"
-                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    @click="openCreate()"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -141,7 +170,7 @@
 
     {{-- SUMMARY CARDS --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route('purchaser.atp.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Draft</p>
@@ -159,7 +188,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.atp.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Submitted</p>
@@ -177,7 +206,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Approved</p>
@@ -195,7 +224,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.atp.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Rejected</p>
@@ -277,7 +306,7 @@
 
                     @if(request()->filled('search') || request()->filled('status') || request()->filled('request_type'))
                         <a
-                            href="{{ $archiveView ? route('purchaser.atp.index', ['view' => 'archive']) : route('purchaser.atp.index') }}"
+                            href="{{ $archiveView ? route(($pp ?? 'purchaser').'.atp.index', ['view' => 'archive']) : route(($pp ?? 'purchaser').'.atp.index') }}"
                             class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
                         >
                             Clear
@@ -377,7 +406,7 @@
                                         >
                                             <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
-                                        <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                             @csrf
                                             <button
                                                 type="submit"
@@ -394,7 +423,7 @@
                                         @if(!$atp->has_rfc)
                                             @if(empty($atp->authority_purchase_payment_path))
                                                 <div class="flex flex-wrap gap-1.5">
-                                                    <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
                                                         <button
@@ -406,7 +435,7 @@
                                                             <i data-lucide="file-check-2" class="h-4 w-4"></i>
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
                                                         <button
@@ -421,7 +450,7 @@
                                                 </div>
                                             @else
                                                 <a
-                                                    href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                                    href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
                                                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
                                                     title="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
                                                     aria-label="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
@@ -437,7 +466,7 @@
                                     @endif
 
                                     @if($archiveView)
-                                        <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}">
                                             @csrf
                                             <button
                                                 type="submit"
@@ -449,7 +478,7 @@
                                             </button>
                                         </form>
                                     @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
-                                        <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}">
                                             @csrf
                                             <button
                                                 type="submit"
@@ -537,7 +566,7 @@
 
                 @else
 
-                    <form method="POST" action="{{ route('purchaser.atp.store') }}" x-ref="createForm">
+                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.store') }}" x-ref="createForm">
 
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
@@ -579,7 +608,10 @@
                                 'atp' => null,
                                 'items' => collect(),
                                 'suppliers' => $suppliers,
+                                'signKey' => 'atp-create',
                             ])
+
+                            <div id="purSigSlot-atp-create" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
 
                         </div>
 
@@ -713,7 +745,7 @@
                                     Edit ATP
                                 </button>
 
-                                <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
+                                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                     @csrf
                                     <button type="submit" class="pur-btn-primary">
                                         Submit to Review
@@ -727,12 +759,12 @@
                                 @if(!$atp->has_rfc)
                                     @if(empty($atp->authority_purchase_payment_path))
                                         <div class="flex flex-wrap gap-2">
-                                            <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}">
+                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
                                                 @csrf
                                                 <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
                                                 <button type="submit" class="h-10 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-800">Request for Check</button>
                                             </form>
-                                            <form method="POST" action="{{ route('purchaser.atp.payment-path', $atp->authority_purchase_id) }}">
+                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
                                                 @csrf
                                                 <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
                                                 <button type="submit" class="h-10 rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-medium text-violet-800">Cash Advance</button>
@@ -740,7 +772,7 @@
                                         </div>
                                     @else
                                         <a
-                                            href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                            href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
                                             class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
                                         >
                                             Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
@@ -755,10 +787,10 @@
                             <button type="button" @click="printAtp({{ $atp->authority_purchase_id }})" class="pur-btn-primary">
                                 Print
                             </button>
-                            <a href="{{ route('purchaser.atp.export-xlsx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <a href="{{ route(($pp ?? 'purchaser').'.atp.export-xlsx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 Excel
                             </a>
-                            <a href="{{ route('purchaser.atp.export-docx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <a href="{{ route(($pp ?? 'purchaser').'.atp.export-docx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 Word
                             </a>
                             <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">
@@ -830,13 +862,13 @@
                         Cancel
                     </button>
                     <a
-                        href="{{ route('purchaser.atp.export-blank-xlsx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.atp.export-blank-xlsx') }}"
                         class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                     >
                         Excel
                     </a>
                     <a
-                        href="{{ route('purchaser.atp.export-blank-docx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.atp.export-blank-docx') }}"
                         class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                     >
                         Word
@@ -901,7 +933,7 @@
                             </button>
                         </div>
 
-                        <form method="POST" action="{{ route('purchaser.atp.update', $atp->authority_purchase_id) }}">
+                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}">
 
                             @csrf
                             @method('PUT')
@@ -913,7 +945,9 @@
                                     'atp' => $atp,
                                     'items' => $editItems,
                                     'suppliers' => $suppliers,
+                                    'signKey' => 'atp-'.$atp->authority_purchase_id,
                                 ])
+                                <div id="purSigSlot-atp-{{ $atp->authority_purchase_id }}" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
                             </div>
 
                             <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
@@ -929,7 +963,14 @@
                                 </button>
                                 <button
                                     type="submit"
-                                    onclick="this.form.querySelector('input[name=save_action]').value='submit'"
+                                    onclick="
+                                        this.form.querySelector('input[name=save_action]').value='submit';
+                                        if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                            event.preventDefault();
+                                            if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                            else alert('Draw or upload your signature before submitting.');
+                                        }
+                                    "
                                     class="pur-btn-primary"
                                 >
                                     Save & Submit
@@ -947,6 +988,8 @@
         @endif
 
     @endforeach
+
+    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
 
 </div>
 

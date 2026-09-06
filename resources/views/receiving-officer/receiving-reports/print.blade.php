@@ -58,7 +58,17 @@
         <tr><td><strong>Status</strong></td><td>{{ in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? (!empty($row->store_location) ? 'Delivered · '.$row->store_location : 'Delivered') : $row->receiving_report_status }}</td></tr>
         <tr><td><strong>Supplier</strong></td><td>{{ $row->supplier_name }}</td></tr>
         <tr><td><strong>PO / OR</strong></td><td>{{ $row->authority_purchase_reference_po_no ?? '—' }} / {{ $row->official_receipt ?? '—' }}</td></tr>
-        <tr><td><strong>Received by</strong></td><td>{{ $officerName }}</td></tr>
+        <tr><td><strong>Received by</strong></td><td>
+            @php
+                $purchaserReceivedName = trim((string) ($row->receiving_report_received_by_name ?? ''));
+                $purchaserReceivedSig = (string) ($row->receiving_report_received_by_signature ?? '');
+                if ($purchaserReceivedName === '' && !\App\Support\RisWorkflow::isDrawnSignature($purchaserReceivedSig)) {
+                    $purchaserReceivedName = trim($purchaserReceivedSig);
+                }
+            @endphp
+            {{ $purchaserReceivedName !== '' ? $purchaserReceivedName : '—' }}
+        </td></tr>
+        <tr><td><strong>Second Count</strong></td><td>{{ $officerName }}</td></tr>
         <tr><td><strong>Date</strong></td><td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('d/m/Y g:i A') : '—' }}</td></tr>
         @if(!empty($row->receiving_report_remarks))
             <tr><td><strong>Remarks</strong></td><td>{{ $row->receiving_report_remarks }}</td></tr>

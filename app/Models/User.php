@@ -21,6 +21,7 @@ class User extends Authenticatable
     protected $fillable = [
 
         'user_role_id',
+        'user_can_procurement',
         'user_employee_id',
         'user_username',
         'user_full_name',
@@ -31,11 +32,23 @@ class User extends Authenticatable
 
     ];
 
+    protected $casts = [
+        'user_can_procurement' => 'boolean',
+    ];
+
     protected $hidden = [
 
         'user_password',
 
     ];
+
+    /**
+     * Whether this account may use the procurement workflow.
+     */
+    public function canAccessProcurement(): bool
+    {
+        return \App\Support\ProcurementPortal::userCanAccessProcurement($this);
+    }
 
     /**
      * Public URL for the stored profile picture, if any.

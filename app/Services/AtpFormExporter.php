@@ -113,7 +113,7 @@ class AtpFormExporter
         }
 
         $sheet->setCellValue("A{$row}", 'RECEIVED BY:');
-        $sheet->setCellValue("D{$row}", 'Authorized By');
+        $sheet->setCellValue("D{$row}", 'Authorized by');
         $sheet->getStyle("A{$row}")->getFont()->setBold(true);
         $row++;
         $sheet->mergeCells("A{$row}:B{$row}");
@@ -233,7 +233,7 @@ class AtpFormExporter
         $sigs = $section->addTable(['borderSize' => 0, 'unit' => TblWidth::TWIP, 'width' => 9000]);
         $sigs->addRow();
         $sigs->addCell(5000)->addText('RECEIVED BY:', ['bold' => true, 'size' => 10]);
-        $sigs->addCell(4000)->addText('Authorized By', ['size' => 10], ['alignment' => Jc::CENTER]);
+        $sigs->addCell(4000)->addText('Authorized by', ['size' => 10], ['alignment' => Jc::CENTER]);
         $sigs->addRow();
         $sigs->addCell(5000, ['borderBottomSize' => 6, 'borderBottomColor' => '000000'])
             ->addText((string) ($atp->authority_purchase_received_by_name ?? ''), ['size' => 10], ['alignment' => Jc::CENTER]);

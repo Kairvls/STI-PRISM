@@ -6,6 +6,9 @@
 @section ("main-pad", "px-8 pb-8 pt-5")
 
 @section ("sidebar")
+    @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
+        <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+    @endif
     @include ("layouts.maintenance-sidebar")
 
 @endsection
@@ -606,4 +609,7 @@
 </script>
 
 @include('layouts.partials.maintenance-daily-reminder')
+@if(\App\Support\ProcurementPortal::needsPurchaserStyles())
+    @include('partials.purchaser-print-sheet-helper')
+@endif
 @endpush

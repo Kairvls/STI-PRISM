@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Compiled Records')
 @section('page-subtitle', 'Submit completed workflow document checklists to Accounting.')
@@ -103,7 +103,7 @@
                                 </div>
 
                                 @if($complete && !$alreadySubmitted)
-                                    <form method="POST" action="{{ route('purchaser.procurement-records.store') }}" onsubmit="return confirm('Submit compiled record to Accounting?')">
+                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.procurement-records.store') }}" onsubmit="return confirm('Submit compiled record to Accounting?')">
                                         @csrf
                                         <input type="hidden" name="package_authority_purchase_id" value="{{ $atpId }}">
                                         <button type="submit" class="pr-submit-btn">

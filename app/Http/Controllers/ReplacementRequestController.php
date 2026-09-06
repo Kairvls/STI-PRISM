@@ -147,12 +147,22 @@ class ReplacementRequestController extends Controller
                 '/purchaser/procurement/replacement-requests'
             );
 
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_MAINTENANCE,
+                'Replacement approved',
+                ($equipmentName ?: ('Replacement request #' . $requestId)) . ' is approved. Create an RIS to start purchasing.',
+                'replacement_approved',
+                'PROC',
+                $requestId,
+                '/maintenance/procurement/replacement-requests'
+            );
+
             DB::table('audit_logs_table')->insert([
                 'audit_log_user_id' => Auth::id(),
                 'audit_log_action' => 'Approved replacement request',
                 'audit_log_table_name' => 'procurement_requests_table',
                 'audit_log_reference_id' => $requestId,
-                'audit_log_description' => 'Replacement request #' . $requestId . ' was approved by purchaser.',
+                'audit_log_description' => 'Replacement request #' . $requestId . ' was approved.',
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);
@@ -196,7 +206,7 @@ class ReplacementRequestController extends Controller
                 'audit_log_action' => 'Rejected replacement request',
                 'audit_log_table_name' => 'procurement_requests_table',
                 'audit_log_reference_id' => $requestId,
-                'audit_log_description' => 'Replacement request #' . $requestId . ' was rejected by purchaser. Reason: ' . $validated['remarks'],
+                'audit_log_description' => 'Replacement request #' . $requestId . ' was rejected. Reason: ' . $validated['remarks'],
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);
@@ -209,6 +219,16 @@ class ReplacementRequestController extends Controller
                 'PROC',
                 $requestId,
                 '/purchaser/procurement/replacement-requests'
+            );
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_MAINTENANCE,
+                'Replacement rejected',
+                'Replacement request #' . $requestId . ' was rejected. Reason: ' . $validated['remarks'],
+                'replacement_rejected',
+                'PROC',
+                $requestId,
+                '/maintenance/procurement/replacement-requests'
             );
 
             return back()->with('success', 'Replacement request rejected successfully.');
@@ -245,7 +265,7 @@ class ReplacementRequestController extends Controller
                 'audit_log_action' => 'Archived replacement request',
                 'audit_log_table_name' => 'procurement_requests_table',
                 'audit_log_reference_id' => $requestId,
-                'audit_log_description' => 'Replacement request #' . $requestId . ' was archived by purchaser.',
+                'audit_log_description' => 'Replacement request #' . $requestId . ' was archived.',
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);
@@ -280,7 +300,7 @@ class ReplacementRequestController extends Controller
                 'audit_log_action' => 'Restored replacement request',
                 'audit_log_table_name' => 'procurement_requests_table',
                 'audit_log_reference_id' => $requestId,
-                'audit_log_description' => 'Replacement request #' . $requestId . ' was restored from archive by purchaser.',
+                'audit_log_description' => 'Replacement request #' . $requestId . ' was restored from archive.',
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);

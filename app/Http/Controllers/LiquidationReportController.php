@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\WorkflowNotifier;
+use App\Support\ProcurementPortal;
 
 class LiquidationReportController extends Controller
 {
@@ -111,7 +112,7 @@ class LiquidationReportController extends Controller
                 $this->notifyAccountingLiq($id);
             }
 
-            return redirect()->route('purchaser.liq.index')->with(
+            return ProcurementPortal::redirect('liq.index')->with(
                 'success',
                 $isDraft ? 'Liquidation Report draft saved.' : 'Liquidation Report submitted to Accounting.'
             );
@@ -151,7 +152,7 @@ class LiquidationReportController extends Controller
                 $this->notifyAccountingLiq($id);
             }
 
-            return redirect()->route('purchaser.liq.index')->with(
+            return ProcurementPortal::redirect('liq.index')->with(
                 'success',
                 $isDraft ? 'Liquidation Report updated.' : 'Liquidation Report submitted to Accounting.'
             );

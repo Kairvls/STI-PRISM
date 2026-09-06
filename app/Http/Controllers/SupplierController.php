@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\ProcurementPortal;
 
 class SupplierController extends Controller
 {
@@ -71,7 +72,7 @@ class SupplierController extends Controller
             return $this->createSupplier($request);
         });
 
-        return redirect()->route('purchaser.suppliers.index')->with('success', 'Supplier created successfully.');
+        return ProcurementPortal::redirect('suppliers.index')->with('success', 'Supplier created successfully.');
     }
 
     // ADDED SUPPLIERS MODULE: reuse supplier creation from the RIS modal without duplicating database logic.
@@ -82,7 +83,7 @@ class SupplierController extends Controller
         });
 
         return redirect()
-            ->route('purchaser.ris.index', ['selected_supplier' => $supplierId])
+            ->route(ProcurementPortal::routeName('ris.index'), ['selected_supplier' => $supplierId])
             ->with('success', 'Supplier created successfully. You can now select it for this RIS.');
     }
 
@@ -143,7 +144,7 @@ class SupplierController extends Controller
         $this->writeSupplierAudit('Added supplier note', (int) $id, 'Note added to supplier #' . $id . '.');
 
         return redirect()
-            ->route('purchaser.suppliers.show', $id)
+            ->route(ProcurementPortal::routeName('suppliers.show'), $id)
             ->with('success', 'Note added.');
     }
 
@@ -176,7 +177,7 @@ class SupplierController extends Controller
         $this->writeSupplierAudit('Blacklisted supplier', (int) $id, 'Supplier #' . $id . ' blacklisted.');
 
         return redirect()
-            ->route('purchaser.suppliers.show', $id)
+            ->route(ProcurementPortal::routeName('suppliers.show'), $id)
             ->with('success', 'Supplier marked as blacklisted. They can still be selected with a warning.');
     }
 
@@ -210,7 +211,7 @@ class SupplierController extends Controller
         $this->writeSupplierAudit('Cleared supplier blacklist', (int) $id, 'Supplier #' . $id . ' blacklist cleared.');
 
         return redirect()
-            ->route('purchaser.suppliers.show', $id)
+            ->route(ProcurementPortal::routeName('suppliers.show'), $id)
             ->with('success', 'Blacklist cleared.');
     }
 
@@ -259,7 +260,7 @@ class SupplierController extends Controller
 
             $this->writeSupplierAudit('Updated supplier', $id, 'Supplier #' . $id . ' updated.');
 
-            return redirect()->route('purchaser.suppliers.index')->with('success', 'Supplier updated successfully.');
+            return ProcurementPortal::redirect('suppliers.index')->with('success', 'Supplier updated successfully.');
         });
     }
 
@@ -496,9 +497,9 @@ class SupplierController extends Controller
     private function documentTrailUrl(string $type, int $id): ?string
     {
         return match ($type) {
-            'RIS' => route('purchaser.ris.index', ['search' => $id]),
-            'ATP' => route('purchaser.atp.index', ['search' => $id]),
-            'RR' => route('purchaser.rr.index', ['search' => $id]),
+            'RIS' => ProcurementPortal::route('ris.index', ['search' => $id]),
+            'ATP' => ProcurementPortal::route('atp.index', ['search' => $id]),
+            'RR' => ProcurementPortal::route('rr.index', ['search' => $id]),
             default => null,
         };
     }

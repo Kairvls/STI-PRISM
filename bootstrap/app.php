@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'receiving' => \App\Http\Middleware\ReceivingMiddleware::class,
             'purchaser.api' => \App\Http\Middleware\PurchaserApiMiddleware::class,
+            'maintenance.procurement' => \App\Http\Middleware\MaintenanceProcurementMiddleware::class,
         ]);
 
         

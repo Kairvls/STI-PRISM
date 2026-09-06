@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'ATP Details')
 @section('page-subtitle', 'Review Authority to Purchase record and approval actions')
@@ -27,7 +27,7 @@
                 ])
             </div>
         </div>
-        <a href="{{ route('purchaser.atp.index') }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Back to list</a>
+        <a href="{{ route(($pp ?? 'purchaser').'.atp.index') }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Back to list</a>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-2">
@@ -142,8 +142,8 @@
 
     <div class="flex flex-wrap gap-2">
         @if(!$atp->authority_purchase_submitted_at && $atp->authority_purchase_status === 'Pending')
-            <a href="{{ route('purchaser.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Edit draft</a>
-            <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}">
+            <a href="{{ route(($pp ?? 'purchaser').'.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Edit draft</a>
+            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}">
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white">Submit ATP</button>
             </form>
@@ -154,16 +154,16 @@
         @endif
 
         @if($atp->authority_purchase_status === 'Approved' && !$atp->authority_purchase_is_archived)
-            <a href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RFC</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RFC</a>
         @endif
 
         @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
-            <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}" class="inline-block">
+            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700">Archive</button>
             </form>
         @elseif($atp->authority_purchase_is_archived)
-            <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}" class="inline-block">
+            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-blue-50 px-5 text-sm font-medium text-blue-600">Restore</button>
             </form>

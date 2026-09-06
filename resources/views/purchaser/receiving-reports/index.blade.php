@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Receiving Reports')
 @section('page-subtitle', 'Create receiving reports from approved funding requests (Request for Check or Cash Advance).')
@@ -23,7 +23,32 @@
         },
 
         openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; },
-        openEdit(id) { this.selectedRr = id; this.editOpen = true; this.viewOpen = false; },
+        openEdit(id) {
+            this.selectedRr = id;
+            this.editOpen = true;
+            this.viewOpen = false;
+            this.bindDocSig('rr-' + id, 'Received by signature');
+        },
+        openCreate() {
+            this.createOpen = true;
+            this.bindDocSig('rr-create', 'Received by signature');
+        },
+        bindDocSig(key, title) {
+            this.$nextTick(() => {
+                if (window.purchaserDocumentSignature) {
+                    window.purchaserDocumentSignature.bind({
+                        key: key,
+                        hiddenId: 'purSigImage-' + key,
+                        nameId: 'purSigName-' + key,
+                        previewId: 'purSigPreview-' + key,
+                        slotId: 'purSigSlot-' + key,
+                        title: title || 'Purchaser signature',
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                    });
+                }
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
         closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.selectedRr = null; },
 
         applyRfcPrefill(rfcId) {
@@ -35,7 +60,7 @@
             if (from && data.received_from) from.value = data.received_from;
             if (address && data.address) address.value = data.address;
             const rows = data.items || [];
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 9; i++) {
                 const item = rows[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
@@ -67,8 +92,11 @@
         }
     }"
     x-init="
-        if (createOpen && '{{ $selectedRfcId ?? '' }}') {
-            $nextTick(() => applyRfcPrefill('{{ $selectedRfcId ?? '' }}'));
+        if (createOpen) {
+            $nextTick(() => {
+                bindDocSig('rr-create', 'Received by signature');
+                if ('{{ $selectedRfcId ?? '' }}') applyRfcPrefill('{{ $selectedRfcId ?? '' }}');
+            });
         }
     "
     @keydown.escape.window="closeAll()"
@@ -77,14 +105,14 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="RR list view">
             <a
-                href="{{ route('purchaser.rr.index') }}"
+                href="{{ route(($pp ?? 'purchaser').'.rr.index') }}"
                 class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
-                href="{{ route('purchaser.rr.index', ['view' => 'archive']) }}"
+                href="{{ route(($pp ?? 'purchaser').'.rr.index', ['view' => 'archive']) }}"
                 class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -104,7 +132,7 @@
                 </button>
                 <button
                     type="button"
-                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    @click="openCreate()"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -115,7 +143,7 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route('purchaser.rr.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Draft</p>
@@ -131,7 +159,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rr.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">In Review</p>
@@ -147,7 +175,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Completed']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Completed</p>
@@ -163,7 +191,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rr.index', ['status' => 'Returned']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Returned']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Returned</p>
@@ -185,8 +213,8 @@
             || request()->filled('status')
             || request()->filled('date');
         $rrClearUrl = $archiveView
-            ? route('purchaser.rr.index', ['view' => 'archive'])
-            : route('purchaser.rr.index');
+            ? route(($pp ?? 'purchaser').'.rr.index', ['view' => 'archive'])
+            : route(($pp ?? 'purchaser').'.rr.index');
     @endphp
 
     <div class="pur-card">
@@ -208,7 +236,7 @@
 
                 <form
                     method="GET"
-                    action="{{ route('purchaser.rr.index') }}"
+                    action="{{ route(($pp ?? 'purchaser').'.rr.index') }}"
                     role="search"
                     aria-label="Filter receiving reports"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -299,14 +327,14 @@
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form method="POST" action="{{ route('purchaser.rr.submit', $rr->receiving_report_id) }}" onsubmit="return confirm('Submit this Receiving Report?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}" onsubmit="return confirm('Submit this Receiving Report?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                                         @if(!$rr->has_liq)
-                                            <a href="{{ route('purchaser.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create Liquidation" aria-label="Create Liquidation"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
+                                            <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create Liquidation" aria-label="Create Liquidation"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @else
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="Liquidation Created" aria-label="Liquidation Created"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                         @endif
@@ -314,12 +342,12 @@
                                         <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="Workflow complete" aria-label="Workflow complete"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                     @endif
                                     @if($archiveView)
-                                        <form method="POST" action="{{ route('purchaser.rr.restore', $rr->receiving_report_id) }}">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.restore', $rr->receiving_report_id) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rr->receiving_report_status, ['Completed','Returned'], true))
-                                        <form method="POST" action="{{ route('purchaser.rr.archive', $rr->receiving_report_id) }}" onsubmit="return confirm('Archive this Receiving Report?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.archive', $rr->receiving_report_id) }}" onsubmit="return confirm('Archive this Receiving Report?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
@@ -380,7 +408,7 @@
                 @if($eligibleRfcs->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved Request for Check is available.</div>
                 @else
-                    <form method="POST" action="{{ route('purchaser.rr.store') }}" x-ref="createForm">
+                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.store') }}" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
                         <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
@@ -395,11 +423,19 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.receiving-report-paper', ['editable' => true, 'rr' => null, 'rows' => collect(), 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect()])
+                            @include('partials.receiving-report-paper', ['editable' => true, 'rr' => null, 'rows' => collect(), 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect(), 'signKey' => 'rr-create'])
+                            <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
                         </div>
                         <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                             <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
+                            <button type="submit" onclick="
+                                this.form.save_action.value='submit';
+                                if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                    event.preventDefault();
+                                    if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                    else alert('Draw or upload your signature before submitting.');
+                                }
+                            " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
                         </div>
                     </form>
                 @endif
@@ -457,7 +493,7 @@
                     <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                         @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                             @if(!$rr->has_liq)
-                                <a href="{{ route('purchaser.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
+                                <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
                             @else
                                 <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Liquidation Created</span>
                             @endif
@@ -465,8 +501,8 @@
                             <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Workflow complete</span>
                         @endif
                         <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Print</button>
-                        <a href="{{ route('purchaser.rr.export-xlsx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
-                        <a href="{{ route('purchaser.rr.export-docx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Word</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.rr.export-xlsx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.rr.export-docx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Word</a>
                         <button type="button" @click="viewOpen = false" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Close</button>
                     </div>
                 </div>
@@ -500,17 +536,25 @@
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
-                        <form method="POST" action="{{ route('purchaser.rr.update', $rr->receiving_report_id) }}">
+                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="receiving_report_request_check_id" value="{{ $rr->receiving_report_request_check_id }}">
                             <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                                @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems, 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect()])
+                                @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems, 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect(), 'signKey' => 'rr-'.$rr->receiving_report_id])
+                                <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
                             </div>
                             <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                                 <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Update Draft</button>
-                                <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
+                                <button type="submit" onclick="
+                                    this.form.save_action.value='submit';
+                                    if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                        event.preventDefault();
+                                        if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                        else alert('Draw or upload your signature before submitting.');
+                                    }
+                                " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
                             </div>
                         </form>
                     </div>
@@ -568,13 +612,13 @@
                         Cancel
                     </button>
                     <a
-                        href="{{ route('purchaser.rr.export-blank-xlsx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.rr.export-blank-xlsx') }}"
                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
                         Excel
                     </a>
                     <a
-                        href="{{ route('purchaser.rr.export-blank-docx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.rr.export-blank-docx') }}"
                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
                         Word
@@ -591,6 +635,8 @@
             </div>
         </div>
     </div>
+
+    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
 </div>
 
 <style>

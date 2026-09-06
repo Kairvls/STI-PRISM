@@ -12,6 +12,7 @@ use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\WorkflowNotifier;
 use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 
 class ReceivingController extends Controller
 {
@@ -135,6 +136,7 @@ class ReceivingController extends Controller
                 'filter' => $filter,
                 'counts' => ['queue' => 0, 'completed' => 0, 'returned' => 0],
                 'dateFilter' => trim((string) $request->query('date', '')),
+                'savedSignatures' => UserSignatureLibrary::forUser((int) Auth::id()),
             ]);
         }
 
@@ -179,8 +181,16 @@ class ReceivingController extends Controller
         ];
 
         $dateFilter = trim((string) $request->query('date', ''));
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
 
-        return view('receiving-officer.receiving-reports.index', compact('reports', 'items', 'filter', 'counts', 'dateFilter'));
+        return view('receiving-officer.receiving-reports.index', compact(
+            'reports',
+            'items',
+            'filter',
+            'counts',
+            'dateFilter',
+            'savedSignatures'
+        ));
     }
 
     private function emptyRrPager(Request $request): LengthAwarePaginator
@@ -370,6 +380,9 @@ class ReceivingController extends Controller
             }
 
             $signature = $this->resolveSecondCountSignature($request, $name);
+            if (!RisWorkflow::isDrawnSignature($signature)) {
+                return back()->with('error', 'Please draw, upload, or select a saved signature before confirming Second Count.');
+            }
             $photoPaths = $this->storeVerificationPhotos($request, (int) $id);
 
             $update = [
@@ -578,11 +591,11 @@ class ReceivingController extends Controller
             $checklist = is_array($decoded) ? $decoded : [];
         }
 
+        $officerSig = (string) ($row->officer_signature ?? $row->receiving_report_second_count_signature ?? '');
         $officerName = $row->officer_name
             ?? $row->receiving_report_second_count_by
-            ?? $row->officer_signature
-            ?? $row->receiving_report_received_by_signature
-            ?? 'Receiving Officer';
+            ?? (!RisWorkflow::isDrawnSignature($officerSig) ? trim($officerSig) : '')
+            ?: 'Receiving Officer';
 
         return view('receiving-officer.receiving-reports.print', [
             'row' => $row,
@@ -1560,6 +1573,85 @@ class ReceivingController extends Controller
             (int) $rr->receiving_report_id,
             '/maintenance/equipment/qr-tools'
         );
+    }
+
+    public function storeSavedSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature_label' => ['nullable', 'string', 'max:120'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $label = isset($validated['signature_label']) ? trim((string) $validated['signature_label']) : null;
+
+        if (!UserSignatureLibrary::canSaveMore($userId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'You can save up to 4 signatures only. Remove one from your list first.',
+                'max' => UserSignatureLibrary::MAX_PER_USER,
+                'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                    'id' => (int) $item->user_signature_id,
+                    'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                    'preview_url' => (string) ($item->preview_url ?? ''),
+                ])->values(),
+            ], 422);
+        }
+
+        $row = null;
+
+        if ($request->hasFile('signature_file')) {
+            $row = UserSignatureLibrary::storeFromUpload($userId, $request->file('signature_file'), $label);
+        } else {
+            $row = UserSignatureLibrary::storeFromDataUrl(
+                $userId,
+                (string) ($validated['signature_image'] ?? ''),
+                $label
+            );
+        }
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save that signature. Use a PNG/JPG under 2 MB.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signature' => [
+                'id' => (int) $row->user_signature_id,
+                'label' => (string) ($row->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($row->preview_url ?? ''),
+            ],
+            'max' => UserSignatureLibrary::MAX_PER_USER,
+            'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
+    }
+
+    public function destroySavedSignature(Request $request, $signatureId)
+    {
+        $deleted = UserSignatureLibrary::deleteForUser((int) Auth::id(), (int) $signatureId);
+        if (!$deleted) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Signature not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signatures' => UserSignatureLibrary::forUser((int) Auth::id())->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
     }
 
     public function profile(): View

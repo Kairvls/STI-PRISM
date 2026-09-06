@@ -10,9 +10,11 @@ use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\AtpFormExporter;
 use App\Services\DocumentWorkflowService;
+use App\Support\ProcurementPortal;
 
 class AuthorityToPurchaseController extends Controller
 {
@@ -174,6 +176,7 @@ class AuthorityToPurchaseController extends Controller
         }
 
         $risPrefill = $this->buildRisPrefill($eligibleRis);
+        $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
 
         return view(
             'purchaser.authority-to-purchase.index',
@@ -187,14 +190,15 @@ class AuthorityToPurchaseController extends Controller
                 'selectedRisId',
                 'viewAtpId',
                 'editAtpId',
-                'risPrefill'
+                'risPrefill',
+                'savedSignatures'
             )
         );
     }
 
     public function create(Request $request)
     {
-        return redirect()->route('purchaser.atp.index', array_filter([
+        return ProcurementPortal::redirect('atp.index', array_filter([
             'selected_ris' => $request->query('selected_ris'),
         ]));
     }
@@ -225,6 +229,11 @@ class AuthorityToPurchaseController extends Controller
                 'string',
                 'max:255',
             ],
+            'authority_purchase_received_by_signature' => [
+                $isDraft ? 'nullable' : 'required',
+                'string',
+                'max:2000000',
+            ],
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
@@ -233,6 +242,13 @@ class AuthorityToPurchaseController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
+
+        $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
+        if (!$isDraft && !$receivedSig) {
+            throw ValidationException::withMessages([
+                'authority_purchase_received_by_signature' => 'Draw or upload your signature before submitting.',
+            ]);
+        }
 
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $validated['authority_purchase_ris_id'])
@@ -252,10 +268,10 @@ class AuthorityToPurchaseController extends Controller
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $items, $isDraft) {
+        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig) {
             $now = now();
 
-            $authorityPurchaseId = DB::table('authority_to_purchase_table')->insertGetId([
+            $payload = [
                 'authority_purchase_ris_id' => $validated['authority_purchase_ris_id'],
                 'authority_purchase_supplier_id' => $validated['authority_purchase_supplier_id'] ?? null,
                 'authority_purchase_date' => $validated['authority_purchase_date'] ?? null,
@@ -268,7 +284,12 @@ class AuthorityToPurchaseController extends Controller
                 'authority_purchase_updated_at' => $now,
                 'authority_purchase_submitted_by' => $isDraft ? null : auth()->id(),
                 'authority_purchase_submitted_at' => $isDraft ? null : $now,
-            ]);
+            ];
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')) {
+                $payload['authority_purchase_received_by_signature'] = $receivedSig;
+            }
+
+            $authorityPurchaseId = DB::table('authority_to_purchase_table')->insertGetId($payload);
 
             DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_id', $authorityPurchaseId)
@@ -286,13 +307,13 @@ class AuthorityToPurchaseController extends Controller
                 ? 'Authority to Purchase draft created successfully.'
                 : 'Authority to Purchase submitted successfully.';
 
-            return redirect()->route('purchaser.atp.index')->with('success', $message);
+            return ProcurementPortal::redirect('atp.index')->with('success', $message);
         });
     }
 
     public function show($id)
     {
-        return redirect()->route('purchaser.atp.index', ['view_atp' => $id]);
+        return ProcurementPortal::redirect('atp.index', ['view_atp' => $id]);
     }
 
     public function edit($id)
@@ -302,17 +323,17 @@ class AuthorityToPurchaseController extends Controller
             ->first();
 
         if (!$atp) {
-            return redirect()->route('purchaser.atp.index')->with('error', 'Authority to Purchase record not found.');
+            return ProcurementPortal::redirect('atp.index')->with('error', 'Authority to Purchase record not found.');
         }
 
         PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
         if (!$this->isSoftDraft($atp)) {
-            return redirect()->route('purchaser.atp.index', ['view_atp' => $id])
+            return ProcurementPortal::redirect('atp.index', ['view_atp' => $id])
                 ->with('error', 'Only draft ATP records can be edited.');
         }
 
-        return redirect()->route('purchaser.atp.index', ['edit_atp' => $id]);
+        return ProcurementPortal::redirect('atp.index', ['edit_atp' => $id]);
     }
 
     public function choosePaymentPath(Request $request, $id)
@@ -356,8 +377,8 @@ class AuthorityToPurchaseController extends Controller
 
         $label = ProcurementPaymentPath::label($validated['authority_purchase_payment_path']);
         $route = $validated['authority_purchase_payment_path'] === ProcurementPaymentPath::CASH_ADVANCE
-            ? route('purchaser.rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::CASH_ADVANCE])
-            : route('purchaser.rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::REQUEST_FOR_CHECK]);
+            ? ProcurementPortal::route('rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::CASH_ADVANCE])
+            : ProcurementPortal::route('rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::REQUEST_FOR_CHECK]);
 
         return redirect($route)->with('success', "Payment path set to {$label}. You may now create the funding request.");
     }
@@ -397,6 +418,11 @@ class AuthorityToPurchaseController extends Controller
                 'string',
                 'max:255',
             ],
+            'authority_purchase_received_by_signature' => [
+                $isDraft ? 'nullable' : 'required',
+                'string',
+                'max:2000000',
+            ],
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
@@ -406,13 +432,20 @@ class AuthorityToPurchaseController extends Controller
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
+        $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
+        if (!$isDraft && !$receivedSig) {
+            throw ValidationException::withMessages([
+                'authority_purchase_received_by_signature' => 'Draw or upload your signature before submitting.',
+            ]);
+        }
+
         $items = $this->filterItemRows($validated['items'] ?? []);
 
         if (!$isDraft) {
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp) {
+        return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp, $receivedSig) {
             $now = now();
 
             $payload = [
@@ -422,6 +455,10 @@ class AuthorityToPurchaseController extends Controller
                 'authority_purchase_reference_po_no' => $validated['authority_purchase_reference_po_no'] ?? null,
                 'authority_purchase_updated_at' => $now,
             ];
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')) {
+                $payload['authority_purchase_received_by_signature'] = $receivedSig
+                    ?? ($atp->authority_purchase_received_by_signature ?? null);
+            }
 
             if (!$isDraft) {
                 $payload['authority_purchase_submitted_by'] = auth()->id();
@@ -445,7 +482,7 @@ class AuthorityToPurchaseController extends Controller
                 : 'Authority to Purchase submitted successfully.';
 
             return redirect()
-                ->route('purchaser.atp.index')
+                ->route(ProcurementPortal::routeName('atp.index'))
                 ->with('success', $message);
         });
     }
@@ -478,6 +515,13 @@ class AuthorityToPurchaseController extends Controller
 
             if (blank($atp->authority_purchase_received_by_name)) {
                 return back()->with('error', 'Received By is required before submitting.');
+            }
+
+            if (
+                Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')
+                && !RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? ''))
+            ) {
+                return back()->with('error', 'Draw or upload your signature before submitting.');
             }
 
             $items = DB::table('authority_to_purchase_items_table')
@@ -528,7 +572,7 @@ class AuthorityToPurchaseController extends Controller
             $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number);
 
             return redirect()
-                ->route('purchaser.atp.index')
+                ->route(ProcurementPortal::routeName('atp.index'))
                 ->with('success', 'Authority to Purchase submitted successfully.');
         });
     }

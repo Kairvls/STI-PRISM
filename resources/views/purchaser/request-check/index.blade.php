@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Funding Requests')
 @section('page-subtitle', 'Request for Check and Cash Advance — create, submit, print, and archive funding requests.')
@@ -27,6 +27,29 @@
             this.selectedRfc = id;
             this.editOpen = true;
             this.viewOpen = false;
+            this.bindDocSig('rfc-' + id, 'Requested by signature');
+        },
+
+        openCreate() {
+            this.createOpen = true;
+            this.bindDocSig('rfc-create', 'Requested by signature');
+        },
+
+        bindDocSig(key, title) {
+            this.$nextTick(() => {
+                if (window.purchaserDocumentSignature) {
+                    window.purchaserDocumentSignature.bind({
+                        key: key,
+                        hiddenId: 'purSigImage-' + key,
+                        nameId: 'purSigName-' + key,
+                        previewId: 'purSigPreview-' + key,
+                        slotId: 'purSigSlot-' + key,
+                        title: title || 'Purchaser signature',
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                    });
+                }
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
         },
 
         closeAll() {
@@ -127,8 +150,11 @@
         }
     }"
     x-init="
-        if (createOpen && '{{ $selectedAtpId ?? '' }}') {
-            $nextTick(() => applyAtpPrefill('{{ $selectedAtpId ?? '' }}'));
+        if (createOpen) {
+            $nextTick(() => {
+                bindDocSig('rfc-create', 'Requested by signature');
+                if ('{{ $selectedAtpId ?? '' }}') applyAtpPrefill('{{ $selectedAtpId ?? '' }}');
+            });
         }
     "
     @keydown.escape.window="closeAll()"
@@ -138,14 +164,14 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="RFC list view">
             <a
-                href="{{ route('purchaser.rfc.index') }}"
+                href="{{ route(($pp ?? 'purchaser').'.rfc.index') }}"
                 class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
-                href="{{ route('purchaser.rfc.index', ['view' => 'archive']) }}"
+                href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive']) }}"
                 class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -165,7 +191,7 @@
                 </button>
                 <button
                     type="button"
-                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    @click="openCreate()"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -176,7 +202,7 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route('purchaser.rfc.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Draft</p>
@@ -192,7 +218,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rfc.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">In Review</p>
@@ -208,7 +234,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Approved</p>
@@ -224,7 +250,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.rfc.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Rejected</p>
@@ -248,8 +274,8 @@
             || request()->filled('date_to')
             || request()->filled('date');
         $rfcClearUrl = $archiveView
-            ? route('purchaser.rfc.index', ['view' => 'archive'])
-            : route('purchaser.rfc.index');
+            ? route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive'])
+            : route(($pp ?? 'purchaser').'.rfc.index');
     @endphp
 
     <div id="rfc-records-section" class="pur-card">
@@ -271,7 +297,7 @@
 
                 <form
                     method="GET"
-                    action="{{ route('purchaser.rfc.index') }}"
+                    action="{{ route(($pp ?? 'purchaser').'.rfc.index') }}"
                     x-ref="rfcFilterForm"
                     x-on:submit.prevent="refreshRfcRecords()"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -382,14 +408,14 @@
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form method="POST" action="{{ route('purchaser.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
+                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
@@ -397,12 +423,12 @@
                                         @endif
                                     @endif
                                     @if($archiveView)
-                                        <form method="POST" action="{{ route('purchaser.rfc.restore', $rfc->request_check_id) }}">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.restore', $rfc->request_check_id) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rfc->request_check_status, ['Approved', 'Rejected'], true))
-                                        <form method="POST" action="{{ route('purchaser.rfc.archive', $rfc->request_check_id) }}" onsubmit="return confirm('Archive this Request for Check?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.archive', $rfc->request_check_id) }}" onsubmit="return confirm('Archive this Request for Check?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
@@ -473,7 +499,7 @@
                 @if($eligibleAtps->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved ATP is currently available for Request for Check creation.</div>
                 @else
-                    <form method="POST" action="{{ route('purchaser.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
                         <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
@@ -490,7 +516,8 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.request-check-paper', ['editable' => true, 'rfc' => null])
+                            @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
+                            <div id="purSigSlot-rfc-create" class="mx-auto mt-4 w-[297mm] max-w-full"></div>
                             <div class="mx-auto mt-4 w-[297mm] max-w-full rounded-lg bg-white p-4">
                                 <label class="text-xs font-medium text-gray-500">Supporting documents (PDF, JPG, PNG · max 5MB each)</label>
                                 <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-2 block w-full text-sm">
@@ -501,7 +528,14 @@
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50">
                                 Save Draft
                             </button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                            <button type="submit" onclick="
+                                this.form.save_action.value='submit';
+                                if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                    event.preventDefault();
+                                    if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                    else alert('Draw or upload your signature before submitting.');
+                                }
+                            " class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                                 <i data-lucide="check" class="h-4 w-4"></i>
                                 Save & Submit
                             </button>
@@ -566,7 +600,7 @@
                                 <ul class="mt-2 space-y-1">
                                     @foreach($rfcFiles as $file)
                                         <li>
-                                            <a class="text-blue-700 underline" href="{{ route('purchaser.rfc.attachment', [$rfc->request_check_id, $file->request_check_attachment_id]) }}" target="_blank">
+                                            <a class="text-blue-700 underline" href="{{ route(($pp ?? 'purchaser').'.rfc.attachment', [$rfc->request_check_id, $file->request_check_attachment_id]) }}" target="_blank">
                                                 {{ $file->request_check_attachment_original_name }}
                                             </a>
                                         </li>
@@ -578,7 +612,7 @@
                     <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
                         @if(!$archiveView && $rfc->request_check_status === 'Approved')
                             @if(!$rfc->has_rr && $rfc->funds_released)
-                                <a href="{{ route('purchaser.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RR</a>
+                                <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RR</a>
                             @elseif(!$rfc->has_rr)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
                             @else
@@ -586,8 +620,8 @@
                             @endif
                         @endif
                         <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="pur-btn-primary">Print</button>
-                        <a href="{{ route('purchaser.rfc.export-xlsx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Excel</a>
-                        <a href="{{ route('purchaser.rfc.export-docx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Word</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.rfc.export-xlsx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Excel</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.rfc.export-docx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Word</a>
                         <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">Close</button>
                     </div>
                 </div>
@@ -617,14 +651,15 @@
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
-                        <form method="POST" action="{{ route('purchaser.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
+                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
                             <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                                 <p class="mx-auto mb-3 w-[297mm] max-w-full text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
-                                @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc])
+                                @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc, 'signKey' => 'rfc-'.$rfc->request_check_id])
+                                <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mx-auto mt-4 w-[297mm] max-w-full"></div>
                                 <div class="mx-auto mt-4 w-[297mm] max-w-full rounded-lg bg-white p-4 text-sm">
                                     @foreach($rfcFiles as $file)
                                         <label class="mt-1 flex items-center gap-2">
@@ -637,7 +672,14 @@
                             </div>
                             <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
                                 <button type="submit" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">Update Draft</button>
-                                <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
+                                <button type="submit" onclick="
+                                    this.form.save_action.value='submit';
+                                    if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                        event.preventDefault();
+                                        if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                        else alert('Draw or upload your signature before submitting.');
+                                    }
+                                " class="pur-btn-primary">Save & Submit</button>
                             </div>
                         </form>
                     </div>
@@ -690,13 +732,13 @@
                         Cancel
                     </button>
                     <a
-                        href="{{ route('purchaser.rfc.export-blank-xlsx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.rfc.export-blank-xlsx') }}"
                         class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                     >
                         Excel
                     </a>
                     <a
-                        href="{{ route('purchaser.rfc.export-blank-docx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.rfc.export-blank-docx') }}"
                         class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                     >
                         Word
@@ -712,13 +754,15 @@
             </div>
         </div>
     </div>
+
+    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
 </div>
 
 <style>
     [x-cloak] { display: none !important; }
     @media print {
         @page { size: A4 landscape; margin: 8mm; }
-        .rfc-print-active { background: #d7eef8 !important; }
+        .rfc-print-active { background: #fff !important; }
     }
 </style>
 @endsection

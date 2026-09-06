@@ -1,4 +1,4 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Liquidation Reports')
 @section('page-subtitle', 'Liquidate cash advances from completed receiving reports. Request for Check workflows end at Receiving Report.')
@@ -64,14 +64,14 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="LR list view">
             <a
-                href="{{ route('purchaser.liq.index') }}"
+                href="{{ route(($pp ?? 'purchaser').'.liq.index') }}"
                 class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
-                href="{{ route('purchaser.liq.index', ['view' => 'archive']) }}"
+                href="{{ route(($pp ?? 'purchaser').'.liq.index', ['view' => 'archive']) }}"
                 class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -102,7 +102,7 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route('purchaser.liq.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Draft</p>
@@ -118,7 +118,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.liq.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">In Review</p>
@@ -134,7 +134,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.liq.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Approved</p>
@@ -150,7 +150,7 @@
             </div>
         </a>
 
-        <a href="{{ route('purchaser.liq.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Rejected</p>
@@ -172,8 +172,8 @@
             || request()->filled('status')
             || request()->filled('date');
         $liqClearUrl = $archiveView
-            ? route('purchaser.liq.index', ['view' => 'archive'])
-            : route('purchaser.liq.index');
+            ? route(($pp ?? 'purchaser').'.liq.index', ['view' => 'archive'])
+            : route(($pp ?? 'purchaser').'.liq.index');
     @endphp
 
     <div class="pur-card">
@@ -195,7 +195,7 @@
 
                 <form
                     method="GET"
-                    action="{{ route('purchaser.liq.index') }}"
+                    action="{{ route(($pp ?? 'purchaser').'.liq.index') }}"
                     role="search"
                     aria-label="Filter liquidation reports"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -284,18 +284,18 @@
                                     <button type="button" @click="printLiq({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form method="POST" action="{{ route('purchaser.liq.submit', $liq->liquidation_report_id) }}" onsubmit="return confirm('Submit this Liquidation Report?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.submit', $liq->liquidation_report_id) }}" onsubmit="return confirm('Submit this Liquidation Report?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if($archiveView)
-                                        <form method="POST" action="{{ route('purchaser.liq.restore', $liq->liquidation_report_id) }}">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.restore', $liq->liquidation_report_id) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($liq->liquidation_report_status, ['Approved','Rejected'], true))
-                                        <form method="POST" action="{{ route('purchaser.liq.archive', $liq->liquidation_report_id) }}" onsubmit="return confirm('Archive this liquidation?')">
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.archive', $liq->liquidation_report_id) }}" onsubmit="return confirm('Archive this liquidation?')">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
@@ -377,13 +377,13 @@
                         Cancel
                     </button>
                     <a
-                        href="{{ route('purchaser.liq.export-blank-xlsx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.liq.export-blank-xlsx') }}"
                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
                         Excel
                     </a>
                     <a
-                        href="{{ route('purchaser.liq.export-blank-docx') }}"
+                        href="{{ route(($pp ?? 'purchaser').'.liq.export-blank-docx') }}"
                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
                         Word
@@ -434,7 +434,7 @@
                 @if($eligibleRrs->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No completed Receiving Report is available.</div>
                 @else
-                    <form method="POST" action="{{ route('purchaser.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
                         <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
@@ -513,8 +513,8 @@
                     </div>
                     <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                         <button type="button" @click="printLiq({{ $liq->liquidation_report_id }})" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Print</button>
-                        <a href="{{ route('purchaser.liq.export-xlsx', $liq->liquidation_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
-                        <a href="{{ route('purchaser.liq.export-docx', $liq->liquidation_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Word</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.liq.export-xlsx', $liq->liquidation_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.liq.export-docx', $liq->liquidation_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Word</a>
                         <button type="button" @click="viewOpen = false" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Close</button>
                     </div>
                 </div>
@@ -537,7 +537,7 @@
                         aria-modal="true"
                         aria-labelledby="liq-edit-title-{{ $liq->liquidation_report_id }}"
                     >
-                        <form method="POST" action="{{ route('purchaser.liq.update', $liq->liquidation_report_id) }}" enctype="multipart/form-data">
+                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.update', $liq->liquidation_report_id) }}" enctype="multipart/form-data">
                             @csrf @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="liquidation_report_receiving_report_id" value="{{ $liq->liquidation_report_receiving_report_id }}">

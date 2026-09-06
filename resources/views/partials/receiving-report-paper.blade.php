@@ -11,7 +11,22 @@
     $invoiceValue = old('receiving_report_invoice_no', $rr?->receiving_report_invoice_no ?? '');
     $drValue = old('receiving_report_dr_no', $rr?->receiving_report_dr_no ?? '');
     $deliveryValue = old('receiving_report_delivery_date', $rr?->receiving_report_delivery_date ?? '');
-    $receivedBy = old('receiving_report_received_by_signature', $rr?->receiving_report_received_by_signature ?? (auth()->user()->user_full_name ?? ''));
+    $legacyReceivedSig = (string) ($rr?->receiving_report_received_by_signature ?? '');
+    $storedReceivedName = trim((string) ($rr?->receiving_report_received_by_name ?? ''));
+    if ($storedReceivedName === '' && !\App\Support\RisWorkflow::isDrawnSignature($legacyReceivedSig)) {
+        $storedReceivedName = trim($legacyReceivedSig);
+    }
+    $receivedByNameDefault = $storedReceivedName;
+    if ($editable && $receivedByNameDefault === '') {
+        $receivedByNameDefault = (string) (auth()->user()->user_full_name ?? '');
+    }
+    $receivedByName = old('receiving_report_received_by_name', $receivedByNameDefault);
+    $receivedBySignature = old(
+        'receiving_report_received_by_signature',
+        \App\Support\RisWorkflow::isDrawnSignature($legacyReceivedSig) ? $legacyReceivedSig : ''
+    );
+    $receivedBy = $receivedByName;
+    $signKey = $signKey ?? ($rr?->receiving_report_id ? 'rr-'.$rr->receiving_report_id : 'rr-create');
     $secondCount = $rr?->receiving_report_second_count_signature ?? $rr?->receiving_report_second_count_by ?? '';
     $officerName = $officerName ?? (auth()->user()->user_full_name ?? 'Receiving Officer');
     $signSuffix = $signSuffix ?? (string) ($rr?->receiving_report_id ?? 'sc');
@@ -21,8 +36,8 @@
 
 <div
     @if(!empty($printId)) id="{{ $printId }}" @endif
-    class="rr-print-sheet mx-auto w-[210mm] max-w-full bg-white px-10 py-8 text-[13px] text-black shadow {{ $printClass ?? '' }}"
-    style="min-height: 297mm;"
+    class="rr-print-sheet mx-auto w-[210mm] max-w-full bg-white px-10 pb-5 pt-8 text-[13px] text-black shadow {{ $printClass ?? '' }}"
+    style="min-height: 0; height: auto;"
 >
     <div class="relative">
         <div class="absolute left-0 top-0 text-sm font-semibold text-red-700">
@@ -53,15 +68,38 @@
                     <span class="flex-1 border-b border-black">{{ $fromValue }}</span>
                 @endif
             </div>
-            <div class="flex items-end gap-2">
-                <span class="shrink-0">Address:</span>
-                @if($editable)
-                    <input type="text" name="receiving_report_supplier_address_override" value="{{ $addressValue }}" class="h-7 flex-1 border-0 border-b border-black bg-transparent outline-none">
-                @else
-                    <span class="flex-1 border-b border-black">{{ $addressValue }}</span>
-                @endif
+            @php
+                $addressRaw = trim((string) $addressValue);
+                if (preg_match('/\R/', $addressRaw)) {
+                    $addressParts = preg_split('/\R/', $addressRaw, 2);
+                    $addressLine1 = trim((string) ($addressParts[0] ?? ''));
+                    $addressLine2 = trim((string) ($addressParts[1] ?? ''));
+                } elseif (mb_strlen($addressRaw) > 48) {
+                    $cut = mb_strrpos(mb_substr($addressRaw, 0, 48), ' ');
+                    $cut = $cut === false ? 48 : $cut;
+                    $addressLine1 = trim(mb_substr($addressRaw, 0, $cut));
+                    $addressLine2 = trim(mb_substr($addressRaw, $cut));
+                } else {
+                    $addressLine1 = $addressRaw;
+                    $addressLine2 = '';
+                }
+            @endphp
+            <div class="flex items-start gap-2">
+                <span class="shrink-0 leading-[1.75rem]">Address:</span>
+                <div class="min-w-0 flex-1">
+                    @if($editable)
+                        <textarea
+                            name="receiving_report_supplier_address_override"
+                            rows="2"
+                            maxlength="2000"
+                            class="rr-address-textarea w-full resize-none border-0 bg-transparent px-0 text-[13px] outline-none"
+                        >{{ $addressValue }}</textarea>
+                    @else
+                        <div class="min-h-[1.75rem] border-b border-black pb-0.5 leading-[1.75rem]">{{ $addressLine1 }}</div>
+                        <div class="mt-1 min-h-[1.75rem] border-b border-black pb-0.5 leading-[1.75rem]">{{ $addressLine2 }}</div>
+                    @endif
+                </div>
             </div>
-            <div class="border-b border-black pt-4"></div>
         </div>
         <div class="space-y-3">
             <div class="flex items-end gap-2">
@@ -106,7 +144,7 @@
             </tr>
         </thead>
         <tbody>
-            @for($i = 0; $i < 10; $i++)
+            @for($i = 0; $i < 9; $i++)
                 @php
                     $row = $oldItems[$i] ?? $rows[$i] ?? null;
                     $qty = is_array($row) ? ($row['quantity'] ?? '') : ($row->receiving_report_item_quantity ?? '');
@@ -165,13 +203,13 @@
         </tbody>
     </table>
 
-    <div class="mt-16 grid grid-cols-2 gap-16">
-        <div class="text-center">
+    <div class="mt-12 grid grid-cols-2 gap-16">
+        <div class="text-left">
             <div class="font-semibold">Second Count:</div>
             @if($signSecondCount)
                 <div
                     id="scSigPreview-{{ $signSuffix }}"
-                    class="mx-auto mt-6 flex min-h-[2.5rem] w-56 flex-col items-center justify-end gap-0.5 border-b border-black pb-1"
+                    class="mt-6 flex min-h-[2.5rem] w-56 flex-col items-center justify-end gap-0.5 border-b border-black pb-1"
                     style="display:none;"
                 ></div>
                 <input
@@ -182,27 +220,91 @@
                     required
                     maxlength="255"
                     autocomplete="off"
-                    class="mx-auto mt-6 block w-56 border-0 border-b border-black bg-transparent text-center text-sm font-semibold uppercase tracking-wide outline-none"
+                    class="mt-6 block w-56 border-0 border-b border-black bg-transparent text-center text-sm font-medium outline-none"
                     title="Receiving Officer name for Second Count"
                 >
-                <div class="mt-1 text-[10px] font-semibold text-slate-500">Name is required · signature image optional</div>
+                <div class="mt-1 w-56 text-center text-[10px] font-semibold text-slate-500">Name is required · add signature above (draw / upload / saved)</div>
                 <div class="mt-3 text-xs font-semibold">Date:</div>
-                <div class="mx-auto mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
+                <div class="mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
                     {{ now()->format('d/m/Y') }}
                 </div>
             @else
-                <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
-                    @include('partials.drawn-signature', ['value' => $secondCount])
+                <div class="mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
+                    @include('partials.drawn-signature', [
+                        'value' => $secondCount,
+                        'printedName' => \App\Support\RisWorkflow::isDrawnSignature((string) $secondCount)
+                            ? trim((string) ($rr->receiving_report_second_count_by ?? $officerName ?? ''))
+                            : '',
+                    ])
                 </div>
             @endif
         </div>
-        <div class="text-center">
-            <div class="font-semibold">Received by:</div>
-            @if($editable)
-                <input type="text" name="receiving_report_received_by_signature" value="{{ $receivedBy }}" class="mx-auto mt-10 w-56 border-0 border-b border-black bg-transparent text-center outline-none">
-            @else
-                <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">{{ $receivedBy }}</div>
-            @endif
+        <div class="flex justify-end">
+            <div class="w-56 text-left">
+                <div class="font-semibold">Received by:</div>
+                @if($editable)
+                    <div
+                        id="purSigPreview-{{ $signKey }}"
+                        class="relative mt-6 flex min-h-[2.5rem] w-full items-end justify-center border-b border-black pb-1"
+                        style="display:none;"
+                    ></div>
+                    <input
+                        type="text"
+                        name="receiving_report_received_by_name"
+                        id="purSigName-{{ $signKey }}"
+                        value="{{ $receivedByName }}"
+                        maxlength="255"
+                        autocomplete="off"
+                        class="mt-10 block w-full border-0 border-b border-black bg-transparent text-center outline-none"
+                    >
+                    <input
+                        type="hidden"
+                        name="receiving_report_received_by_signature"
+                        id="purSigImage-{{ $signKey }}"
+                        value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
+                    >
+                    <div class="mt-1 w-full text-center text-[10px] text-slate-500">Signature overlays printed name · use panel below</div>
+                @else
+                    <div class="mt-10 w-full border-b border-black pb-1 min-h-[1.5rem]">
+                        @include('partials.drawn-signature', [
+                            'value' => $receivedBySignature ?: $legacyReceivedSig,
+                            'printedName' => $receivedByName,
+                            'empty' => $receivedByName,
+                        ])
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+    .rr-print-sheet {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
+    .rr-address-textarea {
+        line-height: 1.75rem;
+        height: 3.5rem;
+        overflow: hidden;
+        background-image: repeating-linear-gradient(
+            to bottom,
+            transparent 0,
+            transparent calc(1.75rem - 1px),
+            #000 calc(1.75rem - 1px),
+            #000 1.75rem
+        );
+        background-size: 100% 1.75rem;
+        background-repeat: repeat-y;
+        background-position: left top;
+    }
+
+    @media print {
+        .rr-print-sheet {
+            min-height: 0 !important;
+            height: auto !important;
+            box-shadow: none !important;
+        }
+    }
+</style>

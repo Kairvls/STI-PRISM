@@ -32,6 +32,8 @@
         .document-viewer-shell .rr-print-sheet,
         .document-viewer-shell .liq-print-sheet {
             max-width: none;
+            min-height: 0 !important;
+            height: auto !important;
         }
     </style>
     @stack('head')

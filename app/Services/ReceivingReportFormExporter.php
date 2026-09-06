@@ -95,7 +95,7 @@ class ReceivingReportFormExporter
             $sheet->setCellValue("C{$row}", $item->receiving_report_item_article ?? '');
             $row++;
         }
-        $minRows = max(10, $items->count());
+        $minRows = max(9, $items->count());
         while ($row < 15 + $minRows) {
             $row++;
         }
@@ -109,7 +109,8 @@ class ReceivingReportFormExporter
         $row++;
         $sheet->setCellValue("A{$row}", $this->plainName($rr->receiving_report_second_count_signature ?? $rr->receiving_report_second_count_by ?? ''));
         $sheet->getStyle("A{$row}")->applyFromArray($bottom);
-        $sheet->setCellValue("C{$row}", $rr->receiving_report_received_by_signature ?? '');
+        $sheet->setCellValue("C{$row}", $this->plainName($rr->receiving_report_received_by_name ?? '')
+            ?: $this->plainName($rr->receiving_report_received_by_signature ?? ''));
         $sheet->getStyle("C{$row}")->applyFromArray($bottom);
 
         $sheet->getColumnDimension('A')->setWidth(22);
@@ -187,7 +188,7 @@ class ReceivingReportFormExporter
             $table->addCell(1800)->addText((string) ($item->receiving_report_item_unit ?? ''), $body, $c);
             $table->addCell(5400)->addText((string) ($item->receiving_report_item_article ?? ''), $body);
         }
-        for ($i = $items->count(); $i < 10; $i++) {
+        for ($i = $items->count(); $i < 9; $i++) {
             $table->addRow();
             $table->addCell(1800)->addText('', $body);
             $table->addCell(1800)->addText('', $body);
@@ -197,13 +198,18 @@ class ReceivingReportFormExporter
         $section->addTextBreak(2);
         $sigs = $section->addTable(['borderSize' => 0, 'unit' => TblWidth::TWIP, 'width' => 9000]);
         $sigs->addRow();
-        $sigs->addCell(4500)->addText('Second Count:', ['bold' => true, 'size' => 10], ['alignment' => Jc::CENTER]);
-        $sigs->addCell(4500)->addText('Received by:', ['bold' => true, 'size' => 10], ['alignment' => Jc::CENTER]);
+        $sigs->addCell(4500)->addText('Second Count:', ['bold' => true, 'size' => 10], ['alignment' => Jc::START]);
+        $sigs->addCell(4500)->addText('Received by:', ['bold' => true, 'size' => 10], ['alignment' => Jc::START]);
         $sigs->addRow();
         $sigs->addCell(4500, ['borderBottomSize' => 6, 'borderBottomColor' => '000000'])
-            ->addText($this->plainName($rr->receiving_report_second_count_signature ?? $rr->receiving_report_second_count_by ?? ''), ['size' => 10], ['alignment' => Jc::CENTER]);
+            ->addText($this->plainName($rr->receiving_report_second_count_signature ?? $rr->receiving_report_second_count_by ?? ''), ['size' => 10], ['alignment' => Jc::START]);
         $sigs->addCell(4500, ['borderBottomSize' => 6, 'borderBottomColor' => '000000'])
-            ->addText((string) ($rr->receiving_report_received_by_signature ?? ''), ['size' => 10], ['alignment' => Jc::CENTER]);
+            ->addText(
+                $this->plainName($rr->receiving_report_received_by_name ?? '')
+                    ?: $this->plainName($rr->receiving_report_received_by_signature ?? ''),
+                ['size' => 10],
+                ['alignment' => Jc::START]
+            );
 
         $filename = (($rr->receiving_report_form_number ?? '') ?: 'blank-rr') . '.docx';
         $tmp = tempnam(sys_get_temp_dir(), 'rr');

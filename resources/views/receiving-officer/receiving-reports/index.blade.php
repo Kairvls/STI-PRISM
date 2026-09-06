@@ -40,9 +40,10 @@
             this.reviseOpen = false;
             this.returnOpen = false;
             this.$nextTick(() => {
-                if (typeof window.initSecondCountSign === 'function') {
-                    window.initSecondCountSign(id);
+                if (window.receivingSignaturePanel && typeof window.receivingSignaturePanel.bind === 'function') {
+                    window.receivingSignaturePanel.bind(id);
                 }
+                if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
             });
         },
         printRr(id) {
@@ -246,23 +247,8 @@
 
                         <div class="min-h-0 flex-1 overflow-y-auto">
                             <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
-                                <div class="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <h4 class="text-sm font-semibold text-slate-900">Second Count signature</h4>
-                                        <p class="mt-1 text-xs text-slate-500">
-                                            Your name is filled in on <strong>Second Count</strong>. Optionally upload a handwritten signature image.
-                                        </p>
-                                        <label class="mt-3 block text-xs text-slate-600">
-                                            Handwritten signature image (optional)
-                                            <input
-                                                type="file"
-                                                id="scSigUpload-{{ $rr->receiving_report_id }}"
-                                                name="signature_file"
-                                                accept="image/*"
-                                                class="mt-1 block w-full text-xs"
-                                            >
-                                        </label>
-                                    </div>
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div id="roSigSlot-{{ $rr->receiving_report_id }}" class="min-w-0"></div>
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700">Product verification photos</label>
                                         <input
@@ -300,6 +286,12 @@
             </div>
         @endif
     @endforeach
+
+    <div id="roSigPanelHome" class="hidden">
+        @include('receiving-officer.partials.second-count-signature-panel', [
+            'savedSignatures' => $savedSignatures ?? collect(),
+        ])
+    </div>
 
     <div
         x-show="reviseOpen"
@@ -478,85 +470,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-});
 
-(function () {
-    function readFileAsDataUrl(file) {
-        return new Promise(function (resolve, reject) {
-            if (!file) return resolve(null);
-            var reader = new FileReader();
-            reader.onload = function () { resolve(reader.result); };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    }
-
-    function syncPreview(id) {
-        var nameInput = document.getElementById('scName-' + id);
-        var hidden = document.getElementById('scSigImage-' + id);
-        var preview = document.getElementById('scSigPreview-' + id);
-        if (!preview) return;
-
-        var name = nameInput ? String(nameInput.value || '').trim() : '';
-        var dataUrl = hidden ? String(hidden.value || '').trim() : '';
-        if (dataUrl.indexOf('data:image/') === 0) {
-            var html = '<img src="' + dataUrl + '" alt="Second Count signature" style="max-height:48px;width:auto;">';
-            if (name !== '') {
-                html += '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">'
-                    + name.replace(/</g, '&lt;') + '</span>';
-                html += '<span style="font-size:10px;color:#4b5563;">Receiving Officer</span>';
-            }
-            preview.innerHTML = html;
-            preview.style.display = 'flex';
-            if (nameInput) nameInput.style.display = 'none';
-            return;
-        }
-
-        preview.innerHTML = '';
-        preview.style.display = 'none';
-        if (nameInput) nameInput.style.display = '';
-    }
-
-    window.initSecondCountSign = function (id) {
-        var nameInput = document.getElementById('scName-' + id);
-        var fileInput = document.getElementById('scSigUpload-' + id);
-        var hidden = document.getElementById('scSigImage-' + id);
-        var form = document.querySelector('[data-second-count-form="' + id + '"]');
-
-        if (hidden) hidden.value = '';
-        if (fileInput) fileInput.value = '';
-        syncPreview(id);
-
-        if (nameInput && !nameInput.dataset.scBound) {
-            nameInput.dataset.scBound = '1';
-            nameInput.addEventListener('input', function () { syncPreview(id); });
-        }
-
-        if (fileInput && !fileInput.dataset.scBound) {
-            fileInput.dataset.scBound = '1';
-            fileInput.addEventListener('change', function () {
-                readFileAsDataUrl(fileInput.files && fileInput.files[0]).then(function (url) {
-                    if (hidden) hidden.value = url || '';
-                    syncPreview(id);
-                }).catch(function () {});
-            });
-        }
-
-        if (form && !form.dataset.scBound) {
-            form.dataset.scBound = '1';
-            form.addEventListener('submit', function (event) {
-                if (!fileInput || !fileInput.files || !fileInput.files[0] || !hidden) return;
-                if (String(hidden.value || '').indexOf('data:image/') === 0) return;
+    document.querySelectorAll('[data-second-count-form]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            var id = form.getAttribute('data-second-count-form');
+            var hidden = document.getElementById('scSigImage-' + id);
+            var nameInput = document.getElementById('scName-' + id);
+            var hasSig = hidden && String(hidden.value || '').indexOf('data:image/') === 0;
+            if (!hasSig) {
                 event.preventDefault();
-                readFileAsDataUrl(fileInput.files[0]).then(function (url) {
-                    if (hidden) hidden.value = url || '';
-                    form.submit();
-                }).catch(function () {
-                    form.submit();
-                });
-            });
-        }
-    };
-})();
+                if (typeof window.showMpToast === 'function') {
+                    showMpToast('Please add a signature (draw, upload, or pick a saved one) before confirming.', {
+                        title: 'Signature required',
+                        type: 'warning',
+                        timer: 3600
+                    });
+                } else {
+                    alert('Please add a signature before confirming Second Count.');
+                }
+                return;
+            }
+            if (nameInput && !String(nameInput.value || '').trim()) {
+                nameInput.value = @json(auth()->user()->user_full_name ?? auth()->user()->user_username ?? 'Receiving Officer');
+            }
+        });
+    });
+});
 </script>
 @endsection

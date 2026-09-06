@@ -53,6 +53,8 @@
     #purchaser-print-mount .rfc-print-sheet,
     #purchaser-print-mount .liq-print-sheet {
         width: 297mm !important;
+        min-height: 0 !important;
+        height: auto !important;
     }
 
     @media print {
@@ -105,11 +107,16 @@
         #purchaser-print-mount .atp-print-sheet,
         #purchaser-print-mount .rr-print-sheet {
             padding: 12mm !important;
+            min-height: 0 !important;
+            height: auto !important;
             background: #fff !important;
         }
 
         #purchaser-print-mount .rfc-print-sheet {
             padding: 10mm 14mm !important;
+            min-height: 0 !important;
+            height: auto !important;
+            background: #fff !important;
         }
 
         #purchaser-print-mount .liq-print-sheet {

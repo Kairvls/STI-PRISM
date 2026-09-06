@@ -1,11 +1,11 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Edit Supplier')
 @section('page-subtitle', 'Update supplier information')
 
 @section('content')
 <div class="mx-auto max-w-3xl">
-    <form method="POST" action="{{ route('purchaser.suppliers.update', $supplier->supplier_id) }}" class="pur-card space-y-6 p-6">
+    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.update', $supplier->supplier_id) }}" class="pur-card space-y-6 p-6">
         @csrf
         @method('PUT')
 
@@ -110,7 +110,7 @@
         @endif
 
         <div class="flex justify-end gap-2">
-            <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>
             <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fa8]">
                 Save Changes
             </button>

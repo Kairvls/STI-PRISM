@@ -6,6 +6,7 @@ use App\Models\ItemCategory;
 use App\Models\ItemSubCategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Support\ProcurementPortal;
 
 class ItemSubCategoryController extends Controller
 {
@@ -33,7 +34,7 @@ class ItemSubCategoryController extends Controller
             'item_subcategory_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category created successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category created successfully.');
     }
 
     public function update(Request $request, $subcategoryId)
@@ -62,7 +63,7 @@ class ItemSubCategoryController extends Controller
             'item_subcategory_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category updated successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category updated successfully.');
     }
 
     public function destroy($subcategoryId)
@@ -70,6 +71,6 @@ class ItemSubCategoryController extends Controller
         $subcategory = ItemSubCategory::findOrFail($subcategoryId);
         $subcategory->delete();
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category deleted successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'subcategories'])->with('success', 'Sub category deleted successfully.');
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Support\ProcurementPortal;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider;
@@ -27,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
         if (request()->is('maintenance*')) {
             Paginator::defaultView('pagination.maintenance');
         }
+
+        View::composer('*', function ($view) {
+            $view->with('pp', ProcurementPortal::prefix());
+            $view->with('procurementLayout', ProcurementPortal::layout());
+        });
 
         Event::listen(function (SocialiteWasCalled $event) {
 

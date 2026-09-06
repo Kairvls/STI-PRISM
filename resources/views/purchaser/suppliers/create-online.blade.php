@@ -1,11 +1,11 @@
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'New Online Supplier')
 @section('page-subtitle', 'Create online supplier')
 
 @section('content')
 <div class="mx-auto max-w-3xl">
-    <form method="POST" action="{{ route('purchaser.suppliers.store') }}" class="pur-card space-y-6 p-6">
+    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.store') }}" class="pur-card space-y-6 p-6">
         @csrf
         <input type="hidden" name="supplier_store_type" value="Online Store">
 
@@ -57,7 +57,7 @@
         </div>
 
         <div class="flex justify-end gap-2">
-            <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>
             <button type="submit" class="pur-btn-primary">Create Supplier</button>
         </div>
     </form>

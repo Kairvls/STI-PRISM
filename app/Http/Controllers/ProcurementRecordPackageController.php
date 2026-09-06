@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Support\ProcurementPortal;
 
 class ProcurementRecordPackageController extends Controller
 {
@@ -163,7 +164,7 @@ class ProcurementRecordPackageController extends Controller
             '/accounting/procurement-records/' . $packageId
         );
 
-        return redirect()->route('purchaser.procurement-records.index')
+        return ProcurementPortal::redirect('procurement-records.index')
             ->with('success', 'Compiled record submitted to Accounting.');
     }
 

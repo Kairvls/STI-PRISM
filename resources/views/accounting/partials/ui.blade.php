@@ -636,10 +636,14 @@
     }
 
     .acc-viewer-fit .rfc-print-sheet,
+    .acc-viewer-fit .atp-print-sheet,
+    .acc-viewer-fit .rr-print-sheet,
     .acc-viewer-fit .liq-print-sheet,
     .acc-viewer-fit .acc-paper {
         margin: 0 auto;
         max-width: none !important;
+        min-height: 0 !important;
+        height: auto !important;
         box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
     }
 
@@ -796,6 +800,10 @@
         box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
         max-height: calc(100vh - 48px);
         overflow: auto;
+        width: min(640px, calc(100vw - 32px));
+    }
+    .confirm-card.wide {
+        width: min(720px, calc(100vw - 32px));
     }
     .confirm-card label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; }
     .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; color: #64748b; }

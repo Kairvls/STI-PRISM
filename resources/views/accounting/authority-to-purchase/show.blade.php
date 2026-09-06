@@ -3,10 +3,6 @@
 @section('title', 'Review ATP')
 
 @section('content')
-@php
-    $supplier = ($atp->supplier_store_type ?? '') === 'Physical Store' ? ($atp->company_name ?? '—') : ($atp->shop_name ?? '—');
-    $total = $items->sum(fn ($i) => (float) ($i->atp_amount ?? 0));
-@endphp
 @include('accounting.partials.flash')
 
 <div class="acc-page fade-in">
@@ -40,65 +36,17 @@
             <div class="acc-viewer">
                 <div class="acc-viewer-stage">
                     <div class="acc-viewer-fit">
-                        <div class="acc-paper">
-                        <div class="acc-paper-title">
-                            <p class="org">STI COLLEGE- ORMOC, INC.</p>
-                            <p class="doc">AUTHORITY TO PURCHASE</p>
-                        </div>
-                        <dl>
-                            <div><dt>ATP No.</dt><dd>{{ $atp->authority_purchase_form_number }}</dd></div>
-                            <div><dt>Date</dt><dd>{{ $atp->authority_purchase_date ? \Carbon\Carbon::parse($atp->authority_purchase_date)->format('F d, Y') : '—' }}</dd></div>
-                            <div><dt>RIS</dt><dd>{{ $atp->ris_form_number ?? '—' }}</dd></div>
-                            <div><dt>Supplier</dt><dd>{{ $supplier }}</dd></div>
-                            <div class="sm:col-span-2"><dt>Purpose</dt><dd>{{ $atp->ris_purpose_description ?? '—' }}</dd></div>
-                        </dl>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Description</th>
-                                    <th class="!text-right">Qty</th>
-                                    <th class="!text-right">Unit</th>
-                                    <th class="!text-right">Unit price</th>
-                                    <th class="!text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($items as $item)
-                                    <tr>
-                                        <td>{{ $item->atp_description }}</td>
-                                        <td class="text-right">{{ $item->atp_quantity }}</td>
-                                        <td class="text-right">{{ $item->atp_unit }}</td>
-                                        <td class="text-right">{{ $item->atp_unit_price !== null ? number_format($item->atp_unit_price, 2) : '—' }}</td>
-                                        <td class="text-right">{{ $item->atp_amount !== null ? number_format($item->atp_amount, 2) : '—' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                            <tfoot>
-                                <tr class="font-semibold">
-                                    <td colspan="4" class="text-right px-2 py-1.5">Total</td>
-                                    <td class="text-right px-2 py-1.5">₱{{ number_format($total, 2) }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                        <div class="mt-6 grid grid-cols-2 gap-6 text-center text-xs">
-                            <div>
-                                <p class="text-[10px] uppercase tracking-wide text-slate-400">Received by</p>
-                                <p class="mt-6 border-b border-slate-800 pb-1">{{ $atp->authority_purchase_received_by_name ?? '—' }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] uppercase tracking-wide text-slate-400">Authorized by Accounting</p>
-                                <p class="mt-6 border-b border-slate-800 pb-1 min-h-[3rem]">
-                                    @include('partials.drawn-signature', ['value' => $atp->authority_purchase_authorized_by_signature ?? ''])
-                                </p>
-                            </div>
-                        </div>
+                        @include('partials.authority-to-purchase-paper', [
+                            'editable' => false,
+                            'atp' => $atp,
+                            'items' => $items,
+                        ])
                         @if ($atp->authority_purchase_rejection_reason)
                             <p class="mt-4 rounded-lg bg-sky-50 p-2.5 text-xs text-sky-900">Revision remarks: {{ $atp->authority_purchase_rejection_reason }}</p>
                         @endif
                     </div>
                 </div>
             </div>
-        </div>
         <div class="acc-side-stack">
             @include('accounting.partials.related-docs', ['chain' => $chain])
             @include('accounting.partials.history', ['history' => $history])
@@ -125,10 +73,13 @@
             <input type="hidden" name="signature_data" id="signatureData" value="" />
             <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
             <div id="signatureBlock" class="hidden mt-4">
-                <label>Digital signature</label>
-                <p class="hint">Sign to authorize this Authority to Purchase.</p>
-                <canvas id="signatureCanvas" width="520" height="160"></canvas>
-                <button type="button" class="btn-ghost sm" data-tip="Clear signature" onclick="clearSignature()">Clear</button>
+                @include('accounting.partials.decision-signature-panel', [
+                    'savedSignatures' => $savedSignatures ?? collect(),
+                    'signTitle' => 'Accounting signature',
+                    'signHint' => 'Pick a saved signature, draw one, or upload. It authorizes this Authority to Purchase.',
+                    'padTitle' => 'Sign the ATP',
+                    'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
+                ])
             </div>
             <div class="mt-4">
                 <label>Remarks</label>
@@ -146,7 +97,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
-        initSignatureCanvas();
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -157,12 +107,13 @@
         document.getElementById('targetType').value = type;
         document.getElementById('targetId').value = id;
         document.getElementById('targetDecision').value = presetDecision || '';
-        document.getElementById('signatureData').value = '';
-        document.getElementById('signatureUsed').value = '0';
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
+        else {
+            document.getElementById('signatureData').value = '';
+            document.getElementById('signatureUsed').value = '0';
+        }
         const remarks = form.querySelector('textarea[name="remarks"]');
         if (remarks) remarks.value = '';
-        const canvas = document.getElementById('signatureCanvas');
-        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
         const isApproved = (presetDecision || '').toLowerCase() === 'approved';
         document.getElementById('decisionModalSubtitle').textContent = '{{ $atp->authority_purchase_form_number }}';
         form.action = '/accounting/authority-to-purchase/' + id + (isApproved ? '/approve' : '/revise');
@@ -176,6 +127,7 @@
 
     function closeDecisionModal() {
         document.getElementById('decisionModal').classList.add('hidden');
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
     }
 
     function submitDecision(decision) {
@@ -183,19 +135,17 @@
         const form = document.getElementById('decisionForm');
         document.getElementById('targetDecision').value = decision;
         if (decision === 'Approved') {
-            const canvas = document.getElementById('signatureCanvas');
-            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-            let hasDrawing = false;
-            for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] > 0) { hasDrawing = true; break; } }
-            if (!hasDrawing) {
+            const hasSig = window.accountingSignaturePanel
+                ? window.accountingSignaturePanel.hasSignature()
+                : String(document.getElementById('signatureData').value || '').indexOf('data:image/') === 0;
+            if (!hasSig) {
                 if (typeof window.showMpToast === 'function') {
-                    showMpToast('Please sign the ATP before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
+                    showMpToast('Please add a signature before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
                 } else {
-                    alert('Please sign the ATP before approving.');
+                    alert('Please add a signature before approving.');
                 }
                 return;
             }
-            document.getElementById('signatureData').value = canvas.toDataURL('image/png');
             document.getElementById('signatureUsed').value = '1';
         } else {
             const remarksField = form.querySelector('textarea[name="remarks"]');
@@ -231,38 +181,6 @@
             }
         })
         .finally(() => { decideInFlight = false; });
-    }
-
-    function initSignatureCanvas() {
-        const canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#1f2937';
-        let drawing = false, lastX = 0, lastY = 0;
-        function getPos(evt) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
-        }
-        function start(evt) { drawing = true; const p = getPos(evt); lastX = p.x; lastY = p.y; }
-        function move(evt) { if (!drawing) return; const p = getPos(evt); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; }
-        function end() { drawing = false; }
-        canvas.addEventListener('mousedown', start);
-        canvas.addEventListener('mousemove', move);
-        canvas.addEventListener('mouseup', end);
-        canvas.addEventListener('mouseleave', end);
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, { passive: false });
-        canvas.addEventListener('touchend', end);
-    }
-
-    function clearSignature() {
-        const canvas = document.getElementById('signatureCanvas');
-        if (!canvas) return;
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById('signatureData').value = '';
-        document.getElementById('signatureUsed').value = '0';
     }
 
     document.addEventListener('keydown', function (e) {

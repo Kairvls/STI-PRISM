@@ -14,6 +14,7 @@ use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\RisFormExporter;
+use App\Support\ProcurementPortal;
 
 /**
  * Requisition & Issue Slip (RIS) workflow for the purchaser role.
@@ -849,7 +850,7 @@ class RisController extends Controller
             }
 
             return redirect()
-                ->route('purchaser.ris.index')
+                ->route(ProcurementPortal::routeName('ris.index'))
                 ->with('success', $success);
         });
     }
@@ -1392,7 +1393,7 @@ public function update(Request $request, $risId)
         }
 
         return redirect()
-            ->route('purchaser.ris.index')
+            ->route(ProcurementPortal::routeName('ris.index'))
             ->with('success', $message);
     });
 }
@@ -1631,7 +1632,7 @@ public function submit($risId)
         );
 
         return redirect()
-            ->route('purchaser.ris.index')
+            ->route(ProcurementPortal::routeName('ris.index'))
             ->with(
                 'success',
                 'RIS submitted to Admin successfully.'

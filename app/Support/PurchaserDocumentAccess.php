@@ -2,16 +2,19 @@
 
 namespace App\Support;
 
+use App\Support\ProcurementPortal;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Ownership helpers for purchaser-authored procurement documents.
- * Enforced only for purchaser role (user_role_id = 3); other roles bypass.
+ * Ownership helpers for purchaser/maintenance-authored procurement documents.
+ * Enforced for procurement actors (purchaser role 3, maintenance role 2); other roles bypass.
  */
 class PurchaserDocumentAccess
 {
     public const PURCHASER_ROLE_ID = 3;
+
+    public const MAINTENANCE_ROLE_ID = 2;
 
     public static function isPurchaser(?object $user = null): bool
     {
@@ -21,12 +24,20 @@ class PurchaserDocumentAccess
     }
 
     /**
-     * Abort 403 unless the current purchaser owns the record.
+     * Purchaser, or Maintenance with procurement enabled.
+     */
+    public static function isProcurementActor(?object $user = null): bool
+    {
+        return ProcurementPortal::userCanAccessProcurement($user);
+    }
+
+    /**
+     * Abort 403 unless the current procurement actor owns the record.
      * Legacy rows with no owner remain accessible to keep existing data usable.
      */
     public static function assertOwns(object $record, string $document): void
     {
-        if (!self::isPurchaser()) {
+        if (!self::isProcurementActor()) {
             return;
         }
 
@@ -80,7 +91,7 @@ class PurchaserDocumentAccess
      */
     public static function scopeOwned($query, string $document, ?string $table = null)
     {
-        if (!self::isPurchaser()) {
+        if (!self::isProcurementActor()) {
             return $query;
         }
 

@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\RfcFormExporter;
+use Illuminate\Validation\ValidationException;
+use App\Support\ProcurementPortal;
 
 class RequestForCheckController extends Controller
 {
@@ -126,6 +130,7 @@ class RequestForCheckController extends Controller
             'openCreate' => $request->boolean('create') || $request->filled('selected_atp'),
             'viewRfcId' => $viewRfcId ?: null,
             'fundingTypeLabels' => ProcurementPaymentPath::labels(),
+            'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
         ]);
     }
 
@@ -135,12 +140,18 @@ class RequestForCheckController extends Controller
         $isDraft = $saveAction === 'draft';
         $validated = $this->validateRfc($request, $isDraft);
         $fundingType = $validated['request_check_funding_type'] ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
+        $requestedSig = RisWorkflow::normalizeDrawnSignature($validated['request_check_requested_by_signature'] ?? null);
+        if (!$isDraft && !$requestedSig) {
+            throw ValidationException::withMessages([
+                'request_check_requested_by_signature' => 'Draw or upload your signature before submitting.',
+            ]);
+        }
 
         if ($error = $this->atpEligibilityError($validated['request_check_authority_purchase_id'] ?? null, null, !$isDraft, $fundingType)) {
             return back()->withInput()->with('error', $error);
         }
 
-        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType) {
+        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig) {
             $now = now();
             $user = auth()->user();
 
@@ -153,6 +164,7 @@ class RequestForCheckController extends Controller
                 'request_check_amount_words' => $this->amountInWords($validated['request_check_amount_figures'] ?? null),
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
                 'request_check_requested_by' => $validated['request_check_requested_by'] ?? ($user->user_full_name ?? null),
+                'request_check_requested_by_signature' => $requestedSig,
                 'request_check_requested_by_user_id' => auth()->id(),
                 'request_check_status' => $this->rfcPersistStatus($isDraft ? 'Draft' : 'Submitted'),
                 'request_check_review_stage' => $isDraft ? null : 'accounting',
@@ -174,7 +186,7 @@ class RequestForCheckController extends Controller
                 $this->notifyAccountingRfc($id);
             }
 
-            return redirect()->route('purchaser.rfc.index')->with(
+            return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
                     ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft saved.' : 'Request for Check draft saved.')
@@ -199,13 +211,19 @@ class RequestForCheckController extends Controller
         $validated = $this->validateRfc($request, $isDraft);
         $fundingType = $validated['request_check_funding_type']
             ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+        $requestedSig = RisWorkflow::normalizeDrawnSignature($validated['request_check_requested_by_signature'] ?? null);
+        if (!$isDraft && !$requestedSig && !RisWorkflow::isDrawnSignature((string) ($rfc->request_check_requested_by_signature ?? ''))) {
+            throw ValidationException::withMessages([
+                'request_check_requested_by_signature' => 'Draw or upload your signature before submitting.',
+            ]);
+        }
 
         $atpId = $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id;
         if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft, $fundingType)) {
             return back()->withInput()->with('error', $error);
         }
 
-        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType) {
+        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig) {
             $now = now();
             $wasRevision = in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
                 && $rfc->request_check_status !== 'Draft'
@@ -223,6 +241,7 @@ class RequestForCheckController extends Controller
                 'request_check_amount_words' => $this->amountInWords($validated['request_check_amount_figures'] ?? null),
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
                 'request_check_requested_by' => $validated['request_check_requested_by'] ?? $rfc->request_check_requested_by,
+                'request_check_requested_by_signature' => $requestedSig ?? ($rfc->request_check_requested_by_signature ?? null),
                 'request_check_status' => $status,
                 'request_check_review_stage' => $isDraft ? ($rfc->request_check_review_stage ?? null) : 'accounting',
                 'request_check_submitted_by' => $isDraft ? ($rfc->request_check_submitted_by ?? null) : auth()->id(),
@@ -237,7 +256,7 @@ class RequestForCheckController extends Controller
                 $this->notifyAccountingRfc($id);
             }
 
-            return redirect()->route('purchaser.rfc.index')->with(
+            return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
                     ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft updated.' : 'Request for Check draft updated.')
@@ -264,6 +283,12 @@ class RequestForCheckController extends Controller
                 || blank($rfc->request_check_particulars_purpose)
             ) {
                 return back()->with('error', 'Complete payee, amount, purpose, and ATP before submitting.');
+            }
+            if (
+                $this->rfcHas('request_check_requested_by_signature')
+                && !RisWorkflow::isDrawnSignature((string) ($rfc->request_check_requested_by_signature ?? ''))
+            ) {
+                return back()->with('error', 'Draw or upload your signature before submitting.');
             }
             if ($error = $this->atpEligibilityError($rfc->request_check_authority_purchase_id, $id, true)) {
                 return back()->with('error', $error);
@@ -371,6 +396,7 @@ class RequestForCheckController extends Controller
             'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', $isDraft ? 'min:0' : 'gt:0', 'max:999999999.99'],
             'request_check_particulars_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
             'request_check_requested_by' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'request_check_requested_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'delete_attachments' => ['nullable', 'array'],

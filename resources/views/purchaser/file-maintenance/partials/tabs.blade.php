@@ -9,7 +9,7 @@
     @endphp
     @foreach($fmTabs as $key => $meta)
         <a
-            href="{{ route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
+            href="{{ route(($pp ?? 'purchaser').'.file-maintenance.index', ['tab' => $key]) }}"
             class="pur-tab {{ ($tab ?? 'brands') === $key ? 'is-active' : '' }}"
         >
             <i data-lucide="{{ $meta['icon'] }}" class="h-3.5 w-3.5"></i>

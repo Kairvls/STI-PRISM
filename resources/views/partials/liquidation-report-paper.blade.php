@@ -165,7 +165,10 @@
                 </div>
             </div>
             <div class="mt-5 min-h-[1.75rem] border-b border-black pb-1">
-                @include('partials.drawn-signature', ['value' => $liq?->liquidation_report_checked_by_accountant ?? ''])
+                @include('partials.drawn-signature', [
+                    'value' => $liq?->liquidation_report_checked_by_accountant ?? '',
+                    'printedName' => \App\Support\AccountingSigner::forLiq($liq),
+                ])
             </div>
             <div class="mt-1 text-[11px] italic">(Accountant)</div>
         </div>

@@ -8,8 +8,15 @@
 
     <div>
         <h1 class="admin-page-title">User Management</h1>
-        <p class="admin-page-subtitle">Live accounts from the system. Create a user here. Editing and deactivation are not available on this screen.</p>
+        <p class="admin-page-subtitle">Live accounts from the system. Create users here and enable procurement access for Maintenance Personnel when needed.</p>
     </div>
+
+    @if(session('success'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{{ session('error') }}</div>
+    @endif
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
@@ -58,6 +65,7 @@
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Full Name</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Username</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Role</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Procurement</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Last active</th>
                         <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
@@ -68,6 +76,9 @@
                         @php
                             $isActive = !empty($user->last_active_at)
                                 && \Carbon\Carbon::parse($user->last_active_at)->gte(now()->subDays(30));
+                            $isMaintenance = (int) ($user->user_role_id ?? 0) === 2;
+                            $isPurchaser = (int) ($user->user_role_id ?? 0) === 3;
+                            $canProcurement = (bool) ($user->user_can_procurement ?? false);
                         @endphp
                         <tr class="user-row" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
@@ -75,6 +86,23 @@
                             <td class="px-5 py-4 text-sm text-gray-600">{{ $user->user_username }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">{{ $user->role_name ?: '-' }}</span>
+                            </td>
+                            <td class="px-5 py-4">
+                                @if($isPurchaser)
+                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Always on</span>
+                                @elseif($isMaintenance)
+                                    <form method="POST" action="{{ route('admin.users.procurement-access', $user->user_id) }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="user_can_procurement" value="{{ $canProcurement ? 0 : 1 }}">
+                                        <button type="submit"
+                                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset transition {{ $canProcurement ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200' }}"
+                                            title="{{ $canProcurement ? 'Click to disable procurement' : 'Click to enable procurement' }}">
+                                            {{ $canProcurement ? 'Enabled' : 'Disabled' }}
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 @if($isActive)
@@ -108,16 +136,17 @@
                                     data-email="{{ $user->user_email_address ?: '-' }}"
                                     data-contact="{{ $user->user_contact_number ?: '-' }}"
                                     data-status="{{ $isActive ? 'Active' : 'Inactive' }}"
+                                    data-procurement="{{ $isPurchaser ? 'Always on' : ($isMaintenance ? ($canProcurement ? 'Enabled' : 'Disabled') : '—') }}"
                                 >
                                     <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
                                 </button>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-5 py-16 text-center text-sm text-gray-400">No user accounts found.</td></tr>
+                        <tr><td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">No user accounts found.</td></tr>
                     @endforelse
                     <tr id="usersEmptyFilterRow" class="hidden">
-                        <td colspan="7" class="px-5 py-16 text-center text-sm text-gray-400">No accounts match this filter.</td>
+                        <td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">No accounts match this filter.</td>
                     </tr>
                 </tbody>
             </table>
@@ -163,6 +192,7 @@
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Full Name</span><span id="viewUserFullName" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Username</span><span id="viewUserUsername" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Role</span><span id="viewUserRole" class="font-semibold text-slate-900"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Procurement</span><span id="viewUserProcurement" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Status</span><span id="viewUserStatus" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Email</span><span id="viewUserEmail" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 py-2"><span class="text-slate-500">Contact</span><span id="viewUserContact" class="font-semibold text-slate-900"></span></div>
@@ -224,7 +254,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Role</label>
-                        <select name="role" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
+                        <select name="role" id="createUserRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
                             <option value="">Select a role...</option>
                             @foreach($roles as $role)
                                 @if((int) $role->role_id !== 1)
@@ -232,6 +262,15 @@
                                 @endif
                             @endforeach
                         </select>
+                    </div>
+                    <div id="createProcurementAccessWrap" class="hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                            <span>
+                                <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Allow this Maintenance account to approve replacement requests and process RIS → ATP → RFC → Receiving → Liquidation.</span>
+                            </span>
+                        </label>
                     </div>
                 </div>
                 <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
@@ -269,6 +308,7 @@
         setText('viewUserFullName', btn.getAttribute('data-full-name'));
         setText('viewUserUsername', btn.getAttribute('data-username'));
         setText('viewUserRole', btn.getAttribute('data-role'));
+        setText('viewUserProcurement', btn.getAttribute('data-procurement'));
         setText('viewUserStatus', btn.getAttribute('data-status'));
         setText('viewUserEmail', btn.getAttribute('data-email'));
         setText('viewUserContact', btn.getAttribute('data-contact'));
@@ -279,12 +319,20 @@
     window.openCreateUserModal = function() {
         var modal = mountUserModal(document.getElementById('createUserModal'));
         if (modal) modal.classList.remove('hidden');
+        syncCreateProcurementAccess();
     };
 
     window.closeCreateUserModal = function() {
         var modal = document.getElementById('createUserModal');
         if (modal) modal.classList.add('hidden');
     };
+
+    function syncCreateProcurementAccess() {
+        var roleSelect = document.getElementById('createUserRole');
+        var wrap = document.getElementById('createProcurementAccessWrap');
+        if (!roleSelect || !wrap) return;
+        wrap.classList.toggle('hidden', roleSelect.value !== '2');
+    }
 
     function updateUserFilterSlider(activeFilter, animate) {
         var track = document.getElementById('userFilterSlider');
@@ -401,6 +449,12 @@
         window.addEventListener('resize', function () {
             updateUserFilterSlider(currentFilter, false);
         });
+
+        var roleSelect = document.getElementById('createUserRole');
+        if (roleSelect) {
+            roleSelect.addEventListener('change', syncCreateProcurementAccess);
+            syncCreateProcurementAccess();
+        }
     });
 </script>
 @endpush

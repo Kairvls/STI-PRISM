@@ -8,7 +8,7 @@
     $current = $tabMeta[$tab] ?? $tabMeta['brands'];
 @endphp
 
-@extends('layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'File Maintenance')
 @section('page-subtitle', $current['title'])

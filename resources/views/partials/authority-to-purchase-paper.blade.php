@@ -13,7 +13,15 @@
         $atp?->authority_purchase_date ?? ($editable && !$atp ? now()->format('Y-m-d') : '')
     );
     $supplierId = old('authority_purchase_supplier_id', $atp?->authority_purchase_supplier_id ?? '');
-    $receivedBy = old('authority_purchase_received_by_name', $atp?->authority_purchase_received_by_name ?? '');
+    $receivedBy = old(
+        'authority_purchase_received_by_name',
+        $atp?->authority_purchase_received_by_name ?? ($editable ? (auth()->user()->user_full_name ?? '') : '')
+    );
+    $receivedBySignature = old(
+        'authority_purchase_received_by_signature',
+        $atp?->authority_purchase_received_by_signature ?? ''
+    );
+    $signKey = $signKey ?? ($atp?->authority_purchase_id ? 'atp-'.$atp->authority_purchase_id : 'atp-create');
     $poNo = old('authority_purchase_reference_po_no', $atp?->authority_purchase_reference_po_no ?? '');
     $oldItems = old('items');
 
@@ -31,8 +39,7 @@
 
 <div
     @if($printId) id="{{ $printId }}" @endif
-    class="atp-print-sheet mx-auto w-[210mm] max-w-full bg-white p-10 text-[13px] leading-tight text-black shadow {{ $printClass }}"
-    style="min-height: 297mm;"
+    class="atp-print-sheet mx-auto w-[210mm] max-w-full bg-white px-10 pb-6 pt-10 text-[13px] leading-tight text-black shadow {{ $printClass }}"
 >
     {{-- HEADER --}}
     <div class="relative text-center">
@@ -196,81 +203,114 @@
                     </tr>
                 @endfor
                 <tr>
-                    <td colspan="4" class="border border-black pr-4 text-right font-bold">TOTAL</td>
+                    <td colspan="4" class="border border-black">&nbsp;</td>
+                    <td class="border border-black px-2 text-right font-bold">TOTAL</td>
                     <td class="border border-black px-2 text-right font-bold">&nbsp;</td>
                 </tr>
             @else
-                @forelse($items as $item)
-                    <tr>
-                        <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
-                        <td class="border border-black text-center">
-                            {{ $item->atp_supplier_stock ?? '—' }}
-                            @if((int) ($item->atp_back_order_qty ?? 0) > 0)
-                                <span class="block text-[10px] font-semibold text-amber-700">Back order: {{ $item->atp_back_order_qty }}</span>
-                            @endif
-                        </td>
-                        <td class="border border-black text-center">{{ $item->atp_unit }}</td>
-                        <td class="border border-black px-2">{{ $item->atp_description }}</td>
-                        <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>
-                        <td class="border border-black px-2 text-right">{{ number_format($item->atp_amount, 2) }}</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="5" class="border border-black p-4 text-center text-gray-500">
-                            No ATP line items added.
-                        </td>
-                    </tr>
-                @endforelse
+                @for($i = 0; $i < $rowCount; $i++)
+                    @php $item = $items[$i] ?? null; @endphp
+                    @if($item)
+                        <tr>
+                            <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
+                            <td class="border border-black text-center">
+                                {{ $item->atp_supplier_stock ?? '—' }}
+                                @if((int) ($item->atp_back_order_qty ?? 0) > 0)
+                                    <span class="block text-[10px] font-semibold text-amber-700">Back order: {{ $item->atp_back_order_qty }}</span>
+                                @endif
+                            </td>
+                            <td class="border border-black text-center">{{ $item->atp_unit }}</td>
+                            <td class="border border-black px-2">{{ $item->atp_description }}</td>
+                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>
+                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_amount, 2) }}</td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td class="border border-black h-8">&nbsp;</td>
+                            <td class="border border-black">&nbsp;</td>
+                            <td class="border border-black">&nbsp;</td>
+                            <td class="border border-black">&nbsp;</td>
+                            <td class="border border-black">&nbsp;</td>
+                            <td class="border border-black">&nbsp;</td>
+                        </tr>
+                    @endif
+                @endfor
 
-                @if($items->isNotEmpty())
-                    <tr>
-                        <td colspan="4" class="border border-black pr-4 text-right font-bold">TOTAL</td>
-                        <td class="border border-black px-2 text-right font-bold">{{ number_format($atpTotal, 2) }}</td>
-                    </tr>
-                @endif
+                <tr>
+                    <td colspan="4" class="border border-black">&nbsp;</td>
+                    <td class="border border-black px-2 text-right font-bold">TOTAL</td>
+                    <td class="border border-black px-2 text-right font-bold">
+                        {{ $items->isNotEmpty() ? number_format($atpTotal, 2) : '' }}
+                    </td>
+                </tr>
             @endif
         </tbody>
     </table>
 
     {{-- BOTTOM SIGNATURES --}}
-    <div class="{{ $editable ? 'mt-10' : 'mt-14' }} flex justify-between">
-        <div class="w-72">
-            <div class="font-semibold">RECEIVED BY:</div>
+    <div class="{{ $editable ? 'mt-8' : 'mt-10' }} grid grid-cols-2 items-start gap-10">
+        <div class="w-full max-w-sm">
+            <div class="font-semibold leading-6">RECEIVED BY:</div>
 
             @if($editable)
+                <div
+                    id="purSigPreview-{{ $signKey }}"
+                    class="relative mt-6 flex min-h-[3rem] w-full items-end justify-center border-b border-black pb-1"
+                    style="display:none;"
+                ></div>
                 <input
                     type="text"
                     name="authority_purchase_received_by_name"
+                    id="purSigName-{{ $signKey }}"
                     value="{{ $receivedBy }}"
-                    class="mt-8 w-full border-0 border-b border-black"
+                    maxlength="255"
+                    autocomplete="off"
+                    class="mt-6 w-full min-h-[3rem] border-0 border-b border-black bg-transparent pb-1 text-center outline-none"
                 >
-                <div class="text-center text-xs">Signature over Printed Name</div>
-
                 <input
-                    type="text"
-                    name="authority_purchase_reference_po_no"
-                    value="{{ $poNo }}"
-                    class="mt-6 w-full border-0 border-b border-black"
+                    type="hidden"
+                    name="authority_purchase_received_by_signature"
+                    id="purSigImage-{{ $signKey }}"
+                    value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
                 >
-                <div class="text-center text-xs">Reference P.O. No.</div>
-            @else
-                <div class="mt-10 border-b border-black text-center min-h-[1.5rem]">
-                    {{ $receivedBy }}
-                </div>
-                <div class="text-center text-xs">Signature over Printed Name</div>
+                <div class="mt-1 text-center text-xs">Signature over Printed Name · use panel below</div>
 
-                <div class="mt-8 border-b border-black text-center min-h-[1.5rem]">
-                    {{ $poNo }}
+                <div class="mt-6 flex items-end gap-2">
+                    <span class="shrink-0 pb-1 text-xs whitespace-nowrap">Reference P.O. No.</span>
+                    <input
+                        type="text"
+                        name="authority_purchase_reference_po_no"
+                        value="{{ $poNo }}"
+                        class="min-w-0 flex-1 border-0 border-b border-black bg-transparent pb-1 outline-none"
+                    >
                 </div>
-                <div class="text-center text-xs">Reference P.O. No.</div>
+            @else
+                <div class="mt-6 flex min-h-[3rem] items-end justify-center border-b border-black pb-1 text-center">
+                    @include('partials.drawn-signature', [
+                        'value' => $receivedBySignature,
+                        'printedName' => $receivedBy,
+                        'empty' => $receivedBy,
+                    ])
+                </div>
+                <div class="mt-1 text-center text-xs">Signature over Printed Name</div>
+
+                <div class="mt-6 flex items-end gap-2">
+                    <span class="shrink-0 pb-1 text-xs whitespace-nowrap">Reference P.O. No.</span>
+                    <div class="min-w-0 flex-1 border-b border-black pb-1 text-sm">
+                        {{ $poNo }}
+                    </div>
+                </div>
             @endif
         </div>
 
-        <div class="w-56 text-center">
-            <div>Authorized By</div>
-            <div class="mt-16 border-b border-black min-h-[3rem]">
+        <div class="w-full max-w-xs justify-self-end text-left">
+            <div class="leading-6">Authorized by</div>
+            <div class="mt-6 flex min-h-[3rem] w-full items-end justify-center border-b border-black pb-1">
                 @unless($editable)
-                    @include('partials.drawn-signature', ['value' => $atp?->authority_purchase_authorized_by_signature ?? ''])
+                    @include('partials.drawn-signature', [
+                        'value' => $atp?->authority_purchase_authorized_by_signature ?? '',
+                        'printedName' => \App\Support\AccountingSigner::forAtp($atp),
+                    ])
                 @endunless
             </div>
         </div>

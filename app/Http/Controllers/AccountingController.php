@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Support\WorkflowNotifier;
 use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 
 class AccountingController extends Controller
 {
@@ -331,7 +332,17 @@ class AccountingController extends Controller
         $reviewable = $atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at !== null;
         $returnStatus = $this->resolveReturnStatus($request, 'accounting.atp_status', 'incoming');
 
-        return view('accounting.authority-to-purchase.show', compact('atp', 'items', 'chain', 'history', 'reviewable', 'returnStatus'));
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+
+        return view('accounting.authority-to-purchase.show', compact(
+            'atp',
+            'items',
+            'chain',
+            'history',
+            'reviewable',
+            'returnStatus',
+            'savedSignatures'
+        ));
     }
 
     public function approveAtp(Request $request, $id)
@@ -344,13 +355,20 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
-        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
-        DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
+        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
+        $update = [
             'authority_purchase_status' => 'Approved',
             'authority_purchase_authorized_by_signature' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
             'authority_purchase_rejection_reason' => null,
             'authority_purchase_updated_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by')) {
+            $update['authority_purchase_authorized_by'] = Auth::id();
+        }
+        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by_name')) {
+            $update['authority_purchase_authorized_by_name'] = $name;
+        }
+        DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update($update);
 
         $this->log('ATP', (int) $id, 'Approved', 'ATP approved. Purchaser may proceed to Request Check.');
         $this->notifyPurchaser(
@@ -513,6 +531,8 @@ class AccountingController extends Controller
             && empty($rfc->request_check_funds_released_at);
         $returnStatus = $this->resolveReturnStatus($request, 'accounting.rfc_status', 'incoming');
 
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+
         return view('accounting.request-check.show', compact(
             'rfc',
             'attachments',
@@ -521,7 +541,8 @@ class AccountingController extends Controller
             'history',
             'reviewable',
             'releasable',
-            'returnStatus'
+            'returnStatus',
+            'savedSignatures'
         ));
     }
 
@@ -534,7 +555,7 @@ class AccountingController extends Controller
             return back()->with('error', 'This Request Check is not awaiting Accounting review.');
         }
 
-        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
+        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
         $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
         $this->rfcUpdate($id, [
             'request_check_status' => 'Approved',
@@ -544,7 +565,7 @@ class AccountingController extends Controller
             'request_check_approved_by_user_id' => Auth::id(),
             'request_check_approved_at' => now(),
             'request_check_approved_by_signature' => $signature,
-            'request_check_approved_by_admin' => $signature,
+            'request_check_approved_by_admin' => $name,
             'request_check_updated_at' => now(),
         ]);
 
@@ -797,6 +818,8 @@ class AccountingController extends Controller
         $reviewable = in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true);
         $returnStatus = $this->resolveReturnStatus($request, 'accounting.liq_status', 'incoming');
 
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+
         return view('accounting.liquidation-reports.show', compact(
             'liq',
             'rows',
@@ -804,7 +827,8 @@ class AccountingController extends Controller
             'chain',
             'history',
             'reviewable',
-            'returnStatus'
+            'returnStatus',
+            'savedSignatures'
         ));
     }
 
@@ -817,7 +841,7 @@ class AccountingController extends Controller
             return back()->with('error', 'This liquidation report is not awaiting Accounting review.');
         }
 
-        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
+        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
         $this->liqUpdate($id, [
             'liquidation_report_status' => 'Approved',
             'liquidation_report_review_stage' => 'completed',
@@ -1070,6 +1094,85 @@ class AccountingController extends Controller
         }
 
         return view('accounting.notifications.index', compact('items', 'period'));
+    }
+
+    public function storeSavedSignature(Request $request)
+    {
+        $validated = $request->validate([
+            'signature_label' => ['nullable', 'string', 'max:120'],
+            'signature_image' => ['nullable', 'string', 'max:2000000'],
+            'signature_file' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $label = isset($validated['signature_label']) ? trim((string) $validated['signature_label']) : null;
+
+        if (!UserSignatureLibrary::canSaveMore($userId)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'You can save up to 4 signatures only. Remove one from your list first.',
+                'max' => UserSignatureLibrary::MAX_PER_USER,
+                'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                    'id' => (int) $item->user_signature_id,
+                    'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                    'preview_url' => (string) ($item->preview_url ?? ''),
+                ])->values(),
+            ], 422);
+        }
+
+        $row = null;
+
+        if ($request->hasFile('signature_file')) {
+            $row = UserSignatureLibrary::storeFromUpload($userId, $request->file('signature_file'), $label);
+        } else {
+            $row = UserSignatureLibrary::storeFromDataUrl(
+                $userId,
+                (string) ($validated['signature_image'] ?? ''),
+                $label
+            );
+        }
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save that signature. Use a PNG/JPG under 2 MB.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signature' => [
+                'id' => (int) $row->user_signature_id,
+                'label' => (string) ($row->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($row->preview_url ?? ''),
+            ],
+            'max' => UserSignatureLibrary::MAX_PER_USER,
+            'signatures' => UserSignatureLibrary::forUser($userId)->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
+    }
+
+    public function destroySavedSignature(Request $request, $signatureId)
+    {
+        $deleted = UserSignatureLibrary::deleteForUser((int) Auth::id(), (int) $signatureId);
+        if (!$deleted) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Signature not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'signatures' => UserSignatureLibrary::forUser((int) Auth::id())->map(fn ($item) => [
+                'id' => (int) $item->user_signature_id,
+                'label' => (string) ($item->user_signature_label ?? 'Signature'),
+                'preview_url' => (string) ($item->preview_url ?? ''),
+            ])->values(),
+        ]);
     }
 
     public function profile()

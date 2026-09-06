@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use App\Support\ProcurementPortal;
 
 class UomController extends Controller
 {
@@ -24,7 +25,7 @@ class UomController extends Controller
             'uom_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM created successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM created successfully.');
     }
 
     public function update(Request $request, $uomId)
@@ -47,7 +48,7 @@ class UomController extends Controller
             'uom_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM updated successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM updated successfully.');
     }
 
     public function destroy($uomId)
@@ -59,11 +60,11 @@ class UomController extends Controller
             && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
             && DB::table('requisition_issue_slip_items_table')->where('ris_item_uom_id', $uom->uom_id)->exists()
         ) {
-            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('error', 'This UOM is used on RIS items and cannot be deleted.');
+            return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom'])->with('error', 'This UOM is used on RIS items and cannot be deleted.');
         }
 
         $uom->delete();
 
-        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM deleted successfully.');
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM deleted successfully.');
     }
 }

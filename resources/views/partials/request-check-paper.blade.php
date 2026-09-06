@@ -5,7 +5,15 @@
     $payeeValue = old('request_check_payee', $rfc?->request_check_payee ?? '');
     $amountValue = old('request_check_amount_figures', $rfc?->request_check_amount_figures ?? '');
     $purposeValue = old('request_check_particulars_purpose', $rfc?->request_check_particulars_purpose ?? '');
-    $requestedByValue = old('request_check_requested_by', $rfc?->request_check_requested_by ?? (auth()->user()->user_full_name ?? ''));
+    $requestedByValue = old(
+        'request_check_requested_by',
+        $rfc?->request_check_requested_by ?? ($editable ? (auth()->user()->user_full_name ?? '') : '')
+    );
+    $requestedBySignature = old(
+        'request_check_requested_by_signature',
+        $rfc?->request_check_requested_by_signature ?? ''
+    );
+    $signKey = $signKey ?? ($rfc?->request_check_id ? 'rfc-'.$rfc->request_check_id : 'rfc-create');
     $approvedBy = $rfc?->request_check_approved_by_signature ?? $rfc?->request_check_approved_by_admin ?? '';
     $printClass = $printClass ?? '';
     $printId = $printId ?? null;
@@ -13,8 +21,8 @@
 
 <div
     @if($printId) id="{{ $printId }}" @endif
-    class="rfc-print-sheet mx-auto w-[297mm] max-w-full bg-[#d7eef8] px-16 py-10 text-[15px] text-black shadow {{ $printClass }}"
-    style="min-height: 210mm;"
+    class="rfc-print-sheet mx-auto w-[297mm] max-w-full bg-white px-16 pb-5 pt-10 text-[15px] text-black shadow {{ $printClass }}"
+    style="min-height: 0; height: auto;"
 >
     <div class="text-center">
         <div class="text-2xl font-bold tracking-wide">STI COLLEGE- ORMOC, INC.</div>
@@ -63,26 +71,72 @@
                 @endif
             </div>
             @unless($editable)
-                <div class="mt-6 border-b border-black"></div>
+                <div class="mt-8 border-b border-black"></div>
             @endunless
         </div>
     </div>
 
-    <div class="mt-20 grid grid-cols-2 gap-16">
-        <div class="text-center">
+    <div class="mt-12 grid grid-cols-2 gap-16">
+        <div class="text-left">
             <div class="font-semibold">Requested by:</div>
             @if($editable)
-                <input type="text" name="request_check_requested_by" value="{{ $requestedByValue }}" class="mx-auto mt-10 w-64 border-0 border-b border-black bg-transparent text-center outline-none">
+                <div
+                    id="purSigPreview-{{ $signKey }}"
+                    class="relative mt-6 flex min-h-[2.5rem] w-64 items-end justify-center border-b border-black pb-1"
+                    style="display:none;"
+                ></div>
+                <input
+                    type="text"
+                    name="request_check_requested_by"
+                    id="purSigName-{{ $signKey }}"
+                    value="{{ $requestedByValue }}"
+                    maxlength="255"
+                    autocomplete="off"
+                    class="mt-8 block w-64 border-0 border-b border-black bg-transparent text-center outline-none"
+                >
+                <input
+                    type="hidden"
+                    name="request_check_requested_by_signature"
+                    id="purSigImage-{{ $signKey }}"
+                    value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $requestedBySignature) ? $requestedBySignature : '' }}"
+                >
+                <div class="mt-1 w-64 text-[10px] text-slate-500">Signature overlays printed name · use panel below</div>
             @else
-                <div class="mx-auto mt-10 w-64 border-b border-black pb-1">{{ $requestedByValue }}</div>
+                <div class="mt-8 w-64 border-b border-black pb-1 min-h-[1.75rem]">
+                    @include('partials.drawn-signature', [
+                        'value' => $requestedBySignature,
+                        'printedName' => $requestedByValue,
+                        'empty' => $requestedByValue,
+                    ])
+                </div>
             @endif
         </div>
-        <div class="text-center">
-            <div class="font-semibold">Approved by:</div>
-            <div class="mx-auto mt-10 w-64 border-b border-black pb-1 min-h-[1.75rem]">
-                @include('partials.drawn-signature', ['value' => $approvedBy])
+        <div class="flex justify-end">
+            <div class="w-64 text-left">
+                <div class="font-semibold">Approved by:</div>
+                <div class="mt-8 w-full border-b border-black pb-1 min-h-[1.75rem]">
+                    @include('partials.drawn-signature', [
+                        'value' => $approvedBy,
+                        'printedName' => \App\Support\AccountingSigner::forRfc($rfc ?? null),
+                    ])
+                </div>
+                <div class="mt-1 font-medium">{{ \App\Support\AccountingSigner::forRfc($rfc ?? null) ?: 'Accounting' }}</div>
             </div>
-            <div class="mt-1 font-medium">Administrator</div>
         </div>
     </div>
 </div>
+
+<style>
+    .rfc-print-sheet {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
+    @media print {
+        .rfc-print-sheet {
+            min-height: 0 !important;
+            height: auto !important;
+            box-shadow: none !important;
+        }
+    }
+</style>

@@ -37,6 +37,11 @@
                     <div class="dropdown-item" data-target="equipment-section">
                         Equipment
                     </div>
+                    @if(\App\Support\ProcurementPortal::userCanAccessProcurement())
+                    <div class="dropdown-item" data-target="procurement-section">
+                        Procurement
+                    </div>
+                    @endif
                     <div
                         class="dropdown-item"
                         data-target="maintenance-section"
@@ -247,6 +252,77 @@
             <i class="h-5 w-5" data-lucide="clipboard-check"></i>
             <span>Borrowing</span>
         </a>
+
+        @if(\App\Support\ProcurementPortal::userCanAccessProcurement())
+        <div class="menu-title" id="procurement-section">PROCUREMENT</div>
+        <a
+            href="{{ route('maintenance.procurement.replacement-requests') }}"
+            class="menu-item {{ request()->routeIs('maintenance.procurement.replacement-requests*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="inbox"></i>
+            <span>Replacement Requests</span>
+        </a>
+
+        <div class="menu-title" id="purchasing-workflow-section">PURCHASING WORKFLOW</div>
+        <a
+            href="{{ route('maintenance.ris.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.ris*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="package-open"></i>
+            <span>RIS</span>
+        </a>
+        <a
+            href="{{ route('maintenance.atp.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.atp*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="file-check-2"></i>
+            <span>Authority to Purchase</span>
+        </a>
+        <a
+            href="{{ route('maintenance.rfc.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.rfc*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="clipboard-check"></i>
+            <span>RFC / Cash Advance</span>
+        </a>
+        <a
+            href="{{ route('maintenance.rr.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.rr*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="package-check"></i>
+            <span>Receiving Reports</span>
+        </a>
+        <a
+            href="{{ route('maintenance.liq.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.liq*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="receipt-text"></i>
+            <span>Liquidation Reports</span>
+        </a>
+        <a
+            href="{{ route('maintenance.procurement-records.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.procurement-records*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="folder-archive"></i>
+            <span>Compiled Records</span>
+        </a>
+
+        <div class="menu-title" id="file-maintenance-section">FILE MAINTENANCE</div>
+        <a
+            href="{{ route('maintenance.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.suppliers.*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="truck"></i>
+            <span>Suppliers</span>
+        </a>
+        <a
+            href="{{ route('maintenance.file-maintenance.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('maintenance.file-maintenance.*') || request()->routeIs('maintenance.brands.*') || request()->routeIs('maintenance.uom.*') || request()->routeIs('maintenance.categories.*') || request()->routeIs('maintenance.subcategories.*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="database"></i>
+            <span>File Maintenance</span>
+        </a>
+        @endif
 
         <div class="menu-title" id="maintenance-section">MAINTENANCE</div>
         <a

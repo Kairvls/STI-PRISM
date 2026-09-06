@@ -33,7 +33,7 @@
     </div>
 
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <a href="{{ route('purchaser.file-maintenance.index', ['tab' => 'subcategories']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.file-maintenance.index', ['tab' => 'subcategories']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Total Sub Categories</p>
@@ -48,7 +48,7 @@
                 <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
         </a>
-        <a href="{{ route('purchaser.file-maintenance.index', ['tab' => 'subcategories', 'status' => 'Active']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.file-maintenance.index', ['tab' => 'subcategories', 'status' => 'Active']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Active</p>
@@ -63,7 +63,7 @@
                 <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
         </a>
-        <a href="{{ route('purchaser.file-maintenance.index', ['tab' => 'subcategories', 'status' => 'Inactive']) }}" class="pur-stat-card group">
+        <a href="{{ route(($pp ?? 'purchaser').'.file-maintenance.index', ['tab' => 'subcategories', 'status' => 'Inactive']) }}" class="pur-stat-card group">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Inactive</p>
@@ -90,7 +90,7 @@
                     </div>
                     <p class="mt-1 text-sm text-gray-500">Search by sub category, parent category, or description.</p>
                 </div>
-                <form method="GET" action="{{ route('purchaser.file-maintenance.index') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <form method="GET" action="{{ route(($pp ?? 'purchaser').'.file-maintenance.index') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <input type="hidden" name="tab" value="subcategories">
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +122,7 @@
                         Apply
                     </button>
                     @if(request()->filled('search') || request()->filled('status') || request()->filled('category_id'))
-                        <a href="{{ route('purchaser.file-maintenance.index', ['tab' => 'subcategories']) }}" class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50">Clear</a>
+                        <a href="{{ route(($pp ?? 'purchaser').'.file-maintenance.index', ['tab' => 'subcategories']) }}" class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50">Clear</a>
                     @endif
                 </form>
             </div>
@@ -211,7 +211,7 @@
     >
         <div @click.self="openModal = null" class="flex min-h-full w-full justify-center">
             <div class="my-auto w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="subcategory-form-title">
-                <form method="POST" :action="openModal === 'create' ? @js(route('purchaser.subcategories.store')) : (`{{ url('/purchaser/subcategories') }}/${form.id}`)">
+                <form method="POST" :action="openModal === 'create' ? @js(route(($pp ?? 'purchaser').'.subcategories.store')) : (`{{ url('/'.($pp ?? 'purchaser').'/subcategories') }}/${form.id}`)">
                     @csrf
                     <template x-if="openModal === 'edit'"><input type="hidden" name="_method" value="PUT"></template>
 
@@ -280,7 +280,7 @@
     >
         <div @click.self="openModal = null" class="flex min-h-full w-full justify-center">
             <div class="my-auto w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="subcategory-delete-title">
-                <form method="POST" :action="`{{ url('/purchaser/subcategories') }}/${deleteTarget.id}`">
+                <form method="POST" :action="`{{ url('/'.($pp ?? 'purchaser').'/subcategories') }}/${deleteTarget.id}`">
                     @csrf
                     @method('DELETE')
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">

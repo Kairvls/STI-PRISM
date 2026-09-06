@@ -53,7 +53,7 @@
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->supplier_name }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_invoice_no ?: '—' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_status }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_received_by_signature ?: '—' }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_received_by_name ?: (\App\Support\RisWorkflow::isDrawnSignature((string) ($row->receiving_report_received_by_signature ?? '')) ? '—' : ($row->receiving_report_received_by_signature ?: '—')) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-500">{{ \Carbon\Carbon::parse($row->receiving_report_date ?: $row->receiving_report_created_at)->format('M d, Y') }}</td>
                         </tr>
                     @empty

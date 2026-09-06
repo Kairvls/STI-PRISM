@@ -1637,6 +1637,10 @@ class AdminController extends Controller
             )
             ->orderBy('users_table.user_full_name');
 
+        if (Schema::hasColumn('users_table', 'user_can_procurement')) {
+            $query->addSelect('users_table.user_can_procurement');
+        }
+
         if (Schema::hasColumn('users_table', 'last_active_at')) {
             $query->addSelect('users_table.last_active_at');
         }
@@ -1797,32 +1801,56 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        User::create([
+        $roleId = (int) $request->role;
+        $canProcurement = false;
 
-            // users_table.user_role_id
-            'user_role_id' => $request->role,
+        if ($roleId === 3) {
+            $canProcurement = true;
+        } elseif ($roleId === 2) {
+            $canProcurement = $request->boolean('user_can_procurement');
+        }
 
-            // users_table.user_employee_id
+        $payload = [
+            'user_role_id' => $roleId,
             'user_employee_id' => $request->employee_id,
-
-            // users_table.user_username
             'user_username' => $request->username,
-
-            // users_table.user_full_name
             'user_full_name' => $request->full_name,
-
-            // users_table.user_email_address
             'user_email_address' => $request->email,
-
-            // users_table.user_contact_number
             'user_contact_number' => $request->contact_number,
+            'user_password' => Hash::make($request->password),
+        ];
 
-            // users_table.user_password
-            'user_password' => Hash::make($request->password)
+        if (Schema::hasColumn('users_table', 'user_can_procurement')) {
+            $payload['user_can_procurement'] = $canProcurement;
+        }
 
-        ]);
+        User::create($payload);
 
-        return redirect('/admin/users');
+        return redirect('/admin/users')->with('success', 'User account created successfully.');
+    }
+
+    public function updateUserProcurementAccess(Request $request, int $userId)
+    {
+        if (! Schema::hasColumn('users_table', 'user_can_procurement')) {
+            return redirect('/admin/users')->with('error', 'Procurement access column is not available yet. Run migrations.');
+        }
+
+        $user = User::query()->findOrFail($userId);
+
+        if ((int) $user->user_role_id !== 2) {
+            return redirect('/admin/users')->with('error', 'Procurement access can only be toggled for Maintenance Personnel.');
+        }
+
+        $enabled = $request->boolean('user_can_procurement');
+        $user->user_can_procurement = $enabled;
+        $user->save();
+
+        return redirect('/admin/users')->with(
+            'success',
+            $enabled
+                ? 'Procurement access enabled for '.$user->user_full_name.'.'
+                : 'Procurement access disabled for '.$user->user_full_name.'.'
+        );
     }
 
     /*

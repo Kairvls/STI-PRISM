@@ -7,9 +7,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\RisWorkflow;
+use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\ReceivingReportFormExporter;
+use Illuminate\Validation\ValidationException;
+use App\Support\ProcurementPortal;
 
 class ReceivingReportController extends Controller
 {
@@ -109,6 +113,7 @@ class ReceivingReportController extends Controller
             'items' => $items,
             'selectedRfcId' => $request->query('selected_rfc'),
             'viewRrId' => $viewRrId ?: null,
+            'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
         ]);
     }
 
@@ -116,6 +121,13 @@ class ReceivingReportController extends Controller
     {
         $isDraft = $request->input('save_action', 'draft') === 'draft';
         $validated = $this->validateRr($request, $isDraft);
+        $receivedName = trim((string) ($validated['receiving_report_received_by_name'] ?? ''));
+        $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['receiving_report_received_by_signature'] ?? null);
+        if (!$isDraft && ($receivedName === '' || !$receivedSig)) {
+            throw ValidationException::withMessages([
+                'receiving_report_received_by_signature' => 'Printed name and a drawn/uploaded signature are required before submitting.',
+            ]);
+        }
 
         if ($error = $this->rrEligibilityError($validated['receiving_report_request_check_id'] ?? null, null, !$isDraft)) {
             return back()->withInput()->with('error', $error);
@@ -125,11 +137,11 @@ class ReceivingReportController extends Controller
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $isDraft) {
+        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig) {
             $now = now();
             $user = auth()->user();
 
-            $id = DB::table('receiving_reports_table')->insertGetId([
+            $payload = [
                 'receiving_report_request_check_id' => $validated['receiving_report_request_check_id'] ?? null,
                 'receiving_report_date' => $validated['receiving_report_date'] ?? null,
                 'receiving_report_received_from' => $validated['receiving_report_received_from'] ?? null,
@@ -137,7 +149,7 @@ class ReceivingReportController extends Controller
                 'receiving_report_invoice_no' => $validated['receiving_report_invoice_no'] ?? null,
                 'receiving_report_dr_no' => $validated['receiving_report_dr_no'] ?? null,
                 'receiving_report_delivery_date' => $validated['receiving_report_delivery_date'] ?? null,
-                'receiving_report_received_by_signature' => $validated['receiving_report_received_by_signature'] ?? ($user->user_full_name ?? null),
+                'receiving_report_received_by_signature' => $receivedSig ?: ($receivedName !== '' ? $receivedName : ($user->user_full_name ?? null)),
                 'receiving_report_status' => $isDraft ? 'Draft' : 'Submitted',
                 'receiving_report_created_by' => auth()->id(),
                 'receiving_report_submitted_by' => $isDraft ? null : auth()->id(),
@@ -145,7 +157,12 @@ class ReceivingReportController extends Controller
                 'receiving_report_is_archived' => 0,
                 'receiving_report_created_at' => $now,
                 'receiving_report_updated_at' => $now,
-            ]);
+            ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
+                $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
+            }
+
+            $id = DB::table('receiving_reports_table')->insertGetId($payload);
 
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
                 'receiving_report_form_number' => 'RR-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
@@ -164,7 +181,7 @@ class ReceivingReportController extends Controller
                 $this->notifyReceiving($id);
             }
 
-            return redirect()->route('purchaser.rr.index')->with(
+            return ProcurementPortal::redirect('rr.index')->with(
                 'success',
                 $isDraft ? 'Receiving Report draft saved.' : 'Receiving Report submitted to Receiving.'
             );
@@ -181,6 +198,16 @@ class ReceivingReportController extends Controller
         $isDraft = $request->input('save_action', 'draft') === 'draft';
         $validated = $this->validateRr($request, $isDraft);
         $rfcId = $validated['receiving_report_request_check_id'] ?? $rr->receiving_report_request_check_id;
+        $receivedName = trim((string) ($validated['receiving_report_received_by_name'] ?? ($rr->receiving_report_received_by_name ?? '')));
+        $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['receiving_report_received_by_signature'] ?? null)
+            ?? (RisWorkflow::isDrawnSignature((string) ($rr->receiving_report_received_by_signature ?? ''))
+                ? (string) $rr->receiving_report_received_by_signature
+                : null);
+        if (!$isDraft && ($receivedName === '' || !$receivedSig)) {
+            throw ValidationException::withMessages([
+                'receiving_report_received_by_signature' => 'Printed name and a drawn/uploaded signature are required before submitting.',
+            ]);
+        }
 
         if ($error = $this->rrEligibilityError($rfcId, $id, !$isDraft)) {
             return back()->withInput()->with('error', $error);
@@ -190,14 +217,14 @@ class ReceivingReportController extends Controller
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId) {
+        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $receivedName, $receivedSig) {
             $now = now();
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
             $status = $isDraft
                 ? ($wasRevision ? 'Minor Revision' : 'Draft')
                 : ($wasRevision ? 'Resubmitted' : 'Submitted');
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+            $payload = [
                 'receiving_report_request_check_id' => $rfcId,
                 'receiving_report_date' => $validated['receiving_report_date'] ?? null,
                 'receiving_report_received_from' => $validated['receiving_report_received_from'] ?? null,
@@ -205,12 +232,17 @@ class ReceivingReportController extends Controller
                 'receiving_report_invoice_no' => $validated['receiving_report_invoice_no'] ?? null,
                 'receiving_report_dr_no' => $validated['receiving_report_dr_no'] ?? null,
                 'receiving_report_delivery_date' => $validated['receiving_report_delivery_date'] ?? null,
-                'receiving_report_received_by_signature' => $validated['receiving_report_received_by_signature'] ?? $rr->receiving_report_received_by_signature,
+                'receiving_report_received_by_signature' => $receivedSig ?: ($receivedName !== '' ? $receivedName : $rr->receiving_report_received_by_signature),
                 'receiving_report_status' => $status,
                 'receiving_report_submitted_by' => $isDraft ? $rr->receiving_report_submitted_by : auth()->id(),
                 'receiving_report_submitted_at' => $isDraft ? $rr->receiving_report_submitted_at : $now,
                 'receiving_report_updated_at' => $now,
-            ]);
+            ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
+                $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
+            }
+
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($payload);
 
             $this->replaceItems($id, $validated['items'] ?? []);
             if (!$isDraft && !$this->hasCompleteRrItem($id)) {
@@ -225,7 +257,7 @@ class ReceivingReportController extends Controller
                 $this->notifyReceiving($id);
             }
 
-            return redirect()->route('purchaser.rr.index')->with(
+            return ProcurementPortal::redirect('rr.index')->with(
                 'success',
                 $isDraft ? 'Receiving Report updated.' : 'Receiving Report submitted to Receiving.'
             );
@@ -247,6 +279,14 @@ class ReceivingReportController extends Controller
 
             if (!$this->hasCompleteRrItem($id)) {
                 return back()->with('error', 'Add at least one item with quantity of 1 or more before submitting.');
+            }
+
+            $receivedName = trim((string) ($rr->receiving_report_received_by_name ?? ''));
+            if ($receivedName === '' && !RisWorkflow::isDrawnSignature((string) ($rr->receiving_report_received_by_signature ?? ''))) {
+                $receivedName = trim((string) ($rr->receiving_report_received_by_signature ?? ''));
+            }
+            if ($receivedName === '' || !RisWorkflow::isDrawnSignature((string) ($rr->receiving_report_received_by_signature ?? ''))) {
+                return back()->with('error', 'Printed name and a drawn/uploaded signature are required before submitting.');
             }
 
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
@@ -333,8 +373,9 @@ class ReceivingReportController extends Controller
             'receiving_report_invoice_no' => ['nullable', 'string', 'max:100'],
             'receiving_report_dr_no' => ['nullable', 'string', 'max:100'],
             'receiving_report_delivery_date' => ['nullable', 'date'],
-            'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
-            'items' => ['nullable', 'array', 'max:10'],
+            'receiving_report_received_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
+            'items' => ['nullable', 'array', 'max:9'],
             'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.article' => ['nullable', 'string', 'max:2000'],
