@@ -19,28 +19,13 @@
     </div>
 
     <div class="mt-3">
-        <div class="relative mx-auto flex min-h-[4.5rem] w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-1">
-            <img
-                id="roSigPreview"
-                alt="Signature preview"
-                class="pointer-events-none absolute bottom-2 left-1/2 max-h-12 w-auto max-w-[90%] -translate-x-1/2 object-contain"
-                style="display:none;"
-            >
-            <span id="roSigPrintedName" class="relative z-[1] text-center text-xs font-medium text-slate-800">
-                {{ auth()->user()->user_full_name ?? auth()->user()->user_username ?? 'Receiving Officer' }}
-            </span>
-        </div>
-        <p class="mt-1 text-center text-[10px] uppercase tracking-wide text-slate-400">Preview · signature overlays printed name</p>
-    </div>
-
-    <div class="mt-3">
         <div class="flex items-center justify-between gap-2">
             <p class="text-xs font-medium text-slate-700">My saved signatures</p>
             <span id="roSavedCount" class="text-[11px] text-slate-400">{{ $savedSignatures->count() }} / 4 saved</span>
         </div>
-        <div id="roSavedList" class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <div id="roSavedList" class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
             @forelse ($savedSignatures as $saved)
-                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm" data-saved-sig-id="{{ $saved->user_signature_id }}">
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5" data-saved-sig-id="{{ $saved->user_signature_id }}">
                     <button type="button" class="ro-use-saved flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left" title="Use this signature">
                         <span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
                             <img src="{{ $saved->preview_url }}" alt="" class="ro-saved-preview max-h-10 w-auto max-w-[90%] object-contain">
@@ -211,7 +196,6 @@
     var sigHidden = null;
     var boundRrId = null;
     var sigUsed = null;
-    var previewImg = document.getElementById('roSigPreview');
     var padModal = document.getElementById('roSignPadModal');
     var openPadBtn = document.getElementById('roOpenSignPad');
     var openPadLabel = document.getElementById('roOpenSignPadLabel');
@@ -264,47 +248,28 @@
         return false;
     }
 
-        function syncBoundForm(url) {
+    function syncBoundForm(url) {
         if (!boundRrId) return;
         var hidden = document.getElementById('scSigImage-' + boundRrId);
         if (hidden) hidden.value = url || '';
         var nameInput = document.getElementById('scName-' + boundRrId);
-        var paperPreview = document.getElementById('scSigPreview-' + boundRrId);
-        var printed = document.getElementById('roSigPrintedName');
-        if (printed && nameInput && String(nameInput.value || '').trim() !== '') {
-            printed.textContent = String(nameInput.value || '').trim();
-        }
-        if (!paperPreview) return;
-        var name = nameInput ? String(nameInput.value || '').trim() : '';
-        if (url && String(url).indexOf('data:image/') === 0) {
-            var html = '<img src="' + url + '" alt="Second Count signature" style="max-height:48px;width:auto;position:absolute;left:50%;bottom:18px;transform:translateX(-50%);pointer-events:none;">';
-            if (name !== '') {
-                html += '<span style="position:relative;z-index:1;font-size:11px;font-weight:500;">'
-                    + name.replace(/</g, '&lt;') + '</span>';
+        var overlay = document.getElementById('scSigOverlay-' + boundRrId);
+        // RIS-style: keep printed name visible; only toggle the overlay image.
+        if (overlay) {
+            if (url && String(url).indexOf('data:image/') === 0) {
+                overlay.src = url;
+                overlay.style.display = '';
+            } else {
+                overlay.removeAttribute('src');
+                overlay.style.display = 'none';
             }
-            paperPreview.innerHTML = html;
-            paperPreview.style.display = '';
-            paperPreview.style.position = 'relative';
-            if (nameInput) nameInput.style.display = 'none';
-        } else {
-            paperPreview.innerHTML = '';
-            paperPreview.style.display = 'none';
-            if (nameInput) nameInput.style.display = '';
         }
+        if (nameInput) nameInput.style.display = '';
     }
 
     function applySignature(dataUrl) {
         var url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? dataUrl : '';
         if (sigHidden) sigHidden.value = url;
-        if (previewImg) {
-            if (url) {
-                previewImg.src = url;
-                previewImg.style.display = '';
-            } else {
-                previewImg.removeAttribute('src');
-                previewImg.style.display = 'none';
-            }
-        }
         syncBoundForm(url);
         var hasSig = url !== '';
         if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
@@ -365,7 +330,7 @@
             var label = escapeHtml(item.label || 'Signature');
             var preview = String(item.preview_url || '').replace(/"/g, '&quot;');
             return ''
-                + '<div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm" data-saved-sig-id="' + id + '">'
+                + '<div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5" data-saved-sig-id="' + id + '">'
                 +   '<button type="button" class="ro-use-saved flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left" title="Use this signature">'
                 +     '<span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">'
                 +       '<img src="' + preview + '" alt="" class="ro-saved-preview max-h-10 w-auto max-w-[90%] object-contain">'
@@ -640,13 +605,6 @@
             sigHidden = boundRrId ? document.getElementById('scSigImage-' + boundRrId) : null;
             var existing = sigHidden ? String(sigHidden.value || '') : '';
             applySignature(existing.indexOf('data:image/') === 0 ? existing : '');
-            var nameInput = boundRrId ? document.getElementById('scName-' + boundRrId) : null;
-            var printed = document.getElementById('roSigPrintedName');
-            if (printed) {
-                printed.textContent = (nameInput && String(nameInput.value || '').trim())
-                    ? String(nameInput.value || '').trim()
-                    : printed.textContent;
-            }
             var slot = boundRrId ? document.getElementById('roSigSlot-' + boundRrId) : null;
             var panel = document.getElementById('roSignaturePanel');
             if (slot && panel && panel.parentElement !== slot) {

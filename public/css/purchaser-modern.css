@@ -346,3 +346,34 @@
     background: #0025cc;
     border-bottom-color: transparent;
 }
+
+/* Fullscreen document modals — paper forms fill the stage (RIS-style) */
+.pur-modal-is-fullscreen .bg-slate-100 {
+    padding: 1rem 1.25rem;
+}
+
+@media (min-width: 768px) {
+    .pur-modal-is-fullscreen .bg-slate-100 {
+        padding: 1.25rem 1.75rem;
+    }
+}
+
+.pur-modal-is-fullscreen .atp-print-sheet,
+.pur-modal-is-fullscreen .rfc-print-sheet,
+.pur-modal-is-fullscreen .rr-print-sheet,
+.pur-modal-is-fullscreen .liq-print-sheet {
+    max-width: none !important;
+    width: 100%;
+    box-shadow: none;
+}
+
+.pur-modal-is-fullscreen [id^="purSigSlot-"],
+.pur-modal-is-fullscreen [id^="roSigSlot-"] {
+    max-width: none !important;
+    width: 100%;
+}
+
+.pur-modal-is-fullscreen .bg-slate-100 > .mx-auto {
+    max-width: none !important;
+    width: 100%;
+}

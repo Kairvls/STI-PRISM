@@ -23,6 +23,7 @@
     @include('layouts.partials.prism-toast')
     @include('layouts.partials.accounting-daily-reminder')
     @include('accounting.partials.ui-scripts')
+    @include('accounting.partials.print-form')
     <script>
         (function () {
             if (window.__pmFloatingTipInit) return;

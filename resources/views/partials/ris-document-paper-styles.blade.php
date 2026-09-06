@@ -23,8 +23,19 @@
         .qty-col { width: 9%; }
         .cost-col { width: 12%; }
         .amount-col { width: 14%; }
-        .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
-        .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
+        .purpose { margin-top: 8px; font-size: 15px; font-weight: 700; }
+        .purpose-row-1 { display: flex; align-items: flex-end; gap: 12px; }
+        .purpose-label { flex-shrink: 0; line-height: 28px; }
+        .purpose-line {
+            flex: 1;
+            min-height: 28px;
+            border-bottom: 1px solid #6b7280;
+            font-weight: 400;
+            line-height: 28px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .purpose-line-2 { display: block; width: 100%; margin-top: 8px; flex: none; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
         .signature-box { position: relative; }
         .signature-box p { margin: 0 0 6px; }

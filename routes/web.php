@@ -1845,6 +1845,11 @@ Route::middleware(['auth', 'accounting'])
         Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp'])->name('accounting.atp.approve');
         Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp'])->name('accounting.atp.revise');
 
+        Route::get('/ris/{id}', [AccountingController::class, 'showRis'])->whereNumber('id')->name('accounting.ris.show');
+        Route::get('/ris/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRisAttachment'])
+            ->whereNumber(['id', 'attachmentId'])
+            ->name('accounting.ris.attachment');
+
         Route::get('/request-check', [AccountingController::class, 'requestCheck'])->name('accounting.rfc.index');
         Route::get('/request-check/{id}', [AccountingController::class, 'showRequestCheck']);
         Route::post('/request-check/{id}/approve', [AccountingController::class, 'approveRequestCheck']);

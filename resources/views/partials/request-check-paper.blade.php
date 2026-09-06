@@ -21,7 +21,7 @@
 
 <div
     @if($printId) id="{{ $printId }}" @endif
-    class="rfc-print-sheet mx-auto w-[297mm] max-w-full bg-white px-16 pb-5 pt-10 text-[15px] text-black shadow {{ $printClass }}"
+    class="rfc-print-sheet mx-auto w-full max-w-[1095px] bg-white px-16 pb-5 pt-10 text-[15px] text-black shadow {{ $printClass }}"
     style="min-height: 0; height: auto;"
 >
     <div class="text-center">
@@ -80,29 +80,31 @@
         <div class="text-left">
             <div class="font-semibold">Requested by:</div>
             @if($editable)
-                <div
-                    id="purSigPreview-{{ $signKey }}"
-                    class="relative mt-6 flex min-h-[2.5rem] w-64 items-end justify-center border-b border-black pb-1"
-                    style="display:none;"
-                ></div>
-                <input
-                    type="text"
-                    name="request_check_requested_by"
-                    id="purSigName-{{ $signKey }}"
-                    value="{{ $requestedByValue }}"
-                    maxlength="255"
-                    autocomplete="off"
-                    class="mt-8 block w-64 border-0 border-b border-black bg-transparent text-center outline-none"
-                >
-                <input
-                    type="hidden"
-                    name="request_check_requested_by_signature"
-                    id="purSigImage-{{ $signKey }}"
-                    value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $requestedBySignature) ? $requestedBySignature : '' }}"
-                >
-                <div class="mt-1 w-64 text-[10px] text-slate-500">Signature overlays printed name · use panel below</div>
+                <div class="relative mt-6 w-64">
+                    <img
+                        id="purSigOverlay-{{ $signKey }}"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <input
+                        type="text"
+                        name="request_check_requested_by"
+                        id="purSigName-{{ $signKey }}"
+                        value="{{ $requestedByValue }}"
+                        maxlength="255"
+                        autocomplete="off"
+                        class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                    >
+                    <input
+                        type="hidden"
+                        name="request_check_requested_by_signature"
+                        id="purSigImage-{{ $signKey }}"
+                        value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $requestedBySignature) ? $requestedBySignature : '' }}"
+                    >
+                </div>
             @else
-                <div class="mt-8 w-64 border-b border-black pb-1 min-h-[1.75rem]">
+                <div class="relative mt-6 w-64 border-b border-black pb-1 min-h-[2.5rem]">
                     @include('partials.drawn-signature', [
                         'value' => $requestedBySignature,
                         'printedName' => $requestedByValue,
@@ -114,13 +116,27 @@
         <div class="flex justify-end">
             <div class="w-64 text-left">
                 <div class="font-semibold">Approved by:</div>
-                <div class="mt-8 w-full border-b border-black pb-1 min-h-[1.75rem]">
-                    @include('partials.drawn-signature', [
-                        'value' => $approvedBy,
-                        'printedName' => \App\Support\AccountingSigner::forRfc($rfc ?? null),
-                    ])
+                <div
+                    class="relative mt-6 w-full min-h-[2.5rem] border-b border-black pb-1 flex items-end justify-center"
+                    @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
+                >
+                    @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($approvedBy ?? '')))
+                        <img
+                            id="accPaperSigOverlay"
+                            alt=""
+                            class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                            style="display:none;"
+                        >
+                        <span id="accPaperSigPrintedName" class="relative z-[1] text-center text-xs font-medium leading-5">
+                            {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                        </span>
+                    @else
+                        @include('partials.drawn-signature', [
+                            'value' => $approvedBy,
+                            'printedName' => \App\Support\AccountingSigner::forRfc($rfc ?? null),
+                        ])
+                    @endif
                 </div>
-                <div class="mt-1 font-medium">{{ \App\Support\AccountingSigner::forRfc($rfc ?? null) ?: 'Accounting' }}</div>
             </div>
         </div>
     </div>

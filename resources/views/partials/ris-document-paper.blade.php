@@ -1,9 +1,10 @@
 @php
     $presidentSigned = trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
     $adminIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
+    $printId = $printId ?? null;
 @endphp
 
-<div class="ris-document">
+<div @if($printId) id="{{ $printId }}" @endif class="ris-document">
     @if (!empty($isScreenPreview) ? $presidentSigned : ($presidentSigned && $adminIssued))
         @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
     @endif
@@ -52,9 +53,28 @@
         </tbody>
     </table>
 
+    @php
+        $purposeRaw = trim((string) ($ris->ris_purpose_description ?? ''));
+        if (preg_match('/\R/u', $purposeRaw)) {
+            $purposeParts = preg_split('/\R/u', $purposeRaw, 2);
+            $purposeLine1 = trim((string) ($purposeParts[0] ?? ''));
+            $purposeLine2 = trim((string) ($purposeParts[1] ?? ''));
+        } elseif (mb_strlen($purposeRaw) > 72) {
+            $cut = mb_strrpos(mb_substr($purposeRaw, 0, 72), ' ');
+            $cut = ($cut === false || $cut < 24) ? 72 : $cut;
+            $purposeLine1 = trim(mb_substr($purposeRaw, 0, $cut));
+            $purposeLine2 = trim(mb_substr($purposeRaw, $cut));
+        } else {
+            $purposeLine1 = $purposeRaw;
+            $purposeLine2 = '';
+        }
+    @endphp
     <section class="purpose">
-        <div>PURPOSE</div>
-        <div class="purpose-lines">{{ $ris->ris_purpose_description }}</div>
+        <div class="purpose-row-1">
+            <div class="purpose-label">PURPOSE</div>
+            <div class="purpose-line">{{ $purposeLine1 }}</div>
+        </div>
+        <div class="purpose-line purpose-line-2">{{ $purposeLine2 }}</div>
     </section>
 
     <section class="signatures">

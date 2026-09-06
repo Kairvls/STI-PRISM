@@ -29,8 +29,19 @@
         .qty-col { width: 9%; }
         .cost-col { width: 12%; }
         .amount-col { width: 14%; }
-        .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
-        .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
+        .purpose { margin-top: 8px; font-size: 15px; font-weight: 700; }
+        .purpose-row-1 { display: flex; align-items: flex-end; gap: 12px; }
+        .purpose-label { flex-shrink: 0; line-height: 28px; }
+        .purpose-line {
+            flex: 1;
+            min-height: 28px;
+            border-bottom: 1px solid #6b7280;
+            font-weight: 400;
+            line-height: 28px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .purpose-line-2 { display: block; width: 100%; margin-top: 8px; flex: none; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; position: relative; z-index: 50; page-break-inside: avoid; break-inside: avoid; }
         .signature-box { position: relative; z-index: 50; }
         .signature-box p { margin: 0 0 6px; }
@@ -142,7 +153,9 @@
             </thead>
             <tbody>
                 @for($row = 0; $row < 10; $row++)
-                    @php($item = $risItems[$row] ?? null)
+                    @php
+                        $item = $risItems[$row] ?? null;
+                    @endphp
                     <tr>
                         <td>{{ $item?->ris_item_name_description ?? '' }}</td>
                         <td style="text-align: center;">{{ $item?->brand_name ?? '' }}</td>
@@ -157,9 +170,28 @@
             </tbody>
         </table>
 
+        @php
+            $purposeRaw = trim((string) ($ris->ris_purpose_description ?? ''));
+            if (preg_match('/\R/u', $purposeRaw)) {
+                $purposeParts = preg_split('/\R/u', $purposeRaw, 2);
+                $purposeLine1 = trim((string) ($purposeParts[0] ?? ''));
+                $purposeLine2 = trim((string) ($purposeParts[1] ?? ''));
+            } elseif (mb_strlen($purposeRaw) > 72) {
+                $cut = mb_strrpos(mb_substr($purposeRaw, 0, 72), ' ');
+                $cut = ($cut === false || $cut < 24) ? 72 : $cut;
+                $purposeLine1 = trim(mb_substr($purposeRaw, 0, $cut));
+                $purposeLine2 = trim(mb_substr($purposeRaw, $cut));
+            } else {
+                $purposeLine1 = $purposeRaw;
+                $purposeLine2 = '';
+            }
+        @endphp
         <section class="purpose">
-            <div>PURPOSE</div>
-            <div class="purpose-lines">{{ $ris->ris_purpose_description }}</div>
+            <div class="purpose-row-1">
+                <div class="purpose-label">PURPOSE</div>
+                <div class="purpose-line">{{ $purposeLine1 }}</div>
+            </div>
+            <div class="purpose-line purpose-line-2">{{ $purposeLine2 }}</div>
         </section>
 
         <section class="signatures">

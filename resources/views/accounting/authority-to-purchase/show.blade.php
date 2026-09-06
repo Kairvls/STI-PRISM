@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting.partials.flash')
 
-<div class="acc-page fade-in">
+<div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
         <div>
             <a href="/accounting/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
@@ -26,13 +26,14 @@
                     <i data-lucide="pencil" class="h-4 w-4"></i>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.print()" data-tip="Print ATP" aria-label="Print ATP">
+            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'portrait', sheetId: 'acc-print-sheet' })" data-tip="Print ATP" aria-label="Print ATP">
                 <i data-lucide="printer" class="h-4 w-4"></i>
             </button>
         </div>
     </div>
 
-    <div class="acc-review-grid">
+    <div class="acc-review-body">
+        <div class="acc-review-grid">
             <div class="acc-viewer">
                 <div class="acc-viewer-stage">
                     <div class="acc-viewer-fit">
@@ -40,16 +41,19 @@
                             'editable' => false,
                             'atp' => $atp,
                             'items' => $items,
+                            'printId' => 'acc-print-sheet',
+                            'accLiveSign' => !empty($reviewable),
                         ])
                         @if ($atp->authority_purchase_rejection_reason)
-                            <p class="mt-4 rounded-lg bg-sky-50 p-2.5 text-xs text-sky-900">Revision remarks: {{ $atp->authority_purchase_rejection_reason }}</p>
+                            <p class="mt-4 rounded-lg bg-sky-50 p-2.5 text-xs text-sky-900 print-hidden">Revision remarks: {{ $atp->authority_purchase_rejection_reason }}</p>
                         @endif
                     </div>
                 </div>
             </div>
-        <div class="acc-side-stack">
-            @include('accounting.partials.related-docs', ['chain' => $chain])
-            @include('accounting.partials.history', ['history' => $history])
+            <div class="acc-side-stack">
+                @include('accounting.partials.related-docs', ['chain' => $chain, 'current' => 'atp'])
+                @include('accounting.partials.history', ['history' => $history])
+            </div>
         </div>
     </div>
 </div>

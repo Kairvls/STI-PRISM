@@ -555,19 +555,24 @@
     .acc-btn-primary:hover { background: #1D4ED8; }
 
     /* ---------- Review layout ---------- */
+    .acc-page--review {
+        max-width: 100%;
+    }
+
     .acc-review-head {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-start;
         justify-content: space-between;
         gap: 0.75rem;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.75rem;
+        margin: 0 0 0.75rem;
+        padding: 0 0 0.75rem;
         border-bottom: 1px solid #e2e8f0;
-        position: sticky;
-        top: 0;
-        z-index: 5;
         background: var(--acc-page-bg);
+    }
+
+    .acc-review-body {
+        min-width: 0;
     }
 
     .acc-review-grid {
@@ -589,15 +594,6 @@
         gap: 0.625rem;
     }
 
-    @media (min-width: 1200px) {
-        .acc-side-stack {
-            position: sticky;
-            top: 4.5rem;
-            max-height: calc(100vh - 6rem);
-            overflow: auto;
-        }
-    }
-
     /* ---------- Document viewer (fit to screen) ---------- */
     .acc-viewer {
         background: #e8edf3;
@@ -611,11 +607,39 @@
         max-height: calc(100vh - 180px);
     }
 
+    /* Review pages: let the document grow and scroll with the main page */
+    .acc-page--review .acc-viewer {
+        height: auto;
+        max-height: none;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .acc-page--review .acc-viewer-stage {
+        overflow: visible;
+        height: auto;
+        min-height: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 0.75rem;
+    }
+
+    .acc-page--review .acc-viewer-fit {
+        transform-origin: top center;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     @media (max-width: 1199px) {
         .acc-viewer {
             height: auto;
             max-height: none;
             min-height: 360px;
+        }
+
+        .acc-page--review .acc-viewer {
+            min-height: 0;
         }
     }
 
@@ -639,6 +663,7 @@
     .acc-viewer-fit .atp-print-sheet,
     .acc-viewer-fit .rr-print-sheet,
     .acc-viewer-fit .liq-print-sheet,
+    .acc-viewer-fit .ris-document,
     .acc-viewer-fit .acc-paper {
         margin: 0 auto;
         max-width: none !important;
@@ -1003,6 +1028,11 @@
         padding: 0.4rem 0.55rem;
     }
 
+    .acc-chain-item--current {
+        border-color: #dbeafe;
+        background: #f8fbff;
+    }
+
     .acc-chain-item p:first-child {
         font-size: 0.5625rem;
         font-weight: 700;
@@ -1186,31 +1216,19 @@
             max-height: calc(100vh - 160px);
         }
         .acc-review-head { margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
+        .acc-page--review .acc-viewer {
+            height: auto;
+            max-height: none;
+            min-height: 0;
+        }
     }
 
     @media print {
-        aside, nav, header, .acc-actions, .acc-back, .acc-side-stack, .acc-modal, .acc-page-subtitle {
+        /* Fallback: if print mount is missing, still hide chrome */
+        aside, nav, header, .topbar, .acc-actions, .acc-back, .acc-side-stack,
+        .acc-modal, .acc-page-subtitle, .acc-review-head, .acc-attachments,
+        .acc-note, .confirm-modal, .acc-status-badge {
             display: none !important;
-        }
-        main.flex-1 {
-            padding: 0 !important;
-            background: #fff !important;
-        }
-        .acc-viewer {
-            height: auto !important;
-            max-height: none !important;
-            border: 0;
-            box-shadow: none;
-        }
-        .acc-viewer-stage {
-            overflow: visible !important;
-            height: auto !important;
-        }
-        .acc-viewer-fit {
-            transform: none !important;
-            width: auto !important;
-            height: auto !important;
-            margin: 0 !important;
         }
     }
 </style>

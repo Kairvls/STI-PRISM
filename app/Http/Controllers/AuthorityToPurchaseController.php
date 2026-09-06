@@ -177,6 +177,7 @@ class AuthorityToPurchaseController extends Controller
 
         $risPrefill = $this->buildRisPrefill($eligibleRis);
         $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
+        $suggestedAtpFormNumber = $this->nextSuggestedAtpFormNumber();
 
         return view(
             'purchaser.authority-to-purchase.index',
@@ -191,7 +192,8 @@ class AuthorityToPurchaseController extends Controller
                 'viewAtpId',
                 'editAtpId',
                 'risPrefill',
-                'savedSignatures'
+                'savedSignatures',
+                'suggestedAtpFormNumber'
             )
         );
     }
@@ -211,10 +213,11 @@ class AuthorityToPurchaseController extends Controller
         $validated = $request->validate([
             'save_action' => ['required', 'in:draft,submit'],
             'authority_purchase_ris_id' => [
-                'required',
+                $isDraft ? 'nullable' : 'required',
                 'integer',
                 'exists:requisition_issue_slip_table,ris_id',
             ],
+            'authority_purchase_form_number' => $this->atpFormNumberRules(!$isDraft),
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
@@ -241,6 +244,11 @@ class AuthorityToPurchaseController extends Controller
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
+        ], [
+            'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
+            'authority_purchase_form_number.digits' => 'ATP number must be exactly 4 digits.',
+            'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
+            'authority_purchase_ris_id.required' => 'Select an approved RIS before submitting.',
         ]);
 
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
@@ -250,16 +258,24 @@ class AuthorityToPurchaseController extends Controller
             ]);
         }
 
-        $ris = DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $validated['authority_purchase_ris_id'])
-            ->first();
+        $risId = isset($validated['authority_purchase_ris_id'])
+            ? (int) $validated['authority_purchase_ris_id']
+            : null;
 
-        if (!$ris || !$this->risIsEligibleForAtp($ris)) {
-            return back()->withInput()->with('error', 'Only approved RIS records may be used to create ATP.');
-        }
+        if ($risId) {
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->first();
 
-        if ($this->hasBlockingAtpForRis($validated['authority_purchase_ris_id'])) {
-            return back()->withInput()->with('error', 'An Authority to Purchase already exists for the selected RIS.');
+            if (!$ris || !$this->risIsEligibleForAtp($ris)) {
+                return back()->withInput()->with('error', 'Only approved RIS records may be used to create ATP.');
+            }
+
+            if ($this->hasBlockingAtpForRis($risId)) {
+                return back()->withInput()->with('error', 'An Authority to Purchase already exists for the selected RIS.');
+            }
+        } elseif (!$isDraft) {
+            return back()->withInput()->with('error', 'Select an approved RIS before submitting.');
         }
 
         $items = $this->filterItemRows($validated['items'] ?? []);
@@ -268,11 +284,16 @@ class AuthorityToPurchaseController extends Controller
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig) {
+        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig, $risId) {
             $now = now();
 
+            $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
+                ? (string) $validated['authority_purchase_form_number']
+                : $this->nextSuggestedAtpFormNumber();
+
             $payload = [
-                'authority_purchase_ris_id' => $validated['authority_purchase_ris_id'],
+                'authority_purchase_ris_id' => $risId,
+                'authority_purchase_form_number' => $formNumber,
                 'authority_purchase_supplier_id' => $validated['authority_purchase_supplier_id'] ?? null,
                 'authority_purchase_date' => $validated['authority_purchase_date'] ?? null,
                 'authority_purchase_received_by_name' => $validated['authority_purchase_received_by_name'] ?? null,
@@ -291,16 +312,10 @@ class AuthorityToPurchaseController extends Controller
 
             $authorityPurchaseId = DB::table('authority_to_purchase_table')->insertGetId($payload);
 
-            DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_id', $authorityPurchaseId)
-                ->update([
-                    'authority_purchase_form_number' => 'ATP-' . $now->format('Y') . '-' . str_pad((string) $authorityPurchaseId, 5, '0', STR_PAD_LEFT),
-                ]);
-
             $this->replaceAtpItems($authorityPurchaseId, $items);
 
             if (!$isDraft) {
-                $this->notifyAccountingAtp($authorityPurchaseId, 'ATP-' . $now->format('Y') . '-' . str_pad((string) $authorityPurchaseId, 5, '0', STR_PAD_LEFT));
+                $this->notifyAccountingAtp($authorityPurchaseId, $formNumber);
             }
 
             $message = $isDraft
@@ -404,6 +419,7 @@ class AuthorityToPurchaseController extends Controller
 
         $validated = $request->validate([
             'save_action' => ['required', 'in:save,draft,submit'],
+            'authority_purchase_form_number' => $this->atpFormNumberRules(!$isDraft, $id),
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
@@ -430,6 +446,10 @@ class AuthorityToPurchaseController extends Controller
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
+        ], [
+            'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
+            'authority_purchase_form_number.digits' => 'ATP number must be exactly 4 digits.',
+            'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
         ]);
 
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
@@ -448,7 +468,13 @@ class AuthorityToPurchaseController extends Controller
         return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp, $receivedSig) {
             $now = now();
 
+            $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
+                ? (string) $validated['authority_purchase_form_number']
+                : ($this->normalizeAtpFormNumberForEdit($atp->authority_purchase_form_number ?? null)
+                    ?: $this->nextSuggestedAtpFormNumber());
+
             $payload = [
+                'authority_purchase_form_number' => $formNumber,
                 'authority_purchase_supplier_id' => $validated['authority_purchase_supplier_id'] ?? null,
                 'authority_purchase_date' => $validated['authority_purchase_date'] ?? null,
                 'authority_purchase_received_by_name' => $validated['authority_purchase_received_by_name'] ?? null,
@@ -474,7 +500,7 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($id, $items);
 
             if (!$isDraft) {
-                $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number);
+                $this->notifyAccountingAtp($id, $formNumber);
             }
 
             $message = $isDraft
@@ -511,6 +537,10 @@ class AuthorityToPurchaseController extends Controller
 
             if (blank($atp->authority_purchase_date)) {
                 return back()->with('error', 'Date is required before submitting.');
+            }
+
+            if (blank($atp->authority_purchase_form_number) || !preg_match('/^\d{4}$/', (string) $atp->authority_purchase_form_number)) {
+                return back()->with('error', 'ATP number must be exactly 4 digits before submitting.');
             }
 
             if (blank($atp->authority_purchase_received_by_name)) {
@@ -1015,6 +1045,81 @@ class AuthorityToPurchaseController extends Controller
     private function applyAtpEligibleRisScope($query)
     {
         return RisWorkflow::applyEligibleForAtpScope($query);
+    }
+
+    private function atpFormNumberRules(bool $required, $ignoreAtpId = null): array
+    {
+        $unique = Rule::unique('authority_to_purchase_table', 'authority_purchase_form_number');
+        if ($ignoreAtpId) {
+            $unique->ignore($ignoreAtpId, 'authority_purchase_id');
+        }
+
+        return [
+            $required ? 'required' : 'nullable',
+            'digits:4',
+            $unique,
+        ];
+    }
+
+    /**
+     * Next editable default for the ATP "No." field (4 zero-padded digits).
+     * Considers both new 4-digit values and legacy ATP-YYYY-##### numbers.
+     */
+    private function nextSuggestedAtpFormNumber(): string
+    {
+        $max = 0;
+
+        foreach (
+            DB::table('authority_to_purchase_table')
+                ->whereNotNull('authority_purchase_form_number')
+                ->pluck('authority_purchase_form_number') as $formNumber
+        ) {
+            $parsed = $this->parseAtpFormNumberSequence((string) $formNumber);
+            if ($parsed !== null) {
+                $max = max($max, $parsed);
+            }
+        }
+
+        $next = min($max + 1, 9999);
+
+        return str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function parseAtpFormNumberSequence(string $formNumber): ?int
+    {
+        $formNumber = trim($formNumber);
+        if ($formNumber === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{1,4}$/', $formNumber)) {
+            return (int) $formNumber;
+        }
+
+        if (preg_match('/(\d+)$/', $formNumber, $matches)) {
+            $n = (int) $matches[1];
+
+            return $n > 9999 ? (int) substr((string) $n, -4) : $n;
+        }
+
+        return null;
+    }
+
+    private function normalizeAtpFormNumberForEdit(?string $formNumber): string
+    {
+        if ($formNumber === null || trim($formNumber) === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d{4}$/', trim($formNumber))) {
+            return trim($formNumber);
+        }
+
+        $parsed = $this->parseAtpFormNumberSequence($formNumber);
+
+        return $parsed === null
+            ? ''
+            : str_pad((string) $parsed, 4, '0', STR_PAD_LEFT);
     }
 
     private function risIsEligibleForAtp(object $ris): bool

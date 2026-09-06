@@ -24,6 +24,25 @@
     $signKey = $signKey ?? ($atp?->authority_purchase_id ? 'atp-'.$atp->authority_purchase_id : 'atp-create');
     $poNo = old('authority_purchase_reference_po_no', $atp?->authority_purchase_reference_po_no ?? '');
     $oldItems = old('items');
+    $suggestedAtpFormNumber = $suggestedAtpFormNumber ?? '0001';
+    if (old('authority_purchase_form_number') !== null) {
+        $formNumberValue = (string) old('authority_purchase_form_number');
+    } elseif ($atp) {
+        $existingNo = trim((string) ($atp->authority_purchase_form_number ?? ''));
+        if (preg_match('/^\d{4}$/', $existingNo)) {
+            $formNumberValue = $existingNo;
+        } elseif (preg_match('/(\d+)$/', $existingNo, $m)) {
+            $seq = (int) $m[1];
+            if ($seq > 9999) {
+                $seq = (int) substr((string) $seq, -4);
+            }
+            $formNumberValue = str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        } else {
+            $formNumberValue = $existingNo;
+        }
+    } else {
+        $formNumberValue = $suggestedAtpFormNumber;
+    }
 
     $supplierLabel = '';
     if ($atp) {
@@ -39,44 +58,50 @@
 
 <div
     @if($printId) id="{{ $printId }}" @endif
-    class="atp-print-sheet mx-auto w-[210mm] max-w-full bg-white px-10 pb-6 pt-10 text-[13px] leading-tight text-black shadow {{ $printClass }}"
+    class="atp-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-6 pt-4 text-[13px] leading-tight text-black shadow {{ $printClass }}"
 >
     {{-- HEADER --}}
     <div class="relative text-center">
         <div class="text-lg font-bold">STI COLLEGE ORMOC, INC.</div>
         <div class="text-xs">Centrum Mall, Aviles Street, Ormoc City</div>
-        <div class="mt-4 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</div>
+        <div class="mt-2 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</div>
 
         <div class="absolute right-0 top-0 text-left text-sm">
-            <div>
-                <strong>No.</strong>
-                @if($editable && !$atp)
+            <div class="flex items-end gap-2 text-red-600">
+                <strong class="font-semibold">No.</strong>
+                @if($editable)
                     <input
                         type="text"
-                        readonly
-                        placeholder="Auto Generated"
-                        class="w-40 border-0 border-b border-black bg-transparent text-center"
+                        name="authority_purchase_form_number"
+                        value="{{ $formNumberValue }}"
+                        maxlength="4"
+                        inputmode="numeric"
+                        pattern="\d{4}"
+                        title="4-digit ATP number"
+                        class="w-16 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
                     >
                 @elseif($isBlank)
-                    ______________
+                    <span class="inline-block min-w-[4rem] text-center font-semibold">&nbsp;</span>
                 @else
-                    {{ $atp->authority_purchase_form_number ?? '' }}
+                    <span class="inline-block min-w-[4rem] px-1 text-center font-semibold">{{ $formNumberValue }}</span>
                 @endif
             </div>
 
-            <div class="mt-2">
+            <div class="mt-2 flex items-end gap-2">
                 <strong>Date</strong>
                 @if($editable)
                     <input
                         type="date"
                         name="authority_purchase_date"
                         value="{{ $dateValue }}"
-                        class="border-0 border-b border-black bg-transparent"
+                        class="border-0 border-b border-black bg-transparent outline-none"
                     >
                 @elseif($isBlank)
-                    ______________
+                    <span class="inline-block min-w-[7rem] border-b border-black text-center">&nbsp;</span>
                 @else
-                    {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '—' }}
+                    <span class="inline-block min-w-[7rem] border-b border-black px-1 text-center">
+                        {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '' }}
+                    </span>
                 @endif
             </div>
         </div>
@@ -139,13 +164,21 @@
     </p>
 
     {{-- ITEMS TABLE --}}
-    <table class="mt-5 w-full border-collapse border border-black text-sm">
+    <table class="mt-5 w-full table-fixed border-collapse border border-black text-sm">
+        <colgroup>
+            <col style="width: 10%">
+            <col style="width: 12%">
+            <col style="width: 8%">
+            <col style="width: 42%">
+            <col style="width: 14%">
+            <col style="width: 14%">
+        </colgroup>
         <thead>
             <tr>
                 <th class="border border-black p-2">Quantity</th>
                 <th class="border border-black p-2">Supplier Stock</th>
                 <th class="border border-black p-2">Unit</th>
-                <th class="border border-black p-2">Description</th>
+                <th class="border border-black p-2 text-left">Description</th>
                 <th class="border border-black p-2">Unit Price</th>
                 <th class="border border-black p-2">Amount</th>
             </tr>
@@ -253,27 +286,29 @@
             <div class="font-semibold leading-6">RECEIVED BY:</div>
 
             @if($editable)
-                <div
-                    id="purSigPreview-{{ $signKey }}"
-                    class="relative mt-6 flex min-h-[3rem] w-full items-end justify-center border-b border-black pb-1"
-                    style="display:none;"
-                ></div>
-                <input
-                    type="text"
-                    name="authority_purchase_received_by_name"
-                    id="purSigName-{{ $signKey }}"
-                    value="{{ $receivedBy }}"
-                    maxlength="255"
-                    autocomplete="off"
-                    class="mt-6 w-full min-h-[3rem] border-0 border-b border-black bg-transparent pb-1 text-center outline-none"
-                >
-                <input
-                    type="hidden"
-                    name="authority_purchase_received_by_signature"
-                    id="purSigImage-{{ $signKey }}"
-                    value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
-                >
-                <div class="mt-1 text-center text-xs">Signature over Printed Name · use panel below</div>
+                <div class="relative mt-6 w-full">
+                    <img
+                        id="purSigOverlay-{{ $signKey }}"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <input
+                        type="text"
+                        name="authority_purchase_received_by_name"
+                        id="purSigName-{{ $signKey }}"
+                        value="{{ $receivedBy }}"
+                        maxlength="255"
+                        autocomplete="off"
+                        class="relative z-[1] w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                    >
+                    <input
+                        type="hidden"
+                        name="authority_purchase_received_by_signature"
+                        id="purSigImage-{{ $signKey }}"
+                        value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
+                    >
+                </div>
 
                 <div class="mt-6 flex items-end gap-2">
                     <span class="shrink-0 pb-1 text-xs whitespace-nowrap">Reference P.O. No.</span>
@@ -285,14 +320,13 @@
                     >
                 </div>
             @else
-                <div class="mt-6 flex min-h-[3rem] items-end justify-center border-b border-black pb-1 text-center">
+                <div class="relative mt-6 flex min-h-[2.5rem] items-end justify-center border-b border-black pb-1 text-center">
                     @include('partials.drawn-signature', [
                         'value' => $receivedBySignature,
                         'printedName' => $receivedBy,
                         'empty' => $receivedBy,
                     ])
                 </div>
-                <div class="mt-1 text-center text-xs">Signature over Printed Name</div>
 
                 <div class="mt-6 flex items-end gap-2">
                     <span class="shrink-0 pb-1 text-xs whitespace-nowrap">Reference P.O. No.</span>
@@ -305,13 +339,26 @@
 
         <div class="w-full max-w-xs justify-self-end text-left">
             <div class="leading-6">Authorized by</div>
-            <div class="mt-6 flex min-h-[3rem] w-full items-end justify-center border-b border-black pb-1">
-                @unless($editable)
+            <div
+                class="relative mt-6 flex min-h-[2.5rem] w-full items-end justify-center border-b border-black pb-1"
+                @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
+            >
+                @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($atp?->authority_purchase_authorized_by_signature ?? '')))
+                    <img
+                        id="accPaperSigOverlay"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <span id="accPaperSigPrintedName" class="relative z-[1] text-center text-xs font-medium leading-5">
+                        {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                    </span>
+                @elseif(!$editable)
                     @include('partials.drawn-signature', [
                         'value' => $atp?->authority_purchase_authorized_by_signature ?? '',
                         'printedName' => \App\Support\AccountingSigner::forAtp($atp),
                     ])
-                @endunless
+                @endif
             </div>
         </div>
     </div>

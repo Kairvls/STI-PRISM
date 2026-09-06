@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
@@ -12,7 +14,6 @@ use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\ReceivingReportFormExporter;
-use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPortal;
 
 class ReceivingReportController extends Controller
@@ -114,6 +115,7 @@ class ReceivingReportController extends Controller
             'selectedRfcId' => $request->query('selected_rfc'),
             'viewRrId' => $viewRrId ?: null,
             'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
+            'suggestedRrFormNumber' => $this->nextSuggestedRrFormNumber(),
         ]);
     }
 
@@ -140,9 +142,13 @@ class ReceivingReportController extends Controller
         return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig) {
             $now = now();
             $user = auth()->user();
+            $formNumber = filled($validated['receiving_report_form_number'] ?? null)
+                ? (string) $validated['receiving_report_form_number']
+                : $this->nextSuggestedRrFormNumber();
 
             $payload = [
                 'receiving_report_request_check_id' => $validated['receiving_report_request_check_id'] ?? null,
+                'receiving_report_form_number' => $formNumber,
                 'receiving_report_date' => $validated['receiving_report_date'] ?? null,
                 'receiving_report_received_from' => $validated['receiving_report_received_from'] ?? null,
                 'receiving_report_supplier_address_override' => $validated['receiving_report_supplier_address_override'] ?? null,
@@ -163,10 +169,6 @@ class ReceivingReportController extends Controller
             }
 
             $id = DB::table('receiving_reports_table')->insertGetId($payload);
-
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
-                'receiving_report_form_number' => 'RR-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
-            ]);
 
             $this->replaceItems($id, $validated['items'] ?? []);
             if (!$isDraft && !$this->hasCompleteRrItem($id)) {
@@ -196,7 +198,7 @@ class ReceivingReportController extends Controller
         }
 
         $isDraft = $request->input('save_action', 'draft') === 'draft';
-        $validated = $this->validateRr($request, $isDraft);
+        $validated = $this->validateRr($request, $isDraft, $id);
         $rfcId = $validated['receiving_report_request_check_id'] ?? $rr->receiving_report_request_check_id;
         $receivedName = trim((string) ($validated['receiving_report_received_by_name'] ?? ($rr->receiving_report_received_by_name ?? '')));
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['receiving_report_received_by_signature'] ?? null)
@@ -224,8 +226,14 @@ class ReceivingReportController extends Controller
                 ? ($wasRevision ? 'Minor Revision' : 'Draft')
                 : ($wasRevision ? 'Resubmitted' : 'Submitted');
 
+            $formNumber = filled($validated['receiving_report_form_number'] ?? null)
+                ? (string) $validated['receiving_report_form_number']
+                : ($this->normalizeRrFormNumberForEdit($rr->receiving_report_form_number ?? null)
+                    ?: $this->nextSuggestedRrFormNumber());
+
             $payload = [
                 'receiving_report_request_check_id' => $rfcId,
+                'receiving_report_form_number' => $formNumber,
                 'receiving_report_date' => $validated['receiving_report_date'] ?? null,
                 'receiving_report_received_from' => $validated['receiving_report_received_from'] ?? null,
                 'receiving_report_supplier_address_override' => $validated['receiving_report_supplier_address_override'] ?? null,
@@ -287,6 +295,14 @@ class ReceivingReportController extends Controller
             }
             if ($receivedName === '' || !RisWorkflow::isDrawnSignature((string) ($rr->receiving_report_received_by_signature ?? ''))) {
                 return back()->with('error', 'Printed name and a drawn/uploaded signature are required before submitting.');
+            }
+
+            if (blank($rr->receiving_report_form_number) || !preg_match('/^\d{7}$/', (string) $rr->receiving_report_form_number)) {
+                return back()->with('error', 'Receiving Report number must be exactly 7 digits before submitting.');
+            }
+
+            if (blank($rr->receiving_report_date)) {
+                return back()->with('error', 'Date is required before submitting.');
             }
 
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
@@ -358,7 +374,7 @@ class ReceivingReportController extends Controller
             );
     }
 
-    private function validateRr(Request $request, bool $isDraft): array
+    private function validateRr(Request $request, bool $isDraft, $ignoreRrId = null): array
     {
         return $request->validate([
             'save_action' => ['required', 'in:draft,submit'],
@@ -367,6 +383,7 @@ class ReceivingReportController extends Controller
                 'integer',
                 'exists:request_check_table,request_check_id',
             ],
+            'receiving_report_form_number' => $this->rrFormNumberRules(!$isDraft, $ignoreRrId),
             'receiving_report_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'receiving_report_received_from' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_supplier_address_override' => ['nullable', 'string', 'max:2000'],
@@ -382,7 +399,86 @@ class ReceivingReportController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
             'items.*.supplier_name' => ['nullable', 'string', 'max:255'],
+        ], [
+            'receiving_report_form_number.required' => 'Receiving Report number is required before submitting.',
+            'receiving_report_form_number.digits' => 'Receiving Report number must be exactly 7 digits.',
+            'receiving_report_form_number.unique' => 'This Receiving Report number is already in use.',
         ]);
+    }
+
+    private function rrFormNumberRules(bool $required, $ignoreRrId = null): array
+    {
+        $unique = Rule::unique('receiving_reports_table', 'receiving_report_form_number');
+        if ($ignoreRrId) {
+            $unique->ignore($ignoreRrId, 'receiving_report_id');
+        }
+
+        return [
+            $required ? 'required' : 'nullable',
+            'digits:7',
+            $unique,
+        ];
+    }
+
+    /**
+     * Next editable default for the RR "No." field (7 zero-padded digits).
+     * Considers both new 7-digit values and legacy RR-YYYY-##### numbers.
+     */
+    private function nextSuggestedRrFormNumber(): string
+    {
+        $max = 0;
+
+        foreach (
+            DB::table('receiving_reports_table')
+                ->whereNotNull('receiving_report_form_number')
+                ->pluck('receiving_report_form_number') as $formNumber
+        ) {
+            $parsed = $this->parseRrFormNumberSequence((string) $formNumber);
+            if ($parsed !== null) {
+                $max = max($max, $parsed);
+            }
+        }
+
+        $next = min($max + 1, 9999999);
+
+        return str_pad((string) $next, 7, '0', STR_PAD_LEFT);
+    }
+
+    private function parseRrFormNumberSequence(string $formNumber): ?int
+    {
+        $formNumber = trim($formNumber);
+        if ($formNumber === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{1,7}$/', $formNumber)) {
+            return (int) $formNumber;
+        }
+
+        if (preg_match('/(\d+)$/', $formNumber, $matches)) {
+            $n = (int) $matches[1];
+
+            return $n > 9999999 ? (int) substr((string) $n, -7) : $n;
+        }
+
+        return null;
+    }
+
+    private function normalizeRrFormNumberForEdit(?string $formNumber): string
+    {
+        if ($formNumber === null || trim($formNumber) === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d{7}$/', trim($formNumber))) {
+            return trim($formNumber);
+        }
+
+        $parsed = $this->parseRrFormNumberSequence($formNumber);
+
+        return $parsed === null
+            ? ''
+            : str_pad((string) $parsed, 7, '0', STR_PAD_LEFT);
     }
 
     private function replaceItems($rrId, array $items, ?string $paymentPath = null): void

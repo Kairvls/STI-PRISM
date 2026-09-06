@@ -263,6 +263,20 @@
         return false;
     }
 
+    function syncPaperOverlay(url) {
+        var overlay = document.getElementById('accPaperSigOverlay');
+        var nameEl = document.getElementById('accPaperSigPrintedName');
+        if (!overlay) return;
+        if (url && String(url).indexOf('data:image/') === 0) {
+            overlay.src = url;
+            overlay.style.display = '';
+            if (nameEl) nameEl.style.display = '';
+        } else {
+            overlay.removeAttribute('src');
+            overlay.style.display = 'none';
+        }
+    }
+
     function applySignature(dataUrl) {
         var url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? dataUrl : '';
         if (sigHidden) sigHidden.value = url;
@@ -276,6 +290,7 @@
                 previewImg.style.display = 'none';
             }
         }
+        syncPaperOverlay(url);
         var hasSig = url !== '';
         if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
         if (clearSignBtn) clearSignBtn.classList.toggle('hidden', !hasSig);

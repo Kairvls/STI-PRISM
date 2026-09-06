@@ -4,7 +4,7 @@
     $printedName = trim((string) (auth()->user()->user_full_name ?? auth()->user()->user_username ?? 'Purchaser'));
 @endphp
 
-<div id="purDocSignaturePanel" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+<div id="purDocSignaturePanel" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h4 id="purDocSignTitle" class="text-sm font-semibold text-slate-900">Purchaser signature</h4>
@@ -18,21 +18,13 @@
     </div>
 
     <div class="mt-3">
-        <div class="relative mx-auto flex min-h-[4.5rem] w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-1">
-            <img id="purDocSigPreview" alt="Signature preview" class="pointer-events-none absolute bottom-2 left-1/2 max-h-12 w-auto max-w-[90%] -translate-x-1/2 object-contain" style="display:none;">
-            <span id="purDocSigPrintedName" class="relative z-[1] text-center text-xs font-medium text-slate-800">{{ $printedName }}</span>
-        </div>
-        <p class="mt-1 text-center text-[10px] uppercase tracking-wide text-slate-400">Preview · signature overlays printed name</p>
-    </div>
-
-    <div class="mt-3">
         <div class="flex items-center justify-between gap-2">
             <p class="text-xs font-medium text-slate-700">My saved signatures</p>
             <span id="purDocSavedCount" class="text-[11px] text-slate-400">{{ $savedSignatures->count() }} / 4 saved</span>
         </div>
-        <div id="purDocSavedList" class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <div id="purDocSavedList" class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
             @forelse ($savedSignatures as $saved)
-                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm" data-saved-sig-id="{{ $saved->user_signature_id }}">
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5" data-saved-sig-id="{{ $saved->user_signature_id }}">
                     <button type="button" class="pur-doc-use-saved flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left" title="Use this signature">
                         <span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
                             <img src="{{ $saved->preview_url }}" alt="" class="pur-doc-saved-preview max-h-10 w-auto max-w-[90%] object-contain">
@@ -213,19 +205,19 @@
         return false;
     }
     function syncLinePreview(url) {
-        if (!linePreview) return;
-        var name = nameInput ? String(nameInput.value || '').trim() : (printedNameEl ? printedNameEl.textContent : '');
-        if (url && String(url).indexOf('data:image/') === 0) {
-            var html = '<img src="' + url + '" alt="Signature" style="max-height:42px;width:auto;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);pointer-events:none;">';
-            if (name) html += '<span style="position:relative;z-index:1;font-size:12px;font-weight:500;">' + escapeHtml(name) + '</span>';
-            linePreview.innerHTML = html;
-            linePreview.style.display = '';
-            linePreview.style.position = 'relative';
-            if (nameInput) nameInput.style.display = 'none';
-        } else {
-            linePreview.innerHTML = '';
-            linePreview.style.display = 'none';
-            if (nameInput) nameInput.style.display = '';
+        // RIS-style: keep the printed-name input visible; only toggle the overlay image.
+        if (linePreview) {
+            if (url && String(url).indexOf('data:image/') === 0) {
+                linePreview.src = url;
+                linePreview.style.display = '';
+            } else {
+                linePreview.removeAttribute('src');
+                linePreview.style.display = 'none';
+                linePreview.innerHTML = '';
+            }
+        }
+        if (nameInput) {
+            nameInput.style.display = '';
         }
     }
     function applySignature(dataUrl) {
@@ -279,11 +271,11 @@
             var id = item.id;
             var label = escapeHtml(item.label || 'Signature');
             var preview = String(item.preview_url || '').replace(/"/g, '&quot;');
-            return '<div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm" data-saved-sig-id="' + id + '">'
+            return '<div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5" data-saved-sig-id="' + id + '">'
                 + '<button type="button" class="pur-doc-use-saved flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left" title="Use this signature">'
                 + '<span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100"><img src="' + preview + '" alt="" class="pur-doc-saved-preview max-h-10 w-auto max-w-[90%] object-contain"></span>'
                 + '<span class="w-full truncate text-center text-[11px] font-medium text-slate-600">' + label + '</span></button>'
-                + '<button type="button" class="pur-doc-delete-saved absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-400 opacity-0 shadow-sm ring-1 ring-slate-200/80 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100" data-id="' + id + '" data-label="' + label + '" title="Remove from list">'
+                + '<button type="button" class="pur-doc-delete-saved absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-400 opacity-0 shadow-sm ring-1 ring-slate-200/80 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100" data-id="' + id + '" data-label="' + label + '" title="Remove from list" aria-label="Remove saved signature">'
                 + '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
         }).join('');
     }
@@ -462,7 +454,10 @@
             }
             var slot = options.slotId ? document.getElementById(options.slotId) : null;
             var panel = document.getElementById('purDocSignaturePanel');
-            if (slot && panel && panel.parentElement !== slot) slot.appendChild(panel);
+            if (slot && panel) {
+                if (panel.parentElement !== slot) slot.appendChild(panel);
+                panel.classList.remove('hidden');
+            }
             var existing = sigHidden ? String(sigHidden.value || '') : '';
             applySignature(existing.indexOf('data:image/') === 0 ? existing : '');
         },
@@ -477,6 +472,12 @@
             sigHidden = null;
             nameInput = null;
             linePreview = null;
+            var panel = document.getElementById('purDocSignaturePanel');
+            var dock = document.getElementById('purDocSignatureDock');
+            if (panel) {
+                panel.classList.add('hidden');
+                if (dock && panel.parentElement !== dock) dock.appendChild(panel);
+            }
         }
     };
 })();

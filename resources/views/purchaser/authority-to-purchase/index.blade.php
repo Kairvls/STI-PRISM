@@ -13,6 +13,7 @@
         viewOpen: {{ !empty($viewAtpId) ? 'true' : 'false' }},
         editOpen: {{ !empty($editAtpId) ? 'true' : 'false' }},
         emptyOpen: false,
+        modalFullscreen: false,
         selectedAtp: {{ !empty($editAtpId) ? (int) $editAtpId : (!empty($viewAtpId) ? (int) $viewAtpId : 'null') }},
         risPrefill: JSON.parse(document.getElementById('atp-ris-prefill').textContent || '{}'),
 
@@ -20,17 +21,20 @@
             this.selectedAtp = id;
             this.viewOpen = true;
             this.editOpen = false;
+            this.modalFullscreen = false;
         },
 
         openEdit(id) {
             this.selectedAtp = id;
             this.editOpen = true;
             this.viewOpen = false;
+            this.modalFullscreen = false;
             this.bindDocSig('atp-' + id, 'Received by signature');
         },
 
         openCreate() {
             this.createOpen = true;
+            this.modalFullscreen = false;
             this.bindDocSig('atp-create', 'Received by signature');
         },
 
@@ -41,10 +45,10 @@
                         key: key,
                         hiddenId: 'purSigImage-' + key,
                         nameId: 'purSigName-' + key,
-                        previewId: 'purSigPreview-' + key,
+                        previewId: 'purSigOverlay-' + key,
                         slotId: 'purSigSlot-' + key,
                         title: title || 'Purchaser signature',
-                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
                     });
                 }
                 if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
@@ -56,6 +60,7 @@
             this.viewOpen = false;
             this.editOpen = false;
             this.emptyOpen = false;
+            this.modalFullscreen = false;
             this.selectedAtp = null;
         },
 
@@ -150,7 +155,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    @click="emptyOpen = true; modalFullscreen = false; $nextTick(() => window.lucide && window.lucide.createIcons())"
                     class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                     <i data-lucide="printer" class="h-4 w-4"></i>
@@ -406,7 +411,13 @@
                                         >
                                             <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                            data-pur-confirm="Submit this Authority to Purchase for review?"
+                                            data-pur-confirm-title="Submit ATP"
+                                            data-pur-confirm-ok="Submit"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
@@ -518,29 +529,31 @@
 
 
     {{-- ========================================================= --}}
-    {{-- CREATE ATP MODAL (paper layout, same direction as RIS) --}}
+    {{-- CREATE ATP MODAL (teleport to body so overlay covers topbar) --}}
     {{-- ========================================================= --}}
 
+    <template x-teleport="body">
     <div
         x-show="createOpen"
         x-cloak
-        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="atp-create-title"
     >
-
-        <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
-
-        <div class="relative flex min-h-full items-center justify-center p-4">
-
+        <div
+            x-on:click.self="createOpen = false; modalFullscreen = false"
+            class="flex min-h-full w-full justify-center"
+        >
             <div
                 @click.stop
-                class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="atp-create-title"
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
-
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
@@ -551,41 +564,32 @@
                             <p class="mt-0.5 text-sm text-gray-500">Select an approved RIS to generate an ATP.</p>
                         </div>
                     </div>
-                    <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
-                @if($eligibleRis->isEmpty())
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.store') }}" x-ref="createForm">
+                    @csrf
+                    <input type="hidden" name="save_action" value="draft">
 
-                    <div class="p-6">
-                        <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600">
-                            No approved RIS is currently available for Authority to Purchase creation.
-                        </div>
-                    </div>
-
-                @else
-
-                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.store') }}" x-ref="createForm">
-
-                        @csrf
-                        <input type="hidden" name="save_action" value="draft">
-
-                        <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-
-                            {{-- RIS selector sits above the paper preview --}}
-                            <div class="mx-auto mb-4 w-[210mm] max-w-full">
-
-                                <label class="text-xs font-medium text-gray-500">Approved RIS</label>
-
+                    <div class="bg-slate-100 p-3 md:p-5">
+                        @if($eligibleRis->isEmpty())
+                            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                No approved RIS is currently available. You can still fill out and save this ATP as a draft, then link an approved RIS later before submitting.
+                            </div>
+                        @else
+                            <div class="mb-4">
+                                <label class="text-xs font-medium text-gray-500">Approved RIS <span class="font-normal text-gray-400">(optional for draft)</span></label>
                                 <select
                                     name="authority_purchase_ris_id"
-                                    required
                                     x-on:change="applyRisPrefill($event.target.value)"
                                     class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
                                 >
                                     <option value="">Select approved RIS</option>
-
                                     @foreach($eligibleRis as $ris)
                                         <option
                                             value="{{ $ris->ris_id }}"
@@ -600,40 +604,35 @@
                                         </option>
                                     @endforeach
                                 </select>
-
                             </div>
+                        @endif
 
-                            @include('partials.authority-to-purchase-paper', [
-                                'editable' => true,
-                                'atp' => null,
-                                'items' => collect(),
-                                'suppliers' => $suppliers,
-                                'signKey' => 'atp-create',
-                            ])
+                        @include('partials.authority-to-purchase-paper', [
+                            'editable' => true,
+                            'atp' => null,
+                            'items' => collect(),
+                            'suppliers' => $suppliers,
+                            'signKey' => 'atp-create',
+                            'suggestedAtpFormNumber' => $suggestedAtpFormNumber ?? '0001',
+                        ])
 
-                            <div id="purSigSlot-atp-create" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
+                        <div id="purSigSlot-atp-create" class="mt-4 w-full"></div>
+                    </div>
 
-                        </div>
-
-                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
-                                Cancel
-                            </button>
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                                <i data-lucide="check" class="h-4 w-4"></i>
-                                Save Draft
-                            </button>
-                        </div>
-
-                    </form>
-
-                @endif
-
+                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                            Cancel
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                            <i data-lucide="check" class="h-4 w-4"></i>
+                            Save Draft
+                        </button>
+                    </div>
+                </form>
             </div>
-
         </div>
-
     </div>
+    </template>
 
 
 
@@ -647,26 +646,28 @@
             $items = $atpItems->get($atp->authority_purchase_id, collect());
         @endphp
 
+        <template x-teleport="body">
         <div
             x-show="viewOpen && selectedAtp === {{ $atp->authority_purchase_id }}"
             x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto"
+            x-transition.opacity
+            class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
             x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedAtp === {{ $atp->authority_purchase_id }}, $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="atp-view-title-{{ $atp->authority_purchase_id }}"
         >
-
-            <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
-
-            <div class="relative flex min-h-full items-center justify-center p-4">
-
+            <div
+                x-on:click.self="viewOpen = false; modalFullscreen = false"
+                class="flex min-h-full w-full justify-center"
+            >
                 <div
                     @click.stop
-                    class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="atp-view-title-{{ $atp->authority_purchase_id }}"
+                    class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                 >
-
                     {{-- Header --}}
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
 
@@ -709,14 +710,17 @@
                             @endif
                         </div>
 
-                        <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('purchaser.partials.modal-fullscreen-button')
+                            <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
 
                     </div>
 
                     {{-- ATP PAPER PREVIEW --}}
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-8">
+                    <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.authority-to-purchase-paper', [
                             'editable' => false,
                             'atp' => $atp,
@@ -745,7 +749,13 @@
                                     Edit ATP
                                 </button>
 
-                                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
+                                <form
+                                    method="POST"
+                                    action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                    data-pur-confirm="Submit this Authority to Purchase for review?"
+                                    data-pur-confirm-title="Submit ATP"
+                                    data-pur-confirm-ok="Submit"
+                                >
                                     @csrf
                                     <button type="submit" class="pur-btn-primary">
                                         Submit to Review
@@ -801,18 +811,19 @@
                     </div>
 
                 </div>
-
             </div>
-
         </div>
+        </template>
 
     @endforeach
 
     {{-- PRINT EMPTY ATP MODAL --}}
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="emptyOpen"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-4 md:p-8'"
         x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         role="dialog"
@@ -820,10 +831,13 @@
         aria-labelledby="atp-empty-title"
     >
         <div
-            x-on:click.self="emptyOpen = false"
+            x-on:click.self="emptyOpen = false; modalFullscreen = false"
             class="flex min-h-full w-full justify-center"
         >
-            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+            <div
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+            >
 
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
@@ -834,17 +848,20 @@
                             Original blank Authority to Purchase format.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        x-on:click="emptyOpen = false"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                        aria-label="Close"
-                    >
-                        Close
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button
+                            type="button"
+                            x-on:click="emptyOpen = false; modalFullscreen = false"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                <div class="bg-slate-100 p-3 md:p-5">
                     @include('partials.authority-to-purchase-paper', [
                         'editable' => false,
                         'atp' => null,
@@ -885,6 +902,7 @@
             </div>
         </div>
     </div>
+    </template>
 
 
 
@@ -900,26 +918,28 @@
 
         @if(!$atp->authority_purchase_submitted_at && $atp->authority_purchase_status === 'Pending')
 
+            <template x-teleport="body">
             <div
                 x-show="editOpen && selectedAtp === {{ $atp->authority_purchase_id }}"
                 x-cloak
-                class="fixed inset-0 z-50 overflow-y-auto"
+                x-transition.opacity
+                class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
                 x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedAtp === {{ $atp->authority_purchase_id }}, $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="atp-edit-title-{{ $atp->authority_purchase_id }}"
             >
-
-                <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
-
-                <div class="relative flex min-h-full items-center justify-center p-4">
-
+                <div
+                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    class="flex min-h-full w-full justify-center"
+                >
                     <div
                         @click.stop
-                        class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="atp-edit-title-{{ $atp->authority_purchase_id }}"
+                        class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
-
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <div>
                                 <h3 id="atp-edit-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">Edit ATP Draft</h3>
@@ -928,9 +948,12 @@
                                 </p>
                             </div>
 
-                            <button type="button" @click="editOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                                ✕
-                            </button>
+                            <div class="flex shrink-0 items-center gap-1">
+                                @include('purchaser.partials.modal-fullscreen-button')
+                                <button type="button" @click="editOpen = false; modalFullscreen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}">
@@ -939,7 +962,7 @@
                             @method('PUT')
                             <input type="hidden" name="save_action" value="save">
 
-                            <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-8">
+                            <div class="bg-slate-100 p-3 md:p-5">
                                 @include('partials.authority-to-purchase-paper', [
                                     'editable' => true,
                                     'atp' => $atp,
@@ -947,7 +970,7 @@
                                     'suppliers' => $suppliers,
                                     'signKey' => 'atp-'.$atp->authority_purchase_id,
                                 ])
-                                <div id="purSigSlot-atp-{{ $atp->authority_purchase_id }}" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
+                                <div id="purSigSlot-atp-{{ $atp->authority_purchase_id }}" class="mt-4 w-full"></div>
                             </div>
 
                             <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
@@ -980,16 +1003,17 @@
                         </form>
 
                     </div>
-
                 </div>
-
             </div>
+            </template>
 
         @endif
 
     @endforeach
 
-    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    <div id="purDocSignatureDock" class="hidden" aria-hidden="true">
+        @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    </div>
 
 </div>
 

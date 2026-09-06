@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting.partials.flash')
 
-<div class="acc-page fade-in">
+<div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
         <div>
             <a href="/accounting/request-check?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
@@ -31,7 +31,7 @@
                     <i data-lucide="banknote" class="h-4 w-4"></i>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.print()" data-tip="Print request check" aria-label="Print request check">
+            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print request check" aria-label="Print request check">
                 <i data-lucide="printer" class="h-4 w-4"></i>
             </button>
         </div>
@@ -99,42 +99,52 @@
         </div>
     </div>
 
-    @if (!empty($rfc->request_check_funds_released_at))
-        <div class="acc-note acc-note-ok mb-3">
-            Funds ready for personal collection since {{ \Carbon\Carbon::parse($rfc->request_check_funds_released_at)->format('M d, Y g:i A') }}.
-        </div>
-    @endif
+    <div class="acc-review-body">
+        @if (!empty($rfc->request_check_funds_released_at))
+            <div class="acc-note acc-note-ok mb-3">
+                Funds ready for personal collection since {{ \Carbon\Carbon::parse($rfc->request_check_funds_released_at)->format('M d, Y g:i A') }}.
+            </div>
+        @endif
 
-    <div class="acc-review-grid">
-        <div>
-            <div class="acc-viewer">
-                <div class="acc-viewer-stage">
-                    <div class="acc-viewer-fit">
-                        @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc])
+        <div class="acc-review-grid">
+            <div>
+                <div class="acc-viewer">
+                    <div class="acc-viewer-stage">
+                        <div class="acc-viewer-fit">
+                            @include('partials.request-check-paper', [
+                                'editable' => false,
+                                'rfc' => $rfc,
+                                'printId' => 'acc-print-sheet',
+                                'accLiveSign' => !empty($reviewable),
+                            ])
+                        </div>
                     </div>
                 </div>
+                @if ($attachments->isNotEmpty())
+                    <div class="acc-attachments">
+                        <h3>Supporting documents</h3>
+                        <ul>
+                            @foreach ($attachments as $file)
+                                <li>
+                                    <a href="/accounting/request-check/{{ $rfc->request_check_id }}/attachments/{{ $file->request_check_attachment_id }}">
+                                        {{ $file->request_check_attachment_original_name }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </div>
-            @if ($attachments->isNotEmpty())
-                <div class="acc-attachments">
-                    <h3>Supporting documents</h3>
-                    <ul>
-                        @foreach ($attachments as $file)
-                            <li>
-                                <a href="/accounting/request-check/{{ $rfc->request_check_id }}/attachments/{{ $file->request_check_attachment_id }}">
-                                    {{ $file->request_check_attachment_original_name }}
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-        </div>
-        <div class="acc-side-stack">
-            @include('accounting.partials.related-docs', ['chain' => $chain])
-            @include('accounting.partials.history', ['history' => $history])
-            @if (!empty($rfc->request_check_revision_notes))
-                <div class="acc-note acc-note-info">Last revision note: {{ $rfc->request_check_revision_notes }}</div>
-            @endif
+            <div class="acc-side-stack">
+                @include('accounting.partials.related-docs', [
+                    'chain' => $chain,
+                    'current' => request('view') === 'funds' ? 'funds' : 'rfc',
+                ])
+                @include('accounting.partials.history', ['history' => $history])
+                @if (!empty($rfc->request_check_revision_notes))
+                    <div class="acc-note acc-note-info">Last revision note: {{ $rfc->request_check_revision_notes }}</div>
+                @endif
+            </div>
         </div>
     </div>
 </div>
@@ -182,6 +192,10 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
+        @if (request('view') === 'funds' && !empty($releasable))
+        var releaseModal = document.getElementById('releaseFundsModal');
+        if (releaseModal) releaseModal.classList.remove('hidden');
+        @endif
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';

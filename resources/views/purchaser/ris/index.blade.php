@@ -815,16 +815,11 @@
                         </table>
 
                         <div class="ris-purpose-area">
-
-                            <div class="ris-purpose-label">
-                                PURPOSE
-                            </div>
-
-                            <div class="ris-purpose-line-row">
-                                <div class="ris-purpose-spacer"></div>
+                            <div class="ris-purpose-row-1">
+                                <div class="ris-purpose-label">PURPOSE</div>
                                 <div class="ris-purpose-line"></div>
                             </div>
-
+                            <div class="ris-purpose-line ris-purpose-line-2"></div>
                         </div>
 
                         <div class="ris-signatures">
@@ -1079,24 +1074,54 @@
             margin-top: 31px;
         }
 
+        .ris-purpose-row-1 {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
         .ris-purpose-label {
+            flex-shrink: 0;
             font-size: 13px;
             font-weight: 700;
-        }
-
-        .ris-purpose-line-row {
-            display: flex;
-            margin-top: 29px;
-        }
-
-        .ris-purpose-spacer {
-            width: 80px;
-            flex-shrink: 0;
+            line-height: 31px;
         }
 
         .ris-purpose-line {
             flex: 1;
+            min-height: 31px;
             border-bottom: 1px solid #1f2937;
+        }
+
+        .ris-purpose-line-2 {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            flex: none;
+        }
+
+        .ris-purpose-line.ris-value-line {
+            display: flex;
+            align-items: flex-end;
+            padding: 0 4px 2px;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .ris-purpose-lined-wrap {
+            position: relative;
+        }
+
+        .ris-purpose-lined-wrap .ris-purpose-label {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 1;
+            padding-right: 12px;
+            background: #fff;
         }
 
         .ris-signatures {
@@ -1163,8 +1188,7 @@
         /* Edit RIS inputs stay inside the exact physical form */
         .ris-number-input,
         .ris-signature-input,
-        .ris-date-input,
-        .ris-purpose-input {
+        .ris-date-input {
             border: 0;
             border-bottom: 1px solid #1f2937;
             border-radius: 0;
@@ -1347,11 +1371,27 @@
         }
 
         .ris-purpose-input {
-            flex: 1;
-            min-height: 42px;
+            display: block;
+            width: 100%;
+            min-height: 0;
+            height: 72px;
             resize: none;
-            padding: 4px 6px;
+            padding: 0 4px 0 0;
             font-size: 12px;
+            line-height: 31px;
+            text-indent: 5.75rem;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0;
+            background-image:
+                linear-gradient(#1f2937, #1f2937),
+                linear-gradient(#1f2937, #1f2937);
+            background-size: 100% 1px, 100% 1px;
+            background-position: left 30px, left 71px;
+            background-repeat: no-repeat;
+            background-color: transparent;
+            outline: none;
+            box-shadow: none;
         }
 
         .ris-signature-input {
@@ -1719,9 +1759,9 @@
                             </div>
 
                             <div class="mt-5">
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
-                                    <label class="text-xs font-bold uppercase text-gray-900 sm:pt-2 sm:text-sm">Purpose</label>
-                                    <textarea name="ris_purpose_description" rows="2" x-model="purposeText" class="w-full min-w-0 flex-1 resize-none border-0 border-b border-gray-800 bg-transparent px-1 py-2 text-xs outline-none focus:ring-0 sm:px-2 sm:text-sm"></textarea>
+                                <div class="ris-purpose-lined-wrap">
+                                    <label class="ris-purpose-label">PURPOSE</label>
+                                    <textarea name="ris_purpose_description" rows="2" x-model="purposeText" class="ris-purpose-input"></textarea>
                                 </div>
                             </div>
 
@@ -2589,12 +2629,28 @@
                             </tbody>
                             </table>
 
+                            @php
+                                $purposeRaw = trim((string) ($ris->ris_purpose_description ?: ''));
+                                if (preg_match('/\R/u', $purposeRaw)) {
+                                    $purposeParts = preg_split('/\R/u', $purposeRaw, 2);
+                                    $purposeLine1 = trim((string) ($purposeParts[0] ?? ''));
+                                    $purposeLine2 = trim((string) ($purposeParts[1] ?? ''));
+                                } elseif (mb_strlen($purposeRaw) > 72) {
+                                    $cut = mb_strrpos(mb_substr($purposeRaw, 0, 72), ' ');
+                                    $cut = ($cut === false || $cut < 24) ? 72 : $cut;
+                                    $purposeLine1 = trim(mb_substr($purposeRaw, 0, $cut));
+                                    $purposeLine2 = trim(mb_substr($purposeRaw, $cut));
+                                } else {
+                                    $purposeLine1 = $purposeRaw;
+                                    $purposeLine2 = '';
+                                }
+                            @endphp
                             <div class="ris-purpose-area">
-                                <div class="ris-purpose-label">PURPOSE</div>
-                                <div class="ris-purpose-line-row">
-                                    <div class="ris-purpose-spacer"></div>
-                                    <div class="ris-purpose-line ris-value-line">{{ $ris->ris_purpose_description ?: ' ' }}</div>
+                                <div class="ris-purpose-row-1">
+                                    <div class="ris-purpose-label">PURPOSE</div>
+                                    <div class="ris-purpose-line ris-value-line">{{ $purposeLine1 !== '' ? $purposeLine1 : ' ' }}</div>
                                 </div>
+                                <div class="ris-purpose-line ris-purpose-line-2 ris-value-line">{{ $purposeLine2 !== '' ? $purposeLine2 : ' ' }}</div>
                             </div>
 
                             <div class="ris-signatures">
@@ -2864,12 +2920,28 @@
                             </tbody>
                             </table>
 
+                            @php
+                                $purposeRaw = trim((string) ($ris->ris_purpose_description ?: ''));
+                                if (preg_match('/\R/u', $purposeRaw)) {
+                                    $purposeParts = preg_split('/\R/u', $purposeRaw, 2);
+                                    $purposeLine1 = trim((string) ($purposeParts[0] ?? ''));
+                                    $purposeLine2 = trim((string) ($purposeParts[1] ?? ''));
+                                } elseif (mb_strlen($purposeRaw) > 72) {
+                                    $cut = mb_strrpos(mb_substr($purposeRaw, 0, 72), ' ');
+                                    $cut = ($cut === false || $cut < 24) ? 72 : $cut;
+                                    $purposeLine1 = trim(mb_substr($purposeRaw, 0, $cut));
+                                    $purposeLine2 = trim(mb_substr($purposeRaw, $cut));
+                                } else {
+                                    $purposeLine1 = $purposeRaw;
+                                    $purposeLine2 = '';
+                                }
+                            @endphp
                             <div class="ris-purpose-area">
-                                <div class="ris-purpose-label">PURPOSE</div>
-                                <div class="ris-purpose-line-row">
-                                    <div class="ris-purpose-spacer"></div>
-                                    <div class="ris-purpose-line ris-value-line">{{ $ris->ris_purpose_description ?: ' ' }}</div>
+                                <div class="ris-purpose-row-1">
+                                    <div class="ris-purpose-label">PURPOSE</div>
+                                    <div class="ris-purpose-line ris-value-line">{{ $purposeLine1 !== '' ? $purposeLine1 : ' ' }}</div>
                                 </div>
+                                <div class="ris-purpose-line ris-purpose-line-2 ris-value-line">{{ $purposeLine2 !== '' ? $purposeLine2 : ' ' }}</div>
                             </div>
 
                             <div class="ris-signatures">
@@ -3231,9 +3303,8 @@
                                     </div>
 
                                     <div class="ris-purpose-area">
-                                        <div class="ris-purpose-label">PURPOSE</div>
-                                        <div class="ris-purpose-line-row">
-                                            <div class="ris-purpose-spacer"></div>
+                                        <div class="ris-purpose-lined-wrap">
+                                            <div class="ris-purpose-label">PURPOSE</div>
                                             <textarea name="ris_purpose_description" rows="2" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
                                         </div>
                                     </div>

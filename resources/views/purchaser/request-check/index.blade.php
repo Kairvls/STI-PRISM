@@ -13,6 +13,7 @@
         viewOpen: {{ !empty($viewRfcId) ? 'true' : 'false' }},
         editOpen: false,
         emptyOpen: false,
+        modalFullscreen: false,
         selectedRfc: {{ !empty($viewRfcId) ? (int) $viewRfcId : 'null' }},
         atpPrefill: JSON.parse(document.getElementById('rfc-atp-prefill').textContent || '{}'),
         today: '{{ now()->toDateString() }}',
@@ -21,17 +22,20 @@
             this.selectedRfc = id;
             this.viewOpen = true;
             this.editOpen = false;
+            this.modalFullscreen = false;
         },
 
         openEdit(id) {
             this.selectedRfc = id;
             this.editOpen = true;
             this.viewOpen = false;
+            this.modalFullscreen = false;
             this.bindDocSig('rfc-' + id, 'Requested by signature');
         },
 
         openCreate() {
             this.createOpen = true;
+            this.modalFullscreen = false;
             this.bindDocSig('rfc-create', 'Requested by signature');
         },
 
@@ -42,10 +46,10 @@
                         key: key,
                         hiddenId: 'purSigImage-' + key,
                         nameId: 'purSigName-' + key,
-                        previewId: 'purSigPreview-' + key,
+                        previewId: 'purSigOverlay-' + key,
                         slotId: 'purSigSlot-' + key,
                         title: title || 'Purchaser signature',
-                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
                     });
                 }
                 if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
@@ -57,6 +61,7 @@
             this.viewOpen = false;
             this.editOpen = false;
             this.emptyOpen = false;
+            this.modalFullscreen = false;
             this.selectedRfc = null;
         },
 
@@ -464,21 +469,27 @@
         </div>
     </div>
 
+    <template x-teleport="body">
     <div
         x-show="createOpen"
         x-cloak
-        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rfc-create-title"
     >
-        <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
-        <div class="relative flex min-h-full items-center justify-center p-4">
+        <div
+            x-on:click.self="createOpen = false; modalFullscreen = false"
+            class="flex min-h-full w-full justify-center"
+        >
             <div
                 @click.stop
-                class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="rfc-create-title"
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -492,20 +503,25 @@
                             <p class="mt-0.5 text-sm text-gray-500">Select an approved ATP with matching payment path. Submit sends this to Accounting.</p>
                         </div>
                     </div>
-                    <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
-                @if($eligibleAtps->isEmpty())
-                    <div class="p-6 text-sm text-gray-600">No approved ATP is currently available for Request for Check creation.</div>
-                @else
-                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
-                        @csrf
-                        <input type="hidden" name="save_action" value="draft">
-                        <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
-                        <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                            <div class="mx-auto mb-4 w-[297mm] max-w-full">
-                                <label class="text-xs font-medium text-gray-500">Approved ATP</label>
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                    @csrf
+                    <input type="hidden" name="save_action" value="draft">
+                    <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
+                    <div class="bg-slate-100 p-3 md:p-5">
+                        @if($eligibleAtps->isEmpty())
+                            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                No approved ATP is currently available. You can still fill out and save this {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }} as a draft, then link an approved ATP later before submitting.
+                            </div>
+                        @else
+                            <div class="mb-4">
+                                <label class="text-xs font-medium text-gray-500">Approved ATP <span class="font-normal text-gray-400">(optional for draft)</span></label>
                                 <select name="request_check_authority_purchase_id" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
                                     <option value="">Select approved ATP</option>
                                     @foreach($eligibleAtps as $atp)
@@ -516,35 +532,36 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
-                            <div id="purSigSlot-rfc-create" class="mx-auto mt-4 w-[297mm] max-w-full"></div>
-                            <div class="mx-auto mt-4 w-[297mm] max-w-full rounded-lg bg-white p-4">
-                                <label class="text-xs font-medium text-gray-500">Supporting documents (PDF, JPG, PNG · max 5MB each)</label>
-                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-2 block w-full text-sm">
-                            </div>
+                        @endif
+                        @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
+                        <div id="purSigSlot-rfc-create" class="mt-4 w-full"></div>
+                        <div class="mt-4 rounded-lg bg-white p-4">
+                            <label class="text-xs font-medium text-gray-500">Supporting documents (PDF, JPG, PNG · max 5MB each)</label>
+                            <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-2 block w-full text-sm">
                         </div>
-                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50">
-                                Save Draft
-                            </button>
-                            <button type="submit" onclick="
-                                this.form.save_action.value='submit';
-                                if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                    event.preventDefault();
-                                    if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                    else alert('Draw or upload your signature before submitting.');
-                                }
-                            " class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                                <i data-lucide="check" class="h-4 w-4"></i>
-                                Save & Submit
-                            </button>
-                        </div>
-                    </form>
-                @endif
+                    </div>
+                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50">
+                            Save Draft
+                        </button>
+                        <button type="submit" onclick="
+                            this.form.save_action.value='submit';
+                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                event.preventDefault();
+                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                else alert('Draw or upload your signature before submitting.');
+                            }
+                        " class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800" @if($eligibleAtps->isEmpty()) disabled title="Link an approved ATP before submitting" @endif>
+                            <i data-lucide="check" class="h-4 w-4"></i>
+                            Save & Submit
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+    </template>
 
     @foreach($rfcs as $rfc)
         @php
@@ -552,16 +569,28 @@
             $canEdit = in_array($rfc->request_check_status, ['Draft', 'Minor Revision'], true) && !$archiveView;
         @endphp
 
+        <template x-teleport="body">
         <div
             x-show="viewOpen && selectedRfc === {{ $rfc->request_check_id }}"
             x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto"
+            x-transition.opacity
+            class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
             x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedRfc === {{ $rfc->request_check_id }}, $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rfc-view-title-{{ $rfc->request_check_id }}"
         >
-            <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="rfc-view-title-{{ $rfc->request_check_id }}">
+            <div
+                x-on:click.self="viewOpen = false; modalFullscreen = false"
+                class="flex min-h-full w-full justify-center"
+            >
+                <div
+                    @click.stop
+                    class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                >
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
                             <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
@@ -588,14 +617,17 @@
                                 <p class="mt-2 text-sm text-red-700">Rejection: {{ $rfc->request_check_rejection_reason }}</p>
                             @endif
                         </div>
-                        <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('purchaser.partials.modal-fullscreen-button')
+                            <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
+                    <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc, 'printId' => 'rfc-print-'.$rfc->request_check_id])
                         @if($rfcFiles->isNotEmpty())
-                            <div class="mx-auto mt-4 w-[297mm] max-w-full rounded-lg bg-white p-4 text-sm">
+                            <div class="mt-4 rounded-lg bg-white p-4 text-sm">
                                 <p class="font-medium text-gray-700">Attachments</p>
                                 <ul class="mt-2 space-y-1">
                                     @foreach($rfcFiles as $file)
@@ -627,40 +659,50 @@
                 </div>
             </div>
         </div>
+        </template>
 
         @if($canEdit)
+            <template x-teleport="body">
             <div
                 x-show="editOpen && selectedRfc === {{ $rfc->request_check_id }}"
                 x-cloak
-                class="fixed inset-0 z-50 overflow-y-auto"
+                x-transition.opacity
+                class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+                :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
                 x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedRfc === {{ $rfc->request_check_id }}, $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rfc-edit-title-{{ $rfc->request_check_id }}"
             >
-                <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div
+                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    class="flex min-h-full w-full justify-center"
+                >
                     <div
                         @click.stop
-                        class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="rfc-edit-title-{{ $rfc->request_check_id }}"
+                        class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <h3 id="rfc-edit-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">Edit {{ $rfc->request_check_form_number }}</h3>
-                            <button type="button" @click="editOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                                <i data-lucide="x" class="h-4 w-4"></i>
-                            </button>
+                            <div class="flex shrink-0 items-center gap-1">
+                                @include('purchaser.partials.modal-fullscreen-button')
+                                <button type="button" @click="editOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+                            </div>
                         </div>
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
-                            <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                                <p class="mx-auto mb-3 w-[297mm] max-w-full text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
+                            <div class="bg-slate-100 p-3 md:p-5">
+                                <p class="mb-3 text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
                                 @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc, 'signKey' => 'rfc-'.$rfc->request_check_id])
-                                <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mx-auto mt-4 w-[297mm] max-w-full"></div>
-                                <div class="mx-auto mt-4 w-[297mm] max-w-full rounded-lg bg-white p-4 text-sm">
+                                <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mt-4 w-full"></div>
+                                <div class="mt-4 rounded-lg bg-white p-4 text-sm">
                                     @foreach($rfcFiles as $file)
                                         <label class="mt-1 flex items-center gap-2">
                                             <input type="checkbox" name="delete_attachments[]" value="{{ $file->request_check_attachment_id }}">
@@ -685,14 +727,17 @@
                     </div>
                 </div>
             </div>
+            </template>
         @endif
     @endforeach
 
     {{-- PRINT EMPTY RFC MODAL --}}
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="emptyOpen"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         role="dialog"
@@ -700,26 +745,32 @@
         aria-labelledby="rfc-empty-title"
     >
         <div
-            x-on:click.self="emptyOpen = false"
+            x-on:click.self="emptyOpen = false; modalFullscreen = false"
             class="flex min-h-full w-full justify-center"
         >
-            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+            <div
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+            >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
                         <h3 id="rfc-empty-title" class="text-lg font-semibold text-gray-900">Print Empty RFC</h3>
                         <p class="mt-1 text-sm text-gray-500">Original blank Request for Check format.</p>
                     </div>
-                    <button
-                        type="button"
-                        x-on:click="emptyOpen = false"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                        aria-label="Close"
-                    >
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button
+                            type="button"
+                            x-on:click="emptyOpen = false; modalFullscreen = false"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                <div class="bg-slate-100 p-3 md:p-5">
                     @include('partials.request-check-paper', ['editable' => false, 'rfc' => null, 'printId' => 'rfc-print-blank'])
                 </div>
 
@@ -754,8 +805,11 @@
             </div>
         </div>
     </div>
+    </template>
 
-    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    <div id="purDocSignatureDock" class="hidden" aria-hidden="true">
+        @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    </div>
 </div>
 
 <style>

@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting.partials.flash')
 
-<div class="acc-page fade-in">
+<div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
         <div>
             <a href="/accounting/liquidation-reports?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to liquidation queue" aria-label="Back to liquidation queue">
@@ -32,42 +32,50 @@
                     <i data-lucide="pencil" class="h-4 w-4"></i>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.print()" data-tip="Print liquidation" aria-label="Print liquidation">
+            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print liquidation" aria-label="Print liquidation">
                 <i data-lucide="printer" class="h-4 w-4"></i>
             </button>
         </div>
     </div>
 
-    <div class="acc-review-grid">
-        <div>
-            <div class="acc-viewer">
-                <div class="acc-viewer-stage">
-                    <div class="acc-viewer-fit">
-                        @include('partials.liquidation-report-paper', ['editable' => false, 'liq' => $liq, 'rows' => $rows])
+    <div class="acc-review-body">
+        <div class="acc-review-grid">
+            <div>
+                <div class="acc-viewer">
+                    <div class="acc-viewer-stage">
+                        <div class="acc-viewer-fit">
+                            @include('partials.liquidation-report-paper', [
+                                'editable' => false,
+                                'liq' => $liq,
+                                'rows' => $rows,
+                                'printId' => 'acc-print-sheet',
+                                'accLiveSign' => !empty($reviewable),
+                            ])
+                        </div>
                     </div>
                 </div>
+                @if ($attachments->isNotEmpty())
+                    <div class="acc-attachments">
+                        <h3>Receipts and supporting documents</h3>
+                        <ul>
+                            @foreach ($attachments as $file)
+                                <li>
+                                    <a href="/accounting/liquidation-reports/{{ $liq->liquidation_report_id }}/attachments/{{ $file->liquidation_attachment_id }}">
+                                        {{ $file->liquidation_attachment_original_name }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </div>
-            @if ($attachments->isNotEmpty())
-                <div class="acc-attachments">
-                    <h3>Receipts and supporting documents</h3>
-                    <ul>
-                        @foreach ($attachments as $file)
-                            <li>
-                                <a href="/accounting/liquidation-reports/{{ $liq->liquidation_report_id }}/attachments/{{ $file->liquidation_attachment_id }}">
-                                    {{ $file->liquidation_attachment_original_name }}
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-        </div>
-        <div class="acc-side-stack">
-            @include('accounting.partials.related-docs', ['chain' => $chain])
-            @include('accounting.partials.history', ['history' => $history])
-            @if (!empty($liq->liquidation_report_revision_notes))
-                <div class="acc-note acc-note-info">Last revision note: {{ $liq->liquidation_report_revision_notes }}</div>
-            @endif
+            <div class="acc-side-stack">
+                @include('accounting.partials.related-docs', ['chain' => $chain, 'current' => 'liq'])
+                @include('accounting.partials.history', ['history' => $history])
+                @if (!empty($liq->liquidation_report_revision_notes))
+                    <div class="acc-note acc-note-info">Last revision note: {{ $liq->liquidation_report_revision_notes }}</div>
+                @endif
+            </div>
         </div>
     </div>
 </div>

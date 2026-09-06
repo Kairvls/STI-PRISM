@@ -75,9 +75,10 @@ class LiquidationReportController extends Controller
         $rrPrefill = $this->buildRrPrefill($eligibleRrs);
         $items = $this->itemsFor($reports->getCollection()->pluck('liquidation_report_id'));
         $attachments = $this->attachmentsFor($reports->getCollection()->pluck('liquidation_report_id'));
+        $savedSignatures = \App\Support\UserSignatureLibrary::forUser((int) auth()->id());
 
         return view('purchaser.liquidation-reports.index', compact(
-            'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments'
+            'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments', 'savedSignatures'
         ) + [
             'selectedRrId' => $request->query('selected_rr'),
             'viewLiqId' => $viewLiqId ?: null,
@@ -316,7 +317,8 @@ class LiquidationReportController extends Controller
             'liquidation_report_date_submitted' => ['nullable', 'date'],
             'liquidation_report_other_income' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'liquidation_report_cash_returned_or_no' => ['nullable', 'string', 'max:100'],
-            'liquidation_report_submitted_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'liquidation_report_submitted_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'liquidation_report_submitted_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'items' => ['nullable', 'array', 'max:20'],
             'items.*.particulars' => ['nullable', 'string', 'max:2000'],
             'items.*.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
@@ -353,7 +355,10 @@ class LiquidationReportController extends Controller
             'liquidation_report_days_lapse' => $this->daysLapsed($validated['liquidation_report_submission_deadline'] ?? null, $submittedDate),
             'liquidation_report_other_income' => $validated['liquidation_report_other_income'] ?? null,
             'liquidation_report_cash_returned_or_no' => $validated['liquidation_report_cash_returned_or_no'] ?? null,
-            'liquidation_report_submitted_by_signature' => $validated['liquidation_report_submitted_by_signature'] ?? (auth()->user()->user_full_name ?? null),
+            'liquidation_report_submitted_by_signature' => \App\Support\RisWorkflow::drawnOrName(
+                $validated['liquidation_report_submitted_by_signature'] ?? null,
+                trim((string) ($validated['liquidation_report_submitted_by_name'] ?? (auth()->user()->user_full_name ?? '')))
+            ),
             'liquidation_report_submitted_by_date' => $submittedDate,
             'liquidation_report_status' => $status,
             'liquidation_report_review_stage' => $isDraft ? ($existing->liquidation_report_review_stage ?? null) : 'accounting',

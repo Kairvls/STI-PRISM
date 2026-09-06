@@ -11,11 +11,34 @@
         viewOpen: {{ !empty($viewLiqId) ? 'true' : 'false' }},
         editOpen: false,
         emptyOpen: false,
+        modalFullscreen: false,
         selectedLiq: {{ !empty($viewLiqId) ? (int) $viewLiqId : 'null' }},
         rrPrefill: JSON.parse(document.getElementById('liq-rr-prefill').textContent || '{}'),
-        openView(id) { this.selectedLiq = id; this.viewOpen = true; this.editOpen = false; },
-        openEdit(id) { this.selectedLiq = id; this.editOpen = true; this.viewOpen = false; },
-        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.selectedLiq = null; },
+        openView(id) { this.selectedLiq = id; this.viewOpen = true; this.editOpen = false; this.modalFullscreen = false; },
+        openEdit(id) {
+            this.selectedLiq = id;
+            this.editOpen = true;
+            this.viewOpen = false;
+            this.modalFullscreen = false;
+            this.bindDocSig('liq-' + id, 'Submitted by signature');
+        },
+        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedLiq = null; },
+        bindDocSig(key, title) {
+            this.$nextTick(() => {
+                if (window.purchaserDocumentSignature) {
+                    window.purchaserDocumentSignature.bind({
+                        key: key,
+                        hiddenId: 'purSigImage-' + key,
+                        nameId: 'purSigName-' + key,
+                        previewId: 'purSigOverlay-' + key,
+                        slotId: 'purSigSlot-' + key,
+                        title: title || 'Purchaser signature',
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
+                    });
+                }
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
         applyRrPrefill(rrId) {
             const data = this.rrPrefill[String(rrId)];
             const form = this.$refs.createForm;
@@ -54,8 +77,11 @@
         }
     }"
     x-init="
-        if (createOpen && '{{ $selectedRrId ?? '' }}') {
-            $nextTick(() => applyRrPrefill('{{ $selectedRrId ?? '' }}'));
+        if (createOpen) {
+            $nextTick(() => {
+                bindDocSig('liq-create', 'Submitted by signature');
+                if ('{{ $selectedRrId ?? '' }}') applyRrPrefill('{{ $selectedRrId ?? '' }}');
+            });
         }
     "
     @keydown.escape.window="closeAll()"
@@ -91,7 +117,7 @@
                 </button>
                 <button
                     type="button"
-                    @click="createOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                    @click="createOpen = true; modalFullscreen = false; bindDocSig('liq-create', 'Submitted by signature'); $nextTick(() => window.lucide && window.lucide.createIcons())"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -324,10 +350,13 @@
     </div>
 
     {{-- PRINT EMPTY LR MODAL --}}
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="emptyOpen"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         role="dialog"
@@ -335,10 +364,13 @@
         aria-labelledby="liq-empty-title"
     >
         <div
-            x-on:click.self="emptyOpen = false"
+            x-on:click.self="emptyOpen = false; modalFullscreen = false"
             class="flex min-h-full w-full justify-center"
         >
-            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+            <div
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+            >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-5">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
@@ -349,17 +381,20 @@
                             <p class="mt-0.5 text-sm text-gray-500">Original blank Liquidation Report format.</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        x-on:click="emptyOpen = false"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                        aria-label="Close"
-                    >
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button
+                            type="button"
+                            x-on:click="emptyOpen = false; modalFullscreen = false"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                <div class="bg-slate-100 p-3 md:p-5">
                     @include('partials.liquidation-report-paper', [
                         'editable' => false,
                         'liq' => null,
@@ -400,22 +435,30 @@
             </div>
         </div>
     </div>
+    </template>
 
+    {{-- CREATE LIQ MODAL (outer scroll, same shell as RFC) --}}
+    <template x-teleport="body">
     <div
         x-show="createOpen"
         x-cloak
-        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="liq-create-title"
     >
-        <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
-        <div class="relative flex min-h-full items-center justify-center p-4">
+        <div
+            x-on:click.self="createOpen = false; modalFullscreen = false"
+            class="flex min-h-full w-full justify-center"
+        >
             <div
                 @click.stop
-                class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="liq-create-title"
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -427,19 +470,24 @@
                             <p class="mt-0.5 text-sm text-gray-500">Select a completed Receiving Report.</p>
                         </div>
                     </div>
-                    <button type="button" @click="createOpen=false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button type="button" @click="createOpen=false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
-                @if($eligibleRrs->isEmpty())
-                    <div class="p-6 text-sm text-gray-600">No completed Receiving Report is available.</div>
-                @else
-                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
-                        @csrf
-                        <input type="hidden" name="save_action" value="draft">
-                        <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                            <div class="mx-auto mb-4 w-[297mm] max-w-full">
-                                <label class="text-xs text-gray-500">Completed Receiving Report</label>
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                    @csrf
+                    <input type="hidden" name="save_action" value="draft">
+                    <div class="bg-slate-100 p-3 md:p-5">
+                        @if($eligibleRrs->isEmpty())
+                            <div class="mx-auto mb-4 w-full max-w-[1095px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                No completed Receiving Report is available. You can still fill out and save this Liquidation as a draft, then link a completed RR later before submitting.
+                            </div>
+                        @else
+                            <div class="mx-auto mb-4 w-full max-w-[1095px]">
+                                <label class="text-xs text-gray-500">Completed Receiving Report <span class="font-normal text-gray-400">(optional for draft)</span></label>
                                 <select name="liquidation_report_receiving_report_id" x-on:change="applyRrPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select RR</option>
                                     @foreach($eligibleRrs as $rr)
@@ -449,21 +497,30 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => null, 'rows' => collect()])
-                            <div class="mx-auto mt-3 w-[297mm] max-w-full rounded bg-white p-3 text-sm">
-                                <label>Supporting documents (PDF, JPG, PNG · 5MB)</label>
-                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full">
-                            </div>
+                        @endif
+                        @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => null, 'rows' => collect(), 'signKey' => 'liq-create'])
+                        <div class="mx-auto mt-3 w-full max-w-[1095px] rounded bg-white p-3 text-sm">
+                            <label>Supporting documents (PDF, JPG, PNG · 5MB)</label>
+                            <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full">
                         </div>
-                        <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
-                        </div>
-                    </form>
-                @endif
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
+                        <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
+                        <button type="submit" onclick="
+                            this.form.save_action.value='submit';
+                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                event.preventDefault();
+                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                else alert('Draw or upload your signature before submitting.');
+                            }
+                        " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800" @if($eligibleRrs->isEmpty()) disabled title="Link a completed Receiving Report before submitting" @endif>Save & Submit</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+    </template>
 
     @foreach($reports as $liq)
         @php
@@ -471,16 +528,28 @@
             $liqFiles = $attachments->get($liq->liquidation_report_id, collect());
             $canEdit = in_array($liq->liquidation_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
         @endphp
+        <template x-teleport="body">
         <div
             x-show="viewOpen && selectedLiq === {{ $liq->liquidation_report_id }}"
             x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto"
+            x-transition.opacity
+            class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
             x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedLiq === {{ $liq->liquidation_report_id }}, $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="liq-view-title-{{ $liq->liquidation_report_id }}"
         >
-            <div class="fixed inset-0 bg-black/40" @click="viewOpen=false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="liq-view-title-{{ $liq->liquidation_report_id }}">
+            <div
+                x-on:click.self="viewOpen = false; modalFullscreen = false"
+                class="flex min-h-full w-full justify-center"
+            >
+                <div
+                    @click.stop
+                    class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div>
                             <div class="flex items-center gap-3">
@@ -504,11 +573,14 @@
                                 ])
                             </div>
                         </div>
-                        <button type="button" @click="viewOpen=false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('purchaser.partials.modal-fullscreen-button')
+                            <button type="button" @click="viewOpen=false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
+                    <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.liquidation-report-paper', ['editable' => false, 'liq' => $liq, 'rows' => $liqItems, 'printId' => 'liq-print-'.$liq->liquidation_report_id])
                     </div>
                     <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
@@ -520,22 +592,29 @@
                 </div>
             </div>
         </div>
+        </template>
         @if($canEdit)
+            <template x-teleport="body">
             <div
                 x-show="editOpen && selectedLiq === {{ $liq->liquidation_report_id }}"
                 x-cloak
-                class="fixed inset-0 z-50 overflow-y-auto"
+                x-transition.opacity
+                class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+                :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
                 x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedLiq === {{ $liq->liquidation_report_id }}, $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="liq-edit-title-{{ $liq->liquidation_report_id }}"
             >
-                <div class="fixed inset-0 bg-black/40" @click="editOpen=false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div
+                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    class="flex min-h-full w-full justify-center"
+                >
                     <div
                         @click.stop
-                        class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="liq-edit-title-{{ $liq->liquidation_report_id }}"
+                        class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.update', $liq->liquidation_report_id) }}" enctype="multipart/form-data">
                             @csrf @method('PUT')
@@ -548,27 +627,42 @@
                                     </div>
                                     <h3 id="liq-edit-title-{{ $liq->liquidation_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">Edit {{ $liq->liquidation_report_form_number }}</h3>
                                 </div>
-                                <button type="button" @click="editOpen=false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                </button>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    @include('purchaser.partials.modal-fullscreen-button')
+                                    <button type="button" @click="editOpen=false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                        <i data-lucide="x" class="h-4 w-4"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                                @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => $liq, 'rows' => $liqItems])
+                            <div class="bg-slate-100 p-3 md:p-5">
+                                @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => $liq, 'rows' => $liqItems, 'signKey' => 'liq-'.$liq->liquidation_report_id])
                                 @foreach($liqFiles as $file)
-                                    <label class="mx-auto mt-1 flex w-[297mm] max-w-full items-center gap-2 text-sm"><input type="checkbox" name="delete_attachments[]" value="{{ $file->liquidation_attachment_id }}"> Remove {{ $file->liquidation_attachment_original_name }}</label>
+                                    <label class="mx-auto mt-1 flex w-full max-w-[1095px] items-center gap-2 text-sm"><input type="checkbox" name="delete_attachments[]" value="{{ $file->liquidation_attachment_id }}"> Remove {{ $file->liquidation_attachment_original_name }}</label>
                                 @endforeach
-                                <input type="file" name="attachments[]" multiple class="mx-auto mt-2 block w-[297mm] max-w-full text-sm">
+                                <input type="file" name="attachments[]" multiple class="mx-auto mt-2 block w-full max-w-[1095px] text-sm">
                             </div>
                             <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                                 <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Update Draft</button>
-                                <button type="submit" onclick="this.form.save_action.value='submit'" class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
+                                <button type="submit" onclick="
+                                    this.form.save_action.value='submit';
+                                    if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                        event.preventDefault();
+                                        if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                        else alert('Draw or upload your signature before submitting.');
+                                    }
+                                " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
                             </div>
                         </form>
                     </div>
                 </div>
             </div>
+            </template>
         @endif
     @endforeach
+
+    <div id="purDocSignatureDock" class="hidden" aria-hidden="true">
+        @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    </div>
 </div>
 <style>
 [x-cloak]{display:none!important}

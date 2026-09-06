@@ -5,7 +5,10 @@
     $signSecondCount = $signSecondCount ?? false;
     $rr = $rr ?? null;
     $rows = $rows ?? collect();
-    $dateValue = old('receiving_report_date', $rr?->receiving_report_date ?? '');
+    $dateValue = old(
+        'receiving_report_date',
+        $rr?->receiving_report_date ?? ($editable && !$rr ? now()->format('Y-m-d') : '')
+    );
     $fromValue = old('receiving_report_received_from', $rr?->receiving_report_received_from ?? '');
     $addressValue = old('receiving_report_supplier_address_override', $rr?->receiving_report_supplier_address_override ?? '');
     $invoiceValue = old('receiving_report_invoice_no', $rr?->receiving_report_invoice_no ?? '');
@@ -30,18 +33,50 @@
     $secondCount = $rr?->receiving_report_second_count_signature ?? $rr?->receiving_report_second_count_by ?? '';
     $officerName = $officerName ?? (auth()->user()->user_full_name ?? 'Receiving Officer');
     $signSuffix = $signSuffix ?? (string) ($rr?->receiving_report_id ?? 'sc');
-    $formNo = $rr?->receiving_report_form_number ?? '';
+    $suggestedRrFormNumber = $suggestedRrFormNumber ?? '0000001';
+    if (old('receiving_report_form_number') !== null) {
+        $formNo = (string) old('receiving_report_form_number');
+    } elseif ($rr) {
+        $existingNo = trim((string) ($rr->receiving_report_form_number ?? ''));
+        if (preg_match('/^\d{7}$/', $existingNo)) {
+            $formNo = $existingNo;
+        } elseif (preg_match('/(\d+)$/', $existingNo, $m)) {
+            $seq = (int) $m[1];
+            if ($seq > 9999999) {
+                $seq = (int) substr((string) $seq, -7);
+            }
+            $formNo = str_pad((string) $seq, 7, '0', STR_PAD_LEFT);
+        } else {
+            $formNo = $existingNo;
+        }
+    } else {
+        $formNo = $editable ? $suggestedRrFormNumber : '';
+    }
     $oldItems = old('items');
 @endphp
 
 <div
     @if(!empty($printId)) id="{{ $printId }}" @endif
-    class="rr-print-sheet mx-auto w-[210mm] max-w-full bg-white px-10 pb-5 pt-8 text-[13px] text-black shadow {{ $printClass ?? '' }}"
+    class="rr-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-5 pt-8 text-[13px] text-black shadow {{ $printClass ?? '' }}"
     style="min-height: 0; height: auto;"
 >
     <div class="relative">
-        <div class="absolute left-0 top-0 text-sm font-semibold text-red-700">
-            № {{ $formNo ?: '______' }}
+        <div class="absolute left-0 top-0 flex items-end gap-1 text-sm font-semibold text-red-700">
+            <span>№</span>
+            @if($editable)
+                <input
+                    type="text"
+                    name="receiving_report_form_number"
+                    value="{{ $formNo }}"
+                    maxlength="7"
+                    inputmode="numeric"
+                    pattern="\d{7}"
+                    title="7-digit Receiving Report number"
+                    class="w-24 border-0 bg-transparent px-0 font-semibold text-red-700 outline-none"
+                >
+            @else
+                <span>{{ $formNo ?: '______' }}</span>
+            @endif
         </div>
         <div class="text-center">
             <div class="text-lg font-bold">STI-College - ORMOC, INC.</div>
@@ -207,23 +242,25 @@
         <div class="text-left">
             <div class="font-semibold">Second Count:</div>
             @if($signSecondCount)
-                <div
-                    id="scSigPreview-{{ $signSuffix }}"
-                    class="mt-6 flex min-h-[2.5rem] w-56 flex-col items-center justify-end gap-0.5 border-b border-black pb-1"
-                    style="display:none;"
-                ></div>
-                <input
-                    type="text"
-                    name="second_count_by"
-                    id="scName-{{ $signSuffix }}"
-                    value="{{ old('second_count_by', $officerName) }}"
-                    required
-                    maxlength="255"
-                    autocomplete="off"
-                    class="mt-6 block w-56 border-0 border-b border-black bg-transparent text-center text-sm font-medium outline-none"
-                    title="Receiving Officer name for Second Count"
-                >
-                <div class="mt-1 w-56 text-center text-[10px] font-semibold text-slate-500">Name is required · add signature above (draw / upload / saved)</div>
+                <div class="relative mt-6 w-56">
+                    <img
+                        id="scSigOverlay-{{ $signSuffix }}"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <input
+                        type="text"
+                        name="second_count_by"
+                        id="scName-{{ $signSuffix }}"
+                        value="{{ old('second_count_by', $officerName) }}"
+                        required
+                        maxlength="255"
+                        autocomplete="off"
+                        class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm font-medium outline-none"
+                        title="Receiving Officer name for Second Count"
+                    >
+                </div>
                 <div class="mt-3 text-xs font-semibold">Date:</div>
                 <div class="mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
                     {{ now()->format('d/m/Y') }}
@@ -243,29 +280,31 @@
             <div class="w-56 text-left">
                 <div class="font-semibold">Received by:</div>
                 @if($editable)
-                    <div
-                        id="purSigPreview-{{ $signKey }}"
-                        class="relative mt-6 flex min-h-[2.5rem] w-full items-end justify-center border-b border-black pb-1"
-                        style="display:none;"
-                    ></div>
-                    <input
-                        type="text"
-                        name="receiving_report_received_by_name"
-                        id="purSigName-{{ $signKey }}"
-                        value="{{ $receivedByName }}"
-                        maxlength="255"
-                        autocomplete="off"
-                        class="mt-10 block w-full border-0 border-b border-black bg-transparent text-center outline-none"
-                    >
-                    <input
-                        type="hidden"
-                        name="receiving_report_received_by_signature"
-                        id="purSigImage-{{ $signKey }}"
-                        value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
-                    >
-                    <div class="mt-1 w-full text-center text-[10px] text-slate-500">Signature overlays printed name · use panel below</div>
+                    <div class="relative mt-6 w-full">
+                        <img
+                            id="purSigOverlay-{{ $signKey }}"
+                            alt=""
+                            class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                            style="display:none;"
+                        >
+                        <input
+                            type="text"
+                            name="receiving_report_received_by_name"
+                            id="purSigName-{{ $signKey }}"
+                            value="{{ $receivedByName }}"
+                            maxlength="255"
+                            autocomplete="off"
+                            class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                        >
+                        <input
+                            type="hidden"
+                            name="receiving_report_received_by_signature"
+                            id="purSigImage-{{ $signKey }}"
+                            value="{{ \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature) ? $receivedBySignature : '' }}"
+                        >
+                    </div>
                 @else
-                    <div class="mt-10 w-full border-b border-black pb-1 min-h-[1.5rem]">
+                    <div class="relative mt-6 w-full border-b border-black pb-1 min-h-[2.5rem]">
                         @include('partials.drawn-signature', [
                             'value' => $receivedBySignature ?: $legacyReceivedSig,
                             'printedName' => $receivedByName,

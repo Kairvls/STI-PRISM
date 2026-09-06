@@ -13,6 +13,7 @@
         viewOpen: {{ !empty($viewRrId) ? 'true' : 'false' }},
         editOpen: false,
         emptyOpen: false,
+        modalFullscreen: false,
         selectedRr: {{ !empty($viewRrId) ? (int) $viewRrId : 'null' }},
         rfcPrefill: JSON.parse(document.getElementById('rr-rfc-prefill').textContent || '{}'),
         cashAdvancePath: 'cash_advance',
@@ -22,15 +23,17 @@
             return data && data.payment_path === this.cashAdvancePath;
         },
 
-        openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; },
+        openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; this.modalFullscreen = false; },
         openEdit(id) {
             this.selectedRr = id;
             this.editOpen = true;
             this.viewOpen = false;
+            this.modalFullscreen = false;
             this.bindDocSig('rr-' + id, 'Received by signature');
         },
         openCreate() {
             this.createOpen = true;
+            this.modalFullscreen = false;
             this.bindDocSig('rr-create', 'Received by signature');
         },
         bindDocSig(key, title) {
@@ -40,16 +43,16 @@
                         key: key,
                         hiddenId: 'purSigImage-' + key,
                         nameId: 'purSigName-' + key,
-                        previewId: 'purSigPreview-' + key,
+                        previewId: 'purSigOverlay-' + key,
                         slotId: 'purSigSlot-' + key,
                         title: title || 'Purchaser signature',
-                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name.'
+                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
                     });
                 }
                 if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
             });
         },
-        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.selectedRr = null; },
+        closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedRr = null; },
 
         applyRfcPrefill(rfcId) {
             const data = this.rfcPrefill[String(rfcId)];
@@ -375,21 +378,28 @@
         </div>
     </div>
 
+    {{-- CREATE RR MODAL (outer scroll, same shell as ATP/RIS) --}}
+    <template x-teleport="body">
     <div
         x-show="createOpen"
         x-cloak
-        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(createOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rr-create-title"
     >
-        <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
-        <div class="relative flex min-h-full items-center justify-center p-4">
+        <div
+            x-on:click.self="createOpen = false; modalFullscreen = false"
+            class="flex min-h-full w-full justify-center"
+        >
             <div
                 @click.stop
-                class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="rr-create-title"
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -401,9 +411,12 @@
                             <p class="mt-0.5 text-sm text-gray-500">Select an approved Request for Check.</p>
                         </div>
                     </div>
-                    <button type="button" @click="createOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
                 @if($eligibleRfcs->isEmpty())
                     <div class="p-6 text-sm text-gray-600">No approved Request for Check is available.</div>
@@ -411,8 +424,8 @@
                     <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.store') }}" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
-                        <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
-                            <div class="mx-auto mb-4 w-[210mm] max-w-full">
+                        <div class="bg-slate-100 p-3 md:p-5">
+                            <div class="mx-auto mb-4 w-full max-w-[1095px]">
                                 <label class="text-xs font-medium text-gray-500">Approved Request for Check</label>
                                 <select name="receiving_report_request_check_id" x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select RFC</option>
@@ -423,8 +436,16 @@
                                     @endforeach
                                 </select>
                             </div>
-                            @include('partials.receiving-report-paper', ['editable' => true, 'rr' => null, 'rows' => collect(), 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect(), 'signKey' => 'rr-create'])
-                            <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
+                            @include('partials.receiving-report-paper', [
+                                'editable' => true,
+                                'rr' => null,
+                                'rows' => collect(),
+                                'allowMultiSupplier' => true,
+                                'suppliers' => $suppliers ?? collect(),
+                                'signKey' => 'rr-create',
+                                'suggestedRrFormNumber' => $suggestedRrFormNumber ?? '0000001',
+                            ])
+                            <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>
                         <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                             <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
@@ -442,22 +463,35 @@
             </div>
         </div>
     </div>
+    </template>
 
     @foreach($reports as $rr)
         @php
             $rrItems = $items->get($rr->receiving_report_id, collect())->values();
             $canEdit = in_array($rr->receiving_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
         @endphp
+        <template x-teleport="body">
         <div
             x-show="viewOpen && selectedRr === {{ $rr->receiving_report_id }}"
             x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto"
+            x-transition.opacity
+            class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+            :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
             x-effect="window.purDialog && window.purDialog.sync(viewOpen && selectedRr === {{ $rr->receiving_report_id }}, $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rr-view-title-{{ $rr->receiving_report_id }}"
         >
-            <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl" role="dialog" aria-modal="true" aria-labelledby="rr-view-title-{{ $rr->receiving_report_id }}">
+            <div
+                x-on:click.self="viewOpen = false; modalFullscreen = false"
+                class="flex min-h-full w-full justify-center"
+            >
+                <div
+                    @click.stop
+                    class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div>
                             <div class="flex items-center gap-3">
@@ -483,11 +517,14 @@
                             @if($rr->receiving_report_revision_notes)<p class="mt-2 text-sm text-amber-700">Revision: {{ $rr->receiving_report_revision_notes }}</p>@endif
                             @if($rr->receiving_report_return_reason)<p class="mt-2 text-sm text-red-700">Returned: {{ $rr->receiving_report_return_reason }}</p>@endif
                         </div>
-                        <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('purchaser.partials.modal-fullscreen-button')
+                            <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
+                    <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
                     </div>
                     <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
@@ -508,22 +545,29 @@
                 </div>
             </div>
         </div>
+        </template>
         @if($canEdit)
+            <template x-teleport="body">
             <div
                 x-show="editOpen && selectedRr === {{ $rr->receiving_report_id }}"
                 x-cloak
-                class="fixed inset-0 z-50 overflow-y-auto"
+                x-transition.opacity
+                class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+                :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
                 x-effect="window.purDialog && window.purDialog.sync(editOpen && selectedRr === {{ $rr->receiving_report_id }}, $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rr-edit-title-{{ $rr->receiving_report_id }}"
             >
-                <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div
+                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    class="flex min-h-full w-full justify-center"
+                >
                     <div
                         @click.stop
-                        class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="rr-edit-title-{{ $rr->receiving_report_id }}"
+                        class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                             <div class="flex items-center gap-3">
@@ -532,18 +576,21 @@
                                 </div>
                                 <h3 id="rr-edit-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">Edit {{ $rr->receiving_report_form_number }}</h3>
                             </div>
-                            <button type="button" @click="editOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-                                <i data-lucide="x" class="h-4 w-4"></i>
-                            </button>
+                            <div class="flex shrink-0 items-center gap-1">
+                                @include('purchaser.partials.modal-fullscreen-button')
+                                <button type="button" @click="editOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+                            </div>
                         </div>
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
                             <input type="hidden" name="receiving_report_request_check_id" value="{{ $rr->receiving_report_request_check_id }}">
-                            <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
+                            <div class="bg-slate-100 p-3 md:p-5">
                                 @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems, 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect(), 'signKey' => 'rr-'.$rr->receiving_report_id])
-                                <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-[210mm] max-w-full"></div>
+                                <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                             </div>
                             <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                                 <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Update Draft</button>
@@ -560,14 +607,18 @@
                     </div>
                 </div>
             </div>
+            </template>
         @endif
     @endforeach
 
     {{-- PRINT EMPTY RR MODAL --}}
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="emptyOpen"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        x-transition.opacity
+        class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/50"
+        :class="modalFullscreen ? 'p-0' : 'p-3 sm:p-4 md:p-6'"
         x-effect="window.purDialog && window.purDialog.sync(emptyOpen, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         role="dialog"
@@ -575,10 +626,13 @@
         aria-labelledby="rr-empty-title"
     >
         <div
-            x-on:click.self="emptyOpen = false"
+            x-on:click.self="emptyOpen = false; modalFullscreen = false"
             class="flex min-h-full w-full justify-center"
         >
-            <div class="my-auto w-full max-w-6xl rounded-xl bg-white shadow-2xl">
+            <div
+                class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+            >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-5">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
@@ -589,17 +643,20 @@
                             <p class="mt-0.5 text-sm text-gray-500">Original blank Receiving Report format.</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        x-on:click="emptyOpen = false"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                        aria-label="Close"
-                    >
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1">
+                        @include('purchaser.partials.modal-fullscreen-button')
+                        <button
+                            type="button"
+                            x-on:click="emptyOpen = false; modalFullscreen = false"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto bg-gray-100 p-5 md:p-8">
+                <div class="bg-slate-100 p-3 md:p-5">
                     @include('partials.receiving-report-paper', ['editable' => false, 'rr' => null, 'rows' => collect(), 'printId' => 'rr-print-blank'])
                 </div>
 
@@ -635,8 +692,11 @@
             </div>
         </div>
     </div>
+    </template>
 
-    @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    <div id="purDocSignatureDock" class="hidden" aria-hidden="true">
+        @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
+    </div>
 </div>
 
 <style>

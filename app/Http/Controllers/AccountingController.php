@@ -345,6 +345,77 @@ class AccountingController extends Controller
         ));
     }
 
+    /**
+     * Read-only RIS (and supporting docs) for Accounting related-document chain.
+     */
+    public function showRis(Request $request, $id)
+    {
+        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $id)->first();
+        abort_if(!$ris, 404);
+
+        $risItems = $this->risItemsWithLookups([(int) $id])->values();
+
+        $attachments = Schema::hasTable('ris_attachments_table')
+            ? DB::table('ris_attachments_table')
+                ->where('ris_id', $id)
+                ->orderBy('ris_attachment_original_name')
+                ->get()
+            : collect();
+
+        $atp = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $id)
+            ->orderByDesc('authority_purchase_id')
+            ->first();
+
+        $chain = $atp
+            ? $this->chainFromAtp((int) $atp->authority_purchase_id)
+            : [
+                'ris' => [
+                    'label' => $ris->ris_form_number ?: ('RIS #' . $id),
+                    'url' => route('accounting.ris.show', $id),
+                    'status' => $ris->ris_status ?? null,
+                ],
+                'atp' => null,
+                'rfc' => null,
+                'funds' => null,
+                'rr' => null,
+                'liq' => null,
+            ];
+
+        $history = $this->documentHistory('RIS', (int) $id);
+        $backUrl = $atp
+            ? '/accounting/authority-to-purchase/' . $atp->authority_purchase_id
+            : '/accounting/authority-to-purchase';
+
+        return view('accounting.ris.show', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+            'attachments' => $attachments,
+            'chain' => $chain,
+            'history' => $history,
+            'backUrl' => $backUrl,
+            'presidentName' => 'President',
+        ]);
+    }
+
+    public function downloadRisAttachment($id, $attachmentId)
+    {
+        abort_unless(Schema::hasTable('ris_attachments_table'), 404);
+
+        $file = DB::table('ris_attachments_table')
+            ->where('ris_id', $id)
+            ->where('ris_attachment_id', $attachmentId)
+            ->first();
+        abort_if(!$file, 404);
+
+        $path = storage_path('app/public/' . $file->ris_attachment_path);
+        abort_unless(is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Disposition' => 'inline; filename="' . $file->ris_attachment_original_name . '"',
+        ]);
+    }
+
     public function approveAtp(Request $request, $id)
     {
         return DB::transaction(function () use ($request, $id) {
@@ -1653,7 +1724,7 @@ class AccountingController extends Controller
                 $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
                 $chain['ris'] = [
                     'label' => $ris->ris_form_number ?? ('RIS #' . $atp->authority_purchase_ris_id),
-                    'url' => null,
+                    'url' => route('accounting.ris.show', $atp->authority_purchase_ris_id),
                     'status' => $ris->ris_status ?? null,
                 ];
             }
@@ -1672,7 +1743,7 @@ class AccountingController extends Controller
                 ];
                 $chain['funds'] = [
                     'label' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Not released',
-                    'url' => '/accounting/request-check/' . $rfc->request_check_id,
+                    'url' => '/accounting/request-check/' . $rfc->request_check_id . '?view=funds',
                     'status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Pending',
                 ];
 
@@ -1711,6 +1782,42 @@ class AccountingController extends Controller
         }
 
         return $chain;
+    }
+
+    private function risItemsWithLookups(array $risIds)
+    {
+        $query = DB::table('requisition_issue_slip_items_table')
+            ->whereIn('requisition_issue_slip_items_table.ris_id', $risIds)
+            ->orderBy('ris_item_id');
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (Schema::hasTable('uom_table') && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')) {
+            $query->leftJoin('uom_table', 'uom_table.uom_id', '=', 'requisition_issue_slip_items_table.ris_item_uom_id');
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (Schema::hasTable('brands_table') && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')) {
+            $query->leftJoin('brands_table', 'brands_table.brand_id', '=', 'requisition_issue_slip_items_table.ris_item_brand_id');
+            $select[] = 'brands_table.brand_name';
+        }
+
+        if (Schema::hasTable('suppliers_table') && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
+            $query
+                ->leftJoin('suppliers_table', 'suppliers_table.supplier_id', '=', 'requisition_issue_slip_items_table.ris_item_supplier_id')
+                ->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'suppliers_table.supplier_id')
+                ->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'suppliers_table.supplier_id');
+
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
+        }
+
+        return $query->select($select)->get();
     }
 
     private function documentHistory(string $type, int $id)

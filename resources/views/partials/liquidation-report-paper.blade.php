@@ -6,7 +6,7 @@
     $fmt = fn ($v) => $v === null || $v === '' ? '' : number_format((float) $v, 2);
 @endphp
 
-<div @if(!empty($printId)) id="{{ $printId }}" @endif class="liq-print-sheet mx-auto w-[297mm] max-w-full bg-white px-10 py-8 text-[12px] leading-relaxed text-black shadow {{ $printClass ?? '' }}">
+<div @if(!empty($printId)) id="{{ $printId }}" @endif class="liq-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 py-8 text-[12px] leading-relaxed text-black shadow {{ $printClass ?? '' }}">
     <div class="text-center text-[15px] font-bold tracking-wide">LIQUIDATION REPORT For CASH ADVANCES</div>
 
     {{-- Header meta (two columns, Excel-like spacing) --}}
@@ -135,6 +135,20 @@
     </div>
 
     {{-- Signatures stacked vertically like Excel (not a 2×2 grid) --}}
+    @php
+        $signKey = $signKey ?? ($liq?->liquidation_report_id ? 'liq-'.$liq->liquidation_report_id : 'liq-create');
+        $submittedSigRaw = old(
+            'liquidation_report_submitted_by_signature',
+            $liq?->liquidation_report_submitted_by_signature ?? ''
+        );
+        $submittedName = old(
+            'liquidation_report_submitted_by_name',
+            \App\Support\RisWorkflow::isDrawnSignature((string) $submittedSigRaw)
+                ? trim((string) ($liq?->liquidation_report_employee_name ?? auth()->user()->user_full_name ?? ''))
+                : trim((string) ($submittedSigRaw !== '' ? $submittedSigRaw : (auth()->user()->user_full_name ?? '')))
+        );
+        $submittedImage = \App\Support\RisWorkflow::isDrawnSignature((string) $submittedSigRaw) ? $submittedSigRaw : '';
+    @endphp
     <div class="mt-14 space-y-10">
         <div class="max-w-xl">
             <div class="flex items-start justify-between gap-8">
@@ -147,9 +161,38 @@
                 </div>
             </div>
             @if($editable)
-                <input type="text" name="liquidation_report_submitted_by_signature" value="{{ old('liquidation_report_submitted_by_signature', $liq?->liquidation_report_submitted_by_signature ?? (auth()->user()->user_full_name ?? '')) }}" class="mt-5 w-full border-0 border-b border-black bg-transparent outline-none">
+                <div class="relative mt-5 w-full">
+                    <img
+                        id="purSigOverlay-{{ $signKey }}"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <input
+                        type="text"
+                        name="liquidation_report_submitted_by_name"
+                        id="purSigName-{{ $signKey }}"
+                        value="{{ $submittedName }}"
+                        maxlength="255"
+                        autocomplete="off"
+                        class="relative z-[1] w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                    >
+                    <input
+                        type="hidden"
+                        name="liquidation_report_submitted_by_signature"
+                        id="purSigImage-{{ $signKey }}"
+                        value="{{ $submittedImage }}"
+                    >
+                </div>
+                <div id="purSigSlot-{{ $signKey }}" class="mt-3 w-full"></div>
             @else
-                <div class="mt-5 min-h-[1.75rem] border-b border-black pb-1">{{ $liq?->liquidation_report_submitted_by_signature ?? '' }}</div>
+                <div class="relative mt-5 min-h-[2.5rem] border-b border-black pb-1">
+                    @include('partials.drawn-signature', [
+                        'value' => $submittedSigRaw,
+                        'printedName' => $submittedName,
+                        'empty' => $submittedName,
+                    ])
+                </div>
             @endif
             <div class="mt-1 text-[11px] italic">(Name of employee)</div>
         </div>
@@ -164,11 +207,26 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-5 min-h-[1.75rem] border-b border-black pb-1">
-                @include('partials.drawn-signature', [
-                    'value' => $liq?->liquidation_report_checked_by_accountant ?? '',
-                    'printedName' => \App\Support\AccountingSigner::forLiq($liq),
-                ])
+            <div
+                class="relative mt-5 min-h-[2.5rem] border-b border-black pb-1 flex items-end justify-center"
+                @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
+            >
+                @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($liq?->liquidation_report_checked_by_accountant ?? '')))
+                    <img
+                        id="accPaperSigOverlay"
+                        alt=""
+                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
+                        style="display:none;"
+                    >
+                    <span id="accPaperSigPrintedName" class="relative z-[1] text-center text-xs font-medium leading-5">
+                        {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                    </span>
+                @else
+                    @include('partials.drawn-signature', [
+                        'value' => $liq?->liquidation_report_checked_by_accountant ?? '',
+                        'printedName' => \App\Support\AccountingSigner::forLiq($liq),
+                    ])
+                @endif
             </div>
             <div class="mt-1 text-[11px] italic">(Accountant)</div>
         </div>
