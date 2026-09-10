@@ -17,16 +17,16 @@
 <div class="ris-signature-column">
     <div class="ris-signature-label">{{ $approvedLabel }}</div>
     <div class="ris-signature-line ris-value-line">
-        @if ($approvedImage !== '')
-            <img src="{{ $approvedImage }}" alt="{{ rtrim($approvedLabel, ':') }} signature" class="signature-image">
+        <span class="signature-name-stack">
+            @if ($approvedImage !== '')
+                <img src="{{ $approvedImage }}" alt="{{ rtrim($approvedLabel, ':') }} signature" class="signature-image">
+            @endif
             @if ($approvedName !== '')
                 <span class="signature-name">{{ $approvedName }}</span>
+            @elseif ($approvedImage === '')
+                {{ ' ' }}
             @endif
-        @elseif ($approvedName !== '')
-            <span class="signature-name">{{ $approvedName }}</span>
-        @else
-            {{ ' ' }}
-        @endif
+        </span>
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">
@@ -37,16 +37,16 @@
 <div class="ris-signature-column">
     <div class="ris-signature-label">Issued by:</div>
     <div class="ris-signature-line ris-value-line">
-        @if ($issuedImage !== '')
-            <img src="{{ $issuedImage }}" alt="Issued by signature" class="signature-image">
+        <span class="signature-name-stack">
+            @if ($issuedImage !== '')
+                <img src="{{ $issuedImage }}" alt="Issued by signature" class="signature-image">
+            @endif
             @if ($issuedName !== '')
                 <span class="signature-name">{{ $issuedName }}</span>
+            @elseif ($issuedImage === '')
+                {{ ' ' }}
             @endif
-        @elseif ($issuedName !== '')
-            <span class="signature-name">{{ $issuedName }}</span>
-        @else
-            {{ ' ' }}
-        @endif
+        </span>
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">
@@ -57,16 +57,16 @@
 <div class="ris-signature-column">
     <div class="ris-signature-label">Received by:</div>
     <div class="ris-signature-line ris-value-line">
-        @if ($receivedImage !== '')
-            <img src="{{ $receivedImage }}" alt="Received by signature" class="signature-image">
+        <span class="signature-name-stack">
+            @if ($receivedImage !== '')
+                <img src="{{ $receivedImage }}" alt="Received by signature" class="signature-image">
+            @endif
             @if ($receivedName !== '')
                 <span class="signature-name">{{ $receivedName }}</span>
+            @elseif ($receivedImage === '')
+                {{ ' ' }}
             @endif
-        @elseif ($receivedName !== '')
-            <span class="signature-name">{{ $receivedName }}</span>
-        @else
-            {{ ' ' }}
-        @endif
+        </span>
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">

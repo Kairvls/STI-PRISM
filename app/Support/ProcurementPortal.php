@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Resolves purchaser vs maintenance procurement portal (prefix, layout, routes).
+ * Resolves procurement portal context (prefix, layout, routes).
+ * Workflow UI lives in the Purchaser portal; Maintenance users with procurement
+ * use multi-role portal switching (legacy /maintenance/* URLs redirect there).
  */
 class ProcurementPortal
 {
@@ -23,7 +25,8 @@ class ProcurementPortal
 
     /**
      * Whether the user may use procurement workflow routes/UI.
-     * Purchaser: always. Maintenance: only when user_can_procurement is enabled.
+     * Purchaser role (primary or additional): always.
+     * Maintenance with user_can_procurement: legacy flag still honored (also syncs Purchaser role in Admin Users).
      */
     public static function userCanAccessProcurement(?object $user = null): bool
     {
@@ -32,13 +35,11 @@ class ProcurementPortal
             return false;
         }
 
-        $roleId = (int) ($user->user_role_id ?? 0);
-
-        if ($roleId === self::PURCHASER_ROLE_ID) {
+        if (\App\Support\RoleAccess::hasRole(self::PURCHASER_ROLE_ID, $user)) {
             return true;
         }
 
-        if ($roleId !== self::MAINTENANCE_ROLE_ID) {
+        if (! \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)) {
             return false;
         }
 
@@ -62,7 +63,8 @@ class ProcurementPortal
 
         $user = $user ?? Auth::user();
 
-        return $user && (int) ($user->user_role_id ?? 0) === self::MAINTENANCE_ROLE_ID
+        return $user
+            && \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)
             && ! (request()->is('purchaser') || request()->is('purchaser/*'));
     }
 

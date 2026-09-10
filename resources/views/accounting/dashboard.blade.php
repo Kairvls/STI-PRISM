@@ -12,10 +12,10 @@
 @endphp
 
 <div class="acc-page acc-dash fade-in">
-    <p class="text-sm text-gray-500">Overview of Accounting workload and financial status.</p>
+    
 
     {{-- Metric cards --}}
-    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <a href="/accounting/authority-to-purchase?status=incoming" class="pm-stat-card relative slide-up" style="animation-delay:.04s">
             <div class="pm-stat-icon bg-blue-50 text-blue-600">
                 <i data-lucide="file-check"></i>

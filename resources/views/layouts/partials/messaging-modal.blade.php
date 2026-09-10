@@ -25,17 +25,29 @@
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <h2 class="text-base font-bold text-gray-900">Messages</h2>
-                            <p class="text-[11px] text-gray-500 mt-0.5">Your conversations</p>
+                            <p id="messagingModalSubtitle" class="text-[11px] text-gray-500 mt-0.5">Your conversations</p>
                         </div>
-                        <button
-                            type="button"
-                            id="messagingFullscreenButton"
-                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                            data-tooltip="Full screen"
-                            aria-label="Full screen"
-                        >
-                            <i data-lucide="maximize-2" class="h-4 w-4"></i>
-                        </button>
+                        <div class="flex shrink-0 items-center gap-1">
+                            <button
+                                type="button"
+                                id="messagingMuteAllButton"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                data-tooltip="Mute all notifications"
+                                aria-label="Mute all notifications"
+                                aria-pressed="false"
+                            >
+                                <i data-lucide="bell" class="h-4 w-4"></i>
+                            </button>
+                            <button
+                                type="button"
+                                id="messagingFullscreenButton"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                data-tooltip="Full screen"
+                                aria-label="Full screen"
+                            >
+                                <i data-lucide="maximize-2" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
 
                     {{-- Tabs --}}
@@ -127,6 +139,24 @@
                     bg-white
                 "
             >
+
+                {{-- Empty state: shown until a conversation is selected --}}
+                <div
+                    id="modalChatEmptyState"
+                    class="flex min-h-0 flex-1 items-center justify-center bg-white px-6"
+                    aria-hidden="false"
+                >
+                    <div class="text-center">
+                        <div class="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                            <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"></path>
+                                <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900">Select a conversation to show</h3>
+                        <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">Choose a conversation from the list to view messages and start chatting.</p>
+                    </div>
+                </div>
 
                 {{-- Chat Header --}}
                 <div id="modalChatHeader" class="hidden shrink-0 border-b border-gray-100 bg-white">
@@ -292,7 +322,7 @@
                     id="modalConversationContainer"
                     class="
                         relative
-                        flex
+                        hidden
                         min-w-0
                         max-w-full
                         flex-1
@@ -301,17 +331,6 @@
                         min-h-0
                     "
                 >
-
-                    {{-- Empty state --}}
-                    <div id="modalChatEmptyState" class="flex items-center justify-center flex-1">
-                        <div class="text-center p-8">
-                            <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-4">
-                                <i data-lucide="messages-square" class="h-8 w-8"></i>
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-900">Select a conversation</h3>
-                            <p class="text-sm text-gray-500 mt-1 max-w-sm">Choose a conversation from the list to view messages and start chatting.</p>
-                        </div>
-                    </div>
 
                     {{-- ====================================== --}}
                     {{-- MESSAGES AREA --}}
@@ -2603,6 +2622,8 @@
         let replyingToMessage = null;
         let editingMessageRow = null;
         let activeRealtimeConversationId = null;
+        let messagingModalIsOpen = false;
+        let messagesMutedAll = false;
         let typingTimeout = null;
         let globalTypingSent = false;
         const remoteTypingTimeouts = new Map();
@@ -3046,6 +3067,112 @@
         // PLACE ABOVE listenToUserMessagesRealtime()
         // =====================================================
 
+        function getMuteAllStorageKey() {
+            return `prism-messages-mute-all:${currentUserId}`;
+        }
+
+        function readMuteAllPreference() {
+            try {
+                return localStorage.getItem(getMuteAllStorageKey()) === '1';
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function writeMuteAllPreference(muted) {
+            try {
+                localStorage.setItem(
+                    getMuteAllStorageKey(),
+                    muted ? '1' : '0'
+                );
+            } catch (error) {
+                // Ignore private-mode storage errors.
+            }
+        }
+
+        function areAllMessagesMuted() {
+            return messagesMutedAll === true;
+        }
+
+        function syncMuteAllButtonUi() {
+            const button = document.getElementById('messagingMuteAllButton');
+            const subtitle = document.getElementById('messagingModalSubtitle');
+            if (!button) {
+                return;
+            }
+
+            const muted = areAllMessagesMuted();
+            button.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            button.setAttribute(
+                'data-tooltip',
+                muted ? 'Unmute all notifications' : 'Mute all notifications'
+            );
+            button.setAttribute(
+                'aria-label',
+                muted ? 'Unmute all notifications' : 'Mute all notifications'
+            );
+            button.classList.toggle('bg-gray-100', muted);
+            button.classList.toggle('text-gray-900', muted);
+
+            const iconName = muted ? 'bell-off' : 'bell';
+            const existingIcon = button.querySelector('[data-lucide], svg');
+            if (existingIcon) {
+                const nextIcon = document.createElement('i');
+                nextIcon.setAttribute('data-lucide', iconName);
+                nextIcon.className = 'h-4 w-4';
+                existingIcon.replaceWith(nextIcon);
+            } else {
+                button.innerHTML = `<i data-lucide="${iconName}" class="h-4 w-4"></i>`;
+            }
+
+            if (subtitle) {
+                subtitle.textContent = muted
+                    ? 'All message notifications muted'
+                    : 'Your conversations';
+            }
+
+            lucideCreateIcons(button);
+        }
+
+        function setMuteAllMessages(muted, { persist = true } = {}) {
+            messagesMutedAll = Boolean(muted);
+            if (persist) {
+                writeMuteAllPreference(messagesMutedAll);
+            }
+            syncMuteAllButtonUi();
+        }
+
+        function toggleMuteAllMessages() {
+            setMuteAllMessages(!areAllMessagesMuted());
+        }
+
+        function isMessagingModalOpen() {
+            return messagingModalIsOpen === true;
+        }
+
+        function leaveConversationRealtime() {
+            if (
+                activeRealtimeConversationId === null ||
+                !window.Echo
+            ) {
+                activeRealtimeConversationId = null;
+                return;
+            }
+
+            try {
+                window.Echo.leave(
+                    `conversation.${activeRealtimeConversationId}`
+                );
+            } catch (error) {
+                console.warn(
+                    'Failed to leave conversation channel:',
+                    error
+                );
+            }
+
+            activeRealtimeConversationId = null;
+        }
+
         function showIncomingMessageToast(msg) {
 
             if (!msg) {
@@ -3054,22 +3181,15 @@
 
 
             // =============================================
-            // DO NOT SHOW TOAST IF USER IS ALREADY
-            // LOOKING AT THIS EXACT CONVERSATION
+            // Toast only when Messages modal is closed.
+            // While it is open, skip toast notifications.
             // =============================================
 
-            const messagingModal =
-                document.getElementById('messagingModal');
+            if (isMessagingModalOpen()) {
+                return;
+            }
 
-            const modalIsOpen =
-                messagingModal &&
-                !messagingModal.classList.contains('hidden');
-
-            if (
-                modalIsOpen &&
-                Number(currentConversationId) ===
-                Number(msg.conversation_id)
-            ) {
+            if (areAllMessagesMuted()) {
                 return;
             }
 
@@ -3116,19 +3236,24 @@
                     preview.substring(0, 90) + '...';
             }
 
-            // PRISM toast card (Maintenance / President layouts)
+            // PRISM toast card (Maintenance / President / Admin layouts)
+            // replaceGroup keeps only the latest message toast visible.
             if (typeof window.showMpToast === 'function') {
                 const result = window.showMpToast(preview, {
                     title: senderName,
                     type: 'info',
                     timer: 8000,
+                    replaceGroup: 'incoming-message',
                 });
 
                 // Allow click-to-open by attaching once toast exists
-                const host = document.getElementById('mp-toast-host');
-                const card = host && host.lastElementChild;
+                const card = result?.el || (
+                    document.getElementById('mp-toast-host') &&
+                    document.getElementById('mp-toast-host').lastElementChild
+                );
                 if (card) {
                     card.style.cursor = 'pointer';
+                    card.dataset.conversationId = String(msg.conversation_id || '');
                     card.addEventListener('click', async (event) => {
                         if (event.target.closest('.mp-toast-close')) {
                             return;
@@ -3151,6 +3276,11 @@
                 return;
             }
 
+            // Fallback toast path: replace previous message toasts.
+            container
+                .querySelectorAll('[data-toast-group="incoming-message"]')
+                .forEach((oldToast) => oldToast.remove());
+
 
             // =============================================
             // CREATE TOAST
@@ -3160,6 +3290,7 @@
                 document.createElement('button');
 
             toast.type = 'button';
+            toast.dataset.toastGroup = 'incoming-message';
 
             toast.className = `
                 w-full rounded-xl border border-gray-200
@@ -3291,7 +3422,7 @@
         // is not currently opened.
         // =====================================================
 
-        function listenToUserMessagesRealtime() {
+        function listenToUserMessagesRealtime(retryCount = 0) {
 
         
 
@@ -3301,9 +3432,19 @@
 
             if (!window.Echo) {
 
-                console.error(
-                    'Laravel Echo is not available.'
-                );
+                if (retryCount < 20) {
+                    console.warn(
+                        'Laravel Echo is not ready yet; retrying user channel listen.'
+                    );
+                    setTimeout(
+                        () => listenToUserMessagesRealtime(retryCount + 1),
+                        400
+                    );
+                } else {
+                    console.error(
+                        'Laravel Echo is not available. Typing indicators will not work.'
+                    );
+                }
 
                 return;
             }
@@ -7063,31 +7204,7 @@ if (!isGroup) {
                 currentConversationUser = null;
                 currentConversationUserName = '';
 
-                const messagesContainer =
-                    document.getElementById(
-                        'modalMessagesContainer'
-                    );
-
-                const chatHeader =
-                    document.getElementById(
-                        'modalChatHeader'
-                    );
-
-                const composer =
-                    document.getElementById(
-                        'modalComposer'
-                    );
-
-                const chatEmpty =
-                    document.getElementById(
-                        'modalChatEmptyState'
-                    );
-
-                messagesContainer?.classList.add('hidden');
-                chatHeader?.classList.add('hidden');
-                composer?.classList.add('hidden');
-                chatEmpty?.classList.remove('hidden');
-                updateScrollToLatestButton();
+                showModalChatEmptyState();
             }
 
             await loadModalConversations();
@@ -9360,6 +9477,50 @@ if (!isGroup) {
             );
 
 
+        function showModalChatEmptyState() {
+            const chatEmpty = document.getElementById('modalChatEmptyState');
+            const conversationContainer = document.getElementById('modalConversationContainer');
+            const messagesContainer = document.getElementById('modalMessagesContainer');
+            const chatHeader = document.getElementById('modalChatHeader');
+            const composer = document.getElementById('modalComposer');
+            const chatArea = document.getElementById('modalChatArea');
+
+            chatEmpty?.classList.remove('hidden');
+            chatEmpty?.classList.add('flex');
+            if (chatEmpty) {
+                chatEmpty.setAttribute('aria-hidden', 'false');
+            }
+
+            conversationContainer?.classList.add('hidden');
+            conversationContainer?.classList.remove('flex');
+            messagesContainer?.classList.add('hidden');
+            chatHeader?.classList.add('hidden');
+            composer?.classList.add('hidden');
+            document.getElementById('modalPinnedBanner')?.classList.add('hidden');
+            setThreadLoading(false);
+
+            if (chatArea) {
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('flex', 'md:flex');
+            }
+
+            updateScrollToLatestButton();
+        }
+
+        function hideModalChatEmptyState() {
+            const chatEmpty = document.getElementById('modalChatEmptyState');
+            const conversationContainer = document.getElementById('modalConversationContainer');
+
+            chatEmpty?.classList.add('hidden');
+            chatEmpty?.classList.remove('flex');
+            if (chatEmpty) {
+                chatEmpty.setAttribute('aria-hidden', 'true');
+            }
+
+            conversationContainer?.classList.remove('hidden');
+            conversationContainer?.classList.add('flex');
+        }
+
         window.openMessagingModal = function() {
             const modal = document.getElementById('messagingModal');
             const backdrop = document.getElementById('messagingModalBackdrop');
@@ -9367,6 +9528,7 @@ if (!isGroup) {
 
             if (!modal || !backdrop || !container) return;
 
+            messagingModalIsOpen = true;
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
@@ -9375,9 +9537,15 @@ if (!isGroup) {
             container.classList.remove('scale-[0.98]', 'scale-[0.95]', 'opacity-0');
             container.classList.add('scale-100', 'opacity-100');
 
+            // Every open with no active thread must show the placeholder.
+            if (!currentConversationId) {
+                showModalChatEmptyState();
+            }
+
             restoreMessagingFullscreenPreference();
             showMessagingConversationList();
             switchModalTab('conversations', { refresh: true });
+            syncMuteAllButtonUi();
             requestAnimationFrame(() => lucideCreateIcons(modal));
         };
 
@@ -9387,6 +9555,11 @@ if (!isGroup) {
             const container = document.getElementById('messagingModalContainer');
 
             if (!modal || !backdrop || !container) return;
+
+            // Mark closed immediately so toasts can show again
+            // even before the hide animation finishes.
+            messagingModalIsOpen = false;
+            leaveConversationRealtime();
 
             backdrop.classList.add('opacity-0');
             container.classList.remove('scale-100', 'opacity-100');
@@ -9561,6 +9734,13 @@ if (!isGroup) {
         ].forEach(button => {
             button?.addEventListener('click', toggleMessagingFullscreen);
         });
+
+        document
+            .getElementById('messagingMuteAllButton')
+            ?.addEventListener('click', toggleMuteAllMessages);
+
+        // Restore mute-all preference for this user.
+        setMuteAllMessages(readMuteAllPreference(), { persist: false });
 
         document
             .getElementById('modalChatBackButton')
@@ -9993,19 +10173,15 @@ if (!isGroup) {
             closeConversationMessageSearch();
             closeConversationInfoSidebar();
             resetConversationAssets();
+            leaveConversationRealtime();
             currentConversationId = null;
             messagesPage = 1;
             isLoadingMessages = false;
             hasMoreMessages = true;
 
-            const chatEmpty = document.getElementById('modalChatEmptyState');
             const messagesContainer = document.getElementById('modalMessagesContainer');
-            const chatHeader = document.getElementById('modalChatHeader');
-            const composer = document.getElementById('modalComposer');
-            const chatArea = document.getElementById('modalChatArea');
             const typingIndicator = document.getElementById('modalTypingIndicator');
 
-            if (chatEmpty) chatEmpty.classList.remove('hidden');
             setThreadLoading(false);
             if (messagesContainer) {
 
@@ -10039,16 +10215,10 @@ if (!isGroup) {
             });
 
             remoteTypingTimeouts.clear();
-            if (chatHeader) chatHeader.classList.add('hidden');
             document.getElementById('modalPinnedBanner')?.classList.add('hidden');
-            if (composer) composer.classList.add('hidden');
-            if (chatArea) {
-                chatArea.classList.remove('hidden');
-                chatArea.classList.add('flex', 'md:flex');
-            }
 
+            showModalChatEmptyState();
             showMessagingConversationList();
-            updateScrollToLatestButton();
         }
 
         window.switchModalTab = function(tab, options = {}) {
@@ -10732,12 +10902,12 @@ if (!isGroup) {
                             previewTimeSource
                         );
 
-                    let previewHtml = escapeHtml(preview);
+                    let previewHtml = `<span class="min-w-0 truncate">${escapeHtml(preview)}</span>`;
                     if (pinPreview) {
                         previewHtml = `
-                            <span class="inline-flex min-w-0 items-center gap-1">
+                            <span class="inline-flex min-w-0 items-center gap-1 overflow-hidden">
                                                 ${getPinActionIconHtml(pinPreview.kind === 'unpinned', 'h-3.5 w-3.5')}
-                                <span class="truncate">${escapeHtml(preview)}</span>
+                                <span class="min-w-0 truncate">${escapeHtml(preview)}</span>
                             </span>
                         `;
                     } else if (!pinPreview && isLikeStickerContent(rawMessage) && !lastMessage.is_unsent) {
@@ -10745,7 +10915,7 @@ if (!isGroup) {
                             ? 'You:'
                             : (isGroup ? `${lastMessageSenderName}:` : '');
                         previewHtml = `
-                            <span class="inline-flex min-w-0 items-center gap-1">
+                            <span class="inline-flex min-w-0 items-center gap-1 overflow-hidden">
                                 ${likePrefix ? `<span class="shrink-0">${escapeHtml(likePrefix)}</span>` : ''}
                                 ${messengerLikeIconHtml('h-3.5 w-3.5 shrink-0')}
                             </span>
@@ -11196,10 +11366,10 @@ if (!isGroup) {
                                         <div
                                             class="
                                                 flex
+                                                min-w-0
                                                 items-center
                                                 gap-1
                                                 flex-1
-                                                min-w-0
                                             "
                                         >
 
@@ -11352,6 +11522,15 @@ if (!isGroup) {
 
         async function markConversationAsRead(conversationId) {
 
+            // Never mark as seen unless that conversation is
+            // actively open inside the Messages modal.
+            if (
+                !isMessagingModalOpen() ||
+                Number(currentConversationId) !== Number(conversationId)
+            ) {
+                return;
+            }
+
             try {
 
                 const response = await fetch(
@@ -11456,11 +11635,6 @@ if (!isGroup) {
                 });
 
 
-            const chatEmpty =
-                document.getElementById(
-                    'modalChatEmptyState'
-                );
-
             const messagesContainer =
                 document.getElementById(
                     'modalMessagesContainer'
@@ -11482,11 +11656,7 @@ if (!isGroup) {
                 );
 
 
-            if (chatEmpty) {
-                chatEmpty.classList.add(
-                    'hidden'
-                );
-            }
+            hideModalChatEmptyState();
 
             if (messagesContainer) {
                 messagesContainer.classList.remove(
@@ -12413,9 +12583,11 @@ if (!isGroup) {
                         row.querySelector('.message-sender-avatar');
 
                     const bubble =
-                        row.querySelector('.message-bubble');
+                        row.querySelector('.message-bubble') ||
+                        row.querySelector('.message-attachments');
 
                     if (!avatar || !bubble) {
+                        avatar && (avatar.style.transform = '');
                         return;
                     }
 
@@ -12441,31 +12613,26 @@ if (!isGroup) {
 
 
                     // =========================================
-                    // FIND CENTER OF ACTUAL MESSAGE BUBBLE
+                    // ALIGN AVATAR TO THE BOTTOM OF THE BUBBLE
+                    // (same look as short messages / Messenger)
                     // =========================================
 
-                    const bubbleCenter =
+                    const bubbleBottom =
                         bubbleRect.top -
                         rowRect.top +
-                        (bubbleRect.height / 2);
+                        bubbleRect.height;
 
-
-                    // =========================================
-                    // FIND WHERE AVATAR CENTER CURRENTLY IS
-                    // =========================================
-
-                    const avatarCenter =
+                    const avatarBottom =
                         avatarRect.top -
                         rowRect.top +
-                        (avatarRect.height / 2);
-
-
-                    // =========================================
-                    // MOVE AVATAR SO BOTH CENTERS MATCH
-                    // =========================================
+                        avatarRect.height;
 
                     const offset =
-                        bubbleCenter - avatarCenter;
+                        bubbleBottom - avatarBottom;
+
+                    if (Math.abs(offset) < 0.5) {
+                        return;
+                    }
 
                     avatar.style.transform =
                         `translateY(${offset}px)`;
@@ -13447,6 +13614,7 @@ if (!isGroup) {
                     class="
                         relative
                         flex
+                        min-w-0
                         w-fit
                         max-w-[70%]
                         flex-col
@@ -13519,6 +13687,7 @@ if (!isGroup) {
                         class="
                             message-bubble-line
                             flex
+                            min-w-0
                             w-fit
                             max-w-full
                             items-center
@@ -13547,6 +13716,7 @@ if (!isGroup) {
                                 message-content-wrapper
                                 relative
                                 inline-flex
+                                min-w-0
                                 w-fit
                                 max-w-full
                                 flex-col
@@ -13623,6 +13793,7 @@ if (!isGroup) {
                                                     relative
                                                     z-10
                                                     inline-flex
+                                                    min-w-0
                                                     w-fit
                                                     max-w-full
                                                     flex-col
@@ -13639,7 +13810,10 @@ if (!isGroup) {
                                             >
                                                 <span
                                                     class="
+                                                        message-bubble-text
                                                         block
+                                                        min-w-0
+                                                        max-w-full
                                                         text-left
                                                         text-sm
                                                         leading-snug
@@ -13797,6 +13971,8 @@ if (!isGroup) {
                         group
                         relative
                         flex
+                        min-w-0
+                        w-full
                         ${isOwn
                             ? 'items-center justify-end'
                             : 'items-end justify-start'
@@ -13818,6 +13994,7 @@ if (!isGroup) {
                             <div
                                 class="
                                     message-sender-avatar
+                                    self-end
                                     shrink-0
                                 "
                             >
@@ -17718,6 +17895,20 @@ if (!isGroup) {
 
 
                     // =========================================
+                    // IGNORE IF THIS CHAT IS NO LONGER OPEN
+                    // (e.g. modal closed but channel not left yet)
+                    // =========================================
+
+                    if (
+                        !isMessagingModalOpen() ||
+                        Number(currentConversationId) !==
+                        Number(msg.conversation_id)
+                    ) {
+                        return;
+                    }
+
+
+                    // =========================================
                     // MAKE SURE MESSAGE BELONGS TO
                     // CURRENT OPEN CONVERSATION
                     // =========================================
@@ -17889,9 +18080,15 @@ if (!isGroup) {
                     // Unread badge
                     // =========================================
 
-                    markConversationAsRead(
-                        conversationId
-                    );
+                    if (
+                        isMessagingModalOpen() &&
+                        Number(currentConversationId) ===
+                        Number(conversationId)
+                    ) {
+                        markConversationAsRead(
+                            conversationId
+                        );
+                    }
 
                 })
 
@@ -19054,7 +19251,7 @@ if (!isGroup) {
                     id="${tempId}"
                     style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                 >
-                    <div class="max-w-[70%] opacity-70">
+                    <div class="min-w-0 max-w-[70%] opacity-70">
 
                         ${
                             hasContent && isLikeStickerContent(content)
@@ -19068,6 +19265,7 @@ if (!isGroup) {
                                     <div
                                         class="
                                             ml-auto
+                                            min-w-0
                                             w-fit
                                             max-w-full
                                             rounded-2xl
@@ -19080,6 +19278,9 @@ if (!isGroup) {
                                     >
                                         <p
                                             class="
+                                                message-bubble-text
+                                                min-w-0
+                                                max-w-full
                                                 whitespace-pre-wrap
                                                 break-words
                                                 text-sm
@@ -23943,6 +24144,18 @@ if (!isGroup) {
     .message-content-wrapper,
     .message-bubble {
         overflow: visible;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .message-sender-avatar {
+        align-self: flex-end;
+    }
+
+    .message-bubble-text {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: pre-wrap;
     }
 
     .message-content-wrapper {
@@ -24235,17 +24448,27 @@ if (!isGroup) {
 
     /* ======================================
        EMPTY STATES
+       Chat empty state stays fully opaque — no fade
+       animation (that previously hid it on first open).
     ====================================== */
 
-    #modalChatEmptyState,
+    #modalChatEmptyState {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
+
+    #modalChatEmptyState.hidden {
+        display: none !important;
+    }
+
     #modalConversationsEmpty,
     #modalUsersEmpty {
         will-change: opacity, transform;
     }
 
-    #modalChatEmptyState:not(.hidden),
-    #modalConversationsEmpty:not(.hidden),
-    #modalUsersEmpty:not(.hidden) {
+    #messagingModal:not(.hidden) #modalConversationsEmpty:not(.hidden),
+    #messagingModal:not(.hidden) #modalUsersEmpty:not(.hidden) {
         animation: fadeInUp 0.3s ease-out both;
     }
 
@@ -24450,8 +24673,10 @@ if (!isGroup) {
     }
 
     .typing-indicator-wrapper.is-typing {
+        display: block !important;
         max-height: 60px;
-        opacity: 1;
+        opacity: 1 !important;
+        visibility: visible !important;
         padding-bottom: 12px;
         margin-top: 12px;
         transform: translateY(0);

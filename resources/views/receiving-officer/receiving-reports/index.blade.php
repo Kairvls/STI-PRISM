@@ -55,11 +55,10 @@
             window.print();
         }
     }"
-    class="space-y-6 p-6"
+    
 >
     <div>
-        <h2 class="text-2xl font-semibold text-slate-900">Receiving Reports</h2>
-        <p class="text-sm text-slate-600">Confirm Second Count when delivered items match the report.</p>
+        
         @if(!empty($dateFilter))
             <p class="mt-2 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-800">
                 Showing reports for {{ \Carbon\Carbon::parse($dateFilter)->format('M d, Y') }}

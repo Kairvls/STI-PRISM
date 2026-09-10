@@ -3,10 +3,7 @@
 @section('content')
 
 <div class="admin-page space-y-6">
-    <div>
-        <h1 class="admin-page-title">Delivered Items</h1>
-        <p class="admin-page-subtitle">Delivered items that were added to inventory.</p>
-    </div>
+    
 
     @include('layouts.partials.receiving-query-error')
 

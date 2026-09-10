@@ -243,23 +243,25 @@
             <div class="font-semibold">Second Count:</div>
             @if($signSecondCount)
                 <div class="relative mt-6 w-56">
-                    <img
-                        id="scSigOverlay-{{ $signSuffix }}"
-                        alt=""
-                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                        style="display:none;"
-                    >
-                    <input
-                        type="text"
-                        name="second_count_by"
-                        id="scName-{{ $signSuffix }}"
-                        value="{{ old('second_count_by', $officerName) }}"
-                        required
-                        maxlength="255"
-                        autocomplete="off"
-                        class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm font-medium outline-none"
-                        title="Receiving Officer name for Second Count"
-                    >
+                    <span class="signature-name-stack w-full">
+                        <img
+                            id="scSigOverlay-{{ $signSuffix }}"
+                            alt=""
+                            class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                            style="display:none;"
+                        >
+                        <input
+                            type="text"
+                            name="second_count_by"
+                            id="scName-{{ $signSuffix }}"
+                            value="{{ old('second_count_by', $officerName) }}"
+                            required
+                            maxlength="255"
+                            autocomplete="off"
+                            class="relative z-[1] block w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm font-medium outline-none"
+                            title="Receiving Officer name for Second Count"
+                        >
+                    </span>
                 </div>
                 <div class="mt-3 text-xs font-semibold">Date:</div>
                 <div class="mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
@@ -281,21 +283,23 @@
                 <div class="font-semibold">Received by:</div>
                 @if($editable)
                     <div class="relative mt-6 w-full">
-                        <img
-                            id="purSigOverlay-{{ $signKey }}"
-                            alt=""
-                            class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                            style="display:none;"
-                        >
-                        <input
-                            type="text"
-                            name="receiving_report_received_by_name"
-                            id="purSigName-{{ $signKey }}"
-                            value="{{ $receivedByName }}"
-                            maxlength="255"
-                            autocomplete="off"
-                            class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
-                        >
+                        <span class="signature-name-stack w-full">
+                            <img
+                                id="purSigOverlay-{{ $signKey }}"
+                                alt=""
+                                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                style="display:none;"
+                            >
+                            <input
+                                type="text"
+                                name="receiving_report_received_by_name"
+                                id="purSigName-{{ $signKey }}"
+                                value="{{ $receivedByName }}"
+                                maxlength="255"
+                                autocomplete="off"
+                                class="relative z-[1] block w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                            >
+                        </span>
                         <input
                             type="hidden"
                             name="receiving_report_received_by_signature"
@@ -304,7 +308,7 @@
                         >
                     </div>
                 @else
-                    <div class="relative mt-6 w-full border-b border-black pb-1 min-h-[2.5rem]">
+                    <div class="relative mt-6 w-full border-b border-black pb-1 min-h-[1.5rem]">
                         @include('partials.drawn-signature', [
                             'value' => $receivedBySignature ?: $legacyReceivedSig,
                             'printedName' => $receivedByName,

@@ -26,15 +26,7 @@
 @endphp
 
 <div class="acc-page acc-content-fill fade-in">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <p class="text-sm leading-6 text-gray-500">Review ATP submitted by Purchaser.</p>
-        </div>
-        <form method="GET" class="acc-toolbar" id="atpSearchForm">
-            <input type="hidden" name="status" value="{{ $filter }}">
-            <input type="search" name="search" id="atpSearch" value="{{ request('search') }}" placeholder="Search ATP, RIS, supplier..." class="acc-search">
-        </form>
-    </div>
+    
 
     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ($statCards as $i => $card)
@@ -57,7 +49,7 @@
         @endforeach
     </div>
 
-    <div class="mt-4 flex flex-wrap items-center gap-3 slide-up">
+    <div class="flex flex-col gap-4 mt-4 sm:flex-row sm:items-end sm:justify-between">
         <div class="pm-seg" id="atpFilterSlider" role="tablist" aria-label="ATP status filters" data-active="{{ $filter }}">
             <span class="pm-seg-thumb" aria-hidden="true"></span>
             @foreach ($filters as $key => $label)
@@ -70,6 +62,14 @@
                 >{{ $label }}@if (isset($filterCounts[$key]))<span class="acc-count-badge">{{ $filterCounts[$key] }}</span>@endif</a>
             @endforeach
         </div>
+
+        
+        
+        <form method="GET" class="acc-toolbar" id="atpSearchForm">
+            <input type="hidden" name="status" value="{{ $filter }}">
+            <input type="search" name="search" id="atpSearch" value="{{ request('search') }}" placeholder="Search ATP, RIS, supplier..." class="acc-search">
+        </form>
+    
     </div>
 
     <div class="acc-table-wrap mt-4 slide-up">

@@ -180,7 +180,8 @@ class MaintenanceReportService
         int $id,
         int $personnelId,
         array $input,
-        ?string $imagePath = null
+        ?string $imagePath = null,
+        bool $adminOverride = false
     ): array {
         $newStatus = (string) ($input['status'] ?? '');
         $remarks = trim((string) ($input['remarks'] ?? ''));
@@ -203,6 +204,7 @@ class MaintenanceReportService
             $remarks,
             $selectedItemIds,
             $imagePath,
+            $adminOverride,
             &$equipmentForReplacement,
             &$result
         ) {
@@ -247,7 +249,7 @@ class MaintenanceReportService
             }
 
             if ($report->report_current_status === 'Pending') {
-                if ($report->report_assigned_purchaser_id !== null) {
+                if (! $adminOverride && $report->report_assigned_purchaser_id !== null) {
                     $result = [
                         'success' => false,
                         'message' => 'The Purchaser is already handling this urgent report.',
@@ -256,7 +258,7 @@ class MaintenanceReportService
                     return;
                 }
 
-                if ($report->report_assigned_personnel_id !== null) {
+                if (! $adminOverride && $report->report_assigned_personnel_id !== null) {
                     $result = [
                         'success' => false,
                         'message' => 'Another maintenance personnel is already assigned to this report.',
@@ -266,15 +268,21 @@ class MaintenanceReportService
                 }
 
                 if ($newStatus === 'Processing') {
-                    $this->applyReportStatusUpdate($id, $report, [
+                    $payload = [
                         'report_current_status' => 'Processing',
                         'report_assigned_personnel_id' => $personnelId,
                         'report_updated_at' => now(),
-                    ]);
+                    ];
+                    if ($adminOverride) {
+                        $payload['report_assigned_purchaser_id'] = null;
+                    }
+                    $this->applyReportStatusUpdate($id, $report, $payload);
 
                     $result = [
                         'success' => true,
-                        'message' => 'Report is now being processed.',
+                        'message' => $adminOverride
+                            ? 'Admin override: report is now being processed.'
+                            : 'Report is now being processed.',
                         'report' => $this->getReportPayload($id),
                     ];
 
@@ -299,7 +307,7 @@ class MaintenanceReportService
             }
 
             if ($report->report_current_status === 'Processing') {
-                if ($report->report_assigned_purchaser_id !== null) {
+                if (! $adminOverride && $report->report_assigned_purchaser_id !== null) {
                     $result = [
                         'success' => false,
                         'message' => 'This urgent report is being handled by the Purchaser.',
@@ -308,7 +316,10 @@ class MaintenanceReportService
                     return;
                 }
 
-                if ((int) $report->report_assigned_personnel_id !== (int) $personnelId) {
+                if (
+                    ! $adminOverride
+                    && (int) $report->report_assigned_personnel_id !== (int) $personnelId
+                ) {
                     $result = [
                         'success' => false,
                         'message' => 'You are not assigned to this report.',

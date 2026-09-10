@@ -7,14 +7,12 @@
 {{-- ===================================== --}}
 {{-- TOP HEADER (page title lives in topbar) --}}
 {{-- ===================================== --}}
-<div class="fade-in">
-    <p class="text-sm text-gray-500">Welcome back, President. Here's your overview.</p>
-</div>
+
 
 {{-- ===================================== --}}
 {{-- KPI SUMMARY CARDS --}}
 {{-- ===================================== --}}
-<div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <div class="pm-stat-card relative slide-up" style="animation-delay: 0.05s">
         <div class="pm-stat-icon bg-blue-50 text-blue-600">
             <i data-lucide="file-text"></i>

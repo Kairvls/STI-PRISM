@@ -4,16 +4,10 @@
 
 @section('content')
 
-<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
-    <div>
-        <p class="text-sm leading-6 text-gray-500">
-            View approved, rejected, and pending President RIS decisions.
-        </p>
-    </div>
-</div>
+
 
 {{-- Summary Cards --}}
-<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
+<div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
         <p class="text-xs font-semibold text-gray-500">Total Approved</p>
         <p id="cardTotalApproved" class="mt-2 text-3xl font-bold text-blue-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>

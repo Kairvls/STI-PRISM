@@ -4,16 +4,12 @@
 
 @section('content')
 
-<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
-    <div>
-        <p class="text-sm text-gray-500">Weekly and monthly RIS statistics and trends.</p>
-    </div>
-</div>
+
 
 {{-- ======================================== --}}
 {{-- EXECUTIVE INSIGHTS --}}
 {{-- ======================================== --}}
-    <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
             <div class="flex items-center gap-2">
                 <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">

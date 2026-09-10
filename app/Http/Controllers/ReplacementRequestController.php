@@ -150,11 +150,11 @@ class ReplacementRequestController extends Controller
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_MAINTENANCE,
                 'Replacement approved',
-                ($equipmentName ?: ('Replacement request #' . $requestId)) . ' is approved. Create an RIS to start purchasing.',
+                ($equipmentName ?: ('Replacement request #' . $requestId)) . ' is approved. Continue purchasing in the Purchaser portal (create RIS).',
                 'replacement_approved',
                 'PROC',
                 $requestId,
-                '/maintenance/procurement/replacement-requests'
+                '/purchaser/procurement/replacement-requests'
             );
 
             DB::table('audit_logs_table')->insert([
@@ -228,7 +228,7 @@ class ReplacementRequestController extends Controller
                 'replacement_rejected',
                 'PROC',
                 $requestId,
-                '/maintenance/procurement/replacement-requests'
+                '/purchaser/procurement/replacement-requests'
             );
 
             return back()->with('success', 'Replacement request rejected successfully.');

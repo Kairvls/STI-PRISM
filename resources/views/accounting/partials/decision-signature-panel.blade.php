@@ -1,4 +1,5 @@
 {{-- Admin-style signature panel for Accounting approve modals --}}
+@include('partials.ris-signature-overlay-styles')
 @php
     $savedSignatures = $savedSignatures ?? collect();
     $signTitle = $signTitle ?? 'Accounting signature';
@@ -23,7 +24,7 @@
             <img
                 id="accSigPreview"
                 alt="Signature preview"
-                class="pointer-events-none absolute bottom-2 left-1/2 max-h-12 w-auto max-w-[90%] -translate-x-1/2 object-contain"
+                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[90%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
                 style="display:none;"
             >
             <span id="accSigPrintedName" class="relative z-[1] text-center text-xs font-medium text-slate-800">
@@ -479,7 +480,9 @@
             }
             return;
         }
-        var dataUrl = canvas.toDataURL('image/png');
+        var dataUrl = (window.exportTrimmedSignatureDataUrl
+            ? window.exportTrimmedSignatureDataUrl(canvas)
+            : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png');
         applySignature(dataUrl);
         if (uploadInput) uploadInput.value = '';
         if (uploadNameOut) {

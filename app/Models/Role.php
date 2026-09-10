@@ -20,4 +20,16 @@ class Role extends Model
     {
         return $this->hasMany(User::class, 'user_role_id', 'role_id');
     }
+
+    public function assignedUsers()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'user_roles_table',
+            'role_id',
+            'user_id',
+            'role_id',
+            'user_id'
+        )->withPivot('assigned_at');
+    }
 }

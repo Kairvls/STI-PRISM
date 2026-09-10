@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\RoleAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,21 +12,12 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // USER NOT LOGGED IN
-        if (!Auth::check()) {
-
+        if (! Auth::check()) {
             return redirect('/login');
-
         }
 
-        // GET LOGGED-IN USER
-        $user = Auth::user();
-
-        // NOT ADMIN
-        if ($user->user_role_id != 1) {
-
+        if (! RoleAccess::isAdmin(Auth::user())) {
             abort(403);
-
         }
 
         return $next($request);

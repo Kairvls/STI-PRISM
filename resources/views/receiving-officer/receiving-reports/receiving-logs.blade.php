@@ -3,10 +3,7 @@
 @section('content')
 
 <div class="admin-page space-y-6">
-    <div>
-        <h1 class="admin-page-title">Receiving Logs</h1>
-        <p class="admin-page-subtitle">Audit trail of inspections, accepts, inventory updates, and returns.</p>
-    </div>
+    
 
     @include('layouts.partials.receiving-query-error')
 

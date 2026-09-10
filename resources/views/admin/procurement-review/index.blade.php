@@ -15,17 +15,7 @@
     {{-- PAGE HEADER --}}
     {{-- ===================================================== --}}
 
-    <div>
-
-        <h1 class="admin-page-title">
-            Procurement Requests
-        </h1>
-
-        <p class="admin-page-subtitle">
-            Accept purchaser-submitted RIS so they can be decided on Sign RIS.
-        </p>
-
-    </div>
+    
 
 
     {{-- ===================================================== --}}

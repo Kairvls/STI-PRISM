@@ -5,10 +5,7 @@
 @section('content')
 
 <div class="admin-page space-y-6">
-    <div class="print-hidden">
-        <h1 class="admin-page-title">Maintenance</h1>
-        <p class="admin-page-subtitle">Read-only ticket summary. Open tickets stay on Maintenance Personnel.</p>
-    </div>
+    
     <h1 class="admin-page-title print-only">Maintenance report — {{ now()->format('M d, Y') }}</h1>
 
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'maintenance'])

@@ -121,15 +121,7 @@ class MicrosoftController extends Controller
             request()->session()->regenerate();
             request()->session()->put('attention_popup_token', (string) Str::uuid());
 
-            return match ((int) $user->user_role_id) {
-                1 => redirect('/admin/dashboard'),
-                2 => redirect('/maintenance/dashboard'),
-                3 => redirect('/purchaser/dashboard'),
-                4 => redirect('/president/dashboard'),
-                5 => redirect('/accounting/dashboard'),
-                6 => redirect('/receiving/dashboard'),
-                default => redirect('/'),
-            };
+            return redirect(\App\Support\RoleAccess::dashboardPath((int) $user->user_role_id));
         } catch (\Throwable $e) {
             Log::warning('Microsoft login failed', [
                 'type' => $e::class,

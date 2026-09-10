@@ -1,4 +1,5 @@
 {{-- Admin-style signature panel for Receiving Officer Second Count --}}
+@include('partials.ris-signature-overlay-styles')
 @php
     $savedSignatures = $savedSignatures ?? collect();
     $signTitle = $signTitle ?? 'Second Count signature';
@@ -459,7 +460,9 @@
             }
             return;
         }
-        var dataUrl = canvas.toDataURL('image/png');
+        var dataUrl = (window.exportTrimmedSignatureDataUrl
+            ? window.exportTrimmedSignatureDataUrl(canvas)
+            : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png');
         applySignature(dataUrl);
         if (uploadInput) uploadInput.value = '';
         if (uploadNameOut) {

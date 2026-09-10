@@ -73,22 +73,25 @@
     .admin-da-ris-form .ris-signature-column { min-width: 0; }
     .admin-da-ris-form .ris-signature-label { font-size: 12px; color: #374151; }
     .admin-da-ris-form .ris-signature-line {
-        display: flex; align-items: flex-end; justify-content: center;
+        display: flex; align-items: center; justify-content: center;
         position: relative;
-        height: 49px; border-bottom: 1px solid #1f2937;
-        padding: 0 6px 4px; font-size: 12px; text-align: center;
+        min-height: 1.75rem; height: auto !important; border-bottom: 1px solid #1f2937;
+        padding: 0.35rem 6px; font-size: 12px; text-align: center;
         overflow: visible;
     }
     .admin-da-ris-form .ris-signature-line .signature-image {
         position: absolute;
         left: 50%;
-        bottom: 6px;
-        z-index: 2;
-        max-height: 42px;
+        top: 50%;
+        bottom: auto;
+        z-index: 10;
+        max-height: 38px;
         max-width: 92%;
         width: auto;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         pointer-events: none;
+        object-fit: contain;
+        object-position: center center;
     }
     .admin-da-ris-form .ris-signature-line .signature-name {
         font-size: 11px;
@@ -102,15 +105,17 @@
     .admin-da-ris-form .ris-signature-input-wrap .signature-image {
         position: absolute;
         left: 50%;
-        bottom: 6px;
+        top: 50%;
+        bottom: auto;
         z-index: 10;
-        max-height: 42px;
+        max-height: 38px;
         max-width: 92%;
         width: auto;
         height: auto;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         pointer-events: none;
         object-fit: contain;
+        object-position: center center;
     }
     .admin-da-ris-form .ris-signature-input {
         position: relative;
@@ -1176,7 +1181,9 @@
             showNotice('Please sign before applying.');
             return;
         }
-        var dataUrl = canvas.toDataURL('image/png');
+        var dataUrl = (window.exportTrimmedSignatureDataUrl
+            ? window.exportTrimmedSignatureDataUrl(canvas)
+            : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png');
         applySignature(dataUrl);
         if (uploadInput) uploadInput.value = '';
         if (uploadNameOut) {
@@ -1387,7 +1394,9 @@
         form.addEventListener('submit', function (event) {
             var canvas = document.getElementById('adminDaSignatureCanvas');
             if (canvasHasDrawing(canvas)) {
-                applySignature(canvas.toDataURL('image/png'));
+                applySignature((window.exportTrimmedSignatureDataUrl
+                    ? window.exportTrimmedSignatureDataUrl(canvas)
+                    : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png'));
                 return;
             }
             var file = uploadInput && uploadInput.files && uploadInput.files[0];

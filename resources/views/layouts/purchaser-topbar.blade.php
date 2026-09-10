@@ -63,17 +63,6 @@
     </div>
 
     <div class="flex items-center gap-2">
-        <div class="dashboard-toolbar-search hidden md:flex">
-            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
-            <input
-                type="search"
-                id="dashboard-search"
-                placeholder="Search..."
-                autocomplete="off"
-                aria-label="Search purchaser records"
-            />
-        </div>
-
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"
@@ -343,6 +332,8 @@
             </div>
         </div>
 
+        @include('partials.portal-switcher')
+
         <div class="relative">
             <button
                 type="button"
@@ -369,7 +360,7 @@
                         {{ $topbarUser->user_full_name }}
                     </p>
                     <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
-                        Purchaser
+                        {{ \App\Support\RoleAccess::currentPortalLabel($topbarUser) }}
                     </p>
                 </div>
 

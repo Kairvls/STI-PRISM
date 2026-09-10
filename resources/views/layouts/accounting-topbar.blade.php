@@ -73,7 +73,8 @@
 
             <button
                 type="button"
-                onclick="toggleNotifications()"
+                data-topbar-toggle="notifications"
+                onclick="event.stopPropagation(); toggleNotifications()"
                 class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
                 data-tooltip="Notifications"
@@ -448,6 +449,8 @@
             </div>
         </div>
 
+        @include('partials.portal-switcher')
+
         <!-- ===================================== -->
         <!-- PROFILE -->
         <!-- ===================================== -->
@@ -455,7 +458,8 @@
             <!-- PROFILE BUTTON -->
             <button
                 type="button"
-                onclick="toggleProfileDropdown()"
+                data-topbar-toggle="profile"
+                onclick="event.stopPropagation(); toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
                 <!-- AVATAR -->
@@ -472,7 +476,7 @@
 
                     <p
                         class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
-                    >Accounting</p>
+                    >{{ \App\Support\RoleAccess::currentPortalLabel() }}</p>
                 </div>
 
                 <!-- CHEVRON -->
@@ -886,7 +890,6 @@
 
         if (profile) profile.classList.add("hidden");
         if (dropdown) dropdown.classList.toggle("hidden");
-        if (window.lucide) lucide.createIcons();
     }
 
     function toggleProfileDropdown() {
@@ -895,7 +898,6 @@
 
         if (notif) notif.classList.add("hidden");
         if (dropdown) dropdown.classList.toggle("hidden");
-        if (window.lucide) lucide.createIcons();
     }
 
     window.addEventListener("click", function (e) {
@@ -905,7 +907,7 @@
         if (
             notif &&
             !e.target.closest("#notificationDropdown") &&
-            !e.target.closest('[onclick="toggleNotifications()"]')
+            !e.target.closest('[data-topbar-toggle="notifications"]')
         ) {
             notif.classList.add("hidden");
         }
@@ -913,7 +915,7 @@
         if (
             profile &&
             !e.target.closest("#profileDropdown") &&
-            !e.target.closest('[onclick="toggleProfileDropdown()"]')
+            !e.target.closest('[data-topbar-toggle="profile"]')
         ) {
             profile.classList.add("hidden");
         }

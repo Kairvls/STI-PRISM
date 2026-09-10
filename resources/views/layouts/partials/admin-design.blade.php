@@ -8,7 +8,7 @@
         --admin-brand: #0037c7;
         --admin-brand-soft: rgba(0, 55, 199, 0.85);
         --admin-brand-hover: rgba(0, 44, 155, 0.85);
-        --admin-page-bg: #f1f5f9;
+        --admin-page-bg: #ffffff;
         --admin-card-radius: 18px;
         --admin-section-gap: 24px;
     }

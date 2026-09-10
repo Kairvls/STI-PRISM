@@ -1,8 +1,8 @@
 <?php
 
 /**
- * Shared procurement workflow routes for purchaser and maintenance portals.
- * Included inside groups that set prefix + name prefix (purchaser. / maintenance.).
+ * Procurement workflow routes for the Purchaser portal.
+ * Included inside the purchaser route group (prefix + name: purchaser.).
  */
 
 use App\Http\Controllers\AuthorityToPurchaseController;

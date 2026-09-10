@@ -465,8 +465,8 @@ class RisFormExporter
             if ($imagePath) {
                 try {
                     $nameCell->addImage($imagePath, [
-                        'width' => 90,
-                        'height' => 28,
+                        'width' => 80,
+                        'height' => 30,
                         'alignment' => Jc::CENTER,
                     ]);
                 } catch (\Throwable $e) {

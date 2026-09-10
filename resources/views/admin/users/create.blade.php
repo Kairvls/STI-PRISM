@@ -101,7 +101,7 @@
                 <input type="checkbox" name="user_can_procurement" value="1" class="mt-1">
                 <span>
                     <span class="block font-medium">Enable procurement workflow</span>
-                    <span class="block text-sm text-gray-600">For Maintenance Personnel only. Lets them approve replacements and run RIS → ATP → RFC → RR → Liquidation.</span>
+                    <span class="block text-sm text-gray-600">For Maintenance Personnel only. Assigns Purchaser access — use the portal switcher to run replacement requests and RIS → ATP → RFC → RR → Liquidation.</span>
                 </span>
             </label>
         </div>

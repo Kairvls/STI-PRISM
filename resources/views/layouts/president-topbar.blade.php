@@ -59,7 +59,8 @@
         <div class="relative">
             <button
                 type="button"
-                onclick="toggleNotifications()"
+                data-topbar-toggle="notifications"
+                onclick="event.stopPropagation(); toggleNotifications()"
                 class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
                 data-tooltip="Notifications"
@@ -204,10 +205,13 @@
             </div>
         </div>
 
+        @include('partials.portal-switcher')
+
         <div class="relative">
             <button
                 type="button"
-                onclick="toggleProfileDropdown()"
+                data-topbar-toggle="profile"
+                onclick="event.stopPropagation(); toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
                 @include('partials.user-avatar', ['avatarUser' => Auth::user(), 'avatarSize' => 'sm'])
@@ -219,7 +223,7 @@
                     <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
                         {{ Auth::user()->user_full_name }}
                     </p>
-                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">President</p>
+                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">{{ \App\Support\RoleAccess::currentPortalLabel() }}</p>
                 </div>
 
                 <i
@@ -433,7 +437,6 @@
         const profile = document.getElementById('profileDropdown');
         if (profile) profile.classList.add('hidden');
         if (dropdown) dropdown.classList.toggle('hidden');
-        if (window.lucide) lucide.createIcons();
     }
 
     function toggleProfileDropdown() {
@@ -441,7 +444,6 @@
         const notif = document.getElementById('notificationDropdown');
         if (notif) notif.classList.add('hidden');
         if (dropdown) dropdown.classList.toggle('hidden');
-        if (window.lucide) lucide.createIcons();
     }
 
     window.addEventListener('click', function (e) {
@@ -451,7 +453,7 @@
         if (
             notif &&
             !e.target.closest('#notificationDropdown') &&
-            !e.target.closest('[onclick="toggleNotifications()"]')
+            !e.target.closest('[data-topbar-toggle="notifications"]')
         ) {
             notif.classList.add('hidden');
         }
@@ -459,7 +461,7 @@
         if (
             profile &&
             !e.target.closest('#profileDropdown') &&
-            !e.target.closest('[onclick="toggleProfileDropdown()"]')
+            !e.target.closest('[data-topbar-toggle="profile"]')
         ) {
             profile.classList.add('hidden');
         }

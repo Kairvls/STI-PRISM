@@ -12,10 +12,7 @@
     {{-- ===================================================== --}}
 
     <div class="dashboard-header">
-        <div>
-            <h1 class="dashboard-title">Dashboard</h1>
-            <p class="dashboard-subtitle">Overview of system activity, user management, and procurement operations.</p>
-        </div>
+        
 
         <div class="dashboard-header-right">
             <span class="dashboard-date-badge">

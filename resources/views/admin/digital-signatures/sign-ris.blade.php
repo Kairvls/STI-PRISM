@@ -11,17 +11,7 @@
     {{-- PAGE HEADER --}}
     {{-- ===================================================== --}}
 
-    <div>
-
-        <h1 class="admin-page-title">
-            Sign RIS
-        </h1>
-
-        <p class="admin-page-subtitle">
-            Forward to President, approve directly, return for revision, or sign Issued by after President approval.
-        </p>
-
-    </div>
+    
 
 
     {{-- ===================================================== --}}

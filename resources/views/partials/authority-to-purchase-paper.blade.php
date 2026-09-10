@@ -287,21 +287,23 @@
 
             @if($editable)
                 <div class="relative mt-6 w-full">
-                    <img
-                        id="purSigOverlay-{{ $signKey }}"
-                        alt=""
-                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                        style="display:none;"
-                    >
-                    <input
-                        type="text"
-                        name="authority_purchase_received_by_name"
-                        id="purSigName-{{ $signKey }}"
-                        value="{{ $receivedBy }}"
-                        maxlength="255"
-                        autocomplete="off"
-                        class="relative z-[1] w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
-                    >
+                    <span class="signature-name-stack w-full">
+                        <img
+                            id="purSigOverlay-{{ $signKey }}"
+                            alt=""
+                            class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                            style="display:none;"
+                        >
+                        <input
+                            type="text"
+                            name="authority_purchase_received_by_name"
+                            id="purSigName-{{ $signKey }}"
+                            value="{{ $receivedBy }}"
+                            maxlength="255"
+                            autocomplete="off"
+                            class="relative z-[1] w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                        >
+                    </span>
                     <input
                         type="hidden"
                         name="authority_purchase_received_by_signature"
@@ -320,7 +322,7 @@
                     >
                 </div>
             @else
-                <div class="relative mt-6 flex min-h-[2.5rem] items-end justify-center border-b border-black pb-1 text-center">
+                <div class="relative mt-6 flex min-h-[1.5rem] items-center justify-center border-b border-black pb-1 text-center">
                     @include('partials.drawn-signature', [
                         'value' => $receivedBySignature,
                         'printedName' => $receivedBy,
@@ -340,18 +342,20 @@
         <div class="w-full max-w-xs justify-self-end text-left">
             <div class="leading-6">Authorized by</div>
             <div
-                class="relative mt-6 flex min-h-[2.5rem] w-full items-end justify-center border-b border-black pb-1"
+                class="relative mt-6 flex min-h-[1.5rem] w-full items-center justify-center border-b border-black pb-1"
                 @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
             >
                 @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($atp?->authority_purchase_authorized_by_signature ?? '')))
-                    <img
-                        id="accPaperSigOverlay"
-                        alt=""
-                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                        style="display:none;"
-                    >
-                    <span id="accPaperSigPrintedName" class="relative z-[1] text-center text-xs font-medium leading-5">
-                        {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                    <span class="signature-name-stack">
+                        <img
+                            id="accPaperSigOverlay"
+                            alt=""
+                            class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                            style="display:none;"
+                        >
+                        <span id="accPaperSigPrintedName" class="signature-name relative z-[1] text-center text-xs font-medium leading-5">
+                            {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                        </span>
                     </span>
                 @elseif(!$editable)
                     @include('partials.drawn-signature', [

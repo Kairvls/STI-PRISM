@@ -59,16 +59,18 @@
         .signature-name { font-size: 11px; text-transform: none; letter-spacing: 0; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
         .signature-image {
-            max-height: 36px;
+            max-height: 38px;
             width: auto;
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
-            bottom: 12px;
+            transform: translate(-50%, -50%);
+            top: 50%; bottom: auto;
             z-index: 10;
             pointer-events: none;
+            object-fit: contain;
+            object-position: center center;
         }
-        .signature-line .signature-name { display: block; line-height: 20px; }
+        .signature-line .signature-name { display: block; position: relative; z-index: 1; line-height: 1.35; }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         /* Modal / screen preview */

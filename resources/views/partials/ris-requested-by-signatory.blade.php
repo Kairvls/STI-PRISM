@@ -6,10 +6,12 @@
     $imageClass = $imageClass ?? 'signature-image';
 @endphp
 <div class="{{ $lineClass }}">
-    @if ($requestedImage !== '')
-        <img src="{{ $requestedImage }}" alt="Requested by signature" class="{{ $imageClass }}" />
-    @endif
-    @if ($requestedName !== '')
-        <span class="{{ $nameClass }}">{{ $requestedName }}</span>
-    @endif
+    <span class="signature-name-stack">
+        @if ($requestedImage !== '')
+            <img src="{{ $requestedImage }}" alt="Requested by signature" class="{{ $imageClass }}" />
+        @endif
+        @if ($requestedName !== '')
+            <span class="{{ $nameClass }}">{{ $requestedName }}</span>
+        @endif
+    </span>
 </div>

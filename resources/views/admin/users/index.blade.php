@@ -6,10 +6,7 @@
 
 <div class="admin-page space-y-6">
 
-    <div>
-        <h1 class="admin-page-title">User Management</h1>
-        <p class="admin-page-subtitle">Live accounts from the system. Create users here and enable procurement access for Maintenance Personnel when needed.</p>
-    </div>
+    
 
     @if(session('success'))
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{{ session('success') }}</div>
@@ -64,7 +61,8 @@
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Employee ID</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Full Name</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Username</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Role</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Primary role</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Additional roles</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Procurement</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Last active</th>
@@ -76,9 +74,13 @@
                         @php
                             $isActive = !empty($user->last_active_at)
                                 && \Carbon\Carbon::parse($user->last_active_at)->gte(now()->subDays(30));
-                            $isMaintenance = (int) ($user->user_role_id ?? 0) === 2;
-                            $isPurchaser = (int) ($user->user_role_id ?? 0) === 3;
-                            $canProcurement = (bool) ($user->user_can_procurement ?? false);
+                            $roleMeta = $extraRolesByUser[$user->user_id] ?? ['extra' => collect(), 'all_ids' => [(int) $user->user_role_id], 'extra_names' => []];
+                            $allRoleIds = $roleMeta['all_ids'] ?? [(int) $user->user_role_id];
+                            $isMaintenance = in_array(2, $allRoleIds, true);
+                            $isPurchaser = in_array(3, $allRoleIds, true);
+                            $canProcurement = (bool) ($user->user_can_procurement ?? false) || $isPurchaser;
+                            $extraNames = $roleMeta['extra_names'] ?? [];
+                            $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
                         @endphp
                         <tr class="user-row" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
@@ -88,8 +90,21 @@
                                 <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">{{ $user->role_name ?: '-' }}</span>
                             </td>
                             <td class="px-5 py-4">
-                                @if($isPurchaser)
+                                @if(count($extraNames))
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach($extraNames as $extraName)
+                                            <span class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">{{ $extraName }}</span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-4">
+                                @if($isPurchaser && (int) $user->user_role_id === 3)
                                     <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Always on</span>
+                                @elseif($isPurchaser)
+                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Enabled</span>
                                 @elseif($isMaintenance)
                                     <form method="POST" action="{{ route('admin.users.procurement-access', $user->user_id) }}" class="inline">
                                         @csrf
@@ -125,28 +140,45 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-right">
-                                <button type="button"
-                                    onclick="openViewUserModal(this)"
-                                    class="view-user-btn inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                                    title="View user details"
-                                    data-employee-id="{{ $user->user_employee_id ?: '-' }}"
-                                    data-full-name="{{ $user->user_full_name }}"
-                                    data-role="{{ $user->role_name ?: '-' }}"
-                                    data-username="{{ $user->user_username }}"
-                                    data-email="{{ $user->user_email_address ?: '-' }}"
-                                    data-contact="{{ $user->user_contact_number ?: '-' }}"
-                                    data-status="{{ $isActive ? 'Active' : 'Inactive' }}"
-                                    data-procurement="{{ $isPurchaser ? 'Always on' : ($isMaintenance ? ($canProcurement ? 'Enabled' : 'Disabled') : '—') }}"
-                                >
-                                    <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
-                                </button>
+                                <div class="inline-flex items-center gap-1">
+                                    @if((int) $user->user_role_id !== 1)
+                                    <button type="button"
+                                        onclick="openEditRolesModal(this)"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        title="Edit roles"
+                                        data-user-id="{{ $user->user_id }}"
+                                        data-full-name="{{ $user->user_full_name }}"
+                                        data-primary-role="{{ (int) $user->user_role_id }}"
+                                        data-role-ids="{{ implode(',', $allRoleIds) }}"
+                                        data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
+                                    >
+                                        <i data-lucide="shield" class="h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                    @endif
+                                    <button type="button"
+                                        onclick="openViewUserModal(this)"
+                                        class="view-user-btn inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        title="View user details"
+                                        data-employee-id="{{ $user->user_employee_id ?: '-' }}"
+                                        data-full-name="{{ $user->user_full_name }}"
+                                        data-role="{{ $user->role_name ?: '-' }}"
+                                        data-extra-roles="{{ $extraLabel }}"
+                                        data-username="{{ $user->user_username }}"
+                                        data-email="{{ $user->user_email_address ?: '-' }}"
+                                        data-contact="{{ $user->user_contact_number ?: '-' }}"
+                                        data-status="{{ $isActive ? 'Active' : 'Inactive' }}"
+                                        data-procurement="{{ $isPurchaser && (int) $user->user_role_id === 3 ? 'Always on' : ($isPurchaser ? 'Enabled' : ($isMaintenance ? ($canProcurement ? 'Enabled' : 'Disabled') : '—')) }}"
+                                    >
+                                        <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">No user accounts found.</td></tr>
+                        <tr><td colspan="9" class="px-5 py-16 text-center text-sm text-gray-400">No user accounts found.</td></tr>
                     @endforelse
                     <tr id="usersEmptyFilterRow" class="hidden">
-                        <td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">No accounts match this filter.</td>
+                        <td colspan="9" class="px-5 py-16 text-center text-sm text-gray-400">No accounts match this filter.</td>
                     </tr>
                 </tbody>
             </table>
@@ -191,7 +223,8 @@
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Employee ID</span><span id="viewUserEmployeeId" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Full Name</span><span id="viewUserFullName" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Username</span><span id="viewUserUsername" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Role</span><span id="viewUserRole" class="font-semibold text-slate-900"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Primary role</span><span id="viewUserRole" class="font-semibold text-slate-900"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Additional roles</span><span id="viewUserExtraRoles" class="font-semibold text-slate-900 text-right"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Procurement</span><span id="viewUserProcurement" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Status</span><span id="viewUserStatus" class="font-semibold text-slate-900"></span></div>
                 <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Email</span><span id="viewUserEmail" class="font-semibold text-slate-900"></span></div>
@@ -253,9 +286,9 @@
                         <input type="password" name="password" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Role</label>
-                        <select name="role" id="createUserRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
-                            <option value="">Select a role...</option>
+                        <label class="block text-sm font-medium text-slate-700">Primary role <span class="font-normal text-slate-400">(used for Office 365 login)</span></label>
+                        <select name="primary_role" id="createUserRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
+                            <option value="">Select primary role...</option>
                             @foreach($roles as $role)
                                 @if((int) $role->role_id !== 1)
                                     <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
@@ -263,12 +296,26 @@
                             @endforeach
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Additional roles <span class="font-normal text-slate-400">(optional)</span></label>
+                        <div class="mt-2 space-y-2 rounded-xl border border-gray-200 bg-slate-50 px-3 py-3">
+                            @foreach($roles as $role)
+                                @if((int) $role->role_id !== 1)
+                                    <label class="create-additional-role-row flex items-center gap-2 text-sm text-slate-700" data-role-id="{{ $role->role_id }}">
+                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="create-additional-role h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                                        <span>{{ $role->role_name }}</span>
+                                    </label>
+                                @endif
+                            @endforeach
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-500">Primary role is always included. Extra roles unlock those portals without changing login destination.</p>
+                    </div>
                     <div id="createProcurementAccessWrap" class="hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
                             <span>
                                 <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Allow this Maintenance account to approve replacement requests and process RIS → ATP → RFC → Receiving → Liquidation.</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Assigns Purchaser access. Use the portal switcher to open the Purchaser system for replacement requests and RIS → ATP → RFC → Receiving → Liquidation.</span>
                             </span>
                         </label>
                     </div>
@@ -276,6 +323,67 @@
                 <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
                     <button type="button" class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" onclick="closeCreateUserModal()">Cancel</button>
                     <button type="submit" class="admin-btn-primary">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="editRolesModal" class="fixed inset-0 hidden" style="z-index: 12000;">
+    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeEditRolesModal()">
+        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-950">Edit Roles</h3>
+                        <p class="mt-1 text-sm text-slate-600" id="editRolesSubtitle">Update primary and additional roles</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeEditRolesModal()" aria-label="Close">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <form method="POST" id="editRolesForm" class="space-y-0">
+                @csrf
+                <div class="space-y-4 overflow-y-auto px-6 py-5" style="max-height: calc(100vh - 280px);">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Primary role</label>
+                        <select name="primary_role" id="editPrimaryRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
+                            @foreach($roles as $role)
+                                @if((int) $role->role_id !== 1)
+                                    <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Additional roles</label>
+                        <div class="mt-2 space-y-2 rounded-xl border border-gray-200 bg-slate-50 px-3 py-3">
+                            @foreach($roles as $role)
+                                @if((int) $role->role_id !== 1)
+                                    <label class="edit-additional-role-row flex items-center gap-2 text-sm text-slate-700" data-role-id="{{ $role->role_id }}">
+                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="edit-additional-role h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                                        <span>{{ $role->role_name }}</span>
+                                    </label>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    <div id="editProcurementAccessWrap" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="user_can_procurement" value="1" id="editCanProcurement" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                            <span>
+                                <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Grants Purchaser access. Open the Purchaser portal via the portal switcher for procurement documents.</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
+                    <button type="button" class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" onclick="closeEditRolesModal()">Cancel</button>
+                    <button type="submit" class="admin-btn-primary">Save Roles</button>
                 </div>
             </form>
         </div>
@@ -308,6 +416,7 @@
         setText('viewUserFullName', btn.getAttribute('data-full-name'));
         setText('viewUserUsername', btn.getAttribute('data-username'));
         setText('viewUserRole', btn.getAttribute('data-role'));
+        setText('viewUserExtraRoles', btn.getAttribute('data-extra-roles'));
         setText('viewUserProcurement', btn.getAttribute('data-procurement'));
         setText('viewUserStatus', btn.getAttribute('data-status'));
         setText('viewUserEmail', btn.getAttribute('data-email'));
@@ -319,6 +428,7 @@
     window.openCreateUserModal = function() {
         var modal = mountUserModal(document.getElementById('createUserModal'));
         if (modal) modal.classList.remove('hidden');
+        syncCreateAdditionalRolesVisibility();
         syncCreateProcurementAccess();
     };
 
@@ -327,11 +437,77 @@
         if (modal) modal.classList.add('hidden');
     };
 
+    window.closeEditRolesModal = function() {
+        var modal = document.getElementById('editRolesModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.openEditRolesModal = function(btn) {
+        if (!btn) return;
+        var userId = btn.getAttribute('data-user-id');
+        var form = document.getElementById('editRolesForm');
+        if (form) form.action = '/admin/users/' + userId + '/roles';
+        var subtitle = document.getElementById('editRolesSubtitle');
+        if (subtitle) subtitle.textContent = 'Roles for ' + (btn.getAttribute('data-full-name') || 'user');
+        var primary = document.getElementById('editPrimaryRole');
+        if (primary) primary.value = btn.getAttribute('data-primary-role') || '';
+        var ids = (btn.getAttribute('data-role-ids') || '').split(',').filter(Boolean);
+        document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
+            var roleId = cb.value;
+            cb.checked = ids.indexOf(roleId) !== -1 && roleId !== (primary ? primary.value : '');
+        });
+        var canProc = document.getElementById('editCanProcurement');
+        if (canProc) canProc.checked = btn.getAttribute('data-can-procurement') === '1';
+        syncEditAdditionalRolesVisibility();
+        syncEditProcurementAccess();
+        var modal = mountUserModal(document.getElementById('editRolesModal'));
+        if (modal) modal.classList.remove('hidden');
+    };
+
+    function syncAdditionalRolesVisibility(primarySelectId, rowSelector, checkboxSelector) {
+        var primarySelect = document.getElementById(primarySelectId);
+        var primaryId = primarySelect ? String(primarySelect.value || '') : '';
+        document.querySelectorAll(rowSelector).forEach(function (row) {
+            var roleId = String(row.getAttribute('data-role-id') || '');
+            var isPrimary = primaryId !== '' && roleId === primaryId;
+            row.classList.toggle('hidden', isPrimary);
+            if (isPrimary) {
+                var cb = row.querySelector(checkboxSelector);
+                if (cb) cb.checked = false;
+            }
+        });
+    }
+
+    function syncCreateAdditionalRolesVisibility() {
+        syncAdditionalRolesVisibility('createUserRole', '.create-additional-role-row', '.create-additional-role');
+    }
+
+    function syncEditAdditionalRolesVisibility() {
+        syncAdditionalRolesVisibility('editPrimaryRole', '.edit-additional-role-row', '.edit-additional-role');
+    }
+
+    function hasMaintenanceSelected(primarySelect, additionalSelector) {
+        var primary = primarySelect ? primarySelect.value : '';
+        if (primary === '2') return true;
+        var found = false;
+        document.querySelectorAll(additionalSelector).forEach(function (cb) {
+            if (cb.checked && cb.value === '2' && !cb.closest('.hidden')) found = true;
+        });
+        return found;
+    }
+
     function syncCreateProcurementAccess() {
         var roleSelect = document.getElementById('createUserRole');
         var wrap = document.getElementById('createProcurementAccessWrap');
         if (!roleSelect || !wrap) return;
-        wrap.classList.toggle('hidden', roleSelect.value !== '2');
+        wrap.classList.toggle('hidden', !hasMaintenanceSelected(roleSelect, '.create-additional-role'));
+    }
+
+    function syncEditProcurementAccess() {
+        var roleSelect = document.getElementById('editPrimaryRole');
+        var wrap = document.getElementById('editProcurementAccessWrap');
+        if (!roleSelect || !wrap) return;
+        wrap.classList.toggle('hidden', !hasMaintenanceSelected(roleSelect, '.edit-additional-role'));
     }
 
     function updateUserFilterSlider(activeFilter, animate) {
@@ -368,6 +544,7 @@
         if (event.key !== 'Escape') return;
         closeViewUserModal();
         closeCreateUserModal();
+        closeEditRolesModal();
     });
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -452,9 +629,26 @@
 
         var roleSelect = document.getElementById('createUserRole');
         if (roleSelect) {
-            roleSelect.addEventListener('change', syncCreateProcurementAccess);
-            syncCreateProcurementAccess();
+            roleSelect.addEventListener('change', function () {
+                syncCreateAdditionalRolesVisibility();
+                syncCreateProcurementAccess();
+            });
         }
+        document.querySelectorAll('.create-additional-role').forEach(function (cb) {
+            cb.addEventListener('change', syncCreateProcurementAccess);
+        });
+        var editPrimary = document.getElementById('editPrimaryRole');
+        if (editPrimary) {
+            editPrimary.addEventListener('change', function () {
+                syncEditAdditionalRolesVisibility();
+                syncEditProcurementAccess();
+            });
+        }
+        document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
+            cb.addEventListener('change', syncEditProcurementAccess);
+        });
+        syncCreateAdditionalRolesVisibility();
+        syncCreateProcurementAccess();
     });
 </script>
 @endpush

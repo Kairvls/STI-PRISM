@@ -113,14 +113,30 @@
             return (meta && meta.getAttribute('content')) || '';
         },
         applyCreateSignature(dataUrl) {
-            const url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? String(dataUrl) : '';
-            this.createSignaturePreview = url;
-            const hidden = document.getElementById('purchaserRisSignatureData');
-            if (hidden) hidden.value = url;
-            if (!url) {
-                this.createSigUploadName = '';
-                if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
+            const raw = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? String(dataUrl) : '';
+            const commit = (url) => {
+                this.createSignaturePreview = url;
+                const hidden = document.getElementById('purchaserRisSignatureData');
+                if (hidden) hidden.value = url;
+                if (!url) {
+                    this.createSigUploadName = '';
+                    if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
+                }
+                this.$nextTick(() => {
+                    if (typeof window.scanSignatureNamePins === 'function') {
+                        window.scanSignatureNamePins();
+                    }
+                });
+            };
+            if (!raw) {
+                commit('');
+                return;
             }
+            if (typeof window.trimSignatureDataUrl === 'function') {
+                window.trimSignatureDataUrl(raw).then(commit);
+                return;
+            }
+            commit(raw);
         },
         clearCreateSignature() {
             if (window.clearSignaturePad) {
@@ -225,7 +241,9 @@
                 this.showCreateSigNotice('Please sign before applying.');
                 return;
             }
-            const dataUrl = canvas.toDataURL('image/png');
+            const dataUrl = (window.exportTrimmedSignatureDataUrl
+                ? window.exportTrimmedSignatureDataUrl(canvas)
+                : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png');
             this.applyCreateSignature(dataUrl);
             this.createSigUploadName = '';
             if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
@@ -1141,8 +1159,14 @@
         }
 
         .ris-signature-line {
-            height: 49px;
+            min-height: 1.75rem;
+            height: auto;
             border-bottom: 1px solid #1f2937;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: visible;
         }
 
         .ris-date-label {
@@ -1167,9 +1191,10 @@
         /* Values shown inside the physical RIS lines */
         .ris-value-line {
             display: flex;
-            align-items: flex-end;
-            min-height: 31px;
-            padding: 0 6px 4px;
+            align-items: center;
+            justify-content: center;
+            min-height: 1.75rem;
+            padding: 0.25rem 6px;
             font-size: 12px;
             line-height: 1.35;
         }
@@ -1442,20 +1467,25 @@
         .ris-signature-line img.signature-image {
             position: absolute;
             left: 50%;
-            bottom: 10px;
-            z-index: 2;
-            max-height: 42px;
+            top: 50%;
+            bottom: auto;
+            z-index: 10;
+            max-height: 38px;
             max-width: 92%;
             width: auto;
             height: auto;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%);
             pointer-events: none;
+            object-fit: contain;
+            object-position: center center;
         }
 
         .ris-signature-line .signature-name {
             display: block;
+            position: relative;
+            z-index: 1;
             width: 100%;
-            line-height: 20px;
+            line-height: 1.35;
             text-align: center;
             font-size: 11px;
             letter-spacing: 0;
@@ -1769,14 +1799,16 @@
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Requested by:</label>
                                     <div class="relative mt-3 sm:mt-5">
-                                        <img
-                                            x-show="createSignaturePreview"
-                                            x-cloak
-                                            x-bind:src="createSignaturePreview"
-                                            alt=""
-                                            class="pointer-events-none absolute left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 bottom-2"
-                                        >
-                                        <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                        <span class="signature-name-stack w-full">
+                                            <img
+                                                x-show="createSignaturePreview"
+                                                x-cloak
+                                                x-bind:src="createSignaturePreview"
+                                                alt=""
+                                                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                            >
+                                            <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                        </span>
                                     </div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
                                     <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date', $defaultRequestedByDate ?? '') }}" placeholder="dd/mm/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
@@ -3316,10 +3348,12 @@
                                                 @php
                                                     $editRequestedImage = \App\Support\RisWorkflow::requestedByDrawnSignature($ris);
                                                 @endphp
-                                                @if ($editRequestedImage !== '')
-                                                    <img src="{{ $editRequestedImage }}" alt="" class="signature-image">
-                                                @endif
-                                                <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
+                                                <span class="signature-name-stack w-full">
+                                                    @if ($editRequestedImage !== '')
+                                                        <img src="{{ $editRequestedImage }}" alt="" class="signature-image">
+                                                    @endif
+                                                    <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
+                                                </span>
                                             </div>
                                             <div class="ris-date-label">Date:</div>
                                             <input
@@ -3342,16 +3376,16 @@
                                                 $editApprovedName = \App\Support\RisWorkflow::approvedByPrintedName($ris);
                                             @endphp
                                             <div class="ris-signature-line ris-value-line ris-readonly-value">
-                                                @if ($editApprovedImage !== '')
-                                                    <img src="{{ $editApprovedImage }}" alt="" class="signature-image">
+                                                <span class="signature-name-stack">
+                                                    @if ($editApprovedImage !== '')
+                                                        <img src="{{ $editApprovedImage }}" alt="" class="signature-image">
+                                                    @endif
                                                     @if ($editApprovedName !== '')
                                                         <span class="signature-name">{{ $editApprovedName }}</span>
+                                                    @elseif ($editApprovedImage === '')
+                                                        {{ ' ' }}
                                                     @endif
-                                                @elseif ($editApprovedName !== '')
-                                                    <span class="signature-name">{{ $editApprovedName }}</span>
-                                                @else
-                                                    {{ ' ' }}
-                                                @endif
+                                                </span>
                                             </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
@@ -3366,16 +3400,16 @@
                                                 $editIssuedName = \App\Support\RisWorkflow::issuedByPrintedName($ris);
                                             @endphp
                                             <div class="ris-signature-line ris-value-line ris-readonly-value">
-                                                @if ($editIssuedImage !== '')
-                                                    <img src="{{ $editIssuedImage }}" alt="" class="signature-image">
+                                                <span class="signature-name-stack">
+                                                    @if ($editIssuedImage !== '')
+                                                        <img src="{{ $editIssuedImage }}" alt="" class="signature-image">
+                                                    @endif
                                                     @if ($editIssuedName !== '')
                                                         <span class="signature-name">{{ $editIssuedName }}</span>
+                                                    @elseif ($editIssuedImage === '')
+                                                        {{ ' ' }}
                                                     @endif
-                                                @elseif ($editIssuedName !== '')
-                                                    <span class="signature-name">{{ $editIssuedName }}</span>
-                                                @else
-                                                    {{ ' ' }}
-                                                @endif
+                                                </span>
                                             </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">

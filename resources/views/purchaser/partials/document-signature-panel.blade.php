@@ -1,4 +1,5 @@
 {{-- Shared Admin-style signature panel for Purchaser ATP / RFC / RR --}}
+@include('partials.ris-signature-overlay-styles')
 @php
     $savedSignatures = $savedSignatures ?? collect();
     $printedName = trim((string) (auth()->user()->user_full_name ?? auth()->user()->user_username ?? 'Purchaser'));
@@ -208,12 +209,14 @@
         // RIS-style: keep the printed-name input visible; only toggle the overlay image.
         if (linePreview) {
             if (url && String(url).indexOf('data:image/') === 0) {
+                linePreview.dataset.sigTrimmed = '';
                 linePreview.src = url;
                 linePreview.style.display = '';
             } else {
                 linePreview.removeAttribute('src');
                 linePreview.style.display = 'none';
                 linePreview.innerHTML = '';
+                linePreview.dataset.sigTrimmed = '';
             }
         }
         if (nameInput) {
@@ -221,21 +224,42 @@
         }
     }
     function applySignature(dataUrl) {
-        var url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? dataUrl : '';
-        if (sigHidden) sigHidden.value = url;
-        if (previewImg) {
-            if (url) { previewImg.src = url; previewImg.style.display = ''; }
-            else { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
+        var raw = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? dataUrl : '';
+        function commit(url) {
+            if (sigHidden) sigHidden.value = url;
+            if (previewImg) {
+                if (url) {
+                    previewImg.dataset.sigTrimmed = '';
+                    previewImg.src = url;
+                    previewImg.style.display = '';
+                } else {
+                    previewImg.removeAttribute('src');
+                    previewImg.style.display = 'none';
+                    previewImg.dataset.sigTrimmed = '';
+                }
+            }
+            syncLinePreview(url);
+            var hasSig = url !== '';
+            if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
+            if (clearSignBtn) clearSignBtn.classList.toggle('hidden', !hasSig);
+            if (saveCurrentBtn) {
+                saveCurrentBtn.classList.toggle('hidden', !hasSig);
+                updateSaveAvailability(savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0);
+            }
+            if (typeof window.scanSignatureNamePins === 'function') {
+                window.scanSignatureNamePins();
+            }
+            if (openPadLabel) openPadLabel.textContent = hasSig ? 'Redraw signature' : 'Draw signature';
         }
-        syncLinePreview(url);
-        var hasSig = url !== '';
-        if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
-        if (clearSignBtn) clearSignBtn.classList.toggle('hidden', !hasSig);
-        if (saveCurrentBtn) {
-            saveCurrentBtn.classList.toggle('hidden', !hasSig);
-            updateSaveAvailability(savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0);
+        if (!raw) {
+            commit('');
+            return;
         }
-        if (openPadLabel) openPadLabel.textContent = hasSig ? 'Redraw signature' : 'Draw signature';
+        if (typeof window.trimSignatureDataUrl === 'function') {
+            window.trimSignatureDataUrl(raw).then(commit);
+            return;
+        }
+        commit(raw);
     }
     function clearSignature() {
         var canvas = document.getElementById('purDocSignatureCanvas');
@@ -334,7 +358,9 @@
             else alert('Please sign before applying.');
             return;
         }
-        var dataUrl = canvas.toDataURL('image/png');
+        var dataUrl = (window.exportTrimmedSignatureDataUrl
+            ? window.exportTrimmedSignatureDataUrl(canvas)
+            : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png');
         applySignature(dataUrl);
         if (uploadInput) uploadInput.value = '';
         if (uploadNameOut) { uploadNameOut.textContent = ''; uploadNameOut.classList.add('hidden'); }

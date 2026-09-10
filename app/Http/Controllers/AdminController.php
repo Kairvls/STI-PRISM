@@ -1650,10 +1650,41 @@ class AdminController extends Controller
             ? DB::table('roles_table')->orderBy('role_id')->get()
             : collect();
 
+        $extraRolesByUser = [];
+        if (Schema::hasTable('user_roles_table') && $users->isNotEmpty()) {
+            $pivot = DB::table('user_roles_table')
+                ->leftJoin('roles_table', 'roles_table.role_id', '=', 'user_roles_table.role_id')
+                ->whereIn('user_roles_table.user_id', $users->pluck('user_id')->all())
+                ->select(
+                    'user_roles_table.user_id',
+                    'user_roles_table.role_id',
+                    'roles_table.role_name'
+                )
+                ->get()
+                ->groupBy('user_id');
+
+            foreach ($users as $user) {
+                $primaryId = (int) $user->user_role_id;
+                $rows = $pivot->get($user->user_id, collect());
+                $extra = $rows
+                    ->filter(fn ($row) => (int) $row->role_id !== $primaryId)
+                    ->values();
+                $allIds = $rows->pluck('role_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+                if (! in_array($primaryId, $allIds, true) && $primaryId > 0) {
+                    $allIds[] = $primaryId;
+                }
+                $extraRolesByUser[$user->user_id] = [
+                    'extra' => $extra,
+                    'all_ids' => $allIds,
+                    'extra_names' => $extra->pluck('role_name')->filter()->values()->all(),
+                ];
+            }
+        }
+
         $activeCount = 0;
         if (Schema::hasColumn('users_table', 'last_active_at')) {
             $activeCount = $users->filter(function ($user) {
-                return !empty($user->last_active_at)
+                return ! empty($user->last_active_at)
                     && \Carbon\Carbon::parse($user->last_active_at)->gte(now()->subDays(30));
             })->count();
         } elseif (Schema::hasTable('sessions')) {
@@ -1664,6 +1695,7 @@ class AdminController extends Controller
         return view('admin.users.index', [
             'users' => $users,
             'roles' => $roles,
+            'extraRolesByUser' => $extraRolesByUser,
             'totalUsers' => $users->count(),
             'activeUsers' => $activeCount,
             'roleCount' => $users->pluck('role_name')->filter()->unique()->count(),
@@ -1801,17 +1833,37 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        $roleId = (int) $request->role;
-        $canProcurement = false;
+        $primaryRoleId = (int) $request->input('primary_role', $request->input('role'));
+        $additionalRoles = collect($request->input('additional_roles', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0 && $id !== 1)
+            ->unique()
+            ->values()
+            ->all();
 
-        if ($roleId === 3) {
-            $canProcurement = true;
-        } elseif ($roleId === 2) {
-            $canProcurement = $request->boolean('user_can_procurement');
+        if ($primaryRoleId <= 0 || $primaryRoleId === 1) {
+            return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
+        }
+
+        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
+        $hasPurchaser = in_array(3, $allRoles, true);
+        $hasMaintenance = in_array(2, $allRoles, true);
+
+        $canProcurement = $hasPurchaser
+            || ($hasMaintenance && $request->boolean('user_can_procurement'));
+
+        // Selecting Purchaser as an additional role also grants procurement.
+        if ($hasPurchaser && ! in_array(3, $additionalRoles, true) && $primaryRoleId !== 3) {
+            // primary is purchaser
+        } elseif ($canProcurement && $hasMaintenance && ! $hasPurchaser) {
+            $additionalRoles[] = 3;
+            $allRoles[] = 3;
+            $allRoles = array_values(array_unique($allRoles));
+            $hasPurchaser = true;
         }
 
         $payload = [
-            'user_role_id' => $roleId,
+            'user_role_id' => $primaryRoleId,
             'user_employee_id' => $request->employee_id,
             'user_username' => $request->username,
             'user_full_name' => $request->full_name,
@@ -1824,9 +1876,56 @@ class AdminController extends Controller
             $payload['user_can_procurement'] = $canProcurement;
         }
 
-        User::create($payload);
+        $user = User::create($payload);
+        \App\Support\RoleAccess::syncRoles((int) $user->user_id, $primaryRoleId, $allRoles);
 
         return redirect('/admin/users')->with('success', 'User account created successfully.');
+    }
+
+    public function updateUserRoles(Request $request, int $userId)
+    {
+        $user = User::query()->findOrFail($userId);
+
+        if ((int) $user->user_role_id === 1 || \App\Support\RoleAccess::isAdmin($user)) {
+            return redirect('/admin/users')->with('error', 'Admin accounts cannot be edited here.');
+        }
+
+        $primaryRoleId = (int) $request->input('primary_role');
+        $additionalRoles = collect($request->input('additional_roles', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0 && $id !== 1)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($primaryRoleId <= 0 || $primaryRoleId === 1) {
+            return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
+        }
+
+        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
+        $hasPurchaser = in_array(3, $allRoles, true);
+        $hasMaintenance = in_array(2, $allRoles, true);
+        $canProcurement = $hasPurchaser
+            || ($hasMaintenance && $request->boolean('user_can_procurement'));
+
+        if ($canProcurement && $hasMaintenance && ! $hasPurchaser) {
+            $allRoles[] = 3;
+            $allRoles = array_values(array_unique($allRoles));
+            $hasPurchaser = true;
+        }
+
+        $user->user_role_id = $primaryRoleId;
+        if (Schema::hasColumn('users_table', 'user_can_procurement')) {
+            $user->user_can_procurement = $canProcurement;
+        }
+        $user->save();
+
+        \App\Support\RoleAccess::syncRoles((int) $user->user_id, $primaryRoleId, $allRoles);
+
+        return redirect('/admin/users')->with(
+            'success',
+            'Roles updated for '.$user->user_full_name.'.'
+        );
     }
 
     public function updateUserProcurementAccess(Request $request, int $userId)
@@ -1836,14 +1935,28 @@ class AdminController extends Controller
         }
 
         $user = User::query()->findOrFail($userId);
+        $hasMaintenance = \App\Support\RoleAccess::hasRole(2, $user)
+            || (int) $user->user_role_id === 2;
 
-        if ((int) $user->user_role_id !== 2) {
+        if (! $hasMaintenance) {
             return redirect('/admin/users')->with('error', 'Procurement access can only be toggled for Maintenance Personnel.');
         }
 
         $enabled = $request->boolean('user_can_procurement');
         $user->user_can_procurement = $enabled;
         $user->save();
+
+        $roleIds = \App\Support\RoleAccess::roleIds($user);
+        if ($enabled && ! in_array(3, $roleIds, true)) {
+            $roleIds[] = 3;
+        }
+        if (! $enabled) {
+            // Keep Purchaser only if it is the primary role.
+            if ((int) $user->user_role_id !== 3) {
+                $roleIds = array_values(array_filter($roleIds, fn ($id) => (int) $id !== 3));
+            }
+        }
+        \App\Support\RoleAccess::syncRoles((int) $user->user_id, (int) $user->user_role_id, $roleIds);
 
         return redirect('/admin/users')->with(
             'success',

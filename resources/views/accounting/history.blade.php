@@ -13,16 +13,9 @@
 @endphp
 
 <div class="acc-page acc-content-fill fade-in">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <p class="text-sm leading-6 text-gray-500">Processed ATP, Request Checks, fund releases, and liquidations.</p>
-        </div>
-        <div class="acc-toolbar">
-            <input type="search" name="search" id="historySearch" value="{{ $search }}" placeholder="Search reference, related document..." class="acc-search">
-        </div>
-    </div>
+    
 
-    <div class="mt-4 flex flex-wrap items-center gap-3 slide-up">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div class="pm-seg" id="historyFilterSlider" role="tablist" aria-label="History type filters" data-active="{{ $type }}">
             <span class="pm-seg-thumb" aria-hidden="true"></span>
             @foreach ($historyFilters as $key => $label)
@@ -35,6 +28,12 @@
                 >{{ $label }}</a>
             @endforeach
         </div>
+        
+        
+        <div class="acc-toolbar">
+            <input type="search" name="search" id="historySearch" value="{{ $search }}" placeholder="Search reference, related document..." class="acc-search">
+        </div>
+    
     </div>
 
     <div class="acc-table-wrap mt-4 slide-up">

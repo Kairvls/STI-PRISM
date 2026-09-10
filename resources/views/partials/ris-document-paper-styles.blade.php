@@ -45,18 +45,20 @@
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
         .signature-name-wrapper .signature-image,
         .signature-line .signature-image {
-            max-height: 36px;
+            max-height: 38px;
             width: auto;
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
-            bottom: 100%;
-            margin-bottom: -8px;
+            transform: translate(-50%, -50%);
+            top: 50%; bottom: auto;
+            margin-bottom: 0;
             z-index: 10;
             pointer-events: none;
+            object-fit: contain;
+            object-position: center center;
         }
-        .signature-line .signature-image { max-height: 32px; max-width: 90%; bottom: 12px; }
-        .signature-line .signature-name { display: block; line-height: 20px; }
+        .signature-line .signature-image { max-height: 38px; max-width: 90%; top: 50%; bottom: auto; }
+        .signature-line .signature-name { display: block; position: relative; z-index: 1; line-height: 1.35; }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
     </style>
     @endpush

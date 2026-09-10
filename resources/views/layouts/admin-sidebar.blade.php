@@ -54,6 +54,10 @@
                         Dashboard
                     </div>
 
+                    <div class="dropdown-item" data-target="operations-section">
+                        Operations
+                    </div>
+
                     <div class="dropdown-item" data-target="procurement-section">
                         Procurement
                     </div>
@@ -151,6 +155,56 @@
 
             <span>Dashboard</span>
 
+        </a>
+
+        {{-- ====================================== --}}
+        {{-- OPERATIONS --}}
+        {{-- ====================================== --}}
+
+        <div class="menu-title" id="operations-section">
+
+            OPERATIONS
+
+        </div>
+
+        <a
+            href="{{ route('admin.operations.overview') }}"
+            class="menu-item {{ request()->is('admin/operations') && !request()->is('admin/operations/*') ? 'active' : '' }}"
+        >
+            <i data-lucide="radar"></i>
+            <span>Command Center</span>
+        </a>
+
+        <a
+            href="{{ route('admin.operations.equipment') }}"
+            class="menu-item {{ request()->is('admin/operations/equipment*') ? 'active' : '' }}"
+        >
+            <i data-lucide="monitor"></i>
+            <span>Equipment</span>
+        </a>
+
+        <a
+            href="{{ route('admin.operations.schedules') }}"
+            class="menu-item {{ request()->is('admin/operations/schedules*') ? 'active' : '' }}"
+        >
+            <i data-lucide="calendar-clock"></i>
+            <span>Schedules</span>
+        </a>
+
+        <a
+            href="{{ route('admin.operations.reports') }}"
+            class="menu-item {{ request()->is('admin/operations/reports*') ? 'active' : '' }}"
+        >
+            <i data-lucide="clipboard-list"></i>
+            <span>Equipment Reports</span>
+        </a>
+
+        <a
+            href="{{ route('admin.operations.procurement') }}"
+            class="menu-item {{ request()->is('admin/operations/procurement*') ? 'active' : '' }}"
+        >
+            <i data-lucide="git-branch"></i>
+            <span>Procurement Monitor</span>
         </a>
 
         {{-- ====================================== --}}

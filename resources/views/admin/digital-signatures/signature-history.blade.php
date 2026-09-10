@@ -11,17 +11,7 @@
     {{-- PAGE HEADER --}}
     {{-- ===================================================== --}}
 
-    <div>
-
-        <h1 class="admin-page-title">
-            Signature History
-        </h1>
-
-        <p class="admin-page-subtitle">
-            Permanent log of RIS outcomes. Direct approvals stay under <strong>Admin Approved</strong> with reason, proof, and supporting documents.
-        </p>
-
-    </div>
+    
 
 
     {{-- ===================================================== --}}

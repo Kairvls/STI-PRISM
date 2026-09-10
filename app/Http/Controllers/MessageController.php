@@ -3163,6 +3163,9 @@ class MessageController extends Controller
 
         foreach ($receiverIds as $receiverId) {
 
+            // Broadcast to the receiver's private user channel.
+            // Do not use toOthers() here — this request is HTTP and the
+            // event targets a different user's channel.
             broadcast(
                 new UserTyping(
                     (int) $conversation->conversation_id,
@@ -3170,7 +3173,7 @@ class MessageController extends Controller
                     (int) $receiverId,
                     (bool) $validated['is_typing']
                 )
-            )->toOthers();
+            );
 
         }
 

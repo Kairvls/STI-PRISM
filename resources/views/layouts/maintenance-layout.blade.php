@@ -293,11 +293,29 @@
             const subtitle = opts.title
                 ? String(rawMessage || opts.subtitle || opts.text || '').trim()
                 : String(opts.subtitle || opts.text || '').trim();
+            const replaceGroup = opts.replaceGroup
+                ? String(opts.replaceGroup)
+                : '';
 
             const host = ensureHost();
+
+            // Optional: replace prior toasts in the same group
+            // (used by incoming message notifications).
+            if (replaceGroup) {
+                host.querySelectorAll(
+                    '.mp-toast[data-toast-group="' + replaceGroup.replace(/"/g, '') + '"]'
+                ).forEach(function (oldToast) {
+                    oldToast.classList.remove('is-visible');
+                    oldToast.remove();
+                });
+            }
+
             const toast = document.createElement('div');
             toast.className = 'mp-toast';
             toast.setAttribute('role', 'status');
+            if (replaceGroup) {
+                toast.setAttribute('data-toast-group', replaceGroup);
+            }
             toast.innerHTML =
                 '<div class="mp-toast-top">' +
                     '<div class="mp-toast-brand">' +
@@ -318,7 +336,12 @@
                 toast.querySelector('.mp-toast-message').textContent = subtitle;
             }
 
+            let timerId = null;
             const dismiss = function () {
+                if (timerId) {
+                    clearTimeout(timerId);
+                    timerId = null;
+                }
                 toast.classList.remove('is-visible');
                 setTimeout(function () {
                     toast.remove();
@@ -332,10 +355,10 @@
             });
 
             if (timer > 0) {
-                setTimeout(dismiss, timer);
+                timerId = setTimeout(dismiss, timer);
             }
 
-            return { close: dismiss };
+            return { close: dismiss, el: toast };
         };
 
         function enhanceSwalToasts() {

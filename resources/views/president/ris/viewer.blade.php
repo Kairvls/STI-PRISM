@@ -48,30 +48,35 @@
         .signature-name { font-size: 11px; text-transform: none; letter-spacing: 0; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
         .signature-name-wrapper .signature-image {
-            max-height: 36px;
+            max-height: 38px;
             width: auto;
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
-            bottom: 100%;
-            margin-bottom: -8px;
+            transform: translate(-50%, -50%);
+            top: 50%; bottom: auto;
+            margin-bottom: 0;
             z-index: 10;
+            object-fit: contain;
+            object-position: center center;
         }
         .signature-line .signature-image {
-            max-height: 32px;
+            max-height: 38px;
             max-width: 90%;
             width: auto;
             height: auto;
             object-fit: contain;
+            object-position: center center;
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
-            bottom: 12px;
+            transform: translate(-50%, -50%);
+            top: 50%; bottom: auto;
             z-index: 10;
             pointer-events: none;
         }
         .signature-line .signature-name {
             display: block;
+            position: relative;
+            z-index: 1;
             line-height: 20px;
         }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }

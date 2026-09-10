@@ -57,17 +57,14 @@ use App\Http\Controllers\AccountSettingsController;
 Route::get('/dashboard', function () {
 
     // Only authenticated users can reach this due to middleware('auth').
-    $roleId = auth()->user()?->user_role_id;
+    $roleId = (int) (auth()->user()?->user_role_id ?? 0);
+    $path = \App\Support\RoleAccess::dashboardPath($roleId);
 
-    return match ((int) $roleId) {
-        1 => redirect('/admin/dashboard'),
-        2 => redirect('/maintenance/dashboard'),
-        3 => redirect('/purchaser/dashboard'),
-        4 => redirect('/president/dashboard'),
-        5 => redirect('/accounting/dashboard'),
-        6 => redirect('/receiving/dashboard'),
-        default => abort(403),
-    };
+    if ($path === '/') {
+        abort(403);
+    }
+
+    return redirect($path);
 
 })->middleware(['auth'])->name('dashboard');
 
@@ -121,6 +118,40 @@ Route::middleware(['auth', 'admin'])
             '/security',
             [AdminController::class, 'security']
         )->name('security');
+
+        // ==========================================
+        // OPERATIONS (true admin monitor + act)
+        // ==========================================
+
+        Route::get(
+            '/operations',
+            [\App\Http\Controllers\AdminOperationsController::class, 'overview']
+        )->name('operations.overview');
+
+        Route::get(
+            '/operations/equipment',
+            [\App\Http\Controllers\AdminOperationsController::class, 'equipment']
+        )->name('operations.equipment');
+
+        Route::get(
+            '/operations/schedules',
+            [\App\Http\Controllers\AdminOperationsController::class, 'schedules']
+        )->name('operations.schedules');
+
+        Route::get(
+            '/operations/reports',
+            [\App\Http\Controllers\AdminOperationsController::class, 'reports']
+        )->name('operations.reports');
+
+        Route::post(
+            '/operations/reports/{reportId}',
+            [\App\Http\Controllers\AdminOperationsController::class, 'updateReport']
+        )->whereNumber('reportId')->name('operations.reports.update');
+
+        Route::get(
+            '/operations/procurement',
+            [\App\Http\Controllers\AdminOperationsController::class, 'procurement']
+        )->name('operations.procurement');
 
         // ==========================================
         // PROCUREMENT REVIEW
@@ -245,6 +276,11 @@ Route::middleware(['auth', 'admin'])
             '/users/store',
             [AdminController::class, 'storeUser']
         )->name('users.store');
+
+        Route::post(
+            '/users/{userId}/roles',
+            [AdminController::class, 'updateUserRoles']
+        )->whereNumber('userId')->name('users.roles');
 
         Route::post(
             '/users/{userId}/procurement-access',
@@ -1529,12 +1565,34 @@ Route::middleware([
 
 
     // =====================================================
-    // PROCUREMENT WORKFLOW (same as purchaser; requires flag)
+    // LEGACY PROCUREMENT URLs → Purchaser portal
+    // (workflow lives in Purchaser; multi-role users switch portals)
     // =====================================================
 
-    Route::middleware('maintenance.procurement')->group(function () {
-        require __DIR__.'/procurement-workflow.php';
-    });
+    $legacyProcurementRedirects = [
+        'procurement' => 'purchaser/procurement',
+        'ris' => 'purchaser/ris',
+        'authority-to-purchase' => 'purchaser/authority-to-purchase',
+        'request-check' => 'purchaser/request-check',
+        'receiving-reports' => 'purchaser/receiving-reports',
+        'liquidation-reports' => 'purchaser/liquidation-reports',
+        'procurement-records' => 'purchaser/procurement-records',
+        'suppliers' => 'purchaser/suppliers',
+        'file-maintenance' => 'purchaser/file-maintenance',
+        'brands' => 'purchaser/brands',
+        'uom' => 'purchaser/uom',
+        'categories' => 'purchaser/categories',
+        'subcategories' => 'purchaser/subcategories',
+    ];
+
+    foreach ($legacyProcurementRedirects as $from => $to) {
+        Route::any('/'.$from.'/{path?}', function (?string $path = null) use ($to) {
+            $target = '/'.$to.($path !== null && $path !== '' ? '/'.$path : '');
+            $query = request()->getQueryString();
+
+            return redirect($query ? $target.'?'.$query : $target);
+        })->where('path', '.*');
+    }
 
 });
 

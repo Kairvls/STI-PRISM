@@ -183,10 +183,7 @@
 
 <div class="admin-page ro-dash">
     <div class="ro-dash-header">
-        <div>
-            <h1 class="admin-page-title">Dashboard</h1>
-            <p class="admin-page-subtitle">Second-count submitted Receiving Reports, then return mismatches to Purchaser.</p>
-        </div>
+        
         <span class="ro-date">
             <i data-lucide="calendar" class="h-4 w-4"></i>
             {{ now()->format('l, F j, Y') }}

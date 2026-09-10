@@ -61,16 +61,27 @@ class WorkflowNotifier
     public static function userIdsForRole(string $role): array
     {
         $roleId = self::ROLE_IDS[$role] ?? null;
-        if ($roleId === null || !Schema::hasTable('users_table')) {
+        if ($roleId === null || ! Schema::hasTable('users_table')) {
             return [];
         }
 
         try {
-            return DB::table('users_table')
+            $primaryIds = DB::table('users_table')
                 ->where('user_role_id', $roleId)
                 ->pluck('user_id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
+
+            $extraIds = [];
+            if (Schema::hasTable('user_roles_table')) {
+                $extraIds = DB::table('user_roles_table')
+                    ->where('role_id', $roleId)
+                    ->pluck('user_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+            }
+
+            return array_values(array_unique(array_merge($primaryIds, $extraIds)));
         } catch (\Throwable $e) {
             return [];
         }

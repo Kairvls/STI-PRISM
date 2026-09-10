@@ -81,21 +81,23 @@
             <div class="font-semibold">Requested by:</div>
             @if($editable)
                 <div class="relative mt-6 w-64">
-                    <img
-                        id="purSigOverlay-{{ $signKey }}"
-                        alt=""
-                        class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                        style="display:none;"
-                    >
-                    <input
-                        type="text"
-                        name="request_check_requested_by"
-                        id="purSigName-{{ $signKey }}"
-                        value="{{ $requestedByValue }}"
-                        maxlength="255"
-                        autocomplete="off"
-                        class="relative z-[1] block w-full min-h-[2.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
-                    >
+                    <span class="signature-name-stack w-full">
+                        <img
+                            id="purSigOverlay-{{ $signKey }}"
+                            alt=""
+                            class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                            style="display:none;"
+                        >
+                        <input
+                            type="text"
+                            name="request_check_requested_by"
+                            id="purSigName-{{ $signKey }}"
+                            value="{{ $requestedByValue }}"
+                            maxlength="255"
+                            autocomplete="off"
+                            class="relative z-[1] block w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                        >
+                    </span>
                     <input
                         type="hidden"
                         name="request_check_requested_by_signature"
@@ -104,7 +106,7 @@
                     >
                 </div>
             @else
-                <div class="relative mt-6 w-64 border-b border-black pb-1 min-h-[2.5rem]">
+                <div class="relative mt-6 w-64 border-b border-black pb-1 min-h-[1.5rem]">
                     @include('partials.drawn-signature', [
                         'value' => $requestedBySignature,
                         'printedName' => $requestedByValue,
@@ -117,18 +119,20 @@
             <div class="w-64 text-left">
                 <div class="font-semibold">Approved by:</div>
                 <div
-                    class="relative mt-6 w-full min-h-[2.5rem] border-b border-black pb-1 flex items-end justify-center"
+                    class="relative mt-6 w-full min-h-[1.5rem] border-b border-black pb-1 flex items-center justify-center"
                     @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
                 >
                     @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($approvedBy ?? '')))
-                        <img
-                            id="accPaperSigOverlay"
-                            alt=""
-                            class="pointer-events-none absolute bottom-2 left-1/2 z-[2] max-h-10 w-auto max-w-[92%] -translate-x-1/2 object-contain"
-                            style="display:none;"
-                        >
-                        <span id="accPaperSigPrintedName" class="relative z-[1] text-center text-xs font-medium leading-5">
-                            {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                        <span class="signature-name-stack">
+                            <img
+                                id="accPaperSigOverlay"
+                                alt=""
+                                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                style="display:none;"
+                            >
+                            <span id="accPaperSigPrintedName" class="signature-name relative z-[1] text-center text-xs font-medium leading-5">
+                                {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                            </span>
                         </span>
                     @else
                         @include('partials.drawn-signature', [

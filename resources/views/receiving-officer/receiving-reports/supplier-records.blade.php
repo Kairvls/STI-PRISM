@@ -3,10 +3,7 @@
 @section('content')
 
 <div class="admin-page space-y-6">
-    <div>
-        <h1 class="admin-page-title">Supplier lookup</h1>
-        <p class="admin-page-subtitle">Read-only list of vendors on your deliveries. Purchaser maintains supplier accounts; you cannot add or edit them here.</p>
-    </div>
+    
 
     @include('layouts.partials.receiving-query-error')
 

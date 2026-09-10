@@ -51,6 +51,44 @@ class User extends Authenticatable
     }
 
     /**
+     * All assigned roles (primary + additional).
+     */
+    public function roles()
+    {
+        return $this->belongsToMany(
+            Role::class,
+            'user_roles_table',
+            'user_id',
+            'role_id',
+            'user_id',
+            'role_id'
+        )->withPivot('assigned_at');
+    }
+
+    public function hasRole(int $roleId): bool
+    {
+        return \App\Support\RoleAccess::hasRole($roleId, $this);
+    }
+
+    public function hasAnyRole(array $roleIds): bool
+    {
+        return \App\Support\RoleAccess::hasAnyRole($roleIds, $this);
+    }
+
+    public function isAdmin(): bool
+    {
+        return \App\Support\RoleAccess::isAdmin($this);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function roleIds(): array
+    {
+        return \App\Support\RoleAccess::roleIds($this);
+    }
+
+    /**
      * Public URL for the stored profile picture, if any.
      */
     public function profilePictureUrl(): ?string

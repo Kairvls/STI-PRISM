@@ -4,18 +4,12 @@
 
 @section('content')
 
-<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
-    <div>
-        <p class="text-sm leading-6 text-gray-500">
-            View past RIS decisions — both approved and rejected.
-        </p>
-    </div>
-</div>
+
 
 {{-- ============================== --}}
 {{-- SEARCH --}}
 {{-- ============================== --}}
-<div class="mt-6 slide-up" style="animation-delay: 0.05s">
+<div class="slide-up" style="animation-delay: 0.05s">
     <div class="flex flex-wrap items-center gap-3">
         <div class="relative flex-1 min-w-[220px]">
             <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>

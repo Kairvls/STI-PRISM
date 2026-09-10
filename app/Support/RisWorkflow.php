@@ -265,7 +265,113 @@ class RisWorkflow
             return null;
         }
 
-        return $value;
+        return self::trimDrawnSignatureDataUrl($value) ?? $value;
+    }
+
+    /**
+     * Crop transparent padding so ink is centered when overlaid on a printed name.
+     */
+    public static function trimDrawnSignatureDataUrl(?string $value, int $padding = 10): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '' || ! self::isDrawnSignature($value)) {
+            return null;
+        }
+
+        if (! preg_match('#^data:image/(png|jpeg|jpg|webp);base64,(.+)$#is', $value, $matches)) {
+            return $value;
+        }
+
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagecreatetruecolor')) {
+            return $value;
+        }
+
+        $binary = base64_decode($matches[2], true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $source = @imagecreatefromstring($binary);
+        if ($source === false) {
+            return $value;
+        }
+
+        $width = imagesx($source);
+        $height = imagesy($source);
+        if ($width < 1 || $height < 1) {
+            imagedestroy($source);
+
+            return $value;
+        }
+
+        imagealphablending($source, false);
+        imagesavealpha($source, true);
+
+        $minX = $width;
+        $minY = $height;
+        $maxX = -1;
+        $maxY = -1;
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $rgba = imagecolorat($source, $x, $y);
+                $alpha = ($rgba & 0x7F000000) >> 24;
+                // GD alpha: 0 opaque … 127 transparent. Keep nearly-opaque ink.
+                if ($alpha < 120) {
+                    if ($x < $minX) {
+                        $minX = $x;
+                    }
+                    if ($y < $minY) {
+                        $minY = $y;
+                    }
+                    if ($x > $maxX) {
+                        $maxX = $x;
+                    }
+                    if ($y > $maxY) {
+                        $maxY = $y;
+                    }
+                }
+            }
+        }
+
+        if ($maxX < 0) {
+            imagedestroy($source);
+
+            return $value;
+        }
+
+        $minX = max(0, $minX - $padding);
+        $minY = max(0, $minY - $padding);
+        $maxX = min($width - 1, $maxX + $padding);
+        $maxY = min($height - 1, $maxY + $padding);
+        $cropW = $maxX - $minX + 1;
+        $cropH = $maxY - $minY + 1;
+
+        $cropped = imagecreatetruecolor($cropW, $cropH);
+        if ($cropped === false) {
+            imagedestroy($source);
+
+            return $value;
+        }
+
+        imagealphablending($cropped, false);
+        imagesavealpha($cropped, true);
+        $transparent = imagecolorallocatealpha($cropped, 0, 0, 0, 127);
+        imagefilledrectangle($cropped, 0, 0, $cropW, $cropH, $transparent);
+        imagecopy($cropped, $source, 0, 0, $minX, $minY, $cropW, $cropH);
+
+        ob_start();
+        imagepng($cropped);
+        $png = ob_get_clean();
+
+        imagedestroy($source);
+        imagedestroy($cropped);
+
+        if (! is_string($png) || $png === '') {
+            return $value;
+        }
+
+        return 'data:image/png;base64,'.base64_encode($png);
     }
 
     public static function requestedBySignatureDiskPath(int $risId): string
