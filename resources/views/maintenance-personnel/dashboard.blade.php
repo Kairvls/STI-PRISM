@@ -2060,7 +2060,7 @@
                 .urgent-carousel-button-active {
                     border-color: #4f46e5;
 
-                    background: #4f46e5;
+                    background: #0025cc;
 
                     color: white;
                 }
@@ -2261,15 +2261,17 @@
 
                     padding: 3px 7px;
 
-                    background: #fee2e2;
+                    background: #ffffff;
 
                     border-radius: 999px;
 
-                    color: #dc2626;
+                    color: black;
 
                     font-size: 9px;
 
                     font-weight: 700;
+
+                    border: 1px solid gray;
                 }
 
 
@@ -3707,10 +3709,10 @@
 
         .dashboard-overview-row {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 24px;
-
-            /* IMPORTANT: Both sides get equal height */
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr);
+            column-gap: 20px;
+            row-gap: 10px;
             align-items: stretch;
         }
 
@@ -3720,478 +3722,771 @@
 
 
         /* =====================================================
-        EQUIPMENT STATISTICS CARD (earning-reports style)
+        EQUIPMENT STATISTICS CARD (metrics dashboard style)
         ===================================================== */
 
         .flow-card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 24px;
-            padding: 28px;
+            grid-column: 1;
+            grid-row: 1 / -1;
+            display: grid;
+            grid-template-rows: subgrid;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .eq-metrics-head {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .eq-metrics-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            height: 100%;
+            align-self: stretch;
+        }
+
+        .eq-metrics-slot-top,
+        .eq-metrics-slot-bottom {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        .flow-header {
+        .eq-metrics-slot-top > [data-eq-metrics-panel],
+        .eq-metrics-slot-bottom > [data-eq-metrics-panel] {
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+        }
+
+        .eq-metrics-top {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
+            gap: 10px;
         }
 
         .flow-title {
-            font-size: clamp(18px, 2.5vw, 22px);
+            font-size: clamp(18px, 2.2vw, 22px);
             font-weight: 700;
-            line-height: 1.2;
+            line-height: 1.1;
             color: #111827;
             margin: 0;
         }
 
-        .flow-subtitle {
-            color: #9ca3af;
-            font-size: 13px;
-            margin-top: 6px;
-            font-weight: 500;
+        .eq-metrics-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
-        .flow-menu {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            justify-content: center;
+        .eq-metrics-pill {
+            display: inline-flex;
             align-items: center;
-            border-radius: 50%;
+            gap: 4px;
+            height: 28px;
+            padding: 0 10px;
+            border: none;
+            border-radius: 999px;
+            background: #eceff3;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .eq-metrics-icon-btn {
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 10px;
+            background: #eceff3;
+            color: #111827;
+            cursor: pointer;
+        }
+
+        .eq-metrics-tabs {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .eq-metrics-tab {
+            appearance: none;
             border: none;
             background: transparent;
+            padding: 0 0 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
             color: #9ca3af;
-            flex-shrink: 0;
-            transition: background 0.15s ease, color 0.15s ease;
+            cursor: pointer;
+            position: relative;
         }
 
-        .flow-menu:hover {
-            background: #f4f6f9;
-            color: #4b5563;
+        .eq-metrics-tab.is-active {
+            color: #111827;
         }
 
-        .eq-metric-list {
-            margin-top: 28px;
+        .eq-metrics-tab.is-active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 2px;
+            border-radius: 999px 999px 0 0;
+            background: #111827;
+        }
+
+        .eq-metrics-tab-count {
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #111827;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .eq-metrics-panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1.15fr;
+            gap: 0;
+            overflow: hidden;
+            box-sizing: border-box;
+            align-content: stretch;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .eq-metrics-panel.is-hidden {
+            display: none;
+        }
+
+        .eq-metrics-cell {
+            min-width: 0;
+            min-height: 0;
+            padding: 4px 10px;
             display: flex;
             flex-direction: column;
-            gap: 22px;
+            justify-content: space-between;
         }
 
-        .eq-metric-row {
+        .eq-metrics-cell + .eq-metrics-cell {
+            border-left: 1px solid #eef0f3;
+        }
+
+        .eq-metrics-cell-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .eq-metrics-avatars {
+            display: flex;
+            align-items: center;
+        }
+
+        .eq-metrics-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 2px solid #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 37, 204, 0.12);
+            color: #0025cc;
+        }
+
+        .eq-metrics-avatar + .eq-metrics-avatar {
+            margin-left: -8px;
+            background: #111827;
+            color: #ffffff;
+        }
+
+        .eq-metrics-mini-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 7px;
+            border: 1px solid #e5e7eb;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            background: #fafafa;
+        }
+
+        .eq-metrics-mini-icon.is-round {
+            border-radius: 999px;
+        }
+
+        .eq-metrics-value-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .eq-metrics-value {
+            font-size: clamp(22px, 2.6vw, 28px);
+            font-weight: 700;
+            line-height: 1;
+            color: #111827;
+            letter-spacing: -0.03em;
+        }
+
+        .eq-metrics-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #9ca3af;
+            max-width: 80px;
+            line-height: 1.2;
+            padding-bottom: 2px;
+        }
+
+        .eq-metrics-label.is-top {
+            max-width: none;
+            margin-bottom: 4px;
+            padding-bottom: 0;
+        }
+
+        .eq-goal-meta {
+            margin-top: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
+            gap: 8px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #9ca3af;
         }
 
-        .eq-metric-left {
+        .eq-goal-bar {
+            margin-top: 6px;
+            height: 7px;
+            border-radius: 999px;
+            background: #111827;
+            overflow: hidden;
+        }
+
+        .eq-goal-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: #0025cc;
+            min-width: 0;
+        }
+
+        /* =====================================================
+           PAYMENTS FUNNEL — fade-to-blue (#0025cc)
+           ===================================================== */
+
+        .eq-funnel-card {
+            --eq-blue: #0025cc;
+            --eq-blue-soft: rgba(0, 37, 204, 0.12);
+            --eq-blue-mid: #3b5bdb;
+            background: #ffffff;
+            border: 1px solid #e8eaed;
+            border-radius: 22px;
+            padding: 12px;
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .eq-funnel-card.is-hidden {
+            display: none;
+        }
+
+        .eq-funnel-header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
+
+        .eq-funnel-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+            letter-spacing: -0.01em;
+        }
+
+        .eq-funnel-more {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            color: #111827;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        .eq-funnel-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: 26px minmax(0, 1fr);
+            gap: 2px;
+            position: relative;
+        }
+
+        .eq-funnel-axis {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 44px 0 12px;
+            color: #9ca3af;
+            font-size: 8px;
+            font-weight: 500;
+            line-height: 1;
+            user-select: none;
+            text-align: right;
+        }
+
+        .eq-funnel-axis span {
+            display: block;
+            width: 100%;
+            text-align: right;
+        }
+
+        .eq-funnel-cols {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            min-height: 0;
+            height: 100%;
+            position: relative;
+        }
+
+        .eq-funnel-col {
+            appearance: none;
+            border: none;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            min-width: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            cursor: pointer;
+            position: relative;
+            border-radius: 14px;
+            transition: background 0.2s ease;
+        }
+
+        .eq-funnel-col + .eq-funnel-col {
+            border-left: 1px solid rgba(148, 163, 184, 0.22);
+        }
+
+        .eq-funnel-col.is-active {
+            background: linear-gradient(
+                180deg,
+                rgba(0, 37, 204, 0.10) 0%,
+                rgba(0, 37, 204, 0.02) 55%,
+                rgba(0, 37, 204, 0) 100%
+            );
+        }
+
+        .eq-funnel-col.is-active .eq-funnel-col-label {
+            color: #111827;
+        }
+
+        .eq-funnel-col-head {
+            padding: 4px 6px 6px;
+            flex-shrink: 0;
+            min-height: 36px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .eq-funnel-col-label {
+            display: block;
+            color: #9ca3af;
+            font-size: 8px;
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 3px;
+        }
+
+        .eq-funnel-col-value {
+            display: block;
+            color: #111827;
+            font-size: clamp(13px, 1.5vw, 17px);
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+        }
+
+        .eq-funnel-col-plot {
+            flex: 1 1 auto;
+            min-height: 64px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 10px 14% 4px;
+            z-index: 1;
+        }
+
+        .eq-funnel-tick {
+            position: absolute;
+            top: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 3px;
+            border-radius: 999px;
+            background: rgba(0, 37, 204, 0.45);
+            z-index: 3;
+        }
+
+        .eq-funnel-col.is-active .eq-funnel-tick {
+            opacity: 0;
+        }
+
+        .eq-funnel-bar {
+            width: 100%;
+            border-radius: 3px 3px 0 0;
+            position: relative;
+            z-index: 1;
+            min-height: 10px;
+            background: linear-gradient(
+                180deg,
+                #6b85ff 0%,
+                #0025cc 36%,
+                rgba(0, 37, 204, 0.28) 70%,
+                rgba(0, 37, 204, 0) 100%
+            );
+        }
+
+        .eq-funnel-col.is-active .eq-funnel-bar {
+            background: linear-gradient(
+                180deg,
+                #4c6fff 0%,
+                #0025cc 34%,
+                rgba(0, 37, 204, 0.4) 68%,
+                rgba(0, 37, 204, 0) 100%
+            );
+        }
+
+        .eq-funnel-slope {
+            position: absolute;
+            top: 0;
+            left: calc(100% - 1px);
+            width: 62%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            background: linear-gradient(
+                180deg,
+                #6b85ff 0%,
+                #0025cc 36%,
+                rgba(0, 37, 204, 0.28) 70%,
+                rgba(0, 37, 204, 0) 100%
+            );
+            clip-path: polygon(
+                0 0,
+                100% var(--slope-drop, 0%),
+                100% 100%,
+                0 100%
+            );
+            opacity: 0.9;
+        }
+
+        .eq-funnel-col.is-active .eq-funnel-slope {
+            background: linear-gradient(
+                180deg,
+                #4c6fff 0%,
+                #0025cc 34%,
+                rgba(0, 37, 204, 0.4) 68%,
+                rgba(0, 37, 204, 0) 100%
+            );
+            opacity: 0.85;
+            clip-path: polygon(
+                0 0,
+                100% var(--slope-drop, 0%),
+                100% 100%,
+                0 100%
+            );
+        }
+
+        .eq-funnel-tip {
+            position: absolute;
+            left: 50%;
+            top: 46%;
+            transform: translate(-50%, -50%);
+            z-index: 6;
+            pointer-events: none;
+            white-space: nowrap;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+            color: #111827;
+            font-size: 10px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .eq-funnel-tip strong {
+            font-weight: 700;
+        }
+
+        .eq-funnel-tip.is-visible {
+            opacity: 1;
+        }
+
+        @media (max-width: 720px) {
+            .eq-metrics-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .eq-metrics-cell + .eq-metrics-cell {
+                border-left: none;
+                border-top: 1px solid #eef0f3;
+                padding-top: 12px;
+                margin-top: 4px;
+            }
+
+            .eq-funnel-cols {
+                grid-template-columns: repeat(5, minmax(78px, 1fr));
+                overflow-x: auto;
+            }
+
+            .eq-funnel-body {
+                grid-template-columns: 22px minmax(0, 1fr);
+            }
+
+            .eq-funnel-tip {
+                font-size: 9px;
+                padding: 6px 10px;
+            }
+        }
+
+
+        /* =====================================================
+        MAINTENANCE HERO — SAVED-MONEY / LIQUID GAUGE STYLE
+        ===================================================== */
+
+        .maintenance-hero {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
+            align-self: stretch;
+            padding: 16px 18px;
+            background: #ffffff;
+            border: 1px solid #e8eaed;
+            border-radius: 24px;
+            box-sizing: border-box;
+        }
+
+        .mh-saved-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .mh-saved-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .mh-saved-title svg {
+            width: 16px;
+            height: 16px;
+            color: #6b7280;
+        }
+
+        .mh-saved-expand {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            background: #f3f4f6;
+            color: #111827;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .mh-saved-expand:hover {
+            background: #e5e7eb;
+        }
+
+        .mh-year-tabs {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .mh-year-tab {
+            appearance: none;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            color: #9ca3af;
+            border-radius: 999px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .mh-year-tab.is-active {
+            background: #111827;
+            border-color: #111827;
+            color: #ffffff;
+        }
+
+        .mh-saved-main {
+            margin-top: 18px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .mh-liquid {
+            position: relative;
+            width: min(46%, 168px);
+            aspect-ratio: 1;
+            flex-shrink: 0;
+        }
+
+        .mh-liquid svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .mh-liquid-value {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(18px, 2.4vw, 24px);
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+            pointer-events: none;
+        }
+
+        .mh-liquid-value.is-dark {
+            color: #0025cc;
+            text-shadow: none;
+        }
+
+        .mh-liquid-legend {
+            display: flex;
+            flex-direction: column;
             gap: 14px;
             min-width: 0;
         }
 
-        .eq-metric-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .eq-metric-icon.blue {
-            background: rgba(0, 37, 204, 0.1);
-            color: #0025cc;
-        }
-
-        .eq-metric-icon.green {
-            background: rgba(16, 185, 129, 0.12);
-            color: #10b981;
-        }
-
-        .eq-metric-copy {
-            min-width: 0;
-        }
-
-        .eq-metric-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #111827;
-            line-height: 1.2;
-        }
-
-        .eq-metric-hint {
-            margin-top: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #9ca3af;
-        }
-
-        .eq-metric-right {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
-        }
-
-        .eq-metric-amount {
-            font-size: 15px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .eq-metric-change {
-            display: inline-flex;
-            align-items: center;
-            gap: 2px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #10b981;
-        }
-
-        .eq-metric-change.is-down {
-            color: #ef4444;
-        }
-
-        .eq-week-chart {
-            margin-top: 28px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            min-height: 140px;
-        }
-
-        .eq-week-bars {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            align-items: end;
-            gap: 10px;
-            height: 110px;
-        }
-
-        .eq-week-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            height: 100%;
-            justify-content: flex-end;
-        }
-
-        .eq-week-bar {
-            width: 100%;
-            max-width: 28px;
-            min-height: 8px;
-            border-radius: 999px 999px 6px 6px;
-            background: rgba(0, 37, 204, 0.12);
-            transition: background 0.2s ease, height 0.35s ease;
-        }
-
-        .eq-week-bar.is-active {
-            background: #0025cc;
-        }
-
-        .eq-week-item small {
-            font-size: 11px;
-            font-weight: 500;
-            color: #9ca3af;
-        }
-
-
-        /* =====================================================
-        MAINTENANCE HERO GRID
-        ===================================================== */
-
-
-        .maintenance-hero {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-
-            /* First row is summary cards */
-            /* Second row fills ALL remaining height */
-            grid-template-rows: 130px minmax(0, 1fr);
-
-            gap: 12px;
-
-            width: 100%;
-            height: 100%;
-
-            min-width: 0;
-            min-height: 0;
-        }
-
-        .maintenance-hero-summary {
-            display: contents;
-        }
-
-
-        /* =====================================================
-        TOP SUMMARY CARDS
-        ===================================================== */
-
-
-        .maintenance-summary-card {
-            display: flex;
-            flex-direction: column;
-
-            min-width: 0;
-
-            /* Fill the 130px grid row */
-            height: 100%;
-
-            padding: 22px 26px;
-
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 28px;
-        }
-
-        .maintenance-summary-label {
-            font-size: 12px;
-            font-weight: 500;
-            color: #6b7280;
-        }
-
-        .maintenance-summary-number {
-            display: block;
-
-            /* CHANGED: Reduced spacing */
-            margin-top: 4px;
-
-            font-size: 22px;
-            font-weight: 600;
-            line-height: 1;
-
-            color: #111827;
-        }
-
-        .maintenance-summary-status {
-            /* CHANGED: Reduced spacing */
-            margin-top: 6px;
-
-            font-size: 14px;
-            color: #6b7280;
-        }
-
-        .maintenance-summary-action {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            width: 100%;
-
-            /* CHANGED: Slightly shorter */
-            height: 36px;
-
-            margin-top: auto;
-
-            border: 1px solid #e5e7eb;
-            border-radius: 999px;
-
-            font-size: 13px;
-            font-weight: 600;
-
-            color: #111827;
-            background: white;
-
-            transition: 0.2s ease;
-        }
-
-        .maintenance-summary-action:hover {
-            background: #f9fafb;
-        }
-
-
-        /* =====================================================
-        BOTTOM FULL WIDTH HERO CARD (sales-overview style)
-        ===================================================== */
-
-        .maintenance-hero-main {
-            grid-column: 1 / -1;
-
-            display: flex;
-            flex-direction: column;
-
-            min-width: 0;
-            min-height: 0;
-
-            height: 100%;
-
-            padding: 26px;
-
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 28px;
-        }
-
-        .ops-overview-top {
+        .mh-legend-item {
             display: flex;
             align-items: flex-start;
+            gap: 10px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+            line-height: 1.35;
+        }
+
+        .mh-legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .mh-legend-swatch.is-solid {
+            background: #0025cc;
+        }
+
+        .mh-legend-swatch.is-soft {
+            background: rgba(0, 37, 204, 0.35);
+        }
+
+        .mh-saved-footer {
+            margin-top: auto;
+            padding-top: 16px;
+            display: flex;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
-        }
-
-        .ops-overview-label {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 500;
             color: #9ca3af;
         }
 
-        .ops-overview-growth {
-            font-size: 13px;
-            font-weight: 600;
-            color: #22c55e;
-            white-space: nowrap;
-        }
-
-        .ops-overview-growth.is-down {
-            color: #ef4444;
-        }
-
-        .ops-overview-value {
-            margin-top: 10px;
-            font-size: clamp(28px, 4vw, 34px);
-            font-weight: 700;
-            line-height: 1;
+        .mh-saved-footer strong {
             color: #111827;
-        }
-
-        .ops-compare {
-            position: relative;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 28px;
-            flex: 1;
-            align-content: center;
-        }
-
-        .ops-compare::before {
-            content: "";
-            position: absolute;
-            top: 8px;
-            bottom: 8px;
-            left: 50%;
-            width: 1px;
-            background: #e5e7eb;
-            transform: translateX(-50%);
-        }
-
-        .ops-compare-vs {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            z-index: 1;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: #f3f4f6;
-            color: #6b7280;
-            font-size: 11px;
-            font-weight: 600;
-            transform: translate(-50%, -50%);
-        }
-
-        .ops-compare-side {
-            min-width: 0;
-        }
-
-        .ops-compare-side.is-right {
-            padding-left: 12px;
-        }
-
-        .ops-compare-side.is-left {
-            padding-right: 12px;
-        }
-
-        .ops-compare-meta {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .ops-compare-meta.is-right {
-            justify-content: flex-end;
-        }
-
-        .ops-compare-icon {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .ops-compare-icon.cyan {
-            background: rgba(6, 182, 212, 0.12);
-            color: #06b6d4;
-        }
-
-        .ops-compare-icon.blue {
-            background: rgba(0, 37, 204, 0.1);
-            color: #0025cc;
-        }
-
-        .ops-compare-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: #9ca3af;
-        }
-
-        .ops-compare-percent {
-            font-size: clamp(22px, 3vw, 28px);
             font-weight: 700;
-            line-height: 1.1;
-            color: #111827;
-        }
-
-        .ops-compare-side.is-right .ops-compare-percent,
-        .ops-compare-side.is-right .ops-compare-count {
-            text-align: right;
-        }
-
-        .ops-compare-count {
-            margin-top: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #9ca3af;
-        }
-
-        .ops-split-bar {
-            margin-top: auto;
-            padding-top: 24px;
-            display: flex;
-            width: 100%;
-            height: 10px;
-            border-radius: 999px;
-            overflow: hidden;
-            background: #f3f4f6;
-        }
-
-        .ops-split-seg {
-            height: 100%;
-            min-width: 0;
-        }
-
-        .ops-split-seg.cyan {
-            background: #06b6d4;
-        }
-
-        .ops-split-seg.blue {
-            background: #0025cc;
         }
 
 
@@ -4199,50 +4494,61 @@
         RESPONSIVE
         ===================================================== */
 
+        /* Fallback when subgrid is unavailable */
+        @supports not (grid-template-rows: subgrid) {
+            .flow-card {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .eq-metrics-body {
+                flex: 1 1 0;
+                min-height: 280px;
+            }
+
+            .maintenance-hero {
+                align-self: end;
+            }
+        }
+
         @media (max-width: 1024px) {
             .dashboard-overview-row {
                 grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+
+            .flow-card {
+                grid-column: 1;
+                grid-row: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .maintenance-hero {
+                grid-column: 1;
+                grid-row: auto;
+                min-height: 320px;
             }
         }
 
         @media (max-width: 640px) {
-
             .maintenance-hero {
-                grid-template-columns: 1fr;
+                min-height: 0;
             }
 
-            .maintenance-hero-main {
-                grid-column: 1;
+            .mh-saved-main {
+                flex-direction: column;
+                align-items: flex-start;
             }
 
-            .maintenance-summary-card {
-                height: auto;
-                min-height: 140px;
-                padding: 20px;
-                border-radius: 22px;
+            .mh-liquid {
+                width: 140px;
             }
 
-            .maintenance-hero-main {
-                padding: 22px;
-                border-radius: 22px;
-            }
-
-            .ops-compare {
-                gap: 14px;
-            }
-
-            .ops-compare-side.is-left {
-                padding-right: 8px;
-            }
-
-            .ops-compare-side.is-right {
-                padding-left: 8px;
-            }
-
-            .maintenance-summary-action {
-                height: 36px;
-                min-height: 36px;
-                box-sizing: border-box;
+            .eq-metrics-body {
+                min-height: 0;
             }
         }
 
@@ -5571,41 +5877,129 @@
                     {{-- ===================================================== --}}
 
                     @php
-                        $equipmentBase = max(1, (int) $totalEquipment);
-                        $maintenancePercent = min(100, round(((int) $underMaintenance / $equipmentBase) * 100));
-                        $borrowedPercent = min(100, round(((int) $borrowedEquipment / $equipmentBase) * 100));
-
-                        $eqWeekChartData = [];
-                        foreach ($maintenanceChartData as $index => $maintenanceCount) {
-                            $eqWeekChartData[] = (int) $maintenanceCount + (int) ($borrowedChartData[$index] ?? 0);
+                        $eqAvailable = max(0, (int) $totalEquipment - (int) $underMaintenance - (int) $borrowedEquipment);
+                        $eqInventoryBase = max(1, (int) $totalEquipment);
+                        $eqAvailablePercent = min(100, round(($eqAvailable / $eqInventoryBase) * 100));
+                        $eqMetricCount = 4;
+                        $eqOpsCount = (int) $pendingReports + (int) $overdueMaintenance;
+                        $eqDateStrip = [];
+                        for ($d = 5; $d >= 0; $d--) {
+                            $eqDateStrip[] = now()->copy()->subDays($d);
                         }
 
-                        $eqWeekChartMax = max($eqWeekChartData ?: [0]);
-                        $eqWeekPeak = max($eqWeekChartData ?: [0]);
-                        $eqWeekChartMax = max($eqWeekChartMax, 1);
-                        $eqWeekActiveIndex = $eqWeekPeak > 0
-                            ? array_keys($eqWeekChartData, $eqWeekPeak)[0]
-                            : (count($eqWeekChartData) - 1);
+                        $eqFormatCompact = function (int $n): string {
+                            if ($n >= 1000000) {
+                                return rtrim(rtrim(number_format($n / 1000000, 1, '.', ''), '0'), '.') . 'M';
+                            }
+                            if ($n >= 1000) {
+                                return rtrim(rtrim(number_format($n / 1000, 1, '.', ''), '0'), '.') . 'k';
+                            }
+                            return number_format($n);
+                        };
+
+                        $eqBuildFunnel = function (array $stages) use ($eqFormatCompact): array {
+                            $values = array_map(fn ($s) => (int) $s['value'], $stages);
+                            $max = max(1, ...$values);
+                            $axisTop = (int) (ceil($max / 5) * 5);
+                            if ($axisTop < 5) {
+                                $axisTop = max(5, $max);
+                            }
+                            $built = [];
+                            foreach ($stages as $index => $stage) {
+                                $value = (int) $stage['value'];
+                                $height = max(10, round(($value / max(1, $axisTop)) * 100));
+                                $prev = $index > 0 ? (int) $stages[$index - 1]['value'] : $value;
+                                $conversion = $prev > 0 ? (int) round(($value / $prev) * 100) : 100;
+                                $dropoff = $conversion - 100;
+                                $nextHeight = $index < count($stages) - 1
+                                    ? max(10, round(((int) $stages[$index + 1]['value'] / max(1, $axisTop)) * 100))
+                                    : $height;
+                                $slopeDropPct = $height > 0
+                                    ? max(0, round((($height - $nextHeight) / $height) * 100))
+                                    : 0;
+                                if ($nextHeight > $height) {
+                                    $slopeDropPct = 0;
+                                }
+                                $built[] = [
+                                    'label' => $stage['label'],
+                                    'value' => $value,
+                                    'display' => $eqFormatCompact($value),
+                                    'height' => $height,
+                                    'conversion' => $conversion,
+                                    'dropoff' => $dropoff,
+                                    'slope' => $slopeDropPct,
+                                    'unit' => $stage['unit'] ?? 'items',
+                                ];
+                            }
+                            $axisLabels = [];
+                            for ($i = 0; $i < 5; $i++) {
+                                $axisLabels[] = $eqFormatCompact((int) round($axisTop * (1 - ($i / 4))));
+                            }
+
+                            $activeIndex = 0;
+                            $activeValue = -1;
+                            foreach ($built as $index => $stage) {
+                                if ((int) $stage['value'] > $activeValue) {
+                                    $activeValue = (int) $stage['value'];
+                                    $activeIndex = $index;
+                                }
+                            }
+
+                            return [
+                                'stages' => $built,
+                                'axis' => $axisLabels,
+                                'active_index' => $activeIndex,
+                            ];
+                        };
+
+                        $eqOperational = max(0, (int) $totalEquipment - (int) $underMaintenance);
+                        $eqFunnelEquipment = $eqBuildFunnel([
+                            ['label' => 'Total Equipment', 'value' => (int) $totalEquipment, 'unit' => 'items'],
+                            ['label' => 'Operational', 'value' => $eqOperational, 'unit' => 'items'],
+                            ['label' => 'Available', 'value' => (int) $eqAvailable, 'unit' => 'items'],
+                            ['label' => 'Borrowed', 'value' => (int) $borrowedEquipment, 'unit' => 'items'],
+                            ['label' => 'Under Maintenance', 'value' => (int) $underMaintenance, 'unit' => 'items'],
+                        ]);
+
+                        $eqPendingCount = (int) ($reportStatusChart['data'][0] ?? 0);
+                        $eqProcessingCount = (int) ($reportStatusChart['data'][1] ?? 0);
+                        $eqResolvedCount = (int) ($reportStatusChart['data'][2] ?? 0);
+                        $eqReplacementCount = (int) ($reportStatusChart['data'][3] ?? 0);
+                        $eqRejectedCount = (int) ($reportStatusChart['data'][4] ?? 0);
+                        $eqSubmittedCount = $eqPendingCount + $eqProcessingCount + $eqResolvedCount + $eqReplacementCount + $eqRejectedCount;
+                        $eqAcceptedCount = max(0, $eqSubmittedCount - $eqRejectedCount);
+                        $eqActionedCount = $eqProcessingCount + $eqResolvedCount + $eqReplacementCount;
+                        $eqClosedCount = $eqResolvedCount + $eqReplacementCount;
+
+                        $eqFunnelOperations = $eqBuildFunnel([
+                            ['label' => 'Submitted Reports', 'value' => $eqSubmittedCount, 'unit' => 'reports'],
+                            ['label' => 'Accepted Reports', 'value' => $eqAcceptedCount, 'unit' => 'reports'],
+                            ['label' => 'In Progress+', 'value' => $eqActionedCount, 'unit' => 'reports'],
+                            ['label' => 'Closed Outcomes', 'value' => $eqClosedCount, 'unit' => 'reports'],
+                            ['label' => 'Resolved', 'value' => $eqResolvedCount, 'unit' => 'reports'],
+                        ]);
                     @endphp
 
-                    <div class="flow-card">
-                        {{-- Header --}}
-                        <div class="flow-header">
-                            <div class="min-w-0">
-                                <h2 class="flow-title">Equipment Statistics</h2>
-                                <p class="flow-subtitle">Weekly Equipment Overview</p>
-                            </div>
+                    <div class="flow-card" id="equipmentMetricsCard">
+                        <div class="eq-metrics-head">
+                        <div class="eq-metrics-top">
+                            <h2 class="flow-title">Metrics</h2>
 
-                            <div class="relative" id="equipmentStatisticsMenu">
+                            <div class="eq-metrics-controls relative" id="equipmentStatisticsMenu">
+                                <button type="button" class="eq-metrics-pill" aria-label="Period">
+                                    Week
+                                    <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+                                </button>
+
                                 <button
                                     type="button"
-                                    class="flow-menu"
+                                    class="eq-metrics-icon-btn"
                                     onclick="toggleEquipmentStatisticsMenu(event)"
                                     aria-label="Equipment statistics options"
                                     aria-expanded="false"
                                     id="equipmentStatisticsMenuButton"
                                 >
-                                    <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                                    <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
                                 </button>
 
                                 <div
@@ -5669,177 +6063,309 @@
                             </div>
                         </div>
 
-                        {{-- Metric rows --}}
-                        <div class="eq-metric-list">
-                            <div class="eq-metric-row">
-                                <div class="eq-metric-left">
-                                    <div class="eq-metric-icon blue" aria-hidden="true">
-                                        <i data-lucide="wrench" class="h-4 w-4"></i>
+                        <div class="eq-metrics-tabs" role="tablist" aria-label="Metrics sections">
+                            <button
+                                type="button"
+                                class="eq-metrics-tab is-active"
+                                data-eq-metrics-tab="equipment"
+                                role="tab"
+                                aria-selected="true"
+                            >
+                                <span class="eq-metrics-tab-count">{{ $eqMetricCount }}</span>
+                                Equipment Metrics
+                            </button>
+
+                            <button
+                                type="button"
+                                class="eq-metrics-tab"
+                                data-eq-metrics-tab="operations"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <span class="eq-metrics-tab-count">{{ min(99, $eqOpsCount) }}</span>
+                                Ops Widgets
+                            </button>
+                        </div>
+                        </div>
+
+                        <div class="eq-metrics-body">
+                            <div class="eq-metrics-slot-top">
+<div class="eq-metrics-panel" data-eq-metrics-panel="equipment">
+                            <div class="eq-metrics-cell">
+                                <div class="eq-metrics-cell-top">
+                                    <div class="eq-metrics-avatars" aria-hidden="true">
+                                        <span class="eq-metrics-avatar">
+                                            <i data-lucide="wrench" class="h-3 w-3"></i>
+                                        </span>
+                                        <span class="eq-metrics-avatar">
+                                            <i data-lucide="monitor" class="h-3 w-3"></i>
+                                        </span>
                                     </div>
-                                    <div class="eq-metric-copy">
-                                        <div class="eq-metric-title">Under Maintenance</div>
-                                        <div class="eq-metric-hint">{{ number_format((int) $totalEquipment) }} Total Equipment</div>
-                                    </div>
+                                    <span class="eq-metrics-mini-icon" aria-hidden="true">
+                                        <i data-lucide="activity" class="h-3.5 w-3.5"></i>
+                                    </span>
                                 </div>
 
-                                <div class="eq-metric-right">
-                                    <span class="eq-metric-amount">{{ number_format((int) $underMaintenance) }}</span>
-                                    <span class="eq-metric-change {{ $maintenancePercent > 0 ? '' : 'is-down' }}">
-                                        <i data-lucide="{{ $maintenancePercent > 0 ? 'arrow-up' : 'minus' }}" class="h-3 w-3"></i>
-                                        {{ number_format($maintenancePercent, 1) }}%
-                                    </span>
+                                <div class="eq-metrics-value-row">
+                                    <div class="eq-metrics-value">{{ number_format((int) $underMaintenance) }}</div>
+                                    <div class="eq-metrics-label">Under Maintenance</div>
                                 </div>
                             </div>
 
-                            <div class="eq-metric-row">
-                                <div class="eq-metric-left">
-                                    <div class="eq-metric-icon green" aria-hidden="true">
-                                        <i data-lucide="package-open" class="h-4 w-4"></i>
-                                    </div>
-                                    <div class="eq-metric-copy">
-                                        <div class="eq-metric-title">Borrowed Equipment</div>
-                                        <div class="eq-metric-hint">Active Borrowings</div>
-                                    </div>
+                            <div class="eq-metrics-cell">
+                                <div class="eq-metrics-cell-top">
+                                    <div class="eq-metrics-label is-top">Total Equipment</div>
+                                    <span class="eq-metrics-mini-icon is-round" aria-hidden="true">
+                                        <i data-lucide="bar-chart-2" class="h-3.5 w-3.5"></i>
+                                    </span>
                                 </div>
 
-                                <div class="eq-metric-right">
-                                    <span class="eq-metric-amount">{{ number_format((int) $borrowedEquipment) }}</span>
-                                    <span class="eq-metric-change">
-                                        <i data-lucide="arrow-up" class="h-3 w-3"></i>
-                                        {{ number_format($borrowedPercent, 1) }}%
-                                    </span>
+                                <div class="eq-metrics-value">{{ number_format((int) $totalEquipment) }}</div>
+
+                                <div class="eq-goal-meta">
+                                    <span>Available</span>
+                                    <span>{{ number_format($eqAvailable) }} ready</span>
+                                </div>
+
+                                <div class="eq-goal-bar" aria-hidden="true">
+                                    <div class="eq-goal-fill" style="width: {{ $eqAvailablePercent }}%"></div>
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Weekly bar chart --}}
-                        <div class="eq-week-chart">
-                            <div class="eq-week-bars">
-                                @foreach ($eqWeekChartData as $index => $count)
-                                    @php
-                                        $barHeight = max(8, ($count / $eqWeekChartMax) * 100);
-                                        $dayLabel = substr($miniChartLabels[$index] ?? '', 0, 2);
-                                    @endphp
-
-                                    <div class="eq-week-item">
-                                        <span
-                                            class="eq-week-bar {{ $index === $eqWeekActiveIndex ? 'is-active' : '' }}"
-                                            style="height: {{ $barHeight }}%;"
-                                            title="{{ $miniChartLabels[$index] ?? '' }}: {{ $count }} activity"
-                                        ></span>
-                                        <small>{{ $dayLabel }}</small>
+<div class="eq-metrics-panel is-hidden" data-eq-metrics-panel="operations">
+                            <div class="eq-metrics-cell">
+                                <div class="eq-metrics-cell-top">
+                                    <div class="eq-metrics-avatars" aria-hidden="true">
+                                        <span class="eq-metrics-avatar">
+                                            <i data-lucide="clipboard-list" class="h-3 w-3"></i>
+                                        </span>
+                                        <span class="eq-metrics-avatar">
+                                            <i data-lucide="alarm-clock" class="h-3 w-3"></i>
+                                        </span>
                                     </div>
-                                @endforeach
+                                    <span class="eq-metrics-mini-icon" aria-hidden="true">
+                                        <i data-lucide="activity" class="h-3.5 w-3.5"></i>
+                                    </span>
+                                </div>
+
+                                <div class="eq-metrics-value-row">
+                                    <div class="eq-metrics-value">{{ number_format((int) $pendingReports) }}</div>
+                                    <div class="eq-metrics-label">Pending Reports</div>
+                                </div>
+                            </div>
+
+                            <div class="eq-metrics-cell">
+                                <div class="eq-metrics-cell-top">
+                                    <div class="eq-metrics-label is-top">Overdue Maintenance</div>
+                                    <span class="eq-metrics-mini-icon is-round" aria-hidden="true">
+                                        <i data-lucide="bar-chart-2" class="h-3.5 w-3.5"></i>
+                                    </span>
+                                </div>
+
+                                <div class="eq-metrics-value">{{ number_format((int) $overdueMaintenance) }}</div>
+
+                                <div class="eq-goal-meta">
+                                    <span>Workload</span>
+                                    <span>{{ number_format($eqOpsCount) }} open</span>
+                                </div>
+
+                                <div class="eq-goal-bar" aria-hidden="true">
+                                    @php
+                                        $eqOpsMax = max(1, $eqOpsCount);
+                                        $eqOverdueShare = min(100, round(((int) $overdueMaintenance / $eqOpsMax) * 100));
+                                    @endphp
+                                    <div class="eq-goal-fill" style="width: {{ $eqOverdueShare }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+
+                            <div class="eq-metrics-slot-bottom">
+                                <div class="eq-funnel-card" data-eq-metrics-panel="equipment" data-eq-funnel>
+                                    <div class="eq-funnel-header">
+                                        <h3 class="eq-funnel-title">Inventory</h3>
+                                        <button type="button" class="eq-funnel-more" aria-label="Inventory options">
+                                            <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                        </button>
+                                    </div>
+                                    <div class="eq-funnel-body">
+                                        <div class="eq-funnel-axis" aria-hidden="true">
+                                            @foreach ($eqFunnelEquipment['axis'] as $axisLabel)
+                                                <span>{{ $axisLabel }}</span>
+                                            @endforeach
+                                        </div>
+                                        <div class="eq-funnel-cols">
+                                            @foreach ($eqFunnelEquipment['stages'] as $stageIndex => $stage)
+                                                <button
+                                                    type="button"
+                                                    class="eq-funnel-col"
+                                                    data-display="{{ $stage['display'] }}"
+                                                    data-unit="{{ $stage['unit'] }}"
+                                                    data-conversion="{{ $stage['conversion'] }}"
+                                                    data-dropoff="{{ $stage['dropoff'] }}"
+                                                >
+                                                    <div class="eq-funnel-col-head">
+                                                        <span class="eq-funnel-col-label">{{ $stage['label'] }}</span>
+                                                        <span class="eq-funnel-col-value">{{ $stage['display'] }}</span>
+                                                    </div>
+                                                    <div class="eq-funnel-col-plot">
+                                                        <div class="eq-funnel-bar" style="height: {{ $stage['height'] }}%;">
+                                                            <span class="eq-funnel-tick"></span>
+                                                            @if (!$loop->last)
+                                                                <span class="eq-funnel-slope" style="--slope-drop: {{ $stage['slope'] }}%;"></span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                        <div class="eq-funnel-tip" aria-hidden="true"></div>
+                                    </div>
+                                </div>
+
+                                <div class="eq-funnel-card is-hidden" data-eq-metrics-panel="operations" data-eq-funnel>
+                                    <div class="eq-funnel-header">
+                                        <h3 class="eq-funnel-title">Reports</h3>
+                                        <button type="button" class="eq-funnel-more" aria-label="Reports options">
+                                            <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                        </button>
+                                    </div>
+                                    <div class="eq-funnel-body">
+                                        <div class="eq-funnel-axis" aria-hidden="true">
+                                            @foreach ($eqFunnelOperations['axis'] as $axisLabel)
+                                                <span>{{ $axisLabel }}</span>
+                                            @endforeach
+                                        </div>
+                                        <div class="eq-funnel-cols">
+                                            @foreach ($eqFunnelOperations['stages'] as $stageIndex => $stage)
+                                                <button
+                                                    type="button"
+                                                    class="eq-funnel-col"
+                                                    data-display="{{ $stage['display'] }}"
+                                                    data-unit="{{ $stage['unit'] }}"
+                                                    data-conversion="{{ $stage['conversion'] }}"
+                                                    data-dropoff="{{ $stage['dropoff'] }}"
+                                                >
+                                                    <div class="eq-funnel-col-head">
+                                                        <span class="eq-funnel-col-label">{{ $stage['label'] }}</span>
+                                                        <span class="eq-funnel-col-value">{{ $stage['display'] }}</span>
+                                                    </div>
+                                                    <div class="eq-funnel-col-plot">
+                                                        <div class="eq-funnel-bar" style="height: {{ $stage['height'] }}%;">
+                                                            <span class="eq-funnel-tick"></span>
+                                                            @if (!$loop->last)
+                                                                <span class="eq-funnel-slope" style="--slope-drop: {{ $stage['slope'] }}%;"></span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                        <div class="eq-funnel-tip" aria-hidden="true"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <section class="maintenance-hero">
-                        {{-- ===================================================== --}}
-                        {{-- TOP TWO CARDS --}}
-                        {{-- ===================================================== --}}
-                        <div class="maintenance-hero-summary">
-                            {{-- PENDING REPORTS --}}
-                            <div class="maintenance-summary-card">
-                                <span class="maintenance-summary-label">
-                                    Pending Reports
-                                </span>
+                        @php
+                            $opsPending = (int) $pendingReports;
+                            $opsOverdue = (int) $overdueMaintenance;
+                            $opsTotal = $opsPending + $opsOverdue;
+                            $opsFillPercent = $opsTotal > 0
+                                ? min(92, max(18, round(($opsPending / max(1, $opsTotal)) * 100)))
+                                : 22;
+                            $opsClearedPercent = $opsTotal > 0
+                                ? max(0, 100 - round(($opsOverdue / max(1, $opsTotal)) * 100))
+                                : 100;
+                            $opsWaveY = 200 - (($opsFillPercent / 100) * 200);
+                            $opsYearNow = (int) now()->format('Y');
+                            $opsYears = [$opsYearNow, $opsYearNow - 1, $opsYearNow - 2, $opsYearNow - 3];
+                        @endphp
 
-                                <span class="maintenance-summary-number">
-                                    {{ $pendingReports }}
-                                </span>
+                        <div class="mh-saved-header">
+                            <h3 class="mh-saved-title">
+                                <i data-lucide="clipboard-list"></i>
+                                Active Workload
+                            </h3>
 
-                                {{-- GO TO REPORTS --}}
-                                <a
-                                    href="{{ url('/maintenance/reports/pending') }}"
-                                    class="maintenance-summary-action"
+                            <a
+                                href="{{ url('/maintenance/reports/pending') }}"
+                                class="mh-saved-expand"
+                                aria-label="Open pending reports"
+                                title="Open pending reports"
+                            >
+                                <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+                            </a>
+                        </div>
+
+                        <div class="mh-year-tabs" role="tablist" aria-label="Workload period">
+                            @foreach ($opsYears as $opsYear)
+                                <button
+                                    type="button"
+                                    class="mh-year-tab {{ $opsYear === $opsYearNow ? 'is-active' : '' }}"
+                                    data-mh-year="{{ $opsYear }}"
                                 >
-                                    View Reports
-                                </a>
+                                    {{ $opsYear }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <div class="mh-saved-main">
+                            <div class="mh-liquid" aria-hidden="true">
+                                <svg viewBox="0 0 200 200">
+                                    <defs>
+                                        <clipPath id="mhLiquidClip">
+                                            <circle cx="100" cy="100" r="88" />
+                                        </clipPath>
+                                    </defs>
+
+                                    <circle
+                                        cx="100"
+                                        cy="100"
+                                        r="92"
+                                        fill="none"
+                                        stroke="#0025cc"
+                                        stroke-width="3"
+                                    />
+
+                                    <g clip-path="url(#mhLiquidClip)">
+                                        <path
+                                            fill="rgba(0, 37, 204, 0.38)"
+                                            d="M0 {{ $opsWaveY - 8 }}
+                                               C 35 {{ $opsWaveY - 22 }}, 65 {{ $opsWaveY + 8 }}, 100 {{ $opsWaveY - 4 }}
+                                               S 165 {{ $opsWaveY - 20 }}, 200 {{ $opsWaveY - 2 }}
+                                               L 200 200 L 0 200 Z"
+                                        />
+                                        <path
+                                            fill="#0025cc"
+                                            d="M0 {{ $opsWaveY + 6 }}
+                                               C 40 {{ $opsWaveY - 10 }}, 70 {{ $opsWaveY + 16 }}, 100 {{ $opsWaveY + 2 }}
+                                               S 160 {{ $opsWaveY - 12 }}, 200 {{ $opsWaveY + 8 }}
+                                               L 200 200 L 0 200 Z"
+                                        />
+                                    </g>
+                                </svg>
+
+                                <div class="mh-liquid-value {{ $opsFillPercent < 48 ? 'is-dark' : '' }}">{{ number_format($opsTotal) }}</div>
                             </div>
 
-                            {{-- OVERDUE MAINTENANCE --}}
-                            <div class="maintenance-summary-card">
-                                <span class="maintenance-summary-label">
-                                    Overdue Maintenance
-                                </span>
-
-                                <span class="maintenance-summary-number">
-                                    {{ $overdueMaintenance }}
-                                </span>
-
-                                {{-- GO TO MAINTENANCE SCHEDULES --}}
-                                <a
-                                    href="{{ url('/maintenance/schedules') }}"
-                                    class="maintenance-summary-action"
-                                >
-                                    View Schedule
-                                </a>
+                            <div class="mh-liquid-legend">
+                                <div class="mh-legend-item">
+                                    <span class="mh-legend-swatch is-solid"></span>
+                                    <span>Pending reports this period</span>
+                                </div>
+                                <div class="mh-legend-item">
+                                    <span class="mh-legend-swatch is-soft"></span>
+                                    <span>Overdue maintenance</span>
+                                </div>
                             </div>
                         </div>
 
-                        {{-- ===================================================== --}}
-                        {{-- BOTTOM FULL WIDTH CARD --}}
-                        {{-- ===================================================== --}}
-                        <div class="maintenance-hero-main">
-                            @php
-                                $opsPending = (int) $pendingReports;
-                                $opsOverdue = (int) $overdueMaintenance;
-                                $opsTotal = max(1, $opsPending + $opsOverdue);
-                                $opsPendingPercent = round(($opsPending / $opsTotal) * 100, 1);
-                                $opsOverduePercent = round(($opsOverdue / $opsTotal) * 100, 1);
-
-                                $urgentRecent = array_sum(array_slice($urgentChartData ?: [], -3));
-                                $urgentPrevious = array_sum(array_slice($urgentChartData ?: [], 0, 3));
-                                if ($urgentPrevious > 0) {
-                                    $opsGrowth = round((($urgentRecent - $urgentPrevious) / $urgentPrevious) * 100, 1);
-                                } else {
-                                    $opsGrowth = $urgentRecent > 0 ? 100.0 : 0.0;
-                                }
-                                $opsGrowthLabel = ($opsGrowth > 0 ? '+' : '') . number_format($opsGrowth, 1) . '%';
-                            @endphp
-
-                            <div class="ops-overview-top">
-                                <span class="ops-overview-label">Maintenance Overview</span>
-                                <span class="ops-overview-growth {{ $opsGrowth < 0 ? 'is-down' : '' }}">
-                                    {{ $opsGrowthLabel }}
-                                </span>
-                            </div>
-
-                            <div class="ops-overview-value">
-                                {{ number_format($opsPending + $opsOverdue) }}
-                            </div>
-
-                            <div class="ops-compare">
-                                <span class="ops-compare-vs">vs</span>
-
-                                <div class="ops-compare-side is-left">
-                                    <div class="ops-compare-meta">
-                                        <span class="ops-compare-icon cyan" aria-hidden="true">
-                                            <i data-lucide="clipboard-list" class="h-3 w-3"></i>
-                                        </span>
-                                        <span class="ops-compare-name">Pending</span>
-                                    </div>
-                                    <div class="ops-compare-percent">{{ number_format($opsPendingPercent, 1) }}%</div>
-                                    <div class="ops-compare-count">{{ number_format($opsPending) }}</div>
-                                </div>
-
-                                <div class="ops-compare-side is-right">
-                                    <div class="ops-compare-meta is-right">
-                                        <span class="ops-compare-name">Overdue</span>
-                                        <span class="ops-compare-icon blue" aria-hidden="true">
-                                            <i data-lucide="alarm-clock" class="h-3 w-3"></i>
-                                        </span>
-                                    </div>
-                                    <div class="ops-compare-percent">{{ number_format($opsOverduePercent, 1) }}%</div>
-                                    <div class="ops-compare-count">{{ number_format($opsOverdue) }}</div>
-                                </div>
-                            </div>
-
-                            <div class="ops-split-bar" aria-hidden="true">
-                                <span class="ops-split-seg cyan" style="width: {{ $opsPendingPercent }}%"></span>
-                                <span class="ops-split-seg blue" style="width: {{ $opsOverduePercent }}%"></span>
-                            </div>
+                        <div class="mh-saved-footer">
+                            <span>Overdue items: <strong>{{ number_format($opsOverdue) }}</strong></span>
+                            <span>Handled: <strong>{{ number_format($opsClearedPercent) }}%</strong></span>
                         </div>
                     </section>
                 </div>
@@ -6246,92 +6772,7 @@
             {{-- QUICK ACTIONS --}}
             {{-- ===================================================== --}}
 
-            
-
-                {{-- ===================================================== --}}
-                {{-- MAINTENANCE CALENDAR --}}
-                {{-- ADD THIS ABOVE THE EXISTING ACTIVITY CARD --}}
-                {{-- ===================================================== --}}
-
-                <div
-                    id="dashboardCalendar"
-                    class="dashboard-calendar-card"
-                    data-events='@json($calendarEvents)'
-                >
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR HEADER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="dashboard-calendar-header">
-                        <div>
-                            <h2 class="dashboard-calendar-title">
-                                Maintenance Calendar
-                            </h2>
-
-                            <p class="dashboard-calendar-subtitle">Reports and scheduled maintenance</p>
-                        </div>
-
-                        <div class="dashboard-calendar-header-icon">
-                            <i data-lucide="calendar-days" class="h-4 w-4"></i>
-                        </div>
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR BODY --}}
-                    {{-- ================================================= --}}
-
-                    <div class="dashboard-calendar-body">
-                        {{-- ================================================= --}}
-                        {{-- CURRENT MONTH --}}
-                        {{-- ================================================= --}}
-
-                        <div class="dashboard-calendar-month-row">
-                            <div
-                                id="calendarMonthLabel"
-                                class="dashboard-calendar-month"
-                            ></div>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- WEEKDAY LABELS --}}
-                        {{-- ================================================= --}}
-
-                        <div class="calendar-weekdays">
-                            <div>Sun</div>
-
-                            <div>Mon</div>
-
-                            <div>Tue</div>
-
-                            <div>Wed</div>
-
-                            <div>Thu</div>
-
-                            <div>Fri</div>
-
-                            <div>Sat</div>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- CALENDAR DAYS --}}
-                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
-                        {{-- ================================================= --}}
-
-                        <div id="calendarDays" class="calendar-days"></div>
-
-                        {{-- ================================================= --}}
-                        {{-- SELECTED DATE EVENTS --}}
-                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
-                        {{-- ================================================= --}}
-
-                        <div
-                            id="calendarSelectedEvents"
-                            class="calendar-selected-events"
-                        ></div>
-                    </div>
-                </div>
-
-                <div
+            <div
                     class="dashboard-toolbar-actions dashboard-sidebar-quick-actions ml-auto flex items-center gap-2"
                 >
                     {{-- ===================================================== --}}
@@ -6792,6 +7233,91 @@
                         @endforelse
                     </div>
                 </section>
+
+                {{-- ===================================================== --}}
+                {{-- MAINTENANCE CALENDAR --}}
+                {{-- ADD THIS ABOVE THE EXISTING ACTIVITY CARD --}}
+                {{-- ===================================================== --}}
+
+                <div
+                    id="dashboardCalendar"
+                    class="dashboard-calendar-card"
+                    data-events='@json($calendarEvents)'
+                >
+                    {{-- ================================================= --}}
+                    {{-- CALENDAR HEADER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="dashboard-calendar-header">
+                        <div>
+                            <h2 class="dashboard-calendar-title">
+                                Maintenance Calendar
+                            </h2>
+
+                            <p class="dashboard-calendar-subtitle">Reports and scheduled maintenance</p>
+                        </div>
+
+                        <div class="dashboard-calendar-header-icon">
+                            <i data-lucide="calendar-days" class="h-4 w-4"></i>
+                        </div>
+                    </div>
+
+                    {{-- ================================================= --}}
+                    {{-- CALENDAR BODY --}}
+                    {{-- ================================================= --}}
+
+                    <div class="dashboard-calendar-body">
+                        {{-- ================================================= --}}
+                        {{-- CURRENT MONTH --}}
+                        {{-- ================================================= --}}
+
+                        <div class="dashboard-calendar-month-row">
+                            <div
+                                id="calendarMonthLabel"
+                                class="dashboard-calendar-month"
+                            ></div>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- WEEKDAY LABELS --}}
+                        {{-- ================================================= --}}
+
+                        <div class="calendar-weekdays">
+                            <div>Sun</div>
+
+                            <div>Mon</div>
+
+                            <div>Tue</div>
+
+                            <div>Wed</div>
+
+                            <div>Thu</div>
+
+                            <div>Fri</div>
+
+                            <div>Sat</div>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- CALENDAR DAYS --}}
+                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
+                        {{-- ================================================= --}}
+
+                        <div id="calendarDays" class="calendar-days"></div>
+
+                        {{-- ================================================= --}}
+                        {{-- SELECTED DATE EVENTS --}}
+                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
+                        {{-- ================================================= --}}
+
+                        <div
+                            id="calendarSelectedEvents"
+                            class="calendar-selected-events"
+                        ></div>
+                    </div>
+                </div>
+
+                
 
                 {{-- ===================================================== --}}
                 {{-- ACTIVITY SIDEBAR CARD --}}
@@ -17417,6 +17943,82 @@ document.addEventListener(
             if (window.lucide && typeof window.lucide.createIcons === 'function') {
                 window.lucide.createIcons();
             }
+
+            const metricsCard = document.getElementById('equipmentMetricsCard');
+            if (!metricsCard) {
+                return;
+            }
+
+            const tabs = metricsCard.querySelectorAll('[data-eq-metrics-tab]');
+            const panels = metricsCard.querySelectorAll('[data-eq-metrics-panel]');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const target = tab.getAttribute('data-eq-metrics-tab');
+
+                    tabs.forEach((item) => {
+                        const isActive = item === tab;
+                        item.classList.toggle('is-active', isActive);
+                        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    });
+
+                    panels.forEach((panel) => {
+                        const matches = panel.getAttribute('data-eq-metrics-panel') === target;
+                        panel.classList.toggle('is-hidden', !matches);
+                    });
+                });
+            });
+
+            document.querySelectorAll('.mh-year-tab').forEach((yearTab) => {
+                yearTab.addEventListener('click', () => {
+                    document.querySelectorAll('.mh-year-tab').forEach((item) => {
+                        item.classList.toggle('is-active', item === yearTab);
+                    });
+                });
+            });
+
+            const formatDropoff = (value) => {
+                const n = Number(value) || 0;
+                return `${n > 0 ? '+' : ''}${n}%`;
+            };
+
+            metricsCard.querySelectorAll('[data-eq-funnel]').forEach((funnel) => {
+                const tip = funnel.querySelector('.eq-funnel-tip');
+                const cols = funnel.querySelectorAll('.eq-funnel-col');
+
+                const showTip = (col) => {
+                    if (!tip || !col) return;
+                    const display = col.getAttribute('data-display') || '0';
+                    const unit = col.getAttribute('data-unit') || 'items';
+                    const conversion = col.getAttribute('data-conversion') || '0';
+                    const dropoff = col.getAttribute('data-dropoff') || '0';
+                    tip.innerHTML = `<strong>${display}</strong> ${unit} | Conversion: <strong>${conversion}%</strong> | Drop-off: <strong>${formatDropoff(dropoff)}</strong>`;
+                    tip.classList.add('is-visible');
+                };
+
+                const hideTip = () => tip?.classList.remove('is-visible');
+
+                const clearActive = () => {
+                    cols.forEach((item) => item.classList.remove('is-active'));
+                    hideTip();
+                };
+
+                const setActive = (col) => {
+                    if (!col) return;
+                    cols.forEach((item) => item.classList.toggle('is-active', item === col));
+                    showTip(col);
+                };
+
+                cols.forEach((col) => {
+                    col.addEventListener('mouseenter', () => setActive(col));
+                    col.addEventListener('focus', () => setActive(col));
+                });
+
+                funnel.addEventListener('mouseleave', clearActive);
+
+                clearActive();
+            });
+
         });
     </script>
 
@@ -18344,23 +18946,23 @@ document.addEventListener(
                         // 1. A much stronger start opacity at the top (under the line)
                         gradient.addColorStop(
                             0,
-                            "rgba(114, 180, 220, 0.45)", // Raised from 0.14
+                            "rgba(0, 37, 204, 0.45)",
                         );
 
                         // 2. Keep the color solid as it starts to drop
                         gradient.addColorStop(
                             0.35,
-                            "rgba(114, 180, 220, 0.22)", // Raised from 0.08
+                            "rgba(0, 37, 204, 0.22)",
                         );
 
                         // 3. A soft, gradual fade out towards the bottom
                         gradient.addColorStop(
                             0.7,
-                            "rgba(114, 180, 220, 0.08)", // Raised from 0.025
+                            "rgba(0, 37, 204, 0.08)",
                         );
 
                         // 4. Completely transparent at the very bottom baseline
-                        gradient.addColorStop(1, "rgba(114, 180, 220, 0)");
+                        gradient.addColorStop(1, "rgba(0, 37, 204, 0)");
 
                         ctx.save();
 
@@ -18576,7 +19178,7 @@ document.addEventListener(
 
                                     data: maintenanceDisplayData,
 
-                                    borderColor: "#72b4dc",
+                                    borderColor: "#0025cc",
 
                                     backgroundColor: "transparent",
 
@@ -18598,7 +19200,7 @@ document.addEventListener(
 
                                     pointHitRadius: 25,
 
-                                    pointHoverBackgroundColor: "#72b4dc",
+                                    pointHoverBackgroundColor: "#0025cc",
 
                                     pointHoverBorderColor: "white",
 
