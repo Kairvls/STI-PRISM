@@ -2683,13 +2683,13 @@
 
 
         /* ===================================================== */
-        /* EQUIPMENT CONDITION — STATISTIC CARD (RADAR) */
+        /* EQUIPMENT CONDITION — RADAR / COMPETITOR STYLE */
         /* ===================================================== */
 
         .equipment-statistic-card {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 8px;
         }
 
         .equipment-statistic-header {
@@ -2703,89 +2703,135 @@
         .equipment-statistic-heading {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             min-width: 0;
         }
 
         .equipment-statistic-icon {
-            width: 34px;
-            height: 34px;
+            width: 28px;
+            height: 28px;
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 10px;
-            background: #f8fafc;
-            border: 1px solid #eef2f7;
-            color: #64748b;
+            border-radius: 8px;
+            background: rgba(0, 37, 204, 0.1);
+            color: #0025cc;
         }
 
         .equipment-statistic-icon svg {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
         }
 
         .equipment-statistic-title {
             margin: 0;
-            color: #0f172a;
+            color: #1f2937;
             font-family: "Outfit", sans-serif;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             line-height: 1.2;
         }
 
-        .equipment-statistic-action {
-            width: 36px;
-            height: 36px;
+        .equipment-statistic-info {
+            width: 18px;
+            height: 18px;
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 999px;
-            border: 1px solid #e5e7eb;
-            background: #f8fafc;
-            color: #334155;
+            color: #9ca3af;
+        }
+
+        .equipment-statistic-info svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .equipment-statistic-toolbar {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 4px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            flex-shrink: 0;
+        }
+
+        .equipment-statistic-tool {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #6b7280;
             text-decoration: none;
-            transition:
-                background 0.18s ease,
-                border-color 0.18s ease,
-                color 0.18s ease;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
-        .equipment-statistic-action:hover {
+        .equipment-statistic-tool:hover {
             background: #ffffff;
-            border-color: #cbd5e1;
-            color: #0f172a;
+            color: #111827;
         }
 
-        .equipment-statistic-action svg {
-            width: 16px;
-            height: 16px;
+        .equipment-statistic-tool svg {
+            width: 14px;
+            height: 14px;
         }
 
         .equipment-statistic-panel {
             flex: 1 1 auto;
             min-height: 0;
-            padding: 14px;
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            background: #fafafa;
+            padding: 4px 8px 0;
+            background: transparent;
+            border: none;
         }
 
         .equipment-statistic-chart {
             position: relative;
             width: 100%;
-            height: 250px;
+            height: 260px;
+        }
+
+        .equipment-statistic-legend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            padding-bottom: 4px;
+        }
+
+        .equipment-statistic-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .equipment-statistic-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .equipment-statistic-swatch.current {
+            background: #0025cc;
+        }
+
+        .equipment-statistic-swatch.target {
+            background: #14b8a6;
         }
 
         @media (max-width: 640px) {
             .equipment-statistic-chart {
-                height: 220px;
-            }
-
-            .equipment-statistic-panel {
-                padding: 12px;
-                border-radius: 16px;
+                height: 230px;
             }
         }
 
@@ -3674,126 +3720,188 @@
 
 
         /* =====================================================
-        FLOW ANALYTICS CARD
-        More compact height
+        EQUIPMENT STATISTICS CARD (earning-reports style)
         ===================================================== */
 
         .flow-card {
             background: white;
             border: 1px solid #e5e7eb;
-            border-radius: 28px;
-
-            /* CHANGED: Reduced from 34px */
-            padding: 26px;
-            box-shadow:
-                0 1px 2px rgba(0, 0, 0, 0.02),
-                0 8px 24px rgba(0, 0, 0, 0.04);
+            border-radius: 24px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
         }
 
         .flow-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-        }
-
-        .maintenance-hero-eyebrows {
-            /* CHANGED: Reduced spacing */
-            margin-bottom: 6px;
-
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-
-            color: #6b7280;
+            align-items: flex-start;
+            gap: 12px;
         }
 
         .flow-title {
-
-            font-size: clamp(18px, 2.5vw, 20px);
-
-            font-weight: 600;
-            line-height: 1.1;
-
+            font-size: clamp(18px, 2.5vw, 22px);
+            font-weight: 700;
+            line-height: 1.2;
             color: #111827;
+            margin: 0;
         }
 
         .flow-subtitle {
-            color: #94a3b8;
-            font-size: 14px;
+            color: #9ca3af;
+            font-size: 13px;
+            margin-top: 6px;
+            font-weight: 500;
         }
 
         .flow-menu {
-            width: 20px;
-            height: 20px;
+            width: 32px;
+            height: 32px;
             display: flex;
             justify-content: center;
             align-items: center;
             border-radius: 50%;
+            border: none;
             background: transparent;
-            margin-top: -6px;
+            color: #9ca3af;
+            flex-shrink: 0;
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
         .flow-menu:hover {
-            width: 20px;
-            height: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 50%;
             background: #f4f6f9;
-            margin-top: -6px;
+            color: #4b5563;
         }
 
-
-        /* =====================================================
-        FLOW STATS
-        ===================================================== */
-
-        .flow-stats {
-            /* CHANGED: Reduced from 38px */
-            margin-top: 24px;
-
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+        .eq-metric-list {
+            margin-top: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
         }
 
-        .flow-stat h2 {
-            font-size: 22px;
-            font-weight: 600;
+        .eq-metric-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .eq-metric-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .eq-metric-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .eq-metric-icon.blue {
+            background: rgba(0, 37, 204, 0.1);
+            color: #0025cc;
+        }
+
+        .eq-metric-icon.green {
+            background: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+        }
+
+        .eq-metric-copy {
+            min-width: 0;
+        }
+
+        .eq-metric-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.2;
+        }
+
+        .eq-metric-hint {
+            margin-top: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+
+        .eq-metric-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .eq-metric-amount {
+            font-size: 15px;
+            font-weight: 700;
             color: #111827;
         }
 
-        .flow-stat p {
+        .eq-metric-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
             font-size: 12px;
-            font-weight: 500;
-            color: #6b7280;
-            margin-top: 4px;
+            font-weight: 600;
+            color: #10b981;
         }
 
-
-        /* =====================================================
-        FLOW GRAPH AREA
-        ===================================================== */
-
-        .flow-area {
-            position: relative;
-
-            /* CHANGED: Reduced from 45px */
-            margin-top: 25px;
-
-            /* CHANGED: Reduced from 240px */
-            height: 190px;
-
-            /* CHANGED: Match new 26px card padding */
-            margin-left: -26px;
-            margin-right: -26px;
-
-            width: calc(100% + 52px);
+        .eq-metric-change.is-down {
+            color: #ef4444;
         }
 
-        .flow-svg {
-            width: 100%;
+        .eq-week-chart {
+            margin-top: 28px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            min-height: 140px;
+        }
+
+        .eq-week-bars {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            align-items: end;
+            gap: 10px;
+            height: 110px;
+        }
+
+        .eq-week-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
             height: 100%;
+            justify-content: flex-end;
+        }
+
+        .eq-week-bar {
+            width: 100%;
+            max-width: 28px;
+            min-height: 8px;
+            border-radius: 999px 999px 6px 6px;
+            background: rgba(0, 37, 204, 0.12);
+            transition: background 0.2s ease, height 0.35s ease;
+        }
+
+        .eq-week-bar.is-active {
+            background: #0025cc;
+        }
+
+        .eq-week-item small {
+            font-size: 11px;
+            font-weight: 500;
+            color: #9ca3af;
         }
 
 
@@ -3902,7 +4010,7 @@
 
 
         /* =====================================================
-        BOTTOM FULL WIDTH HERO CARD
+        BOTTOM FULL WIDTH HERO CARD (sales-overview style)
         ===================================================== */
 
         .maintenance-hero-main {
@@ -3914,7 +4022,6 @@
             min-width: 0;
             min-height: 0;
 
-            /* Fill remaining space until left card bottom */
             height: 100%;
 
             padding: 26px;
@@ -3922,170 +4029,169 @@
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 28px;
-
-            box-shadow:
-                0 1px 2px rgba(0, 0, 0, 0.02),
-                0 8px 24px rgba(0, 0, 0, 0.04);
         }
 
-        .maintenance-hero-eyebrow {
-            /* CHANGED: Reduced spacing */
-            margin-bottom: 8px;
-
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-
-            color: #6b7280;
-        }
-
-        .maintenance-hero-title {
-            margin: 0;
-            max-width: 700px;
-
-            /* CHANGED: Slightly smaller */
-            font-size: clamp(18px, 2.5vw, 20px);
-
-            font-weight: 600;
-            line-height: 1.1;
-
-            color: #111827;
-        }
-
-        .maintenance-hero-description {
-            max-width: 650px;
-
-            /* CHANGED: Reduced spacing */
-            margin-top: 10px;
-
-            font-size: 12px;
-            line-height: 1.5;
-
-            color: #6b7280;
-        }
-
-        /* =====================================================
-        MINI ACTIVITY CHART
-        ===================================================== */
-
-        .maintenance-mini-chart {
-            width: 100%;
-            height: 55px;
-            margin-top: 14px;
-        }
-
-        .maintenance-mini-chart-bars {
+        .ops-overview-top {
             display: flex;
-            align-items: stretch;
-            gap: 6px;
-
-            width: 100%;
-            height: 100%;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
         }
 
-        .maintenance-mini-chart-item {
-            flex: 1;
-
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-
-            min-width: 0;
-        }
-
-        .maintenance-mini-chart-bar {
-            display: block;
-
-            width: 100%;
-            max-width: 24px;
-
-            /* GRADIENT: WHITE BOTTOM TO BLUE TOP */
-            background: linear-gradient(
-                to top,
-                white 0%,
-                #dbeafe 25%,
-                #60a5fa 60%,
-                #0751d1 100%
-            );
-
-            border-radius: 4px 4px 0 0;
-
-            min-height: 2px;
-
-            transition: height 0.3s ease;
-        }
-
-        .maintenance-mini-chart-item small {
-            margin-top: 4px;
-
-            font-size: 9px;
+        .ops-overview-label {
+            font-size: 14px;
+            font-weight: 500;
             color: #9ca3af;
         }
 
-        /* =====================================================
-        ACTION BUTTONS
-        ===================================================== */
-
-        .maintenance-hero-actions {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 10px;
-
-            width: 100%;
-
-            /* Push buttons to bottom of card */
-            margin-top: auto;
-            padding-top: 14px;
+        .ops-overview-growth {
+            font-size: 13px;
+            font-weight: 600;
+            color: #22c55e;
+            white-space: nowrap;
         }
 
-        .maintenance-hero-primary,
-        .maintenance-hero-secondary {
+        .ops-overview-growth.is-down {
+            color: #ef4444;
+        }
+
+        .ops-overview-value {
+            margin-top: 10px;
+            font-size: clamp(28px, 4vw, 34px);
+            font-weight: 700;
+            line-height: 1;
+            color: #111827;
+        }
+
+        .ops-compare {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 28px;
+            flex: 1;
+            align-content: center;
+        }
+
+        .ops-compare::before {
+            content: "";
+            position: absolute;
+            top: 8px;
+            bottom: 8px;
+            left: 50%;
+            width: 1px;
+            background: #e5e7eb;
+            transform: translateX(-50%);
+        }
+
+        .ops-compare-vs {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 1;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #f3f4f6;
+            color: #6b7280;
+            font-size: 11px;
+            font-weight: 600;
+            transform: translate(-50%, -50%);
+        }
+
+        .ops-compare-side {
+            min-width: 0;
+        }
+
+        .ops-compare-side.is-right {
+            padding-left: 12px;
+        }
+
+        .ops-compare-side.is-left {
+            padding-right: 12px;
+        }
+
+        .ops-compare-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .ops-compare-meta.is-right {
+            justify-content: flex-end;
+        }
+
+        .ops-compare-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-
-            /* Both buttons share the available space */
-            flex: 1;
-
-            /* Important for preventing overflow */
-            min-width: 0;
-
-            height: 38px;
-            padding: 0 12px;
-
-            border-radius: 999px;
-
-            font-size: 14px;
-            font-weight: 600;
-
-            white-space: nowrap;
-
-            transition: 0.2s ease;
+            flex-shrink: 0;
         }
 
-        .maintenance-hero-primary {
-            background: rgba(248, 250, 252, 0.8);
+        .ops-compare-icon.cyan {
+            background: rgba(6, 182, 212, 0.12);
+            color: #06b6d4;
+        }
+
+        .ops-compare-icon.blue {
+            background: rgba(0, 37, 204, 0.1);
+            color: #0025cc;
+        }
+
+        .ops-compare-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+
+        .ops-compare-percent {
+            font-size: clamp(22px, 3vw, 28px);
+            font-weight: 700;
+            line-height: 1.1;
             color: #111827;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
-            backdrop-filter: blur(8px);
         }
 
-        .maintenance-hero-primary:hover {
-            background: #f1f5f9;
+        .ops-compare-side.is-right .ops-compare-percent,
+        .ops-compare-side.is-right .ops-compare-count {
+            text-align: right;
         }
 
-        .maintenance-hero-secondary {
-            background: white;
-            color: #374151;
-            border: 1px solid #d1d5db;
+        .ops-compare-count {
+            margin-top: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
         }
 
-        .maintenance-hero-secondary:hover {
-            background: #f9fafb;
+        .ops-split-bar {
+            margin-top: auto;
+            padding-top: 24px;
+            display: flex;
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #f3f4f6;
+        }
+
+        .ops-split-seg {
+            height: 100%;
+            min-width: 0;
+        }
+
+        .ops-split-seg.cyan {
+            background: #06b6d4;
+        }
+
+        .ops-split-seg.blue {
+            background: #0025cc;
         }
 
 
@@ -4121,17 +4227,16 @@
                 border-radius: 22px;
             }
 
-            .maintenance-hero-actions {
-                flex-direction: column;
+            .ops-compare {
+                gap: 14px;
             }
 
-            .maintenance-hero-primary,
-            .maintenance-hero-secondary {
-                width: 100%;
-                height: 36px;
-                min-height: 36px;
-                box-sizing: border-box;
-                font-size: 13px;
+            .ops-compare-side.is-left {
+                padding-right: 8px;
+            }
+
+            .ops-compare-side.is-right {
+                padding-left: 8px;
             }
 
             .maintenance-summary-action {
@@ -5466,479 +5571,166 @@
                     {{-- ===================================================== --}}
 
                     @php
-                        $total = max(1, $urgentReports + $underMaintenance + $borrowedEquipment);
+                        $equipmentBase = max(1, (int) $totalEquipment);
+                        $maintenancePercent = min(100, round(((int) $underMaintenance / $equipmentBase) * 100));
+                        $borrowedPercent = min(100, round(((int) $borrowedEquipment / $equipmentBase) * 100));
 
-                        $urgentPercent = round(($urgentReports / $total) * 100);
-                        $maintenancePercent = round(($underMaintenance / $total) * 100);
-                        $borrowedPercent = round(($borrowedEquipment / $total) * 100);
+                        $eqWeekChartData = [];
+                        foreach ($maintenanceChartData as $index => $maintenanceCount) {
+                            $eqWeekChartData[] = (int) $maintenanceCount + (int) ($borrowedChartData[$index] ?? 0);
+                        }
+
+                        $eqWeekChartMax = max($eqWeekChartData ?: [0]);
+                        $eqWeekPeak = max($eqWeekChartData ?: [0]);
+                        $eqWeekChartMax = max($eqWeekChartMax, 1);
+                        $eqWeekActiveIndex = $eqWeekPeak > 0
+                            ? array_keys($eqWeekChartData, $eqWeekPeak)[0]
+                            : (count($eqWeekChartData) - 1);
                     @endphp
 
-                    
-
-
                     <div class="flow-card">
-                        <div>
-                            {{-- Header --}}
-                            <div class="flow-header">
-                                <div>
-                                    <div class="maintenance-hero-eyebrows">
-                                        TECHNICAL OPERATIONS
-                                    </div>
-
-                                    <h2 class="flow-title">
-                                        Equipment Statistics
-                                    </h2>
-                                </div>
-
-                                {{-- ===================================================== --}}
-                                {{-- EQUIPMENT STATISTICS MENU --}}
-                                {{-- ===================================================== --}}
-
-                                <div class="relative" id="equipmentStatisticsMenu">
-
-                                    {{-- ================================================= --}}
-                                    {{-- MENU BUTTON --}}
-                                    {{-- ================================================= --}}
-
-                                    <button
-                                        type="button"
-                                        class="flow-menu"
-                                        onclick="toggleEquipmentStatisticsMenu(event)"
-                                        aria-label="Equipment statistics options"
-                                        aria-expanded="false"
-                                        id="equipmentStatisticsMenuButton"
-                                    >
-                                        <i
-                                            data-lucide="more-vertical"
-                                            class="h-3 w-3"
-                                        ></i>
-                                    </button>
-
-
-                                    {{-- ================================================= --}}
-                                    {{-- DROPDOWN --}}
-                                    {{-- ================================================= --}}
-
-                                    {{-- ===================================================== --}}
-                                    {{-- EQUIPMENT STATISTICS DROPDOWN --}}
-                                    {{-- COMPACT VERSION --}}
-                                    {{-- ===================================================== --}}
-
-                                    <div
-                                        id="equipmentStatisticsDropdown"
-                                        class="absolute right-0 top-full z-50 mt-1 hidden w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg"
-                                    >
-
-                                        {{-- ===================================================== --}}
-                                        {{-- EQUIPMENT INVENTORY --}}
-                                        {{-- ===================================================== --}}
-
-                                        <a
-                                            href="{{ url('/maintenance/equipment/inventory') }}"
-                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                        >
-                                            <div
-                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
-                                            >
-                                                <i data-lucide="monitor" class="h-3.5 w-3.5"></i>
-                                            </div>
-
-                                            <div class="min-w-0">
-                                                <div class="text-xs font-semibold text-gray-800">
-                                                    Equipment Inventory
-                                                </div>
-
-                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
-                                                    View all equipment
-                                                </div>
-                                            </div>
-                                        </a>
-
-
-                                        {{-- ===================================================== --}}
-                                        {{-- UNDER MAINTENANCE --}}
-                                        {{-- ===================================================== --}}
-
-                                        <a
-                                            href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}"
-                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                        >
-                                            <div
-                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
-                                            >
-                                                <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
-                                            </div>
-
-                                            <div class="min-w-0">
-                                                <div class="text-xs font-semibold text-gray-800">
-                                                    Under Maintenance
-                                                </div>
-
-                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
-                                                    Equipment requiring service
-                                                </div>
-                                            </div>
-                                        </a>
-
-
-                                        {{-- ===================================================== --}}
-                                        {{-- BORROWED EQUIPMENT --}}
-                                        {{-- ===================================================== --}}
-
-                                        <a
-                                            href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}"
-                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                        >
-                                            <div
-                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
-                                            >
-                                                <i data-lucide="package-open" class="h-3.5 w-3.5"></i>
-                                            </div>
-
-                                            <div class="min-w-0">
-                                                <div class="text-xs font-semibold text-gray-800">
-                                                    Borrowed Equipment
-                                                </div>
-
-                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
-                                                    View borrowed equipment
-                                                </div>
-                                            </div>
-                                        </a>
-
-
-                                        {{-- ===================================================== --}}
-                                        {{-- DIVIDER --}}
-                                        {{-- ===================================================== --}}
-
-                                        <div class="my-1 border-t border-gray-100"></div>
-
-
-                                        {{-- ===================================================== --}}
-                                        {{-- EQUIPMENT CATEGORIES --}}
-                                        {{-- ===================================================== --}}
-
-                                        <a
-                                            href="{{ url('/maintenance/equipment/categories') }}"
-                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                        >
-                                            <div
-                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
-                                            >
-                                                <i data-lucide="tags" class="h-3.5 w-3.5"></i>
-                                            </div>
-
-                                            <div class="min-w-0">
-                                                <div class="text-xs font-semibold text-gray-800">
-                                                    Equipment Categories
-                                                </div>
-
-                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
-                                                    Manage categories
-                                                </div>
-                                            </div>
-                                        </a>
-
-                                    </div>
-                                </div>
+                        {{-- Header --}}
+                        <div class="flow-header">
+                            <div class="min-w-0">
+                                <h2 class="flow-title">Equipment Statistics</h2>
+                                <p class="flow-subtitle">Weekly Equipment Overview</p>
                             </div>
 
-                            {{-- Statistics --}}
-                            <div class="flow-stats">
-                                {{-- TOTAL EQUIPMENT --}}
-                                <div class="flow-stat">
-                                    <h2>{{ $totalEquipment }}</h2>
+                            <div class="relative" id="equipmentStatisticsMenu">
+                                <button
+                                    type="button"
+                                    class="flow-menu"
+                                    onclick="toggleEquipmentStatisticsMenu(event)"
+                                    aria-label="Equipment statistics options"
+                                    aria-expanded="false"
+                                    id="equipmentStatisticsMenuButton"
+                                >
+                                    <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                                </button>
 
-                                    <p>Total Equipment</p>
-                                </div>
+                                <div
+                                    id="equipmentStatisticsDropdown"
+                                    class="absolute right-0 top-full z-50 mt-1 hidden w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg"
+                                >
+                                    <a
+                                        href="{{ url('/maintenance/equipment/inventory') }}"
+                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                    >
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                                            <i data-lucide="monitor" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-semibold text-gray-800">Equipment Inventory</div>
+                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">View all equipment</div>
+                                        </div>
+                                    </a>
 
-                                {{-- UNDER MAINTENANCE --}}
-                                <div class="flow-stat">
-                                    <h2>{{ $underMaintenance }}</h2>
+                                    <a
+                                        href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}"
+                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                    >
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                                            <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-semibold text-gray-800">Under Maintenance</div>
+                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">Equipment requiring service</div>
+                                        </div>
+                                    </a>
 
-                                    <p>Under Maintenance</p>
-                                </div>
+                                    <a
+                                        href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}"
+                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                    >
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                                            <i data-lucide="package-open" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-semibold text-gray-800">Borrowed Equipment</div>
+                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">View borrowed equipment</div>
+                                        </div>
+                                    </a>
 
-                                {{-- BORROWED EQUIPMENT --}}
-                                <div class="flow-stat">
-                                    <h2>{{ $borrowedEquipment }}</h2>
+                                    <div class="my-1 border-t border-gray-100"></div>
 
-                                    <p>Borrowed Equipment</p>
+                                    <a
+                                        href="{{ url('/maintenance/equipment/categories') }}"
+                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                    >
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                                            <i data-lucide="tags" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-semibold text-gray-800">Equipment Categories</div>
+                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">Manage categories</div>
+                                        </div>
+                                    </a>
                                 </div>
                             </div>
                         </div>
-                        {{-- FLOW AREA --}}
-                        <div class="flow-area">
-                            {{-- LEFT BADGE --}}
 
-                            <svg
-                                id="flowRibbon"
-                                class="flow-svg"
-                                viewBox="0 0 1000 220"
-                                preserveAspectRatio="none"
-                            >
-                                <defs>
-                                    {{-- ===================================================== --}}
-                                    {{-- SOFT GLOW --}}
-                                    {{-- ===================================================== --}}
-
-                                    <filter
-                                        id="glowBlur"
-                                        x="-40%"
-                                        y="-80%"
-                                        width="180%"
-                                        height="260%"
-                                    >
-                                        <feGaussianBlur stdDeviation="28" />
-                                    </filter>
-
-                                    {{-- ===================================================== --}}
-                                    {{-- LIGHT BLOOM --}}
-                                    {{-- ===================================================== --}}
-
-                                    <filter
-                                        id="softBlur"
-                                        x="-30%"
-                                        y="-60%"
-                                        width="160%"
-                                        height="220%"
-                                    >
-                                        <feGaussianBlur stdDeviation="10" />
-                                    </filter>
-
-                                    {{-- ===================================================== --}}
-                                    {{-- MAIN COLOR --}}
-                                    {{-- ===================================================== --}}
-
-                                    <linearGradient
-                                        id="flowGradient"
-                                        x1="0%"
-                                        y1="0%"
-                                        x2="100%"
-                                        y2="0%"
-                                    >
-                                        <stop offset="0%" stop-color="#BBC8FC" />
-
-                                        <stop offset="16%" stop-color="#8FA4FA" />
-
-                                        <stop offset="34%" stop-color="#6381F8" />
-
-                                        <stop offset="48%" stop-color="#2750F5" />
-
-                                        <stop offset="63%" stop-color="#0B3AF4" />
-
-                                        <stop offset="80%" stop-color="#092FC8" />
-
-                                        <stop offset="100%" stop-color="#07259C" />
-                                    </linearGradient>
-
-                                    {{-- ===================================================== --}}
-                                    {{-- GLASS HIGHLIGHT --}}
-                                    {{-- ===================================================== --}}
-
-                                    <linearGradient
-                                        id="highlightGradient"
-                                        x1="0%"
-                                        y1="0%"
-                                        x2="0%"
-                                        y2="100%"
-                                    >
-                                        <stop
-                                            offset="0%"
-                                            stop-color="rgba(255,255,255,.95)"
-                                        />
-
-                                        <stop
-                                            offset="55%"
-                                            stop-color="rgba(255,255,255,.25)"
-                                        />
-
-                                        <stop
-                                            offset="100%"
-                                            stop-color="rgba(255,255,255,0)"
-                                        />
-                                    </linearGradient>
-                                </defs>
-
-                                {{-- ===================================================== --}}
-                                {{-- OUTER GLOW --}}
-                                {{-- ===================================================== --}}
-
-                                <path
-                                    id="glowLayer"
-                                    filter="url(#glowBlur)"
-                                    fill="url(#flowGradient)"
-                                    opacity=".16"
-                                />
-
-                                {{-- ===================================================== --}}
-                                {{-- OUTER TRANSLUCENT RIBBON --}}
-                                {{-- ===================================================== --}}
-
-                                <path
-                                    id="outerRibbon"
-                                    fill="url(#flowGradient)"
-                                    opacity=".18"
-                                />
-
-                                {{-- ===================================================== --}}
-                                {{-- MIDDLE TRANSLUCENT RIBBON --}}
-                                {{-- ===================================================== --}}
-
-                                <path
-                                    id="middleRibbon"
-                                    fill="url(#flowGradient)"
-                                    opacity=".36"
-                                />
-
-                                {{-- ===================================================== --}}
-                                {{-- MAIN RIBBON --}}
-                                {{-- ===================================================== --}}
-
-                                <path id="mainRibbon" fill="url(#flowGradient)" />
-
-                                {{-- ===================================================== --}}
-                                {{-- GLOSS --}}
-                                {{-- ===================================================== --}}
-
-                                <path
-                                    id="highlightRibbon"
-                                    fill="url(#highlightGradient)"
-                                    opacity=".85"
-                                />
-
-                                {{-- ===================================================== --}}
-                                {{-- SOFT BLOOM --}}
-                                {{-- ===================================================== --}}
-
-                                <path
-                                    id="softBloom"
-                                    filter="url(#softBlur)"
-                                    fill="url(#flowGradient)"
-                                    opacity=".10"
-                                />
-
-                                {{-- ===================================================== --}}
-                                {{-- GUIDE LINES --}}
-                                {{-- ===================================================== --}}
-
-                                <line
-                                    x1="120"
-                                    y1="72"
-                                    x2="120"
-                                    y2="160"
-                                    stroke="#94a3b8"
-                                    stroke-width="2"
-                                    stroke-dasharray="6 6"
-                                    opacity=".9"
-                                />
-
-                                <line
-                                    x1="500"
-                                    y1="72"
-                                    x2="500"
-                                    y2="160"
-                                    stroke="#94a3b8"
-                                    stroke-width="2"
-                                    stroke-dasharray="6 6"
-                                    opacity=".9"
-                                />
-
-                                <line
-                                    x1="880"
-                                    y1="72"
-                                    x2="880"
-                                    y2="160"
-                                    stroke="#94a3b8"
-                                    stroke-width="2"
-                                    stroke-dasharray="6 6"
-                                    opacity=".9"
-                                />
-
-                                <foreignObject
-                                    x="85"
-                                    y="10"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge glass"
-                                    >
-                                        {{ $urgentPercent }}%
+                        {{-- Metric rows --}}
+                        <div class="eq-metric-list">
+                            <div class="eq-metric-row">
+                                <div class="eq-metric-left">
+                                    <div class="eq-metric-icon blue" aria-hidden="true">
+                                        <i data-lucide="wrench" class="h-4 w-4"></i>
                                     </div>
-                                </foreignObject>
-
-                                <foreignObject
-                                    x="465"
-                                    y="0"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge badge-center"
-                                    >
-                                        {{ $maintenancePercent }}%
+                                    <div class="eq-metric-copy">
+                                        <div class="eq-metric-title">Under Maintenance</div>
+                                        <div class="eq-metric-hint">{{ number_format((int) $totalEquipment) }} Total Equipment</div>
                                     </div>
-                                </foreignObject>
+                                </div>
 
-                                <foreignObject
-                                    x="845"
-                                    y="10"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge glass"
-                                    >
-                                        {{ $borrowedPercent }}%
-                                    </div>
-                                </foreignObject>
+                                <div class="eq-metric-right">
+                                    <span class="eq-metric-amount">{{ number_format((int) $underMaintenance) }}</span>
+                                    <span class="eq-metric-change {{ $maintenancePercent > 0 ? '' : 'is-down' }}">
+                                        <i data-lucide="{{ $maintenancePercent > 0 ? 'arrow-up' : 'minus' }}" class="h-3 w-3"></i>
+                                        {{ number_format($maintenancePercent, 1) }}%
+                                    </span>
+                                </div>
+                            </div>
 
-                                <foreignObject
-                                    x="85"
-                                    y="170"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge glass"
-                                    >
-                                        {{ $urgentPercent }}%
+                            <div class="eq-metric-row">
+                                <div class="eq-metric-left">
+                                    <div class="eq-metric-icon green" aria-hidden="true">
+                                        <i data-lucide="package-open" class="h-4 w-4"></i>
                                     </div>
-                                </foreignObject>
+                                    <div class="eq-metric-copy">
+                                        <div class="eq-metric-title">Borrowed Equipment</div>
+                                        <div class="eq-metric-hint">Active Borrowings</div>
+                                    </div>
+                                </div>
 
-                                <foreignObject
-                                    x="465"
-                                    y="170"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge badge-center"
-                                    >
-                                        {{ $maintenancePercent }}%
-                                    </div>
-                                </foreignObject>
+                                <div class="eq-metric-right">
+                                    <span class="eq-metric-amount">{{ number_format((int) $borrowedEquipment) }}</span>
+                                    <span class="eq-metric-change">
+                                        <i data-lucide="arrow-up" class="h-3 w-3"></i>
+                                        {{ number_format($borrowedPercent, 1) }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
 
-                                <foreignObject
-                                    x="845"
-                                    y="170"
-                                    width="70"
-                                    height="40"
-                                >
-                                    <div
-                                        xmlns="http://www.w3.org/1999/xhtml"
-                                        class="flow-badge glass"
-                                    >
-                                        {{ $borrowedPercent }}%
+                        {{-- Weekly bar chart --}}
+                        <div class="eq-week-chart">
+                            <div class="eq-week-bars">
+                                @foreach ($eqWeekChartData as $index => $count)
+                                    @php
+                                        $barHeight = max(8, ($count / $eqWeekChartMax) * 100);
+                                        $dayLabel = substr($miniChartLabels[$index] ?? '', 0, 2);
+                                    @endphp
+
+                                    <div class="eq-week-item">
+                                        <span
+                                            class="eq-week-bar {{ $index === $eqWeekActiveIndex ? 'is-active' : '' }}"
+                                            style="height: {{ $barHeight }}%;"
+                                            title="{{ $miniChartLabels[$index] ?? '' }}: {{ $count }} activity"
+                                        ></span>
+                                        <small>{{ $dayLabel }}</small>
                                     </div>
-                                </foreignObject>
-                            </svg>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
 
@@ -5990,94 +5782,63 @@
                         {{-- BOTTOM FULL WIDTH CARD --}}
                         {{-- ===================================================== --}}
                         <div class="maintenance-hero-main">
-                            <div class="maintenance-hero-eyebrow">
-                                MAINTENANCE OPERATIONS
-                            </div>
-
-                            <h2 class="maintenance-hero-title">
-                                {{ $urgentReports }} urgent reports require
-                                attention
-                            </h2>
-
-                            <p class="maintenance-hero-description">Review active maintenance issues and prioritize critical equipment requiring immediate action.</p>
-
-                            {{-- ===================================================== --}}
-                            {{-- REAL URGENT REPORT ACTIVITY: LAST 7 DAYS --}}
-                            {{-- ===================================================== --}}
                             @php
-                                // Get the highest value so the bars can be scaled proportionally.
-                                // Example: if the highest count is 5, a day with 5 reports = 100%.
-                                $urgentChartMax = max($urgentChartData ?: [0]);
+                                $opsPending = (int) $pendingReports;
+                                $opsOverdue = (int) $overdueMaintenance;
+                                $opsTotal = max(1, $opsPending + $opsOverdue);
+                                $opsPendingPercent = round(($opsPending / $opsTotal) * 100, 1);
+                                $opsOverduePercent = round(($opsOverdue / $opsTotal) * 100, 1);
 
-                                // Prevent division by zero when there are no urgent reports.
-                                $urgentChartMax = max($urgentChartMax, 1);
+                                $urgentRecent = array_sum(array_slice($urgentChartData ?: [], -3));
+                                $urgentPrevious = array_sum(array_slice($urgentChartData ?: [], 0, 3));
+                                if ($urgentPrevious > 0) {
+                                    $opsGrowth = round((($urgentRecent - $urgentPrevious) / $urgentPrevious) * 100, 1);
+                                } else {
+                                    $opsGrowth = $urgentRecent > 0 ? 100.0 : 0.0;
+                                }
+                                $opsGrowthLabel = ($opsGrowth > 0 ? '+' : '') . number_format($opsGrowth, 1) . '%';
                             @endphp
 
-                            <div class="maintenance-mini-chart">
-                                <div class="maintenance-mini-chart-bars">
-                                    @foreach ($urgentChartData as $index => $count)
-                                        @php
-                                            // Convert the real report count into a percentage height.
-                                            $barHeight = ($count / $urgentChartMax) * 100;
-                                        @endphp
+                            <div class="ops-overview-top">
+                                <span class="ops-overview-label">Maintenance Overview</span>
+                                <span class="ops-overview-growth {{ $opsGrowth < 0 ? 'is-down' : '' }}">
+                                    {{ $opsGrowthLabel }}
+                                </span>
+                            </div>
 
-                                        <div
-                                            class="maintenance-mini-chart-item"
-                                        >
-                                            <span
-                                                class="maintenance-mini-chart-bar"
-                                                style="height: {{ $barHeight }}%;"
-                                                data-tooltip="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
-                                            ></span>
+                            <div class="ops-overview-value">
+                                {{ number_format($opsPending + $opsOverdue) }}
+                            </div>
 
-                                            <small>
-                                                {{
-                                                    $miniChartLabels[
-                                                        $index
-                                                    ]
-                                                }}
-                                            </small>
-                                        </div>
-                                    @endforeach
+                            <div class="ops-compare">
+                                <span class="ops-compare-vs">vs</span>
+
+                                <div class="ops-compare-side is-left">
+                                    <div class="ops-compare-meta">
+                                        <span class="ops-compare-icon cyan" aria-hidden="true">
+                                            <i data-lucide="clipboard-list" class="h-3 w-3"></i>
+                                        </span>
+                                        <span class="ops-compare-name">Pending</span>
+                                    </div>
+                                    <div class="ops-compare-percent">{{ number_format($opsPendingPercent, 1) }}%</div>
+                                    <div class="ops-compare-count">{{ number_format($opsPending) }}</div>
+                                </div>
+
+                                <div class="ops-compare-side is-right">
+                                    <div class="ops-compare-meta is-right">
+                                        <span class="ops-compare-name">Overdue</span>
+                                        <span class="ops-compare-icon blue" aria-hidden="true">
+                                            <i data-lucide="alarm-clock" class="h-3 w-3"></i>
+                                        </span>
+                                    </div>
+                                    <div class="ops-compare-percent">{{ number_format($opsOverduePercent, 1) }}%</div>
+                                    <div class="ops-compare-count">{{ number_format($opsOverdue) }}</div>
                                 </div>
                             </div>
 
-                            <div class="maintenance-hero-actions">
-
-                                {{-- ===================================================== --}}
-                                {{-- REVIEW URGENT REPORTS --}}
-                                {{-- ===================================================== --}}
-
-                                <a
-                                    href="{{ url('/maintenance/reports/urgent') }}"
-                                    class="maintenance-hero-primary"
-                                >
-                                    Review Reports
-
-                                    <i
-                                        data-lucide="chevrons-right"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </a>
-
-
-                                {{-- ===================================================== --}}
-                                {{-- SCAN EQUIPMENT --}}
-                                {{-- ===================================================== --}}
-
-                                <button
-                                    type="button"
-                                    onclick="openEquipmentScanner()"
-                                    class="maintenance-hero-secondary"
-                                >
-                                    <i
-                                        data-lucide="scan-line"
-                                        class="h-4 w-4"
-                                    ></i>
-
-                                    Scan Equipment
-                                </button>
-
+                            <div class="ops-split-bar" aria-hidden="true">
+                                <span class="ops-split-seg cyan" style="width: {{ $opsPendingPercent }}%"></span>
+                                <span class="ops-split-seg blue" style="width: {{ $opsOverduePercent }}%"></span>
                             </div>
                         </div>
                     </section>
@@ -6157,28 +5918,67 @@
                         <div class="equipment-statistic-header">
                             <div class="equipment-statistic-heading">
                                 <span class="equipment-statistic-icon" aria-hidden="true">
-                                    <i data-lucide="layers-2" class="h-4 w-4"></i>
+                                    <i data-lucide="gauge" class="h-4 w-4"></i>
                                 </span>
 
                                 <h2 class="equipment-statistic-title">
                                     Equipment Condition
                                 </h2>
+
+                                <span
+                                    class="equipment-statistic-info"
+                                    title="Current inventory condition compared to a healthy target profile"
+                                    aria-label="Chart information"
+                                >
+                                    <i data-lucide="info" class="h-3.5 w-3.5"></i>
+                                </span>
                             </div>
 
-                            <a
-                                href="{{ url('/maintenance/equipment/inventory') }}"
-                                class="equipment-statistic-action"
-                                aria-label="Open equipment inventory"
-                                title="Open equipment inventory"
-                            >
-                                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
-                            </a>
+                            <div class="equipment-statistic-toolbar">
+                                <a
+                                    href="{{ url('/maintenance/equipment/inventory') }}"
+                                    class="equipment-statistic-tool"
+                                    aria-label="Open equipment inventory"
+                                    title="Open inventory"
+                                >
+                                    <i data-lucide="maximize-2" class="h-3.5 w-3.5"></i>
+                                </a>
+
+                                <a
+                                    href="{{ url('/maintenance/equipment/categories') }}"
+                                    class="equipment-statistic-tool"
+                                    aria-label="Manage equipment categories"
+                                    title="Manage categories"
+                                >
+                                    <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                                </a>
+
+                                <button
+                                    type="button"
+                                    class="equipment-statistic-tool"
+                                    aria-label="More options"
+                                    title="More"
+                                >
+                                    <i data-lucide="more-horizontal" class="h-3.5 w-3.5"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="equipment-statistic-panel">
                             <div class="equipment-statistic-chart">
                                 <canvas id="equipmentConditionChart"></canvas>
                             </div>
+                        </div>
+
+                        <div class="equipment-statistic-legend">
+                            <span class="equipment-statistic-legend-item">
+                                <span class="equipment-statistic-swatch current" aria-hidden="true"></span>
+                                Current
+                            </span>
+                            <span class="equipment-statistic-legend-item">
+                                <span class="equipment-statistic-swatch target" aria-hidden="true"></span>
+                                Target
+                            </span>
                         </div>
                     </section>
                 </div>
@@ -17613,358 +17413,11 @@ document.addEventListener(
 
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            createRibbon();
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
         });
-
-        function createRibbon() {
-            // =====================================================
-            // GET RIBBON SVG LAYERS
-            // =====================================================
-
-            const glow = document.getElementById("glowLayer");
-            const outer = document.getElementById("outerRibbon");
-            const middle = document.getElementById("middleRibbon");
-            const ribbon = document.getElementById("mainRibbon");
-            const highlight = document.getElementById("highlightRibbon");
-            const bloom = document.getElementById("softBloom");
-
-            if (!glow || !outer || !middle || !ribbon || !highlight || !bloom) {
-                return;
-            }
-
-            // =====================================================
-            // REAL EQUIPMENT DATA
-            //
-            // LEFT   = AVAILABLE / OTHER EQUIPMENT
-            // MIDDLE = UNDER MAINTENANCE
-            // RIGHT  = BORROWED EQUIPMENT
-            // =====================================================
-
-            const total = Math.max(
-                1,
-                {{ $totalEquipment }}
-            );
-
-            const maintenanceCount = {{ $underMaintenance }};
-            const borrowedCount = {{ $borrowedEquipment }};
-
-            // =====================================================
-            // REMAINING EQUIPMENT
-            //
-            // EG:
-            // 16 TOTAL
-            // 2 MAINTENANCE
-            // 3 BORROWED
-            //
-            // 16 - 2 - 3 = 11 REMAINING
-            // =====================================================
-
-            const availableCount = Math.max(
-                0,
-                total - maintenanceCount - borrowedCount
-            );
-
-            // =====================================================
-            // CONVERT COUNTS INTO RIBBON PROPORTIONS
-            // =====================================================
-
-            const available = availableCount / total;
-            const maintenance = maintenanceCount / total;
-            const borrowed = borrowedCount / total;
-
-            // =====================================================
-            // RIBBON SIZE
-            // =====================================================
-
-            const WIDTH = 1000;
-            const CENTER = 110;
-
-            // =====================================================
-            // BUILD RIBBON SHAPE
-            // =====================================================
-
-            function build(offset, scale = 1) {
-                let path = "";
-
-                // =================================================
-                // TOP EDGE
-                // =================================================
-
-                for (let x = 0; x <= WIDTH; x += 8) {
-                    const t = x / WIDTH;
-
-                    const leftFade = Math.sin(
-                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2
-                    );
-
-                    const rightFade = Math.sin(
-                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2
-                    );
-
-                    const taper = Math.min(
-                        leftFade,
-                        rightFade
-                    );
-
-                    // =================================================
-                    // NATURAL RIBBON MOVEMENT
-                    // =================================================
-
-                    const wave =
-                        Math.sin(t * Math.PI * 2 + offset) * 5 +
-                        Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
-                        Math.cos(t * Math.PI * 10) * 1.2;
-
-                    const pulse =
-                        Math.sin(offset + t * 6) * 4;
-
-                    // =================================================
-                    // DATA BASED WIDTH
-                    // =================================================
-
-                    const SCALE = 160;
-                    const MIN = 3;
-
-                    const leftWidth =
-                        available > 0
-                            ? MIN + available * SCALE
-                            : 0;
-
-                    const middleWidth =
-                        maintenance > 0
-                            ? MIN + maintenance * SCALE
-                            : 0;
-
-                    const rightWidth =
-                        borrowed > 0
-                            ? MIN + borrowed * SCALE
-                            : 0;
-
-                    // =================================================
-                    // THREE RIBBON HUMPS
-                    // =================================================
-
-                    const hump1 =
-                        leftWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.12) / 0.12,
-                                2
-                            )
-                        );
-
-                    const hump2 =
-                        middleWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.5) / 0.18,
-                                2
-                            )
-                        );
-
-                    const hump3 =
-                        rightWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.88) / 0.12,
-                                2
-                            )
-                        );
-
-                    const baseWidth =
-                        hump1 +
-                        hump2 +
-                        hump3;
-
-                    // =================================================
-                    // SUBTLE BREATHING ANIMATION
-                    // =================================================
-
-                    const breathing =
-                        1 +
-                        Math.sin(offset * 2) * 0.04;
-
-                    const width =
-                        Math.max(baseWidth, 0) *
-                        taper *
-                        breathing *
-                        scale;
-
-                    const y =
-                        CENTER +
-                        wave +
-                        pulse;
-
-                    if (x === 0) {
-                        path = `M -30 ${CENTER}`;
-                        path += ` L ${x} ${y - width}`;
-                    } else {
-                        path += ` L ${x} ${y - width}`;
-                    }
-                }
-
-                // =================================================
-                // BOTTOM EDGE
-                // =================================================
-
-                for (let x = WIDTH; x >= 0; x -= 8) {
-                    const t = x / WIDTH;
-
-                    const leftFade = Math.sin(
-                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2
-                    );
-
-                    const rightFade = Math.sin(
-                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2
-                    );
-
-                    const taper = Math.min(
-                        leftFade,
-                        rightFade
-                    );
-
-                    // =================================================
-                    // SAME MOVEMENT AS TOP EDGE
-                    // =================================================
-
-                    const wave =
-                        Math.sin(t * Math.PI * 2 + offset) * 5 +
-                        Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
-                        Math.cos(t * Math.PI * 10) * 1.2;
-
-                    const pulse =
-                        Math.sin(offset + t * 6) * 4;
-
-                    // =================================================
-                    // SAME DATA BASED WIDTH
-                    // =================================================
-
-                    const SCALE = 160;
-                    const MIN = 3;
-
-                    const leftWidth =
-                        available > 0
-                            ? MIN + available * SCALE
-                            : 0;
-
-                    const middleWidth =
-                        maintenance > 0
-                            ? MIN + maintenance * SCALE
-                            : 0;
-
-                    const rightWidth =
-                        borrowed > 0
-                            ? MIN + borrowed * SCALE
-                            : 0;
-
-                    // =================================================
-                    // THREE RIBBON HUMPS
-                    // =================================================
-
-                    const hump1 =
-                        leftWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.12) / 0.12,
-                                2
-                            )
-                        );
-
-                    const hump2 =
-                        middleWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.5) / 0.18,
-                                2
-                            )
-                        );
-
-                    const hump3 =
-                        rightWidth *
-                        Math.exp(
-                            -Math.pow(
-                                (t - 0.88) / 0.12,
-                                2
-                            )
-                        );
-
-                    const baseWidth =
-                        hump1 +
-                        hump2 +
-                        hump3;
-
-                    const breathing =
-                        1 +
-                        Math.sin(offset * 2) * 0.04;
-
-                    const width =
-                        Math.max(baseWidth, 0) *
-                        taper *
-                        breathing *
-                        scale;
-
-                    const y =
-                        CENTER +
-                        wave +
-                        pulse;
-
-                    path += ` L ${x} ${y + width}`;
-                }
-
-                // =================================================
-                // CLOSE RIBBON
-                // =================================================
-
-                path += ` L ${WIDTH + 30} ${CENTER} Z`;
-
-                return path;
-            }
-
-            // =====================================================
-            // ANIMATION
-            // =====================================================
-
-            let time = 0;
-
-            function animate() {
-                time += 0.02;
-
-                glow.setAttribute(
-                    "d",
-                    build(time - 0.22, 1.7)
-                );
-
-                outer.setAttribute(
-                    "d",
-                    build(time - 0.12, 1.45)
-                );
-
-                middle.setAttribute(
-                    "d",
-                    build(time - 0.05, 1.2)
-                );
-
-                ribbon.setAttribute(
-                    "d",
-                    build(time, 1.0)
-                );
-
-                highlight.setAttribute(
-                    "d",
-                    build(time + 0.04, 0.55)
-                );
-
-                bloom.setAttribute(
-                    "d",
-                    build(time + 0.02, 1.55)
-                );
-
-                requestAnimationFrame(animate);
-            }
-
-            animate();
-        }
     </script>
 
     <script>
@@ -18630,8 +18083,7 @@ document.addEventListener(
 
             // =====================================================
             // EQUIPMENT CONDITION
-            // CONCENTRIC BUBBLE CHART
-            // REPLACE YOUR CURRENT EQUIPMENT CONDITION CHART JS
+            // SMOOTH RADAR CHART (COMPETITOR-ANALYSIS STYLE)
             // =====================================================
 
             const equipmentConditionCanvas = document.getElementById(
@@ -18639,540 +18091,127 @@ document.addEventListener(
             );
 
             if (equipmentConditionCanvas) {
-                // =====================================================
-                // GET DATA FROM YOUR EXISTING CONTROLLER
-                // =====================================================
-
                 const equipmentConditionLabels = @json ($equipmentConditionChart["labels"]);
-
                 const equipmentConditionData = @json ($equipmentConditionChart["data"]);
 
-                // =====================================================
-                // COMBINE LABELS AND VALUES
-                // =====================================================
-
-                const equipmentConditionItems = equipmentConditionLabels.map(
-                    (label, index) => ({
-                        label: label,
-
-                        value: Number(equipmentConditionData[index]) || 0,
-                    }),
+                const currentValues = equipmentConditionData.map(
+                    (value) => Number(value) || 0,
+                );
+                const maxValue = Math.max(...currentValues, 1);
+                const currentScaled = currentValues.map((value) =>
+                    Math.round((value / maxValue) * 100),
                 );
 
-                // =====================================================
-                // SORT FROM LARGEST TO SMALLEST
-                //
-                // IMPORTANT:
-                // LARGEST CIRCLE MUST BE DRAWN FIRST
-                // =====================================================
+                // Healthy target profile (relative scale 0-100)
+                const targetScaled = equipmentConditionLabels.map((label) => {
+                    const key = String(label).toLowerCase();
+                    if (key.includes("good")) return 100;
+                    if (key.includes("damaged")) return 12;
+                    if (key.includes("maintenance")) return 18;
+                    if (key.includes("disposed")) return 8;
+                    return 20;
+                });
 
-                equipmentConditionItems.sort((a, b) => b.value - a.value);
+                const shortLabels = equipmentConditionLabels.map((label) => {
+                    const text = String(label);
+                    if (text.toLowerCase().includes("under maintenance")) {
+                        return "Maintenance";
+                    }
+                    return text;
+                });
 
-                // =====================================================
-                // FIND LARGEST VALUE
-                // PREVENT DIVISION BY ZERO
-                // =====================================================
-
-                // =====================================================
-                // BLUE COLORS
-                // LARGEST CIRCLE = LIGHTEST
-                // SMALLEST CIRCLE = DARKEST
-                // =====================================================
-
-                const equipmentConditionColors = [
-                    "rgba(79, 70, 229, 0.10)",
-
-                    "rgba(79, 70, 229, 0.20)",
-
-                    "rgba(79, 70, 229, 0.38)",
-
-                    "rgba(79, 70, 229, 0.82)",
-                ];
-
-                // =====================================================
-                // CUSTOM PLUGIN
-                // REFERENCE STYLE CONCENTRIC CIRCLES
-                // =====================================================
-
-                const equipmentConditionBubblePlugin = {
-                    id: "equipmentConditionBubblePlugin",
-
-                    beforeDatasetsDraw(chart) {
-                        const {
-                            ctx,
-
-                            chartArea: {
-                                left,
-
-                                bottom,
-
-                                width,
-
-                                height,
+                new Chart(equipmentConditionCanvas, {
+                    type: "radar",
+                    data: {
+                        labels: shortLabels,
+                        datasets: [
+                            {
+                                label: "Current",
+                                data: currentScaled,
+                                borderColor: "#0025cc",
+                                backgroundColor: "rgba(0, 37, 204, 0.18)",
+                                borderWidth: 2.5,
+                                pointBackgroundColor: "#0025cc",
+                                pointBorderColor: "#0025cc",
+                                pointRadius: 0,
+                                pointHoverRadius: 4,
+                                fill: true,
                             },
-                        } = chart;
-
-                        // =====================================================
-                        // HORIZONTAL CENTER
-                        // =====================================================
-
-                        const centerX = left + width / 2;
-
-                        // =====================================================
-                        // ALL CIRCLES SHARE THE SAME BOTTOM POINT
-                        // =====================================================
-
-                        const sharedBottom = bottom - 2;
-
-                        // =====================================================
-                        // FIXED SIZE RATIOS
-                        //
-                        // IMPORTANT:
-                        // DO NOT USE RAW EQUIPMENT COUNT FOR RADIUS.
-                        //
-                        // THESE RATIOS COPY THE REFERENCE DESIGN MORE CLOSELY.
-                        // =====================================================
-
-                        const radiusRatios = [
-                            1,
-
-                            0.76,
-
-                            0.55,
-
-                            0.36,
-                        ];
-
-                        // =====================================================
-                        // MAXIMUM OUTER CIRCLE SIZE
-                        //
-                        // CHANGE ONLY THESE VALUES IF YOU WANT TO
-                        // ADJUST THE WHOLE CHART SIZE.
-                        // =====================================================
-
-                        const maximumRadius = Math.min(
-                            width * 0.32,
-
-                            height * 0.43,
-                        );
-
-                        // =====================================================
-                        // BUILD CIRCLE INFORMATION
-                        // =====================================================
-
-                        const circles = equipmentConditionItems.map((item, index) => {
-                            // =================================================
-                            // GET SIZE RATIO
-                            // =================================================
-
-                            const ratio =
-                                radiusRatios[index] ??
-                                Math.max(
-                                    0.2,
-
-                                    0.36 - (index - 3) * 0.08,
-                                );
-
-                            // =================================================
-                            // CALCULATE RADIUS
-                            // =================================================
-
-                            const radius = maximumRadius * ratio;
-
-                            // =================================================
-                            // SAME BOTTOM POINT
-                            //
-                            // CENTER Y CHANGES BASED ON RADIUS.
-                            // =================================================
-
-                            const centerY = sharedBottom - radius;
-
-                            return {
-                                ...item,
-
-                                radius,
-
-                                centerY,
-                            };
-                        });
-
-                        ctx.save();
-
-                        // =====================================================
-                        // DRAW ALL CIRCLES FIRST
-                        //
-                        // LARGEST TO SMALLEST
-                        // =====================================================
-
-                        circles.forEach((circle, index) => {
-                            ctx.beginPath();
-
-                            ctx.arc(
-                                centerX,
-
-                                circle.centerY,
-
-                                circle.radius,
-
-                                0,
-
-                                Math.PI * 2,
-                            );
-
-                            ctx.fillStyle =
-                                equipmentConditionColors[
-                                    Math.min(
-                                        index,
-
-                                        equipmentConditionColors.length - 1,
-                                    )
-                                ];
-
-                            ctx.fill();
-                        });
-
-                        // =====================================================
-                        // DRAW CURVED TEXT HELPER
-                        //
-                        // LONG LABELS FOLLOW THE TOP ARC OF THEIR CIRCLE.
-                        // EG: UNDER MAINTENANCE
-                        // =====================================================
-
-                        function drawCurvedText(
-                            ctx,
-
-                            text,
-
-                            centerX,
-
-                            centerY,
-
-                            radius,
-
-                            centerAngle,
-                        ) {
-                            // =====================================================
-                            // CONVERT TEXT INTO CHARACTERS
-                            // =====================================================
-
-                            const characters = [...text];
-
-                            // =====================================================
-                            // CALCULATE TOTAL TEXT WIDTH
-                            // =====================================================
-
-                            const totalTextWidth = characters.reduce(
-                                (total, character) =>
-                                    total + ctx.measureText(character).width,
-
-                                0,
-                            );
-
-                            // =====================================================
-                            // CONVERT TEXT WIDTH INTO ARC ANGLE
-                            // =====================================================
-
-                            const totalAngle = totalTextWidth / radius;
-
-                            // =====================================================
-                            // START ANGLE
-                            //
-                            // THIS CENTERS THE WHOLE TEXT ON THE TOP ARC.
-                            // =====================================================
-
-                            let currentAngle = centerAngle - totalAngle / 2;
-
-                            // =====================================================
-                            // DRAW EACH CHARACTER
-                            // =====================================================
-
-                            characters.forEach((character) => {
-                                const characterWidth = ctx.measureText(character).width;
-
-                                const characterAngle = characterWidth / radius;
-
-                                currentAngle += characterAngle / 2;
-
-                                ctx.save();
-
-                                // =================================================
-                                // MOVE TO CHARACTER POSITION
-                                // =================================================
-
-                                ctx.translate(
-                                    centerX + Math.cos(currentAngle) * radius,
-
-                                    centerY + Math.sin(currentAngle) * radius,
-                                );
-
-                                // =================================================
-                                // ROTATE CHARACTER ALONG CIRCLE
-                                // =================================================
-
-                                ctx.rotate(currentAngle + Math.PI / 2);
-
-                                // =================================================
-                                // DRAW CHARACTER
-                                // =================================================
-
-                                ctx.fillText(
-                                    character,
-
-                                    0,
-
-                                    0,
-                                );
-
-                                ctx.restore();
-
-                                currentAngle += characterAngle / 2;
-                            });
-                        }
-
-                        // =====================================================
-                        // DRAW LABELS AFTER ALL CIRCLES
-                        //
-                        // DESIGN RULES:
-                        //
-                        // LONG LABELS = CURVED
-                        // SHORT LABELS = HORIZONTAL
-                        //
-                        // DARKEST SMALLEST CIRCLE = WHITE TEXT
-                        // OTHER CIRCLES = DARK TEXT
-                        // =====================================================
-
-                        circles.forEach((circle, index) => {
-                            // =================================================
-                            // CHECK IF THIS IS THE SMALLEST CIRCLE
-                            //
-                            // THE LAST CIRCLE IS THE DARKEST CIRCLE.
-                            // =================================================
-
-                            const isSmallestCircle = index === circles.length - 1;
-
-                            // =================================================
-                            // TEXT COLOR
-                            //
-                            // SMALLEST DARK CIRCLE = WHITE
-                            // OTHER CIRCLES = DARK GRAY
-                            // =================================================
-
-                            const textColor = isSmallestCircle ? "#BBC9FC" : "#012274";
-
-                            // =================================================
-                            // TOP OF CURRENT CIRCLE
-                            // =================================================
-
-                            const currentTop = circle.centerY - circle.radius;
-
-                            let labelY;
-
-                            // =================================================
-                            // CALCULATE LABEL POSITION
-                            // =================================================
-
-                            if (index < circles.length - 1) {
-                                const innerCircle = circles[index + 1];
-
-                                const innerTop =
-                                    innerCircle.centerY - innerCircle.radius;
-
-                                labelY = currentTop + (innerTop - currentTop) / 2;
-                            } else {
-                                labelY = circle.centerY;
-                            }
-
-                            // =================================================
-                            // COMMON TEXT SETTINGS
-                            // =================================================
-
-                            ctx.fillStyle = textColor;
-
-                            ctx.textAlign = "center";
-
-                            ctx.textBaseline = "middle";
-
-                            ctx.font = '600 11px "Inter", sans-serif';
-
-                            // =================================================
-                            // CURVE ONLY LONG LABELS
-                            //
-                            // EG:
-                            //
-                            // UNDER MAINTENANCE = CURVED
-                            //
-                            // GOOD = NORMAL
-                            // DAMAGED = NORMAL
-                            // DISPOSED = NORMAL
-                            // =================================================
-
-                            const shouldCurveLabel = circle.label.length > 12;
-
-                            if (shouldCurveLabel) {
-                                // =================================================
-                                // CURVED LABEL RADIUS
-                                // =================================================
-
-                                const curvedTextRadius = circle.radius * 0.82;
-
-                                // =================================================
-                                // DRAW CURVED LABEL
-                                // =================================================
-
-                                drawCurvedText(
-                                    ctx,
-
-                                    circle.label,
-
-                                    centerX,
-
-                                    circle.centerY,
-
-                                    curvedTextRadius,
-
-                                    -Math.PI / 2,
-                                );
-
-                                // =================================================
-                                // DRAW COUNT
-                                //
-                                // KEEP COUNT HORIZONTAL BELOW THE CURVED LABEL
-                                // =================================================
-
-                                ctx.fillStyle = textColor;
-
-                                ctx.font = '700 14px "Outfit", sans-serif';
-
-                                const curvedCountY =
-                                    circle.centerY - curvedTextRadius + 18;
-
-                                ctx.fillText(
-                                    circle.value,
-
-                                    centerX,
-
-                                    curvedCountY,
-                                );
-                            } else {
-                                // =================================================
-                                // SHORT LABEL
-                                // =================================================
-
-                                ctx.fillStyle = textColor;
-
-                                ctx.font = '600 11px "Inter", sans-serif';
-
-                                ctx.fillText(
-                                    circle.label,
-
-                                    centerX,
-
-                                    labelY - 8,
-                                );
-
-                                // =================================================
-                                // EQUIPMENT COUNT
-                                // =================================================
-
-                                ctx.fillStyle = textColor;
-
-                                ctx.font = '700 14px "Outfit", sans-serif';
-
-                                ctx.fillText(
-                                    circle.value,
-
-                                    centerX,
-
-                                    labelY + 10,
-                                );
-                            }
-                        });
-
-                        ctx.restore();
+                            {
+                                label: "Target",
+                                data: targetScaled,
+                                borderColor: "#14b8a6",
+                                backgroundColor: "rgba(20, 184, 166, 0.14)",
+                                borderWidth: 2.5,
+                                pointBackgroundColor: "#14b8a6",
+                                pointBorderColor: "#14b8a6",
+                                pointRadius: 0,
+                                pointHoverRadius: 4,
+                                fill: true,
+                            },
+                        ],
                     },
-                };
-
-                // =====================================================
-                // CREATE CHART
-                // =====================================================
-
-                new Chart(
-                    equipmentConditionCanvas,
-
-                    {
-                        // =================================================
-                        // EMPTY SCATTER CHART
-                        //
-                        // THE CUSTOM PLUGIN DRAWS THE ACTUAL VISUALIZATION
-                        // =================================================
-
-                        type: "scatter",
-
-                        data: {
-                            datasets: [],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        elements: {
+                            line: {
+                                tension: 0.48,
+                                borderJoinStyle: "round",
+                            },
                         },
-
-                        plugins: [equipmentConditionBubblePlugin],
-
-                        options: {
-                            responsive: true,
-
-                            maintainAspectRatio: false,
-
-                            // =================================================
-                            // REMOVE DEFAULT CHART PADDING
-                            // =================================================
-
-                            layout: {
-                                padding: {
-                                    top: 4,
-
-                                    right: 10,
-
-                                    bottom: 4,
-
-                                    left: 10,
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                            tooltip: {
+                                backgroundColor: "#111827",
+                                titleColor: "#f9fafb",
+                                bodyColor: "#e5e7eb",
+                                padding: 10,
+                                cornerRadius: 8,
+                                displayColors: true,
+                                callbacks: {
+                                    label(context) {
+                                        const index = context.dataIndex;
+                                        const rawCount = currentValues[index] ?? 0;
+                                        if (context.dataset.label === "Current") {
+                                            return ` Current: ${rawCount} equipment (${context.parsed.r}%)`;
+                                        }
+                                        return ` Target profile: ${context.parsed.r}%`;
+                                    },
                                 },
                             },
-
-                            // =================================================
-                            // DISABLE DEFAULT INTERACTION
-                            // =================================================
-
-                            interaction: {
-                                mode: null,
-                            },
-
-                            // =================================================
-                            // HIDE DEFAULT CHART ELEMENTS
-                            // =================================================
-
-                            plugins: {
-                                legend: {
+                        },
+                        scales: {
+                            r: {
+                                min: 0,
+                                max: 100,
+                                beginAtZero: true,
+                                ticks: {
                                     display: false,
+                                    stepSize: 25,
                                 },
-
-                                tooltip: {
-                                    enabled: false,
+                                grid: {
+                                    circular: true,
+                                    color: "rgba(148, 163, 184, 0.28)",
                                 },
-                            },
-
-                            // =================================================
-                            // HIDE X AND Y AXES
-                            // =================================================
-
-                            scales: {
-                                x: {
-                                    display: false,
+                                angleLines: {
+                                    color: "rgba(148, 163, 184, 0.22)",
                                 },
-
-                                y: {
-                                    display: false,
+                                pointLabels: {
+                                    color: "#9ca3af",
+                                    font: {
+                                        size: 12,
+                                        weight: "500",
+                                        family: "Inter, sans-serif",
+                                    },
+                                    padding: 10,
                                 },
                             },
                         },
                     },
-                );
+                });
             }
 
             // =====================================================
