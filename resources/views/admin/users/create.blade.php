@@ -72,6 +72,10 @@
             <select name="role" id="standaloneCreateUserRole"
                 class="w-full border p-2 rounded">
 
+                <option value="1">
+                    Administrator
+                </option>
+
                 <option value="2">
                     Maintenance Personnel
                 </option>
@@ -101,7 +105,7 @@
                 <input type="checkbox" name="user_can_procurement" value="1" class="mt-1">
                 <span>
                     <span class="block font-medium">Enable procurement workflow</span>
-                    <span class="block text-sm text-gray-600">For Maintenance Personnel only. Assigns Purchaser access — use the portal switcher to run replacement requests and RIS → ATP → RFC → RR → Liquidation.</span>
+                    <span class="block text-sm text-gray-600">For Administrator or Maintenance. Assigns Purchaser access — use the portal switcher to run RIS → ATP → RFC → RR → Liquidation. Admin portal stays accept/sign + monitor.</span>
                 </span>
             </label>
         </div>
@@ -124,7 +128,7 @@
         var wrap = document.getElementById('standaloneProcurementAccessWrap');
         if (!roleSelect || !wrap) return;
         function sync() {
-            wrap.style.display = roleSelect.value === '2' ? '' : 'none';
+            wrap.style.display = (roleSelect.value === '1' || roleSelect.value === '2') ? '' : 'none';
         }
         roleSelect.addEventListener('change', sync);
         sync();

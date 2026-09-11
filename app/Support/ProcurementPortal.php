@@ -8,8 +8,12 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Resolves procurement portal context (prefix, layout, routes).
- * Workflow UI lives in the Purchaser portal; Maintenance users with procurement
- * use multi-role portal switching (legacy /maintenance/* URLs redirect there).
+ * Workflow UI lives in the Purchaser portal.
+ *
+ * Decision A: Admin (or Maintenance) with Purchaser access uses multi-role
+ * portal switching to create/drive RIS → ATP → RFC/CA → RR → Liquidation.
+ * Admin portal itself remains RIS accept/sign + pipeline monitor (view-only).
+ * Accounting still approves money docs; Receiving still reviews RR.
  */
 class ProcurementPortal
 {
@@ -23,10 +27,12 @@ class ProcurementPortal
 
     public const PURCHASER_ROLE_ID = 3;
 
+    public const ADMIN_ROLE_ID = 1;
+
     /**
      * Whether the user may use procurement workflow routes/UI.
      * Purchaser role (primary or additional): always.
-     * Maintenance with user_can_procurement: legacy flag still honored (also syncs Purchaser role in Admin Users).
+     * Admin or Maintenance with user_can_procurement: also granted (syncs Purchaser role).
      */
     public static function userCanAccessProcurement(?object $user = null): bool
     {
@@ -39,12 +45,15 @@ class ProcurementPortal
             return true;
         }
 
-        if (! \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)) {
+        $isMaintenance = \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user);
+        $isAdmin = \App\Support\RoleAccess::isAdmin($user);
+
+        if (! $isMaintenance && ! $isAdmin) {
             return false;
         }
 
         if (! Schema::hasColumn('users_table', 'user_can_procurement')) {
-            return true;
+            return $isMaintenance;
         }
 
         return (bool) ($user->user_can_procurement ?? false);

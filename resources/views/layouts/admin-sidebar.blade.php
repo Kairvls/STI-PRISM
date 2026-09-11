@@ -201,10 +201,18 @@
 
         <a
             href="{{ route('admin.operations.procurement') }}"
-            class="menu-item {{ request()->is('admin/operations/procurement*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('admin/operations/procurement*') || request()->is('admin/operations/documents*') ? 'active' : '' }}"
         >
             <i data-lucide="git-branch"></i>
             <span>Procurement Monitor</span>
+        </a>
+
+        <a
+            href="{{ route('admin.operations.movements') }}"
+            class="menu-item {{ request()->is('admin/operations/movements*') ? 'active' : '' }}"
+        >
+            <i data-lucide="arrow-left-right"></i>
+            <span>Equipment Movements</span>
         </a>
 
         {{-- ====================================== --}}

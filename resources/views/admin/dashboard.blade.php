@@ -12,7 +12,10 @@
     {{-- ===================================================== --}}
 
     <div class="dashboard-header">
-        
+        <div>
+            <h1 class="dashboard-title">Dashboard</h1>
+            <p class="dashboard-subtitle">What needs your attention across procurement and campus ops.</p>
+        </div>
 
         <div class="dashboard-header-right">
             <span class="dashboard-date-badge">
@@ -32,90 +35,75 @@
         {{-- LEFT: STATS + HERO SECTION --}}
 
         <div class="dashboard-hero">
+            @php
+                $ov = $overview ?? [];
+                $stages = $ov['stage_counts'] ?? [];
+                $canPurchaser = (bool) ($ov['can_purchaser'] ?? false);
+                $campusOverdue = (int) ($ov['overdue_schedules'] ?? 0) + (int) ($ov['overdue_borrows'] ?? 0);
+                $campusOverdueHref = ((int) ($ov['overdue_schedules'] ?? 0) >= (int) ($ov['overdue_borrows'] ?? 0))
+                    ? route('admin.operations.schedules', ['filter' => 'overdue'])
+                    : route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']);
+            @endphp
 
-            {{-- ===================================================== --}}
-            {{-- STATISTIC CARDS --}}
-            {{-- ===================================================== --}}
-
+            {{-- Attention strip — action-only --}}
             <div class="stat-grid">
-
-                {{-- PENDING RIS — always first --}}
-                <div class="stat-card stat-card-warning" title="RIS forms currently waiting for review">
+                <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="stat-card {{ $pendingRis > 0 ? 'stat-card-warning' : '' }}" title="RIS waiting for review">
                     <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-amber">
-                            <i data-lucide="clock"></i>
-                        </div>
+                        <div class="stat-icon stat-icon-amber"><i data-lucide="clock"></i></div>
                         @if($pendingRis > 0)
-                        <span class="stat-change stat-change-warn">
-                            <i data-lucide="alert-circle" class="h-3 w-3"></i>
-                            Needs attention
-                        </span>
-                        @else
-                        <span class="stat-change stat-change-up">
-                            <i data-lucide="check" class="h-3 w-3"></i>
-                            All clear
-                        </span>
+                            <span class="stat-change stat-change-warn">Action</span>
                         @endif
                     </div>
                     <p class="stat-label">Pending RIS</p>
                     <p class="stat-value">{{ $pendingRis }}</p>
-                    <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
-                </div>
+                    <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }}</p>
+                </a>
 
-                <div class="stat-card" title="RIS waiting for Admin Issued by signature">
+                <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="stat-card {{ $forCosigningCount > 0 ? 'stat-card-warning' : '' }}" title="RIS waiting for your signature">
                     <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-violet">
-                            <i data-lucide="pen-tool"></i>
-                        </div>
+                        <div class="stat-icon stat-icon-violet"><i data-lucide="pen-tool"></i></div>
                         @if($forCosigningCount > 0)
-                        <span class="stat-change stat-change-warn">
-                            <i data-lucide="alert-circle" class="h-3 w-3"></i>
-                            Needs attention
-                        </span>
+                            <span class="stat-change stat-change-warn">Action</span>
                         @endif
                     </div>
-                    <p class="stat-label">Awaiting Action</p>
+                    <p class="stat-label">Sign RIS</p>
                     <p class="stat-value">{{ $forCosigningCount }}</p>
-                    <p class="stat-amount">President-approved, awaiting your signature</p>
-                </div>
+                    <p class="stat-amount">Awaiting Issued by</p>
+                </a>
 
-                <div class="stat-card" title="RIS forms approved by Admin">
+                <a href="{{ route('admin.operations.reports', ['filter' => 'urgent']) }}" class="stat-card {{ (($ov['urgent_reports'] ?? 0) > 0) ? 'stat-card-warning' : '' }}" title="Urgent open equipment reports">
                     <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-sky">
-                            <i data-lucide="check-circle"></i>
-                        </div>
+                        <div class="stat-icon stat-icon-amber"><i data-lucide="siren"></i></div>
+                        @if(($ov['urgent_reports'] ?? 0) > 0)
+                            <span class="stat-change stat-change-warn">Action</span>
+                        @endif
                     </div>
-                    <p class="stat-label">Admin Approved</p>
-                    <p class="stat-value">{{ $directApprovedRis }}</p>
-                    <p class="stat-amount">Returned to Purchaser</p>
-                </div>
+                    <p class="stat-label">Urgent reports</p>
+                    <p class="stat-value">{{ $ov['urgent_reports'] ?? 0 }}</p>
+                    <p class="stat-amount">{{ $ov['open_reports'] ?? 0 }} open</p>
+                </a>
 
-                <div class="stat-card" title="Total Requisition Issue Slips submitted">
+                <a href="{{ $campusOverdueHref }}" class="stat-card {{ $campusOverdue > 0 ? 'stat-card-warning' : '' }}" title="Overdue schedules and borrows">
                     <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-indigo">
-                            <i data-lucide="file-text"></i>
-                        </div>
+                        <div class="stat-icon stat-icon-sky"><i data-lucide="calendar-clock"></i></div>
+                        @if($campusOverdue > 0)
+                            <span class="stat-change stat-change-warn">Action</span>
+                        @endif
                     </div>
-                    <p class="stat-label">Total RIS</p>
-                    <p class="stat-value">{{ $totalRis }}</p>
-                    <p class="stat-amount">₱{{ number_format($totalRisAmount, 2) }} total value</p>
-                </div>
-
+                    <p class="stat-label">Campus overdue</p>
+                    <p class="stat-value">{{ $campusOverdue }}</p>
+                    <p class="stat-amount">{{ $ov['overdue_schedules'] ?? 0 }} sched · {{ $ov['overdue_borrows'] ?? 0 }} borrow</p>
+                </a>
             </div>
 
 
-            {{-- Pending RIS Alert --}}
-
             @if($pendingRis > 0)
-
             <div class="hero-alert-card">
                 <div class="hero-alert-left">
-                    <div class="hero-alert-icon">
-                        <i data-lucide="bell-ringing"></i>
-                    </div>
+                    <div class="hero-alert-icon"><i data-lucide="bell-ringing"></i></div>
                     <div>
                         <h3 class="hero-alert-title">{{ $pendingRis }} RIS {{ $pendingRis === 1 ? 'is' : 'are' }} waiting for accept</h3>
-                        <p class="hero-alert-desc">Accept these purchaser submissions on Procurement Requests, then decide them on Sign RIS.</p>
+                        <p class="hero-alert-desc">Accept on Procurement Requests, then decide on Sign RIS.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="hero-alert-btn">
@@ -123,36 +111,15 @@
                     <i data-lucide="arrow-right" class="h-4 w-4"></i>
                 </a>
             </div>
-
-            @else
-
-            <div class="hero-empty-card">
-                <div class="hero-empty-left">
-                    <div class="hero-empty-icon">
-                        <i data-lucide="check-circle-2"></i>
-                    </div>
-                    <div>
-                        <h3 class="hero-empty-title">All clear — no pending RIS</h3>
-                        <p class="hero-empty-desc">All Requisition Issue Slips have been reviewed. New submissions will appear here.</p>
-                    </div>
-                </div>
-            </div>
-
             @endif
 
-
-            {{-- For Co-signing Alert --}}
-
             @if($forCosigningCount > 0)
-
             <div class="hero-alert-card hero-alert-card-violet">
                 <div class="hero-alert-left">
-                    <div class="hero-alert-icon hero-alert-icon-violet">
-                        <i data-lucide="signature"></i>
-                    </div>
+                    <div class="hero-alert-icon hero-alert-icon-violet"><i data-lucide="signature"></i></div>
                     <div>
-                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} Sign RIS action</h3>
-                        <p class="hero-alert-desc">Accepted decisions or President-approved RIS waiting for Issued by.</p>
+                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your signature</h3>
+                        <p class="hero-alert-desc">Accepted or President-approved — Issued by pending.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="hero-alert-btn hero-alert-btn-violet">
@@ -160,15 +127,39 @@
                     <i data-lucide="arrow-right" class="h-4 w-4"></i>
                 </a>
             </div>
-
             @endif
+
+
+            {{-- Compact pipeline --}}
+            <div class="dashboard-table-card dash-pipeline-card">
+                <div class="dashboard-table-header">
+                    <div>
+                        <h3 class="dashboard-table-title">Pipeline</h3>
+                        <p class="dashboard-table-subtitle">{{ $ov['open_ris'] ?? 0 }} open · RIS → ATP → RFC → RR → LIQ</p>
+                    </div>
+                    <div class="dash-extra-header-links">
+                        @if($canPurchaser)
+                            <a href="{{ url('/purchaser/dashboard') }}" class="dashboard-table-link">Purchaser</a>
+                        @endif
+                        <a href="{{ route('admin.operations.procurement') }}" class="dashboard-table-link">
+                            Monitor
+                            <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="dash-extra-pipeline dash-extra-pipeline-5">
+                    <div class="dash-extra-pipe"><span>{{ $stages['ris'] ?? 0 }}</span><small>RIS</small></div>
+                    <div class="dash-extra-pipe"><span>{{ $stages['atp'] ?? 0 }}</span><small>ATP</small></div>
+                    <div class="dash-extra-pipe"><span>{{ $stages['rfc'] ?? 0 }}</span><small>RFC/CA</small></div>
+                    <div class="dash-extra-pipe"><span>{{ $stages['receiving'] ?? 0 }}</span><small>RR</small></div>
+                    <div class="dash-extra-pipe"><span>{{ $stages['liquidation'] ?? 0 }}</span><small>LIQ</small></div>
+                </div>
+            </div>
 
 
             @php
                 $trendApprovedSeries = $risTrendApproved ?? [];
                 $trendForwardedSeries = $risTrendForwarded ?? [];
-                $trendAmendSeries = $risTrendAmend ?? [];
-                $trendRejectedSeries = $risTrendRejected ?? [];
                 $pctChange = function (array $series): float {
                     $n = count($series);
                     if ($n < 2) {
@@ -183,23 +174,17 @@
                 };
                 $approvedPct = $pctChange($trendApprovedSeries);
                 $forwardedPct = $pctChange($trendForwardedSeries);
-                $amendPct = $pctChange($trendAmendSeries);
-                $rejectedPct = $pctChange($trendRejectedSeries);
                 $latestApproved = (int) (end($trendApprovedSeries) ?: 0);
                 $latestForwarded = (int) (end($trendForwardedSeries) ?: 0);
-                $latestAmend = (int) (end($trendAmendSeries) ?: 0);
-                $latestRejected = (int) (end($trendRejectedSeries) ?: 0);
             @endphp
 
-            {{-- RIS Overview metrics (reference-style cards) --}}
-            <div class="ris-metrics-grid">
+            <div class="ris-metrics-grid ris-metrics-grid-tight">
                 <div class="ris-metric-card ris-metric-card-wide">
                     <div class="ris-metric-top">
                         <span class="ris-metric-label">Proposed budget · {{ $budgetProposalYear ?? now()->year }}</span>
                         <div class="ris-metric-value-row">
                             <span class="ris-metric-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 0) }}</span>
                         </div>
-                        <span class="ris-metric-hint">vs selected period</span>
                     </div>
                     <div class="ris-metric-chart">
                         <canvas id="risProposedChart"></canvas>
@@ -250,26 +235,11 @@
                         <canvas id="risPendingBars"></canvas>
                     </div>
                 </div>
-
-                <div class="ris-metric-card">
-                    <div class="ris-metric-top">
-                        <span class="ris-metric-label">Amend / reject</span>
-                        <div class="ris-metric-value-row">
-                            <span class="ris-metric-value">{{ $latestAmend + $latestRejected }}</span>
-                            <span class="ris-metric-pill {{ ($amendPct + $rejectedPct) <= 0 ? 'is-up' : 'is-down' }}">
-                                {{ $amendPct >= 0 ? '+' : '' }}{{ $amendPct }}% amend
-                            </span>
-                        </div>
-                        <span class="ris-metric-hint">vs last month</span>
-                    </div>
-                    <div class="ris-metric-chart ris-metric-chart-sm">
-                        <canvas id="risAmendSpark"></canvas>
-                    </div>
-                </div>
             </div>
 
 
-            {{-- RECENT RIS RECORDS TABLE --}}
+            {{-- RIS records + equipment movements (side by side) --}}
+            <div class="dash-combo-grid">
 
             <div class="dashboard-table-card">
                 <div class="dashboard-table-header">
@@ -284,7 +254,7 @@
                 </div>
                 <div class="dashboard-table-body">
                     <table class="dashboard-table">
-<thead>
+                        <thead>
                             <tr>
                                 <th>Reference</th>
                                 <th>Equipment</th>
@@ -336,6 +306,68 @@
                     </table>
                 </div>
             </div>
+
+            <div class="dashboard-table-card dash-movements-card">
+                <div class="dashboard-table-header">
+                    <div>
+                        <h3 class="dashboard-table-title">Equipment movements</h3>
+                        <p class="dashboard-table-subtitle">Transfers · borrows · disposals</p>
+                    </div>
+                    <a href="{{ route('admin.operations.movements') }}" class="dashboard-table-link">
+                        View all
+                        <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                    </a>
+                </div>
+                <div class="dash-movements-stack">
+                    <div>
+                        <div class="dash-extra-col-title-row">
+                            <h4 class="dash-extra-col-title">Transfers</h4>
+                            <span class="dash-extra-count">{{ $ov['transfers_30d'] ?? 0 }} / 30d</span>
+                        </div>
+                        @forelse(($movementTransfers ?? collect()) as $row)
+                            <div class="dash-extra-row">
+                                <p class="dash-extra-row-title">{{ $row->equipment_name ?: ('#'.$row->equipment_id) }}</p>
+                                <p class="dash-extra-row-meta">{{ $row->from_room_name ?: '—' }} → {{ $row->to_room_name ?: '—' }}</p>
+                            </div>
+                        @empty
+                            <p class="dash-extra-empty">No recent transfers</p>
+                        @endforelse
+                    </div>
+                    <div>
+                        <div class="dash-extra-col-title-row">
+                            <h4 class="dash-extra-col-title">Borrowing</h4>
+                            <span class="dash-extra-count">{{ $ov['active_borrows'] ?? 0 }} active</span>
+                        </div>
+                        @forelse(($movementBorrows ?? collect()) as $row)
+                            <div class="dash-extra-row">
+                                <div class="dash-extra-row-top">
+                                    <p class="dash-extra-row-title">{{ $row->equipment_name ?: '—' }}</p>
+                                    <span class="dash-extra-tag {{ ($row->borrowing_status ?? '') === 'Overdue' ? 'is-alert' : '' }}">{{ $row->borrowing_status }}</span>
+                                </div>
+                                <p class="dash-extra-row-meta">{{ $row->borrowing_borrower_name ?: '—' }} · {{ $row->borrowing_expected_return_date ?: '—' }}</p>
+                            </div>
+                        @empty
+                            <p class="dash-extra-empty">No active borrows</p>
+                        @endforelse
+                    </div>
+                    <div>
+                        <div class="dash-extra-col-title-row">
+                            <h4 class="dash-extra-col-title">Disposal</h4>
+                            <span class="dash-extra-count">{{ $ov['disposals_total'] ?? 0 }} total</span>
+                        </div>
+                        @forelse(($movementDisposals ?? collect()) as $row)
+                            <div class="dash-extra-row">
+                                <p class="dash-extra-row-title">{{ $row->equipment_name ?: '—' }}</p>
+                                <p class="dash-extra-row-meta">{{ $row->disposal_reason ?: '—' }}</p>
+                            </div>
+                        @empty
+                            <p class="dash-extra-empty">No disposals yet</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+
+            </div>{{-- /.dash-combo-grid --}}
 
         </div>
 
@@ -633,47 +665,6 @@
             </div>
 
 
-            {{-- 4. Quick Stats Summary (Pending RIS first) --}}
-
-            <div class="sidebar-stats-card">
-                <h3 class="sidebar-stats-title">
-                    <i data-lucide="bar-chart-3" class="h-4 w-4" style="margin-right: 6px;"></i>
-                    Quick Summary
-                </h3>
-                <div class="sidebar-stats-list">
-                    {{-- PENDING RIS — FIRST PRIORITY --}}
-                    <div class="sidebar-stat-item sidebar-stat-item-highlight">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-amber"></div>
-                            <span class="sidebar-stat-label sidebar-stat-label-highlight">Pending RIS</span>
-                        </div>
-                        <span class="sidebar-stat-value sidebar-stat-value-highlight">{{ $pendingRis }}</span>
-</div>
-
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-slate"></div>
-                            <span class="sidebar-stat-label">Admin Approved</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $directApprovedRis }}</span>
-                    </div>
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-violet"></div>
-                            <span class="sidebar-stat-label">Awaiting Action</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $forCosigningCount }}</span>
-                    </div>
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-blue"></div>
-                            <span class="sidebar-stat-label">Co-signed</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $cosignedCount }}</span>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
     </div>
@@ -753,6 +744,16 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 16px;
+}
+
+.stat-grid-combined {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+a.stat-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
 }
 
 .stat-card {
@@ -925,7 +926,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 16px;
 }
 
 
@@ -942,6 +943,7 @@
 }
 
 
+/* ======================================
    TABLE PREVIEW BUTTON
 ====================================== */
 
@@ -1992,7 +1994,11 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
-    margin-bottom: 16px;
+    margin-bottom: 0;
+}
+
+.ris-metrics-grid-tight {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .ris-metric-card {
@@ -2125,7 +2131,8 @@
 }
 
 @media (max-width: 900px) {
-    .ris-metrics-grid {
+    .ris-metrics-grid,
+    .ris-metrics-grid-tight {
         grid-template-columns: 1fr;
     }
     .ris-metric-card-wide {
@@ -2573,6 +2580,203 @@
 
 
 /* ======================================
+   EXTRA SECTIONS (minimal add-ons)
+====================================== */
+
+.dash-pipeline-card .dash-extra-pipeline {
+    padding-top: 0;
+}
+
+.dash-combo-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.dash-movements-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.dash-movements-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 20px 12px;
+}
+
+.dash-extra-header-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.dash-extra-col-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.dash-extra-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.dash-ops-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid #f1f5f9;
+    margin-top: auto;
+}
+
+.dash-ops-footer a {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: #f8fafc;
+}
+
+.dash-ops-footer a:hover {
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.dash-extra-pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px 20px 20px;
+}
+
+.dash-extra-pipeline-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 700px) {
+    .dash-extra-pipeline,
+    .dash-extra-pipeline-5 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.dash-extra-pipe {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+}
+
+.dash-extra-pipe span {
+    display: block;
+    font-family: "Outfit", sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.dash-extra-pipe small {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.dash-extra-col-title {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0;
+}
+
+.dash-extra-row {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.dash-extra-row:last-child {
+    border-bottom: 0;
+}
+
+.dash-extra-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.dash-extra-row-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-extra-row-meta {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-extra-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #475569;
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
+.dash-extra-tag.is-alert {
+    color: #92400e;
+    background: #fffbeb;
+}
+
+.dash-extra-empty {
+    font-size: 13px;
+    color: #94a3b8;
+    padding: 8px 0 4px;
+}
+
+@media (max-width: 1100px) {
+    .dash-combo-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1200px) {
+    .stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* ======================================
    RESPONSIVE
 ====================================== */
 
@@ -2622,8 +2826,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const trendLabels = {!! json_encode($risTrendLabels ?? []) !!};
     const trendApproved = {!! json_encode($risTrendApproved ?? []) !!};
     const trendForwarded = {!! json_encode($risTrendForwarded ?? []) !!};
-    const trendAmend = {!! json_encode($risTrendAmend ?? []) !!};
-    const trendRejected = {!! json_encode($risTrendRejected ?? []) !!};
     const amountSeries = [
         {{ (float) ($budgetPendingAmount ?? 0) }},
         {{ (float) ($budgetAdminApprovedAmount ?? 0) }},
@@ -2741,9 +2943,6 @@ document.addEventListener('DOMContentLoaded', function() {
     blueLine(document.getElementById('risApprovedSpark'), trendApproved, trendLabels, false);
     blueBars(document.getElementById('risPresidentSpark'), trendForwarded, trendLabels);
     blueBars(document.getElementById('risPendingBars'), amountSeries.slice(0, 4), amountLabels.slice(0, 4));
-    blueLine(document.getElementById('risAmendSpark'), trendAmend.map(function (a, i) {
-        return a + (trendRejected[i] || 0);
-    }), trendLabels, false);
 
     // =====================================================
     // RIS STATUS OVERVIEW (rounded bars)

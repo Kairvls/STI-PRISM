@@ -78,6 +78,7 @@
                             $allRoleIds = $roleMeta['all_ids'] ?? [(int) $user->user_role_id];
                             $isMaintenance = in_array(2, $allRoleIds, true);
                             $isPurchaser = in_array(3, $allRoleIds, true);
+                            $isAdminUser = in_array(1, $allRoleIds, true) || (int) $user->user_role_id === 1;
                             $canProcurement = (bool) ($user->user_can_procurement ?? false) || $isPurchaser;
                             $extraNames = $roleMeta['extra_names'] ?? [];
                             $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
@@ -105,13 +106,13 @@
                                     <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Always on</span>
                                 @elseif($isPurchaser)
                                     <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Enabled</span>
-                                @elseif($isMaintenance)
+                                @elseif($isMaintenance || $isAdminUser)
                                     <form method="POST" action="{{ route('admin.users.procurement-access', $user->user_id) }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="user_can_procurement" value="{{ $canProcurement ? 0 : 1 }}">
                                         <button type="submit"
                                             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset transition {{ $canProcurement ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200' }}"
-                                            title="{{ $canProcurement ? 'Click to disable procurement' : 'Click to enable procurement' }}">
+                                            title="{{ $canProcurement ? 'Click to disable procurement' : 'Click to enable Purchaser portal (Decision A)' }}">
                                             {{ $canProcurement ? 'Enabled' : 'Disabled' }}
                                         </button>
                                     </form>
@@ -141,7 +142,6 @@
                             </td>
                             <td class="px-5 py-4 text-right">
                                 <div class="inline-flex items-center gap-1">
-                                    @if((int) $user->user_role_id !== 1)
                                     <button type="button"
                                         onclick="openEditRolesModal(this)"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
@@ -151,10 +151,10 @@
                                         data-primary-role="{{ (int) $user->user_role_id }}"
                                         data-role-ids="{{ implode(',', $allRoleIds) }}"
                                         data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
+                                        data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
                                     >
                                         <i data-lucide="shield" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
-                                    @endif
                                     <button type="button"
                                         onclick="openViewUserModal(this)"
                                         class="view-user-btn inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
@@ -167,7 +167,7 @@
                                         data-email="{{ $user->user_email_address ?: '-' }}"
                                         data-contact="{{ $user->user_contact_number ?: '-' }}"
                                         data-status="{{ $isActive ? 'Active' : 'Inactive' }}"
-                                        data-procurement="{{ $isPurchaser && (int) $user->user_role_id === 3 ? 'Always on' : ($isPurchaser ? 'Enabled' : ($isMaintenance ? ($canProcurement ? 'Enabled' : 'Disabled') : '—')) }}"
+                                        data-procurement="{{ $isPurchaser && (int) $user->user_role_id === 3 ? 'Always on' : ($isPurchaser ? 'Enabled' : (($isMaintenance || $isAdminUser) ? ($canProcurement ? 'Enabled' : 'Disabled') : '—')) }}"
                                     >
                                         <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
@@ -290,9 +290,7 @@
                         <select name="primary_role" id="createUserRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
                             <option value="">Select primary role...</option>
                             @foreach($roles as $role)
-                                @if((int) $role->role_id !== 1)
-                                    <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
-                                @endif
+                                <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -315,7 +313,7 @@
                             <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
                             <span>
                                 <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Assigns Purchaser access. Use the portal switcher to open the Purchaser system for replacement requests and RIS → ATP → RFC → Receiving → Liquidation.</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Admin portal stays accept/sign + monitor only.</span>
                             </span>
                         </label>
                     </div>
@@ -352,11 +350,10 @@
                         <label class="block text-sm font-medium text-slate-700">Primary role</label>
                         <select name="primary_role" id="editPrimaryRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
                             @foreach($roles as $role)
-                                @if((int) $role->role_id !== 1)
-                                    <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
-                                @endif
+                                <option value="{{ $role->role_id }}" class="edit-primary-role-option" data-role-id="{{ $role->role_id }}">{{ $role->role_name }}</option>
                             @endforeach
                         </select>
+                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-slate-500">Administrator primary role is locked. Add Purchaser below or enable procurement workflow to perform docs via portal switch.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Additional roles</label>
@@ -376,7 +373,7 @@
                             <input type="checkbox" name="user_can_procurement" value="1" id="editCanProcurement" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
                             <span>
                                 <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Grants Purchaser access. Open the Purchaser portal via the portal switcher for procurement documents.</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Grants Purchaser access. Open Purchaser via the portal switcher to create RIS → ATP → RFC/CA → RR → Liquidation. Accounting/Receiving approvals stay with those portals.</span>
                             </span>
                         </label>
                     </div>
@@ -449,8 +446,32 @@
         if (form) form.action = '/admin/users/' + userId + '/roles';
         var subtitle = document.getElementById('editRolesSubtitle');
         if (subtitle) subtitle.textContent = 'Roles for ' + (btn.getAttribute('data-full-name') || 'user');
+        var isAdminTarget = btn.getAttribute('data-is-admin') === '1';
         var primary = document.getElementById('editPrimaryRole');
-        if (primary) primary.value = btn.getAttribute('data-primary-role') || '';
+        if (primary) {
+            primary.value = btn.getAttribute('data-primary-role') || '';
+            primary.disabled = isAdminTarget;
+            // Disabled fields are not submitted — mirror primary for Admin edits.
+            var locked = document.getElementById('editPrimaryRoleLocked');
+            if (!locked && form) {
+                locked = document.createElement('input');
+                locked.type = 'hidden';
+                locked.name = 'primary_role';
+                locked.id = 'editPrimaryRoleLocked';
+                form.appendChild(locked);
+            }
+            if (locked) {
+                if (isAdminTarget) {
+                    locked.value = '1';
+                    locked.disabled = false;
+                } else {
+                    locked.value = '';
+                    locked.disabled = true;
+                }
+            }
+        }
+        var hint = document.getElementById('editAdminPrimaryHint');
+        if (hint) hint.classList.toggle('hidden', !isAdminTarget);
         var ids = (btn.getAttribute('data-role-ids') || '').split(',').filter(Boolean);
         document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
             var roleId = cb.value;
@@ -486,12 +507,13 @@
         syncAdditionalRolesVisibility('editPrimaryRole', '.edit-additional-role-row', '.edit-additional-role');
     }
 
-    function hasMaintenanceSelected(primarySelect, additionalSelector) {
+    function hasProcurementEligibleSelected(primarySelect, additionalSelector) {
         var primary = primarySelect ? primarySelect.value : '';
-        if (primary === '2') return true;
+        // Administrator (1) or Maintenance (2) — Decision A + existing Maintenance path
+        if (primary === '1' || primary === '2') return true;
         var found = false;
         document.querySelectorAll(additionalSelector).forEach(function (cb) {
-            if (cb.checked && cb.value === '2' && !cb.closest('.hidden')) found = true;
+            if (cb.checked && (cb.value === '1' || cb.value === '2') && !cb.closest('.hidden')) found = true;
         });
         return found;
     }
@@ -500,14 +522,14 @@
         var roleSelect = document.getElementById('createUserRole');
         var wrap = document.getElementById('createProcurementAccessWrap');
         if (!roleSelect || !wrap) return;
-        wrap.classList.toggle('hidden', !hasMaintenanceSelected(roleSelect, '.create-additional-role'));
+        wrap.classList.toggle('hidden', !hasProcurementEligibleSelected(roleSelect, '.create-additional-role'));
     }
 
     function syncEditProcurementAccess() {
         var roleSelect = document.getElementById('editPrimaryRole');
         var wrap = document.getElementById('editProcurementAccessWrap');
         if (!roleSelect || !wrap) return;
-        wrap.classList.toggle('hidden', !hasMaintenanceSelected(roleSelect, '.edit-additional-role'));
+        wrap.classList.toggle('hidden', !hasProcurementEligibleSelected(roleSelect, '.edit-additional-role'));
     }
 
     function updateUserFilterSlider(activeFilter, animate) {

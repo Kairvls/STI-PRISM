@@ -586,6 +586,322 @@ class AdminController extends Controller
 
 
         // =====================================================
+        // FULL OVERVIEW — ops, movements, queues, system pulse
+        // =====================================================
+
+        $overview = [
+            'equipment_total' => 0,
+            'needs_maintenance' => 0,
+            'for_replacement' => 0,
+            'open_reports' => 0,
+            'urgent_reports' => 0,
+            'overdue_schedules' => 0,
+            'lifecycle_alerts' => 0,
+            'overdue_borrows' => 0,
+            'active_borrows' => 0,
+            'transfers_30d' => 0,
+            'disposals_total' => 0,
+            'open_ris' => 0,
+            'stage_counts' => [
+                'ris' => 0,
+                'atp' => 0,
+                'rfc' => 0,
+                'receiving' => 0,
+                'liquidation' => 0,
+            ],
+            'can_purchaser' => \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::PURCHASER),
+        ];
+
+        try {
+            if (Schema::hasTable('equipment_table')) {
+                $overview['equipment_total'] = DB::table('equipment_table')->count();
+                $overview['needs_maintenance'] = DB::table('equipment_table')
+                    ->where(function ($q) {
+                        $q->where('equipment_condition_status', 'Under Maintenance')
+                            ->orWhere('equipment_inventory_status', 'Under Maintenance');
+                    })
+                    ->count();
+                $overview['for_replacement'] = DB::table('equipment_table')
+                    ->where('equipment_inventory_status', 'For Replacement')
+                    ->count();
+                $overview['lifecycle_alerts'] = DB::table('equipment_table')
+                    ->whereRaw('COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at) IS NOT NULL')
+                    ->where(function ($q) {
+                        $q->whereNull('equipment_inventory_status')
+                            ->orWhereNotIn('equipment_inventory_status', ['Disposed']);
+                    })
+                    ->whereRaw('(5 - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) <= 1')
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('reports_table')) {
+                $overview['open_reports'] = DB::table('reports_table')
+                    ->whereIn('report_current_status', ['Pending', 'Processing'])
+                    ->where(function ($q) {
+                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
+                            $q->where('report_is_archived', 0)->orWhereNull('report_is_archived');
+                        }
+                    })
+                    ->count();
+                $overview['urgent_reports'] = DB::table('reports_table')
+                    ->where('report_urgency_level', 'Urgent')
+                    ->whereIn('report_current_status', ['Pending', 'Processing', 'For Replacement'])
+                    ->where(function ($q) {
+                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
+                            $q->where('report_is_archived', 0)->orWhereNull('report_is_archived');
+                        }
+                    })
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('maintenance_schedules_table')) {
+                $overview['overdue_schedules'] = DB::table('maintenance_schedules_table')
+                    ->where(function ($q) {
+                        $q->where('maintenance_schedule_status', 'Overdue')
+                            ->orWhere(function ($q2) {
+                                $q2->where('maintenance_schedule_status', 'Active')
+                                    ->whereDate('maintenance_schedule_next_date', '<', now()->toDateString());
+                            });
+                    })
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('borrowing_records_table')) {
+                DB::table('borrowing_records_table')
+                    ->where('borrowing_status', 'Borrowed')
+                    ->whereNotNull('borrowing_expected_return_date')
+                    ->whereDate('borrowing_expected_return_date', '<', today())
+                    ->update(['borrowing_status' => 'Overdue']);
+
+                $overview['overdue_borrows'] = DB::table('borrowing_records_table')
+                    ->where('borrowing_status', 'Overdue')
+                    ->count();
+                $overview['active_borrows'] = DB::table('borrowing_records_table')
+                    ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('equipment_transfer_history_table')) {
+                $overview['transfers_30d'] = DB::table('equipment_transfer_history_table')
+                    ->where('created_at', '>=', now()->subDays(30))
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('disposal_records_table')) {
+                $overview['disposals_total'] = DB::table('disposal_records_table')->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('requisition_issue_slip_table')) {
+                $overview['open_ris'] = DB::table('requisition_issue_slip_table')
+                    ->whereNotIn('ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived'])
+                    ->count();
+                $overview['stage_counts']['ris'] = DB::table('requisition_issue_slip_table')->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        foreach ([
+            'atp' => 'authority_to_purchase_table',
+            'rfc' => 'request_check_table',
+            'receiving' => 'receiving_reports_table',
+            'liquidation' => 'liquidation_reports_table',
+        ] as $key => $table) {
+            try {
+                if (Schema::hasTable($table)) {
+                    $overview['stage_counts'][$key] = DB::table($table)->count();
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $actionPendingRis = collect();
+        try {
+            $actionPendingRis = DB::table('requisition_issue_slip_table as ris')
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                    'ris.ris_id',
+                    '=',
+                    'ris_items_sum.ris_id'
+                )
+                ->whereNotNull('ris.ris_requested_by_date')
+                ->whereIn('ris.ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
+                ->select('ris.ris_id', 'ris.ris_form_number', 'ris.ris_status', 'ris.ris_purpose_description', 'ris.ris_submitted_at', 'ris_items_sum.ris_calculated_total')
+                ->orderByDesc('ris.ris_id')
+                ->limit(6)
+                ->get();
+        } catch (\Throwable $e) {
+            $actionPendingRis = collect();
+        }
+
+        $actionSignRis = collect();
+        try {
+            $actionSignRis = DB::table('requisition_issue_slip_table as ris')
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                    'ris.ris_id',
+                    '=',
+                    'ris_items_sum.ris_id'
+                )
+                ->where(function ($q) {
+                    $q->where('ris.ris_status', RisWorkflow::ACCEPTED)
+                        ->orWhere(function ($awaiting) {
+                            $awaiting->where(function ($status) {
+                                $status->where('ris.ris_status', 'Approved by the President')
+                                    ->orWhere(function ($legacy) {
+                                        $legacy->where('ris.ris_status', 'Approved')
+                                            ->whereNotNull('ris.ris_approved_by_signature')
+                                            ->where('ris.ris_approved_by_signature', '!=', '')
+                                            ->where('ris.ris_approved_by_signature', 'like', 'data:image%');
+                                    });
+                            })->where(function ($unsigned) {
+                                $unsigned->whereNull('ris.ris_issued_by_signature')
+                                    ->orWhere('ris.ris_issued_by_signature', '');
+                            });
+                        });
+                })
+                ->select('ris.ris_id', 'ris.ris_form_number', 'ris.ris_status', 'ris.ris_purpose_description', 'ris_items_sum.ris_calculated_total')
+                ->orderByDesc('ris.ris_id')
+                ->limit(6)
+                ->get();
+        } catch (\Throwable $e) {
+            $actionSignRis = collect();
+        }
+
+        $movementTransfers = collect();
+        try {
+            if (Schema::hasTable('equipment_transfer_history_table')) {
+                $movementTransfers = DB::table('equipment_transfer_history_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'equipment_transfer_history_table.equipment_id')
+                    ->leftJoin('rooms_table as from_room', 'from_room.room_id', '=', 'equipment_transfer_history_table.from_room_id')
+                    ->leftJoin('rooms_table as to_room', 'to_room.room_id', '=', 'equipment_transfer_history_table.to_room_id')
+                    ->select(
+                        'equipment_transfer_history_table.*',
+                        'equipment_table.equipment_name',
+                        'from_room.room_name as from_room_name',
+                        'to_room.room_name as to_room_name'
+                    )
+                    ->orderByDesc('equipment_transfer_history_table.created_at')
+                    ->limit(5)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $movementTransfers = collect();
+        }
+
+        $movementBorrows = collect();
+        try {
+            if (Schema::hasTable('borrowing_records_table')) {
+                $movementBorrows = DB::table('borrowing_records_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
+                    ->select('borrowing_records_table.*', 'equipment_table.equipment_name')
+                    ->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue'])
+                    ->orderByRaw("CASE WHEN borrowing_status = 'Overdue' THEN 0 ELSE 1 END")
+                    ->orderByDesc('borrowing_records_table.borrowing_created_at')
+                    ->limit(5)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $movementBorrows = collect();
+        }
+
+        $movementDisposals = collect();
+        try {
+            if (Schema::hasTable('disposal_records_table')) {
+                $movementDisposals = DB::table('disposal_records_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'disposal_records_table.disposal_equipment_id')
+                    ->select('disposal_records_table.*', 'equipment_table.equipment_name')
+                    ->orderByDesc('disposal_records_table.disposal_record_id')
+                    ->limit(5)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $movementDisposals = collect();
+        }
+
+        $urgentReportsList = collect();
+        try {
+            if (Schema::hasTable('reports_table')) {
+                $urgentReportsList = DB::table('reports_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
+                    ->where('reports_table.report_urgency_level', 'Urgent')
+                    ->whereIn('reports_table.report_current_status', ['Pending', 'Processing', 'For Replacement'])
+                    ->where(function ($q) {
+                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
+                            $q->where('reports_table.report_is_archived', 0)
+                                ->orWhereNull('reports_table.report_is_archived');
+                        }
+                    })
+                    ->select(
+                        'reports_table.report_id',
+                        'reports_table.report_current_status',
+                        'reports_table.report_suggested_issue',
+                        'reports_table.report_submitted_at',
+                        'equipment_table.equipment_name',
+                        'rooms_table.room_name'
+                    )
+                    ->orderByDesc('reports_table.report_submitted_at')
+                    ->limit(5)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $urgentReportsList = collect();
+        }
+
+        $recentApprovals = collect();
+        try {
+            if (Schema::hasTable('approval_logs_table')) {
+                $recentApprovals = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by')
+                    ->select(
+                        'approval_logs_table.approval_log_reference_type',
+                        'approval_logs_table.approval_log_reference_id',
+                        'approval_logs_table.approval_log_approval_status',
+                        'approval_logs_table.approval_log_approved_at',
+                        'approval_logs_table.approval_log_level',
+                        'users_table.user_full_name as actor_name'
+                    )
+                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                    ->limit(8)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $recentApprovals = collect();
+        }
+
+        $attentionTotal = (int) $pendingRis + (int) $forCosigningCount + (int) $amendRis
+            + (int) $overview['urgent_reports']
+            + (int) $overview['overdue_schedules']
+            + (int) $overview['overdue_borrows'];
+
+
+        // =====================================================
         // RETURN VIEW
         // =====================================================
 
@@ -645,9 +961,20 @@ class AdminController extends Controller
             'supplierComparisonMax',
             'supplierTypeComparison',
 
-// Activity list (pending 3 + completed 2)
+            // Activity list (pending 3 + completed 2)
             'pendingActivityLogs',
             'completedActivityLogs',
+
+            // Full overview
+            'overview',
+            'actionPendingRis',
+            'actionSignRis',
+            'movementTransfers',
+            'movementBorrows',
+            'movementDisposals',
+            'urgentReportsList',
+            'recentApprovals',
+            'attentionTotal',
         ));
     }
 
@@ -1841,21 +2168,22 @@ class AdminController extends Controller
             ->values()
             ->all();
 
-        if ($primaryRoleId <= 0 || $primaryRoleId === 1) {
+        if ($primaryRoleId <= 0) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         }
 
         $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
         $hasPurchaser = in_array(3, $allRoles, true);
         $hasMaintenance = in_array(2, $allRoles, true);
+        $hasAdmin = in_array(1, $allRoles, true);
 
         $canProcurement = $hasPurchaser
-            || ($hasMaintenance && $request->boolean('user_can_procurement'));
+            || (($hasMaintenance || $hasAdmin) && $request->boolean('user_can_procurement'));
 
         // Selecting Purchaser as an additional role also grants procurement.
         if ($hasPurchaser && ! in_array(3, $additionalRoles, true) && $primaryRoleId !== 3) {
             // primary is purchaser
-        } elseif ($canProcurement && $hasMaintenance && ! $hasPurchaser) {
+        } elseif ($canProcurement && ($hasMaintenance || $hasAdmin) && ! $hasPurchaser) {
             $additionalRoles[] = 3;
             $allRoles[] = 3;
             $allRoles = array_values(array_unique($allRoles));
@@ -1885,10 +2213,7 @@ class AdminController extends Controller
     public function updateUserRoles(Request $request, int $userId)
     {
         $user = User::query()->findOrFail($userId);
-
-        if ((int) $user->user_role_id === 1 || \App\Support\RoleAccess::isAdmin($user)) {
-            return redirect('/admin/users')->with('error', 'Admin accounts cannot be edited here.');
-        }
+        $targetIsAdmin = (int) $user->user_role_id === 1 || \App\Support\RoleAccess::isAdmin($user);
 
         $primaryRoleId = (int) $request->input('primary_role');
         $additionalRoles = collect($request->input('additional_roles', []))
@@ -1898,17 +2223,21 @@ class AdminController extends Controller
             ->values()
             ->all();
 
-        if ($primaryRoleId <= 0 || $primaryRoleId === 1) {
+        // Decision A: Admin accounts keep Administrator as primary; only additional roles (e.g. Purchaser) may change.
+        if ($targetIsAdmin) {
+            $primaryRoleId = 1;
+        } elseif ($primaryRoleId <= 0 || $primaryRoleId === 1) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         }
 
         $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
         $hasPurchaser = in_array(3, $allRoles, true);
         $hasMaintenance = in_array(2, $allRoles, true);
+        $hasAdmin = in_array(1, $allRoles, true);
         $canProcurement = $hasPurchaser
-            || ($hasMaintenance && $request->boolean('user_can_procurement'));
+            || (($hasMaintenance || $hasAdmin) && $request->boolean('user_can_procurement'));
 
-        if ($canProcurement && $hasMaintenance && ! $hasPurchaser) {
+        if ($canProcurement && ($hasMaintenance || $hasAdmin) && ! $hasPurchaser) {
             $allRoles[] = 3;
             $allRoles = array_values(array_unique($allRoles));
             $hasPurchaser = true;
@@ -1937,9 +2266,15 @@ class AdminController extends Controller
         $user = User::query()->findOrFail($userId);
         $hasMaintenance = \App\Support\RoleAccess::hasRole(2, $user)
             || (int) $user->user_role_id === 2;
+        $hasAdmin = \App\Support\RoleAccess::isAdmin($user)
+            || (int) $user->user_role_id === 1;
 
-        if (! $hasMaintenance) {
-            return redirect('/admin/users')->with('error', 'Procurement access can only be toggled for Maintenance Personnel.');
+        // Decision A: Admin (or Maintenance) may receive Purchaser portal access to drive procurement docs.
+        if (! $hasMaintenance && ! $hasAdmin) {
+            return redirect('/admin/users')->with(
+                'error',
+                'Procurement access can only be toggled for Administrator or Maintenance Personnel.'
+            );
         }
 
         $enabled = $request->boolean('user_can_procurement');
@@ -1961,7 +2296,7 @@ class AdminController extends Controller
         return redirect('/admin/users')->with(
             'success',
             $enabled
-                ? 'Procurement access enabled for '.$user->user_full_name.'.'
+                ? 'Procurement access enabled for '.$user->user_full_name.'. Use the portal switcher to open Purchaser.'
                 : 'Procurement access disabled for '.$user->user_full_name.'.'
         );
     }
@@ -4187,7 +4522,7 @@ public function rejectRis(Request $request, $risId)
     {
         return redirect()
             ->route('admin.procurement-review.index')
-            ->with('success', 'Request for Check and Liquidation Reports are reviewed by Accounting. Admin only reviews and signs RIS.');
+            ->with('success', 'Request for Check and Liquidation Reports are reviewed by Accounting. In Admin you only review and sign RIS. To create procurement documents, switch to the Purchaser portal (Decision A).');
     }
 
     private function attachRisSupportingDocuments($records): void

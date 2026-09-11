@@ -153,6 +153,21 @@ Route::middleware(['auth', 'admin'])
             [\App\Http\Controllers\AdminOperationsController::class, 'procurement']
         )->name('operations.procurement');
 
+        Route::get(
+            '/operations/procurement/{risId}/pipeline',
+            [\App\Http\Controllers\AdminOperationsController::class, 'procurementPipeline']
+        )->whereNumber('risId')->name('operations.procurement.pipeline');
+
+        Route::get(
+            '/operations/documents/{type}/{id}',
+            [\App\Http\Controllers\AdminOperationsController::class, 'viewDocument']
+        )->whereNumber('id')->where('type', 'ris|atp|rfc|rr|liq')->name('operations.document');
+
+        Route::get(
+            '/operations/movements',
+            [\App\Http\Controllers\AdminOperationsController::class, 'movements']
+        )->name('operations.movements');
+
         // ==========================================
         // PROCUREMENT REVIEW
         // ==========================================
