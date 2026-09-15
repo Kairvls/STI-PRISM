@@ -1,6 +1,6 @@
 @forelse ($records as $row)
     @php
-        $reference = $row->ris_form_number ?? ('RIS #' . $row->ris_id);
+        $reference = \App\Support\RisWorkflow::formNumber($row);
         $risId = $row->ris_id;
         $adminName = $row->approved_by_name ?: 'Administrator';
         $reason = trim((string) ($row->ris_direct_approval_reason ?? ''));

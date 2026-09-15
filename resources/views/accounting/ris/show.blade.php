@@ -16,7 +16,7 @@
     .ris-document .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
     .ris-document .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
     .ris-document .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
-    .ris-document .line { display: inline-block; min-width: 130px; border-bottom: 1px solid #111827; text-align: center; }
+    .ris-document .line { display: inline-block; min-width: 220px; border-bottom: 1px solid #111827; text-align: center; }
     .ris-document table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .ris-document .ris-table th,
     .ris-document .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
@@ -77,7 +77,7 @@
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
-                <h1 class="acc-page-title">{{ $ris->ris_form_number ?: ('RIS #'.$ris->ris_id) }}</h1>
+                <h1 class="acc-page-title">{{ \App\Support\RisWorkflow::formNumber($ris) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::statusLabel($ris)])
             </div>
             <p class="acc-page-subtitle">Approved RIS and supporting documents. Read-only for Accounting review.</p>

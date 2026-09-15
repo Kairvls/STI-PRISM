@@ -40,7 +40,7 @@
                 <div class="space-y-4 px-5 py-4">
                     <div class="rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            Reference
+                            RIS Number
                         </p>
                         <p id="acceptRisRef" class="mt-1 text-sm font-semibold text-slate-900">
                             —
@@ -122,7 +122,7 @@
         fillAcceptModalCopy(
             'Accept procurement request?',
             'This moves the RIS to Sign RIS for Forward, Approve Directly, or Return.',
-            refLabel || ('RIS-' + risId),
+            refLabel || window.risFormNumberLabel(risId),
             detailLabel || 'Ready to accept for Sign RIS.',
             'Accept & continue'
         );

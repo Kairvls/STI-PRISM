@@ -17,7 +17,7 @@ class DocumentLineage
         $chain['ris'] = self::node(
             'RIS',
             $risId,
-            $ris->ris_form_number ?? ('RIS #'.$risId),
+            RisWorkflow::formNumber($ris, $risId),
             route('purchaser.ris.index', ['view_ris' => $risId]),
             $ris ? self::reviewHintForRis($ris) : self::reviewHint(null, null, 'ris')
         );
@@ -47,7 +47,7 @@ class DocumentLineage
             $chain['ris'] = self::node(
                 'RIS',
                 $risId,
-                $ris->ris_form_number ?? ('RIS #'.$risId),
+                RisWorkflow::formNumber($ris, $risId),
                 route('purchaser.ris.index', ['view_ris' => $risId]),
                 $ris ? self::reviewHintForRis($ris) : null
             );

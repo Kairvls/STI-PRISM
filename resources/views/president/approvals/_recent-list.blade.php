@@ -11,7 +11,7 @@
     @endphp
     <div class="recent-row">
         <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</p>
+            <p class="truncate text-sm font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($ris) }}</p>
             <p class="truncate text-xs text-gray-500">{{ Str::limit($ris->ris_purpose_description ?? '—', 42) }}</p>
             @php $recentDocs = $ris->supportingDocuments ?? []; @endphp
             @if (count($recentDocs) > 0)

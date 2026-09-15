@@ -14,7 +14,7 @@
         <tr>
 
             <th class="w-[13%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Reference No.
+                RIS Number
             </th>
 
             <th class="w-[24%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -74,10 +74,10 @@
 
                     <div
                         class="truncate text-sm font-semibold {{ !is_null($history->ris_issued_by_date) ? 'text-gray-500' : 'text-gray-900' }}"
-                        title="{{ $history->ris_form_number ?? 'RIS-' . $history->ris_id }}"
+                        title="{{ \App\Support\RisWorkflow::formNumber($history) }}"
                     >
 
-                        {{ $history->ris_form_number ?? 'RIS-' . $history->ris_id }}
+                        {{ \App\Support\RisWorkflow::formNumber($history) }}
 
                     </div>
 

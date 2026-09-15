@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Support\ReplacementRequestBasket;
+use App\Support\ReplacementRequestCode;
 use App\Support\WorkflowNotifier;
 
 class ReplacementRequestController extends Controller
@@ -89,6 +91,31 @@ class ReplacementRequestController extends Controller
                 if ($reportIdFromCode) {
                     $subQuery->orWhere('reports_table.report_id', $reportIdFromCode);
                 }
+
+                if (\App\Support\ReplacementRequestBasket::tableExists()) {
+                    $subQuery->orWhereExists(function ($exists) use ($search, $reportIdFromCode) {
+                        $exists->select(DB::raw(1))
+                            ->from('procurement_request_items_table as pri')
+                            ->leftJoin('equipment_table as pri_eq', 'pri.equipment_id', '=', 'pri_eq.equipment_id')
+                            ->leftJoin('reports_table as pri_r', 'pri.report_id', '=', 'pri_r.report_id')
+                            ->leftJoin('rooms_table as pri_rooms', 'pri_r.report_room_id', '=', 'pri_rooms.room_id')
+                            ->whereColumn(
+                                'pri.procurement_request_id',
+                                'procurement_requests_table.procurement_request_id'
+                            )
+                            ->where(function ($inner) use ($search, $reportIdFromCode) {
+                                $inner
+                                    ->where('pri_eq.equipment_name', 'LIKE', '%'.$search.'%')
+                                    ->orWhere('pri.unlisted_equipment_name', 'LIKE', '%'.$search.'%')
+                                    ->orWhere('pri_rooms.room_name', 'LIKE', '%'.$search.'%')
+                                    ->orWhere('pri.report_id', 'LIKE', '%'.$search.'%');
+
+                                if ($reportIdFromCode) {
+                                    $inner->orWhere('pri.report_id', $reportIdFromCode);
+                                }
+                            });
+                    });
+                }
             });
         }
 
@@ -96,10 +123,23 @@ class ReplacementRequestController extends Controller
             $query->where('procurement_requests_table.procurement_request_status', $request->status);
         }
 
+        // Action queue first: Pending, then Approved with no RIS yet.
+        // Within each group keep newest-on-top stack order.
         $replacementRequests = $query
+            ->orderByRaw("
+                CASE
+                    WHEN procurement_requests_table.procurement_request_status = 'Pending' THEN 0
+                    WHEN procurement_requests_table.procurement_request_status = 'Approved'
+                        AND latest_ris.ris_id IS NULL THEN 1
+                    ELSE 2
+                END ASC
+            ")
             ->orderByDesc('procurement_requests_table.procurement_request_created_at')
+            ->orderByDesc('procurement_requests_table.procurement_request_id')
             ->paginate(10)
             ->withQueryString();
+
+        ReplacementRequestBasket::attachToRequests($replacementRequests);
 
         return view('purchaser.procurement.replacement-requests', compact('replacementRequests', 'archiveView'));
     }
@@ -130,12 +170,19 @@ class ReplacementRequestController extends Controller
                     'procurement_request_status' => 'Approved',
                 ]);
 
-            $equipmentName = DB::table('procurement_requests_table')
-                ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-                ->where('procurement_requests_table.procurement_request_id', $requestId)
-                ->selectRaw("COALESCE(equipment_table.equipment_name, reports_table.report_unlisted_equipment_name, CONCAT('Replacement request #', procurement_requests_table.procurement_request_id)) as equipment_name")
-                ->value('equipment_name');
+            $equipmentName = ReplacementRequestBasket::summaryLabel(
+                ReplacementRequestBasket::itemsForRequest($requestId),
+                (object) ['equipment_name' => null]
+            );
+
+            if ($equipmentName === 'Unknown Equipment') {
+                $equipmentName = DB::table('procurement_requests_table')
+                    ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+                    ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+                    ->where('procurement_requests_table.procurement_request_id', $requestId)
+                    ->selectRaw("COALESCE(equipment_table.equipment_name, reports_table.report_unlisted_equipment_name, CONCAT('Replacement request #', procurement_requests_table.procurement_request_id)) as equipment_name")
+                    ->value('equipment_name');
+            }
 
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PURCHASER,

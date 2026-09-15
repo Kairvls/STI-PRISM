@@ -529,7 +529,7 @@
         fetch('/president/ris/' + risId + '/details', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(res => res.json())
             .then(data => {
-                document.getElementById('reviewRisNumber').textContent = data.form_number || ('RIS #' + risId);
+                document.getElementById('reviewRisNumber').textContent = data.form_number || window.risFormNumberLabel(risId);
                 document.getElementById('reviewRequester').textContent = data.requester_name || '—';
                 document.getElementById('reviewDateSubmitted').textContent = formatDate(data.created_at || data.requested_by_date);
                 document.getElementById('reviewAmount').textContent = formatMoney(data.total_amount);
@@ -577,7 +577,7 @@
             .then(res => res.json())
             .then(data => {
                 if (title) {
-                    title.textContent = (data.form_number || ('RIS #' + risId)) + ' · Admin details';
+                    title.textContent = (data.form_number || window.risFormNumberLabel(risId)) + ' · Admin details';
                 }
 
                 const details = (data.forward_details || '').trim();
@@ -806,7 +806,7 @@
         document.getElementById('targetDecision').value = presetDecision || 'Rejected';
         const remarks = form.querySelector('textarea[name="remarks"]');
         if (remarks) remarks.value = '';
-        document.getElementById('decisionModalSubtitle').textContent = 'RIS #' + id;
+        document.getElementById('decisionModalSubtitle').textContent = window.risFormNumberLabel(id);
         form.action = '/president/approvals/ris/decide';
         document.getElementById('decisionModalTitle').textContent = 'Reject RIS';
         document.getElementById('decisionModal').classList.remove('hidden');

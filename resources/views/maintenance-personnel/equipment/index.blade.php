@@ -1271,6 +1271,8 @@
 
                                                 '{{ $item->equipment_warranty_expiration ? \Carbon\Carbon::parse($item->equipment_warranty_expiration)->format('Y-m-d') : '' }}',
 
+                                                '{{ $item->equipment_useful_life_years ?? '' }}',
+
                                                 '{{ $item->equipment_is_borrowable }}',
 
                                                 {{ json_encode($eqImageUrl($item->equipment_image)) }}
@@ -1826,6 +1828,20 @@
                             <label for="add_warranty_expiration" class="{{ $eqLabel }}">Warranty expiration</label>
                             <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
                         </div>
+                        <div>
+                            <label for="add_useful_life_years" class="{{ $eqLabel }}">Useful lifespan (years)</label>
+                            <input
+                                id="add_useful_life_years"
+                                type="number"
+                                name="equipment_useful_life_years"
+                                min="1"
+                                max="50"
+                                step="1"
+                                x-model="usefulLifeYears"
+                                placeholder="Default 5"
+                                class="{{ $eqField }}"
+                            />
+                        </div>
                     </div>
                 </details>
             </div>
@@ -2169,6 +2185,20 @@
                                 name="equipment_warranty_expiration"
                                 class="{{ $eqField }}"
                             />
+                        </div>
+                        <div>
+                            <label for="edit_useful_life_years" class="{{ $eqLabel }}">Useful lifespan (years)</label>
+                            <input
+                                id="edit_useful_life_years"
+                                type="number"
+                                name="equipment_useful_life_years"
+                                min="1"
+                                max="50"
+                                step="1"
+                                placeholder="Default 5"
+                                class="{{ $eqField }}"
+                            />
+                            <p class="mt-1 text-[11px] text-slate-500">Used for replacement broadcasts when equipment nears end of life.</p>
                         </div>
                     </div>
                 </details>
@@ -2559,6 +2589,7 @@
                 brand: '',
                 model: '',
                 warranty: '',
+                usefulLifeYears: '',
                 assetTag: '',
                 assetTagManual: false,
                 serial: '',
@@ -2741,6 +2772,7 @@
                     this.brand = '';
                     this.model = '';
                     this.warranty = '';
+                    this.usefulLifeYears = '';
                     this.assetTag = '';
                     this.assetTagManual = false;
                     this.serial = '';
@@ -2935,6 +2967,7 @@
             acquiredDate,
             purchaseCost,
             warranty,
+            usefulLifeYears,
             borrowable,
             imageUrl
         ) {
@@ -2958,6 +2991,11 @@
             document.getElementById("edit_purchase_cost").value = purchaseCost || "";
 
             document.getElementById("edit_warranty_expiration").value = warranty;
+
+            const usefulLifeInput = document.getElementById("edit_useful_life_years");
+            if (usefulLifeInput) {
+                usefulLifeInput.value = usefulLifeYears || "";
+            }
 
             document.getElementById("edit_quantity").value = quantity;
 

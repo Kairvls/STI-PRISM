@@ -6,6 +6,7 @@ use App\Services\ReportSubmissionService;
 use App\Support\EquipmentTimeline;
 use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
+use App\Support\ReplacementRequestBasket;
 use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
@@ -4680,39 +4681,10 @@ class MaintenanceController extends Controller
                     }
 
 
-                    // =================================================
-                    // CREATE PROCUREMENT REQUEST HERE
-                    // =================================================
-
-                    $existingProcurement =
-                        DB::table('procurement_requests_table')
-
-                            ->where(
-                                'procurement_request_report_id',
-                                $id
-                            )
-
-                            ->exists();
-
-
-                    if (!$existingProcurement) {
-
-                        DB::table('procurement_requests_table')
-
-                            ->insert([
-
-                                'procurement_request_report_id' =>
-                                    $id,
-
-                                'procurement_request_status' =>
-                                    'Pending',
-
-                                'procurement_request_created_by' =>
-                                    $personnelId,
-
-                            ]);
-
-                    }
+                    ReplacementRequestBasket::attachUnlinkedForReplacementItems(
+                        (int) $id,
+                        (int) $personnelId
+                    );
 
 
                     return back()
@@ -7614,6 +7586,8 @@ class MaintenanceController extends Controller
 
             'equipment_warranty_expiration' => 'nullable|date',
 
+            'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
+
             'items' => 'nullable|array|max:200',
 
             'items.*.equipment_asset_tag' => 'nullable|string|max:255',
@@ -7696,6 +7670,11 @@ class MaintenanceController extends Controller
         $acquiredDate = $validated['equipment_acquired_date'] ?? now()->toDateString();
         $purchaseDate = $validated['equipment_purchase_date'] ?? null;
         $purchaseCost = $validated['equipment_purchase_cost'] ?? null;
+        $usefulLifeYears = array_key_exists('equipment_useful_life_years', $validated)
+            && $validated['equipment_useful_life_years'] !== null
+            && $validated['equipment_useful_life_years'] !== ''
+                ? (int) $validated['equipment_useful_life_years']
+                : null;
 
         if ($trackingMode === 'Individual' && count($items) > 0 && count($items) !== $quantity) {
             return back()
@@ -7776,6 +7755,7 @@ class MaintenanceController extends Controller
                     'equipment_acquired_date' => $acquiredDate,
                     'equipment_purchase_cost' => $purchaseCost,
                     'equipment_warranty_expiration' => $validated['equipment_warranty_expiration'] ?? null,
+                    'equipment_useful_life_years' => $usefulLifeYears,
                     'equipment_is_borrowable' => $borrowable,
                     'equipment_image' => $imagePath,
                     'equipment_placement_zone' => 'Holding',
@@ -7821,6 +7801,7 @@ class MaintenanceController extends Controller
                         'equipment_purchase_cost' => $purchaseCost,
                         'equipment_warranty_expiration' => $item['equipment_warranty_expiration']
                             ?? ($validated['equipment_warranty_expiration'] ?? null),
+                        'equipment_useful_life_years' => $usefulLifeYears,
                         'equipment_is_borrowable' => $borrowable,
                         'equipment_image' => $rowImagePath,
                         'equipment_placement_zone' => 'Holding',
@@ -7980,6 +7961,7 @@ class MaintenanceController extends Controller
         $request->validate([
             'equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
             'remove_equipment_image' => 'nullable',
+            'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
         ]);
 
         $previousImage = $equipment->equipment_image ?? null;
@@ -8062,6 +8044,11 @@ class MaintenanceController extends Controller
 
                     'equipment_warranty_expiration'
                         => $request->equipment_warranty_expiration,
+
+                    'equipment_useful_life_years'
+                        => $request->filled('equipment_useful_life_years')
+                            ? max(1, min(50, (int) $request->equipment_useful_life_years))
+                            : null,
 
                     'equipment_is_borrowable'
                         => $request->has('equipment_is_borrowable'),

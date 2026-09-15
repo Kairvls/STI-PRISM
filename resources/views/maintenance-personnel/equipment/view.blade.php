@@ -224,6 +224,19 @@
                             </div>
                             <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_warranty_expiration) }}</p>
                         </div>
+                        <div>
+                            <div class="mb-3 flex items-center gap-2">
+                                <i data-lucide="hourglass" class="h-4 w-4 text-slate-400"></i>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Useful lifespan</p>
+                            </div>
+                            <p class="font-semibold text-slate-900">
+                                @if(!empty($equipment->equipment_useful_life_years))
+                                    {{ (int) $equipment->equipment_useful_life_years }} years
+                                @else
+                                    {{ $na(null) }} <span class="text-xs font-normal text-slate-400">(default 5 years)</span>
+                                @endif
+                            </p>
+                        </div>
                     </div>
                 </section>
             </main>

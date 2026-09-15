@@ -12,6 +12,7 @@ use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
 use App\Http\Controllers\LiquidationReportController;
 use App\Http\Controllers\ProcurementRecordPackageController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReceivingReportController;
 use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\RequestForCheckController;
@@ -65,6 +66,7 @@ Route::get('/ris/attachments/{attachmentId}/download', [RisController::class, 'd
 Route::get('/ris/export-blank-xlsx', [RisController::class, 'exportBlankExcel'])->name('ris.export-blank-xlsx');
 Route::get('/ris/export-blank-docx', [RisController::class, 'exportBlankWord'])->name('ris.export-blank-docx');
 Route::put('/ris/{risId}', [RisController::class, 'update'])->name('ris.update');
+Route::delete('/ris/{risId}', [RisController::class, 'destroy'])->name('ris.destroy');
 Route::post('/ris/{risId}/submit', [RisController::class, 'submit'])->name('ris.submit');
 Route::get('/ris/{risId}/print', [RisController::class, 'print'])->name('ris.print');
 Route::get('/ris/{risId}/export-xlsx', [RisController::class, 'exportExcel'])->name('ris.export-xlsx');
@@ -89,6 +91,21 @@ Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseControlle
 Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
 Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');
 Route::get('/authority-to-purchase/{id}/export-docx', [AuthorityToPurchaseController::class, 'exportWord'])->name('atp.export-docx');
+
+
+// =====================================================
+// PURCHASE ORDERS (group draft ATPs for Accounting)
+// =====================================================
+
+Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
+Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
+Route::post('/purchase-orders/{id}/attach', [PurchaseOrderController::class, 'attach'])->name('purchase-orders.attach');
+Route::post('/purchase-orders/{id}/detach', [PurchaseOrderController::class, 'detach'])->name('purchase-orders.detach');
+Route::post('/purchase-orders/{id}/submit', [PurchaseOrderController::class, 'submit'])->name('purchase-orders.submit');
+Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+Route::post('/purchase-orders/{id}/archive', [PurchaseOrderController::class, 'archive'])->name('purchase-orders.archive');
+Route::post('/purchase-orders/{id}/restore', [PurchaseOrderController::class, 'restore'])->name('purchase-orders.restore');
 
 
 // =====================================================

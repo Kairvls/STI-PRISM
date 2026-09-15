@@ -36,7 +36,7 @@
     .admin-da-ris-form .ris-number-label { font-size: 15px; font-weight: 600; }
     .admin-da-ris-form .ris-number-line {
         display: flex; align-items: flex-end; justify-content: center;
-        width: 160px; min-height: 24px; border-bottom: 1px solid #1f2937;
+        width: 220px; min-height: 24px; border-bottom: 1px solid #1f2937;
         padding: 0 6px 4px; font-size: 12px;
     }
     .admin-da-ris-form .ris-items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -336,7 +336,7 @@
                     <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                     <div class="ris-number-area">
                         <span class="ris-number-label">No.</span>
-                        <div class="ris-number-line">{{ $ris->ris_form_number ?: '—' }}</div>
+                        <div class="ris-number-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</div>
                     </div>
                 </div>
 

@@ -6,6 +6,7 @@ use App\Services\MaintenanceReportService;
 use App\Support\AdminAttentionSummary;
 use App\Support\DocumentLineage;
 use App\Support\ProcurementPaymentPath;
+use App\Support\RisWorkflow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -712,7 +713,7 @@ class AdminOperationsController extends Controller
                         'key' => 'ris',
                         'type' => 'RIS',
                         'id' => $risId,
-                        'label' => 'RIS #'.$risId,
+                        'label' => RisWorkflow::formNumber(null, $risId),
                         'hint' => 'Pipeline unavailable',
                         'view_url' => route('admin.operations.document', ['type' => 'ris', 'id' => $risId]),
                     ],
@@ -912,7 +913,7 @@ class AdminOperationsController extends Controller
         }
 
         return [
-            'title' => 'RIS '.($ris->ris_form_number ?? $risId),
+            'title' => RisWorkflow::formNumber($ris),
             'ris' => $ris,
             'risItems' => $risItems,
             'presidentName' => $presidentName,
@@ -1054,7 +1055,10 @@ class AdminOperationsController extends Controller
 
     private function lifecycleAlertsQuery()
     {
-        $years = self::DEFAULT_USEFUL_LIFE_YEARS;
+        $defaultYears = self::DEFAULT_USEFUL_LIFE_YEARS;
+        $lifeExpr = Schema::hasColumn('equipment_table', 'equipment_useful_life_years')
+            ? "COALESCE(equipment_useful_life_years, {$defaultYears})"
+            : (string) $defaultYears;
 
         return DB::table('equipment_table')
             ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
@@ -1070,8 +1074,9 @@ class AdminOperationsController extends Controller
                 'equipment_table.equipment_warranty_expiration',
                 'rooms_table.room_name',
                 DB::raw('COALESCE(equipment_purchase_date, equipment_acquired_date, DATE(equipment_created_at)) as start_date'),
+                DB::raw("{$lifeExpr} as useful_life_years"),
                 DB::raw("TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE()) as age_years"),
-                DB::raw("({$years} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) as years_remaining")
+                DB::raw("({$lifeExpr} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) as years_remaining")
             )
             ->havingRaw('years_remaining <= 1');
     }

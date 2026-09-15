@@ -14,7 +14,7 @@
         <tr>
 
             <th class="w-[13%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Reference No.
+                RIS Number
             </th>
 
             <th class="w-[26%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -78,13 +78,16 @@
 
                     <div
                         class="truncate text-sm font-semibold {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
-                        title="{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}"
+                        title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
                     >
 
-                        {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
-
+                        {{ \App\Support\RisWorkflow::formNumber($ris) }}
+                        @if(\App\Support\RisWorkflow::isUrgent($ris))
+                            <div class="mt-0.5">
+                                <span class="inline-flex items-center rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                            </div>
+                        @endif
                     </div>
-
                 </td>
 
 

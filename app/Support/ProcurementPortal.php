@@ -129,6 +129,7 @@ class ProcurementPortal
             request()->is('maintenance/procurement*')
             || request()->is('maintenance/ris*')
             || request()->is('maintenance/authority-to-purchase*')
+            || request()->is('maintenance/purchase-orders*')
             || request()->is('maintenance/request-check*')
             || request()->is('maintenance/receiving-reports*')
             || request()->is('maintenance/liquidation-reports*')

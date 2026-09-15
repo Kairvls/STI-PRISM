@@ -81,7 +81,7 @@
         }
 
         if (subtitle) {
-            subtitle.textContent = 'RIS #' + risId + ' — pick a saved signature, draw, or upload. It overlays Approved by.';
+            subtitle.textContent = window.risFormNumberLabel(risId) + ' — pick a saved signature, draw, or upload. It overlays Approved by.';
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';

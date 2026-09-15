@@ -144,19 +144,24 @@
             if (!img || !img.parentElement) return null;
             var stack = img.closest('.signature-name-stack');
             if (stack) {
-                return stack.querySelector('.signature-name, input, .ris-signature-input, [contenteditable="true"]');
+                return stack.querySelector(
+                    '.signature-name, #accSigPrintedName, #accPaperSigPrintedName, input, .ris-signature-input, [contenteditable="true"]'
+                );
             }
             var parent = img.parentElement;
-            return parent.querySelector('.signature-name, input.ris-signature-input, input[type="text"], input:not([type="hidden"])');
+            return parent.querySelector(
+                '.signature-name, #accSigPrintedName, #accPaperSigPrintedName, input.ris-signature-input, input[type="text"], input:not([type="hidden"])'
+            );
         }
 
         /**
          * Pin signature image center to the full-name text/input center.
          */
         window.pinSignatureToFullName = function (img) {
-            if (!img || img.offsetParent === null && img.style.display === 'none') return;
+            if (!img || img.style.display === 'none') return;
             var nameEl = findFullNameTarget(img);
-            var parent = img.offsetParent || img.parentElement;
+            var stack = img.closest('.signature-name-stack');
+            var parent = stack || img.offsetParent || img.parentElement;
             if (!nameEl || !parent) return;
 
             var parentRect = parent.getBoundingClientRect();

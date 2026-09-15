@@ -82,3 +82,9 @@ Web Running:
 
 Web to Email form for registering as reporter:
 - php artisan serve --host=0.0.0.0 --port=8000
+
+in the system in every signage make everything to be center of the fullname always overlary, even its signed on the side when in signing stage and add a height of the signage area digital signature like 10px or above
+
+also for the toggle switch Brands, UOM, Categories, Sub Categories how to make it will be move in the sidebar like on the section of file maintenance that it will collapsable too 
+
+the modals backdrop bg being cut

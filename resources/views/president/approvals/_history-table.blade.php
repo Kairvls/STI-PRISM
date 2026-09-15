@@ -1,6 +1,6 @@
 @forelse ($approvalHistoryRecords as $row)
     @php
-        $reference = $row->ris_form_number ?? ('RIS #' . $row->ris_id);
+        $reference = \App\Support\RisWorkflow::formNumber($row);
         $decision = $row->decision ?? $row->ris_status ?? 'Approved';
         $decisionLower = is_string($decision) ? strtolower($decision) : '';
         $decidedAt = $row->decided_at ?? $row->ris_approved_by_date ?? null;

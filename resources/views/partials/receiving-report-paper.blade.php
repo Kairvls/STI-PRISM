@@ -169,12 +169,14 @@
     <table class="mt-2 w-full border-collapse border border-black text-center">
         <thead>
             <tr>
-                <th class="w-24 border border-black py-1 font-semibold">QUANTITY</th>
-                <th class="w-24 border border-black py-1 font-semibold">UNIT</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">ORDERED</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">RECEIVED</th>
+                <th class="w-20 border border-black py-1 font-semibold">UNIT</th>
                 <th class="border border-black py-1 font-semibold">ARTICLE</th>
+                <th class="w-24 border border-black py-1 font-semibold text-[10px]">CONDITION</th>
                 @if($allowMultiSupplier && $editable)
-                    <th class="w-40 border border-black py-1 font-semibold">SUPPLIER</th>
-                    <th class="w-24 border border-black py-1 font-semibold">UNIT PRICE</th>
+                    <th class="w-36 border border-black py-1 font-semibold">SUPPLIER</th>
+                    <th class="w-20 border border-black py-1 font-semibold text-[10px]">UNIT PRICE</th>
                 @endif
             </tr>
         </thead>
@@ -183,6 +185,9 @@
                 @php
                     $row = $oldItems[$i] ?? $rows[$i] ?? null;
                     $qty = is_array($row) ? ($row['quantity'] ?? '') : ($row->receiving_report_item_quantity ?? '');
+                    $orderedQty = is_array($row) ? ($row['ordered_qty'] ?? '') : ($row->receiving_report_item_ordered_qty ?? '');
+                    $condition = is_array($row) ? ($row['condition'] ?? 'ok') : ($row->receiving_report_item_condition ?? 'ok');
+                    $conditionRemarks = is_array($row) ? ($row['condition_remarks'] ?? '') : ($row->receiving_report_item_condition_remarks ?? '');
                     $unit = is_array($row) ? ($row['unit'] ?? '') : ($row->receiving_report_item_unit ?? '');
                     $article = is_array($row) ? ($row['article'] ?? '') : ($row->receiving_report_item_article ?? '');
                     $unitPrice = is_array($row) ? ($row['unit_price'] ?? '') : ($row->receiving_report_item_unit_price ?? '');
@@ -192,7 +197,14 @@
                 <tr class="h-8">
                     <td class="border border-black">
                         @if($editable)
-                            <input type="number" min="0" name="items[{{ $i }}][quantity]" value="{{ $qty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none">
+                            <input type="number" min="0" name="items[{{ $i }}][ordered_qty]" value="{{ $orderedQty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+                        @else
+                            {{ $orderedQty !== '' ? $orderedQty : '—' }}
+                        @endif
+                    </td>
+                    <td class="border border-black">
+                        @if($editable)
+                            <input type="number" min="0" name="items[{{ $i }}][quantity]" value="{{ $qty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
                         @else
                             {{ $qty }}
                         @endif
@@ -207,8 +219,30 @@
                     <td class="border border-black text-left px-2">
                         @if($editable)
                             <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" class="h-7 w-full border-0 bg-transparent outline-none">
+                            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" placeholder="Short/bad remarks" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
                         @else
                             {{ $article }}
+                            @if($conditionRemarks)
+                                <span class="block text-[10px] text-amber-700">{{ $conditionRemarks }}</span>
+                            @endif
+                        @endif
+                    </td>
+                    <td class="border border-black">
+                        @if($editable)
+                            <select name="items[{{ $i }}][condition]" class="h-7 w-full border-0 bg-transparent text-[10px] outline-none">
+                                <option value="ok" @selected($condition === 'ok')>OK</option>
+                                <option value="short" @selected($condition === 'short')>Short</option>
+                                <option value="bad_order" @selected($condition === 'bad_order')>Bad Order</option>
+                            </select>
+                        @else
+                            @php
+                                $conditionLabel = match ($condition) {
+                                    'short' => 'Short',
+                                    'bad_order' => 'Bad Order',
+                                    default => 'OK',
+                                };
+                            @endphp
+                            <span class="text-[10px] {{ $condition === 'ok' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
                         @endif
                     </td>
                     @if($allowMultiSupplier && $editable)
@@ -227,7 +261,7 @@
                             <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $supplierName }}">
                         </td>
                         <td class="border border-black">
-                            <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none">
+                            <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
                         </td>
                     @elseif($allowMultiSupplier && !$editable)
                         <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>

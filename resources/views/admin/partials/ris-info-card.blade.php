@@ -8,13 +8,13 @@
     $status = (string) ($ris->ris_status ?? '');
     $title = \App\Support\RisWorkflow::sourceLabel($ris);
     if ($title === '' || $title === 'N/A' || $title === '—') {
-        $title = $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? ($ris->ris_form_number ?? ('RIS-' . $ris->ris_id)));
+        $title = $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? \App\Support\RisWorkflow::formNumber($ris));
     }
     $requestor = $ris->ris_requested_by_signature ?? 'Purchaser';
     $dateRaw = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? $ris->ris_created_at ?? null;
     $dateLabel = $dateRaw ? \Carbon\Carbon::parse($dateRaw)->format('M d, Y g:i A') : '—';
     $amount = number_format((float) ($ris->ris_calculated_total ?? 0), 2);
-    $ref = $ris->ris_form_number ?? ('RIS-' . $ris->ris_id);
+    $ref = \App\Support\RisWorkflow::formNumber($ris);
     $statusLabel = \App\Support\RisWorkflow::statusLabel($ris);
     $isPending = in_array($status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true);
 
@@ -78,7 +78,7 @@
             @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
             @if ($isPending)
                 @php
-                    $acceptRef = $ris->ris_form_number ?? ('RIS-' . $ris->ris_id);
+                    $acceptRef = \App\Support\RisWorkflow::formNumber($ris);
                     $acceptDetail = $title;
                 @endphp
                 <button

@@ -1,12 +1,24 @@
 <div
     x-data="{
-        openModal: null,
+        openModal: {{ ($errors->any() && old('items.0.uom_name') !== null) ? "'create'" : 'null' }},
         form: { id: null, name: '', description: '' },
+        rows: [{ name: '', description: '' }],
         deleteTarget: { id: null, name: '' },
+        maxRows: 20,
         openCreate() {
             this.form = { id: null, name: '', description: '' };
+            this.rows = [{ name: '', description: '' }];
             this.openModal = 'create';
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
+        },
+        addRow() {
+            if (this.rows.length >= this.maxRows) return;
+            this.rows.push({ name: '', description: '' });
+            this.$nextTick(() => window.lucide && window.lucide.createIcons());
+        },
+        removeRow(index) {
+            if (this.rows.length <= 1) return;
+            this.rows.splice(index, 1);
         },
         openEdit(record) {
             this.form = record;
@@ -20,8 +32,7 @@
         }
     }"
 >
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        @include('purchaser.file-maintenance.partials.tabs')
+    <div class="mb-6 flex flex-wrap items-center justify-end gap-3">
         <button
             type="button"
             @click="openCreate()"
@@ -148,17 +159,18 @@
         @endif
     </div>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="openModal === 'create' || openModal === 'edit'"
         x-transition.opacity
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         x-effect="window.purDialog && window.purDialog.sync(openModal === 'create' || openModal === 'edit', $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         @keydown.escape.window="openModal = null"
     >
         <div @click.self="openModal = null" class="flex min-h-full w-full justify-center">
-            <div class="my-auto w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="uom-form-title">
+            <div class="my-auto w-full overflow-hidden rounded-2xl bg-white shadow-2xl" :class="openModal === 'create' ? 'max-w-2xl' : 'max-w-lg'" role="dialog" aria-modal="true" aria-labelledby="uom-form-title">
                 <form method="POST" :action="openModal === 'create' ? @js(route(($pp ?? 'purchaser').'.uom.store')) : (`{{ url('/'.($pp ?? 'purchaser').'/uom') }}/${form.id}`)">
                     @csrf
                     <template x-if="openModal === 'edit'"><input type="hidden" name="_method" value="PUT"></template>
@@ -169,8 +181,8 @@
                                 <i data-lucide="ruler" class="h-5 w-5"></i>
                             </div>
                             <div>
-                                <h3 id="uom-form-title" class="text-lg font-semibold tracking-tight text-gray-950" x-text="openModal === 'create' ? 'Add UOM' : 'Edit UOM'"></h3>
-                                <p class="mt-0.5 text-sm text-gray-500">Unit of measure for RIS line items.</p>
+                                <h3 id="uom-form-title" class="text-lg font-semibold tracking-tight text-gray-950" x-text="openModal === 'create' ? 'Add UOMs' : 'Edit UOM'"></h3>
+                                <p class="mt-0.5 text-sm text-gray-500" x-text="openModal === 'create' ? 'Add one or more units of measure in a single save.' : 'Unit of measure for RIS line items.'"></p>
                             </div>
                         </div>
                         <button type="button" @click="openModal = null" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
@@ -178,34 +190,72 @@
                         </button>
                     </div>
 
-                    <div class="space-y-4 px-5 py-5">
-                        <div>
-                            <label class="mb-1.5 block text-xs font-medium text-gray-600">UOM Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="uom_name" x-model="form.name" required placeholder="e.g. pcs, box, set" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white">
+                    <template x-if="openModal === 'create'">
+                        <div class="space-y-3 px-5 py-5">
+                            @if($errors->has('items') || $errors->has('items.*'))
+                                <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                                    {{ $errors->first('items') ?: $errors->first('items.*') }}
+                                </div>
+                            @endif
+                            <template x-for="(row, index) in rows" :key="index">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+                                    <div class="mb-2 flex items-center justify-between gap-2">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400" x-text="'UOM ' + (index + 1)"></p>
+                                        <button type="button" class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 transition hover:bg-rose-50 disabled:opacity-30" @click="removeRow(index)" :disabled="rows.length <= 1" title="Remove row">
+                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    </div>
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label class="mb-1 block text-xs font-medium text-gray-600">UOM Name <span class="text-red-500">*</span></label>
+                                            <input type="text" :name="`items[${index}][uom_name]`" x-model="row.name" required placeholder="e.g. pcs, box, set" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300">
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-xs font-medium text-gray-600">Description</label>
+                                            <input type="text" :name="`items[${index}][uom_description]`" x-model="row.description" placeholder="Optional" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300">
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <button type="button" @click="addRow()" :disabled="rows.length >= maxRows" class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:opacity-50">
+                                <i data-lucide="plus" class="h-4 w-4"></i>
+                                Add another UOM
+                            </button>
                         </div>
-                        <div>
-                            <label class="mb-1.5 block text-xs font-medium text-gray-600">Description</label>
-                            <textarea name="uom_description" x-model="form.description" rows="3" placeholder="Optional description" class="box-border w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"></textarea>
+                    </template>
+
+                    <template x-if="openModal === 'edit'">
+                        <div class="space-y-4 px-5 py-5">
+                            <div>
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">UOM Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="uom_name" x-model="form.name" required placeholder="e.g. pcs, box, set" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Description</label>
+                                <textarea name="uom_description" x-model="form.description" rows="3" placeholder="Optional description" class="box-border w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"></textarea>
+                            </div>
                         </div>
-                    </div>
+                    </template>
 
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
                         <button type="button" @click="openModal = null" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
                         <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                             <i data-lucide="check" class="h-4 w-4"></i>
-                            <span x-text="openModal === 'create' ? 'Save UOM' : 'Update UOM'"></span>
+                            <span x-text="openModal === 'create' ? (rows.length > 1 ? 'Save UOMs' : 'Save UOM') : 'Update UOM'"></span>
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+    </template>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="openModal === 'delete'"
         x-transition.opacity
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         x-effect="window.purDialog && window.purDialog.sync(openModal === 'delete', $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         @keydown.escape.window="openModal = null"
@@ -240,4 +290,5 @@
             </div>
         </div>
     </div>
+    </template>
 </div>

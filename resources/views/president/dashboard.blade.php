@@ -107,7 +107,7 @@
         <div class="mt-4 space-y-2.5">
             @forelse ($recentRis as $ris)
                 @php
-                    $label = $ris->ris_form_number ?? ('RIS #' . $ris->ris_id);
+                    $label = \App\Support\RisWorkflow::formNumber($ris);
                     $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
                     $requester = $ris->ris_requested_by_signature ?: '—';
                     $amount = number_format((float) ($ris->total_amount ?? 0), 2);
@@ -201,7 +201,7 @@
         <div class="mt-4 space-y-1">
             @forelse ($recentlyApprovedRis ?? [] as $ris)
                 @php
-                    $label = $ris->ris_form_number ?? ('RIS #' . $ris->ris_id);
+                    $label = \App\Support\RisWorkflow::formNumber($ris);
                     $date = $ris->ris_approved_by_date
                         ? date('M d, Y', strtotime($ris->ris_approved_by_date))
                         : '—';

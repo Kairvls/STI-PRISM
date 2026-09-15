@@ -13,7 +13,7 @@
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
         .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
         .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
-        .line { display: inline-block; min-width: 130px; border-bottom: 1px solid #111827; text-align: center; }
+        .line { display: inline-block; min-width: 220px; border-bottom: 1px solid #111827; text-align: center; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
         .ris-table th { text-align: center; font-weight: 700; }

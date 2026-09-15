@@ -101,7 +101,7 @@
         <table id="decisionTable" class="min-w-full">
             <thead>
                 <tr class="border-b border-gray-100">
-                    <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
+                    <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Decision Date</th>
@@ -111,7 +111,7 @@
             <tbody id="decisionTableBody">
                 @forelse ($records as $row)
                     @php
-                        $reference = $row->ris_form_number ?? ('RIS-' . date('Y') . '-' . str_pad($row->ris_id, 5, '0', STR_PAD_LEFT));
+                        $reference = \App\Support\RisWorkflow::formNumber($row);
                         $totalAmount = number_format((float)($row->total_amount ?? 0), 2);
                         $decisionDate = $row->decided_at ?? $row->ris_created_at ?? null;
                         $formattedDate = $decisionDate ? date('F d, Y', strtotime($decisionDate)) : '—';

@@ -58,7 +58,7 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 12%;">Reference</th>
+                <th style="width: 12%;">RIS Number</th>
                 <th style="width: 22%;">Purpose</th>
                 <th style="width: 18%;">Equipment</th>
                 <th style="width: 14%;">Requested By</th>

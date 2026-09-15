@@ -25,7 +25,7 @@
             </th>
 
             <th class="w-[12%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Reference No.
+                RIS Number
             </th>
 
             <th class="w-[24%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -88,9 +88,9 @@
                             type="checkbox"
                             class="ris-accept-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
                             value="{{ $ris->ris_id }}"
-                            data-ref="{{ $ris->ris_form_number ?? ('RIS-' . $ris->ris_id) }}"
-                            title="Select {{ $ris->ris_form_number ?? ('RIS-' . $ris->ris_id) }}"
-                            aria-label="Select {{ $ris->ris_form_number ?? ('RIS-' . $ris->ris_id) }}"
+                            data-ref="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
+                            title="Select {{ \App\Support\RisWorkflow::formNumber($ris) }}"
+                            aria-label="Select {{ \App\Support\RisWorkflow::formNumber($ris) }}"
                             onchange="typeof window.updateRisAcceptSelection === 'function' && window.updateRisAcceptSelection()"
                         >
                     @else
@@ -107,13 +107,16 @@
 
                     <div
                         class="truncate text-sm font-semibold {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-900' }}"
-                        title="{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}"
+                        title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
                     >
 
-                        {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
-
+                        {{ \App\Support\RisWorkflow::formNumber($ris) }}
+                        @if(\App\Support\RisWorkflow::isUrgent($ris))
+                            <div class="mt-0.5">
+                                <span class="inline-flex items-center rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                            </div>
+                        @endif
                     </div>
-
                 </td>
 
 
@@ -216,7 +219,7 @@
 
                         @if($isAcceptable)
                             @php
-                                $acceptRef = $ris->ris_form_number ?? ('RIS-' . $ris->ris_id);
+                                $acceptRef = \App\Support\RisWorkflow::formNumber($ris);
                                 $acceptDetail = \App\Support\RisWorkflow::sourceLabel($ris);
                             @endphp
                             <button

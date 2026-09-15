@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\ProcurementPaymentPath;
 use App\Support\ProcurementRecordCompiler;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
 use App\Services\AtpFormExporter;
 use App\Services\DocumentWorkflowService;
@@ -430,7 +431,7 @@ class ProcurementRecordPackageController extends Controller
         $risItems = $this->risItemsWithLookups([$risId])->values();
 
         return [
-            'title' => 'RIS ' . ($ris->ris_form_number ?? $risId),
+            'title' => RisWorkflow::formNumber($ris),
             'ris' => $ris,
             'risItems' => $risItems,
             'presidentName' => Auth::user()->user_full_name ?? 'President',

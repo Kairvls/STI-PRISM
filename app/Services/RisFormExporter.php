@@ -115,7 +115,7 @@ class RisFormExporter
         $sheet->setCellValue('G3', 'No.');
         $sheet->getStyle('G3')->getFont()->setBold(true)->setName('Arial')->setSize(10);
         $sheet->getStyle('G3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_BOTTOM);
-        $sheet->setCellValue('H3', (string) ($ris->ris_form_number ?? ''));
+        $sheet->setCellValue('H3', \App\Support\RisWorkflow::formNumber($ris));
         $sheet->getStyle('H3')->getFont()->setName('Arial')->setSize(9);
         $sheet->getStyle('H3')->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
         $sheet->getStyle('H3')->applyFromArray($bottom);
@@ -354,7 +354,7 @@ class RisFormExporter
             'borderBottomSize' => 6,
             'borderBottomColor' => '1F2937',
             'valign' => VerticalJc::BOTTOM,
-        ])->addText((string) ($ris->ris_form_number ?? ''), ['size' => 9], ['alignment' => Jc::CENTER]);
+        ])->addText(\App\Support\RisWorkflow::formNumber($ris), ['size' => 9], ['alignment' => Jc::CENTER]);
 
         $cell->addTextBreak(1);
 

@@ -24,22 +24,14 @@
     $signKey = $signKey ?? ($atp?->authority_purchase_id ? 'atp-'.$atp->authority_purchase_id : 'atp-create');
     $poNo = old('authority_purchase_reference_po_no', $atp?->authority_purchase_reference_po_no ?? '');
     $oldItems = old('items');
-    $suggestedAtpFormNumber = $suggestedAtpFormNumber ?? '0001';
+    $suggestedAtpFormNumber = $suggestedAtpFormNumber ?? \App\Support\AtpFormNumber::next();
     if (old('authority_purchase_form_number') !== null) {
         $formNumberValue = (string) old('authority_purchase_form_number');
     } elseif ($atp) {
         $existingNo = trim((string) ($atp->authority_purchase_form_number ?? ''));
-        if (preg_match('/^\d{4}$/', $existingNo)) {
-            $formNumberValue = $existingNo;
-        } elseif (preg_match('/(\d+)$/', $existingNo, $m)) {
-            $seq = (int) $m[1];
-            if ($seq > 9999) {
-                $seq = (int) substr((string) $seq, -4);
-            }
-            $formNumberValue = str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
-        } else {
-            $formNumberValue = $existingNo;
-        }
+        $formNumberValue = \App\Support\AtpFormNumber::isValid($existingNo)
+            ? $existingNo
+            : $suggestedAtpFormNumber;
     } else {
         $formNumberValue = $suggestedAtpFormNumber;
     }
@@ -74,16 +66,16 @@
                         type="text"
                         name="authority_purchase_form_number"
                         value="{{ $formNumberValue }}"
-                        maxlength="4"
-                        inputmode="numeric"
-                        pattern="\d{4}"
-                        title="4-digit ATP number"
-                        class="w-16 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
+                        maxlength="16"
+                        pattern="ATP-\d{6}-\d{4}"
+                        title="ATP-YYYYMM-0001"
+                        placeholder="ATP-YYYYMM-0001"
+                        class="w-40 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
                     >
                 @elseif($isBlank)
                     <span class="inline-block min-w-[4rem] text-center font-semibold">&nbsp;</span>
                 @else
-                    <span class="inline-block min-w-[4rem] px-1 text-center font-semibold">{{ $formNumberValue }}</span>
+                    <span class="inline-block min-w-[10rem] px-1 text-center font-semibold">{{ $formNumberValue }}</span>
                 @endif
             </div>
 

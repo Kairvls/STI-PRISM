@@ -8,7 +8,7 @@
         <table class="pm-queue-table">
             <thead>
                 <tr>
-                    <th class="col-ref">RIS</th>
+                    <th class="col-ref">RIS Number</th>
                     <th class="col-req">Requester</th>
                     <th class="col-purpose">Purpose</th>
                     <th class="col-amount">Amount</th>
@@ -34,7 +34,7 @@
                         data-sort-date="{{ $sortDate }}"
                     >
                         <td class="col-ref">
-                            <span class="ref-text">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</span>
+                            <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
                         </td>
                         <td class="col-req">
                             <span class="truncate-cell">{{ $ris->ris_requested_by_signature ?: '—' }}</span>
@@ -83,7 +83,7 @@
                         data-sort-date="{{ $ris->ris_created_at }}"
                     >
                         <td class="col-ref">
-                            <span class="ref-text">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</span>
+                            <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
                         </td>
                         <td class="col-req">
                             <span class="truncate-cell">{{ $ris->ris_requested_by_signature ?: '—' }}</span>

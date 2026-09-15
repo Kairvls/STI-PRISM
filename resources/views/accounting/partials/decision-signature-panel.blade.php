@@ -20,15 +20,17 @@
     </div>
 
     <div class="mt-3">
-        <div class="relative mx-auto flex min-h-[4.5rem] w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-1">
-            <img
-                id="accSigPreview"
-                alt="Signature preview"
-                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[90%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
-                style="display:none;"
-            >
-            <span id="accSigPrintedName" class="relative z-[1] text-center text-xs font-medium text-slate-800">
-                {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+        <div class="relative mx-auto flex min-h-[3.25rem] w-full max-w-sm items-center justify-center border-b border-slate-800 px-2 pb-1">
+            <span class="signature-name-stack">
+                <img
+                    id="accSigPreview"
+                    alt="Signature preview"
+                    class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[90%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                    style="display:none;"
+                >
+                <span id="accSigPrintedName" class="signature-name relative z-[1] text-center text-xs font-medium leading-5 text-slate-800">
+                    {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
+                </span>
             </span>
         </div>
         <p class="mt-1 text-center text-[10px] uppercase tracking-wide text-slate-400">Preview · signature overlays printed name</p>
@@ -264,14 +266,25 @@
         return false;
     }
 
+    function pinOverlay(img) {
+        if (!img || img.style.display === 'none') return;
+        if (window.centerTrimSignatureOverlayImage) {
+            window.centerTrimSignatureOverlayImage(img);
+        } else if (window.pinSignatureToFullName) {
+            window.pinSignatureToFullName(img);
+        }
+    }
+
     function syncPaperOverlay(url) {
         var overlay = document.getElementById('accPaperSigOverlay');
         var nameEl = document.getElementById('accPaperSigPrintedName');
         if (!overlay) return;
         if (url && String(url).indexOf('data:image/') === 0) {
+            overlay.dataset.sigTrimmed = '';
             overlay.src = url;
             overlay.style.display = '';
             if (nameEl) nameEl.style.display = '';
+            pinOverlay(overlay);
         } else {
             overlay.removeAttribute('src');
             overlay.style.display = 'none';
@@ -284,8 +297,10 @@
         if (sigUsed) sigUsed.value = url ? '1' : '0';
         if (previewImg) {
             if (url) {
+                previewImg.dataset.sigTrimmed = '';
                 previewImg.src = url;
                 previewImg.style.display = '';
+                pinOverlay(previewImg);
             } else {
                 previewImg.removeAttribute('src');
                 previewImg.style.display = 'none';

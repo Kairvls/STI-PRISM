@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use App\Support\WorkflowNotifier;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
+use App\Support\PurchaseOrderBasket;
 
 class AccountingController extends Controller
 {
@@ -268,6 +269,27 @@ class AccountingController extends Controller
         if ($filter === 'incoming') {
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
                 ->whereNotNull('authority_to_purchase_table.authority_purchase_submitted_at');
+            // Bundled ATPs are reviewed via Purchase Orders.
+            if (PurchaseOrderBasket::tablesExist()) {
+                $query->whereNotExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('purchase_order_atps_table')
+                        ->join(
+                            'purchase_orders_table',
+                            'purchase_order_atps_table.purchase_order_id',
+                            '=',
+                            'purchase_orders_table.purchase_order_id'
+                        )
+                        ->whereColumn(
+                            'purchase_order_atps_table.authority_purchase_id',
+                            'authority_to_purchase_table.authority_purchase_id'
+                        )
+                        ->whereIn('purchase_orders_table.purchase_order_status', [
+                            PurchaseOrderBasket::STATUS_SUBMITTED,
+                            PurchaseOrderBasket::STATUS_APPROVED,
+                        ]);
+                });
+            }
         } elseif ($filter === 'revision') {
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
                 ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
@@ -371,7 +393,7 @@ class AccountingController extends Controller
             ? $this->chainFromAtp((int) $atp->authority_purchase_id)
             : [
                 'ris' => [
-                    'label' => $ris->ris_form_number ?: ('RIS #' . $id),
+                    'label' => RisWorkflow::formNumber($ris),
                     'url' => route('accounting.ris.show', $id),
                     'status' => $ris->ris_status ?? null,
                 ],
@@ -491,6 +513,201 @@ class AccountingController extends Controller
         }
         return redirect('/accounting/authority-to-purchase?status=' . urlencode(session('accounting.atp_status', 'incoming')))
             ->with('success', 'Revision requested. Purchaser has been notified.');
+    }
+
+    public function purchaseOrders(Request $request)
+    {
+        abort_unless(PurchaseOrderBasket::tablesExist(), 404);
+
+        $filter = $this->resolveModuleFilter($request, 'accounting.po_status', 'incoming', [
+            'all', 'incoming', 'revision', 'approved', 'rejected', 'cancelled',
+        ]);
+
+        $query = DB::table('purchase_orders_table')
+            ->where(function ($q) {
+                $q->whereNull('purchase_order_is_archived')
+                    ->orWhere('purchase_order_is_archived', 0);
+            });
+
+        if ($filter === 'incoming') {
+            $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_SUBMITTED);
+        } elseif ($filter === 'revision') {
+            $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_DRAFT)
+                ->whereNotNull('purchase_order_revision_reason');
+        } elseif ($filter === 'approved') {
+            $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_APPROVED);
+        } elseif ($filter === 'rejected') {
+            $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_REJECTED);
+        } elseif ($filter === 'cancelled') {
+            $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_CANCELLED);
+        }
+
+        if ($request->filled('search')) {
+            $search = '%'.$request->search.'%';
+            $query->where(function ($q) use ($search) {
+                $q->where('purchase_order_number', 'LIKE', $search)
+                    ->orWhere('purchase_order_status', 'LIKE', $search)
+                    ->orWhere('purchase_order_revision_reason', 'LIKE', $search);
+            });
+        }
+
+        $records = $query
+            ->orderByDesc('purchase_order_updated_at')
+            ->orderByDesc('purchase_order_id')
+            ->paginate(15)
+            ->withQueryString();
+
+        PurchaseOrderBasket::attachToOrders($records->getCollection());
+
+        $base = DB::table('purchase_orders_table')->where(function ($q) {
+            $q->whereNull('purchase_order_is_archived')->orWhere('purchase_order_is_archived', 0);
+        });
+
+        $counts = [
+            'all' => (clone $base)->count(),
+            'incoming' => (clone $base)->where('purchase_order_status', PurchaseOrderBasket::STATUS_SUBMITTED)->count(),
+            'revision' => (clone $base)->where('purchase_order_status', PurchaseOrderBasket::STATUS_DRAFT)->whereNotNull('purchase_order_revision_reason')->count(),
+            'approved' => (clone $base)->where('purchase_order_status', PurchaseOrderBasket::STATUS_APPROVED)->count(),
+            'cancelled' => (clone $base)->where('purchase_order_status', PurchaseOrderBasket::STATUS_CANCELLED)->count(),
+        ];
+
+        return view('accounting.purchase-orders.index', compact('records', 'filter', 'counts'));
+    }
+
+    public function showPurchaseOrder($id)
+    {
+        abort_unless(PurchaseOrderBasket::tablesExist(), 404);
+
+        $order = DB::table('purchase_orders_table')
+            ->where('purchase_order_id', $id)
+            ->first();
+        abort_if(! $order, 404);
+
+        $collection = collect([$order]);
+        PurchaseOrderBasket::attachToOrders($collection);
+        $order = $collection->first();
+
+        $reviewable = ($order->purchase_order_status ?? '') === PurchaseOrderBasket::STATUS_SUBMITTED;
+
+        return view('accounting.purchase-orders.show', compact('order', 'reviewable'));
+    }
+
+    public function approvePurchaseOrder(Request $request, $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            abort_unless(PurchaseOrderBasket::tablesExist(), 404);
+
+            $order = DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $id)
+                ->lockForUpdate()
+                ->first();
+            abort_if(! $order, 404);
+
+            if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
+                return back()->with('error', 'Only submitted Purchase Orders can be approved.');
+            }
+
+            $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
+            $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
+            $now = now();
+
+            DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $id)
+                ->update([
+                    'purchase_order_status' => PurchaseOrderBasket::STATUS_APPROVED,
+                    'purchase_order_approved_by' => Auth::id(),
+                    'purchase_order_approved_at' => $now,
+                    'purchase_order_revision_reason' => null,
+                    'purchase_order_updated_at' => $now,
+                ]);
+
+            foreach ($atpIds as $atpId) {
+                $update = [
+                    'authority_purchase_status' => 'Approved',
+                    'authority_purchase_authorized_by_signature' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
+                    'authority_purchase_rejection_reason' => null,
+                    'authority_purchase_updated_at' => $now,
+                ];
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by')) {
+                    $update['authority_purchase_authorized_by'] = Auth::id();
+                }
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by_name')) {
+                    $update['authority_purchase_authorized_by_name'] = $name;
+                }
+                DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $atpId)
+                    ->update($update);
+            }
+
+            $label = PurchaseOrderBasket::displayNumber($order);
+            $this->log('PO', (int) $id, 'Approved', $label.' approved with '.count($atpIds).' ATP(s).');
+            $this->notifyPurchaser(
+                $order->purchase_order_submitted_by ?: $order->purchase_order_created_by,
+                'Purchase Order approved',
+                $label.' was approved by Accounting. Linked ATPs are ready for Request Check.',
+                'po_approved',
+                'PO',
+                (int) $id,
+                '/purchaser/purchase-orders?view_po='.(int) $id
+            );
+
+            return redirect('/accounting/purchase-orders/'.$id)->with('success', $label.' approved. Purchaser has been notified.');
+        });
+    }
+
+    public function revisePurchaseOrder(Request $request, $id)
+    {
+        $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
+
+        return DB::transaction(function () use ($validated, $id) {
+            abort_unless(PurchaseOrderBasket::tablesExist(), 404);
+
+            $order = DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $id)
+                ->lockForUpdate()
+                ->first();
+            abort_if(! $order, 404);
+
+            if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
+                return back()->with('error', 'Only submitted Purchase Orders can be sent back for revision.');
+            }
+
+            $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
+            $now = now();
+
+            DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $id)
+                ->update([
+                    'purchase_order_status' => PurchaseOrderBasket::STATUS_DRAFT,
+                    'purchase_order_submitted_at' => null,
+                    'purchase_order_revision_reason' => $validated['remarks'],
+                    'purchase_order_updated_at' => $now,
+                ]);
+
+            foreach ($atpIds as $atpId) {
+                DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $atpId)
+                    ->update([
+                        'authority_purchase_rejection_reason' => $validated['remarks'],
+                        'authority_purchase_submitted_at' => null,
+                        'authority_purchase_updated_at' => $now,
+                    ]);
+            }
+
+            $label = PurchaseOrderBasket::displayNumber($order);
+            $this->log('PO', (int) $id, 'Under Review', $validated['remarks']);
+            $this->notifyPurchaser(
+                $order->purchase_order_submitted_by ?: $order->purchase_order_created_by,
+                'Purchase Order revision required',
+                $label.': '.$validated['remarks'],
+                'po_revision',
+                'PO',
+                (int) $id,
+                '/purchaser/purchase-orders?edit_po='.(int) $id
+            );
+
+            return redirect('/accounting/purchase-orders')->with('success', 'Purchase Order sent back for revision.');
+        });
     }
 
     public function requestCheck(Request $request)
@@ -910,6 +1127,14 @@ class AccountingController extends Controller
 
         if (!in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true)) {
             return back()->with('error', 'This liquidation report is not awaiting Accounting review.');
+        }
+
+        $balance = (float) ($liq->liquidation_report_summary_balance ?? 0);
+        if ($balance > 0.009 && blank($liq->liquidation_report_cash_returned_or_no ?? null)) {
+            return back()->with(
+                'error',
+                'Unused cash is ₱'.number_format($balance, 2).'. Purchaser must record Cash Returned Under OR# before Accounting can approve.'
+            );
         }
 
         $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
@@ -1723,7 +1948,7 @@ class AccountingController extends Controller
             if (!empty($atp->authority_purchase_ris_id)) {
                 $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
                 $chain['ris'] = [
-                    'label' => $ris->ris_form_number ?? ('RIS #' . $atp->authority_purchase_ris_id),
+                    'label' => RisWorkflow::formNumber($ris, (int) $atp->authority_purchase_ris_id),
                     'url' => route('accounting.ris.show', $atp->authority_purchase_ris_id),
                     'status' => $ris->ris_status ?? null,
                 ];

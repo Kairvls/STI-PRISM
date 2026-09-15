@@ -394,6 +394,9 @@ class ReceivingReportController extends Controller
             'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'items' => ['nullable', 'array', 'max:9'],
             'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'items.*.ordered_qty' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'items.*.condition' => ['nullable', 'in:ok,short,bad_order'],
+            'items.*.condition_remarks' => ['nullable', 'string', 'max:500'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.article' => ['nullable', 'string', 'max:2000'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
@@ -511,6 +514,29 @@ class ReceivingReportController extends Controller
             }
             if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_supplier_name')) {
                 $itemRow['receiving_report_item_supplier_name'] = $row['supplier_name'] ?? null;
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_ordered_qty')) {
+                $ordered = $row['ordered_qty'] ?? null;
+                $itemRow['receiving_report_item_ordered_qty'] = ($ordered !== null && $ordered !== '')
+                    ? (int) $ordered
+                    : null;
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_condition')) {
+                $condition = strtolower(trim((string) ($row['condition'] ?? 'ok')));
+                if (! in_array($condition, ['ok', 'short', 'bad_order'], true)) {
+                    $condition = 'ok';
+                }
+                $orderedQty = (int) ($itemRow['receiving_report_item_ordered_qty'] ?? 0);
+                $receivedQty = (int) ($qty ?: 0);
+                if ($condition === 'ok' && $orderedQty > 0 && $receivedQty < $orderedQty) {
+                    $condition = 'short';
+                }
+                $itemRow['receiving_report_item_condition'] = $condition;
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_condition_remarks')) {
+                $itemRow['receiving_report_item_condition_remarks'] = filled($row['condition_remarks'] ?? null)
+                    ? trim((string) $row['condition_remarks'])
+                    : null;
             }
 
             $rows[] = $itemRow;
@@ -726,6 +752,9 @@ class ReceivingReportController extends Controller
             foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(10) as $index => $item) {
                 $rows[] = [
                     'quantity' => $item->atp_quantity,
+                    'ordered_qty' => $item->atp_quantity,
+                    'condition' => 'ok',
+                    'condition_remarks' => '',
                     'unit' => $item->atp_unit,
                     'article' => $item->atp_description,
                     'unit_price' => $item->atp_unit_price,

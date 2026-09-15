@@ -1,3012 +1,1642 @@
 @extends('layouts.admin-layout')
 
+@section('title', 'Admin Dashboard')
+
 @section('content')
+@php
+    $canPurchaser = (bool) ($overview['can_purchaser'] ?? false);
+    $stages = $overview['stage_counts'] ?? [];
+@endphp
 
-{{-- Chart.js for dashboard charts --}}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<div class="admin-page admin-dash">
 
-<div class="admin-dashboard">
-
-    {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
-    {{-- ===================================================== --}}
-
-    <div class="dashboard-header">
+    {{-- ========== Header ========== --}}
+    <header class="admin-dash-header">
         <div>
-            <h1 class="dashboard-title">Dashboard</h1>
-            <p class="dashboard-subtitle">What needs your attention across procurement and campus ops.</p>
+            <p class="admin-dash-kicker">Administrator</p>
+            <h1 class="admin-page-title">Overview</h1>
+            <p class="admin-page-subtitle">Actions, procurement, and campus movements — all in one view.</p>
         </div>
-
-        <div class="dashboard-header-right">
-            <span class="dashboard-date-badge">
-                <i data-lucide="calendar" class="h-4 w-4"></i>
-                {{ now()->format('l, F j, Y') }}
+        <div class="admin-dash-header-meta">
+            <time datetime="{{ now()->toDateString() }}">{{ now()->format('D, M j · Y') }}</time>
+            <span class="admin-dash-pill {{ $attentionTotal > 0 ? 'is-alert' : 'is-ok' }}">
+                {{ $attentionTotal > 0 ? $attentionTotal.' need attention' : 'All clear' }}
             </span>
         </div>
-    </div>
+    </header>
 
+    {{-- ========== Attention strip ========== --}}
+    <section class="admin-dash-strip" aria-label="Attention metrics">
+        <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="admin-dash-metric {{ $pendingRis > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Accept</span>
+            <span class="admin-dash-metric-value">{{ $pendingRis }}</span>
+            <span class="admin-dash-metric-hint">₱{{ number_format((float) $pendingRisAmount, 0) }}</span>
+        </a>
+        <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="admin-dash-metric {{ $forCosigningCount > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Sign</span>
+            <span class="admin-dash-metric-value">{{ $forCosigningCount }}</span>
+            <span class="admin-dash-metric-hint">Issued-by</span>
+        </a>
+        <a href="{{ route('admin.procurement-review.ris') }}" class="admin-dash-metric {{ $amendRis > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Amend</span>
+            <span class="admin-dash-metric-value">{{ $amendRis }}</span>
+            <span class="admin-dash-metric-hint">Needs revision</span>
+        </a>
+        <a href="{{ route('admin.operations.reports', ['filter' => 'urgent']) }}" class="admin-dash-metric {{ ($overview['urgent_reports'] ?? 0) > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Urgent</span>
+            <span class="admin-dash-metric-value">{{ $overview['urgent_reports'] ?? 0 }}</span>
+            <span class="admin-dash-metric-hint">{{ $overview['open_reports'] ?? 0 }} open</span>
+        </a>
+        <a href="{{ route('admin.operations.schedules', ['filter' => 'overdue']) }}" class="admin-dash-metric {{ ($overview['overdue_schedules'] ?? 0) > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Schedules</span>
+            <span class="admin-dash-metric-value">{{ $overview['overdue_schedules'] ?? 0 }}</span>
+            <span class="admin-dash-metric-hint">Overdue</span>
+        </a>
+        <a href="{{ route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']) }}" class="admin-dash-metric {{ ($overview['overdue_borrows'] ?? 0) > 0 ? 'is-hot' : '' }}">
+            <span class="admin-dash-metric-label">Borrows</span>
+            <span class="admin-dash-metric-value">{{ $overview['overdue_borrows'] ?? 0 }}</span>
+            <span class="admin-dash-metric-hint">{{ $overview['active_borrows'] ?? 0 }} active</span>
+        </a>
+    </section>
 
-    {{-- ===================================================== --}}
-    {{-- MAIN CONTENT: STATS + HERO | SIDEBAR (aligned top) --}}
-    {{-- ===================================================== --}}
+    {{-- ========== Main: Actions + Procurement ========== --}}
+    <div class="admin-dash-grid-main">
 
-    <div class="dashboard-main-grid">
-
-        {{-- LEFT: STATS + HERO SECTION --}}
-
-        <div class="dashboard-hero">
-            @php
-                $ov = $overview ?? [];
-                $stages = $ov['stage_counts'] ?? [];
-                $canPurchaser = (bool) ($ov['can_purchaser'] ?? false);
-                $campusOverdue = (int) ($ov['overdue_schedules'] ?? 0) + (int) ($ov['overdue_borrows'] ?? 0);
-                $campusOverdueHref = ((int) ($ov['overdue_schedules'] ?? 0) >= (int) ($ov['overdue_borrows'] ?? 0))
-                    ? route('admin.operations.schedules', ['filter' => 'overdue'])
-                    : route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']);
-            @endphp
-
-            {{-- Attention strip — action-only --}}
-            <div class="stat-grid">
-                <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="stat-card {{ $pendingRis > 0 ? 'stat-card-warning' : '' }}" title="RIS waiting for review">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-amber"><i data-lucide="clock"></i></div>
-                        @if($pendingRis > 0)
-                            <span class="stat-change stat-change-warn">Action</span>
-                        @endif
-                    </div>
-                    <p class="stat-label">Pending RIS</p>
-                    <p class="stat-value">{{ $pendingRis }}</p>
-                    <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }}</p>
-                </a>
-
-                <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="stat-card {{ $forCosigningCount > 0 ? 'stat-card-warning' : '' }}" title="RIS waiting for your signature">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-violet"><i data-lucide="pen-tool"></i></div>
-                        @if($forCosigningCount > 0)
-                            <span class="stat-change stat-change-warn">Action</span>
-                        @endif
-                    </div>
-                    <p class="stat-label">Sign RIS</p>
-                    <p class="stat-value">{{ $forCosigningCount }}</p>
-                    <p class="stat-amount">Awaiting Issued by</p>
-                </a>
-
-                <a href="{{ route('admin.operations.reports', ['filter' => 'urgent']) }}" class="stat-card {{ (($ov['urgent_reports'] ?? 0) > 0) ? 'stat-card-warning' : '' }}" title="Urgent open equipment reports">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-amber"><i data-lucide="siren"></i></div>
-                        @if(($ov['urgent_reports'] ?? 0) > 0)
-                            <span class="stat-change stat-change-warn">Action</span>
-                        @endif
-                    </div>
-                    <p class="stat-label">Urgent reports</p>
-                    <p class="stat-value">{{ $ov['urgent_reports'] ?? 0 }}</p>
-                    <p class="stat-amount">{{ $ov['open_reports'] ?? 0 }} open</p>
-                </a>
-
-                <a href="{{ $campusOverdueHref }}" class="stat-card {{ $campusOverdue > 0 ? 'stat-card-warning' : '' }}" title="Overdue schedules and borrows">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-sky"><i data-lucide="calendar-clock"></i></div>
-                        @if($campusOverdue > 0)
-                            <span class="stat-change stat-change-warn">Action</span>
-                        @endif
-                    </div>
-                    <p class="stat-label">Campus overdue</p>
-                    <p class="stat-value">{{ $campusOverdue }}</p>
-                    <p class="stat-amount">{{ $ov['overdue_schedules'] ?? 0 }} sched · {{ $ov['overdue_borrows'] ?? 0 }} borrow</p>
-                </a>
-            </div>
-
-
-            @if($pendingRis > 0)
-            <div class="hero-alert-card">
-                <div class="hero-alert-left">
-                    <div class="hero-alert-icon"><i data-lucide="bell-ringing"></i></div>
-                    <div>
-                        <h3 class="hero-alert-title">{{ $pendingRis }} RIS {{ $pendingRis === 1 ? 'is' : 'are' }} waiting for accept</h3>
-                        <p class="hero-alert-desc">Accept on Procurement Requests, then decide on Sign RIS.</p>
-                    </div>
+        <div class="admin-dash-side">
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Your queue</h2>
+                    <p class="admin-dash-panel-sub">Work waiting on Admin</p>
                 </div>
-                <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="hero-alert-btn">
-                    Accept Now
-                    <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                </a>
+                <div class="admin-dash-links">
+                    <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}">Accept</a>
+                    <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}">Sign</a>
+                    @if($canPurchaser)
+                        <a href="{{ url('/purchaser/dashboard') }}">Purchaser</a>
+                    @endif
+                </div>
             </div>
+
+            <div class="admin-dash-queue-block">
+                <div class="admin-dash-queue-label">
+                    <span>Accept RIS</span>
+                    <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}">View all</a>
+                </div>
+                <ul class="admin-dash-list">
+                    @forelse($actionPendingRis as $ris)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ \App\Support\RisWorkflow::formNumber($ris) }}</p>
+                                <p class="admin-dash-list-meta">{{ \Illuminate\Support\Str::limit($ris->ris_purpose_description, 56) ?: $ris->ris_status }}</p>
+                            </div>
+                            <div class="admin-dash-list-aside">
+                                <span>₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 0) }}</span>
+                                <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')">View</button>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">Nothing waiting for accept.</li>
+                    @endforelse
+                </ul>
+            </div>
+
+            <div class="admin-dash-queue-block">
+                <div class="admin-dash-queue-label">
+                    <span>Sign RIS</span>
+                    <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}">View all</a>
+                </div>
+                <ul class="admin-dash-list">
+                    @forelse($actionSignRis as $ris)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ \App\Support\RisWorkflow::formNumber($ris) }}</p>
+                                <p class="admin-dash-list-meta">{{ $ris->ris_status }}</p>
+                            </div>
+                            <div class="admin-dash-list-aside">
+                                <span>₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 0) }}</span>
+                                <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')">View</button>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">Nothing waiting for signature.</li>
+                    @endforelse
+                </ul>
+            </div>
+        </section>
+
+        {{-- Equipment broadcasting / replacement suggestions --}}
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Equipment broadcasts</h2>
+                    <p class="admin-dash-panel-sub">Aging assets nearing end of useful life</p>
+                </div>
+                <a class="admin-dash-text-link" href="{{ route('admin.operations.equipment', ['filter' => 'lifecycle']) }}">Lifecycle</a>
+            </div>
+
+            <ul class="admin-dash-list">
+                @forelse(($lifecycleAlerts ?? collect()) as $alert)
+                    @php
+                        $yearsLeft = (int) ($alert->years_remaining ?? 0);
+                        $lifeYears = (int) ($alert->useful_life_years ?? ($usefulLifeYears ?? 5));
+                        $alreadyMarked = strcasecmp((string) ($alert->equipment_inventory_status ?? ''), 'For Replacement') === 0;
+                        if ($yearsLeft < 0) {
+                            $actionLabel = 'Replace overdue';
+                            $actionHint = abs($yearsLeft) . 'y past lifespan';
+                            $tagClass = 'is-alert';
+                        } elseif ($yearsLeft === 0) {
+                            $actionLabel = 'Replace this year';
+                            $actionHint = 'End of ' . $lifeYears . 'y life';
+                            $tagClass = 'is-alert';
+                        } else {
+                            $actionLabel = 'Plan replacement';
+                            $actionHint = '~' . $yearsLeft . 'y left';
+                            $tagClass = '';
+                        }
+                        if ($alreadyMarked) {
+                            $actionLabel = 'Marked for replacement';
+                            $tagClass = 'is-alert';
+                        }
+                    @endphp
+                    <li>
+                        <div class="admin-dash-list-main">
+                            <p class="admin-dash-list-title">{{ $alert->equipment_name }}</p>
+                            <p class="admin-dash-list-meta">
+                                {{ $alert->room_name ?: 'No room' }}
+                                · Age {{ (int) ($alert->age_years ?? 0) }}y
+                                · Lifespan {{ $lifeYears }}y
+                                · Suggested: {{ $actionLabel }}
+                            </p>
+                        </div>
+                        <span class="admin-dash-tag {{ $tagClass }}">{{ $actionHint }}</span>
+                    </li>
+                @empty
+                    <li class="admin-dash-empty">No aging equipment needing replacement attention.</li>
+                @endforelse
+            </ul>
+
+            @if(($lifecycleAlerts ?? collect())->isNotEmpty())
+                <p class="admin-dash-panel-sub" style="margin-top: 12px;">
+                    Maintenance can set each asset’s useful lifespan. Assets within 1 year of that horizon appear here for replacement planning.
+                </p>
             @endif
+        </section>
 
-            @if($forCosigningCount > 0)
-            <div class="hero-alert-card hero-alert-card-violet">
-                <div class="hero-alert-left">
-                    <div class="hero-alert-icon hero-alert-icon-violet"><i data-lucide="signature"></i></div>
-                    <div>
-                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your signature</h3>
-                        <p class="hero-alert-desc">Accepted or President-approved — Issued by pending.</p>
-                    </div>
+        {{-- Top 3 near-due maintenance schedules --}}
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Due for maintenance</h2>
+                    <p class="admin-dash-panel-sub">Top 3 schedules overdue or due within 14 days</p>
                 </div>
-                <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}" class="hero-alert-btn hero-alert-btn-violet">
-                    Open Sign RIS
-                    <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                <a class="admin-dash-text-link" href="{{ route('admin.operations.schedules', ['filter' => 'upcoming']) }}">Schedules</a>
+            </div>
+            <ul class="admin-dash-list">
+                @forelse(($upcomingMaintenanceSchedules ?? collect()) as $schedule)
+                    @php
+                        $nextDate = !empty($schedule->maintenance_schedule_next_date)
+                            ? \Carbon\Carbon::parse($schedule->maintenance_schedule_next_date)->startOfDay()
+                            : null;
+                        $today = now()->startOfDay();
+                        if ($nextDate) {
+                            if ($nextDate->lt($today)) {
+                                $daysUntil = -(int) $nextDate->diffInDays($today);
+                            } elseif ($nextDate->equalTo($today)) {
+                                $daysUntil = 0;
+                            } else {
+                                $daysUntil = (int) $today->diffInDays($nextDate);
+                            }
+                        } else {
+                            $daysUntil = null;
+                        }
+                        $isOverdue = ($daysUntil !== null && $daysUntil < 0)
+                            || strcasecmp((string) ($schedule->maintenance_schedule_status ?? ''), 'Overdue') === 0;
+                        if ($isOverdue) {
+                            $tagLabel = $daysUntil !== null && $daysUntil < 0
+                                ? abs($daysUntil).'d overdue'
+                                : 'Overdue';
+                            $tagClass = 'is-alert';
+                        } elseif ($daysUntil === 0) {
+                            $tagLabel = 'Due today';
+                            $tagClass = 'is-alert';
+                        } elseif ($daysUntil !== null) {
+                            $tagLabel = 'In '.$daysUntil.'d';
+                            $tagClass = '';
+                        } else {
+                            $tagLabel = $schedule->maintenance_schedule_status ?: 'Scheduled';
+                            $tagClass = '';
+                        }
+                    @endphp
+                    <li>
+                        <div class="admin-dash-list-main">
+                            <p class="admin-dash-list-title">
+                                {{ $schedule->equipment_name ?: ($schedule->maintenance_schedule_title ?: 'Equipment') }}
+                            </p>
+                            <p class="admin-dash-list-meta">
+                                {{ $schedule->room_name ?: 'No room' }}
+                                @if(!empty($schedule->maintenance_schedule_title) && $schedule->equipment_name)
+                                    · {{ $schedule->maintenance_schedule_title }}
+                                @endif
+                                @if($nextDate)
+                                    · {{ $nextDate->format('M j, Y') }}
+                                @endif
+                                @if(!empty($schedule->maintenance_schedule_frequency))
+                                    · {{ $schedule->maintenance_schedule_frequency }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="admin-dash-tag {{ $tagClass }}">{{ $tagLabel }}</span>
+                    </li>
+                @empty
+                    <li class="admin-dash-empty">No schedules due soon.</li>
+                @endforelse
+            </ul>
+        </section>
+
+        {{-- Top 3 overdue borrowings --}}
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Overdue borrows</h2>
+                    <p class="admin-dash-panel-sub">Top 3 items past expected return</p>
+                </div>
+                <a class="admin-dash-text-link" href="{{ route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']) }}">
+                    All {{ (int) ($overview['overdue_borrows'] ?? 0) }}
                 </a>
             </div>
+            <ul class="admin-dash-list">
+                @forelse(($overdueBorrowsPreview ?? collect()) as $borrow)
+                    @php
+                        $returnDate = !empty($borrow->borrowing_expected_return_date)
+                            ? \Carbon\Carbon::parse($borrow->borrowing_expected_return_date)->startOfDay()
+                            : null;
+                        $today = now()->startOfDay();
+                        if ($returnDate && $returnDate->lt($today)) {
+                            $daysOverdue = (int) $returnDate->diffInDays($today);
+                        } else {
+                            $daysOverdue = null;
+                        }
+                    @endphp
+                    <li>
+                        <div class="admin-dash-list-main">
+                            <p class="admin-dash-list-title">{{ $borrow->equipment_name ?: 'Equipment' }}</p>
+                            <p class="admin-dash-list-meta">
+                                {{ $borrow->borrowing_borrower_name ?: 'Unknown borrower' }}
+                                @if($returnDate)
+                                    · Due {{ $returnDate->format('M j, Y') }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="admin-dash-tag is-alert">
+                            {{ $daysOverdue !== null ? $daysOverdue.'d overdue' : 'Overdue' }}
+                        </span>
+                    </li>
+                @empty
+                    <li class="admin-dash-empty">No overdue borrows.</li>
+                @endforelse
+            </ul>
+        </section>
+
+        {{-- Proposed budget by year --}}
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Proposed budget</h2>
+                    <p class="admin-dash-panel-sub">RIS totals for the selected year</p>
+                </div>
+                <form method="GET" action="{{ route('admin.dashboard') }}" class="admin-dash-year-filter">
+                    <label for="budget_year" class="sr-only">Budget year</label>
+                    <select id="budget_year" name="budget_year" onchange="this.form.submit()" class="admin-dash-year-select">
+                        @foreach(($budgetProposalYears ?? collect([(int) now()->year])) as $yearOption)
+                            <option value="{{ $yearOption }}" @selected((int) ($budgetProposalYear ?? now()->year) === (int) $yearOption)>
+                                {{ $yearOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+
+            <div class="admin-dash-budget-hero">
+                <p class="admin-dash-budget-label">Proposed {{ $budgetProposalYear ?? now()->year }}</p>
+                <p class="admin-dash-budget-hero-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 2) }}</p>
+                <p class="admin-dash-panel-sub">{{ (int) ($budgetProposalRisCount ?? 0) }} RIS record{{ (int) ($budgetProposalRisCount ?? 0) === 1 ? '' : 's' }}</p>
+            </div>
+
+            <div class="admin-dash-budget">
+                <div>
+                    <p class="admin-dash-budget-label">Pending</p>
+                    <p class="admin-dash-budget-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 0) }}</p>
+                </div>
+                <div>
+                    <p class="admin-dash-budget-label">Admin OK</p>
+                    <p class="admin-dash-budget-value">₱{{ number_format((float) ($budgetAdminApprovedAmount ?? 0), 0) }}</p>
+                </div>
+                <div>
+                    <p class="admin-dash-budget-label">President</p>
+                    <p class="admin-dash-budget-value">₱{{ number_format((float) ($budgetPresidentApprovedAmount ?? 0), 0) }}</p>
+                </div>
+            </div>
+
+            @if((float) ($budgetPresidentRejectedAmount ?? 0) > 0)
+                <p class="admin-dash-list-meta" style="margin-top: 12px;">
+                    Rejected this year: ₱{{ number_format((float) $budgetPresidentRejectedAmount, 2) }}
+                </p>
             @endif
-
-
-            {{-- Compact pipeline --}}
-            <div class="dashboard-table-card dash-pipeline-card">
-                <div class="dashboard-table-header">
-                    <div>
-                        <h3 class="dashboard-table-title">Pipeline</h3>
-                        <p class="dashboard-table-subtitle">{{ $ov['open_ris'] ?? 0 }} open · RIS → ATP → RFC → RR → LIQ</p>
-                    </div>
-                    <div class="dash-extra-header-links">
-                        @if($canPurchaser)
-                            <a href="{{ url('/purchaser/dashboard') }}" class="dashboard-table-link">Purchaser</a>
-                        @endif
-                        <a href="{{ route('admin.operations.procurement') }}" class="dashboard-table-link">
-                            Monitor
-                            <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                        </a>
-                    </div>
-                </div>
-                <div class="dash-extra-pipeline dash-extra-pipeline-5">
-                    <div class="dash-extra-pipe"><span>{{ $stages['ris'] ?? 0 }}</span><small>RIS</small></div>
-                    <div class="dash-extra-pipe"><span>{{ $stages['atp'] ?? 0 }}</span><small>ATP</small></div>
-                    <div class="dash-extra-pipe"><span>{{ $stages['rfc'] ?? 0 }}</span><small>RFC/CA</small></div>
-                    <div class="dash-extra-pipe"><span>{{ $stages['receiving'] ?? 0 }}</span><small>RR</small></div>
-                    <div class="dash-extra-pipe"><span>{{ $stages['liquidation'] ?? 0 }}</span><small>LIQ</small></div>
-                </div>
-            </div>
-
-
-            @php
-                $trendApprovedSeries = $risTrendApproved ?? [];
-                $trendForwardedSeries = $risTrendForwarded ?? [];
-                $pctChange = function (array $series): float {
-                    $n = count($series);
-                    if ($n < 2) {
-                        return 0.0;
-                    }
-                    $prev = (float) $series[$n - 2];
-                    $curr = (float) $series[$n - 1];
-                    if (abs($prev) < 0.00001) {
-                        return $curr > 0 ? 100.0 : 0.0;
-                    }
-                    return round((($curr - $prev) / $prev) * 100, 1);
-                };
-                $approvedPct = $pctChange($trendApprovedSeries);
-                $forwardedPct = $pctChange($trendForwardedSeries);
-                $latestApproved = (int) (end($trendApprovedSeries) ?: 0);
-                $latestForwarded = (int) (end($trendForwardedSeries) ?: 0);
-            @endphp
-
-            <div class="ris-metrics-grid ris-metrics-grid-tight">
-                <div class="ris-metric-card ris-metric-card-wide">
-                    <div class="ris-metric-top">
-                        <span class="ris-metric-label">Proposed budget · {{ $budgetProposalYear ?? now()->year }}</span>
-                        <div class="ris-metric-value-row">
-                            <span class="ris-metric-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 0) }}</span>
-                        </div>
-                    </div>
-                    <div class="ris-metric-chart">
-                        <canvas id="risProposedChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="ris-metric-card">
-                    <div class="ris-metric-top">
-                        <span class="ris-metric-label">Admin approved</span>
-                        <div class="ris-metric-value-row">
-                            <span class="ris-metric-value">{{ $latestApproved }}</span>
-                            <span class="ris-metric-pill {{ $approvedPct >= 0 ? 'is-up' : 'is-down' }}">
-                                {{ $approvedPct >= 0 ? '+' : '' }}{{ $approvedPct }}%
-                            </span>
-                        </div>
-                        <span class="ris-metric-hint">vs last month</span>
-                    </div>
-                    <div class="ris-metric-chart ris-metric-chart-sm">
-                        <canvas id="risApprovedSpark"></canvas>
-                    </div>
-                </div>
-
-                <div class="ris-metric-card">
-                    <div class="ris-metric-top">
-                        <span class="ris-metric-label">President approved</span>
-                        <div class="ris-metric-value-row">
-                            <span class="ris-metric-value">{{ $latestForwarded }}</span>
-                            <span class="ris-metric-pill {{ $forwardedPct >= 0 ? 'is-up' : 'is-down' }}">
-                                {{ $forwardedPct >= 0 ? '+' : '' }}{{ $forwardedPct }}%
-                            </span>
-                        </div>
-                        <span class="ris-metric-hint">vs last month</span>
-                    </div>
-                    <div class="ris-metric-chart ris-metric-chart-sm">
-                        <canvas id="risPresidentSpark"></canvas>
-                    </div>
-                </div>
-
-                <div class="ris-metric-card">
-                    <div class="ris-metric-top">
-                        <span class="ris-metric-label">Pending amount</span>
-                        <div class="ris-metric-value-row">
-                            <span class="ris-metric-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 0) }}</span>
-                        </div>
-                        <span class="ris-metric-hint">awaiting action</span>
-                    </div>
-                    <div class="ris-metric-chart ris-metric-chart-sm">
-                        <canvas id="risPendingBars"></canvas>
-                    </div>
-                </div>
-            </div>
-
-
-            {{-- RIS records + equipment movements (side by side) --}}
-            <div class="dash-combo-grid">
-
-            <div class="dashboard-table-card">
-                <div class="dashboard-table-header">
-                    <div>
-                        <h3 class="dashboard-table-title">Recent RIS Records</h3>
-                        <p class="dashboard-table-subtitle">Latest Requisition Issue Slip submissions</p>
-                    </div>
-                    <a href="{{ route('admin.procurement-review.ris') }}" class="dashboard-table-link">
-                        View All
-                        <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                    </a>
-                </div>
-                <div class="dashboard-table-body">
-                    <table class="dashboard-table">
-                        <thead>
-                            <tr>
-                                <th>Reference</th>
-                                <th>Equipment</th>
-                                <th>Status</th>
-                                <th class="text-right">Amount</th>
-                                <th class="dashboard-table-date">Date</th>
-                                <th class="dashboard-table-actions">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($recentRisRecords as $ris)
-                            @php
-                                $risDate = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? $ris->ris_created_at ?? null;
-                            @endphp
-                            <tr>
-                                <td>
-                                    <span class="table-ref-no">{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}</span>
-                                </td>
-                                <td>
-                                    <span class="table-equip">{{ \App\Support\RisWorkflow::sourceLabel($ris) }}</span>
-                                    @include('admin.partials.ris-attachments', ['ris' => $ris])
-                                </td>
-                                <td>
-                                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
-                                </td>
-                                <td class="text-right font-semibold text-gray-900">
-                                    ₱{{ number_format((float)($ris->ris_calculated_total ?? 0), 2) }}
-                                </td>
-                                <td class="dashboard-table-date">
-                                    {{ $risDate ? \Carbon\Carbon::parse($risDate)->format('M d, Y') : 'N/A' }}
-                                </td>
-                                <td class="dashboard-table-actions">
-                                    <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')" class="table-action-icon-btn" title="View RIS form" aria-label="View RIS form">
-                                        <i data-lucide="eye" class="h-4 w-4"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-12 text-gray-400">
-                                    <div class="flex flex-col items-center">
-                                        <i data-lucide="inbox" class="h-8 w-8 mb-2 text-gray-300"></i>
-                                        <span class="text-sm">No RIS records found</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="dashboard-table-card dash-movements-card">
-                <div class="dashboard-table-header">
-                    <div>
-                        <h3 class="dashboard-table-title">Equipment movements</h3>
-                        <p class="dashboard-table-subtitle">Transfers · borrows · disposals</p>
-                    </div>
-                    <a href="{{ route('admin.operations.movements') }}" class="dashboard-table-link">
-                        View all
-                        <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                    </a>
-                </div>
-                <div class="dash-movements-stack">
-                    <div>
-                        <div class="dash-extra-col-title-row">
-                            <h4 class="dash-extra-col-title">Transfers</h4>
-                            <span class="dash-extra-count">{{ $ov['transfers_30d'] ?? 0 }} / 30d</span>
-                        </div>
-                        @forelse(($movementTransfers ?? collect()) as $row)
-                            <div class="dash-extra-row">
-                                <p class="dash-extra-row-title">{{ $row->equipment_name ?: ('#'.$row->equipment_id) }}</p>
-                                <p class="dash-extra-row-meta">{{ $row->from_room_name ?: '—' }} → {{ $row->to_room_name ?: '—' }}</p>
-                            </div>
-                        @empty
-                            <p class="dash-extra-empty">No recent transfers</p>
-                        @endforelse
-                    </div>
-                    <div>
-                        <div class="dash-extra-col-title-row">
-                            <h4 class="dash-extra-col-title">Borrowing</h4>
-                            <span class="dash-extra-count">{{ $ov['active_borrows'] ?? 0 }} active</span>
-                        </div>
-                        @forelse(($movementBorrows ?? collect()) as $row)
-                            <div class="dash-extra-row">
-                                <div class="dash-extra-row-top">
-                                    <p class="dash-extra-row-title">{{ $row->equipment_name ?: '—' }}</p>
-                                    <span class="dash-extra-tag {{ ($row->borrowing_status ?? '') === 'Overdue' ? 'is-alert' : '' }}">{{ $row->borrowing_status }}</span>
-                                </div>
-                                <p class="dash-extra-row-meta">{{ $row->borrowing_borrower_name ?: '—' }} · {{ $row->borrowing_expected_return_date ?: '—' }}</p>
-                            </div>
-                        @empty
-                            <p class="dash-extra-empty">No active borrows</p>
-                        @endforelse
-                    </div>
-                    <div>
-                        <div class="dash-extra-col-title-row">
-                            <h4 class="dash-extra-col-title">Disposal</h4>
-                            <span class="dash-extra-count">{{ $ov['disposals_total'] ?? 0 }} total</span>
-                        </div>
-                        @forelse(($movementDisposals ?? collect()) as $row)
-                            <div class="dash-extra-row">
-                                <p class="dash-extra-row-title">{{ $row->equipment_name ?: '—' }}</p>
-                                <p class="dash-extra-row-meta">{{ $row->disposal_reason ?: '—' }}</p>
-                            </div>
-                        @empty
-                            <p class="dash-extra-empty">No disposals yet</p>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-
-            </div>{{-- /.dash-combo-grid --}}
+        </section>
 
         </div>
 
-
-        {{-- RIGHT: SIDEBAR (reordered) --}}
-
-        <div class="dashboard-sidebar">
-
-{{-- 1. RIS Status Overview --}}
-
-            <div class="sidebar-chart-card ris-overview-card">
-                <div class="sidebar-chart-header">
-                    <h3 class="sidebar-chart-title">RIS Status Overview</h3>
-                    <p class="ris-overview-sub">Breakdown for current pipeline</p>
+        <aside class="admin-dash-side">
+            <section class="admin-dash-panel">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Procurement</h2>
+                        <p class="admin-dash-panel-sub">Pipeline volume</p>
+                    </div>
+                    <a class="admin-dash-text-link" href="{{ route('admin.operations.procurement') }}">Monitor</a>
                 </div>
-                <div class="ris-overview-chart-wrap">
-                    <canvas id="risStatusChart" height="140"></canvas>
-                </div>
-                <div class="ris-overview-breakdown">
-                    @php
-                        $overviewRows = [
-                            ['Pending', (int) ($pendingRis ?? 0), '#60a5fa'],
-                            ['Admin Approved', (int) ($directApprovedRis ?? 0), '#93c5fd'],
-                            ['President Approved', (int) ($approvedRis ?? 0), '#64748b'],
-                            ['Amend', (int) ($amendRis ?? 0), '#fbbf24'],
-                            ['Rejected', (int) ($presidentRejectedRis ?? 0), '#475569'],
-                        ];
-                        $overviewTotal = max(1, collect($overviewRows)->sum(fn ($r) => $r[1]));
-                    @endphp
-                    @foreach ($overviewRows as $row)
-                        <div class="ris-overview-row">
-                            <span class="ris-overview-dot" style="background:{{ $row[2] }}"></span>
-                            <span class="ris-overview-name">{{ $row[0] }}</span>
-                            <span class="ris-overview-count">{{ $row[1] }}</span>
-                            <span class="ris-overview-amt {{ $row[1] > 0 ? 'is-pos' : '' }}">{{ number_format(($row[1] / $overviewTotal) * 100, 0) }}%</span>
+
+                <div class="admin-dash-pipeline">
+                    @foreach([
+                        'ris' => 'RIS',
+                        'atp' => 'ATP',
+                        'rfc' => 'RFC/CA',
+                        'receiving' => 'RR',
+                        'liquidation' => 'LIQ',
+                    ] as $key => $label)
+                        <div class="admin-dash-pipe-step">
+                            <span class="admin-dash-pipe-count">{{ $stages[$key] ?? 0 }}</span>
+                            <span class="admin-dash-pipe-label">{{ $label }}</span>
                         </div>
+                        @if(!$loop->last)
+                            <span class="admin-dash-pipe-sep" aria-hidden="true"></span>
+                        @endif
                     @endforeach
                 </div>
-            </div>
 
-
-            {{-- 2. Calendar of Events --}}
-
-            <div class="sidebar-calendar-card">
-                <div class="sidebar-calendar-header">
-                    <h3 class="sidebar-calendar-title">
-                        <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
-                        Calendar of Events
-                    </h3>
-                    <p class="mt-1 text-[11px] font-normal text-slate-500">RIS submitted, forwarded, approved, and issued dates</p>
-                </div>
-                <div class="sidebar-calendar-body">
-
-                    {{-- Calendar Header --}}
-                    <div class="calendar-month-header">
-                        <button type="button" id="calPrevBtn" class="cal-nav-btn" title="Previous month">
-                            <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
-                        </button>
-                        <span id="calMonthLabel" class="cal-month-label">{{ now()->format('F Y') }}</span>
-                        <button type="button" id="calNextBtn" class="cal-nav-btn" title="Next month">
-                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
-                        </button>
+                <div class="admin-dash-budget">
+                    <div>
+                        <p class="admin-dash-budget-label">Open RIS</p>
+                        <p class="admin-dash-budget-value">{{ $overview['open_ris'] ?? 0 }}</p>
                     </div>
+                    <div>
+                        <p class="admin-dash-budget-label">Pending ₱</p>
+                        <p class="admin-dash-budget-value">{{ number_format((float) ($budgetPendingAmount ?? 0), 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="admin-dash-budget-label">Year {{ $budgetProposalYear ?? now()->year }}</p>
+                        <p class="admin-dash-budget-value">{{ number_format((float) ($budgetProposalTotal ?? 0), 0) }}</p>
+                    </div>
+                </div>
 
-                    {{-- Calendar Grid --}}
-                    <div id="adminCalendarGrid" class="calendar-grid">
-                        <div class="cal-day-header">Sun</div>
-                        <div class="cal-day-header">Mon</div>
-                        <div class="cal-day-header">Tue</div>
-                        <div class="cal-day-header">Wed</div>
-                        <div class="cal-day-header">Thu</div>
-                        <div class="cal-day-header">Fri</div>
-                        <div class="cal-day-header">Sat</div>
+                @if($canPurchaser)
+                    <a href="{{ url('/purchaser/ris') }}" class="admin-dash-cta">Create documents in Purchaser</a>
+                @endif
+            </section>
 
-                        @php
-                            $now = now();
-                            $firstDay = $now->copy()->startOfMonth();
-                            $lastDay = $now->copy()->endOfMonth();
-                            $startPadding = $firstDay->dayOfWeek;
-                            $totalCells = $startPadding + $lastDay->day;
-                            $rows = ceil($totalCells / 7);
-                            $totalSlots = $rows * 7;
-                            $todayDate = $now->format('Y-m-d');
-                            $currentMonthKey = $now->format('Y-m');
-                        @endphp
-
-                        {{-- Empty cells before first day --}}
-                        @for($i = 0; $i < $startPadding; $i++)
-                            <div class="cal-day cal-day-empty"></div>
-                        @endfor
-
-                        {{-- Actual days --}}
-                        @for($day = 1; $day <= $lastDay->day; $day++)
-                            @php
-                                $dateKey = $currentMonthKey . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
-                                $hasEvents = isset($calendarEventsByDate[$dateKey]) && count($calendarEventsByDate[$dateKey]) > 0;
-                                $isToday = $dateKey === $todayDate;
-                                $dayEvents = $calendarEventsByDate[$dateKey] ?? [];
-                                $eventCount = count($dayEvents);
-                            @endphp
-                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }}"
-                                 data-date="{{ $dateKey }}"
-                                 title="{{ $hasEvents ? $eventCount . ' event(s)' : '' }}">
-                                <span class="cal-day-num">{{ $day }}</span>
-                                @if($hasEvents)
-                                    <span class="cal-day-dot"></span>
-                                @endif
+            <section class="admin-dash-panel">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Urgent reports</h2>
+                        <p class="admin-dash-panel-sub">Open high-priority tickets</p>
+                    </div>
+                    <a class="admin-dash-text-link" href="{{ route('admin.operations.reports', ['filter' => 'urgent']) }}">All</a>
+                </div>
+                <ul class="admin-dash-list">
+                    @forelse($urgentReportsList as $report)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">#{{ $report->report_id }} · {{ $report->equipment_name ?: 'Unlisted' }}</p>
+                                <p class="admin-dash-list-meta">{{ $report->room_name ?: 'No room' }} · {{ $report->report_current_status }}</p>
                             </div>
-                        @endfor
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">No urgent reports.</li>
+                    @endforelse
+                </ul>
+            </section>
 
-                        {{-- Empty cells after last day --}}
-                        @for($i = $startPadding + $lastDay->day; $i < $totalSlots; $i++)
-                            <div class="cal-day cal-day-empty"></div>
-                        @endfor
+            {{-- Calendar of Events --}}
+            @php
+                $calendarEvents = $calendarEvents ?? collect();
+                $calendarEventsByDate = $calendarEventsByDate ?? [];
+            @endphp
+            <section class="admin-dash-panel admin-dash-cal">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Calendar</h2>
+                        <p class="admin-dash-panel-sub">RIS submitted, forwarded, approved, issued</p>
                     </div>
-
-                    {{-- Upcoming Events List --}}
-                    <div id="adminCalendarUpcoming" class="cal-upcoming">
-                        <h4 class="cal-upcoming-title">Latest activity</h4>
-                        @php
-                            $adminUpcoming = collect($calendarEvents ?? []);
-                            $adminUpcomingPreview = $adminUpcoming->take(3);
-                            $adminUpcomingTotal = $adminUpcoming->count();
-                        @endphp
-                        @forelse($adminUpcomingPreview as $event)
-                            <div class="cal-upcoming-item">
-                                <div class="cal-upcoming-dot"></div>
-                                <div class="cal-upcoming-content">
-                                    <span class="cal-upcoming-name">{{ $event->event_name ?? 'RIS' }}</span>
-                                    <span class="cal-upcoming-date">
-                                        {{ !empty($event->event_date) ? \Carbon\Carbon::parse($event->event_date)->format('M d, Y') : 'No date set' }}
-                                    </span>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="cal-upcoming-empty">No procurement dates this month</div>
-                        @endforelse
-                        @if($adminUpcomingTotal > 0)
-                            <a class="cal-view-all" href="{{ url('/admin/procurement-review') }}">View all</a>
-                        @endif
-                        @if($adminUpcomingTotal > 3)
-                            <p class="cal-view-all-hint">Showing 3 of {{ $adminUpcomingTotal }}</p>
-                        @endif
-                    </div>
+                    <a class="admin-dash-text-link" href="{{ url('/admin/procurement-review') }}">Review</a>
                 </div>
-            </div>
 
-
-            {{-- 3. Supplier Comparison --}}
-
-            <div class="sidebar-supplier-card">
-                <div class="sidebar-supplier-header">
-                    <h3 class="sidebar-supplier-title">
-                        <i data-lucide="store" class="h-4 w-4" style="margin-right: 6px;"></i>
-                        Supplier Comparison
-                    </h3>
+                <div class="admin-dash-cal-month">
+                    <button type="button" id="calPrevBtn" class="admin-dash-cal-nav" title="Previous month">
+                        <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                    </button>
+                    <span id="calMonthLabel" class="admin-dash-cal-label">{{ now()->format('F Y') }}</span>
+                    <button type="button" id="calNextBtn" class="admin-dash-cal-nav" title="Next month">
+                        <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                    </button>
                 </div>
-                <div class="sidebar-supplier-body">
+
+                <div id="adminCalendarGrid" class="admin-dash-cal-grid">
+                    <div class="admin-dash-cal-dow">Sun</div>
+                    <div class="admin-dash-cal-dow">Mon</div>
+                    <div class="admin-dash-cal-dow">Tue</div>
+                    <div class="admin-dash-cal-dow">Wed</div>
+                    <div class="admin-dash-cal-dow">Thu</div>
+                    <div class="admin-dash-cal-dow">Fri</div>
+                    <div class="admin-dash-cal-dow">Sat</div>
                     @php
-                        $supplierComparison = $supplierComparison ?? collect();
-                        $supplierComparisonMax = (float) ($supplierComparisonMax ?? 0);
-                        $typeCompare = $supplierTypeComparison ?? ['physical_count' => 0, 'online_count' => 0, 'physical_amount' => 0, 'online_amount' => 0];
-                        $typeTotalAmount = (float) $typeCompare['physical_amount'] + (float) $typeCompare['online_amount'];
+                        $now = now();
+                        $firstDay = $now->copy()->startOfMonth();
+                        $lastDay = $now->copy()->endOfMonth();
+                        $startPadding = $firstDay->dayOfWeek;
+                        $totalSlots = (int) ceil(($startPadding + $lastDay->day) / 7) * 7;
+                        $todayDate = $now->format('Y-m-d');
+                        $currentMonthKey = $now->format('Y-m');
                     @endphp
-
-                    <div class="supplier-type-row">
-                        <div class="supplier-type-item">
-                            <span class="supplier-type-label">Physical</span>
-                            <span class="supplier-type-value">{{ (int) $typeCompare['physical_count'] }} ATP</span>
-                            <span class="supplier-type-amount">₱{{ number_format((float) $typeCompare['physical_amount'], 2) }}</span>
-                        </div>
-                        <div class="supplier-type-item">
-                            <span class="supplier-type-label">Online</span>
-                            <span class="supplier-type-value">{{ (int) $typeCompare['online_count'] }} ATP</span>
-                            <span class="supplier-type-amount">₱{{ number_format((float) $typeCompare['online_amount'], 2) }}</span>
-                        </div>
-                    </div>
-
-                    @if($typeTotalAmount > 0)
-                        <div class="supplier-type-bar" title="Physical vs Online spend">
-                            <span class="supplier-type-bar-physical" style="width: {{ round(((float) $typeCompare['physical_amount'] / $typeTotalAmount) * 100) }}%;"></span>
-                            <span class="supplier-type-bar-online" style="width: {{ round(((float) $typeCompare['online_amount'] / $typeTotalAmount) * 100) }}%;"></span>
-                        </div>
-                    @endif
-
-                    <p class="supplier-compare-caption">Top suppliers by ATP amount</p>
-
-                    @forelse($supplierComparison as $supplier)
+                    @for($i = 0; $i < $startPadding; $i++)
+                        <div class="admin-dash-cal-day is-empty"></div>
+                    @endfor
+                    @for($day = 1; $day <= $lastDay->day; $day++)
                         @php
-                            $barPct = $supplierComparisonMax > 0
-                                ? max(8, round(((float) $supplier->total_amount / $supplierComparisonMax) * 100))
-                                : 8;
+                            $dateKey = $currentMonthKey . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+                            $dayEvents = $calendarEventsByDate[$dateKey] ?? [];
+                            $hasEvents = count($dayEvents) > 0;
+                            $isToday = $dateKey === $todayDate;
                         @endphp
-                        <div class="supplier-compare-row">
-                            <div class="supplier-compare-meta">
-                                <span class="supplier-compare-name" title="{{ $supplier->supplier_name }}">{{ $supplier->supplier_name }}</span>
-                                <span class="supplier-compare-amount">₱{{ number_format((float) $supplier->total_amount, 2) }}</span>
+                        <div class="admin-dash-cal-day {{ $isToday ? 'is-today' : '' }} {{ $hasEvents ? 'has-event' : '' }}"
+                             data-date="{{ $dateKey }}"
+                             title="{{ $hasEvents ? count($dayEvents).' event(s)' : '' }}">
+                            <span>{{ $day }}</span>
+                            @if($hasEvents)
+                                <i class="admin-dash-cal-dot"></i>
+                            @endif
+                        </div>
+                    @endfor
+                    @for($i = $startPadding + $lastDay->day; $i < $totalSlots; $i++)
+                        <div class="admin-dash-cal-day is-empty"></div>
+                    @endfor
+                </div>
+
+                <div id="adminCalendarUpcoming" class="admin-dash-cal-upcoming">
+                    <h3 class="admin-dash-cal-upcoming-title">Latest activity</h3>
+                    @php
+                        $adminUpcoming = collect($calendarEvents ?? []);
+                        $adminUpcomingPreview = $adminUpcoming->take(3);
+                        $adminUpcomingTotal = $adminUpcoming->count();
+                    @endphp
+                    @forelse($adminUpcomingPreview as $event)
+                        <div class="admin-dash-cal-item">
+                            <i class="admin-dash-cal-item-dot"></i>
+                            <div>
+                                <p class="admin-dash-list-title">{{ $event->event_name ?? 'RIS' }}</p>
+                                <p class="admin-dash-list-meta">
+                                    {{ !empty($event->event_date) ? \Carbon\Carbon::parse($event->event_date)->format('M d, Y') : 'No date set' }}
+                                </p>
                             </div>
-                            <div class="supplier-compare-track">
-                                <span class="supplier-compare-fill" style="width: {{ $barPct }}%;"></span>
-                            </div>
-                            <span class="supplier-compare-count">{{ (int) $supplier->atp_count }} {{ (int) $supplier->atp_count === 1 ? 'ATP' : 'ATPs' }}</span>
                         </div>
                     @empty
-                        <p class="supplier-compare-empty">No supplier ATP records yet.</p>
+                        <p class="admin-dash-empty" style="padding: 12px 0 !important;">No procurement dates this month</p>
                     @endforelse
+                    @if($adminUpcomingTotal > 0)
+                        <a class="admin-dash-cal-all" href="{{ url('/admin/procurement-review') }}">View all</a>
+                    @endif
+                    @if($adminUpcomingTotal > 3)
+                        <p class="admin-dash-cal-hint">Showing 3 of {{ $adminUpcomingTotal }}</p>
+                    @endif
                 </div>
-            </div>
+            </section>
 
-
-            {{-- 4. Activity List (Split into Pending + Completed with Toggle) --}}
-
-            <div class="sidebar-activity-card" id="activityListCard">
-                <div class="sidebar-activity-header">
-                    <h3 class="sidebar-activity-title">
-                        <i data-lucide="list-checks" class="h-4 w-4" style="margin-right: 6px;"></i>
-                        Activity List
-                    </h3>
-                    <button type="button" id="activityToggleBtn" class="sidebar-activity-link" style="background:none;border:none;cursor:pointer;">
+            {{-- Recent activities --}}
+            <section class="admin-dash-panel" id="activityListCard">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Recent activities</h2>
+                        <p class="admin-dash-panel-sub">Pending queue &amp; latest decisions</p>
+                    </div>
+                    <button type="button" id="activityToggleBtn" class="admin-dash-text-link" style="background:none;border:none;cursor:pointer;padding:0;">
                         Show completed
                     </button>
                 </div>
-                <div class="sidebar-activity-list">
 
-                    {{-- PENDING ACTIVITIES (always shown, up to 3) --}}
-                    <div id="pendingActivities">
-                        @forelse($pendingActivityLogs as $log)
-                        <div class="sidebar-activity-item">
-                            <div class="sidebar-activity-status-icon">
-                                <div class="act-icon act-icon-pending">
+                <div id="pendingActivities">
+                    <ul class="admin-dash-list compact">
+                        @forelse(($pendingActivityLogs ?? collect()) as $log)
+                            <li>
+                                <div class="admin-dash-act-icon is-pending">
                                     <i data-lucide="clock" class="h-3.5 w-3.5"></i>
                                 </div>
-                            </div>
-                            <div class="sidebar-activity-content">
-                                <p class="sidebar-activity-title-text">
-                                    {{ $log->title }}
-                                    @if($log->actor_name)
-                                    <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
-                                    @endif
-                                </p>
-                                <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
-                                <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
-                            </div>
-                        </div>
+                                <div class="admin-dash-list-main">
+                                    <p class="admin-dash-list-title">
+                                        {{ $log->title }}
+                                        @if(!empty($log->actor_name))
+                                            <span class="admin-dash-act-actor">by {{ $log->actor_name }}</span>
+                                        @endif
+                                    </p>
+                                    <p class="admin-dash-list-meta">{{ \Illuminate\Support\Str::limit($log->description ?? 'No remarks', 60) }}</p>
+                                    <p class="admin-dash-list-meta">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                                </div>
+                            </li>
                         @empty
-                        <div class="flex flex-col items-center py-4 text-gray-400">
-                            <i data-lucide="inbox" class="h-5 w-5 mb-1 text-gray-300"></i>
-                            <span class="text-xs">No pending activities</span>
-                        </div>
+                            <li class="admin-dash-empty">No pending activities.</li>
                         @endforelse
-                    </div>
-
-                    {{-- COMPLETED ACTIVITIES (hidden by default, up to 2) --}}
-                    <div id="completedActivities" style="display: none;">
-                        <div class="sidebar-activity-separator">
-                            <span class="sidebar-activity-separator-text">Completed</span>
-                        </div>
-                        @forelse($completedActivityLogs as $log)
-                        <div class="sidebar-activity-item">
-                            <div class="sidebar-activity-status-icon">
-                                @if($log->status === 'Approved' || $log->status === 'Co-signed')
-                                    <div class="act-icon act-icon-success">
-                                        <i data-lucide="check-circle" class="h-3.5 w-3.5"></i>
-                                    </div>
-                                @elseif($log->status === 'Rejected')
-                                    <div class="act-icon act-icon-danger">
-                                        <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
-                                    </div>
-                                @else
-                                    <div class="act-icon act-icon-pending">
-                                        <i data-lucide="clock" class="h-3.5 w-3.5"></i>
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="sidebar-activity-content">
-                                <p class="sidebar-activity-title-text">
-                                    {{ $log->title }}
-                                    @if($log->actor_name)
-                                    <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
-                                    @endif
-                                </p>
-                                <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
-                                <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
-                            </div>
-                        </div>
-                        @empty
-                        <div class="flex flex-col items-center py-4 text-gray-400">
-                            <i data-lucide="inbox" class="h-5 w-5 mb-1 text-gray-300"></i>
-                            <span class="text-xs">No completed activities</span>
-                        </div>
-                        @endforelse
-                    </div>
-
+                    </ul>
                 </div>
-            </div>
 
+                <div id="completedActivities" style="display:none;">
+                    <p class="admin-dash-col-title" style="margin: 12px 0 4px;">Completed</p>
+                    <ul class="admin-dash-list compact">
+                        @forelse(($completedActivityLogs ?? collect()) as $log)
+                            <li>
+                                @php
+                                    $isOk = in_array((string) ($log->status ?? ''), ['Approved', 'Co-signed', 'Directly Approved', 'Admin Approved'], true);
+                                    $isBad = (string) ($log->status ?? '') === 'Rejected';
+                                @endphp
+                                <div class="admin-dash-act-icon {{ $isOk ? 'is-ok' : ($isBad ? 'is-bad' : 'is-pending') }}">
+                                    <i data-lucide="{{ $isOk ? 'check-circle' : ($isBad ? 'x-circle' : 'clock') }}" class="h-3.5 w-3.5"></i>
+                                </div>
+                                <div class="admin-dash-list-main">
+                                    <p class="admin-dash-list-title">
+                                        {{ $log->title }}
+                                        @if(!empty($log->actor_name))
+                                            <span class="admin-dash-act-actor">by {{ $log->actor_name }}</span>
+                                        @endif
+                                    </p>
+                                    <p class="admin-dash-list-meta">{{ \Illuminate\Support\Str::limit($log->description ?? 'No remarks', 60) }}</p>
+                                    <p class="admin-dash-list-meta">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="admin-dash-empty">No completed activities.</li>
+                        @endforelse
+                    </ul>
+                </div>
+            </section>
 
-        </div>
+            {{-- Supplier comparison --}}
+            @php
+                $supplierComparison = $supplierComparison ?? collect();
+                $supplierComparisonMax = (float) ($supplierComparisonMax ?? 0);
+                $typeCompare = $supplierTypeComparison ?? [
+                    'physical_count' => 0,
+                    'online_count' => 0,
+                    'physical_amount' => 0,
+                    'online_amount' => 0,
+                ];
+                $typeTotalAmount = (float) $typeCompare['physical_amount'] + (float) $typeCompare['online_amount'];
+            @endphp
+            <section class="admin-dash-panel">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Supplier comparison</h2>
+                        <p class="admin-dash-panel-sub">ATP spend by store type &amp; supplier</p>
+                    </div>
+                </div>
 
+                <div class="admin-dash-supplier-types">
+                    <div>
+                        <p class="admin-dash-budget-label">Physical</p>
+                        <p class="admin-dash-budget-value">{{ (int) $typeCompare['physical_count'] }} ATP</p>
+                        <p class="admin-dash-list-meta">₱{{ number_format((float) $typeCompare['physical_amount'], 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="admin-dash-budget-label">Online</p>
+                        <p class="admin-dash-budget-value">{{ (int) $typeCompare['online_count'] }} ATP</p>
+                        <p class="admin-dash-list-meta">₱{{ number_format((float) $typeCompare['online_amount'], 0) }}</p>
+                    </div>
+                </div>
+
+                @if($typeTotalAmount > 0)
+                    <div class="admin-dash-supplier-split" title="Physical vs Online spend">
+                        <span class="is-physical" style="width: {{ round(((float) $typeCompare['physical_amount'] / $typeTotalAmount) * 100) }}%;"></span>
+                        <span class="is-online" style="width: {{ round(((float) $typeCompare['online_amount'] / $typeTotalAmount) * 100) }}%;"></span>
+                    </div>
+                @endif
+
+                <p class="admin-dash-col-title" style="margin: 14px 0 6px;">Top suppliers by ATP amount</p>
+
+                @forelse($supplierComparison as $supplier)
+                    @php
+                        $barPct = $supplierComparisonMax > 0
+                            ? max(8, round(((float) $supplier->total_amount / $supplierComparisonMax) * 100))
+                            : 8;
+                    @endphp
+                    <div class="admin-dash-supplier-row">
+                        <div class="admin-dash-supplier-meta">
+                            <span class="admin-dash-list-title" title="{{ $supplier->supplier_name }}">{{ $supplier->supplier_name }}</span>
+                            <span class="admin-dash-supplier-amount">₱{{ number_format((float) $supplier->total_amount, 0) }}</span>
+                        </div>
+                        <div class="admin-dash-supplier-track">
+                            <span style="width: {{ $barPct }}%;"></span>
+                        </div>
+                        <p class="admin-dash-list-meta">
+                            {{ (int) $supplier->atp_count }} {{ (int) $supplier->atp_count === 1 ? 'ATP' : 'ATPs' }}
+                            @if(!empty($supplier->supplier_type))
+                                · {{ $supplier->supplier_type }}
+                            @endif
+                        </p>
+                    </div>
+                @empty
+                    <p class="admin-dash-empty" style="padding: 16px 0 !important;">No supplier ATP records yet.</p>
+                @endforelse
+            </section>
+        </aside>
     </div>
 
+    {{-- ========== Movements ========== --}}
+    <section class="admin-dash-panel">
+        <div class="admin-dash-panel-head">
+            <div>
+                <h2 class="admin-dash-panel-title">Movements</h2>
+                <p class="admin-dash-panel-sub">Transfers, borrowing, and disposal</p>
+            </div>
+            <div class="admin-dash-links">
+                <a href="{{ route('admin.operations.movements') }}">All movements</a>
+                <a href="{{ route('admin.operations.overview') }}">Command Center</a>
+            </div>
+        </div>
+
+        <div class="admin-dash-ops-strip">
+            <a href="{{ route('admin.operations.equipment') }}"><em>{{ $overview['equipment_total'] ?? 0 }}</em> Equipment</a>
+            <a href="{{ route('admin.operations.equipment', ['filter' => 'maintenance']) }}"><em>{{ $overview['needs_maintenance'] ?? 0 }}</em> Under maint.</a>
+            <a href="{{ route('admin.operations.equipment', ['filter' => 'replacement']) }}"><em>{{ $overview['for_replacement'] ?? 0 }}</em> Replace</a>
+            <a href="{{ route('admin.operations.equipment', ['filter' => 'lifecycle']) }}"><em>{{ $overview['lifecycle_alerts'] ?? 0 }}</em> Lifecycle</a>
+            <a href="{{ route('admin.operations.movements', ['tab' => 'transfers', 'filter' => 'recent']) }}"><em>{{ $overview['transfers_30d'] ?? 0 }}</em> Transfers 30d</a>
+            <a href="{{ route('admin.operations.movements', ['tab' => 'disposal']) }}"><em>{{ $overview['disposals_total'] ?? 0 }}</em> Disposals</a>
+        </div>
+
+        <div class="admin-dash-grid-3">
+            <div>
+                <h3 class="admin-dash-col-title">Transfers</h3>
+                <ul class="admin-dash-list compact">
+                    @forelse($movementTransfers as $row)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ $row->equipment_name ?: ('#'.$row->equipment_id) }}</p>
+                                <p class="admin-dash-list-meta">{{ $row->from_room_name ?: '—' }} → {{ $row->to_room_name ?: '—' }}</p>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">No recent transfers.</li>
+                    @endforelse
+                </ul>
+            </div>
+            <div>
+                <h3 class="admin-dash-col-title">Borrowing</h3>
+                <ul class="admin-dash-list compact">
+                    @forelse($movementBorrows as $row)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ $row->equipment_name ?: '—' }}</p>
+                                <p class="admin-dash-list-meta">{{ $row->borrowing_borrower_name ?: '—' }} · {{ $row->borrowing_expected_return_date ?: '—' }}</p>
+                            </div>
+                            <span class="admin-dash-tag {{ $row->borrowing_status === 'Overdue' ? 'is-alert' : '' }}">{{ $row->borrowing_status }}</span>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">No active borrows.</li>
+                    @endforelse
+                </ul>
+            </div>
+            <div>
+                <h3 class="admin-dash-col-title">Disposal</h3>
+                <ul class="admin-dash-list compact">
+                    @forelse($movementDisposals as $row)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ $row->equipment_name ?: '—' }}</p>
+                                <p class="admin-dash-list-meta">{{ $row->disposal_reason ?: '—' }}</p>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">No disposals yet.</li>
+                    @endforelse
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    {{-- ========== Bottom: RIS table + system ========== --}}
+    <div class="admin-dash-grid-bottom">
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Recent RIS</h2>
+                    <p class="admin-dash-panel-sub">Latest requisition activity</p>
+                </div>
+                <a class="admin-dash-text-link" href="{{ route('admin.operations.procurement') }}">Pipeline</a>
+            </div>
+            <div class="admin-dash-table-wrap">
+                <table class="admin-dash-table">
+                    <thead>
+                        <tr>
+                            <th>RIS Number</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th class="is-right">Amount</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($recentRisRecords as $ris)
+                            <tr>
+                                <td class="is-strong">{{ \App\Support\RisWorkflow::formNumber($ris) }}</td>
+                                <td>
+                                    <span class="admin-dash-ellipsis">{{ \App\Support\RisWorkflow::sourceLabel($ris) }}</span>
+                                </td>
+                                <td>@include('admin.partials.ris-status-badge', ['ris' => $ris])</td>
+                                <td class="is-right is-strong">₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}</td>
+                                <td class="is-right">
+                                    <button type="button" class="admin-dash-ghost-btn" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')">View</button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="admin-dash-empty">No RIS records yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <aside class="admin-dash-side-stack">
+            <section class="admin-dash-panel">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">System</h2>
+                        <p class="admin-dash-panel-sub">People & access</p>
+                    </div>
+                    <a class="admin-dash-text-link" href="{{ url('/admin/users') }}">Users</a>
+                </div>
+                <div class="admin-dash-system-grid">
+                    <div><em>{{ $totalUsers }}</em><span>Users</span></div>
+                    <div><em>{{ $activeUsers }}</em><span>Active 7d</span></div>
+                    <div><em>{{ $maintenancePersonnel }}</em><span>Maint.</span></div>
+                    <div><em>{{ $purchasers }}</em><span>Purchaser</span></div>
+                    <div><em>{{ $accounting }}</em><span>Acct.</span></div>
+                    <div><em>{{ $receivingOfficers }}</em><span>Receiving</span></div>
+                </div>
+            </section>
+
+            <section class="admin-dash-panel">
+                <div class="admin-dash-panel-head">
+                    <div>
+                        <h2 class="admin-dash-panel-title">Approvals</h2>
+                        <p class="admin-dash-panel-sub">Latest decisions</p>
+                    </div>
+                    <a class="admin-dash-text-link" href="{{ route('admin.reports.approval-logs') }}">Logs</a>
+                </div>
+                <ul class="admin-dash-list compact">
+                    @forelse($recentApprovals as $log)
+                        <li>
+                            <div class="admin-dash-list-main">
+                                <p class="admin-dash-list-title">{{ $log->approval_log_reference_type }} #{{ $log->approval_log_reference_id }}</p>
+                                <p class="admin-dash-list-meta">
+                                    {{ $log->approval_log_approval_status }}
+                                    · {{ $log->actor_name ?: 'System' }}
+                                    @if(!empty($log->approval_log_approved_at))
+                                        · {{ \Carbon\Carbon::parse($log->approval_log_approved_at)->diffForHumans() }}
+                                    @endif
+                                </p>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="admin-dash-empty">No approval activity.</li>
+                    @endforelse
+                </ul>
+            </section>
+        </aside>
+    </div>
 </div>
 
-
-{{-- RIS Preview modal --}}
 @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
 
-@include('admin.procurement-review._direct-approve-modal')
-@include('admin.digital-signatures._return-revision-modal')
-
-
-{{-- ===================================================== --}}
-{{-- DASHBOARD STYLES --}}
-{{-- ===================================================== --}}
 <style>
-
-/* ======================================
-   DASHBOARD LAYOUT
-====================================== */
-
-.admin-dashboard {
-    margin: 0 auto;
-    font-family: "Inter", sans-serif;
+/* Modern minimal Admin overview */
+.admin-dash {
+    --dash-ink: #0f172a;
+    --dash-muted: #64748b;
+    --dash-line: #e2e8f0;
+    --dash-soft: #f8fafc;
+    --dash-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
 }
 
-.dashboard-header {
+.admin-dash-header {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 24px;
-}
-
-.dashboard-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 2.25rem;
-    font-weight: 900;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-}
-
-.dashboard-subtitle {
-    margin-top: 4px;
-    font-size: 0.875rem;
-    color: #64748b;
-}
-
-.dashboard-header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.dashboard-date-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: #475569;
-}
-
-
-/* ======================================
-   STAT CARDS GRID - MP-aligned
-====================================== */
-
-.stat-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
-    margin-bottom: 16px;
 }
 
-.stat-grid-combined {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-a.stat-card {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-}
-
-.stat-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 18px;
-    padding: 14px 16px;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.stat-card:hover {
-    transform: translateY(-1px);
-    border-color: #d1d5db;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-}
-
-.stat-card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 10px;
-}
-
-.stat-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.stat-icon i,
-.stat-icon svg {
-    width: 18px;
-    height: 18px;
-}
-
-.stat-icon-blue {
-    background: #eff6ff;
-    color: #3b82f6;
-}
-
-.stat-icon-indigo {
-    background: #eff6ff;
-    color: #3b82f6;
-}
-
-.stat-icon-amber {
-    background: #fffbeb;
-    color: #d97706;
-}
-
-.stat-icon-slate {
-    background: #f1f5f9;
-    color: #0f172a;
-}
-
-.stat-icon-sky {
-    background: #eff6ff;
-    color: #60a5fa;
-}
-
-.stat-icon-rose {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.stat-icon-violet {
-    background: #eff6ff;
-    color: #3b82f6;
-}
-
-.stat-icon-teal {
-    background: #e2e8f0;
-    color: #334155;
-}
-
-.stat-change {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px 8px;
-    border-radius: 999px;
+.admin-dash-kicker {
     font-size: 11px;
     font-weight: 600;
-}
-
-.stat-change-up {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.stat-change-warn {
-    background: #e2e8f0;
-    color: #334155;
-}
-
-.stat-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #64748b;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    color: var(--dash-muted);
     margin-bottom: 4px;
 }
 
-.stat-value {
-    font-family: "Outfit", sans-serif;
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-    line-height: 1;
-}
-
-.stat-amount {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #94a3b8;
-    font-weight: 500;
-}
-
-.stat-meta {
-    margin-top: 4px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.stat-meta-item {
+.admin-dash-header-meta {
     display: flex;
     align-items: center;
-    gap: 3px;
-    font-size: 11px;
+    gap: 10px;
+    font-size: 12px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--dash-muted);
 }
 
-.stat-meta-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.stat-dot-purple { background: #475569; }
-.stat-dot-cyan { background: #64748b; }
-.stat-dot-amber { background: #334155; }
-.stat-dot-emerald { background: #94a3b8; }
-.stat-dot-rose { background: #0f172a; }
-
-
-/* ======================================
-   MAIN GRID (HERO + SIDEBAR)
-====================================== */
-
-.dashboard-main-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 24px;
-    align-items: start;
-}
-
-.dashboard-hero {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-
-/* ======================================
-   SIDEBAR GAP
-====================================== */
-
-.dashboard-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    position: sticky;
-    top: 24px;
-}
-
-
-/* ======================================
-   TABLE PREVIEW BUTTON
-====================================== */
-
-.table-preview-btn,
-.table-action-icon-btn {
+.admin-dash-pill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    color: #4b5563;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    cursor: pointer;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 650;
+    border: 1px solid var(--dash-line);
+    background: #fff;
+    color: var(--dash-ink);
 }
-
-.table-preview-btn:hover,
-.table-action-icon-btn:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-    color: #111827;
+.admin-dash-pill.is-alert {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #92400e;
 }
-
-.table-preview-btn i,
-.table-preview-btn svg,
-.table-action-icon-btn i,
-.table-action-icon-btn svg {
-    width: 16px;
-    height: 16px;
-}
-
-
-/* ======================================
-   RIS PREVIEW MODAL
-====================================== */
-
-.ris-preview-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.qa-modal-overlay {
-    z-index: 10000;
-}
-
-.ris-preview-on-top {
-    z-index: 11000;
-}
-
-.ris-preview-modal-container {
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    width: 100%;
-    max-width: 1100px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.ris-preview-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid #e2e8f0;
-    flex-shrink: 0;
-}
-
-.ris-preview-modal-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.ris-preview-modal-close {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #64748b;
-    transition: all 0.2s ease;
-}
-
-.ris-preview-modal-close:hover {
-    background: #fef2f2;
-    border-color: #fecdd3;
+.admin-dash-pill.is-ok {
+    border-color: #e2e8f0;
+    background: var(--dash-soft);
     color: #334155;
 }
 
-.ris-preview-modal-body {
-    flex: 1;
-    overflow: auto;
-    padding: 0;
-    background: #f8fafc;
-    min-height: 400px;
-    max-height: calc(90vh - 110px);
+/* Attention strip — unified metric bar */
+.admin-dash-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+@media (min-width: 768px) {
+    .admin-dash-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+    .admin-dash-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
-.ris-preview-modal-body iframe {
-    width: 100%;
-    height: 100%;
-    min-height: 400px;
-    max-height: calc(90vh - 110px);
-    border: none;
-    display: block;
-}
-
-.ris-preview-loading {
+.admin-dash-metric {
+    position: relative;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 60px 20px;
-    color: #64748b;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.ris-preview-spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid #e2e8f0;
-    border-top-color: #334155;
-    border-radius: 50%;
-    animation: ris-preview-spin 0.8s linear infinite;
-}
-
-@keyframes ris-preview-spin {
-    to { transform: rotate(360deg); }
-}
-
-.ris-preview-modal-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 20px;
-    border-top: 1px solid #e2e8f0;
-    flex-shrink: 0;
-}
-
-.ris-preview-modal-btn-close {
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.ris-preview-modal-btn-close:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
-
-.ris-preview-modal-btn-print {
-    display: inline-flex;
-    align-items: center;
     gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: #0f172a;
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
+    padding: 18px 20px 22px;
+    background: #fff;
     text-decoration: none;
-    transition: all 0.2s ease;
+    border: 0;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 0;
+    box-shadow: none;
+    transition: background .15s ease;
+}
+/* 2-col: clear right border on even items */
+.admin-dash-metric:nth-child(2n) { border-right: 0; }
+/* last row: no bottom border */
+.admin-dash-metric:nth-last-child(-n + 2) { border-bottom: 0; }
+
+@media (min-width: 768px) {
+    .admin-dash-metric { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+    .admin-dash-metric:nth-child(2n) { border-right: 1px solid #e5e7eb; }
+    .admin-dash-metric:nth-child(3n) { border-right: 0; }
+    .admin-dash-metric:nth-last-child(-n + 2) { border-bottom: 1px solid #e5e7eb; }
+    .admin-dash-metric:nth-last-child(-n + 3) { border-bottom: 0; }
 }
 
-.ris-preview-modal-btn-print:hover {
-    background: #1e293b;
+@media (min-width: 1200px) {
+    .admin-dash-metric {
+        border-right: 1px solid #e5e7eb;
+        border-bottom: 0;
+    }
+    .admin-dash-metric:nth-child(2n),
+    .admin-dash-metric:nth-child(3n) { border-right: 1px solid #e5e7eb; }
+    .admin-dash-metric:last-child { border-right: 0; }
 }
 
-.ris-preview-modal-btn-print i,
-.ris-preview-modal-btn-print svg {
-    width: 14px;
-    height: 14px;
+.admin-dash-metric:hover {
+    background: #f8fafc;
+    box-shadow: none;
 }
-
-
-/* ======================================
-   ACTIVITY LIST - Status Icons
-====================================== */
-
-.sidebar-activity-status-icon {
-    flex-shrink: 0;
-    margin-top: 2px;
+.admin-dash-metric.is-hot::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: #0025cc;
+    z-index: 1;
 }
-
-.act-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.admin-dash-metric-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
 }
-
-.act-icon-success {
-    background: #ecfdf5;
-    color: #475569;
+.admin-dash-metric-value {
+    font-family: "Outfit", sans-serif;
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #0f172a;
+    letter-spacing: -0.03em;
 }
-
-.act-icon-danger {
-    background: #fef2f2;
-    color: #dc2626;
-}
-
-.act-icon-pending {
-    background: #fffbeb;
-    color: #475569;
-}
-
-.sidebar-activity-actor {
+.admin-dash-metric-hint {
+    font-size: 12px;
     font-weight: 400;
-    font-size: 9px;
     color: #94a3b8;
 }
 
-
-/* ======================================
-   QUICK SUMMARY - Pending Highlight
-====================================== */
-
-.sidebar-stat-item-highlight {
-    background: #fffbeb;
-    border-radius: 6px;
-    padding: 5px 8px !important;
-    margin: -1px -1px 1px -1px;
-    border: 1px solid #fde68a;
+/* Panels */
+.admin-dash-panel {
+    border: 1px solid var(--dash-line);
+    border-radius: var(--dash-radius);
+    background: #fff;
+    padding: 20px;
 }
-
-.sidebar-stat-label-highlight {
-    font-weight: 700;
-    color: #92400e;
-}
-
-.sidebar-stat-value-highlight {
-    font-size: 13px;
-    font-weight: 800;
-    color: #475569;
-}
-
-
-/* ======================================
-   HERO ALERT CARDS
-====================================== */
-
-.hero-alert-card {
+.admin-dash-panel-head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    padding: 16px 18px;
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1px solid #fde68a;
-    border-radius: 18px;
     margin-bottom: 16px;
 }
-
-.hero-alert-card-violet {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border-color: #cbd5e1;
-}
-
-.hero-alert-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.hero-alert-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
-    background: #64748b;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.hero-alert-icon-violet {
-    background: #334155;
-}
-
-.hero-alert-icon i,
-.hero-alert-icon svg {
-    width: 18px;
-    height: 18px;
-}
-
-.hero-alert-title {
+.admin-dash-panel-title {
     font-family: "Outfit", sans-serif;
-    font-size: 15px;
+    font-size: 1.05rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--dash-ink);
+    letter-spacing: -0.02em;
 }
-
-.hero-alert-desc {
+.admin-dash-panel-sub {
     margin-top: 2px;
     font-size: 12px;
-    color: #64748b;
+    color: var(--dash-muted);
 }
-
-.hero-alert-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    background: rgba(0, 55, 199, 0.85);
-    color: white;
-    border-radius: 12px;
+.admin-dash-text-link,
+.admin-dash-links a {
     font-size: 12px;
     font-weight: 600;
+    color: #475569;
     text-decoration: none;
-    white-space: nowrap;
-    transition: all 0.2s ease;
 }
-
-.hero-alert-btn:hover {
-    background: rgba(0, 44, 155, 0.85);
-    transform: translateY(-1px);
-}
-
-.hero-alert-btn-violet {
-    background: rgba(0, 55, 199, 0.85);
-}
-
-.hero-alert-btn-violet:hover {
-    background: rgba(0, 44, 155, 0.85);
-}
-
-.hero-empty-card {
+.admin-dash-text-link:hover,
+.admin-dash-links a:hover { color: var(--dash-ink); }
+.admin-dash-links {
     display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 10px;
-    margin-bottom: 8px;
-}
-
-.hero-empty-left {
-    display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
 }
 
-.hero-empty-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: #64748b;
-    color: white;
+/* Main layout */
+.admin-dash-grid-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+@media (min-width: 1100px) {
+    .admin-dash-grid-main {
+        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.85fr);
+        align-items: start;
+    }
+}
+.admin-dash-side,
+.admin-dash-side-stack {
     display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-dash-queue-block + .admin-dash-queue-block {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--dash-line);
+}
+.admin-dash-queue-label {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.hero-empty-icon i,
-.hero-empty-icon svg {
-    width: 16px;
-    height: 16px;
-}
-
-.hero-empty-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.hero-empty-desc {
-    margin-top: 1px;
-    font-size: 11px;
-    color: #64748b;
-}
-
-
-/* ======================================
-   CHART CARD
-====================================== */
-
-.dashboard-chart-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
     margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+}
+.admin-dash-queue-label a {
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
 }
 
-.dashboard-chart-header {
+/* Lists */
+.admin-dash-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.admin-dash-list > li {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 10px 0;
     border-bottom: 1px solid #f1f5f9;
 }
-
-.dashboard-chart-title {
+.admin-dash-list > li:last-child { border-bottom: 0; }
+.admin-dash-list.compact > li { padding: 8px 0; }
+.admin-dash-list-title {
     font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
+    font-weight: 600;
+    color: var(--dash-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-
-.dashboard-chart-subtitle {
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 1px;
+.admin-dash-list-meta {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--dash-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-
-.dashboard-chart-legend {
+.admin-dash-list-main { min-width: 0; flex: 1; }
+.admin-dash-list-aside {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
 }
-
-.dashboard-chart-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #64748b;
-}
-
-.dashboard-chart-legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    display: inline-block;
-}
-
-.dashboard-chart-body {
-    padding: 10px 14px;
-}
-
-.dashboard-chart-body-trend {
-    height: 240px;
-    position: relative;
-}
-
-.budget-proposal-total {
-    text-align: right;
-    flex-shrink: 0;
-}
-
-.budget-proposal-total-label {
-    display: block;
+.admin-dash-list-aside button,
+.admin-dash-ghost-btn {
+    border: 1px solid var(--dash-line);
+    background: #fff;
+    border-radius: 8px;
+    padding: 4px 10px;
     font-size: 11px;
     font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
+    color: #334155;
+    cursor: pointer;
+}
+.admin-dash-list-aside button:hover,
+.admin-dash-ghost-btn:hover { background: var(--dash-soft); }
+.admin-dash-empty {
+    padding: 20px 0 !important;
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    display: block !important;
+    border: 0 !important;
 }
 
-.budget-proposal-total-value {
-    display: block;
-    margin-top: 2px;
+/* Pipeline */
+.admin-dash-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 4px 0 14px;
+}
+.admin-dash-pipe-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.admin-dash-pipe-count {
     font-family: "Outfit", sans-serif;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #0f172a;
-    letter-spacing: -0.02em;
+    color: var(--dash-ink);
+}
+.admin-dash-pipe-label {
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+}
+.admin-dash-pipe-sep {
+    flex: 1;
+    height: 1px;
+    background: var(--dash-line);
+    margin: 0 2px 14px;
+    max-width: 28px;
 }
 
-.budget-proposal-grid {
+.admin-dash-budget {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    padding: 12px 14px 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding-top: 4px;
+}
+.admin-dash-budget > div {
+    background: var(--dash-soft);
+    border-radius: 12px;
+    padding: 12px;
+}
+.admin-dash-budget-label {
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+}
+.admin-dash-budget-value {
+    margin-top: 4px;
+    font-family: "Outfit", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--dash-ink);
 }
 
-.budget-proposal-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    border: 1px solid #f1f5f9;
-    border-radius: 10px;
-    padding: 10px 12px;
-    background: #f8fafc;
+.admin-dash-budget-hero {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--dash-soft);
 }
-
-.budget-proposal-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    margin-top: 6px;
+.admin-dash-budget-hero-value {
+    margin-top: 4px;
+    font-family: "Outfit", sans-serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--dash-ink);
+    line-height: 1.15;
+}
+.admin-dash-year-filter {
     flex-shrink: 0;
 }
-
-.budget-proposal-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-}
-
-.budget-proposal-value {
-    margin-top: 2px;
-    font-family: "Outfit", sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-@media (max-width: 640px) {
-    .budget-proposal-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-
-/* ======================================
-   TABLE CARD
-====================================== */
-
-.dashboard-table-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.dashboard-table-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.dashboard-table-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.dashboard-table-subtitle {
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 1px;
-}
-
-.dashboard-table-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #475569;
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-.dashboard-table-link:hover {
-    color: #1d4ed8;
-    gap: 8px;
-}
-
-.dashboard-table-body {
-    overflow-x: auto;
-}
-
-.dashboard-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.dashboard-table thead {
-    background: #f8fafc;
-}
-
-.dashboard-table th {
-    padding: 8px 14px;
-    text-align: left;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #64748b;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.dashboard-table td {
-    padding: 8px 14px;
+.admin-dash-year-select {
+    appearance: none;
+    border: 1px solid var(--dash-line);
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+    border-radius: 8px;
+    padding: 6px 28px 6px 10px;
     font-size: 12px;
-    color: #475569;
-    border-bottom: 1px solid #f1f5f9;
+    font-weight: 650;
+    color: var(--dash-ink);
+    cursor: pointer;
 }
-
-.dashboard-table tbody tr:last-child td {
-    border-bottom: none;
+.admin-dash-year-select:hover,
+.admin-dash-year-select:focus {
+    border-color: #cbd5e1;
+    outline: none;
 }
-
-.dashboard-table tbody tr:hover {
-    background: #fafafa;
-}
-
-.dashboard-table .dashboard-table-date {
-    text-align: left;
+.admin-dash .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
     white-space: nowrap;
-    width: 1%;
-    min-width: 110px;
-    vertical-align: middle;
+    border: 0;
 }
 
-.dashboard-table .dashboard-table-actions {
-    text-align: center;
-    width: 1%;
-    white-space: nowrap;
-    vertical-align: middle;
-}
-
-.table-ref-no {
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.table-equip {
-    max-width: 180px;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.text-right {
-    text-align: right;
-}
-
-.status-badge {
-    display: inline-flex;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.status-badge-amber {
-    background: #fffbeb;
-    color: #475569;
-    border: 1px solid #fde68a;
-}
-
-.status-badge-slate {
-    background: #f1f5f9;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-}
-
-.status-badge-emerald {
-    background: #ecfdf5;
-    color: #475569;
-    border: 1px solid #a7f3d0;
-}
-
-.status-badge-rose {
-    background: #fff1f2;
-    color: #334155;
-    border: 1px solid #fecdd3;
-}
-
-.status-badge-gray {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-}
-
-
-/* ======================================
-   SIDEBAR COMPONENTS
-====================================== */
-
-/* Sidebar Chart */
-
-.sidebar-chart-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.sidebar-chart-header {
-    padding: 10px 14px 0;
-}
-
-.sidebar-chart-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.sidebar-chart-body {
-    padding: 6px 12px 10px;
-}
-
-
-/* ======================================
-   CALENDAR OF EVENTS
-====================================== */
-
-.sidebar-calendar-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.sidebar-calendar-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.sidebar-calendar-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-}
-
-.sidebar-calendar-body {
-    padding: 10px 12px 12px;
-}
-
-.sidebar-supplier-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.sidebar-supplier-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.sidebar-supplier-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-}
-
-.sidebar-supplier-body {
-    padding: 12px 14px 14px;
-}
-
-.supplier-type-row {
+/* Supplier comparison */
+.admin-dash-supplier-types {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
 }
-
-.supplier-type-item {
-    border: 1px solid #f1f5f9;
-    background: #f8fafc;
-    border-radius: 10px;
-    padding: 8px 10px;
+.admin-dash-supplier-types > div {
+    background: var(--dash-soft);
+    border-radius: 12px;
+    padding: 12px;
 }
-
-.supplier-type-label {
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.supplier-type-value {
-    display: block;
-    margin-top: 2px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.supplier-type-amount {
-    display: block;
-    margin-top: 1px;
-    font-size: 11px;
-    color: #64748b;
-}
-
-.supplier-type-bar {
+.admin-dash-supplier-split {
     display: flex;
     height: 6px;
     border-radius: 999px;
     overflow: hidden;
-    margin: 10px 0 12px;
-    background: #e2e8f0;
+    margin: 10px 0 0;
+    background: var(--dash-line);
 }
-
-.supplier-type-bar-physical {
-    background: #0f172a;
+.admin-dash-supplier-split > span {
     display: block;
+    height: 100%;
 }
-
-.supplier-type-bar-online {
-    background: #334155;
-    display: block;
+.admin-dash-supplier-split .is-physical { background: #0f172a; }
+.admin-dash-supplier-split .is-online { background: #64748b; }
+.admin-dash-supplier-row {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
 }
-
-.supplier-compare-caption {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    margin-bottom: 8px;
-}
-
-.supplier-compare-row {
-    margin-bottom: 10px;
-}
-
-.supplier-compare-row:last-child {
-    margin-bottom: 0;
-}
-
-.supplier-compare-meta {
+.admin-dash-supplier-row:last-child { border-bottom: 0; }
+.admin-dash-supplier-meta {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 8px;
     margin-bottom: 4px;
 }
-
-.supplier-compare-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: #0f172a;
+.admin-dash-supplier-meta .admin-dash-list-title {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
-
-.supplier-compare-amount {
-    font-size: 11px;
-    font-weight: 700;
-    color: #0f172a;
+.admin-dash-supplier-amount {
     flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dash-ink);
 }
-
-.supplier-compare-track {
+.admin-dash-supplier-track {
     height: 6px;
     border-radius: 999px;
-    background: #e2e8f0;
+    background: var(--dash-line);
     overflow: hidden;
+    margin-bottom: 3px;
 }
-
-.supplier-compare-fill {
+.admin-dash-supplier-track > span {
     display: block;
     height: 100%;
     border-radius: 999px;
     background: #334155;
 }
 
-.supplier-compare-count {
-    display: block;
-    margin-top: 3px;
-    font-size: 10px;
-    color: #94a3b8;
-}
-
-.supplier-compare-empty {
+.admin-dash-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    border-radius: 12px;
+    background: #475569;
+    color: #fff;
     font-size: 12px;
-    color: #94a3b8;
-    text-align: center;
-    padding: 12px 0 4px;
+    font-weight: 600;
+    padding: 11px 14px;
+    text-decoration: none;
+}
+.admin-dash-cta:hover { background: #334155; color: #fff; }
+
+/* Movements */
+.admin-dash-ops-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.admin-dash-ops-strip a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    border: 1px solid var(--dash-line);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--dash-muted);
+    text-decoration: none;
+    background: #fff;
+}
+.admin-dash-ops-strip a:hover { border-color: #cbd5e1; color: var(--dash-ink); }
+.admin-dash-ops-strip em {
+    font-style: normal;
+    font-family: "Outfit", sans-serif;
+    font-weight: 700;
+    color: var(--dash-ink);
 }
 
-.calendar-month-header {
+.admin-dash-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+@media (min-width: 900px) {
+    .admin-dash-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+}
+.admin-dash-col-title {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+    margin-bottom: 6px;
+}
+.admin-dash-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #475569;
+    background: var(--dash-soft);
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+.admin-dash-tag.is-alert {
+    color: #92400e;
+    background: #fffbeb;
+}
+
+/* Bottom grid */
+.admin-dash-grid-bottom {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+@media (min-width: 1100px) {
+    .admin-dash-grid-bottom {
+        grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.8fr);
+        align-items: start;
+    }
+}
+
+.admin-dash-table-wrap { overflow-x: auto; margin: 0 -4px; }
+.admin-dash-table {
+    width: 100%;
+    min-width: 560px;
+    border-collapse: collapse;
+}
+.admin-dash-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+    padding: 0 12px 10px;
+    border-bottom: 1px solid var(--dash-line);
+}
+.admin-dash-table td {
+    padding: 12px;
+    font-size: 13px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.admin-dash-table tr:last-child td { border-bottom: 0; }
+.admin-dash-table .is-right { text-align: right; }
+.admin-dash-table .is-strong {
+    font-weight: 650;
+    color: var(--dash-ink);
+}
+.admin-dash-ellipsis {
+    display: inline-block;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-dash-system-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+.admin-dash-system-grid > div {
+    background: var(--dash-soft);
+    border-radius: 12px;
+    padding: 12px 10px;
+    text-align: center;
+}
+.admin-dash-system-grid em {
+    display: block;
+    font-style: normal;
+    font-family: "Outfit", sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--dash-ink);
+}
+.admin-dash-system-grid span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+}
+
+/* Calendar */
+.admin-dash-cal-month {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 10px;
 }
-
-.cal-nav-btn {
+.admin-dash-cal-nav {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    display: flex;
+    border-radius: 8px;
+    border: 1px solid var(--dash-line);
+    background: var(--dash-soft);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    color: var(--dash-muted);
     cursor: pointer;
-    color: #64748b;
-    transition: all 0.2s ease;
 }
-
-.cal-nav-btn:hover {
-    background: #ffffff;
+.admin-dash-cal-nav:hover {
+    background: #fff;
+    color: var(--dash-ink);
     border-color: #cbd5e1;
-    color: #0f172a;
 }
-
-.cal-nav-btn:disabled,
-.cal-nav-btn:disabled:hover {
+.admin-dash-cal-nav:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    background: #f8fafc;
-    border-color: #e2e8f0;
-    color: #94a3b8;
 }
-
-.cal-month-label {
+.admin-dash-cal-label {
     font-size: 12px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--dash-ink);
 }
-
-.calendar-grid {
+.admin-dash-cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
     margin-bottom: 10px;
 }
-
-.cal-day-header {
+.admin-dash-cal-dow {
     text-align: center;
     font-size: 8px;
     font-weight: 700;
-    color: #94a3b8;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    color: #94a3b8;
     padding: 2px 0;
 }
-
-.cal-day {
-    text-align: center;
-    padding: 4px 1px;
+.admin-dash-cal-day {
+    min-height: 26px;
     border-radius: 6px;
-    font-size: 10px;
-    font-weight: 500;
-    color: #475569;
-    cursor: default;
-    position: relative;
-    min-height: 22px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s ease;
+    gap: 1px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #475569;
+    position: relative;
 }
-
-.cal-day:hover {
-    background: #f8fafc;
-}
-
-.cal-day-empty {
-    cursor: default;
-    opacity: 0.3;
-}
-
-.cal-day-empty:hover {
-    background: transparent;
-}
-
-.cal-day-today {
+.admin-dash-cal-day.is-empty { opacity: 0.25; }
+.admin-dash-cal-day.is-today {
     background: #eef2ff;
     color: #334155;
     font-weight: 700;
 }
-
-.cal-day-today:hover {
-    background: #e0e7ff;
-}
-
-.cal-day-has-event {
-    color: #0f172a;
-    font-weight: 600;
+.admin-dash-cal-day.has-event {
+    font-weight: 650;
+    color: var(--dash-ink);
     cursor: pointer;
 }
-
-.cal-day-selected {
+.admin-dash-cal-day.has-event:hover { background: var(--dash-soft); }
+.admin-dash-cal-day.is-selected {
     outline: 2px solid #475569;
     outline-offset: 1px;
-    background: #eff6ff !important;
+    background: #eff6ff;
 }
-
-.cal-upcoming-item.is-highlighted {
+.admin-dash-cal-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #64748b;
+    display: block;
+}
+.admin-dash-cal-upcoming {
+    border-top: 1px solid var(--dash-line);
+    padding-top: 10px;
+}
+.admin-dash-cal-upcoming-title {
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dash-muted);
+    margin-bottom: 6px;
+}
+.admin-dash-cal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+}
+.admin-dash-cal-item.is-highlighted {
     background: #eff6ff;
     border-radius: 8px;
     padding: 6px 8px;
     margin: 0 -4px;
 }
-
-.cal-upcoming-item a {
+.admin-dash-cal-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #64748b;
+    margin-top: 5px;
+    flex-shrink: 0;
+    display: block;
+}
+.admin-dash-cal-item a {
     color: inherit;
     text-decoration: none;
 }
-
-.cal-upcoming-item a:hover .cal-upcoming-name {
+.admin-dash-cal-item a:hover .admin-dash-list-title {
     color: #1d4ed8;
     text-decoration: underline;
 }
-
-.admin-attention-popup {
-    width: min(480px, 100%);
-    text-align: left;
-    padding: 22px 20px 18px;
-}
-
-.admin-attention-popup .admin-attention-title {
-    margin-right: 36px;
-}
-
-.admin-attention-popup .admin-attention-rows {
-    margin-top: 16px;
-}
-
-.ris-metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 0;
-}
-
-.ris-metrics-grid-tight {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ris-metric-card {
-    background: #ffffff;
-    border: 1px solid #e8eaef;
-    border-radius: 16px;
-    padding: 16px 16px 10px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-    min-width: 0;
-}
-
-.ris-metric-card-wide {
-    grid-column: 1 / -1;
-}
-
-.ris-metric-label {
-    display: block;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #94a3b8;
-}
-
-.ris-metric-value-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-}
-
-.ris-metric-value {
-    font-family: "Outfit", "Inter", sans-serif;
-    font-size: 1.65rem;
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-}
-
-.ris-metric-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.ris-metric-pill.is-up {
-    background: #ecfdf5;
-    color: #475569;
-}
-
-.ris-metric-pill.is-down {
-    background: #fff1f2;
-    color: #334155;
-}
-
-.ris-metric-hint {
-    display: block;
-    margin-top: 4px;
-    font-size: 11px;
-    color: #94a3b8;
-}
-
-.ris-metric-chart {
-    height: 120px;
-    margin-top: 8px;
-}
-
-.ris-metric-chart-sm {
-    height: 72px;
-}
-
-.ris-overview-card .ris-overview-sub {
-    margin-top: 2px;
-    font-size: 11px;
-    color: #94a3b8;
-    font-weight: 400;
-}
-
-.ris-overview-chart-wrap {
-    padding: 8px 14px 4px;
-    height: 140px;
-}
-
-.ris-overview-breakdown {
-    border-top: 1px solid #f1f5f9;
-    padding: 8px 14px 12px;
-}
-
-.ris-overview-row {
-    display: grid;
-    grid-template-columns: 10px 1fr auto auto;
-    gap: 8px;
-    align-items: center;
-    padding: 7px 0;
-}
-
-.ris-overview-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.ris-overview-name {
-    font-size: 12px;
-    color: #334155;
-    font-weight: 500;
-}
-
-.ris-overview-count {
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.ris-overview-amt {
-    font-size: 12px;
-    font-weight: 600;
-    color: #94a3b8;
-    min-width: 36px;
-    text-align: right;
-}
-
-.ris-overview-amt.is-pos {
-    color: #475569;
-}
-
-@media (max-width: 900px) {
-    .ris-metrics-grid,
-    .ris-metrics-grid-tight {
-        grid-template-columns: 1fr;
-    }
-    .ris-metric-card-wide {
-        grid-column: auto;
-    }
-}
-
-.admin-attention-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: #0a0a0a;
-}
-
-.admin-attention-subtitle {
-    margin-top: 2px;
-    font-size: 0.8rem;
-    color: #64748b;
-}
-
-.admin-attention-rows {
-    margin-top: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.admin-attention-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-}
-
-.admin-attention-row-blue {
-    border-left: 4px solid #93c5fd;
-    background: #f8fbff;
-}
-
-.admin-attention-row-yellow {
-    border-left: 4px solid #fde68a;
-    background: #fffdf5;
-}
-
-.admin-attention-label {
-    font-size: 0.8rem;
-    color: #334155;
-    font-weight: 600;
-}
-
-.admin-attention-value {
-    margin-top: 2px;
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: #0a0a0a;
-}
-
-.admin-attention-cta {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 10px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    color: #0a0a0a;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-decoration: none;
-}
-
-.admin-attention-cta:hover {
-    background: #f8fafc;
-}
-
-.admin-daily-reminder {
-    position: fixed;
-    inset: 0;
-    z-index: 12000;
+.admin-dash-cal-all {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.45);
-    padding: 16px;
-}
-
-.admin-daily-reminder.hidden {
-    display: none !important;
-}
-
-.admin-daily-reminder-card {
-    position: relative;
-    width: min(420px, 100%);
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    padding: 24px 22px 20px;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
-    text-align: left;
-}
-
-.admin-daily-reminder-close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    cursor: pointer;
-}
-
-.admin-daily-reminder-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: #eff6ff;
-    color: #475569;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-}
-
-.admin-daily-reminder-title {
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: #0a0a0a;
-}
-
-.admin-daily-reminder-text {
-    margin-top: 8px;
-    font-size: 0.9rem;
-    color: #475569;
-    line-height: 1.45;
-}
-
-.admin-daily-reminder-cta {
-    margin-top: 16px;
-    display: inline-flex;
-    align-items: center;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: #0a0a0a;
-    color: #fff;
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-decoration: none;
-}
-
-.cal-day-num {
-    line-height: 1;
-}
-
-.cal-day-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #64748b;
-    margin-top: 1px;
-    flex-shrink: 0;
-}
-
-.cal-upcoming {
-    border-top: 1px solid #f1f5f9;
-    padding-top: 8px;
-}
-
-.cal-upcoming-title {
-    font-size: 10px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-bottom: 6px;
-}
-
-.cal-upcoming-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 4px 0;
-}
-
-.cal-upcoming-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #64748b;
-    margin-top: 4px;
-    flex-shrink: 0;
-}
-
-.cal-upcoming-content {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.cal-upcoming-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cal-upcoming-date {
-    font-size: 9px;
-    color: #94a3b8;
-}
-
-.cal-upcoming-empty {
-    font-size: 10px;
-    color: #94a3b8;
-    text-align: center;
-    padding: 6px 0;
-}
-
-.cal-view-all {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
     margin-top: 10px;
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    color: #0f172a;
+    border: 1px solid var(--dash-line);
+    background: var(--dash-soft);
+    color: var(--dash-ink);
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 650;
     text-decoration: none;
-    transition: background 0.15s ease, border-color 0.15s ease;
 }
-
-.cal-view-all:hover {
+.admin-dash-cal-all:hover {
     background: #fff;
     border-color: #cbd5e1;
-    color: #1d4ed8;
 }
-
-.cal-view-all-hint {
+.admin-dash-cal-hint {
     margin-top: 6px;
     font-size: 10px;
     color: #94a3b8;
     text-align: center;
 }
 
-
-/* Sidebar Stats */
-
-.sidebar-stats-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    padding: 16px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.sidebar-stats-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 12px;
-}
-
-.sidebar-stats-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.sidebar-stat-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 0;
-    border-bottom: 1px solid #f8fafc;
-}
-
-.sidebar-stat-item:last-child {
-    border-bottom: none;
-}
-
-.sidebar-stat-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.sidebar-stat-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-}
-
-.sidebar-dot-blue { background: #60a5fa; }
-.sidebar-dot-amber { background: #fbbf24; }
-.sidebar-dot-slate { background: #93c5fd; }
-.sidebar-dot-emerald { background: #94a3b8; }
-.sidebar-dot-violet { background: #3b82f6; }
-.sidebar-dot-teal { background: #64748b; }
-.sidebar-dot-rose { background: #475569; }
-
-.sidebar-stat-label {
-    font-size: 11px;
-    color: #475569;
-}
-
-.sidebar-stat-value {
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-
-/* Sidebar Activity Feed */
-
-.sidebar-activity-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.sidebar-activity-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.sidebar-activity-title {
-    font-family: "Outfit", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.sidebar-activity-link {
-    font-size: 12px;
-    font-weight: 600;
-    color: #334155;
-    text-decoration: none;
-}
-
-.sidebar-activity-link:hover {
-    text-decoration: underline;
-}
-
-.sidebar-activity-list {
-    padding: 4px 0;
-}
-
-.sidebar-activity-item {
-    display: flex;
-    gap: 8px;
-    padding: 8px 14px;
-    transition: background 0.2s ease;
-}
-
-.sidebar-activity-item:hover {
-    background: #f8fafc;
-}
-
-.sidebar-activity-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    display: flex;
+/* Recent activities */
+.admin-dash-act-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    margin-top: 2px;
 }
-
-.sidebar-activity-content {
-    min-width: 0;
-    flex: 1;
-}
-
-.sidebar-activity-title-text {
-    font-size: 11px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sidebar-activity-desc {
+.admin-dash-act-icon.is-pending { background: #fffbeb; color: #475569; }
+.admin-dash-act-icon.is-ok { background: #ecfdf5; color: #475569; }
+.admin-dash-act-icon.is-bad { background: #fef2f2; color: #dc2626; }
+.admin-dash-act-actor {
+    font-weight: 400;
     font-size: 10px;
-    color: #64748b;
-    margin-top: 1px;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.sidebar-activity-time {
-    font-size: 9px;
-    color: #94a3b8;
-    margin-top: 2px;
-}
-
-/* Activity Separator */
-.sidebar-activity-separator {
-    display: flex;
-    align-items: center;
-    padding: 4px 14px 2px;
-    gap: 6px;
-}
-
-.sidebar-activity-separator::before,
-.sidebar-activity-separator::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: #e2e8f0;
-}
-
-.sidebar-activity-separator-text {
-    font-size: 9px;
-    font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    white-space: nowrap;
-}
-
-
-/* ======================================
-   EXTRA SECTIONS (minimal add-ons)
-====================================== */
-
-.dash-pipeline-card .dash-extra-pipeline {
-    padding-top: 0;
-}
-
-.dash-combo-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
-    gap: 16px;
-    align-items: start;
-}
-
-.dash-movements-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-}
-
-.dash-movements-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 0 20px 12px;
-}
-
-.dash-extra-header-links {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-}
-
-.dash-extra-col-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 4px;
-}
-
-.dash-extra-count {
-    font-size: 11px;
-    font-weight: 600;
     color: #94a3b8;
 }
-
-.dash-ops-footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 20px 16px;
-    border-top: 1px solid #f1f5f9;
-    margin-top: auto;
+.admin-dash-list > li:has(.admin-dash-act-icon) {
+    align-items: flex-start;
 }
-
-.dash-ops-footer a {
-    font-size: 11px;
-    font-weight: 600;
-    color: #475569;
-    text-decoration: none;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    padding: 5px 10px;
-    background: #f8fafc;
-}
-
-.dash-ops-footer a:hover {
-    color: #0f172a;
-    border-color: #cbd5e1;
-}
-
-.dash-extra-pipeline {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
-    padding: 8px 20px 20px;
-}
-
-.dash-extra-pipeline-5 {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-@media (max-width: 700px) {
-    .dash-extra-pipeline,
-    .dash-extra-pipeline-5 {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-.dash-extra-pipe {
-    text-align: center;
-    padding: 12px 8px;
-    border-radius: 12px;
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
-}
-
-.dash-extra-pipe span {
-    display: block;
-    font-family: "Outfit", sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.dash-extra-pipe small {
-    display: block;
-    margin-top: 2px;
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: #64748b;
-}
-
-.dash-extra-col-title {
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #64748b;
-    margin: 0;
-}
-
-.dash-extra-row {
-    padding: 8px 0;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.dash-extra-row:last-child {
-    border-bottom: 0;
-}
-
-.dash-extra-row-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.dash-extra-row-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.dash-extra-row-meta {
-    margin-top: 2px;
-    font-size: 12px;
-    color: #64748b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.dash-extra-tag {
-    flex-shrink: 0;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    color: #475569;
-    background: #f8fafc;
-    border-radius: 999px;
-    padding: 3px 8px;
-}
-
-.dash-extra-tag.is-alert {
-    color: #92400e;
-    background: #fffbeb;
-}
-
-.dash-extra-empty {
-    font-size: 13px;
-    color: #94a3b8;
-    padding: 8px 0 4px;
-}
-
-@media (max-width: 1100px) {
-    .dash-combo-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 1200px) {
-    .stat-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-
-/* ======================================
-   RESPONSIVE
-====================================== */
-
-@media (max-width: 1200px) {
-    .stat-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .dashboard-main-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .admin-dashboard {
-        padding: 20px 16px;
-    }
-    .stat-grid {
-        grid-template-columns: 1fr;
-    }
-    .dashboard-header {
-        flex-direction: column;
-        gap: 12px;
-    }
-    .hero-alert-card {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .hero-alert-btn {
-        width: 100%;
-        justify-content: center;
-    }
-}
-
 </style>
 
-
-{{-- ===================================================== --}}
-{{-- DASHBOARD CHARTS JAVASCRIPT --}}
-{{-- ===================================================== --}}
+@push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-
-    // =====================================================
-    // RIS OVERVIEW METRIC CHARTS (reference-style)
-    // =====================================================
-
-    const trendLabels = {!! json_encode($risTrendLabels ?? []) !!};
-    const trendApproved = {!! json_encode($risTrendApproved ?? []) !!};
-    const trendForwarded = {!! json_encode($risTrendForwarded ?? []) !!};
-    const amountSeries = [
-        {{ (float) ($budgetPendingAmount ?? 0) }},
-        {{ (float) ($budgetAdminApprovedAmount ?? 0) }},
-        {{ (float) ($budgetPresidentApprovedAmount ?? 0) }},
-        {{ (float) ($budgetPresidentRejectedAmount ?? 0) }},
-        {{ (float) ($budgetProposalTotal ?? 0) }}
-    ];
-    const amountLabels = ['Pending', 'Admin', 'President', 'Rejected', 'Total'];
-
-    const chartDefaults = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+    window.openRisPreviewModal = function (risId) {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('risPreviewIframe');
+        if (!modal || !iframe) return;
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        iframe.src = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     };
 
-    function blueLine(ctx, data, labels, withPoints) {
-        if (!ctx || !labels.length) return;
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    borderColor: '#60a5fa',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2.25,
-                    tension: 0.4,
-                    pointRadius: withPoints ? 3 : 0,
-                    pointHoverRadius: 5,
-                    pointBackgroundColor: '#60a5fa',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    fill: false,
-                }]
-            },
-            options: {
-                ...chartDefaults,
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            display: !!withPoints,
-                            color: '#94a3b8',
-                            font: { size: 10 },
-                            maxRotation: 0,
-                        },
-                        border: { display: false },
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(148, 163, 184, 0.18)',
-                            drawBorder: false,
-                        },
-                        ticks: {
-                            display: !!withPoints,
-                            color: '#94a3b8',
-                            font: { size: 10 },
-                            padding: 6,
-                        },
-                        border: { display: false },
-                    },
-                },
-                interaction: { intersect: false, mode: 'index' },
-            }
-        });
-    }
+    window.closeRisPreviewModal = function () {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('risPreviewIframe');
+        if (iframe) iframe.src = 'about:blank';
+        if (modal) modal.classList.add('hidden');
+    };
 
-    function blueBars(ctx, data, labels) {
-        if (!ctx) return;
-        const g = ctx.getContext('2d').createLinearGradient(0, 0, 0, 120);
-        g.addColorStop(0, 'rgba(59, 130, 246, 0.95)');
-        g.addColorStop(1, 'rgba(59, 130, 246, 0.18)');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    backgroundColor: g,
-                    borderRadius: 10,
-                    borderSkipped: false,
-                    barPercentage: 0.55,
-                    categoryPercentage: 0.7,
-                }]
-            },
-            options: {
-                ...chartDefaults,
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0 },
-                        border: { display: false },
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(148, 163, 184, 0.18)', drawBorder: false },
-                        ticks: {
-                            color: '#94a3b8',
-                            font: { size: 10 },
-                            callback: function (v) {
-                                if (v >= 1000000) return (v / 1000000) + 'm';
-                                if (v >= 1000) return (v / 1000) + 'k';
-                                return v;
-                            }
-                        },
-                        border: { display: false },
-                    },
-                },
-            }
-        });
-    }
-
-    blueLine(document.getElementById('risProposedChart'), amountSeries, amountLabels, true);
-    blueLine(document.getElementById('risApprovedSpark'), trendApproved, trendLabels, false);
-    blueBars(document.getElementById('risPresidentSpark'), trendForwarded, trendLabels);
-    blueBars(document.getElementById('risPendingBars'), amountSeries.slice(0, 4), amountLabels.slice(0, 4));
-
-    // =====================================================
-    // RIS STATUS OVERVIEW (rounded bars)
-    // =====================================================
-
-    const statusCtx = document.getElementById('risStatusChart');
-    if (statusCtx) {
-        const statusData = {!! json_encode($risStatusChart['data'] ?? []) !!};
-        const statusLabels = {!! json_encode($risStatusChart['labels'] ?? []) !!};
-        const barGrad = statusCtx.getContext('2d').createLinearGradient(0, 0, 0, 140);
-        barGrad.addColorStop(0, 'rgba(59, 130, 246, 0.95)');
-        barGrad.addColorStop(1, 'rgba(59, 130, 246, 0.2)');
-        new Chart(statusCtx, {
-            type: 'bar',
-            data: {
-                labels: statusLabels.map(function (l) {
-                    return String(l).replace('Approved by the President', 'President')
-                        .replace('Rejected by the President', 'Rejected')
-                        .replace('Admin Approved', 'Admin');
-                }),
-                datasets: [{
-                    data: statusData,
-                    backgroundColor: barGrad,
-                    borderRadius: 12,
-                    borderSkipped: false,
-                    barPercentage: 0.6,
-                    categoryPercentage: 0.75,
-                }]
-            },
-            options: {
-                ...chartDefaults,
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 0 },
-                        border: { display: false },
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } },
-                        grid: { color: 'rgba(148, 163, 184, 0.16)', drawBorder: false },
-                        border: { display: false },
-                    },
-                },
-            }
-        });
-    }
-
-
-    // =====================================================
-    // MINI CALENDAR RENDER - REMOVED
-    // =====================================================
-
-
-    // =====================================================
-    // CALENDAR MONTH NAVIGATION
-    // =====================================================
-
-    (function() {
+    (function () {
         var prevBtn = document.getElementById('calPrevBtn');
         var nextBtn = document.getElementById('calNextBtn');
         var monthLabel = document.getElementById('calMonthLabel');
         var grid = document.getElementById('adminCalendarGrid');
         var upcoming = document.getElementById('adminCalendarUpcoming');
+        if (!grid || !monthLabel) return;
+
         var events = {!! json_encode(
             collect($calendarEvents ?? [])->map(function ($event) {
                 return [
@@ -3032,18 +1662,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
             });
         }
-
-        function canGoPrev() {
-            return monthIndex(view) > minMonthIndex;
-        }
-
+        function canGoPrev() { return monthIndex(view) > minMonthIndex; }
         function updateNavButtons() {
             if (!prevBtn) return;
             var allowed = canGoPrev();
             prevBtn.disabled = !allowed;
             prevBtn.title = allowed ? 'Previous month' : 'Cannot go back more than one month';
         }
-
         function eventsOn(dateKey) {
             return events.filter(function (e) { return e.date === dateKey; });
         }
@@ -3072,34 +1697,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 title = 'Latest activity';
             }
 
-            var list = '<h4 class="cal-upcoming-title">' + escapeHtml(title) + '</h4>';
+            var list = '<h3 class="admin-dash-cal-upcoming-title">' + escapeHtml(title) + '</h3>';
             if (!listEvents.length) {
-                list += '<div class="cal-upcoming-empty">' + (dateKey ? 'No events on this day' : 'No procurement dates this month') + '</div>';
+                list += '<p class="admin-dash-empty" style="padding:12px 0 !important;">'
+                    + (dateKey ? 'No events on this day' : 'No procurement dates this month')
+                    + '</p>';
             } else {
                 listEvents.forEach(function (e) {
                     var p = e.date.split('-');
                     var label = monthNames[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10) + ', ' + p[0];
                     var href = e.url || '/admin/procurement-review';
                     var highlight = dateKey ? ' is-highlighted' : '';
-                    list += '<div class="cal-upcoming-item' + highlight + '" data-event-date="' + escapeHtml(e.date) + '">';
-                    list += '<div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
-                    list += '<a href="' + escapeHtml(href) + '"><span class="cal-upcoming-name">' + escapeHtml(e.name) + '</span></a>';
-                    list += '<span class="cal-upcoming-date">' + escapeHtml(label) + '</span></div></div>';
+                    list += '<div class="admin-dash-cal-item' + highlight + '">';
+                    list += '<i class="admin-dash-cal-item-dot"></i><div>';
+                    list += '<a href="' + escapeHtml(href) + '"><p class="admin-dash-list-title">' + escapeHtml(e.name) + '</p></a>';
+                    list += '<p class="admin-dash-list-meta">' + escapeHtml(label) + '</p></div></div>';
                 });
             }
-
             if (totalCount > 0) {
-                list += '<a class="cal-view-all" href="' + escapeHtml(viewAllHref) + '">View all</a>';
+                list += '<a class="admin-dash-cal-all" href="' + escapeHtml(viewAllHref) + '">View all</a>';
             }
             if (totalCount > 3) {
-                list += '<p class="cal-view-all-hint">Showing 3 of ' + totalCount + (dateKey ? ' on this day' : '') + '</p>';
+                list += '<p class="admin-dash-cal-hint">Showing 3 of ' + totalCount + (dateKey ? ' on this day' : '') + '</p>';
             }
-
             upcoming.innerHTML = list;
         }
 
         function render() {
-            if (!grid || !monthLabel) return;
             var year = view.getFullYear();
             var month = view.getMonth();
             monthLabel.textContent = monthNames[month] + ' ' + year;
@@ -3110,24 +1734,25 @@ document.addEventListener('DOMContentLoaded', function() {
             var todayKey = ymd(new Date());
             var html = '';
             ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d) {
-                html += '<div class="cal-day-header">' + d + '</div>';
+                html += '<div class="admin-dash-cal-dow">' + d + '</div>';
             });
             var totalSlots = Math.ceil((startPad + lastDate) / 7) * 7;
             for (var i = 0; i < totalSlots; i++) {
                 var dayNum = i - startPad + 1;
                 if (dayNum < 1 || dayNum > lastDate) {
-                    html += '<div class="cal-day cal-day-empty"></div>';
+                    html += '<div class="admin-dash-cal-day is-empty"></div>';
                     continue;
                 }
                 var dateKey = year + '-' + pad(month + 1) + '-' + pad(dayNum);
                 var dayEvents = eventsOn(dateKey);
-                var cls = 'cal-day';
-                if (dateKey === todayKey) cls += ' cal-day-today';
-                if (dayEvents.length) cls += ' cal-day-has-event';
-                if (selectedDate === dateKey) cls += ' cal-day-selected';
-                html += '<div class="' + cls + '" data-date="' + dateKey + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
-                html += '<span class="cal-day-num">' + dayNum + '</span>';
-                if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
+                var cls = 'admin-dash-cal-day';
+                if (dateKey === todayKey) cls += ' is-today';
+                if (dayEvents.length) cls += ' has-event';
+                if (selectedDate === dateKey) cls += ' is-selected';
+                html += '<div class="' + cls + '" data-date="' + dateKey + '" title="'
+                    + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
+                html += '<span>' + dayNum + '</span>';
+                if (dayEvents.length) html += '<i class="admin-dash-cal-dot"></i>';
                 html += '</div>';
             }
             grid.innerHTML = html;
@@ -3135,21 +1760,19 @@ document.addEventListener('DOMContentLoaded', function() {
             updateNavButtons();
         }
 
-        if (grid) {
-            grid.addEventListener('click', function (e) {
-                var dayEl = e.target.closest('.cal-day[data-date]');
-                if (!dayEl || dayEl.classList.contains('cal-day-empty')) return;
-                var dateKey = dayEl.getAttribute('data-date');
-                if (!dateKey) return;
-                if (!eventsOn(dateKey).length) {
-                    selectedDate = null;
-                    render();
-                    return;
-                }
-                selectedDate = dateKey;
+        grid.addEventListener('click', function (e) {
+            var dayEl = e.target.closest('.admin-dash-cal-day[data-date]');
+            if (!dayEl || dayEl.classList.contains('is-empty')) return;
+            var dateKey = dayEl.getAttribute('data-date');
+            if (!dateKey) return;
+            if (!eventsOn(dateKey).length) {
+                selectedDate = null;
                 render();
-            });
-        }
+                return;
+            }
+            selectedDate = dateKey;
+            render();
+        });
 
         if (prevBtn && nextBtn) {
             prevBtn.addEventListener('click', function () {
@@ -3167,108 +1790,20 @@ document.addEventListener('DOMContentLoaded', function() {
         render();
     })();
 
-
-// =====================================================
-    // ACTIVITY LIST TOGGLE (Pending / Completed)
-    // =====================================================
-
-    const toggleBtn = document.getElementById('activityToggleBtn');
-    const completedSection = document.getElementById('completedActivities');
-
-    if (toggleBtn && completedSection) {
-        let expanded = false;
-
-        toggleBtn.addEventListener('click', function() {
+    (function () {
+        var toggleBtn = document.getElementById('activityToggleBtn');
+        var completedSection = document.getElementById('completedActivities');
+        if (!toggleBtn || !completedSection) return;
+        var expanded = false;
+        toggleBtn.addEventListener('click', function () {
             expanded = !expanded;
-
-            if (expanded) {
-                completedSection.style.display = 'block';
-                toggleBtn.textContent = 'Hide completed';
-            } else {
-                completedSection.style.display = 'none';
-                toggleBtn.textContent = 'Show completed';
+            completedSection.style.display = expanded ? 'block' : 'none';
+            toggleBtn.textContent = expanded ? 'Hide completed' : 'Show completed';
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
             }
         });
-    }
-
-
-    // =====================================================
-    // RIS PREVIEW MODAL
-    // =====================================================
-
-    window.openRisPreviewModal = function(risId) {
-        const modal = document.getElementById('risPreviewModal');
-        const iframe = document.getElementById('risPreviewIframe');
-
-        if (!modal || !iframe) return;
-
-        if (modal.parentElement !== document.body) {
-            document.body.appendChild(modal);
-        }
-
-        iframe.src = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
-        if (window.fillRisPreviewAttachments) {
-            window.fillRisPreviewAttachments(risId);
-        }
-        modal.classList.remove('hidden');
-        modal.style.display = 'block';
-        modal.style.zIndex = '11000';
-        document.body.style.overflow = 'hidden';
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            lucide.createIcons();
-        }
-        requestAnimationFrame(function () {
-            if (typeof window.scaleRisPreviewIframe === 'function') {
-                window.scaleRisPreviewIframe('risPreviewIframe');
-            }
-        });
-        iframe.onload = function () {
-            if (typeof window.scaleRisPreviewIframe === 'function') {
-                window.scaleRisPreviewIframe('risPreviewIframe');
-            }
-        };
-    };
-
-    window.openSignRisPreviewModal = function(risId) {
-        window.openRisPreviewModal(risId);
-    };
-    window.openSignatureHistoryPreviewModal = function(risId) {
-        window.openRisPreviewModal(risId);
-    };
-
-    window.printRisPreview = function() {
-        const iframe = document.getElementById('risPreviewIframe');
-        if (!iframe || !iframe.contentWindow) return;
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-    };
-
-    window.closeRisPreviewModal = function() {
-        const modal = document.getElementById('risPreviewModal');
-        const iframe = document.getElementById('risPreviewIframe');
-        if (iframe) iframe.src = 'about:blank';
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.style.display = '';
-        }
-        document.body.style.overflow = '';
-    };
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key !== 'Escape') return;
-        const risModal = document.getElementById('risPreviewModal');
-        if (risModal && !risModal.classList.contains('hidden')) {
-            closeRisPreviewModal();
-            return;
-        }
-        const reminder = document.getElementById('adminDailyReminderModal');
-        if (reminder && !reminder.classList.contains('hidden') && typeof dismissAdminDailyReminder === 'function') {
-            dismissAdminDailyReminder();
-        }
-    });
-
-});
+    })();
 </script>
-
+@endpush
 @endsection
-

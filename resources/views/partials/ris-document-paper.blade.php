@@ -14,7 +14,7 @@
         <div class="title">REQUISITION AND ISSUE SLIP</div>
         <div class="number">
             No.
-            <span class="line">{{ $ris->ris_form_number ?? $ris->ris_id }}</span>
+            <span class="line">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
         </div>
     </section>
 

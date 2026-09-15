@@ -15,7 +15,7 @@
     @if($lifecycleAlerts->isNotEmpty())
     <div class="rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4">
         <h2 class="text-sm font-bold text-amber-950">Lifecycle broadcasts</h2>
-        <p class="mt-1 text-xs text-amber-800">Equipment within 1 year of the {{ $usefulLifeYears }}-year replacement horizon (or already due).</p>
+        <p class="mt-1 text-xs text-amber-800">Equipment within 1 year of its useful lifespan (per-asset or default {{ $usefulLifeYears }} years), or already due for replacement.</p>
         <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             @foreach($lifecycleAlerts as $alert)
                 <div class="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm">

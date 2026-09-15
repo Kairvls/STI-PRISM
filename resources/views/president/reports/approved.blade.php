@@ -101,7 +101,7 @@
                     id="approvedSearch"
                     name="search"
                     value="{{ request('search') }}"
-                    placeholder="Search by Reference No., Purpose, or Status..."
+                    placeholder="Search by RIS Number, Purpose, or Status..."
                     class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
                     autocomplete="off"
                 />
@@ -119,7 +119,7 @@
             <table id="approvedTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
-                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
                         <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>

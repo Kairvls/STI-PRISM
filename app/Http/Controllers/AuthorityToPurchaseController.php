@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
+use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
@@ -173,11 +175,24 @@ class AuthorityToPurchaseController extends Controller
 
         foreach ($atps as $atp) {
             $atp->has_rfc = in_array((int) $atp->authority_purchase_id, $atpHasRfc, true);
+            $atp->purchase_order_id = PurchaseOrderBasket::poIdForAtp((int) $atp->authority_purchase_id);
+            if ($atp->purchase_order_id && PurchaseOrderBasket::tablesExist()) {
+                $po = DB::table('purchase_orders_table')
+                    ->where('purchase_order_id', $atp->purchase_order_id)
+                    ->first();
+                $atp->purchase_order_label = $po
+                    ? PurchaseOrderBasket::displayNumber($po)
+                    : null;
+                $atp->purchase_order_status = $po->purchase_order_status ?? null;
+            } else {
+                $atp->purchase_order_label = null;
+                $atp->purchase_order_status = null;
+            }
         }
 
         $risPrefill = $this->buildRisPrefill($eligibleRis);
         $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
-        $suggestedAtpFormNumber = $this->nextSuggestedAtpFormNumber();
+        $suggestedAtpFormNumber = AtpFormNumber::next();
 
         return view(
             'purchaser.authority-to-purchase.index',
@@ -246,7 +261,7 @@ class AuthorityToPurchaseController extends Controller
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
-            'authority_purchase_form_number.digits' => 'ATP number must be exactly 4 digits.',
+            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
             'authority_purchase_ris_id.required' => 'Select an approved RIS before submitting.',
         ]);
@@ -289,7 +304,7 @@ class AuthorityToPurchaseController extends Controller
 
             $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
                 ? (string) $validated['authority_purchase_form_number']
-                : $this->nextSuggestedAtpFormNumber();
+                : AtpFormNumber::next();
 
             $payload = [
                 'authority_purchase_ris_id' => $risId,
@@ -314,7 +329,9 @@ class AuthorityToPurchaseController extends Controller
 
             $this->replaceAtpItems($authorityPurchaseId, $items);
 
-            if (!$isDraft) {
+            if ($isDraft) {
+                PurchaseOrderBasket::attachAtp((int) $authorityPurchaseId, (int) auth()->id());
+            } else {
                 $this->notifyAccountingAtp($authorityPurchaseId, $formNumber);
             }
 
@@ -448,7 +465,7 @@ class AuthorityToPurchaseController extends Controller
             'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
-            'authority_purchase_form_number.digits' => 'ATP number must be exactly 4 digits.',
+            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
         ]);
 
@@ -470,8 +487,8 @@ class AuthorityToPurchaseController extends Controller
 
             $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
                 ? (string) $validated['authority_purchase_form_number']
-                : ($this->normalizeAtpFormNumberForEdit($atp->authority_purchase_form_number ?? null)
-                    ?: $this->nextSuggestedAtpFormNumber());
+                : (AtpFormNumber::normalizeForEdit($atp->authority_purchase_form_number ?? null)
+                    ?: AtpFormNumber::next());
 
             $payload = [
                 'authority_purchase_form_number' => $formNumber,
@@ -500,6 +517,9 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($id, $items);
 
             if (!$isDraft) {
+                if (PurchaseOrderBasket::poIdForAtp((int) $id)) {
+                    return back()->with('error', 'This ATP is on a Purchase Order. Submit it from Purchase Orders instead.');
+                }
                 $this->notifyAccountingAtp($id, $formNumber);
             }
 
@@ -531,6 +551,13 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Only draft ATP records can be submitted.');
             }
 
+            $linkedPoId = PurchaseOrderBasket::poIdForAtp((int) $id);
+            if ($linkedPoId) {
+                return redirect()
+                    ->route(ProcurementPortal::routeName('purchase-orders.index'), ['edit_po' => $linkedPoId])
+                    ->with('error', 'This ATP is on a Purchase Order. Submit the Purchase Order to Accounting instead.');
+            }
+
             if (blank($atp->authority_purchase_supplier_id)) {
                 return back()->with('error', 'Supplier is required before submitting.');
             }
@@ -539,8 +566,8 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
-            if (blank($atp->authority_purchase_form_number) || !preg_match('/^\d{4}$/', (string) $atp->authority_purchase_form_number)) {
-                return back()->with('error', 'ATP number must be exactly 4 digits before submitting.');
+            if (! AtpFormNumber::isValid($atp->authority_purchase_form_number ?? null)) {
+                return back()->with('error', 'ATP number must follow the format ATP-YYYYMM-0001 before submitting.');
             }
 
             if (blank($atp->authority_purchase_received_by_name)) {
@@ -1056,70 +1083,11 @@ class AuthorityToPurchaseController extends Controller
 
         return [
             $required ? 'required' : 'nullable',
-            'digits:4',
+            'string',
+            'max:30',
+            'regex:'.AtpFormNumber::FORM_NUMBER_REGEX,
             $unique,
         ];
-    }
-
-    /**
-     * Next editable default for the ATP "No." field (4 zero-padded digits).
-     * Considers both new 4-digit values and legacy ATP-YYYY-##### numbers.
-     */
-    private function nextSuggestedAtpFormNumber(): string
-    {
-        $max = 0;
-
-        foreach (
-            DB::table('authority_to_purchase_table')
-                ->whereNotNull('authority_purchase_form_number')
-                ->pluck('authority_purchase_form_number') as $formNumber
-        ) {
-            $parsed = $this->parseAtpFormNumberSequence((string) $formNumber);
-            if ($parsed !== null) {
-                $max = max($max, $parsed);
-            }
-        }
-
-        $next = min($max + 1, 9999);
-
-        return str_pad((string) $next, 4, '0', STR_PAD_LEFT);
-    }
-
-    private function parseAtpFormNumberSequence(string $formNumber): ?int
-    {
-        $formNumber = trim($formNumber);
-        if ($formNumber === '') {
-            return null;
-        }
-
-        if (preg_match('/^\d{1,4}$/', $formNumber)) {
-            return (int) $formNumber;
-        }
-
-        if (preg_match('/(\d+)$/', $formNumber, $matches)) {
-            $n = (int) $matches[1];
-
-            return $n > 9999 ? (int) substr((string) $n, -4) : $n;
-        }
-
-        return null;
-    }
-
-    private function normalizeAtpFormNumberForEdit(?string $formNumber): string
-    {
-        if ($formNumber === null || trim($formNumber) === '') {
-            return '';
-        }
-
-        if (preg_match('/^\d{4}$/', trim($formNumber))) {
-            return trim($formNumber);
-        }
-
-        $parsed = $this->parseAtpFormNumberSequence($formNumber);
-
-        return $parsed === null
-            ? ''
-            : str_pad((string) $parsed, 4, '0', STR_PAD_LEFT);
     }
 
     private function risIsEligibleForAtp(object $ris): bool

@@ -5,7 +5,7 @@
     }
     .prism-swal.swal2-popup {
         width: min(28rem, calc(100vw - 2rem)) !important;
-        padding: 1.25rem 1.35rem 1.15rem !important;
+        padding: 1rem 1.2rem !important;
         border-radius: 0.85rem !important;
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
@@ -18,12 +18,12 @@
         font-weight: 500 !important;
         line-height: 1.5 !important;
         padding: 0 !important;
-        margin: 0 0 1rem !important;
+        margin: 0 !important;
         color: #0f172a !important;
         text-align: left !important;
     }
     .prism-swal .swal2-html-container {
-        margin: 0 0 1rem !important;
+        margin: 0.55rem 0 0 !important;
         padding: 0 !important;
         font-size: 0.875rem !important;
         line-height: 1.5 !important;
@@ -31,9 +31,10 @@
         text-align: left !important;
     }
     .prism-swal .swal2-actions {
-        margin: 0 !important;
-        justify-content: flex-end !important;
-        width: 100%;
+        display: none !important;
+    }
+    .prism-swal .swal2-timer-progress-bar {
+        background: #0025cc !important;
     }
     .prism-swal-list {
         margin: 0;
@@ -41,20 +42,6 @@
         list-style: none;
     }
     .prism-swal-list li + li { margin-top: 0.3rem; }
-    .prism-swal-btn {
-        min-width: 4.5rem;
-        border: 0;
-        border-radius: 0.55rem;
-        padding: 0.5rem 1.15rem;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        cursor: pointer;
-        background: #0025cc !important;
-        color: #fff !important;
-    }
-    .prism-swal-btn:hover {
-        background: #001fa8 !important;
-    }
     .prism-swal--ok,
     .prism-swal--err {
         background: #ffffff !important;
@@ -73,12 +60,15 @@
 
         const flashOpts = {
             icon: false,
-            confirmButtonText: 'OK',
+            toast: true,
+            position: 'top',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
             buttonsStyling: false,
-            backdrop: 'rgba(15, 23, 42, 0.28)',
+            backdrop: false,
             customClass: {
                 container: 'prism-swal-container',
-                confirmButton: 'prism-swal-btn',
             },
         };
 
@@ -92,6 +82,7 @@
         @elseif(session('error'))
             Swal.fire(Object.assign({}, flashOpts, {
                 title: @json(session('error')),
+                timer: 4000,
                 customClass: Object.assign({}, flashOpts.customClass, {
                     popup: 'prism-swal prism-swal--err',
                 }),
@@ -100,6 +91,7 @@
             Swal.fire(Object.assign({}, flashOpts, {
                 title: 'Please check the form',
                 html: @json('<ul class="prism-swal-list">'.collect($errors->all())->unique()->map(fn ($error) => '<li>'.e($error).'</li>')->implode('').'</ul>'),
+                timer: 4000,
                 customClass: Object.assign({}, flashOpts.customClass, {
                     popup: 'prism-swal prism-swal--err',
                 }),

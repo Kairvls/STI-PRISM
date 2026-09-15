@@ -8,6 +8,7 @@
             $moduleHeading = match (true) {
                 request()->is('accounting/dashboard') => ['Dashboard', 'Overview of Accounting workload and queues.'],
                 request()->is('accounting/authority-to-purchase*') => ['Authority to Purchase', 'Review ATP submitted by Purchaser.'],
+                request()->is('accounting/purchase-orders*') => ['Purchase Orders', 'Review bundled ATPs submitted by Purchaser.'],
                 request()->is('accounting/request-check*') => ['Request Checks', 'Review RFCs and release funds.'],
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents.'],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', 'Processed Accounting records.'],

@@ -17,6 +17,122 @@ class RisWorkflow
     public const APPROVED_LEGACY = 'Approved';
     public const REQUEST_TYPE_REPLACEMENT = 'Replacement Procurement';
     public const REQUEST_TYPE_NEW = 'New Procurement';
+    public const URGENCY_URGENT = 'Urgent';
+    public const URGENCY_NON_URGENT = 'Non-Urgent';
+
+    /** RIS No. pattern: RIS-YYYYMM-0000001 */
+    public const FORM_NUMBER_REGEX = '/^RIS-\d{6}-\d{7}$/';
+
+    public static function urgencyOptions(): array
+    {
+        return [self::URGENCY_NON_URGENT, self::URGENCY_URGENT];
+    }
+
+    public static function normalizeUrgency(?string $value): string
+    {
+        $value = trim((string) $value);
+
+        return $value === self::URGENCY_URGENT
+            ? self::URGENCY_URGENT
+            : self::URGENCY_NON_URGENT;
+    }
+
+    public static function urgencyLabel(?object $ris = null, ?string $value = null): string
+    {
+        $raw = $value ?? (string) ($ris->ris_urgency ?? '');
+
+        return self::normalizeUrgency($raw);
+    }
+
+    public static function isUrgent(?object $ris = null, ?string $value = null): bool
+    {
+        return self::urgencyLabel($ris, $value) === self::URGENCY_URGENT;
+    }
+
+    /**
+     * Display / stored RIS "No." value (RIS-YYYYMM-0000001).
+     * Prefers the saved form number; otherwise builds a display fallback from id + month.
+     *
+     * @param  object|string|null  $risOrNumber
+     */
+    public static function formNumber($risOrNumber = null, ?int $risId = null, $createdAt = null): string
+    {
+        if (is_string($risOrNumber)) {
+            $stored = trim($risOrNumber);
+            if ($stored !== '') {
+                return $stored;
+            }
+        } elseif (is_object($risOrNumber)) {
+            $stored = trim((string) ($risOrNumber->ris_form_number ?? ''));
+            if ($stored !== '') {
+                return $stored;
+            }
+            // Drafts intentionally have no RIS No. until submitted.
+            if ((string) ($risOrNumber->ris_status ?? '') === 'Draft') {
+                return '';
+            }
+            $risId = $risId ?? (int) ($risOrNumber->ris_id ?? 0);
+            $createdAt = $createdAt ?? ($risOrNumber->ris_created_at ?? null);
+        }
+
+        $id = (int) ($risId ?? 0);
+        $ym = now()->format('Ym');
+        if (! empty($createdAt)) {
+            try {
+                $ym = \Carbon\Carbon::parse($createdAt)->format('Ym');
+            } catch (\Throwable $e) {
+                // keep current month
+            }
+        }
+
+        if ($id > 0) {
+            return 'RIS-'.$ym.'-'.str_pad((string) min($id, 9999999), 7, '0', STR_PAD_LEFT);
+        }
+
+        return '';
+    }
+
+    public static function isValidFormNumber(?string $value): bool
+    {
+        return is_string($value) && (bool) preg_match(self::FORM_NUMBER_REGEX, trim($value));
+    }
+
+    /** Next RIS No. for the current year-month (submitted / non-draft only). */
+    public static function nextFormNumber(): string
+    {
+        $ym = now()->format('Ym');
+        $prefix = 'RIS-'.$ym.'-';
+        $max = 0;
+
+        if (Schema::hasTable('requisition_issue_slip_table')
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_form_number')) {
+            $query = DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_form_number')
+                ->where('ris_form_number', 'like', $prefix.'%')
+                ->where(function ($q) {
+                    $q->whereNull('ris_status')
+                        ->orWhere('ris_status', '!=', 'Draft');
+                });
+
+            foreach ($query->pluck('ris_form_number') as $formNumber) {
+                if (preg_match('/^RIS-'.preg_quote($ym, '/').'-(\d{7})$/', (string) $formNumber, $matches)) {
+                    $max = max($max, (int) $matches[1]);
+                }
+            }
+        }
+
+        $next = min($max + 1, 9999999);
+
+        return $prefix.str_pad((string) $next, 7, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Assign the next RIS No. Call inside a DB transaction with a locked row when possible.
+     */
+    public static function allocateFormNumberOnSubmit(): string
+    {
+        return self::nextFormNumber();
+    }
 
     /** Purchaser-submitted RIS waiting for Admin accept on Procurement Requests. */
     public static function incomingStatuses(): array
@@ -581,6 +697,11 @@ class RisWorkflow
 
     public static function equipmentLabel(object $source): string
     {
+        $lines = collect($source->line_items ?? []);
+        if ($lines->isNotEmpty()) {
+            return \App\Support\ReplacementRequestBasket::summaryLabel($lines, $source);
+        }
+
         $name = trim((string) ($source->equipment_name ?? ''));
         if ($name !== '') {
             return $name;
@@ -593,6 +714,31 @@ class RisWorkflow
 
     public static function replacementPurpose(object $source): string
     {
+        $lines = collect($source->line_items ?? []);
+        if ($lines->isEmpty() && isset($source->procurement_request_id)) {
+            $lines = \App\Support\ReplacementRequestBasket::itemsForRequest((int) $source->procurement_request_id);
+        }
+
+        if ($lines->isNotEmpty()) {
+            $parts = $lines->map(function ($line) {
+                $name = \App\Support\ReplacementRequestBasket::displayName($line);
+                $room = trim((string) ($line->room_name ?? ''));
+
+                return $room !== '' ? $name.' in '.$room : $name;
+            })->filter()->unique()->values();
+
+            $purpose = 'Replacement of '.$parts->implode(', ');
+            $reason = trim((string) ($source->report_replacement_notes ?? ''));
+            if ($reason === '') {
+                $reason = trim((string) ($lines->first()->replacement_notes ?? $source->report_problem_description ?? ''));
+            }
+            if ($reason !== '') {
+                $purpose .= '. Reason: '.$reason;
+            }
+
+            return $purpose;
+        }
+
         $purpose = 'Replacement of ' . self::equipmentLabel($source);
         $room = trim((string) ($source->room_name ?? ''));
         if ($room !== '') {

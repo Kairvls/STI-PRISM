@@ -4,7 +4,7 @@
 @endphp
 @forelse ($records as $row)
     @php
-        $reference = $row->ris_form_number ?? ('RIS #' . $row->ris_id);
+        $reference = \App\Support\RisWorkflow::formNumber($row);
         $decisionDate = $row->decided_at ?? $row->ris_created_at ?? null;
         $remarks = $row->remarks ?? null;
         $risId = $row->ris_id ?? null;

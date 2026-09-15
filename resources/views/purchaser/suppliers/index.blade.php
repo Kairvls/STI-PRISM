@@ -319,7 +319,7 @@
                             x-cloak
                             x-show="openModal === 'supplier-{{ $supplier->supplier_id }}'"
                             x-on:keydown.escape.window="if (openModal === 'supplier-{{ $supplier->supplier_id }}') openModal = null"
-                            class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-[2px] md:p-8"
+                            class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-[2px] md:p-8"
                             role="dialog"
                             aria-modal="true"
                         >
@@ -482,7 +482,7 @@
                             x-cloak
                             x-show="editModal === 'edit-{{ $supplier->supplier_id }}'"
                             x-on:keydown.escape.window="if (editModal === 'edit-{{ $supplier->supplier_id }}') editModal = null"
-                            class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-[2px] md:p-8"
+                            class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-[2px] md:p-8"
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="edit-supplier-title-{{ $supplier->supplier_id }}"
@@ -664,13 +664,14 @@
 
 
     {{-- ADD SUPPLIER MODAL --}}
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="addSupplierModal"
         x-transition.opacity
         x-effect="if (addSupplierModal) { $nextTick(() => { const phone = document.getElementById('supplier-contact-number'); if (phone && window.refreshPrismPhoneInput) window.refreshPrismPhoneInput(phone); }); }"
         x-on:keydown.escape.window="addSupplierModal = false"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-supplier-title"
@@ -959,6 +960,7 @@
             </div>
         </div>
     </div>
+    </template>
 
 </div>
 @endsection

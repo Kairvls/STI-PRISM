@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPortal;
 
 class BrandController extends Controller
@@ -14,18 +15,61 @@ class BrandController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'brand_name' => ['required', 'string', 'max:150', 'unique:brands_table,brand_name'],
-            'brand_status' => ['required', 'in:Active,Inactive'],
+            'items' => ['required', 'array', 'min:1', 'max:20'],
+            'items.*.brand_name' => ['required', 'string', 'max:150'],
+            'items.*.brand_status' => ['required', 'in:Active,Inactive'],
         ]);
 
-        Brand::create([
-            'brand_name' => trim($validated['brand_name']),
-            'brand_status' => $validated['brand_status'],
-            'brand_created_at' => now(),
-            'brand_updated_at' => now(),
-        ]);
+        $names = collect($validated['items'])
+            ->map(fn ($row) => mb_strtolower(trim((string) ($row['brand_name'] ?? ''))))
+            ->filter()
+            ->values();
 
-        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand created successfully.');
+        if ($names->count() !== $names->unique()->count()) {
+            throw ValidationException::withMessages([
+                'items' => 'Duplicate brand names in this form. Each name must be unique.',
+            ]);
+        }
+
+        $existing = Brand::query()
+            ->where(function ($q) use ($names) {
+                foreach ($names as $name) {
+                    $q->orWhereRaw('LOWER(brand_name) = ?', [$name]);
+                }
+            })
+            ->pluck('brand_name');
+
+        if ($existing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'items' => 'These brands already exist: '.$existing->implode(', '),
+            ]);
+        }
+
+        $now = now();
+        $created = 0;
+
+        DB::transaction(function () use ($validated, $now, &$created) {
+            foreach ($validated['items'] as $row) {
+                $name = trim((string) $row['brand_name']);
+                if ($name === '') {
+                    continue;
+                }
+
+                Brand::create([
+                    'brand_name' => $name,
+                    'brand_status' => $row['brand_status'],
+                    'brand_created_at' => $now,
+                    'brand_updated_at' => $now,
+                ]);
+                $created++;
+            }
+        });
+
+        $message = $created === 1
+            ? 'Brand created successfully.'
+            : $created.' brands created successfully.';
+
+        return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands'])->with('success', $message);
     }
 
     public function update(Request $request, $brandId)

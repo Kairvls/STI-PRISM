@@ -110,6 +110,12 @@ class LiquidationReportController extends Controller
             $this->storeAttachments($request, $id);
 
             if (!$isDraft) {
+                $cashError = $this->assertCashReturnedWhenBalancePositive($id, $validated);
+                if ($cashError) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'liquidation_report_cash_returned_or_no' => $cashError,
+                    ]);
+                }
                 $this->notifyAccountingLiq($id);
             }
 
@@ -150,6 +156,12 @@ class LiquidationReportController extends Controller
             $this->storeAttachments($request, $id);
 
             if (!$isDraft) {
+                $cashError = $this->assertCashReturnedWhenBalancePositive($id, $validated);
+                if ($cashError) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'liquidation_report_cash_returned_or_no' => $cashError,
+                    ]);
+                }
                 $this->notifyAccountingLiq($id);
             }
 
@@ -183,6 +195,13 @@ class LiquidationReportController extends Controller
 
             if (!$this->hasCompleteLiqItem($id)) {
                 return back()->with('error', 'Add at least one expense line before submitting.');
+            }
+
+            $cashError = $this->assertCashReturnedWhenBalancePositive($id, [
+                'liquidation_report_cash_returned_or_no' => $liq->liquidation_report_cash_returned_or_no ?? null,
+            ]);
+            if ($cashError) {
+                return back()->with('error', $cashError);
             }
 
             $wasRevision = $liq->liquidation_report_status === 'Minor Revision';
@@ -421,6 +440,30 @@ class LiquidationReportController extends Controller
         ]);
     }
 
+    /**
+     * When unused cash remains after short/bad delivery, require OR# / cash-returned evidence.
+     */
+    private function assertCashReturnedWhenBalancePositive($id, array $validated): ?string
+    {
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        if (! $liq) {
+            return null;
+        }
+
+        $balance = (float) ($liq->liquidation_report_summary_balance ?? 0);
+        if ($balance <= 0.009) {
+            return null;
+        }
+
+        if (blank($validated['liquidation_report_cash_returned_or_no'] ?? null)
+            && blank($liq->liquidation_report_cash_returned_or_no ?? null)
+        ) {
+            return 'Unused cash is ₱'.number_format($balance, 2).'. Enter Cash Returned Under OR# before submitting (short/bad order on the Receiving Report).';
+        }
+
+        return null;
+    }
+
     private function daysLapsed($deadline, $submitted): ?int
     {
         if (!$deadline || !$submitted) {
@@ -552,22 +595,49 @@ class LiquidationReportController extends Controller
             $rows = [];
             $source = $rrItems[$rr->receiving_report_id] ?? collect();
             $atp = $atpItems[$rr->authority_purchase_id] ?? collect();
+            $shortfall = 0.0;
+            $notes = [];
+
             foreach ($source->values() as $i => $item) {
                 $atpRow = $atp[$i] ?? null;
-                $amount = $atpRow->atp_amount ?? null;
+                $orderedQty = (int) ($item->receiving_report_item_ordered_qty ?? $atpRow->atp_quantity ?? 0);
+                $receivedQty = (int) ($item->receiving_report_item_quantity ?? 0);
+                $unitPrice = (float) ($item->receiving_report_item_unit_price ?? $atpRow->atp_unit_price ?? 0);
+                $condition = strtolower((string) ($item->receiving_report_item_condition ?? 'ok'));
+                $budgetAmount = $atpRow->atp_amount ?? ($orderedQty * $unitPrice);
+                $actualAmount = $receivedQty * $unitPrice;
+
+                if ($condition === 'bad_order') {
+                    $actualAmount = 0;
+                    $shortfall += (float) $budgetAmount;
+                    $notes[] = ($item->receiving_report_item_article ?: 'Item').' marked Bad Order';
+                } elseif ($condition === 'short' || ($orderedQty > 0 && $receivedQty < $orderedQty)) {
+                    $missing = max(0, $orderedQty - $receivedQty);
+                    $shortfall += $missing * $unitPrice;
+                    $notes[] = ($item->receiving_report_item_article ?: 'Item').' short by '.$missing;
+                }
+
                 $article = $item->receiving_report_item_article;
                 $rows[] = [
                     'particulars' => $article,
-                    'amount' => $amount,
-                    'actual_amount' => $amount,
-                    'actual_total' => $amount,
+                    'amount' => $budgetAmount,
+                    'actual_amount' => $actualAmount,
+                    'actual_total' => $actualAmount,
                     'ref_no' => '',
                 ];
             }
+
+            $cashHint = $shortfall > 0
+                ? 'Return unused cash ₱'.number_format($shortfall, 2).' (short/bad order)'
+                : '';
+
             $prefill[(string) $rr->receiving_report_id] = [
                 'purpose' => $rr->request_check_particulars_purpose ?? '',
                 'amount' => $rr->request_check_amount_figures ?? '',
                 'items' => $rows,
+                'shortfall_amount' => round($shortfall, 2),
+                'shortfall_notes' => $notes,
+                'cash_returned_hint' => $cashHint,
             ];
         }
 

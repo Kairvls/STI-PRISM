@@ -59,6 +59,20 @@
                 if (aa) aa.value = item.actual_amount ?? '';
                 if (at) at.value = item.actual_total ?? '';
             }
+            const hintEl = form.querySelector('[data-cash-returned-hint]');
+            const cashInput = form.querySelector('[data-cash-returned-input]');
+            const hint = data.cash_returned_hint || '';
+            if (hintEl) {
+                hintEl.textContent = hint;
+                hintEl.classList.toggle('hidden', !hint);
+            }
+            if (cashInput && hint) {
+                cashInput.placeholder = hint;
+                cashInput.classList.add('ring-1', 'ring-amber-400');
+            } else if (cashInput) {
+                cashInput.placeholder = 'Required when unused cash remains';
+                cashInput.classList.remove('ring-1', 'ring-amber-400');
+            }
         },
         printLiq(id) {
             const sheetId = id === 'blank' ? 'liq-print-blank' : ('liq-print-' + id);

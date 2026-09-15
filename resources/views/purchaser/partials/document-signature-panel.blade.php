@@ -153,6 +153,13 @@
 
 <script>
 (function () {
+    ['purDocSignPadModal', 'purDocNameSigModal', 'purDocDeleteSigModal'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.parentElement !== document.body) {
+            document.body.appendChild(el);
+        }
+    });
+
     var sigHidden = null;
     var nameInput = null;
     var linePreview = null;

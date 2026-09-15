@@ -116,20 +116,25 @@
                 <span class="w-44 shrink-0">Balance:</span>
                 <span>{{ $fmt($liq?->liquidation_report_summary_balance ?? null) }}</span>
             </div>
-            <div class="flex min-w-[18rem] flex-1 items-end gap-3">
-                <span class="shrink-0 font-medium">Cash Returned Under OR#:</span>
-                @if($editable)
-                    <input
-                        type="text"
-                        name="liquidation_report_cash_returned_or_no"
-                        value="{{ old('liquidation_report_cash_returned_or_no', $liq?->liquidation_report_cash_returned_or_no ?? '') }}"
-                        class="h-8 min-h-[2rem] max-w-xs flex-1 border-0 border-b border-black bg-transparent outline-none"
-                    >
-                @else
-                    <span class="min-h-[2rem] min-w-[8rem] max-w-xs flex-1 border-b border-black pb-0.5 leading-8">
-                        {{ $liq?->liquidation_report_cash_returned_or_no ?? '' }}
-                    </span>
-                @endif
+            <div class="flex min-w-[18rem] flex-1 flex-col gap-1">
+                <div class="flex items-end gap-3">
+                    <span class="shrink-0 font-medium">Cash Returned Under OR#:</span>
+                    @if($editable)
+                        <input
+                            type="text"
+                            name="liquidation_report_cash_returned_or_no"
+                            value="{{ old('liquidation_report_cash_returned_or_no', $liq?->liquidation_report_cash_returned_or_no ?? '') }}"
+                            class="h-8 min-h-[2rem] max-w-xs flex-1 border-0 border-b border-black bg-transparent outline-none"
+                            placeholder="Required when unused cash remains"
+                            data-cash-returned-input
+                        >
+                    @else
+                        <span class="min-h-[2rem] min-w-[8rem] max-w-xs flex-1 border-b border-black pb-0.5 leading-8">
+                            {{ $liq?->liquidation_report_cash_returned_or_no ?? '' }}
+                        </span>
+                    @endif
+                </div>
+                <p class="hidden text-[10px] text-amber-800" data-cash-returned-hint></p>
             </div>
         </div>
     </div>

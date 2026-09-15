@@ -91,11 +91,17 @@ class AdminController extends Controller
         $presidentApprovedAmount = 0;
         $presidentRejectedAmount = 0;
         $budgetProposalYear = (int) now()->format('Y');
+        $requestedBudgetYear = (int) $request->query('budget_year', $budgetProposalYear);
+        if ($requestedBudgetYear >= 2000 && $requestedBudgetYear <= ((int) now()->format('Y') + 1)) {
+            $budgetProposalYear = $requestedBudgetYear;
+        }
         $budgetProposalTotal = 0;
         $budgetPendingAmount = 0;
         $budgetAdminApprovedAmount = 0;
         $budgetPresidentApprovedAmount = 0;
         $budgetPresidentRejectedAmount = 0;
+        $budgetProposalYears = collect([(int) now()->format('Y')]);
+        $budgetProposalRisCount = 0;
 
         try {
             $baseRIS = DB::table('requisition_issue_slip_table')
@@ -177,6 +183,32 @@ class AdminController extends Controller
                 ->whereYear('ris_requested_by_date', $budgetProposalYear)
                 ->sum('ris_items_sum.ris_calculated_total');
         } catch (\Throwable $e) { $budgetProposalTotal = 0; }
+
+        try {
+            $budgetProposalRisCount = (int) DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_requested_by_date')
+                ->whereYear('ris_requested_by_date', $budgetProposalYear)
+                ->count();
+        } catch (\Throwable $e) { $budgetProposalRisCount = 0; }
+
+        try {
+            $yearsFromRis = DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_requested_by_date')
+                ->selectRaw('DISTINCT YEAR(ris_requested_by_date) as budget_year')
+                ->orderByDesc('budget_year')
+                ->pluck('budget_year')
+                ->map(fn ($year) => (int) $year)
+                ->filter(fn ($year) => $year >= 2000)
+                ->values();
+            $budgetProposalYears = $yearsFromRis
+                ->push((int) now()->format('Y'))
+                ->push($budgetProposalYear)
+                ->unique()
+                ->sortDesc()
+                ->values();
+        } catch (\Throwable $e) {
+            $budgetProposalYears = collect([(int) now()->format('Y'), $budgetProposalYear])->unique()->sortDesc()->values();
+        }
 
         $yearAmountBase = function () use ($itemsJoin, $budgetProposalYear) {
             return DB::table('requisition_issue_slip_table')
@@ -383,7 +415,7 @@ class AdminController extends Controller
                 ->get()
                 ->map(function ($log) {
                     $log->is_pending = true;
-                    $formNo = $log->ris_form_number ? 'RIS #' . $log->ris_form_number : 'RIS';
+                    $formNo = RisWorkflow::formNumber($log) ?: 'RIS';
                     $log->title = $log->status . ' — ' . $formNo;
                     if (empty($log->description)) {
                         $log->description = 'Awaiting admin review';
@@ -624,13 +656,16 @@ class AdminController extends Controller
                 $overview['for_replacement'] = DB::table('equipment_table')
                     ->where('equipment_inventory_status', 'For Replacement')
                     ->count();
+                $lifeExpr = Schema::hasColumn('equipment_table', 'equipment_useful_life_years')
+                    ? 'COALESCE(equipment_useful_life_years, 5)'
+                    : '5';
                 $overview['lifecycle_alerts'] = DB::table('equipment_table')
                     ->whereRaw('COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at) IS NOT NULL')
                     ->where(function ($q) {
                         $q->whereNull('equipment_inventory_status')
                             ->orWhereNotIn('equipment_inventory_status', ['Disposed']);
                     })
-                    ->whereRaw('(5 - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) <= 1')
+                    ->whereRaw("({$lifeExpr} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) <= 1")
                     ->count();
             }
         } catch (\Throwable $e) {
@@ -900,6 +935,105 @@ class AdminController extends Controller
             + (int) $overview['overdue_schedules']
             + (int) $overview['overdue_borrows'];
 
+        $lifecycleAlerts = collect();
+        $usefulLifeYears = 5;
+        try {
+            if (Schema::hasTable('equipment_table')) {
+                $lifeExpr = Schema::hasColumn('equipment_table', 'equipment_useful_life_years')
+                    ? 'COALESCE(equipment_useful_life_years, 5)'
+                    : '5';
+                $lifecycleAlerts = DB::table('equipment_table')
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
+                    ->whereRaw('COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at) IS NOT NULL')
+                    ->where(function ($q) {
+                        $q->whereNull('equipment_inventory_status')
+                            ->orWhereNotIn('equipment_inventory_status', ['Disposed']);
+                    })
+                    ->select(
+                        'equipment_table.equipment_id',
+                        'equipment_table.equipment_name',
+                        'equipment_table.equipment_inventory_status',
+                        'rooms_table.room_name',
+                        DB::raw("{$lifeExpr} as useful_life_years"),
+                        DB::raw('TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE()) as age_years'),
+                        DB::raw("({$lifeExpr} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) as years_remaining")
+                    )
+                    ->havingRaw('years_remaining <= 1')
+                    ->orderBy('years_remaining')
+                    ->limit(6)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $lifecycleAlerts = collect();
+        }
+
+        $upcomingMaintenanceSchedules = collect();
+        try {
+            if (Schema::hasTable('maintenance_schedules_table')) {
+                $horizon = now()->addDays(14)->toDateString();
+                $upcomingMaintenanceSchedules = DB::table('maintenance_schedules_table')
+                    ->leftJoin(
+                        'equipment_table',
+                        'equipment_table.equipment_id',
+                        '=',
+                        'maintenance_schedules_table.maintenance_schedule_equipment_id'
+                    )
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
+                    ->where(function ($q) use ($horizon) {
+                        $q->where('maintenance_schedule_status', 'Overdue')
+                            ->orWhere(function ($q2) use ($horizon) {
+                                $q2->where('maintenance_schedule_status', 'Active')
+                                    ->whereDate('maintenance_schedule_next_date', '<=', $horizon);
+                            });
+                    })
+                    ->whereNotNull('maintenance_schedule_next_date')
+                    ->select(
+                        'maintenance_schedules_table.maintenance_schedule_id',
+                        'maintenance_schedules_table.maintenance_schedule_title',
+                        'maintenance_schedules_table.maintenance_schedule_next_date',
+                        'maintenance_schedules_table.maintenance_schedule_status',
+                        'maintenance_schedules_table.maintenance_schedule_frequency',
+                        'equipment_table.equipment_name',
+                        'rooms_table.room_name'
+                    )
+                    ->orderByRaw("CASE
+                        WHEN maintenance_schedule_status = 'Overdue' OR maintenance_schedule_next_date < CURDATE() THEN 0
+                        ELSE 1
+                    END")
+                    ->orderBy('maintenance_schedule_next_date')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $upcomingMaintenanceSchedules = collect();
+        }
+
+        $overdueBorrowsPreview = collect();
+        try {
+            if (Schema::hasTable('borrowing_records_table')) {
+                $overdueBorrowsPreview = DB::table('borrowing_records_table')
+                    ->leftJoin(
+                        'equipment_table',
+                        'equipment_table.equipment_id',
+                        '=',
+                        'borrowing_records_table.borrowing_equipment_id'
+                    )
+                    ->where('borrowing_records_table.borrowing_status', 'Overdue')
+                    ->select(
+                        'borrowing_records_table.borrowing_record_id',
+                        'borrowing_records_table.borrowing_borrower_name',
+                        'borrowing_records_table.borrowing_expected_return_date',
+                        'borrowing_records_table.borrowing_status',
+                        'equipment_table.equipment_name'
+                    )
+                    ->orderBy('borrowing_records_table.borrowing_expected_return_date')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $overdueBorrowsPreview = collect();
+        }
+
 
         // =====================================================
         // RETURN VIEW
@@ -931,6 +1065,8 @@ class AdminController extends Controller
             'presidentRejectedAmount',
             'budgetProposalYear',
             'budgetProposalTotal',
+            'budgetProposalYears',
+            'budgetProposalRisCount',
             'budgetPendingAmount',
             'budgetAdminApprovedAmount',
             'budgetPresidentApprovedAmount',
@@ -975,6 +1111,10 @@ class AdminController extends Controller
             'urgentReportsList',
             'recentApprovals',
             'attentionTotal',
+            'lifecycleAlerts',
+            'usefulLifeYears',
+            'upcomingMaintenanceSchedules',
+            'overdueBorrowsPreview',
         ));
     }
 
@@ -1801,7 +1941,7 @@ class AdminController extends Controller
             $target->ris_submitted_by,
             WorkflowNotifier::ROLE_PURCHASER,
             'RIS approved',
-            ($target->ris_form_number ?: ('RIS #' . $targetId)) . ' was approved. You may create an ATP.',
+            RisWorkflow::formNumber($target) . ' was approved. You may create an ATP.',
             'ris_approved',
             'RIS',
             (int) $targetId,
@@ -1892,7 +2032,7 @@ class AdminController extends Controller
                 $ris->ris_submitted_by,
                 WorkflowNotifier::ROLE_PURCHASER,
                 'RIS rejected by President',
-                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ': ' . $remarks,
+                RisWorkflow::formNumber($ris) . ': ' . $remarks,
                 'ris_rejected',
                 'RIS',
                 (int) $risId,
@@ -2796,7 +2936,7 @@ class AdminController extends Controller
 
         return response()->json([
             'ris_id' => $ris->ris_id,
-            'form_number' => $ris->ris_form_number,
+            'form_number' => RisWorkflow::formNumber($ris),
             'attachments' => $attachments,
         ]);
     }
@@ -2889,7 +3029,7 @@ class AdminController extends Controller
                 // Ignore logging failures
             }
 
-            $notifyMessage = ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was forwarded by Admin.';
+            $notifyMessage = RisWorkflow::formNumber($ris) . ' was forwarded by Admin.';
             if ($forwardDetails !== '') {
                 $notifyMessage .= ' ' . \Illuminate\Support\Str::limit($forwardDetails, 100);
             }
@@ -3287,7 +3427,7 @@ class AdminController extends Controller
                 $ris->ris_submitted_by,
                 WorkflowNotifier::ROLE_PURCHASER,
                 'RIS approved by Admin',
-                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was approved. You may create an ATP.',
+                RisWorkflow::formNumber($ris) . ' was approved. You may create an ATP.',
                 'ris_approved',
                 'RIS',
                 (int) $risId,
@@ -3297,7 +3437,7 @@ class AdminController extends Controller
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PRESIDENT,
                 'Admin direct approval recorded',
-                ($ris->ris_form_number ?: ('RIS #' . $risId))
+                RisWorkflow::formNumber($ris)
                     . ' was directly approved by Admin. Reason: '
                     . \Illuminate\Support\Str::limit($reason, 120),
                 'ris_direct_approved',
@@ -3458,7 +3598,7 @@ public function rejectRis(Request $request, $risId)
                 $ris->ris_submitted_by,
                 WorkflowNotifier::ROLE_PURCHASER,
                 'RIS revision required',
-                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ': ' . $remarks,
+                RisWorkflow::formNumber($ris) . ': ' . $remarks,
                 'ris_revision',
                 'RIS',
                 (int) $risId,
@@ -4206,7 +4346,7 @@ public function rejectRis(Request $request, $risId)
         }
 
         foreach ($rows as $ris) {
-            $ref = $ris->ris_form_number ?: ('RIS-'.$ris->ris_id);
+            $ref = RisWorkflow::formNumber($ris);
             $status = (string) ($ris->ris_status ?? '');
             $url = '/admin/procurement-review';
             $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Submitted', $ris->ris_id, $url);

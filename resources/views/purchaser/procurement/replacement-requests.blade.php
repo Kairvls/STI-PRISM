@@ -230,18 +230,25 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full table-fixed text-sm">
+                <colgroup>
+                    <col class="w-[20%]">
+                    <col class="w-[22%]">
+                    <col class="w-[9%]">
+                    <col class="w-[11%]">
+                    <col class="w-[12%]">
+                    <col class="w-[11%]">
+                    <col class="w-[15%]">
+                </colgroup>
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Equipment</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Location</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        {{-- RIS COLUMN --}}
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
-                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Equipment</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
                 </thead>
 
@@ -251,13 +258,16 @@
                             $requestStatusClass = $statusClasses[$request->procurement_request_status]
                                 ?? 'border-gray-200 bg-gray-100 text-gray-700';
 
-                            $equipmentName = $request->equipment_name
+                            $equipmentName = $request->equipment_display
+                                ?? $request->equipment_name
                                 ?? $request->report_unlisted_equipment_name
                                 ?? 'Unknown Equipment';
+                            $lineItems = collect($request->line_items ?? []);
+                            $roomLabel = $request->room_display ?? ($request->room_name ?? 'Unknown Room');
+                            $searchEquipment = trim(implode(' ', $lineItems->map(function ($line) {
+                                return trim(($line->display_name ?? '').' '.($line->room_name ?? ''));
+                            })->all()).' '.$equipmentName.' '.$roomLabel);
 
-                            // =====================================================
-                            // RIS LINK STATE FOR THIS REQUEST
-                            // =====================================================
                             $hasRis = !empty($request->ris_id);
                             $canCreateRis = $request->procurement_request_status === 'Approved' && !$hasRis;
                             $requestCode = \App\Support\ReplacementRequestCode::code($request);
@@ -269,88 +279,116 @@
                                 ? \App\Support\RisWorkflow::statusLabel($request)
                                 : '';
                             $risStatusClass = $risStatusClasses[$request->ris_status ?? ''] ?? 'border-gray-200 bg-gray-100 text-gray-700';
+
+                            $firstEquipment = $lineItems->isNotEmpty()
+                                ? ($lineItems->first()->display_name ?? $equipmentName)
+                                : $equipmentName;
+                            $extraEquipmentCount = max(0, $lineItems->count() - 1);
+                            $equipmentTooltipLines = $lineItems->map(function ($line) {
+                                $name = $line->display_name ?? 'Equipment';
+                                $room = $line->room_name ?: 'Unknown room';
+                                $ticket = \App\Support\ReportGrouping::ticketCode(
+                                    $line->report_id ?? null,
+                                    $line->report_submitted_at ?? null
+                                );
+
+                                return $name.' · '.$room.' · '.$ticket;
+                            })->values()->all();
+                            $uniqueRooms = $lineItems
+                                ->map(fn ($line) => trim((string) ($line->room_name ?? '')))
+                                ->filter()
+                                ->unique()
+                                ->values();
+                            $locationTooltip = $uniqueRooms->isNotEmpty()
+                                ? $uniqueRooms->implode("\n")
+                                : $roomLabel;
                         @endphp
 
                         <tr
                             x-show="matchesSearch({
                                 id: @js($requestCode),
                                 report: @js($reportCode),
-                                equipment: @js($equipmentName),
-                                room: @js($request->room_name ?? ''),
+                                equipment: @js($searchEquipment),
+                                room: @js($roomLabel),
                                 problem: @js($request->report_problem_description ?? ''),
                                 status: @js($request->procurement_request_status)
                             })"
                             class="transition hover:bg-gray-50/70"
                         >
-                            <td class="px-5 py-4">
-                                <p class="font-semibold text-gray-900" title="Request #{{ $request->procurement_request_id }}">{{ $requestCode }}</p>
-                                <p class="mt-1 text-xs text-gray-400" title="Report #{{ $request->report_id ?? 'N/A' }}">{{ $reportCode }}</p>
+                            <td class="px-4 py-3.5 align-middle">
+                                <p class="truncate font-semibold text-gray-900" title="{{ $requestCode }} · Request #{{ $request->procurement_request_id }}">{{ $requestCode }}</p>
+                                @if($lineItems->count() > 1)
+                                    <p class="mt-1 truncate text-xs text-gray-400">{{ $lineItems->count() }} items · {{ collect($request->report_ids ?? [])->count() ?: 1 }} reports</p>
+                                @else
+                                    <p class="mt-1 truncate text-xs text-gray-400" title="Report #{{ $request->report_id ?? 'N/A' }}">{{ $reportCode }}</p>
+                                @endif
                             </td>
 
-                            <td class="px-5 py-4">
-                                <p class="font-medium text-gray-800">{{ $equipmentName }}</p>
-                                <p class="mt-1 max-w-xs truncate text-xs text-gray-400">
-                                    {{ $request->report_problem_description ?? 'No problem description' }}
-                                </p>
+                            <td class="px-4 py-3.5 align-middle">
+                                @if($extraEquipmentCount > 0)
+                                    <div class="group relative inline-flex max-w-full">
+                                        <p class="truncate cursor-help font-medium text-gray-800 underline decoration-dotted decoration-gray-300 underline-offset-2">
+                                            {{ $firstEquipment }}
+                                            <span class="text-gray-500">+{{ $extraEquipmentCount }}</span>
+                                        </p>
+                                        <div
+                                            class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-72 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
+                                            role="tooltip"
+                                        >
+                                            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                                {{ $lineItems->count() }} items on this request
+                                            </p>
+                                            <ul class="space-y-1.5">
+                                                @foreach($equipmentTooltipLines as $tooltipLine)
+                                                    <li class="text-xs leading-5 text-gray-700">{{ $tooltipLine }}</li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                    </div>
+                                @else
+                                    <p class="truncate font-medium text-gray-800" title="{{ $firstEquipment }}">{{ $firstEquipment }}</p>
+                                @endif
+                                <p class="mt-1 truncate text-xs text-gray-400" title="{{ $locationTooltip }}">{{ $roomLabel }}</p>
                             </td>
 
-                            <td class="px-5 py-4 text-gray-600">
-                                {{ $request->room_name ?? 'Unknown Room' }}
-                            </td>
-
-                            <td class="px-5 py-4">
+                            <td class="px-4 py-3.5 align-middle">
                                 @if(($request->report_urgency_level ?? '') === 'Urgent')
                                     <span class="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
                                         Urgent
                                     </span>
                                 @else
                                     <span class="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                        {{ $request->report_urgency_level ?? 'N/A' }}
+                                        Standard
                                     </span>
                                 @endif
                             </td>
 
-                            <td class="px-5 py-4">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $requestStatusClass }}">
-                                        {{ $request->procurement_request_status }}
-                                    </span>
-
-                                    @if($request->procurement_request_is_archived)
-                                        <span class="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
-                                            Archived
-                                        </span>
-                                    @endif
-                                </div>
+                            <td class="px-4 py-3.5 align-middle">
+                                <span class="inline-flex max-w-full truncate rounded-full border px-2.5 py-1 text-xs font-medium {{ $requestStatusClass }}">
+                                    {{ $request->procurement_request_status }}
+                                </span>
                             </td>
 
-                            {{-- RIS CELL --}}
-                            <td class="px-5 py-4">
+                            <td class="px-4 py-3.5 align-middle">
                                 @if($hasRis)
-                                    <p class="text-xs font-semibold text-gray-800">
-                                        {{ $request->ris_form_number ?: 'RIS #' . $request->ris_id }}
+                                    <p class="truncate text-xs font-semibold text-gray-800" title="{{ \App\Support\RisWorkflow::formNumber($request) }}">
+                                        {{ \App\Support\RisWorkflow::formNumber($request) }}
                                     </p>
-                                    <span class="mt-1 inline-flex max-w-[180px] rounded-full border px-2 py-0.5 text-[11px] font-medium {{ $risStatusClass }}" title="{{ $risStatusLabel }}">
-                                        {{ $risStatusLabel }}
-                                    </span>
+                                    <p class="mt-1 truncate text-[11px] text-gray-500" title="{{ $risStatusLabel }}">{{ $risStatusLabel }}</p>
                                 @else
                                     <span class="text-xs text-gray-400">{{ $canCreateRis ? 'Ready for RIS' : 'Not created' }}</span>
                                 @endif
                             </td>
 
-                            <td class="whitespace-nowrap px-5 py-4">
-                                <p class="text-gray-700">
+                            <td class="px-4 py-3.5 align-middle">
+                                <p class="truncate text-sm text-gray-700" title="{{ \Carbon\Carbon::parse($request->procurement_request_created_at)->format('M d, Y h:i A') }}">
                                     {{ \Carbon\Carbon::parse($request->procurement_request_created_at)->format('M d, Y') }}
-                                </p>
-                                <p class="mt-1 text-xs text-gray-400">
-                                    {{ \Carbon\Carbon::parse($request->procurement_request_created_at)->format('h:i A') }}
                                 </p>
                             </td>
 
-                            <td class="px-5 py-4">
-                                <div class="flex justify-end items-center gap-1.5">
+                            <td class="px-4 py-3.5 align-middle">
+                                <div class="flex flex-wrap items-center justify-center gap-1.5">
 
-                                    {{-- VIEW --}}
                                     <button
                                         type="button"
                                         x-on:click="openModal = 'replacement-{{ $request->procurement_request_id }}'"
@@ -361,7 +399,6 @@
                                         <i data-lucide="eye" class="h-3.5 w-3.5"></i>
                                     </button>
 
-                                    {{-- APPROVE / REJECT (Pending only) --}}
                                     @if(
                                         !$request->procurement_request_is_archived
                                         && $request->procurement_request_status === 'Pending'
@@ -387,7 +424,6 @@
                                         </button>
                                     @endif
 
-                                    {{-- CREATE RIS / VIEW RIS --}}
                                     @if($canCreateRis)
                                         <button
                                             type="button"
@@ -397,7 +433,7 @@
                                             aria-label="Create RIS"
                                             data-tooltip="Create RIS"
                                         >
-                                            <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                                            <i data-lucide="file-plus-2" class="h-3.5 w-3.5"></i>
                                         </button>
                                     @elseif($hasRis)
                                         <a
@@ -410,7 +446,6 @@
                                         </a>
                                     @endif
 
-                                    {{-- ARCHIVE / RESTORE --}}
                                     @if(
                                         !$request->procurement_request_is_archived
                                         && in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true)
@@ -471,7 +506,11 @@
                                                 </span>
                                             </div>
                                             <p class="mt-1 text-sm text-gray-500" title="Report #{{ $request->report_id ?? 'N/A' }}">
-                                                {{ $reportCode }} · {{ $request->room_name ?? 'Unknown Room' }}
+                                                @if($lineItems->count() > 1)
+                                                    {{ $lineItems->count() }} items · {{ $roomLabel }}
+                                                @else
+                                                    {{ $reportCode }} · {{ $request->room_name ?? 'Unknown Room' }}
+                                                @endif
                                             </p>
                                         </div>
 
@@ -504,7 +543,7 @@
                                             <div class="mb-5 flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                                                 <div>
                                                     <p class="text-sm font-semibold text-gray-800">
-                                                        Linked RIS: {{ $request->ris_form_number ?: '#' . $request->ris_id }}
+                                                        Linked RIS: {{ \App\Support\RisWorkflow::formNumber($request) }}
                                                     </p>
                                                     <p class="mt-1 text-xs leading-5 text-gray-500">
                                                         Procurement paperwork has started for this replacement request.
@@ -528,13 +567,37 @@
 
                                         <div class="grid gap-5 lg:grid-cols-2">
                                             <div class="rounded-xl border border-gray-200 p-5">
-                                                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Equipment</p>
-                                                <h3 class="mt-3 text-lg font-semibold text-gray-950">{{ $equipmentName }}</h3>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">
+                                                    {{ $lineItems->count() > 1 ? 'Equipment items' : 'Equipment' }}
+                                                </p>
+                                                @if($lineItems->count() > 1)
+                                                    <ul class="mt-3 divide-y divide-gray-100">
+                                                        @foreach($lineItems as $line)
+                                                            <li class="py-3 first:pt-0 last:pb-0">
+                                                                <h3 class="text-sm font-semibold text-gray-950">{{ $line->display_name }}</h3>
+                                                                <p class="mt-1 text-xs text-gray-500">
+                                                                    {{ $line->room_name ?: 'Unknown room' }}
+                                                                    · {{ \App\Support\ReportGrouping::ticketCode($line->report_id ?? null, $line->report_submitted_at ?? null) }}
+                                                                    @if(!empty($line->equipment_asset_tag))
+                                                                        · {{ $line->equipment_asset_tag }}
+                                                                    @endif
+                                                                </p>
+                                                                @if(!empty($line->problem_description) || !empty($line->replacement_notes))
+                                                                    <p class="mt-1 text-xs leading-5 text-gray-400">
+                                                                        {{ $line->replacement_notes ?: $line->problem_description }}
+                                                                    </p>
+                                                                @endif
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                @else
+                                                    <h3 class="mt-3 text-lg font-semibold text-gray-950">{{ $equipmentName }}</h3>
+                                                @endif
 
                                                 <div class="mt-5 grid grid-cols-2 gap-4">
                                                     <div>
                                                         <p class="text-xs text-gray-400">Location</p>
-                                                        <p class="mt-1 text-sm font-medium text-gray-700">{{ $request->room_name ?? 'Unknown Room' }}</p>
+                                                        <p class="mt-1 text-sm font-medium text-gray-700">{{ $roomLabel }}</p>
                                                     </div>
                                                     <div>
                                                         <p class="text-xs text-gray-400">Urgency</p>
@@ -543,8 +606,14 @@
                                                         </p>
                                                     </div>
                                                     <div>
-                                                        <p class="text-xs text-gray-400">Report</p>
-                                                        <p class="mt-1 text-sm font-medium text-gray-700" title="Report #{{ $request->report_id ?? 'N/A' }}">{{ $reportCode }}</p>
+                                                        <p class="text-xs text-gray-400">{{ $lineItems->count() > 1 ? 'Reports' : 'Report' }}</p>
+                                                        <p class="mt-1 text-sm font-medium text-gray-700" title="Report #{{ $request->report_id ?? 'N/A' }}">
+                                                            @if(($request->report_ids ?? collect())->count() > 1)
+                                                                {{ $request->report_ids->count() }} linked reports
+                                                            @else
+                                                                {{ $reportCode }}
+                                                            @endif
+                                                        </p>
                                                     </div>
                                                     <div>
                                                         <p class="text-xs text-gray-400">Submitted</p>
@@ -641,7 +710,7 @@
                         </template>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-16 text-center">
+                            <td colspan="7" class="px-5 py-16 text-center">
                                 <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
                                     <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M20 7h-9m9 5h-9m9 5h-9M5 7h.01M5 12h.01M5 17h.01"/>
@@ -711,7 +780,7 @@
                         </button>
                         <a
                             x-bind:href="'{{ route(($pp ?? 'purchaser').'.ris.index') }}?replacement_request=' + createRisModal"
-                            class="rounded-lg bg-[#FFF200] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#E6E600]"
+                            class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
                         >
                             Continue to RIS
                         </a>

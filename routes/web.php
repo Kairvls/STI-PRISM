@@ -1918,6 +1918,11 @@ Route::middleware(['auth', 'accounting'])
         Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp'])->name('accounting.atp.approve');
         Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp'])->name('accounting.atp.revise');
 
+        Route::get('/purchase-orders', [AccountingController::class, 'purchaseOrders'])->name('accounting.purchase-orders.index');
+        Route::get('/purchase-orders/{id}', [AccountingController::class, 'showPurchaseOrder'])->name('accounting.purchase-orders.show');
+        Route::post('/purchase-orders/{id}/approve', [AccountingController::class, 'approvePurchaseOrder'])->name('accounting.purchase-orders.approve');
+        Route::post('/purchase-orders/{id}/revise', [AccountingController::class, 'revisePurchaseOrder'])->name('accounting.purchase-orders.revise');
+
         Route::get('/ris/{id}', [AccountingController::class, 'showRis'])->whereNumber('id')->name('accounting.ris.show');
         Route::get('/ris/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRisAttachment'])
             ->whereNumber(['id', 'attachmentId'])

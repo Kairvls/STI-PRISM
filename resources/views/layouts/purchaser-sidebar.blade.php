@@ -180,6 +180,70 @@
 
         </a>
 
+        {{-- ===================================================== --}}
+        {{-- FILE MAINTENANCE SECTION --}}
+        {{-- ===================================================== --}}
+
+        <div class="menu-title" id="file-maintenance-section">
+            FILE MAINTENANCE
+        </div>
+
+        <a
+            href="{{ route('purchaser.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="truck" class="h-5 w-5"></i>
+            <span>Suppliers</span>
+        </a>
+
+        @php
+            $fmActive = request()->routeIs('purchaser.file-maintenance.*')
+                || request()->routeIs('purchaser.brands.*')
+                || request()->routeIs('purchaser.uom.*')
+                || request()->routeIs('purchaser.categories.*')
+                || request()->routeIs('purchaser.subcategories.*');
+            $fmTab = request('tab', 'brands');
+            if (request()->routeIs('purchaser.brands.*')) {
+                $fmTab = 'brands';
+            } elseif (request()->routeIs('purchaser.uom.*')) {
+                $fmTab = 'uom';
+            } elseif (request()->routeIs('purchaser.categories.*')) {
+                $fmTab = 'categories';
+            } elseif (request()->routeIs('purchaser.subcategories.*')) {
+                $fmTab = 'subcategories';
+            }
+            $fmLinks = [
+                'brands' => ['title' => 'Brands', 'icon' => 'tag'],
+                'uom' => ['title' => 'UOM', 'icon' => 'ruler'],
+                'categories' => ['title' => 'Categories', 'icon' => 'folders'],
+                'subcategories' => ['title' => 'Sub Categories', 'icon' => 'folder-tree'],
+            ];
+        @endphp
+
+        <div class="menu-group {{ $fmActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $fmActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $fmActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="database" class="h-5 w-5"></i>
+                <span>File Maintenance</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $fmActive) hidden @endif>
+                @foreach($fmLinks as $key => $meta)
+                    <a
+                        href="{{ route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
+                        class="menu-sub-item {{ $fmActive && $fmTab === $key ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $meta['icon'] }}" class="h-4 w-4"></i>
+                        <span>{{ $meta['title'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
 
 
         {{-- ===================================================== --}}
@@ -187,7 +251,7 @@
         {{-- ===================================================== --}}
 
         <div class="menu-title" id="procurement-section">
-            PROCUREMENT
+            PROCUREMENT REQUESTS
         </div>
 
 
@@ -233,7 +297,7 @@
         {{-- ===================================================== --}}
 
         <div class="menu-title" id="purchasing-workflow-section">
-            PURCHASING WORKFLOW
+            PROCUREMENT WORKFLOW
         </div>
 
         {{-- ===================================================== --}}
@@ -265,24 +329,43 @@
         </a>
 
         {{-- ===================================================== --}}
-        {{-- AUTHORITY TO PURCHASE --}}
+        {{-- ATP (Authority to Purchase + Purchase Orders) --}}
         {{-- ===================================================== --}}
 
-        <a
-            href="{{ route('purchaser.atp.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
-        >
+        @php
+            $atpGroupActive = request()->routeIs('purchaser.atp*')
+                || request()->routeIs('purchaser.purchase-orders*');
+        @endphp
 
-            <i
-                data-lucide="file-check-2"
-                class="h-5 w-5"
-            ></i>
+        <div class="menu-group {{ $atpGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $atpGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $atpGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="file-check-2" class="h-5 w-5"></i>
+                <span>ATP</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $atpGroupActive) hidden @endif>
+                <a
+                    href="{{ route('purchaser.atp.index') }}"
+                    class="menu-sub-item {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="file-check-2" class="h-4 w-4"></i>
+                    <span>Authority to Purchase</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.purchase-orders.index') }}"
+                    class="menu-sub-item {{ request()->routeIs('purchaser.purchase-orders*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="shopping-bag" class="h-4 w-4"></i>
+                    <span>Purchase Orders</span>
+                </a>
+            </div>
+        </div>
 
-            <span>
-                Authority to Purchase
-            </span>
-
-        </a>
         {{-- ===================================================== --}}
         {{-- REQUEST CHECK --}}
         {{-- ===================================================== --}}
@@ -361,29 +444,7 @@
 
         </a>
 
-        {{-- ===================================================== --}}
-        {{-- FILE MAINTENANCE SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title" id="file-maintenance-section">
-            FILE MAINTENANCE
-        </div>
-
-        <a
-            href="{{ route('purchaser.suppliers.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="truck" class="h-5 w-5"></i>
-            <span>Suppliers</span>
-        </a>
-
-        <a
-            href="{{ route('purchaser.file-maintenance.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="database" class="h-5 w-5"></i>
-            <span>File Maintenance</span>
-        </a>
+        
 
 
 
@@ -689,6 +750,94 @@
     color: #ffffff;
 }
 
+/* ======================================
+   COLLAPSIBLE MENU GROUP
+====================================== */
+
+.menu-group {
+    margin-bottom: 2px;
+}
+
+.menu-group-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu-group-toggle .menu-group-chevron {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.menu-group.is-open > .menu-group-toggle .menu-group-chevron {
+    transform: rotate(180deg);
+    color: #94a3b8;
+}
+
+.menu-group-toggle.active-parent,
+.menu-group-toggle.active-parent span {
+    color: #ffffff;
+}
+
+.menu-group-toggle.active-parent svg:not(.menu-group-chevron) {
+    color: #fff200 !important;
+    stroke: #fff200 !important;
+}
+
+.menu-sub {
+    display: grid;
+    gap: 2px;
+    padding: 2px 0 8px 18px;
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+    margin: 0 0 4px 8px;
+}
+
+.menu-sub[hidden] {
+    display: none;
+}
+
+.menu-sub-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 8px 0 4px;
+    border-radius: 8px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.menu-sub-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.menu-sub-item:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.menu-sub-item.active {
+    color: #facc15;
+    background: rgba(250, 204, 21, 0.08);
+    font-weight: 500;
+}
+
+.menu-sub-item.active svg {
+    color: #facc15;
+}
+
     /* ======================================
    USER CARD
 ====================================== */
@@ -787,6 +936,26 @@
 
     const sidebarContent =
         document.querySelector(".sidebar-content");
+
+    // =====================================================
+    // COLLAPSIBLE MENU GROUPS
+    // =====================================================
+
+    document.querySelectorAll("[data-menu-group]").forEach((group) => {
+        const toggle = group.querySelector("[data-menu-group-toggle]");
+        const panel = group.querySelector(".menu-sub");
+        if (!toggle || !panel) return;
+
+        toggle.addEventListener("click", () => {
+            const willOpen = !group.classList.contains("is-open");
+            group.classList.toggle("is-open", willOpen);
+            panel.hidden = !willOpen;
+            toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+            if (window.lucide && window.lucide.createIcons) {
+                window.lucide.createIcons();
+            }
+        });
+    });
 
 
     // =====================================================

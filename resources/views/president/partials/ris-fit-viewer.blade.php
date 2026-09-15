@@ -414,7 +414,7 @@
         const title = document.getElementById('historyRisTitle');
         if (!modal || !iframe) return;
         window.currentHistoryRisId = risId;
-        if (title) title.textContent = 'RIS #' + risId;
+        if (title) title.textContent = window.risFormNumberLabel(risId);
         window.setDocFullscreen('historyRisModal', false);
 
         var attachBox = document.getElementById('historyAttachments');
@@ -453,7 +453,7 @@
             .then(function (res) { return res.ok ? res.json() : { attachments: [] }; })
             .then(function (data) {
                 if (title) {
-                    title.textContent = data.form_number || ('RIS #' + risId);
+                    title.textContent = data.form_number || window.risFormNumberLabel(risId);
                 }
 
                 var files = data.attachments || [];

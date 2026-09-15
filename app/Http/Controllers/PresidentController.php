@@ -824,7 +824,7 @@ class PresidentController extends Controller
         // Reject still notifies Admin immediately. Approve only persists the
         // decision — Admin is notified when President clicks "Notify Admin".
         if ($decision === 'Rejected') {
-            $form = $target->ris_form_number ?: ('RIS #' . $targetId);
+            $form = RisWorkflow::formNumber($target);
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_ADMIN,
                 'President rejected an RIS',
@@ -1669,7 +1669,7 @@ class PresidentController extends Controller
 
         return response()->json([
             'ris_id' => $record->ris_id,
-            'form_number' => $record->ris_form_number,
+            'form_number' => RisWorkflow::formNumber($record),
             'purpose' => $record->ris_purpose_description,
             'requester_name' => $record->ris_requested_by_signature,
             'status' => $record->ris_status,
@@ -1755,7 +1755,7 @@ class PresidentController extends Controller
         } catch (\Throwable $e) {
         }
 
-        $form = $record->ris_form_number ?: ('RIS #' . $record->ris_id);
+        $form = RisWorkflow::formNumber($record);
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_ADMIN,
             'President approved an RIS',

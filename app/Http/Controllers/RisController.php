@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReplacementRequestBasket;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -75,6 +77,10 @@ class RisController extends Controller
                 'equipment_table.equipment_asset_tag',
                 'rooms_table.room_name',
             );
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_urgency')) {
+            $risQuery->addSelect('requisition_issue_slip_table.ris_urgency');
+        }
 
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
             $risQuery->addSelect('requisition_issue_slip_table.ris_requested_by_signature_image');
@@ -228,6 +234,7 @@ class RisController extends Controller
                         ->first();
 
                     if ($requested) {
+                        ReplacementRequestBasket::attachToRequests([$requested]);
                         $availableReplacementRequests = $availableReplacementRequests->prepend($requested);
                     } else {
                         $replacementSourceError = $this->replacementRequestUnavailableMessage($requestedReplacementId);
@@ -254,9 +261,13 @@ class RisController extends Controller
             $ris->supplier_display_name = optional($supplierNames->get($ris->ris_supplier_id ?? null))->display_name;
         }
 
-        $suggestedRisFormNumber = $isAjax ? null : $this->nextSuggestedRisFormNumber();
-        $defaultRequestedBy = $isAjax ? null : (Auth::user()->user_full_name ?? '');
-        $defaultRequestedByDate = $isAjax ? null : now()->format('d/m/Y');
+        $risCopyPrefill = $isAjax ? null : $this->risCopyPrefillFromRequest($request);
+        $defaultRequestedBy = $isAjax
+            ? null
+            : ($risCopyPrefill['requested_by'] ?? (Auth::user()->user_full_name ?? ''));
+        $defaultRequestedByDate = $isAjax
+            ? null
+            : ($risCopyPrefill['requested_by_date'] ?? now()->format('d/m/Y'));
         $savedSignatures = $isAjax
             ? collect()
             : UserSignatureLibrary::forUser((int) Auth::id());
@@ -272,7 +283,7 @@ class RisController extends Controller
             'activeSuppliers',
             'uoms',
             'brands',
-            'suggestedRisFormNumber',
+            'risCopyPrefill',
             'defaultRequestedBy',
             'defaultRequestedByDate',
             'savedSignatures'
@@ -391,7 +402,18 @@ class RisController extends Controller
                 'exists:procurement_requests_table,procurement_request_id',
             ],
 
-            'ris_form_number' => $this->risFormNumberRules(!$isDraft),
+            // Form number is assigned server-side on submit — never required from the client.
+            'ris_form_number' => $this->risFormNumberRules(false),
+
+            'copied_from_ris_id' => [
+                'nullable',
+                'integer',
+            ],
+
+            'ris_urgency' => [
+                $isDraft ? 'nullable' : 'required',
+                'in:'.implode(',', RisWorkflow::urgencyOptions()),
+            ],
 
             'ris_supplier_id' => $this->activeSupplierRule(),
 
@@ -407,7 +429,7 @@ class RisController extends Controller
             'ris_items' => [
                 'nullable',
                 'array',
-                'max:50',
+                'max:8',
             ],
 
             'ris_items.*.name_description' => [
@@ -539,8 +561,14 @@ class RisController extends Controller
             'ris_form_number.required' =>
                 'RIS number is required before submitting.',
 
-            'ris_form_number.digits' =>
-                'RIS number must be exactly 8 digits.',
+            'ris_form_number.regex' =>
+                'RIS number must follow the format RIS-YYYYMM-0000001.',
+
+            'ris_urgency.required' =>
+                'Please choose whether this procurement is Urgent or Non-Urgent.',
+
+            'ris_urgency.in' =>
+                'Urgency must be Urgent or Non-Urgent.',
 
             'ris_purpose_description.required' =>
                 'Purpose is required before submitting.',
@@ -733,9 +761,14 @@ class RisController extends Controller
                 $manualTitle = null;
             }
 
+            $formNumber = $isDraft ? null : RisWorkflow::allocateFormNumberOnSubmit();
+            $copiedFromRisId = $this->resolveOwnedDraftCopiedFromId(
+                isset($validated['copied_from_ris_id']) ? (int) $validated['copied_from_ris_id'] : null
+            );
+
             $risPayload = [
                 'ris_procurement_request_id' => $procurementRequestId,
-                'ris_form_number' => $validated['ris_form_number'] ?? null,
+                'ris_form_number' => $formNumber,
                 'ris_supplier_id' => null,
                 'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
                 'ris_status' => $isDraft ? 'Draft' : 'Submitted',
@@ -759,6 +792,12 @@ class RisController extends Controller
                 );
             }
 
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_urgency')) {
+                $risPayload['ris_urgency'] = RisWorkflow::normalizeUrgency(
+                    $validated['ris_urgency'] ?? RisWorkflow::URGENCY_NON_URGENT
+                );
+            }
+
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_manual_title')) {
                 $risPayload['ris_manual_title'] = $manualTitle;
             }
@@ -769,6 +808,13 @@ class RisController extends Controller
 
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
                 $risPayload['ris_requested_by_signature_image'] = $requestedByImage;
+            }
+
+            if (
+                $copiedFromRisId
+                && Schema::hasColumn('requisition_issue_slip_table', 'ris_copied_from_id')
+            ) {
+                $risPayload['ris_copied_from_id'] = $copiedFromRisId;
             }
 
             $risId = DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
@@ -828,11 +874,20 @@ class RisController extends Controller
             }
 
 
-            if (!$isDraft) {
+            if ($isDraft) {
+                $this->notifyPurchaserDraft((int) $risId);
+            } else {
+                $savedRis = (object) [
+                    'ris_id' => (int) $risId,
+                    'ris_copied_from_id' => $copiedFromRisId,
+                    'ris_form_number' => $formNumber,
+                ];
+                $this->deleteCopiedSourceDraftIfNeeded($savedRis);
+
                 DocumentWorkflowService::notifySubmitted(
                     WorkflowNotifier::ROLE_ADMIN,
                     'New RIS submitted',
-                    (($validated['ris_form_number'] ?? null) ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+                    RisWorkflow::formNumber($formNumber) . ' was submitted for Admin review.',
                     'ris_submitted',
                     'RIS',
                     (int) $risId,
@@ -984,14 +1039,20 @@ public function update(Request $request, $risId)
     // =====================================================
     // VALIDATE
     // =====================================================
-    $validated = $request->validate([
+    try {
+        $validated = $request->validate([
 
         'save_action' => [
             'required',
             'in:save,submit,resubmit',
         ],
 
-        'ris_form_number' => $this->risFormNumberRules(!$isSaveOnly, $risId),
+        'ris_form_number' => $this->risFormNumberRules(false, $risId),
+
+        'ris_urgency' => [
+            $isSaveOnly ? 'nullable' : 'required',
+            'in:'.implode(',', RisWorkflow::urgencyOptions()),
+        ],
 
         'ris_supplier_id' => $this->activeSupplierRule(),
 
@@ -1008,7 +1069,7 @@ public function update(Request $request, $risId)
         'ris_items' => [
             'nullable',
             'array',
-            'max:50',
+            'max:8',
         ],
 
         'ris_items.*.name_description' => [
@@ -1100,8 +1161,14 @@ public function update(Request $request, $risId)
         'ris_form_number.required' =>
             'RIS number is required before submitting.',
 
-        'ris_form_number.digits' =>
-            'RIS number must be exactly 8 digits.',
+        'ris_form_number.regex' =>
+            'RIS number must follow the format RIS-YYYYMM-0000001.',
+
+        'ris_urgency.required' =>
+            'Please choose whether this procurement is Urgent or Non-Urgent.',
+
+        'ris_urgency.in' =>
+            'Urgency must be Urgent or Non-Urgent.',
 
         'ris_purpose_description.required' =>
             'Purpose is required before submitting.',
@@ -1130,6 +1197,10 @@ public function update(Request $request, $risId)
         'ris_attachments.*.max' =>
             'Each supporting document must not exceed 10 MB.',
     ]);
+    } catch (ValidationException $e) {
+        session()->flash('edit_ris', (int) $risId);
+        throw $e;
+    }
 
 
     // =====================================================
@@ -1151,28 +1222,36 @@ public function update(Request $request, $risId)
 
     $splitOverflow = $this->risItemSplitOverflowMessage($items);
     if ($splitOverflow) {
-        return back()->withInput()->with('error', $splitOverflow);
+        return $this->backWithEditRisError($risId, $splitOverflow);
     }
 
 
     // =====================================================
     // STRICT VALIDATION WHEN SUBMITTING / RESUBMITTING
     // =====================================================
+    $blockedSubmitMessage = null;
     if (!$isSaveOnly) {
 
         if ($items->isEmpty()) {
-
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Please add at least one RIS item before submitting.'
-                );
+            $blockedSubmitMessage = 'Please add at least one RIS item before submitting.';
+        } else {
+            $submitError = $this->validateRisItemsForSubmit($items);
+            if ($submitError) {
+                $blockedSubmitMessage = $submitError;
+            }
         }
 
-        $submitError = $this->validateRisItemsForSubmit($items);
-        if ($submitError) {
-            return back()->withInput()->with('error', $submitError);
+        if (! $blockedSubmitMessage) {
+            $incomingSignature = RisWorkflow::normalizeDrawnSignature($validated['signature_data'] ?? null);
+            if (! $incomingSignature && ! $this->risHasRequestedBySignature($ris)) {
+                $blockedSubmitMessage = 'Please sign the RIS before submitting to Admin.';
+            }
+        }
+
+        // Keep the purchaser's edits (brand, unit, etc.) even when submit is blocked.
+        if ($blockedSubmitMessage) {
+            $saveAction = 'save';
+            $isSaveOnly = true;
         }
     }
 
@@ -1227,7 +1306,8 @@ public function update(Request $request, $risId)
         $ris,
         $risId,
         $saveAction,
-        $requestedByDate
+        $requestedByDate,
+        $blockedSubmitMessage
     ) {
 
         $newStatus =
@@ -1251,10 +1331,19 @@ public function update(Request $request, $risId)
         //
         // Existing values stay untouched.
         // =================================================
+        $formNumber = $ris->ris_form_number;
+        if ($saveAction === 'save' && $ris->ris_status === 'Draft') {
+            $formNumber = null;
+        } elseif ($saveAction === 'submit') {
+            $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
+        } elseif ($saveAction === 'resubmit') {
+            $formNumber = $ris->ris_form_number;
+        }
+
         $updateData = [
 
             'ris_form_number' =>
-                $validated['ris_form_number'] ?? null,
+                $formNumber,
 
             'ris_supplier_id' => null,
 
@@ -1274,6 +1363,11 @@ public function update(Request $request, $risId)
                 now(),
         ];
 
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_urgency')) {
+            $updateData['ris_urgency'] = RisWorkflow::normalizeUrgency(
+                $validated['ris_urgency'] ?? RisWorkflow::URGENCY_NON_URGENT
+            );
+        }
         $requestedByImage = RisWorkflow::normalizeDrawnSignature($validated['signature_data'] ?? null);
         if ($requestedByImage && Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
             $updateData['ris_requested_by_signature_image'] = $requestedByImage;
@@ -1380,16 +1474,29 @@ public function update(Request $request, $risId)
                 'RIS changes saved successfully.',
         };
 
+        if ($saveAction === 'save' && $newStatus === 'Draft') {
+            $this->notifyPurchaserDraft((int) $risId);
+        }
+
         if (in_array($saveAction, ['submit', 'resubmit'], true)) {
+            if ($saveAction === 'submit') {
+                $ris->ris_form_number = $formNumber;
+                $this->deleteCopiedSourceDraftIfNeeded($ris);
+            }
+
             DocumentWorkflowService::notifySubmitted(
                 WorkflowNotifier::ROLE_ADMIN,
                 $saveAction === 'resubmit' ? 'RIS resubmitted' : 'New RIS submitted',
-                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+                RisWorkflow::formNumber($formNumber ?: $ris) . ' was submitted for Admin review.',
                 'ris_submitted',
                 'RIS',
                 (int) $risId,
                 '/admin/procurement-review'
             );
+        }
+
+        if ($blockedSubmitMessage) {
+            return $this->backWithEditRisError($risId, $blockedSubmitMessage);
         }
 
         return redirect()
@@ -1430,37 +1537,31 @@ public function submit($risId)
 
 
         // =================================================
-        // RIS NUMBER REQUIRED
-        // =================================================
-        if (blank($ris->ris_form_number)) {
-
-            return back()->with(
-                'error',
-                'RIS number is required before submitting.'
-            );
-        }
-
-
-        // =================================================
         // PURPOSE REQUIRED
         // =================================================
         if (blank($ris->ris_purpose_description)) {
-
-            return back()->with(
-                'error',
+            return $this->backWithEditRisError(
+                $risId,
                 'RIS purpose is required before submitting.'
             );
         }
 
 
         // =================================================
-        // REQUESTED BY REQUIRED
+        // REQUESTED BY NAME + SIGNATURE REQUIRED
         // =================================================
-        if (blank($ris->ris_requested_by_signature)) {
-
-            return back()->with(
-                'error',
+        $requestedByName = trim((string) ($ris->ris_requested_by_signature ?? ''));
+        if ($requestedByName === '' || str_starts_with($requestedByName, 'data:image')) {
+            return $this->backWithEditRisError(
+                $risId,
                 'Requested By is required before submitting.'
+            );
+        }
+
+        if (! $this->risHasRequestedBySignature($ris)) {
+            return $this->backWithEditRisError(
+                $risId,
+                'Please sign the RIS before submitting to Admin.'
             );
         }
 
@@ -1469,9 +1570,8 @@ public function submit($risId)
         // REQUESTED DATE REQUIRED
         // =================================================
         if (blank($ris->ris_requested_by_date)) {
-
-            return back()->with(
-                'error',
+            return $this->backWithEditRisError(
+                $risId,
                 'Requested By date is required before submitting.'
             );
         }
@@ -1492,52 +1592,24 @@ public function submit($risId)
         // AT LEAST ONE ITEM REQUIRED
         // =================================================
         if ($items->isEmpty()) {
-
-            return back()->with(
-                'error',
+            return $this->backWithEditRisError(
+                $risId,
                 'Please add at least one RIS item before submitting.'
             );
         }
 
+        $submitError = $this->validateRisItemsForSubmit($items);
+        if ($submitError) {
+            return $this->backWithEditRisError($risId, $submitError);
+        }
+
 
         // =================================================
-        // VALIDATE EVERY ITEM
+        // VALIDATE EVERY ITEM AMOUNT + RECALCULATE
         // =================================================
         foreach ($items as $index => $item) {
 
             $rowNumber = $index + 1;
-
-
-            // =============================================
-            // ITEM DESCRIPTION
-            // =============================================
-            if (
-                blank(
-                    $item->ris_item_name_description
-                )
-            ) {
-
-                return back()->with(
-                    'error',
-                    "Item {$rowNumber} is missing its item description."
-                );
-            }
-
-
-            // =============================================
-            // QUANTITY REQUESTED
-            // =============================================
-            if (
-                $item->ris_quantity_requested === null
-                || (int) $item->ris_quantity_requested < 1
-            ) {
-
-                return back()->with(
-                    'error',
-                    "Item {$rowNumber} must have a Quantity Requested of at least 1."
-                );
-            }
-
 
             // =============================================
             // QUANTITY ISSUED CANNOT BE NEGATIVE
@@ -1546,9 +1618,8 @@ public function submit($risId)
                 $item->ris_quantity_issued !== null
                 && (int) $item->ris_quantity_issued < 0
             ) {
-
-                return back()->with(
-                    'error',
+                return $this->backWithEditRisError(
+                    $risId,
                     "Item {$rowNumber} has an invalid Quantity Issued."
                 );
             }
@@ -1561,9 +1632,8 @@ public function submit($risId)
                 $item->ris_unit_cost !== null
                 && (float) $item->ris_unit_cost < 0
             ) {
-
-                return back()->with(
-                    'error',
+                return $this->backWithEditRisError(
+                    $risId,
                     "Item {$rowNumber} has an invalid Unit Cost."
                 );
             }
@@ -1602,14 +1672,19 @@ public function submit($risId)
 
         // =================================================
         // EVERYTHING IS VALID
-        // SEND RIS TO ADMIN
+        // SEND RIS TO ADMIN (always allocate a fresh No.)
         // =================================================
+        $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
+
         DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->update([
 
                 'ris_status' =>
                     'Submitted',
+
+                'ris_form_number' =>
+                    $formNumber,
 
                 'ris_submitted_by' =>
                     Auth::id(),
@@ -1621,10 +1696,13 @@ public function submit($risId)
                     now(),
             ]);
 
+        $ris->ris_form_number = $formNumber;
+        $this->deleteCopiedSourceDraftIfNeeded($ris);
+
         DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ADMIN,
             'New RIS submitted',
-            ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+            RisWorkflow::formNumber($formNumber) . ' was submitted for Admin review.',
             'ris_submitted',
             'RIS',
             (int) $risId,
@@ -1639,6 +1717,28 @@ public function submit($risId)
             );
     });
 }
+
+    public function destroy($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404);
+        PurchaserDocumentAccess::assertOwns($ris, 'ris');
+
+        if ((string) ($ris->ris_status ?? '') !== 'Draft') {
+            return back()->with('error', 'Only Draft RIS records can be deleted.');
+        }
+
+        DB::transaction(function () use ($risId) {
+            $this->deleteDraftRis((int) $risId);
+        });
+
+        return redirect()
+            ->route(ProcurementPortal::routeName('ris.index'))
+            ->with('success', 'Draft RIS deleted.');
+    }
 
     // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
     public function downloadAttachment($attachmentId)
@@ -1801,36 +1901,170 @@ public function submit($risId)
 
         return [
             $required ? 'required' : 'nullable',
-            'digits:8',
+            'string',
+            'max:100',
+            'regex:/^RIS-\d{6}-\d{7}$/',
             $unique,
         ];
     }
 
     /**
-     * Next editable default for the RIS "No." field (8 zero-padded digits).
+     * Prefill create-modal boot data when ?copy_from={draftId}.
+     *
+     * @return array{
+     *     copied_from_ris_id: int,
+     *     purpose: string,
+     *     urgency: string,
+     *     requested_by: ?string,
+     *     requested_by_date: ?string,
+     *     items: list<array<string, mixed>>
+     * }|null
      */
-    private function nextSuggestedRisFormNumber(): string
+    private function risCopyPrefillFromRequest(Request $request): ?array
     {
-        $max = 0;
+        $copyFromId = (int) $request->query('copy_from', 0);
+        if ($copyFromId < 1) {
+            return null;
+        }
 
-        foreach (
-            DB::table('requisition_issue_slip_table')
-                ->whereNotNull('ris_form_number')
-                ->pluck('ris_form_number') as $formNumber
-        ) {
-            if (preg_match('/^\d{8}$/', (string) $formNumber)) {
-                $max = max($max, (int) $formNumber);
+        $source = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $copyFromId)
+            ->where('ris_status', 'Draft')
+            ->first();
+
+        if (!$source || !PurchaserDocumentAccess::owns($source, 'ris')) {
+            return null;
+        }
+
+        $items = $this->risItemsWithLookups([$copyFromId])->map(function ($item) {
+            return [
+                'name_description' => (string) ($item->ris_item_name_description ?? ''),
+                'brand_id' => (string) ($item->ris_item_brand_id ?? ''),
+                'supplier_id' => (string) ($item->ris_item_supplier_id ?? ''),
+                'uom_id' => (string) ($item->ris_item_uom_id ?? ''),
+                'quantity_requested' => $item->ris_quantity_requested ?? '',
+                'quantity_issued' => $item->ris_quantity_issued ?? '',
+                'unit_cost' => $item->ris_unit_cost ?? '',
+            ];
+        })->values()->all();
+
+        $requestedByDate = null;
+        if (!empty($source->ris_requested_by_date)) {
+            try {
+                $requestedByDate = \Carbon\Carbon::parse($source->ris_requested_by_date)->format('d/m/Y');
+            } catch (\Throwable $e) {
+                $requestedByDate = null;
             }
         }
 
-        $next = min($max + 1, 99999999);
+        return [
+            'copied_from_ris_id' => (int) $source->ris_id,
+            'purpose' => (string) ($source->ris_purpose_description ?? ''),
+            'urgency' => RisWorkflow::normalizeUrgency($source->ris_urgency ?? null),
+            'requested_by' => filled($source->ris_requested_by_signature ?? null)
+                ? (string) $source->ris_requested_by_signature
+                : null,
+            'requested_by_date' => $requestedByDate,
+            'items' => $items,
+        ];
+    }
 
-        return str_pad((string) $next, 8, '0', STR_PAD_LEFT);
+    private function resolveOwnedDraftCopiedFromId(?int $copiedFromRisId): ?int
+    {
+        if (!$copiedFromRisId || $copiedFromRisId < 1) {
+            return null;
+        }
+
+        if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_copied_from_id')) {
+            return null;
+        }
+
+        $source = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $copiedFromRisId)
+            ->where('ris_status', 'Draft')
+            ->first();
+
+        if (!$source || !PurchaserDocumentAccess::owns($source, 'ris')) {
+            return null;
+        }
+
+        return (int) $source->ris_id;
+    }
+
+    private function deleteCopiedSourceDraftIfNeeded(object $ris): void
+    {
+        if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_copied_from_id')) {
+            return;
+        }
+
+        $sourceId = (int) ($ris->ris_copied_from_id ?? 0);
+        if ($sourceId < 1) {
+            return;
+        }
+
+        $source = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $sourceId)
+            ->first();
+
+        if (
+            !$source
+            || (string) ($source->ris_status ?? '') !== 'Draft'
+            || !PurchaserDocumentAccess::owns($source, 'ris')
+        ) {
+            return;
+        }
+
+        $this->deleteDraftRis($sourceId);
+    }
+
+    private function deleteDraftRis(int $risId): void
+    {
+        $attachments = DB::table('ris_attachments_table')
+            ->where('ris_id', $risId)
+            ->get();
+
+        foreach ($attachments as $attachment) {
+            $path = (string) ($attachment->ris_attachment_path ?? '');
+            if ($path !== '' && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+
+        DB::table('ris_attachments_table')->where('ris_id', $risId)->delete();
+        DB::table('requisition_issue_slip_items_table')->where('ris_id', $risId)->delete();
+
+        $signaturePath = RisWorkflow::requestedBySignatureDiskPath($risId);
+        if (Storage::disk('public')->exists($signaturePath)) {
+            Storage::disk('public')->delete($signaturePath);
+        }
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_copied_from_id')) {
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_copied_from_id', $risId)
+                ->update([
+                    'ris_copied_from_id' => null,
+                    'ris_updated_at' => now(),
+                ]);
+        }
+
+        DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->delete();
+    }
+
+    private function notifyPurchaserDraft(int $risId): void
+    {
+        WorkflowNotifier::toUser(
+            Auth::id(),
+            WorkflowNotifier::ROLE_PURCHASER,
+            'Draft RIS saved',
+            'You have a draft RIS waiting to be completed and submitted to Admin.',
+            'ris_draft',
+            'RIS',
+            $risId,
+            route(ProcurementPortal::routeName('ris.index'), ['view_ris' => $risId, 'status' => 'Draft'])
+        );
     }
 
     /**
-     * Shared status groups for RIS summary cards and list filters.
-     *
      * @return array{submitted: list<string>, approved: list<string>, rejected: list<string>}
      */
     private function risStatusGroups(): array
@@ -1998,8 +2232,9 @@ public function submit($risId)
         $seenNames = [];
 
         foreach ($items as $index => $item) {
+            $row = $this->normalizeRisItemForValidation($item);
             $rowNumber = $index + 1;
-            $name = trim((string) ($item['name_description'] ?? ''));
+            $name = $row['name_description'];
 
             if ($name === '') {
                 return "Item {$rowNumber} needs an item description.";
@@ -2009,19 +2244,32 @@ public function submit($risId)
             $isFirstOfGroup = !isset($seenNames[$key]);
             $seenNames[$key] = true;
 
-            if ($isFirstOfGroup && blank($item['quantity_requested'] ?? null)) {
+            if ($isFirstOfGroup && blank($row['quantity_requested'])) {
                 return "Item {$rowNumber} needs a Quantity Requested.";
             }
 
-            if ($isFirstOfGroup && (int) $item['quantity_requested'] < 1) {
+            if ($isFirstOfGroup && (int) $row['quantity_requested'] < 1) {
                 return "Item {$rowNumber} Quantity Requested must be at least 1.";
             }
 
-            if ($isFirstOfGroup && blank($item['uom_id'] ?? null)) {
+            if ($this->risItemsHaveBrandColumn() && blank($row['brand_id'])) {
+                return "Item {$rowNumber} needs a brand.";
+            }
+
+            if ($this->risItemsHaveUomColumn() && blank($row['uom_id'])) {
                 return "Item {$rowNumber} needs a unit of measure.";
             }
 
-            if ($isFirstOfGroup && (!isset($item['unit_cost']) || $item['unit_cost'] === '' || (float) $item['unit_cost'] <= 0)) {
+            if ($this->risItemsHaveSupplierColumn() && blank($row['supplier_id'])) {
+                return "Item {$rowNumber} needs a supplier.";
+            }
+
+            // Blank issued fields are stored as 0 — treat 0 as not filled on submit.
+            if ($row['quantity_issued'] === null || $row['quantity_issued'] === '' || (int) $row['quantity_issued'] < 1) {
+                return "Item {$rowNumber} needs a Quantity Issued of at least 1.";
+            }
+
+            if ($isFirstOfGroup && ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0)) {
                 return "Item {$rowNumber} needs a unit cost greater than 0.";
             }
         }
@@ -2029,9 +2277,82 @@ public function submit($risId)
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>|object  $item
+     * @return array{
+     *     name_description: string,
+     *     brand_id: mixed,
+     *     uom_id: mixed,
+     *     supplier_id: mixed,
+     *     quantity_requested: mixed,
+     *     quantity_issued: mixed,
+     *     unit_cost: mixed
+     * }
+     */
+    private function normalizeRisItemForValidation(array|object $item): array
+    {
+        if (is_array($item)) {
+            return [
+                'name_description' => trim((string) ($item['name_description'] ?? '')),
+                'brand_id' => $item['brand_id'] ?? null,
+                'uom_id' => $item['uom_id'] ?? null,
+                'supplier_id' => $item['supplier_id'] ?? null,
+                'quantity_requested' => $item['quantity_requested'] ?? null,
+                'quantity_issued' => $item['quantity_issued'] ?? null,
+                'unit_cost' => $item['unit_cost'] ?? null,
+            ];
+        }
+
+        return [
+            'name_description' => trim((string) ($item->ris_item_name_description ?? '')),
+            'brand_id' => $item->ris_item_brand_id ?? null,
+            'uom_id' => $item->ris_item_uom_id ?? null,
+            'supplier_id' => $item->ris_item_supplier_id ?? null,
+            'quantity_requested' => $item->ris_quantity_requested ?? null,
+            'quantity_issued' => $item->ris_quantity_issued ?? null,
+            'unit_cost' => $item->ris_unit_cost ?? null,
+        ];
+    }
+
+    private function backWithEditRisError($risId, string $message, bool $openEdit = true, bool $withInput = true)
+    {
+        $response = back();
+        if ($withInput) {
+            $response = $response->withInput();
+        }
+
+        $response = $response->with('error', $message);
+
+        if ($openEdit) {
+            $response = $response->with('edit_ris', (int) $risId);
+        }
+
+        return $response;
+    }
+
+    private function risHasRequestedBySignature(object $ris): bool
+    {
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
+            $image = RisWorkflow::normalizeDrawnSignature($ris->ris_requested_by_signature_image ?? null);
+            if ($image) {
+                return true;
+            }
+        }
+
+        $path = RisWorkflow::requestedBySignatureDiskPath((int) $ris->ris_id);
+        if (Storage::disk('public')->exists($path)) {
+            return true;
+        }
+
+        // Legacy: signature column sometimes stored a data-url image.
+        $legacy = trim((string) ($ris->ris_requested_by_signature ?? ''));
+
+        return str_starts_with($legacy, 'data:image');
+    }
+
     private function availableReplacementRequests()
     {
-        return $this->replacementSourceQuery()
+        $rows = $this->replacementSourceQuery()
             ->where('procurement_requests_table.procurement_request_status', 'Approved')
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -2044,6 +2365,10 @@ public function submit($risId)
             ->orderByDesc('procurement_requests_table.procurement_request_created_at')
             ->limit(50)
             ->get();
+
+        ReplacementRequestBasket::attachToRequests($rows);
+
+        return $rows;
     }
 
     private function replacementSourceQuery()
@@ -2074,6 +2399,7 @@ public function submit($risId)
                 'reports_table.report_problem_description',
                 'reports_table.report_replacement_notes',
                 'reports_table.report_unlisted_equipment_name',
+                'reports_table.report_urgency_level',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_asset_tag',
                 'rooms_table.room_name'
@@ -2086,9 +2412,15 @@ public function submit($risId)
             return null;
         }
 
-        return $this->replacementSourceQuery()
+        $source = $this->replacementSourceQuery()
             ->where('procurement_requests_table.procurement_request_id', $procurementRequestId)
             ->first();
+
+        if ($source) {
+            ReplacementRequestBasket::attachToRequests([$source]);
+        }
+
+        return $source;
     }
 
     private function prefillRisFromReplacement(Request $request): void
@@ -2104,20 +2436,37 @@ public function submit($risId)
             ]);
         }
 
+        if (!$request->filled('ris_urgency') && Schema::hasColumn('requisition_issue_slip_table', 'ris_urgency')) {
+            $request->merge([
+                'ris_urgency' => RisWorkflow::normalizeUrgency($source->report_urgency_level ?? null),
+            ]);
+        }
+
         $items = $request->input('ris_items', []);
         $hasNamedItem = collect($items)->contains(
             fn ($item) => is_array($item) && filled($item['name_description'] ?? null)
         );
         if ($hasNamedItem) {
-            return;
+            $namedCount = collect($items)->filter(
+                fn ($item) => is_array($item) && filled($item['name_description'] ?? null)
+            )->count();
+            $lines = ReplacementRequestBasket::risPrefillLines($source);
+            if ($namedCount >= count($lines)) {
+                return;
+            }
         }
 
-        $first = is_array($items[0] ?? null) ? $items[0] : [];
-        $first['name_description'] = RisWorkflow::equipmentLabel($source);
-        if (!filled($first['quantity_requested'] ?? null)) {
-            $first['quantity_requested'] = 1;
+        $lines = ReplacementRequestBasket::risPrefillLines($source);
+        foreach ($lines as $index => $line) {
+            $row = is_array($items[$index] ?? null) ? $items[$index] : [];
+            if (!filled($row['name_description'] ?? null)) {
+                $row['name_description'] = $line['name'];
+            }
+            if (!filled($row['quantity_requested'] ?? null)) {
+                $row['quantity_requested'] = $line['quantity'] ?? 1;
+            }
+            $items[$index] = $row;
         }
-        $items[0] = $first;
         $request->merge(['ris_items' => $items]);
     }
 

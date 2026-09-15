@@ -36,6 +36,14 @@
             </a>
 
             <a
+                href="/accounting/purchase-orders?status=incoming"
+                class="quick-card {{ request()->is('accounting/purchase-orders*') ? 'active' : '' }}"
+            >
+                <i data-lucide="shopping-bag"></i>
+                <span>PO</span>
+            </a>
+
+            <a
                 href="/accounting/request-check?status=incoming"
                 class="quick-card {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
             >
@@ -76,6 +84,13 @@
         >
             <i class="h-5 w-5" data-lucide="file-check"></i>
             <span>ATP</span>
+        </a>
+        <a
+            href="/accounting/purchase-orders?status=incoming"
+            class="menu-item {{ request()->is('accounting/purchase-orders*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="shopping-bag"></i>
+            <span>Purchase Orders</span>
         </a>
         <a
             href="/accounting/request-check?status=incoming"

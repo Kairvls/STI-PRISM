@@ -10,7 +10,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
             <h2 class="text-2xl font-semibold text-slate-900">{{ $atp->authority_purchase_form_number ?? 'ATP #'.$atp->authority_purchase_id }}</h2>
-            <p class="text-sm text-slate-600">RIS: {{ $atp->ris_form_number ?? 'RIS-'.$atp->authority_purchase_ris_id }}</p>
+            <p class="text-sm text-slate-600">RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
             @php
                 $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
                 $atpHint = \App\Support\DocumentLineage::reviewHint(
@@ -47,7 +47,7 @@
             <dl class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <dt class="text-xs uppercase tracking-wide text-slate-500">RIS</dt>
-                    <dd class="mt-1 text-sm text-slate-700">{{ $atp->ris_form_number ?? 'RIS-'.$atp->authority_purchase_ris_id }}</dd>
+                    <dd class="mt-1 text-sm text-slate-700">{{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</dd>
                 </div>
                 <div>
                     <dt class="text-xs uppercase tracking-wide text-slate-500">Purchase date</dt>

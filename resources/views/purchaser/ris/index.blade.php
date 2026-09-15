@@ -8,24 +8,73 @@
 
 @php
     $oldRisItems = old('ris_items', []);
+    $copyPrefill = $risCopyPrefill ?? null;
     $createItemsInit = [];
-    for ($i = 0; $i < 8; $i++) {
+    $sourceItems = !empty($oldRisItems)
+        ? $oldRisItems
+        : (($copyPrefill['items'] ?? []) ?: []);
+    $createRowCount = min(8, max(8, count($sourceItems)));
+    for ($i = 0; $i < $createRowCount; $i++) {
         $createItemsInit[] = [
-            'name_description' => $oldRisItems[$i]['name_description'] ?? '',
-            'brand_id' => (string) ($oldRisItems[$i]['brand_id'] ?? ''),
-            'supplier_id' => (string) ($oldRisItems[$i]['supplier_id'] ?? ''),
-            'uom_id' => (string) ($oldRisItems[$i]['uom_id'] ?? ''),
-            'quantity_requested' => $oldRisItems[$i]['quantity_requested'] ?? '',
-            'quantity_issued' => $oldRisItems[$i]['quantity_issued'] ?? '',
-            'unit_cost' => $oldRisItems[$i]['unit_cost'] ?? '',
+            'name_description' => $sourceItems[$i]['name_description'] ?? '',
+            'brand_id' => (string) ($sourceItems[$i]['brand_id'] ?? ''),
+            'supplier_id' => (string) ($sourceItems[$i]['supplier_id'] ?? ''),
+            'uom_id' => (string) ($sourceItems[$i]['uom_id'] ?? ''),
+            'quantity_requested' => $sourceItems[$i]['quantity_requested'] ?? '',
+            'quantity_issued' => $sourceItems[$i]['quantity_issued'] ?? '',
+            'unit_cost' => $sourceItems[$i]['unit_cost'] ?? '',
         ];
     }
+
+    $requestedSource = null;
+    if (empty($oldRisItems) && empty($copyPrefill['items'] ?? [])) {
+        $requestedReplacementId = (int) request('replacement_request', 0);
+        $requestedSource = collect($availableReplacementRequests ?? [])
+            ->firstWhere('procurement_request_id', $requestedReplacementId);
+        if ($requestedSource) {
+            $prefillLines = \App\Support\ReplacementRequestBasket::risPrefillLines($requestedSource);
+            foreach ($prefillLines as $index => $line) {
+                if (! isset($createItemsInit[$index])) {
+                    $createItemsInit[$index] = [
+                        'name_description' => '',
+                        'brand_id' => '',
+                        'supplier_id' => '',
+                        'uom_id' => '',
+                        'quantity_requested' => '',
+                        'quantity_issued' => '',
+                        'unit_cost' => '',
+                    ];
+                }
+                if (trim((string) $createItemsInit[$index]['name_description']) === '') {
+                    $createItemsInit[$index]['name_description'] = $line['name'] ?? '';
+                }
+                if ($createItemsInit[$index]['quantity_requested'] === '' || $createItemsInit[$index]['quantity_requested'] === null) {
+                    $createItemsInit[$index]['quantity_requested'] = $line['quantity'] ?? 1;
+                }
+            }
+        }
+    }
     $viewRisId = request('view_ris') ?: request('ris_id');
+    $openCreateFromCopy = is_array($copyPrefill) && !empty($copyPrefill['copied_from_ris_id']);
+    $editRisId = (int) session('edit_ris', 0);
+    $bootPurpose = (string) old('ris_purpose_description', $copyPrefill['purpose'] ?? '');
+    $bootUrgency = (string) old('ris_urgency', $copyPrefill['urgency'] ?? \App\Support\RisWorkflow::URGENCY_NON_URGENT);
+    if ($requestedSource && $bootPurpose === '') {
+        $bootPurpose = \App\Support\RisWorkflow::replacementPurpose($requestedSource);
+    }
+    if ($requestedSource && ! old('ris_urgency') && empty($copyPrefill['urgency'] ?? null)) {
+        $bootUrgency = \App\Support\RisWorkflow::normalizeUrgency($requestedSource->report_urgency_level ?? null);
+    }
     $risPageBoot = [
         'openModal' => $viewRisId ? 'ris-' . $viewRisId : null,
-        'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
+        'editRisModal' => $editRisId > 0 ? 'edit-ris-' . $editRisId : null,
+        'createRisModal' => $editRisId > 0
+            ? false
+            : ($errors->any() || request()->filled('replacement_request') || $openCreateFromCopy),
         'createItems' => $createItemsInit,
-        'purposeText' => (string) old('ris_purpose_description', ''),
+        'purposeText' => $bootPurpose,
+        'urgencyLevel' => $bootUrgency,
+        'copiedFromRisId' => (int) old('copied_from_ris_id', $copyPrefill['copied_from_ris_id'] ?? 0) ?: null,
         'createSignaturePreview' => (string) old('signature_data', ''),
         'savedSignatures' => collect($savedSignatures ?? [])->map(function ($item) {
             return [
@@ -45,16 +94,26 @@
             ];
         })->all(),
         'replacementRequests' => collect($availableReplacementRequests ?? [])->map(function ($request) {
-            return [
-                'id' => $request->procurement_request_id,
-                'report_id' => $request->report_id ?? null,
-                'equipment' => $request->equipment_name ?: ($request->report_unlisted_equipment_name ?: 'Unspecified equipment'),
-                'asset_tag' => $request->equipment_asset_tag ?? null,
-                'room' => $request->room_name ?? 'Unspecified room',
-                'problem' => $request->report_problem_description ?? '',
-                'reason' => $request->report_replacement_notes ?? '',
-            ];
+            return \App\Support\ReplacementRequestBasket::toRisBootArray($request);
         })->values(),
+        'brandOptions' => collect($brands ?? [])->map(function ($brand) {
+            return [
+                'id' => (string) $brand->brand_id,
+                'label' => (string) $brand->brand_name,
+            ];
+        })->values()->all(),
+        'uomOptions' => collect($uoms ?? [])->map(function ($uom) {
+            return [
+                'id' => (string) $uom->uom_id,
+                'label' => (string) $uom->uom_name,
+            ];
+        })->values()->all(),
+        'supplierOptions' => collect($activeSuppliers ?? [])->map(function ($supplier) {
+            return [
+                'id' => (string) $supplier->supplier_id,
+                'label' => (string) ($supplier->display_name ?? $supplier->supplier_name ?? 'Supplier'),
+            ];
+        })->values()->all(),
         'savedSignatureStoreUrl' => route(($pp ?? 'purchaser').'.ris.saved-signatures.store'),
         'savedSignatureDestroyBaseUrl' => url('/'.($pp ?? 'purchaser').'/ris/saved-signatures'),
         'risIndexUrl' => route(($pp ?? 'purchaser').'.ris.index'),
@@ -71,7 +130,6 @@
         savedSignatureDestroyBaseUrl: '',
         risIndexUrl: '',
         ...JSON.parse(document.getElementById('ris-page-boot').textContent),
-        editRisModal: null,
         submitRisConfirm: null,
         submitRisSending: false,
         closeEditRis(risId, returnToView = true) {
@@ -95,6 +153,46 @@
         },
         createRisFullscreen: false,
         createSignModal: false,
+        openRisSelectKey: null,
+        risSelectQuery: '',
+        toggleRisSelect(key) {
+            if (this.openRisSelectKey === key) {
+                this.openRisSelectKey = null;
+                this.risSelectQuery = '';
+                return;
+            }
+            this.openRisSelectKey = key;
+            this.risSelectQuery = '';
+            this.$nextTick(() => {
+                const el = document.querySelector('[data-ris-select-search=\'' + key + '\']');
+                if (el) {
+                    el.focus({ preventScroll: true });
+                }
+            });
+        },
+        isRisSelectOpen(key) {
+            return this.openRisSelectKey === key;
+        },
+        closeRisSelect() {
+            this.openRisSelectKey = null;
+            this.risSelectQuery = '';
+        },
+        risSelectLabel(optionsKey, value, placeholder) {
+            const id = String(value ?? '');
+            if (!id) {
+                return placeholder || 'Select';
+            }
+            const found = (this[optionsKey] || []).find((opt) => String(opt.id) === id);
+            return found ? found.label : (placeholder || 'Select');
+        },
+        filteredRisOptions(optionsKey) {
+            const q = String(this.risSelectQuery || '').trim().toLowerCase();
+            const options = this[optionsKey] || [];
+            if (!q) {
+                return options;
+            }
+            return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
+        },
         createSignSubmitting: false,
         createSignPendingSave: false,
         createAttachmentName: '',
@@ -376,25 +474,66 @@
         replacementPurpose() {
             const item = this.selectedReplacementData();
             if (!item) return '';
-            let purpose = 'Replacement of ' + item.equipment;
-            if (item.room) purpose += ' in ' + item.room;
-            if (item.reason) purpose += '. Reason: ' + item.reason;
-            else if (item.problem) purpose += '. Reason: ' + item.problem;
+            const lines = Array.isArray(item.items) && item.items.length ? item.items : [{ name: item.equipment, room: item.room, reason: item.reason, problem: item.problem }];
+            const parts = lines.map((line) => {
+                const name = String(line.name || item.equipment || 'Equipment').trim();
+                const room = String(line.room || '').trim();
+                return room ? (name + ' in ' + room) : name;
+            }).filter(Boolean);
+            let purpose = 'Replacement of ' + (parts.length ? parts.join(', ') : item.equipment);
+            const reason = item.reason || lines.find((line) => line.reason)?.reason || item.problem || lines.find((line) => line.problem)?.problem;
+            if (reason) purpose += '. Reason: ' + reason;
             return purpose;
         },
         applyReplacementPrefill(overwrite = false) {
             const data = this.selectedReplacementData();
             if (!data) return;
 
-            if (this.createItems[0] && (overwrite || !String(this.createItems[0].name_description || '').trim())) {
-                this.createItems[0].name_description = data.equipment;
-                if (!this.createItems[0].quantity_requested) {
-                    this.createItems[0].quantity_requested = 1;
+            const lines = Array.isArray(data.items) && data.items.length
+                ? data.items
+                : [{ name: data.equipment, quantity: 1 }];
+
+            while (this.createItems.length < 8) {
+                this.createItems.push({
+                    name_description: '',
+                    brand_id: '',
+                    supplier_id: '',
+                    uom_id: '',
+                    quantity_requested: '',
+                    quantity_issued: '',
+                    unit_cost: '',
+                });
+            }
+            if (this.createItems.length > 8) {
+                this.createItems = this.createItems.slice(0, 8);
+            }
+
+            lines.slice(0, 8).forEach((line, index) => {
+                if (!this.createItems[index]) return;
+                const current = String(this.createItems[index].name_description || '').trim();
+                if (overwrite || !current) {
+                    this.createItems[index].name_description = line.name || '';
+                }
+                if (overwrite || !this.createItems[index].quantity_requested) {
+                    this.createItems[index].quantity_requested = line.quantity || 1;
+                }
+            });
+
+            if (overwrite) {
+                for (let i = lines.length; i < this.createItems.length; i++) {
+                    this.createItems[i].name_description = '';
+                    this.createItems[i].quantity_requested = '';
                 }
             }
 
             if (overwrite || !String(this.purposeText || '').trim()) {
                 this.purposeText = this.replacementPurpose();
+            }
+
+            if (overwrite) {
+                this.urgencyLevel = data.urgency || 'Non-Urgent';
+            } else if (data.urgency === 'Urgent') {
+                this.urgencyLevel = 'Urgent';
             }
         },
         risItemKey(name) {
@@ -457,6 +596,23 @@
             this.$watch('selectedReplacement', () => {
                 this.applyReplacementPrefill(true);
             });
+            // One-shot deep links (?replacement_request=, ?copy_from=, ?view_ris=)
+            // open a modal once; strip them so refresh does not reopen.
+            this.clearOneShotRisQueryParams();
+        },
+        clearOneShotRisQueryParams() {
+            const url = new URL(window.location.href);
+            const keys = ['replacement_request', 'copy_from', 'view_ris', 'ris_id'];
+            let changed = false;
+            keys.forEach((key) => {
+                if (url.searchParams.has(key)) {
+                    url.searchParams.delete(key);
+                    changed = true;
+                }
+            });
+            if (!changed) return;
+            const query = url.searchParams.toString();
+            window.history.replaceState({}, '', url.pathname + (query ? `?${query}` : '') + url.hash);
         },
         recordsLoading: false,
         filterError: null,
@@ -563,6 +719,18 @@
     @endif
 
     <div class="mb-7 flex flex-wrap justify-end gap-2">
+        @if(($risSummary['draft'] ?? 0) > 0)
+            <a
+                href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Draft']) }}"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[13px] font-medium border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            >
+                View drafts
+                <span class="rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">
+                    {{ number_format($risSummary['draft']) }}
+                </span>
+            </a>
+        @endif
+
         <button
             type="button"
             x-on:click="openModal = 'empty-ris'"
@@ -573,7 +741,7 @@
 
         <button
             type="button"
-            x-on:click="lockedReplacement = false; selectedReplacement = ''; createRisFullscreen = false; createRisModal = true"
+            x-on:click="lockedReplacement = false; selectedReplacement = ''; copiedFromRisId = null; createRisFullscreen = false; createRisModal = true"
             class="px-4 py-2.5 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
             Create RIS
@@ -670,11 +838,12 @@
 
     {{-- PRINT EMPTY RIS MODAL --}}
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="openModal === 'empty-ris'"
         x-on:keydown.escape.window="openModal = null"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         x-effect="window.purDialog && window.purDialog.sync(openModal === 'empty-ris', $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         role="dialog"
@@ -968,6 +1137,7 @@
             </div>
         </div>
     </div>
+    </template>
 
     <style>
         [x-cloak] {
@@ -1019,7 +1189,7 @@
 
         .ris-number-line {
             display: block;
-            width: 160px;
+            width: 220px;
             border-bottom: 1px solid #1f2937;
         }
 
@@ -1223,7 +1393,7 @@
         }
 
         .ris-number-input {
-            width: 160px;
+            width: 220px;
             padding: 2px 6px;
             text-align: center;
             font-size: 12px;
@@ -1342,6 +1512,11 @@
             padding: 6px 10px;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .ris-edit-add-row button.ris-add-item-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
         }
 
         .ris-delete-mode-toggle {
@@ -1502,12 +1677,13 @@
 
     </style>
     @include('partials.ris-signature-overlay-styles')
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="createRisModal"
         x-transition.opacity
         x-on:keydown.escape.window="if (createSignModal) { closeCreateSignModal(); } else { createRisModal = false; createRisFullscreen = false }"
-        class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50"
         x-bind:class="createRisFullscreen ? 'p-0' : 'p-4 md:p-8'"
         x-effect="window.purDialog && window.purDialog.sync(createRisModal, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
@@ -1528,6 +1704,7 @@
                 <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.store') }}" enctype="multipart/form-data" x-ref="createRisForm" x-on:submit.prevent="saveCreateRis()">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
+                    <input type="hidden" name="copied_from_ris_id" x-bind:value="copiedFromRisId || ''">
                     <input type="hidden" name="signature_data" id="purchaserRisSignatureData" value="{{ old('signature_data') }}" x-bind:value="createSignaturePreview">
 
                     {{-- HEADER --}}
@@ -1579,6 +1756,7 @@
                                         <span class="font-normal text-slate-500" x-show="selectedReplacementData()">
                                             · <span x-text="selectedReplacementData()?.equipment"></span>
                                             <span x-show="selectedReplacementData()?.room"> · <span x-text="selectedReplacementData()?.room"></span></span>
+                                            <span x-show="(selectedReplacementData()?.item_count || 0) > 1"> · <span x-text="selectedReplacementData()?.item_count"></span> items</span>
                                         </span>
                                     </p>
                                 </div>
@@ -1599,8 +1777,8 @@
                                     <p class="mt-1 text-sm font-medium text-slate-900" x-text="selectedReplacementData()?.equipment"></p>
                                 </div>
                                 <div>
-                                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Asset Tag</p>
-                                    <p class="mt-1 text-sm font-medium text-slate-900" x-text="selectedReplacementData()?.asset_tag || 'Not specified'"></p>
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Items</p>
+                                    <p class="mt-1 text-sm font-medium text-slate-900" x-text="(selectedReplacementData()?.item_count || 1) + ' of 8'"></p>
                                 </div>
                                 <div>
                                     <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</p>
@@ -1610,6 +1788,27 @@
                                     <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Original Report</p>
                                     <p class="mt-1 text-sm font-medium text-slate-900">#<span x-text="selectedReplacementData()?.report_id || 'N/A'"></span></p>
                                 </div>
+                            </div>
+                            <div class="border-t border-slate-100 px-4 py-3" x-show="(selectedReplacementData()?.items || []).length">
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Line items for RIS</p>
+                                <ul class="mt-2 space-y-2">
+                                    <template x-for="(line, lineIndex) in (selectedReplacementData()?.items || [])" :key="'locked-line-' + lineIndex">
+                                        <li class="flex items-start justify-between gap-3 text-sm text-slate-700">
+                                            <div class="min-w-0">
+                                                <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
+                                                <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
+                                                    <span x-show="line.brand" x-text="line.brand"></span>
+                                                    <span x-show="line.brand && line.model"> · </span>
+                                                    <span x-show="line.model" x-text="line.model"></span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
+                                                    <span x-show="line.room" x-text="line.room"></span>
+                                                    <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
+                                                </p>
+                                            </div>
+                                            <span class="shrink-0 text-xs text-slate-400">Qty <span x-text="line.quantity || 1"></span></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div class="grid gap-3 border-t border-slate-100 px-4 py-3 lg:grid-cols-2" x-show="selectedReplacementData()?.problem || selectedReplacementData()?.reason">
                                 <div x-show="selectedReplacementData()?.problem">
@@ -1624,6 +1823,41 @@
                         </div>
                     </div>
 
+                    <div class="border-b border-gray-100 bg-white px-5 py-4 md:px-6">
+                        <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency</p>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <label
+                                class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
+                                :class="urgencyLevel === 'Non-Urgent' ? 'border-slate-900 bg-white ring-1 ring-slate-900/10' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
+                            >
+                                <input type="radio" name="ris_urgency" value="Non-Urgent" class="sr-only" x-model="urgencyLevel">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </span>
+                                <span>
+                                    <span class="block font-semibold text-slate-900">Non-Urgent</span>
+                                    <span class="mt-0.5 block text-xs text-slate-500">Standard procurement timeline</span>
+                                </span>
+                            </label>
+                            <label
+                                class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
+                                :class="urgencyLevel === 'Urgent' ? 'border-rose-500 bg-rose-50/70 ring-1 ring-rose-200' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
+                            >
+                                <input type="radio" name="ris_urgency" value="Urgent" class="sr-only" x-model="urgencyLevel">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                </span>
+                                <span>
+                                    <span class="block font-semibold text-slate-900">Urgent</span>
+                                    <span class="mt-0.5 block text-xs text-slate-500">Needs priority purchasing attention</span>
+                                </span>
+                            </label>
+                        </div>
+                        @error('ris_urgency')
+                            <p class="mt-2 text-xs text-rose-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     {{-- SELECTABLE SOURCE --}}
                     <div x-show="!lockedReplacement" class="border-b border-gray-100 bg-slate-50 px-5 py-4 md:px-6">
                         <label class="mb-2 block text-sm font-medium text-gray-900">Source Replacement Request</label>
@@ -1636,9 +1870,12 @@
                             <option value="">Manual RIS / No replacement request</option>
                             @foreach($availableReplacementRequests as $replacementRequest)
                                 @php
-                                    $replacementEquipment = $replacementRequest->equipment_name
-                                        ?: $replacementRequest->report_unlisted_equipment_name
-                                        ?: 'Unspecified equipment';
+                                    $replacementEquipment = $replacementRequest->equipment_display
+                                        ?? ($replacementRequest->equipment_name
+                                            ?: ($replacementRequest->report_unlisted_equipment_name ?: 'Unspecified equipment'));
+                                    $replacementRoom = $replacementRequest->room_display
+                                        ?? ($replacementRequest->room_name ?? null);
+                                    $replacementItemCount = (int) ($replacementRequest->item_count ?? 1);
                                 @endphp
                                 <option
                                     value="{{ $replacementRequest->procurement_request_id }}"
@@ -1646,8 +1883,11 @@
                                 >
                                     Request #{{ $replacementRequest->procurement_request_id }}
                                     • {{ $replacementEquipment }}
-                                    @if($replacementRequest->room_name)
-                                        • {{ $replacementRequest->room_name }}
+                                    @if($replacementItemCount > 1)
+                                        • {{ $replacementItemCount }} items
+                                    @endif
+                                    @if($replacementRoom)
+                                        • {{ $replacementRoom }}
                                     @endif
                                 </option>
                             @endforeach
@@ -1671,8 +1911,8 @@
                                     <p class="mt-1 text-sm font-medium text-slate-900" x-text="selectedReplacementData()?.equipment"></p>
                                 </div>
                                 <div>
-                                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Asset Tag</p>
-                                    <p class="mt-1 text-sm font-medium text-slate-900" x-text="selectedReplacementData()?.asset_tag || 'Not specified'"></p>
+                                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Items</p>
+                                    <p class="mt-1 text-sm font-medium text-slate-900" x-text="(selectedReplacementData()?.item_count || 1) + ' of 8'"></p>
                                 </div>
                                 <div>
                                     <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</p>
@@ -1682,6 +1922,27 @@
                                     <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Original Report</p>
                                     <p class="mt-1 text-sm font-medium text-slate-900">#<span x-text="selectedReplacementData()?.report_id || 'N/A'"></span></p>
                                 </div>
+                            </div>
+                            <div class="border-t border-slate-100 px-4 py-3" x-show="(selectedReplacementData()?.items || []).length">
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Line items for RIS</p>
+                                <ul class="mt-2 space-y-2">
+                                    <template x-for="(line, lineIndex) in (selectedReplacementData()?.items || [])" :key="'select-line-' + lineIndex">
+                                        <li class="flex items-start justify-between gap-3 text-sm text-slate-700">
+                                            <div class="min-w-0">
+                                                <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
+                                                <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
+                                                    <span x-show="line.brand" x-text="line.brand"></span>
+                                                    <span x-show="line.brand && line.model"> · </span>
+                                                    <span x-show="line.model" x-text="line.model"></span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
+                                                    <span x-show="line.room" x-text="line.room"></span>
+                                                    <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
+                                                </p>
+                                            </div>
+                                            <span class="shrink-0 text-xs text-slate-400">Qty <span x-text="line.quantity || 1"></span></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -1695,18 +1956,9 @@
                                 <div class="mt-3 flex justify-end sm:mt-4">
                                     <div class="flex items-end gap-2">
                                         <label class="text-xs font-medium sm:text-sm">No.</label>
-                                        <input
-                                            type="text"
-                                            name="ris_form_number"
-                                            value="{{ old('ris_form_number', $suggestedRisFormNumber ?? '') }}"
-                                            inputmode="numeric"
-                                            pattern="\d{8}"
-                                            maxlength="8"
-                                            title="Enter exactly 8 digits"
-                                            autocomplete="off"
-                                            x-on:input="$el.value = $el.value.replace(/\D/g, '').slice(0, 8)"
-                                            class="w-28 border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-xs outline-none focus:ring-0 sm:w-40 sm:text-sm"
-                                        >
+                                        <p class="w-44 border-0 border-b border-gray-800 px-1 py-1 text-xs text-gray-500 sm:w-52 sm:text-sm">
+                                            Assigned when submitted to Admin
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1746,28 +1998,30 @@
                                                     <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    <select x-model="item.brand_id" x-bind:name="`ris_items[${index}][brand_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
-                                                        <option value="">Brand</option>
-                                                        @foreach(($brands ?? collect()) as $brand)
-                                                            <option value="{{ $brand->brand_id }}">{{ $brand->brand_name }}</option>
-                                                        @endforeach
-                                                    </select>
+                                                    @include('purchaser.ris._searchable-select', [
+                                                        'field' => 'brand_id',
+                                                        'optionsKey' => 'brandOptions',
+                                                        'placeholder' => 'Brand',
+                                                        'textAlign' => 'center',
+                                                    ])
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
-                                                        <option value="">Unit</option>
-                                                        @foreach(($uoms ?? collect()) as $uom)
-                                                            <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
-                                                        @endforeach
-                                                    </select>
+                                                    @include('purchaser.ris._searchable-select', [
+                                                        'field' => 'uom_id',
+                                                        'optionsKey' => 'uomOptions',
+                                                        'placeholder' => 'Select unit',
+                                                        'textAlign' => 'center',
+                                                        'panelMinWidth' => 'min-w-[7rem]',
+                                                    ])
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    <select x-model="item.supplier_id" x-bind:name="`ris_items[${index}][supplier_id]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-[10px] outline-none focus:ring-0 sm:px-1 sm:text-xs">
-                                                        <option value="">Select supplier</option>
-                                                        @foreach(($activeSuppliers ?? collect()) as $supplier)
-                                                            <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
-                                                        @endforeach
-                                                    </select>
+                                                    @include('purchaser.ris._searchable-select', [
+                                                        'field' => 'supplier_id',
+                                                        'optionsKey' => 'supplierOptions',
+                                                        'placeholder' => 'Select supplier',
+                                                        'textAlign' => 'left',
+                                                        'panelMinWidth' => 'min-w-[12rem]',
+                                                    ])
                                                     <p class="mt-1 px-0.5 text-[9px] leading-snug text-amber-700 sm:px-1 sm:text-[10px]" x-show="supplierWarning(item.supplier_id)" x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
@@ -2022,12 +2276,14 @@
             </div>
         </div>
     </div>
+    </template>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="createSignModal"
         x-transition.opacity
-        class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+        class="fixed inset-0 z-[210] flex items-center justify-center p-4"
         role="dialog"
         aria-modal="true"
         aria-labelledby="purchaser-ris-sign-title"
@@ -2079,11 +2335,13 @@
             </div>
         </div>
     </div>
+    </template>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="createNameSigModal"
-        class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
+        class="fixed inset-0 z-[220] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
         role="dialog"
         aria-modal="true"
     >
@@ -2115,11 +2373,13 @@
             </div>
         </div>
     </div>
+    </template>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="createDeleteSigModal"
-        class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
+        class="fixed inset-0 z-[220] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
         role="dialog"
         aria-modal="true"
     >
@@ -2137,6 +2397,7 @@
             </div>
         </div>
     </div>
+    </template>
 
     <div
         x-cloak
@@ -2299,6 +2560,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS Number</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
@@ -2321,6 +2583,15 @@
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $ris->ris_id }}</p>
                                     </div>
                                 </div>
+                            </td>
+
+                            <td class="px-5 py-4">
+                                @php $urgency = \App\Support\RisWorkflow::urgencyLabel($ris); @endphp
+                                @if($urgency === 'Urgent')
+                                    <span class="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                                @else
+                                    <span class="inline-flex items-center rounded-md bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
+                                @endif
                             </td>
 
                             <td class="px-5 py-4 text-gray-600">
@@ -2393,7 +2664,12 @@
                             </td>
 
                             <td class="px-5 py-4 text-right">
-                                <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                @php
+                                    $canEditRis = in_array($ris->ris_status, ['Draft', 'Minor Revision'], true);
+                                    $isDraftRis = $ris->ris_status === 'Draft';
+                                    $canCreateAtp = !empty($ris->can_create_atp);
+                                @endphp
+                                <div class="inline-flex items-center justify-end gap-1.5">
                                     <button
                                         type="button"
                                         x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
@@ -2404,7 +2680,7 @@
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                     </button>
 
-                                    @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
+                                    @if($canEditRis)
                                         <button
                                             type="button"
                                             x-on:click="editRisModal = 'edit-ris-{{ $ris->ris_id }}'"
@@ -2416,19 +2692,7 @@
                                         </button>
                                     @endif
 
-                                    @if($ris->ris_status === 'Draft')
-                                        <button
-                                            type="button"
-                                            x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)))"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
-                                            title="Submit to Admin"
-                                            aria-label="Submit to Admin"
-                                        >
-                                            <i data-lucide="send" class="h-4 w-4"></i>
-                                        </button>
-                                    @endif
-
-                                    @if(!empty($ris->can_create_atp))
+                                    @if($canCreateAtp)
                                         @if(!$ris->has_atp)
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
@@ -2448,12 +2712,70 @@
                                             </span>
                                         @endif
                                     @endif
+
+                                    @if($isDraftRis)
+                                        <div
+                                            class="relative"
+                                            x-data="{ openActions: false }"
+                                            @keydown.escape.window="openActions = false"
+                                        >
+                                            <button
+                                                type="button"
+                                                x-on:click="openActions = !openActions"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="More actions"
+                                                aria-label="More actions"
+                                                :aria-expanded="openActions.toString()"
+                                            >
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+
+                                            <div
+                                                x-show="openActions"
+                                                x-cloak
+                                                x-transition
+                                                @click.outside="openActions = false"
+                                                class="absolute right-0 z-30 mt-1.5 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                            >
+                                                <a
+                                                    href="{{ route(($pp ?? 'purchaser').'.ris.index', ['copy_from' => $ris->ris_id]) }}"
+                                                    class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                                >
+                                                    <i data-lucide="copy" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                    Copy draft
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)))"
+                                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                >
+                                                    <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                    Submit to Admin
+                                                </button>
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
+                                                    onsubmit="return confirm('Delete this draft RIS? This cannot be undone.');"
+                                                >
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button
+                                                        type="submit"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50"
+                                                    >
+                                                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                                        Delete draft
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <p class="font-medium text-gray-700">No RIS records found</p>
                                 <p class="mt-1 text-sm text-gray-400">Try changing your search or filters.</p>
                             </td>
@@ -2481,11 +2803,12 @@
     @foreach($risRecords as $ris)
 
         {{-- VIEW RIS MODAL --}}
+        <template x-teleport="body">
         <div
             x-cloak
             x-show="openModal === 'ris-{{ $ris->ris_id }}'"
             x-on:keydown.escape.window="openModal = null"
-            class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+            class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
             x-effect="window.purDialog && window.purDialog.sync(openModal === 'ris-{{ $ris->ris_id }}', $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         >
@@ -2508,6 +2831,12 @@
                             </h3>
 
                             @include('admin.partials.ris-status-badge', ['ris' => $ris])
+                            @php $viewUrgency = \App\Support\RisWorkflow::urgencyLabel($ris); @endphp
+                            @if($viewUrgency === 'Urgent')
+                                <span class="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                            @else
+                                <span class="inline-flex items-center rounded-md bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
+                            @endif
                         </div>
 
                         <p class="mt-2 text-sm text-gray-500">Requisition and Issue Slip</p>
@@ -2622,7 +2951,7 @@
                                 <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                                 <div class="ris-number-area">
                                     <span class="ris-number-label">No.</span>
-                                    <span class="ris-number-line ris-value-line">{{ $ris->ris_form_number ?: ' ' }}</span>
+                                    <span class="ris-number-line ris-value-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: ' ' }}</span>
                                 </div>
                             </div>
 
@@ -2830,6 +3159,12 @@
 
                     {{-- SUBMIT DRAFT --}}
                     @if($ris->ris_status === 'Draft')
+                        <a
+                            href="{{ route(($pp ?? 'purchaser').'.ris.index', ['copy_from' => $ris->ris_id]) }}"
+                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
+                            Copy draft
+                        </a>
                         <button
                             type="button"
                             x-on:click="openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)))"
@@ -2837,6 +3172,21 @@
                         >
                             Submit to Admin
                         </button>
+                        <form
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
+                            class="inline"
+                            onsubmit="return confirm('Delete this draft RIS? This cannot be undone.');"
+                        >
+                            @csrf
+                            @method('DELETE')
+                            <button
+                                type="submit"
+                                class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                            >
+                                Delete draft
+                            </button>
+                        </form>
                     @endif
 
                     {{-- CREATE ATP --}}
@@ -2870,13 +3220,15 @@
             </div>
             </div>
         </div>
+        </template>
 
         {{-- PRINT RIS MODAL --}}
+        <template x-teleport="body">
         <div
             x-cloak
             x-show="openModal === 'print-ris-{{ $ris->ris_id }}'"
             x-on:keydown.escape.window="openModal = null"
-            class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+            class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
             x-effect="window.purDialog && window.purDialog.sync(openModal === 'print-ris-{{ $ris->ris_id }}', $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
             role="dialog"
@@ -2913,7 +3265,7 @@
                                 <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                                 <div class="ris-number-area">
                                     <span class="ris-number-label">No.</span>
-                                    <span class="ris-number-line ris-value-line">{{ $ris->ris_form_number ?: ' ' }}</span>
+                                    <span class="ris-number-line ris-value-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: ' ' }}</span>
                                 </div>
                             </div>
 
@@ -3039,15 +3391,17 @@
                 </div>
             </div>
         </div>
+        </template>
 
         @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
             {{-- EDIT RIS MODAL: parent owns editRisModal so Close/Cancel/Escape work correctly --}}
+            <template x-teleport="body">
             <div
                 x-cloak
                 x-show="editRisModal === 'edit-ris-{{ $ris->ris_id }}'"
                 x-transition.opacity
                 x-on:keydown.escape.window="closeEditRis({{ $ris->ris_id }})"
-                class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/50 p-4 md:p-8"
+                class="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-black/50 p-4 md:p-8"
                 x-effect="window.purDialog && window.purDialog.sync(editRisModal === 'edit-ris-{{ $ris->ris_id }}', $el)"
                 @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
             >
@@ -3055,26 +3409,92 @@
                     x-on:click.self="closeEditRis({{ $ris->ris_id }})"
                     class="flex h-full max-h-full w-full items-center justify-center"
                 >
+                @php
+                    $blankEditItem = [
+                        'name_description' => '',
+                        'brand_id' => '',
+                        'supplier_id' => '',
+                        'uom_id' => '',
+                        'quantity_requested' => '',
+                        'quantity_issued' => '',
+                        'unit_cost' => '',
+                    ];
+                    $restoreEditItems = $editRisId > 0
+                        && $editRisId === (int) $ris->ris_id
+                        && is_array(old('ris_items'));
+                    if ($restoreEditItems) {
+                        // Keep the exact rows from the last submit attempt (incl. blank slots they added).
+                        $editItemsForModal = collect(old('ris_items', []))
+                            ->take(8)
+                            ->map(function ($item) use ($blankEditItem) {
+                                return [
+                                    'name_description' => $item['name_description'] ?? '',
+                                    'brand_id' => (string) ($item['brand_id'] ?? ''),
+                                    'supplier_id' => (string) ($item['supplier_id'] ?? ''),
+                                    'uom_id' => (string) ($item['uom_id'] ?? ''),
+                                    'quantity_requested' => $item['quantity_requested'] ?? '',
+                                    'quantity_issued' => $item['quantity_issued'] ?? '',
+                                    'unit_cost' => $item['unit_cost'] ?? '',
+                                ] + $blankEditItem;
+                            })
+                            ->values()
+                            ->all();
+                    } else {
+                        // Reopen from DB: only saved (filled) items — no forced padding to 8.
+                        $editItemsForModal = collect($ris->risItems ?? [])
+                            ->take(8)
+                            ->map(function ($item) {
+                                return [
+                                    'name_description' => $item->ris_item_name_description ?? '',
+                                    'brand_id' => (string) ($item->ris_item_brand_id ?? ''),
+                                    'supplier_id' => (string) ($item->ris_item_supplier_id ?? ''),
+                                    'uom_id' => (string) ($item->ris_item_uom_id ?? ''),
+                                    'quantity_requested' => $item->ris_quantity_requested ?? '',
+                                    'quantity_issued' => $item->ris_quantity_issued ?? '',
+                                    'unit_cost' => $item->ris_unit_cost ?? '',
+                                ];
+                            })
+                            ->values()
+                            ->all();
+                    }
+                    if ($editItemsForModal === []) {
+                        $editItemsForModal[] = $blankEditItem;
+                    }
+                @endphp
                 <div
                     x-data="{
                     editItems: [
-                        @forelse($ris->risItems as $item)
+                        @foreach($editItemsForModal as $item)
                             {
-                                name_description: @js($item->ris_item_name_description ?? ''),
-                                brand_id: @js((string) ($item->ris_item_brand_id ?? '')),
-                                supplier_id: @js((string) ($item->ris_item_supplier_id ?? '')),
-                                uom_id: @js((string) ($item->ris_item_uom_id ?? '')),
-                                quantity_requested: @js($item->ris_quantity_requested ?? 1),
-                                quantity_issued: @js($item->ris_quantity_issued ?? 0),
-                                unit_cost: @js($item->ris_unit_cost ?? 0)
+                                _uid: @js('edit-'.(int) $ris->ris_id.'-'.$loop->index.'-'.uniqid()),
+                                name_description: @js($item['name_description'] ?? ''),
+                                brand_id: @js((string) ($item['brand_id'] ?? '')),
+                                supplier_id: @js((string) ($item['supplier_id'] ?? '')),
+                                uom_id: @js((string) ($item['uom_id'] ?? '')),
+                                quantity_requested: @js($item['quantity_requested'] ?? ''),
+                                quantity_issued: @js($item['quantity_issued'] ?? ''),
+                                unit_cost: @js($item['unit_cost'] ?? '')
                             }{{ !$loop->last ? ',' : '' }}
-                        @empty
-                            { name_description: '', brand_id: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 }
-                        @endforelse
+                        @endforeach
                     ],
+                    urgencyLevel: @js(
+                        ($editRisId === (int) $ris->ris_id && old('ris_urgency'))
+                            ? old('ris_urgency')
+                            : \App\Support\RisWorkflow::urgencyLabel($ris)
+                    ),
                     rowDeleteMode: false,
                     addEditItem() {
-                        this.editItems.push({ name_description: '', brand_id: '', supplier_id: '', uom_id: '', quantity_requested: '', quantity_issued: '', unit_cost: '' });
+                        if (this.editItems.length >= 8) return;
+                        this.editItems.push({
+                            _uid: 'edit-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                            name_description: '',
+                            brand_id: '',
+                            supplier_id: '',
+                            uom_id: '',
+                            quantity_requested: '',
+                            quantity_issued: '',
+                            unit_cost: '',
+                        });
                     },
                     removeEditItem(index) {
                         if (this.editItems.length > 1) { this.editItems.splice(index, 1); }
@@ -3175,17 +3595,17 @@
                                         <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                                         <div class="ris-number-area">
                                             <span class="ris-number-label">No.</span>
-                                            <input
-                                                type="text"
-                                                name="ris_form_number"
-                                                value="{{ $ris->ris_form_number }}"
-                                                inputmode="numeric"
-                                                pattern="\d{8}"
-                                                maxlength="8"
-                                                title="Enter exactly 8 digits"
-                                                x-on:input="$el.value = $el.value.replace(/\D/g, '').slice(0, 8)"
-                                                class="ris-number-input"
-                                            >
+                                            @if($ris->ris_status === 'Draft')
+                                                <span class="ris-number-input text-gray-500">Assigned when submitted</span>
+                                            @else
+                                                <input
+                                                    type="text"
+                                                    name="ris_form_number"
+                                                    value="{{ $ris->ris_form_number }}"
+                                                    readonly
+                                                    class="ris-number-input bg-transparent"
+                                                >
+                                            @endif
                                         </div>
                                     </div>
 
@@ -3209,7 +3629,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <template x-for="(item, index) in editItems" :key="index">
+                                            <template x-for="(item, index) in editItems" :key="item._uid || index">
                                                 <tr
                                                     class="ris-item-row"
                                                     :class="risSplitInfo(editItems, index)?.overflow ? 'bg-red-50' : ''"
@@ -3245,12 +3665,13 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <select x-model="item.brand_id" x-bind:name="`ris_items[${index}][brand_id]`" class="ris-cell-input text-center text-xs">
-                                                            <option value="">Brand</option>
-                                                            @foreach(($brands ?? collect()) as $brand)
-                                                                <option value="{{ $brand->brand_id }}">{{ $brand->brand_name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        @include('purchaser.ris._searchable-select', [
+                                                            'field' => 'brand_id',
+                                                            'optionsKey' => 'brandOptions',
+                                                            'placeholder' => 'Brand',
+                                                            'textAlign' => 'center',
+                                                            'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-center text-xs',
+                                                        ])
                                                         <button
                                                             type="button"
                                                             class="ris-row-delete-hit"
@@ -3261,12 +3682,14 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="ris-cell-input text-center text-xs">
-                                                            <option value="">Unit</option>
-                                                            @foreach(($uoms ?? collect()) as $uom)
-                                                                <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        @include('purchaser.ris._searchable-select', [
+                                                            'field' => 'uom_id',
+                                                            'optionsKey' => 'uomOptions',
+                                                            'placeholder' => 'Select unit',
+                                                            'textAlign' => 'center',
+                                                            'panelMinWidth' => 'min-w-[7rem]',
+                                                            'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-center text-xs',
+                                                        ])
                                                         <button
                                                             type="button"
                                                             class="ris-row-delete-hit"
@@ -3277,12 +3700,14 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <select x-model="item.supplier_id" x-bind:name="`ris_items[${index}][supplier_id]`" class="ris-cell-input text-xs">
-                                                            <option value="">Select supplier</option>
-                                                            @foreach(($activeSuppliers ?? collect()) as $supplier)
-                                                                <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        @include('purchaser.ris._searchable-select', [
+                                                            'field' => 'supplier_id',
+                                                            'optionsKey' => 'supplierOptions',
+                                                            'placeholder' => 'Select supplier',
+                                                            'textAlign' => 'left',
+                                                            'panelMinWidth' => 'min-w-[12rem]',
+                                                            'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left text-xs',
+                                                        ])
                                                         <p
                                                             class="mt-1 text-[10px] leading-snug text-amber-700"
                                                             x-show="supplierWarning(item.supplier_id)"
@@ -3331,11 +3756,46 @@
                                             ></button>
                                             <span :class="rowDeleteMode ? 'is-active' : ''">Delete</span>
                                         </div>
-                                        <button type="button" class="ris-add-item-btn" x-on:click="addEditItem()">+ Add Item</button>
+                                        <button
+                                            type="button"
+                                            class="ris-add-item-btn"
+                                            x-on:click="addEditItem()"
+                                            x-bind:disabled="editItems.length >= 8"
+                                            x-bind:title="editItems.length >= 8 ? 'Maximum of 8 items' : 'Add item row'"
+                                        >+ Add Item</button>
                                     </div>
 
                                     <div class="ris-purpose-area">
-                                        <div class="ris-purpose-lined-wrap">
+                                        <div class="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                        <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency</p>
+                                        <div class="grid gap-2 sm:grid-cols-2">
+                                            <label
+                                                class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
+                                                :class="urgencyLevel === 'Non-Urgent' ? 'border-slate-900 bg-white ring-1 ring-slate-900/10' : 'border-slate-200 bg-white hover:border-slate-300'"
+                                            >
+                                                <input type="radio" name="ris_urgency" value="Non-Urgent" class="h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-900" x-model="urgencyLevel">
+                                                <span>
+                                                    <span class="block font-semibold text-slate-900">Non-Urgent</span>
+                                                    <span class="mt-0.5 block text-xs text-slate-500">Standard procurement timeline</span>
+                                                </span>
+                                            </label>
+                                            <label
+                                                class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
+                                                :class="urgencyLevel === 'Urgent' ? 'border-rose-500 bg-rose-50/70 ring-1 ring-rose-200' : 'border-slate-200 bg-white hover:border-slate-300'"
+                                            >
+                                                <input type="radio" name="ris_urgency" value="Urgent" class="h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-900" x-model="urgencyLevel">
+                                                <span>
+                                                    <span class="block font-semibold text-slate-900">Urgent</span>
+                                                    <span class="mt-0.5 block text-xs text-slate-500">Needs priority purchasing attention</span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        @error('ris_urgency')
+                                            <p class="mt-2 text-xs text-rose-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div class="ris-purpose-lined-wrap">
                                             <div class="ris-purpose-label">PURPOSE</div>
                                             <textarea name="ris_purpose_description" rows="2" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
                                         </div>
@@ -3583,16 +4043,18 @@
                 </div>
                 </div>
             </div>
+            </template>
         @endif
 
     @endforeach
     </div>
 
+    <template x-teleport="body">
     <div
         x-cloak
         x-show="submitRisConfirm"
         x-transition.opacity
-        class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         x-effect="window.purDialog && window.purDialog.sync(!!submitRisConfirm, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         @keydown.escape.window="closeSubmitRis()"
@@ -3647,6 +4109,7 @@
             </div>
         </div>
     </div>
+    </template>
 
 </div>
 

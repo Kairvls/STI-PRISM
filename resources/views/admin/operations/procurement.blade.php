@@ -77,7 +77,7 @@
                         @endphp
                         <tr>
                             <td class="px-5 py-4">
-                                <p class="text-sm font-semibold text-slate-900">{{ $row->ris_form_number ?: ('#'.$row->ris_id) }}</p>
+                                <p class="text-sm font-semibold text-slate-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
                                 <p class="text-xs text-slate-500">{{ $row->ris_status ?: '—' }}</p>
                             </td>
                             <td class="px-5 py-4 text-sm text-slate-600">
@@ -114,7 +114,7 @@
                                     <button
                                         type="button"
                                         class="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        @click="openDoc('ris', {{ (int) $row->ris_id }}, '{{ e($row->ris_form_number ?: ('RIS #'.$row->ris_id)) }}')"
+                                        @click="openDoc('ris', {{ (int) $row->ris_id }}, '{{ e(\App\Support\RisWorkflow::formNumber($row)) }}')"
                                     >View RIS</button>
                                     <button
                                         type="button"
@@ -274,7 +274,7 @@ function adminProcurementMonitor() {
             this.pipelineOpen = true;
             this.pipelineLoading = true;
             this.pipelineData = null;
-            this.pipelineSubtitle = 'RIS #' + risId;
+            this.pipelineSubtitle = window.risFormNumberLabel(risId);
             try {
                 const res = await fetch(@json(url('/admin/operations/procurement')) + '/' + risId + '/pipeline', {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }

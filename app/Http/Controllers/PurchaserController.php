@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use App\Support\PurchaserAttentionSummary;
+use App\Support\ReplacementRequestBasket;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\RisWorkflow;
@@ -561,18 +562,7 @@ class PurchaserController extends Controller
                 }
             }
 
-            $procurementRequestExists = DB::table('procurement_requests_table')
-                ->where('procurement_request_report_id', $reportId)
-                ->exists();
-
-            if (!$procurementRequestExists) {
-                DB::table('procurement_requests_table')->insert([
-                    'procurement_request_report_id' => $reportId,
-                    'procurement_request_status' => 'Pending',
-                    'procurement_request_created_by' => $purchaserId,
-                    'procurement_request_created_at' => now(),
-                ]);
-            }
+            ReplacementRequestBasket::attachUnlinkedForReplacementItems((int) $reportId, (int) $purchaserId);
 
             return back()->with(
                 'success',

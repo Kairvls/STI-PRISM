@@ -350,7 +350,7 @@
                                 </div>
                             </td>
                             <td class="px-5 py-4">
-                                <p class="text-sm text-gray-700">{{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}</p>
+                                <p class="text-sm text-gray-700">{{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
                                 <p class="mt-1 text-xs text-gray-400">
                                     {{ $atp->equipment_name ?? $atp->report_unlisted_equipment_name ?? 'No equipment' }}
                                 </p>
@@ -375,6 +375,12 @@
                                     'submitted' => $atp->authority_purchase_submitted_at,
                                     'revision' => $atp->authority_purchase_rejection_reason,
                                 ])
+                                @if(!empty($atp->purchase_order_id) && !empty($atp->purchase_order_label))
+                                    <a
+                                        href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
+                                        class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
+                                    >In {{ $atp->purchase_order_label }}</a>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
@@ -411,23 +417,31 @@
                                         >
                                             <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                            data-pur-confirm="Submit this Authority to Purchase for review?"
-                                            data-pur-confirm-title="Submit ATP"
-                                            data-pur-confirm-ok="Submit"
-                                        >
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
-                                                title="Submit"
-                                                aria-label="Submit"
+                                        @if(!empty($atp->purchase_order_id))
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
+                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                                title="Submit via Purchase Order"
+                                            >PO</a>
+                                        @else
+                                            <form
+                                                method="POST"
+                                                action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                                data-pur-confirm="Submit this Authority to Purchase for review?"
+                                                data-pur-confirm-title="Submit ATP"
+                                                data-pur-confirm-ok="Submit"
                                             >
-                                                <i data-lucide="send" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                    title="Submit"
+                                                    aria-label="Submit"
+                                                >
+                                                    <i data-lucide="send" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                        @endif
                                     @endif
 
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
@@ -595,7 +609,7 @@
                                             value="{{ $ris->ris_id }}"
                                             {{ old('authority_purchase_ris_id', $selectedRisId ?? '') == $ris->ris_id ? 'selected' : '' }}
                                         >
-                                            {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
+                                            {{ \App\Support\RisWorkflow::formNumber($ris) }}
                                             @if($ris->equipment_name || $ris->report_unlisted_equipment_name)
                                                 · {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name }}
                                             @elseif(!empty($ris->ris_purpose_description))
@@ -685,7 +699,7 @@
                             </div>
 
                             <p class="mt-1 text-sm text-gray-500">
-                                RIS: {{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}
+                                RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}
                             </p>
                             @php
                                 $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
@@ -749,18 +763,27 @@
                                     Edit ATP
                                 </button>
 
-                                <form
-                                    method="POST"
-                                    action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                    data-pur-confirm="Submit this Authority to Purchase for review?"
-                                    data-pur-confirm-title="Submit ATP"
-                                    data-pur-confirm-ok="Submit"
-                                >
-                                    @csrf
-                                    <button type="submit" class="pur-btn-primary">
-                                        Submit to Review
-                                    </button>
-                                </form>
+                                @if(!empty($atp->purchase_order_id))
+                                    <a
+                                        href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
+                                        class="pur-btn-primary inline-flex items-center"
+                                    >
+                                        Open Purchase Order
+                                    </a>
+                                @else
+                                    <form
+                                        method="POST"
+                                        action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                        data-pur-confirm="Submit this Authority to Purchase for review?"
+                                        data-pur-confirm-title="Submit ATP"
+                                        data-pur-confirm-ok="Submit"
+                                    >
+                                        @csrf
+                                        <button type="submit" class="pur-btn-primary">
+                                            Submit to Review
+                                        </button>
+                                    </form>
+                                @endif
                             @endif
                         </div>
 
