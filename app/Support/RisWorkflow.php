@@ -281,7 +281,7 @@ class RisWorkflow
         if (self::isPresidentApproved($ris)) {
             return self::hasIssuedBy($ris)
                 ? self::PRESIDENT_APPROVED
-                : 'Awaiting Admin';
+                : 'Pending Admin Review';
         }
 
         if ($status === self::FORWARDED || ($status === self::APPROVED_LEGACY && !self::presidentDigitalSignature($ris))) {

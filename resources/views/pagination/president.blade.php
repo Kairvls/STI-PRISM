@@ -1,79 +1,71 @@
 @if ($paginator->hasPages())
     @php
-        $current = $paginator->currentPage();
-        $last = $paginator->lastPage();
-        $window = 5;
-        $half = (int) floor($window / 2);
-
-        $start = max(1, $current - $half);
-        $end = min($last, $start + $window - 1);
-        $start = max(1, $end - $window + 1);
+        $lastPage = $paginator->lastPage();
+        $currentPage = $paginator->currentPage();
+        $visible = min(5, $lastPage);
     @endphp
 
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="mt-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm text-slate-600">
+            <p class="text-sm text-gray-700">
                 {!! __('Showing') !!}
-                <span class="font-medium text-slate-900">{{ $paginator->firstItem() }}</span>
+                <span class="font-medium">{{ $paginator->firstItem() }}</span>
                 {!! __('to') !!}
-                <span class="font-medium text-slate-900">{{ $paginator->lastItem() }}</span>
+                <span class="font-medium">{{ $paginator->lastItem() }}</span>
                 {!! __('of') !!}
-                <span class="font-medium text-slate-900">{{ $paginator->total() }}</span>
+                <span class="font-medium">{{ $paginator->total() }}</span>
                 {!! __('results') !!}
             </p>
 
-            <ul class="inline-flex items-center gap-1">
-                {{-- Previous --}}
-                <li>
-                    @if ($paginator->onFirstPage())
-                        <span
-                            aria-disabled="true"
-                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300"
-                        >&laquo;</span>
-                    @else
-                        <a
-                            href="{{ $paginator->previousPageUrl() }}"
-                            rel="prev"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                            aria-label="{{ __('pagination.previous') }}"
-                        >&laquo;</a>
-                    @endif
-                </li>
+            <div
+                class="page-carousel inline-flex items-center overflow-hidden rounded-lg bg-slate-800 text-white shadow-sm"
+                data-page-carousel
+                data-current="{{ $currentPage }}"
+                data-total="{{ $lastPage }}"
+                data-visible="{{ $visible }}"
+            >
+                <button
+                    type="button"
+                    class="page-carousel-prev flex h-10 w-10 shrink-0 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Previous page numbers"
+                >
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
 
-                {{-- Page numbers (max 5) --}}
-                @for ($page = $start; $page <= $end; $page++)
-                    <li>
-                        @if ($page === $current)
-                            <span
-                                aria-current="page"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white"
-                            >{{ $page }}</span>
-                        @else
-                            <a
-                                href="{{ $paginator->url($page) }}"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                            >{{ $page }}</a>
-                        @endif
-                    </li>
-                @endfor
+                <div class="page-carousel-viewport overflow-hidden" style="width: {{ $visible * 2.5 }}rem">
+                    <div class="page-carousel-track flex transition-transform duration-300 ease-out">
+                        @for ($page = 1; $page <= $lastPage; $page++)
+                            @if ($page == $currentPage)
+                                <span
+                                    aria-current="page"
+                                    data-page="{{ $page }}"
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center bg-blue-500/40 text-sm font-medium text-white"
+                                >{{ $page }}</span>
+                            @else
+                                <a
+                                    href="{{ $paginator->url($page) }}"
+                                    data-page="{{ $page }}"
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center text-sm font-medium text-white/90 transition hover:bg-white/10"
+                                >{{ $page }}</a>
+                            @endif
+                        @endfor
+                    </div>
+                </div>
 
-                {{-- Next --}}
-                <li>
-                    @if ($paginator->hasMorePages())
-                        <a
-                            href="{{ $paginator->nextPageUrl() }}"
-                            rel="next"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                            aria-label="{{ __('pagination.next') }}"
-                        >&raquo;</a>
-                    @else
-                        <span
-                            aria-disabled="true"
-                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300"
-                        >&raquo;</span>
-                    @endif
-                </li>
-            </ul>
+                <button
+                    type="button"
+                    class="page-carousel-next flex h-10 w-10 shrink-0 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Next page numbers"
+                >
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
         </div>
     </nav>
 @endif
+
+@include('layouts.partials.page-carousel-script')

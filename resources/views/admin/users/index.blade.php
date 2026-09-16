@@ -2,74 +2,116 @@
 
 @section('title', 'User Management')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+    <style>
+        /* User modals: border-only inputs (no grey fill) */
+        #createUserModal .pur-input,
+        #createUserModal .pur-select,
+        #editRolesModal .pur-input,
+        #editRolesModal .pur-select,
+        #createUserModal .iti__tel-input,
+        #createUserModal .iti--separate-dial-code .iti__selected-flag {
+            background: #fff !important;
+        }
+        #createUserModal .iti__tel-input:focus,
+        #createUserModal .pur-input:focus,
+        #createUserModal .pur-select:focus,
+        #editRolesModal .pur-input:focus,
+        #editRolesModal .pur-select:focus {
+            background: #fff !important;
+        }
+    </style>
+@endpush
+
 @section('content')
 
 <div class="admin-page space-y-6">
 
-    
-
     @if(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{{ session('success') }}</div>
+        <div class="pur-alert-success">{{ session('success') }}</div>
     @endif
     @if(session('error'))
-        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{{ session('error') }}</div>
+        <div class="pur-alert-error">{{ session('error') }}</div>
     @endif
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total users</p>
-            <p class="admin-stat-card-value mt-2">{{ $totalUsers }}</p>
-        </div>
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Recently active</p>
-            <p class="admin-stat-card-value mt-2">{{ $activeUsers }}</p>
-        </div>
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Roles in use</p>
-            <p class="admin-stat-card-value mt-2">{{ $roleCount }}</p>
+    <div class="pur-card">
+        <div class="grid grid-cols-1 divide-gray-100 sm:grid-cols-3 sm:divide-x">
+            <div class="px-5 py-5">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Total users</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $totalUsers }}</p>
+            </div>
+            <div class="px-5 py-5">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Recently active</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $activeUsers }}</p>
+            </div>
+            <div class="px-5 py-5">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Roles in use</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $roleCount }}</p>
+            </div>
         </div>
     </div>
 
-    <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">
-        <div class="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
-            <div class="relative min-w-[220px] flex-1">
-                <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="userSearchInput" placeholder="Search by name, employee ID, or role..." class="h-10 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none">
+    <div class="pur-card">
+        <div class="border-b border-gray-100 px-5 py-5">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-base font-semibold text-gray-950">User accounts</h2>
+                        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $totalUsers }}</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">Create accounts and assign primary and additional roles.</p>
+                </div>
+
+                <button type="button" onclick="openCreateUserModal()" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Create Account
+                </button>
             </div>
-            <div
-                id="userFilterSlider"
-                class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-                <span
-                    class="user-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
-                    style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
-                    aria-hidden="true"
-                ></span>
-                <button type="button" data-filter="all" class="user-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold text-slate-950">All</button>
-                <button type="button" data-filter="active" class="user-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold text-slate-500 hover:text-slate-900">Active</button>
-                <button type="button" data-filter="inactive" class="user-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold text-slate-500 hover:text-slate-900">Inactive</button>
+
+            <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="relative w-full lg:max-w-sm">
+                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                    <input
+                        type="text"
+                        id="userSearchInput"
+                        placeholder="Search by name, employee ID, or role…"
+                        class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                    >
+                </div>
+
+                <div
+                    id="userFilterSlider"
+                    class="relative inline-flex max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                    <span
+                        class="user-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-8 rounded-md bg-white shadow-sm will-change-transform"
+                        style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
+                        aria-hidden="true"
+                    ></span>
+                    <button type="button" data-filter="all" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-950">All</button>
+                    <button type="button" data-filter="active" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-500 hover:text-slate-900">Active</button>
+                    <button type="button" data-filter="inactive" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-500 hover:text-slate-900">Inactive</button>
+                </div>
             </div>
-            <button type="button" onclick="openCreateUserModal()" class="admin-btn-primary h-10">
-                <i data-lucide="plus" class="h-4 w-4"></i>
-                Create Account
-            </button>
         </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[900px] text-left">
-                <thead class="border-b border-gray-200 bg-gray-50">
+            <table class="pur-table w-full min-w-[980px] text-left">
+                <thead>
                     <tr>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Employee ID</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Full Name</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Username</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Primary role</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Additional roles</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Procurement</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Last active</th>
-                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+                        <th>Employee ID</th>
+                        <th>Full Name</th>
+                        <th>Username</th>
+                        <th>Primary role</th>
+                        <th>Additional roles</th>
+                        <th>Procurement</th>
+                        <th>Status</th>
+                        <th>Last active</th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100" id="usersTableBody">
+                <tbody id="usersTableBody">
                     @forelse($users as $user)
                         @php
                             $isActive = !empty($user->last_active_at)
@@ -83,35 +125,35 @@
                             $extraNames = $roleMeta['extra_names'] ?? [];
                             $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
                         @endphp
-                        <tr class="user-row" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
-                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $user->user_full_name }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-600">{{ $user->user_username }}</td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">{{ $user->role_name ?: '-' }}</span>
+                        <tr class="user-row transition hover:bg-gray-50/70" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
+                            <td class="text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
+                            <td class="text-sm text-gray-700">{{ $user->user_full_name }}</td>
+                            <td class="text-sm text-gray-600">{{ $user->user_username }}</td>
+                            <td>
+                                <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">{{ $user->role_name ?: '-' }}</span>
                             </td>
-                            <td class="px-5 py-4">
+                            <td>
                                 @if(count($extraNames))
                                     <div class="flex flex-wrap gap-1">
                                         @foreach($extraNames as $extraName)
-                                            <span class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">{{ $extraName }}</span>
+                                            <span class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">{{ $extraName }}</span>
                                         @endforeach
                                     </div>
                                 @else
                                     <span class="text-xs text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-5 py-4">
+                            <td>
                                 @if($isPurchaser && (int) $user->user_role_id === 3)
-                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Always on</span>
+                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Always on</span>
                                 @elseif($isPurchaser)
-                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Enabled</span>
+                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Enabled</span>
                                 @elseif($isMaintenance || $isAdminUser)
                                     <form method="POST" action="{{ route('admin.users.procurement-access', $user->user_id) }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="user_can_procurement" value="{{ $canProcurement ? 0 : 1 }}">
                                         <button type="submit"
-                                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset transition {{ $canProcurement ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200' }}"
+                                            class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition {{ $canProcurement ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
                                             title="{{ $canProcurement ? 'Click to disable procurement' : 'Click to enable Purchaser portal (Decision A)' }}">
                                             {{ $canProcurement ? 'Enabled' : 'Disabled' }}
                                         </button>
@@ -120,31 +162,31 @@
                                     <span class="text-xs text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-5 py-4">
+                            <td>
                                 @if($isActive)
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                                         Active
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
                                         <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                                         Inactive
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-sm text-gray-500">
+                            <td class="whitespace-nowrap text-sm text-gray-500">
                                 @if(!empty($user->last_active_at))
                                     {{ \Carbon\Carbon::parse($user->last_active_at)->diffForHumans() }}
                                 @else
                                     -
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-right">
-                                <div class="inline-flex items-center gap-1">
+                            <td class="text-center">
+                                <div class="inline-flex items-center justify-center gap-1">
                                     <button type="button"
                                         onclick="openEditRolesModal(this)"
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
                                         title="Edit roles"
                                         data-user-id="{{ $user->user_id }}"
                                         data-full-name="{{ $user->user_full_name }}"
@@ -157,7 +199,7 @@
                                     </button>
                                     <button type="button"
                                         onclick="openViewUserModal(this)"
-                                        class="view-user-btn inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        class="view-user-btn inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
                                         title="View user details"
                                         data-employee-id="{{ $user->user_employee_id ?: '-' }}"
                                         data-full-name="{{ $user->user_full_name }}"
@@ -175,119 +217,144 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="px-5 py-16 text-center text-sm text-gray-400">No user accounts found.</td></tr>
+                        <tr><td colspan="9" class="pur-empty">No user accounts found.</td></tr>
                     @endforelse
                     <tr id="usersEmptyFilterRow" class="hidden">
-                        <td colspan="9" class="px-5 py-16 text-center text-sm text-gray-400">No accounts match this filter.</td>
+                        <td colspan="9" class="pur-empty">No accounts match this filter.</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <div id="usersPager" class="print-hidden flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4">
-            <p class="text-xs text-gray-500">
+        <div id="usersPager" class="print-hidden flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs text-slate-500">
                 Showing
-                <span id="usersShowingFrom" class="font-semibold text-gray-700">0</span>
-                Â
-                <span id="usersShowingTo" class="font-semibold text-gray-700">0</span>
+                <span id="usersShowingFrom" class="font-semibold text-slate-700">0</span>
+                to
+                <span id="usersShowingTo" class="font-semibold text-slate-700">0</span>
                 of
-                <span id="usersVisibleCount" class="font-semibold text-gray-700">{{ $totalUsers }}</span>
+                <span id="usersVisibleCount" class="font-semibold text-slate-700">{{ $totalUsers }}</span>
                 users
             </p>
-            <div id="usersPageControls" class="flex items-center gap-1">
-                <button type="button" id="usersPagePrev" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900" title="Previous page">&lt;</button>
-                <span id="usersPageNum" class="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white">1</span>
-                <button type="button" id="usersPageNext" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900" title="Next page">&gt;</button>
+            <div
+                id="usersPageControls"
+                class="page-carousel inline-flex items-center overflow-hidden rounded-lg bg-slate-800 text-white shadow-sm"
+                style="display:none"
+                data-page-carousel-client
+            >
+                <button
+                    type="button"
+                    id="usersCarouselPrev"
+                    class="flex h-10 w-10 shrink-0 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Previous page numbers"
+                >
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <div id="usersCarouselViewport" class="overflow-hidden" style="width: 12.5rem">
+                    <div id="usersCarouselTrack" class="flex transition-transform duration-300 ease-out"></div>
+                </div>
+                <button
+                    type="button"
+                    id="usersCarouselNext"
+                    class="flex h-10 w-10 shrink-0 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Next page numbers"
+                >
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
 
 </div>
 
-<div id="viewUserModal" class="fixed inset-0 hidden" style="z-index: 12000;">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeViewUserModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
+<div id="viewUserModal" class="fixed inset-0 z-[12000] hidden">
+    <div class="pur-modal !z-[12000]" onclick="closeViewUserModal()">
+        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
+            <div class="pur-modal-header">
                 <div class="flex items-start justify-between gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-950">User Details</h3>
-                        <p class="mt-1 text-sm text-slate-600">Account information</p>
+                        <h3>User Details</h3>
+                        <p class="mt-0.5 text-sm font-normal text-gray-500">Account information</p>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeViewUserModal()" aria-label="Close">
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeViewUserModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
             </div>
-            <div class="space-y-3 px-6 py-5 text-sm">
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Employee ID</span><span id="viewUserEmployeeId" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Full Name</span><span id="viewUserFullName" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Username</span><span id="viewUserUsername" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Primary role</span><span id="viewUserRole" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Additional roles</span><span id="viewUserExtraRoles" class="font-semibold text-slate-900 text-right"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Procurement</span><span id="viewUserProcurement" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Status</span><span id="viewUserStatus" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2"><span class="text-slate-500">Email</span><span id="viewUserEmail" class="font-semibold text-slate-900"></span></div>
-                <div class="flex justify-between gap-4 py-2"><span class="text-slate-500">Contact</span><span id="viewUserContact" class="font-semibold text-slate-900"></span></div>
+            <div class="pur-modal-body space-y-1 text-sm">
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Employee ID</span><span id="viewUserEmployeeId" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Full Name</span><span id="viewUserFullName" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Username</span><span id="viewUserUsername" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Primary role</span><span id="viewUserRole" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Additional roles</span><span id="viewUserExtraRoles" class="text-right font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Procurement</span><span id="viewUserProcurement" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Status</span><span id="viewUserStatus" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Email</span><span id="viewUserEmail" class="font-semibold text-gray-950"></span></div>
+                <div class="flex justify-between gap-4 py-2.5"><span class="text-gray-500">Contact</span><span id="viewUserContact" class="font-semibold text-gray-950"></span></div>
             </div>
-            <div class="flex items-center justify-end border-t border-gray-100 px-6 py-4">
-                <button type="button" class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" onclick="closeViewUserModal()">Close</button>
+            <div class="pur-modal-footer">
+                <button type="button" class="pur-btn-secondary" onclick="closeViewUserModal()">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-<div id="createUserModal" class="fixed inset-0 hidden" style="z-index: 12000;">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeCreateUserModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
+<div id="createUserModal" class="fixed inset-0 z-[12000] hidden">
+    <div class="pur-modal !z-[12000]" onclick="closeCreateUserModal()">
+        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
+            <div class="pur-modal-header">
                 <div class="flex items-start justify-between gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-950">Create User Account</h3>
-                        <p class="mt-1 text-sm text-slate-600">Add a new user to the system</p>
+                        <h3>Create User Account</h3>
+                        <p class="mt-0.5 text-sm font-normal text-gray-500">Add a new user to the system</p>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeCreateUserModal()" aria-label="Close">
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeCreateUserModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
             </div>
-            <form method="POST" action="/admin/users/store" class="space-y-0">
+            <form method="POST" action="/admin/users/store">
                 @csrf
-                <div class="space-y-4 overflow-y-auto px-6 py-5" style="max-height: calc(100vh - 280px);">
+                <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Employee ID</label>
-                        <input type="text" name="employee_id" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
+                        <label class="pur-label">Employee ID</label>
+                        <input type="text" name="employee_id" class="pur-input mt-1.5" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Full Name</label>
-                        <input type="text" name="full_name" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
+                        <label class="pur-label">Full Name</label>
+                        <input type="text" name="full_name" class="pur-input mt-1.5" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Username</label>
-                        <input type="text" name="username" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
+                        <label class="pur-label">Username</label>
+                        <input type="text" name="username" class="pur-input mt-1.5" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Email</label>
-                        <input type="email" name="email" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
+                        <label class="pur-label">Email</label>
+                        <input type="email" name="email" class="pur-input mt-1.5" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Contact Number</label>
+                        <label class="pur-label">Contact Number</label>
                         @include('partials.phone-input', [
                             'name' => 'contact_number',
                             'value' => old('contact_number'),
                             'id' => 'admin-index-user-contact-number',
-                            'inputClass' => 'mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100',
+                            'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
                         ])
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Password</label>
-                        <input type="password" name="password" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required />
+                        <label class="pur-label">Password</label>
+                        <input type="password" name="password" class="pur-input mt-1.5" required />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Primary role <span class="font-normal text-slate-400">(used for Office 365 login)</span></label>
-                        <select name="primary_role" id="createUserRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
+                        <label class="pur-label">Primary role <span class="font-normal text-gray-400">(used for Office 365 login)</span></label>
+                        <select name="primary_role" id="createUserRole" class="pur-select mt-1.5" required>
                             <option value="">Select primary role...</option>
                             @foreach($roles as $role)
                                 <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
@@ -295,98 +362,96 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Additional roles <span class="font-normal text-slate-400">(optional)</span></label>
-                        <div class="mt-2 space-y-2 rounded-xl border border-gray-200 bg-slate-50 px-3 py-3">
+                        <label class="pur-label">Additional roles <span class="font-normal text-gray-400">(optional)</span></label>
+                        <div class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
                                 @if((int) $role->role_id !== 1)
-                                    <label class="create-additional-role-row flex items-center gap-2 text-sm text-slate-700" data-role-id="{{ $role->role_id }}">
-                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="create-additional-role h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                                    <label class="create-additional-role-row flex items-center gap-2 text-sm text-gray-700" data-role-id="{{ $role->role_id }}">
+                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="create-additional-role h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                                         <span>{{ $role->role_name }}</span>
                                     </label>
                                 @endif
                             @endforeach
                         </div>
-                        <p class="mt-1.5 text-xs text-slate-500">Primary role is always included. Extra roles unlock those portals without changing login destination.</p>
+                        <p class="mt-1.5 text-xs text-gray-500">Primary role is always included. Extra roles unlock those portals without changing login destination.</p>
                     </div>
-                    <div id="createProcurementAccessWrap" class="hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                    <div id="createProcurementAccessWrap" class="hidden rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                        <label class="flex cursor-pointer items-start gap-3">
+                            <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                             <span>
-                                <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Admin portal stays accept/sign + monitor only.</span>
+                                <span class="block text-sm font-semibold text-gray-950">Enable procurement workflow</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Admin portal stays accept/sign + monitor only.</span>
                             </span>
                         </label>
                     </div>
                 </div>
-                <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                    <button type="button" class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" onclick="closeCreateUserModal()">Cancel</button>
-                    <button type="submit" class="admin-btn-primary">Create Account</button>
+                <div class="pur-modal-footer">
+                    <button type="button" class="pur-btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+                    <button type="submit" class="pur-btn-primary">Create Account</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<div id="editRolesModal" class="fixed inset-0 hidden" style="z-index: 12000;">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeEditRolesModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
+<div id="editRolesModal" class="fixed inset-0 z-[12000] hidden">
+    <div class="pur-modal !z-[12000]" onclick="closeEditRolesModal()">
+        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
+            <div class="pur-modal-header">
                 <div class="flex items-start justify-between gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-950">Edit Roles</h3>
-                        <p class="mt-1 text-sm text-slate-600" id="editRolesSubtitle">Update primary and additional roles</p>
+                        <h3>Edit Roles</h3>
+                        <p class="mt-0.5 text-sm font-normal text-gray-500" id="editRolesSubtitle">Update primary and additional roles</p>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeEditRolesModal()" aria-label="Close">
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeEditRolesModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
             </div>
-            <form method="POST" id="editRolesForm" class="space-y-0">
+            <form method="POST" id="editRolesForm">
                 @csrf
-                <div class="space-y-4 overflow-y-auto px-6 py-5" style="max-height: calc(100vh - 280px);">
+                <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Primary role</label>
-                        <select name="primary_role" id="editPrimaryRole" class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-100" required>
+                        <label class="pur-label">Primary role</label>
+                        <select name="primary_role" id="editPrimaryRole" class="pur-select mt-1.5" required>
                             @foreach($roles as $role)
                                 <option value="{{ $role->role_id }}" class="edit-primary-role-option" data-role-id="{{ $role->role_id }}">{{ $role->role_name }}</option>
                             @endforeach
                         </select>
-                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-slate-500">Administrator primary role is locked. Add Purchaser below or enable procurement workflow to perform docs via portal switch.</p>
+                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary role is locked. Add Purchaser below or enable procurement workflow to perform docs via portal switch.</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Additional roles</label>
-                        <div class="mt-2 space-y-2 rounded-xl border border-gray-200 bg-slate-50 px-3 py-3">
+                        <label class="pur-label">Additional roles</label>
+                        <div class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
                                 @if((int) $role->role_id !== 1)
-                                    <label class="edit-additional-role-row flex items-center gap-2 text-sm text-slate-700" data-role-id="{{ $role->role_id }}">
-                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="edit-additional-role h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                                    <label class="edit-additional-role-row flex items-center gap-2 text-sm text-gray-700" data-role-id="{{ $role->role_id }}">
+                                        <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="edit-additional-role h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                                         <span>{{ $role->role_name }}</span>
                                     </label>
                                 @endif
                             @endforeach
                         </div>
                     </div>
-                    <div id="editProcurementAccessWrap" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="user_can_procurement" value="1" id="editCanProcurement" class="mt-1 h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-200">
+                    <div id="editProcurementAccessWrap" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                        <label class="flex cursor-pointer items-start gap-3">
+                            <input type="checkbox" name="user_can_procurement" value="1" id="editCanProcurement" class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                             <span>
-                                <span class="block text-sm font-semibold text-slate-900">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Grants Purchaser access. Open Purchaser via the portal switcher to create RIS → ATP → RFC/CA → RR → Liquidation. Accounting/Receiving approvals stay with those portals.</span>
+                                <span class="block text-sm font-semibold text-gray-950">Enable procurement workflow</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Grants Purchaser access. Open Purchaser via the portal switcher to create RIS → ATP → RFC/CA → RR → Liquidation. Accounting/Receiving approvals stay with those portals.</span>
                             </span>
                         </label>
                     </div>
                 </div>
-                <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                    <button type="button" class="rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950" onclick="closeEditRolesModal()">Cancel</button>
-                    <button type="submit" class="admin-btn-primary">Save Roles</button>
+                <div class="pur-modal-footer">
+                    <button type="button" class="pur-btn-secondary" onclick="closeEditRolesModal()">Cancel</button>
+                    <button type="submit" class="pur-btn-primary">Save Roles</button>
                 </div>
             </form>
         </div>
     </div>
-</div>
-
 </div>
 
 @push('scripts')
@@ -427,9 +492,19 @@
         if (modal) modal.classList.remove('hidden');
         syncCreateAdditionalRolesVisibility();
         syncCreateProcurementAccess();
+        // Phone widget must init while visible so the country dropdown positions correctly.
+        var phone = modal && modal.querySelector('[data-phone-input]');
+        if (phone && typeof window.refreshPrismPhoneInput === 'function') {
+            requestAnimationFrame(function () {
+                window.refreshPrismPhoneInput(phone);
+            });
+        }
     };
 
     window.closeCreateUserModal = function() {
+        if (typeof window.closeAllPrismPhoneDropdowns === 'function') {
+            window.closeAllPrismPhoneDropdowns();
+        }
         var modal = document.getElementById('createUserModal');
         if (modal) modal.classList.add('hidden');
     };
@@ -577,12 +652,52 @@
         var currentFilter = 'all';
         var pageSize = 10;
         var currentPage = 1;
+        var carouselIndex = 0;
         var showingFrom = document.getElementById('usersShowingFrom');
         var showingTo = document.getElementById('usersShowingTo');
         var pageControls = document.getElementById('usersPageControls');
-        var prevBtn = document.getElementById('usersPagePrev');
-        var nextBtn = document.getElementById('usersPageNext');
-        var pageNum = document.getElementById('usersPageNum');
+        var track = document.getElementById('usersCarouselTrack');
+        var viewport = document.getElementById('usersCarouselViewport');
+        var carouselPrev = document.getElementById('usersCarouselPrev');
+        var carouselNext = document.getElementById('usersCarouselNext');
+        var ITEM_WIDTH = 40;
+        var VISIBLE = 5;
+
+        function renderCarouselWindow(pageCount) {
+            if (!track || !viewport || !carouselPrev || !carouselNext) return;
+            var visible = Math.min(VISIBLE, Math.max(1, pageCount));
+            var maxIndex = Math.max(0, pageCount - visible);
+            carouselIndex = Math.min(maxIndex, Math.max(0, currentPage - Math.ceil(visible / 2)));
+            viewport.style.width = (visible * 2.5) + 'rem';
+            track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            carouselPrev.disabled = carouselIndex <= 0;
+            carouselNext.disabled = carouselIndex >= maxIndex;
+        }
+
+        function rebuildPageButtons(pageCount) {
+            if (!track) return;
+            track.innerHTML = '';
+            for (var page = 1; page <= pageCount; page++) {
+                var isCurrent = page === currentPage;
+                var el = document.createElement(isCurrent ? 'span' : 'button');
+                el.textContent = String(page);
+                el.setAttribute('data-page', String(page));
+                el.className = isCurrent
+                    ? 'flex h-10 w-10 shrink-0 items-center justify-center bg-blue-500/40 text-sm font-medium text-white'
+                    : 'flex h-10 w-10 shrink-0 items-center justify-center text-sm font-medium text-white/90 transition hover:bg-white/10';
+                if (isCurrent) {
+                    el.setAttribute('aria-current', 'page');
+                } else {
+                    el.type = 'button';
+                    el.addEventListener('click', function () {
+                        currentPage = Number(this.getAttribute('data-page')) || 1;
+                        applyUserFilters();
+                    });
+                }
+                track.appendChild(el);
+            }
+            renderCarouselWindow(pageCount);
+        }
 
         function applyUserFilters() {
             var query = (searchInput ? searchInput.value : '').toLowerCase().trim();
@@ -606,16 +721,8 @@
             if (visibleCount) visibleCount.textContent = String(shown);
             if (showingFrom) showingFrom.textContent = String(shown ? start + 1 : 0);
             if (showingTo) showingTo.textContent = String(shown ? end : 0);
-            if (pageNum) pageNum.textContent = String(currentPage);
-            if (pageControls) pageControls.style.display = shown > pageSize ? 'flex' : 'none';
-            if (prevBtn) {
-                prevBtn.disabled = currentPage <= 1;
-                prevBtn.classList.toggle('opacity-40', currentPage <= 1);
-            }
-            if (nextBtn) {
-                nextBtn.disabled = currentPage >= pageCount;
-                nextBtn.classList.toggle('opacity-40', currentPage >= pageCount);
-            }
+            if (pageControls) pageControls.style.display = shown > pageSize ? 'inline-flex' : 'none';
+            if (shown > pageSize) rebuildPageButtons(pageCount);
             if (emptyRow) emptyRow.classList.toggle('hidden', shown > 0 || rows.length === 0);
         }
 
@@ -634,14 +741,23 @@
             currentPage = 1;
             applyUserFilters();
         });
-        if (prevBtn) prevBtn.addEventListener('click', function () {
-            if (currentPage <= 1) return;
-            currentPage -= 1;
-            applyUserFilters();
+        if (carouselPrev) carouselPrev.addEventListener('click', function () {
+            var pageCount = Math.max(1, Math.ceil((Number(visibleCount && visibleCount.textContent) || 0) / pageSize));
+            var visible = Math.min(VISIBLE, pageCount);
+            var maxIndex = Math.max(0, pageCount - visible);
+            carouselIndex = Math.max(0, carouselIndex - 1);
+            if (track) track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            carouselPrev.disabled = carouselIndex <= 0;
+            if (carouselNext) carouselNext.disabled = carouselIndex >= maxIndex;
         });
-        if (nextBtn) nextBtn.addEventListener('click', function () {
-            currentPage += 1;
-            applyUserFilters();
+        if (carouselNext) carouselNext.addEventListener('click', function () {
+            var pageCount = Math.max(1, Math.ceil((Number(visibleCount && visibleCount.textContent) || 0) / pageSize));
+            var visible = Math.min(VISIBLE, pageCount);
+            var maxIndex = Math.max(0, pageCount - visible);
+            carouselIndex = Math.min(maxIndex, carouselIndex + 1);
+            if (track) track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            if (carouselPrev) carouselPrev.disabled = carouselIndex <= 0;
+            carouselNext.disabled = carouselIndex >= maxIndex;
         });
         updateUserFilterSlider(currentFilter, false);
         applyUserFilters();

@@ -214,7 +214,7 @@
                 </tr>
             </thead>
             <tbody>
-                @for($row = 0; $row < 10; $row++)
+                @for($row = 0; $row < 8; $row++)
                     @php
                         $item = $risItems[$row] ?? null;
                     @endphp

@@ -2,27 +2,15 @@
 
 @section('title', 'Sign RIS')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+@endpush
+
 @section('content')
 
-<div class="admin-page space-y-6">
-
-
-    {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
-    {{-- ===================================================== --}}
-
-    
-
-
-    {{-- ===================================================== --}}
-    {{-- SIGN RIS CONTENT --}}
-    {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
-    {{-- ===================================================== --}}
-
+<div class="admin-page">
     <div id="signRisContentContainer">
-
         @include('admin.digital-signatures._sign-ris-content')
-
     </div>
 
 
@@ -130,6 +118,9 @@
 
             // Re-bind event listeners after DOM update.
             bindSignRisEventListeners();
+            if (typeof window.bindPageCarousels === 'function') {
+                window.bindPageCarousels();
+            }
 
             // Update URL without reloading the page.
             const url =

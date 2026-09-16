@@ -17,15 +17,20 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding: 32px 16px 48px;
+            padding: 16px 12px 24px;
+            overflow-x: hidden;
         }
         .document-viewer-shell {
             width: 100%;
-            max-width: max-content;
+            max-width: 960px;
             margin: 0 auto;
         }
         .document-viewer-shell > * {
             box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+        }
+        .document-viewer-shell .ris-document {
+            width: 100%;
+            max-width: 100%;
         }
         .document-viewer-shell .atp-print-sheet,
         .document-viewer-shell .rfc-print-sheet,
@@ -34,6 +39,20 @@
             max-width: none;
             min-height: 0 !important;
             height: auto !important;
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+                overflow: visible;
+            }
+            .document-viewer-shell {
+                max-width: none;
+                width: auto;
+            }
+            .document-viewer-shell > * {
+                box-shadow: none;
+            }
         }
     </style>
     @stack('head')

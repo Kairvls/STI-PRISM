@@ -1653,18 +1653,4 @@ class ReceivingController extends Controller
             ])->values(),
         ]);
     }
-
-    public function profile(): View
-    {
-        return view('receiving-officer.profile.index', [
-            'user' => Auth::user(),
-        ]);
-    }
-
-    public function security(): View
-    {
-        return view('receiving-officer.security.index', [
-            'user' => Auth::user(),
-        ]);
-    }
 }

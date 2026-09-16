@@ -75,6 +75,10 @@
                         Receiving
                     </div>
 
+                    <div class="dropdown-item" data-target="account-section">
+                        Account
+                    </div>
+
                 </div>
 
             </div>
@@ -241,7 +245,7 @@
 
         <a
             href="{{ route('receiving.profile') }}"
-            class="menu-item {{ request()->is('receiving/profile') || request()->is('receiving/security') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('receiving/profile*') || request()->is('receiving/security*') ? 'active' : '' }}"
         >
 
             <i data-lucide="user-cog"></i>

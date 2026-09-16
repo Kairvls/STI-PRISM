@@ -12,6 +12,9 @@
                 request()->is('admin/operations/schedules*') => ['Maintenance Schedules', 'Overdue and upcoming equipment maintenance schedules.'],
                 request()->is('admin/operations/reports*') => ['Equipment Reports', 'Monitor reports and override when needed.'],
                 request()->is('admin/operations/procurement*') => ['Procurement Monitor', 'Track RIS forms and procurement stage activity.'],
+                request()->is('admin/operations/movements*') && request('tab') === 'borrowing' => ['Borrowing', 'Monitor active and historical equipment borrows.'],
+                request()->is('admin/operations/movements*') && request('tab') === 'disposal' => ['Disposal', 'Review disposed equipment and inventory status.'],
+                request()->is('admin/operations/movements*') => ['Transfers', 'Track equipment room-to-room transfers.'],
                 request()->is('admin/procurement-review*') => ['Procurement Requests', 'Review and act on RIS submitted for approval.'],
                 request()->is('admin/request-check*') => ['Request Checks', 'Review RFC documents awaiting Admin action.'],
                 request()->is('admin/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents awaiting Admin action.'],
@@ -20,7 +23,8 @@
                 request()->is('admin/users*') => ['User Management', 'Create accounts and assign primary and additional roles.'],
                 request()->is('admin/reports*') => ['System Reports', 'Maintenance, procurement, receiving, and approval history.'],
                 request()->is('admin/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
-                request()->is('admin/profile*') || request()->is('admin/security*') => ['Profile settings', 'Update your Administrator account details.'],
+                request()->is('admin/profile*') => ['Profile Settings', 'Update your Administrator account details.'],
+                request()->is('admin/security*') => ['Security Settings', 'Manage your password and account security.'],
                 request()->is('admin/settings*') => ['System Settings', 'Campus setup and system configuration.'],
                 default => [View::yieldContent('title', 'PRISM'), 'Administrator'],
             };
@@ -324,6 +328,13 @@
                     >
                         <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
+                    </a>
+                    <a
+                        href="{{ route('admin.security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>
+                        Security settings
                     </a>
                 </div>
 

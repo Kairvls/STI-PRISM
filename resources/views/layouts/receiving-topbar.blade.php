@@ -13,7 +13,8 @@
                 request()->is('receiving/history*') => ['History', 'Past receiving activity and completed records.'],
                 request()->is('receiving/logs*') => ['Logs', 'Receiving activity logs.'],
                 request()->is('receiving/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
-                request()->is('receiving/profile*') || request()->is('receiving/security*') => ['Profile settings', 'Update your Receiving Officer account details.'],
+                request()->is('receiving/profile*') => ['Profile Settings', 'Update your Receiving Officer account details.'],
+                request()->is('receiving/security*') => ['Security Settings', 'Manage your password and account security.'],
                 default => [View::yieldContent('title', 'PRISM'), 'Receiving Officer'],
             };
 
@@ -315,6 +316,13 @@
                     >
                         <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
+                    </a>
+                    <a
+                        href="{{ route('receiving.security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>
+                        Security settings
                     </a>
                 </div>
 

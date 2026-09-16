@@ -57,136 +57,197 @@
     }"
     
 >
-    <div>
-        
+    <div class="space-y-6">
         @if(!empty($dateFilter))
-            <p class="mt-2 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-800">
+            <p class="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/80 px-3.5 py-2 text-xs font-medium text-blue-800">
                 Showing reports for {{ \Carbon\Carbon::parse($dateFilter)->format('M d, Y') }}
-                <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="underline">Clear date</a>
+                <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="font-semibold underline decoration-blue-300 underline-offset-2 hover:text-blue-950">Clear date</a>
             </p>
         @endif
-    </div>
 
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <a href="{{ route('receiving.rr.index', array_filter(['status' => 'queue', 'date' => $dateFilter ?? null])) }}" class="rounded-xl border bg-white p-5 {{ $filter === 'queue' ? 'ring-2 ring-slate-900' : '' }}">
-            <p class="text-sm font-medium text-gray-500">For Second Count</p>
-            <p class="mt-3 text-3xl font-semibold">{{ $counts['queue'] }}</p>
-        </a>
-        <a href="{{ route('receiving.rr.index', array_filter(['status' => 'completed', 'date' => $dateFilter ?? null])) }}" class="rounded-xl border bg-white p-5 {{ $filter === 'completed' ? 'ring-2 ring-slate-900' : '' }}">
-            <p class="text-sm font-medium text-gray-500">Delivered</p>
-            <p class="mt-3 text-3xl font-semibold">{{ $counts['completed'] }}</p>
-        </a>
-        <a href="{{ route('receiving.rr.index', array_filter(['status' => 'returned', 'date' => $dateFilter ?? null])) }}" class="rounded-xl border bg-white p-5 {{ $filter === 'returned' ? 'ring-2 ring-slate-900' : '' }}">
-            <p class="text-sm font-medium text-gray-500">Returned</p>
-            <p class="mt-3 text-3xl font-semibold">{{ $counts['returned'] }}</p>
-        </a>
-    </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+            @php
+                $statCards = [
+                    ['key' => 'queue', 'label' => 'For Second Count', 'hint' => 'Awaiting verification', 'value' => $counts['queue']],
+                    ['key' => 'completed', 'label' => 'Delivered', 'hint' => 'Accepted into inventory', 'value' => $counts['completed']],
+                    ['key' => 'returned', 'label' => 'Returned', 'hint' => 'Sent back to Purchaser', 'value' => $counts['returned']],
+                ];
+            @endphp
+            @foreach ($statCards as $card)
+                <a
+                    href="{{ route('receiving.rr.index', array_filter(['status' => $card['key'], 'date' => $dateFilter ?? null])) }}"
+                    class="group rounded-2xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm {{ $filter === $card['key'] ? 'border-[#0025cc]/60 ring-2 ring-[#0025cc]/15' : 'border-slate-200' }}"
+                >
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
+                            <p class="mt-1 text-xs text-slate-400">{{ $card['hint'] }}</p>
+                        </div>
+                        @if ($filter === $card['key'])
+                            <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#0025cc]"></span>
+                        @endif
+                    </div>
+                    <p class="mt-4 text-3xl font-semibold tracking-tight text-slate-950">{{ $card['value'] }}</p>
+                </a>
+            @endforeach
+        </div>
 
-    <form method="GET" action="{{ route('receiving.rr.index') }}" class="overflow-hidden rounded-xl border bg-white">
-        <input type="hidden" name="status" value="{{ $filter }}">
-        @if(!empty($dateFilter))
-            <input type="hidden" name="date" value="{{ $dateFilter }}">
-        @endif
-        <div class="border-b border-gray-100 px-4 py-3">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900">Receiving reports</h3>
-                    <p class="mt-0.5 text-xs text-gray-500">Search and review the current queue.</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    @include('admin.partials.view-mode-switcher', [
-                        'switcherId' => 'roRrViewSwitcher',
-                        'btnClass' => 'ro-rr-view-btn',
-                    ])
-                    <div class="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                        {{ $reports->total() }} total
+        <form method="GET" action="{{ route('receiving.rr.index') }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <input type="hidden" name="status" value="{{ $filter }}">
+            @if(!empty($dateFilter))
+                <input type="hidden" name="date" value="{{ $dateFilter }}">
+            @endif
+            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-950">Receiving reports</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Search and review the current queue.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'roRrViewSwitcher',
+                            'btnClass' => 'ro-rr-view-btn',
+                        ])
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                            {{ $reports->total() }} total
+                        </div>
                     </div>
                 </div>
+                <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    <input
+                        type="text"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Search RR, RFC, or received from"
+                        class="h-10 w-full max-w-md rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                    >
+                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                        Search
+                    </button>
+                    <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                        Reset
+                    </a>
+                </div>
             </div>
-            <div class="mt-3 flex flex-wrap items-center gap-2">
-                <input
-                    type="text"
-                    name="search"
-                    value="{{ request('search') }}"
-                    placeholder="Search RR, RFC, or received from"
-                    class="h-10 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-300 focus:ring-2 focus:ring-gray-100"
-                >
-                <button type="submit" class="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white">Search</button>
-                <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-4 text-sm text-gray-700">Reset</a>
-            </div>
-        </div>
 
-        <div id="roRrTable" class="overflow-x-auto">
-            <table class="w-full min-w-[900px] text-sm">
-                <thead class="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                    <tr>
-                        <th class="px-4 py-3">RR No.</th>
-                        <th class="px-4 py-3">RFC</th>
-                        <th class="px-4 py-3">Received from</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($reports as $rr)
-                        @php
-                            $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
-                            $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
-                        @endphp
+            <div id="roRrTable" class="overflow-x-auto">
+                <table class="w-full min-w-[960px] text-sm">
+                    <thead class="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <td class="px-4 py-4 font-medium">{{ $rr->receiving_report_form_number }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rr->request_check_form_number ?? '—' }}</td>
-                            <td class="px-4 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?? '—' }}</td>
-                            <td class="px-4 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus])</td>
-                            <td class="px-4 py-4">
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" @click="openView({{ $rr->receiving_report_id }}); fetch('{{ route('receiving.rr.start-review', $rr->receiving_report_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border px-3 py-2 text-xs">View</button>
-                                    <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
-                                    @if($reviewable)
-                                        <button type="button" @click="openSign({{ $rr->receiving_report_id }})" class="rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700">Second Count</button>
-                                        <button type="button" @click="openRevise({{ $rr->receiving_report_id }})" class="rounded-lg border border-amber-300 px-3 py-2 text-xs text-amber-700">Revise</button>
-                                        <button type="button" @click="openReturn({{ $rr->receiving_report_id }})" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Return</button>
-                                    @endif
-                                </div>
-                            </td>
+                            <th class="px-5 py-3.5">RR No.</th>
+                            <th class="px-5 py-3.5">RFC</th>
+                            <th class="px-5 py-3.5">Received from</th>
+                            <th class="px-5 py-3.5">Status</th>
+                            <th class="px-5 py-3.5">Action</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500">No receiving reports in this queue.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse($reports as $rr)
+                            @php
+                                $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
+                                $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                            @endphp
+                            <tr class="transition hover:bg-slate-50/70">
+                                <td class="px-5 py-4">
+                                    <p class="font-semibold text-slate-950">{{ $rr->receiving_report_form_number }}</p>
+                                    <p class="mt-0.5 text-xs text-slate-400">Record #{{ $rr->receiving_report_id }}</p>
+                                </td>
+                                <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '—' }}</td>
+                                <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? '—' }}</td>
+                                <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus])</td>
+                                <td class="px-5 py-4">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            @click="openView({{ $rr->receiving_report_id }}); fetch('{{ route('receiving.rr.start-review', $rr->receiving_report_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})"
+                                            class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                        >
+                                            View
+                                        </button>
+                                        <button
+                                            type="button"
+                                            @click="printRr({{ $rr->receiving_report_id }})"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                                            title="Print"
+                                            aria-label="Print"
+                                        >
+                                            <i data-lucide="printer" class="h-4 w-4"></i>
+                                        </button>
+                                        @if($reviewable)
+                                            <button
+                                                type="button"
+                                                @click="openSign({{ $rr->receiving_report_id }})"
+                                                class="inline-flex h-9 items-center rounded-lg bg-[#0025cc]/10 px-3 text-xs font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/15"
+                                            >
+                                                Second Count
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="openRevise({{ $rr->receiving_report_id }})"
+                                                class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+                                            >
+                                                Revise
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="openReturn({{ $rr->receiving_report_id }})"
+                                                class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                                            >
+                                                Return
+                                            </button>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-5 py-16 text-center">
+                                    <p class="text-sm font-medium text-slate-700">No receiving reports in this queue</p>
+                                    <p class="mt-1 text-xs text-slate-400">Try another filter or clear your search.</p>
+                                </td>
+                            </tr>
+                        @endempty
+                    </tbody>
+                </table>
+            </div>
 
-        <div id="roRrCards" class="hidden space-y-3 px-4 py-4">
-            @forelse($reports as $rr)
-                @php
-                    $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
-                    $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
-                    $actionsHtml = '<button type="button" @click="openView('.$rr->receiving_report_id.'); fetch(\''.route('receiving.rr.start-review', $rr->receiving_report_id).'\', {method:\'POST\', headers:{\'X-CSRF-TOKEN\':\''.csrf_token().'\',\'Accept\':\'application/json\'}})" class="rounded-lg border px-3 py-1.5 text-xs">View</button>'
-                        .'<button type="button" @click="printRr('.$rr->receiving_report_id.')" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
-                    if ($reviewable) {
-                        $actionsHtml .= '<button type="button" @click="openSign('.$rr->receiving_report_id.')" class="rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700">Second Count</button>'
-                            .'<button type="button" @click="openRevise('.$rr->receiving_report_id.')" class="rounded-lg border border-amber-300 px-3 py-1.5 text-xs text-amber-700">Revise</button>'
-                            .'<button type="button" @click="openReturn('.$rr->receiving_report_id.')" class="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700">Return</button>';
-                    }
-                @endphp
-                @include('receiving-officer.partials.list-info-card', [
-                    'title' => $rr->receiving_report_form_number,
-                    'subtitle' => 'RFC: '.($rr->request_check_form_number ?? '—'),
-                    'status' => $displayStatus,
-                    'statusClass' => 'border-slate-200 bg-slate-50 text-slate-700',
-                    'fields' => [
-                        ['label' => 'From', 'value' => $rr->receiving_report_received_from ?? '—'],
-                        ['label' => 'Status', 'value' => $displayStatus],
-                    ],
-                    'actionsHtml' => $actionsHtml,
-                ])
-            @empty
-                <div class="px-2 py-10 text-center text-sm text-gray-400">No receiving reports in this queue.</div>
-            @endforelse
-        </div>
-    </form>
-    <div>{{ $reports->links() }}</div>
+            <div id="roRrCards" class="hidden space-y-3 px-5 py-5 sm:px-6">
+                @forelse($reports as $rr)
+                    @php
+                        $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
+                        $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                        $actionsHtml = '<button type="button" @click="openView('.$rr->receiving_report_id.'); fetch(\''.route('receiving.rr.start-review', $rr->receiving_report_id).'\', {method:\'POST\', headers:{\'X-CSRF-TOKEN\':\''.csrf_token().'\',\'Accept\':\'application/json\'}})" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">View</button>'
+                            .'<button type="button" @click="printRr('.$rr->receiving_report_id.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
+                        if ($reviewable) {
+                            $actionsHtml .= '<button type="button" @click="openSign('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc]/10 px-3 text-xs font-semibold text-[#0025cc]">Second Count</button>'
+                                .'<button type="button" @click="openRevise('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800">Revise</button>'
+                                .'<button type="button" @click="openReturn('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700">Return</button>';
+                        }
+                    @endphp
+                    @include('receiving-officer.partials.list-info-card', [
+                        'title' => $rr->receiving_report_form_number,
+                        'subtitle' => 'RFC: '.($rr->request_check_form_number ?? '—'),
+                        'status' => $displayStatus,
+                        'statusClass' => 'border-slate-200 bg-slate-50 text-slate-700',
+                        'fields' => [
+                            ['label' => 'From', 'value' => $rr->receiving_report_received_from ?? '—'],
+                            ['label' => 'Status', 'value' => $displayStatus],
+                        ],
+                        'actionsHtml' => $actionsHtml,
+                    ])
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center">
+                        <p class="text-sm font-medium text-slate-700">No receiving reports in this queue</p>
+                        <p class="mt-1 text-xs text-slate-400">Try another filter or clear your search.</p>
+                    </div>
+                @endempty
+            </div>
+        </form>
+
+        @if ($reports->hasPages())
+            <div class="pt-1">{{ $reports->links() }}</div>
+        @endif
+    </div>
 
     @foreach($reports as $rr)
         @php $rrItems = $items->get($rr->receiving_report_id, collect())->values(); @endphp
@@ -200,7 +261,7 @@
                             <p class="text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white hover:bg-slate-800" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
+                            <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white hover:bg-blue-800" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                             <button type="button" @click="viewOpen = false" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600" title="Close" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
@@ -275,7 +336,7 @@
 
                         <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-white px-6 py-4">
                             <button type="button" @click="signOpen = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancel</button>
-                            <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">Confirm Second Count</button>
+                            <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800">Confirm Second Count</button>
                         </div>
                     </form>
                 </div>
@@ -358,7 +419,7 @@
                 </button>
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                    class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
                     Send back to Purchaser
                 </button>

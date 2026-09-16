@@ -111,13 +111,33 @@ Route::middleware(['auth', 'admin'])
 
         Route::get(
             '/profile',
-            [AdminController::class, 'profile']
+            [AccountSettingsController::class, 'profile']
         )->name('profile');
+
+        Route::post(
+            '/profile',
+            [AccountSettingsController::class, 'updateProfile']
+        )->name('profile.update');
+
+        Route::post(
+            '/profile/picture',
+            [AccountSettingsController::class, 'updateProfilePicture']
+        )->name('profile.picture');
+
+        Route::delete(
+            '/profile/picture',
+            [AccountSettingsController::class, 'removeProfilePicture']
+        )->name('profile.picture.remove');
 
         Route::get(
             '/security',
-            [AdminController::class, 'security']
+            [AccountSettingsController::class, 'security']
         )->name('security');
+
+        Route::put(
+            '/security/password',
+            [AccountSettingsController::class, 'updatePassword']
+        )->name('security.password');
 
         // ==========================================
         // OPERATIONS (true admin monitor + act)
@@ -132,6 +152,11 @@ Route::middleware(['auth', 'admin'])
             '/operations/equipment',
             [\App\Http\Controllers\AdminOperationsController::class, 'equipment']
         )->name('operations.equipment');
+
+        Route::get(
+            '/operations/equipment/{id}',
+            [\App\Http\Controllers\AdminOperationsController::class, 'showEquipment']
+        )->whereNumber('id')->name('operations.equipment.show');
 
         Route::get(
             '/operations/schedules',
@@ -1652,6 +1677,13 @@ Route::middleware([
             [PurchaserController::class, 'notifications']
         )->name('notifications');
 
+        Route::get('/profile', [AccountSettingsController::class, 'profile'])->name('profile');
+        Route::post('/profile', [AccountSettingsController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/profile/picture', [AccountSettingsController::class, 'updateProfilePicture'])->name('profile.picture');
+        Route::delete('/profile/picture', [AccountSettingsController::class, 'removeProfilePicture'])->name('profile.picture.remove');
+        Route::get('/security', [AccountSettingsController::class, 'security'])->name('security');
+        Route::put('/security/password', [AccountSettingsController::class, 'updatePassword'])->name('security.password');
+
 
         // =====================================================
         // PROCUREMENT WORKFLOW (shared with maintenance)
@@ -1837,23 +1869,38 @@ Route::middleware([
         )->whereNumber('id')->name('notifications.open');
 
         // =====================================================
-        // PROFILE
+        // PROFILE / SECURITY
         // =====================================================
 
         Route::get(
             '/profile',
-            [PresidentController::class, 'profile']
+            [AccountSettingsController::class, 'profile']
         )->name('profile');
 
-        Route::patch(
+        Route::post(
             '/profile',
-            [PresidentController::class, 'updateProfile']
+            [AccountSettingsController::class, 'updateProfile']
         )->name('profile.update');
 
+        Route::post(
+            '/profile/picture',
+            [AccountSettingsController::class, 'updateProfilePicture']
+        )->name('profile.picture');
+
+        Route::delete(
+            '/profile/picture',
+            [AccountSettingsController::class, 'removeProfilePicture']
+        )->name('profile.picture.remove');
+
+        Route::get(
+            '/security',
+            [AccountSettingsController::class, 'security']
+        )->name('security');
+
         Route::put(
-            '/profile/password',
-            [PresidentController::class, 'updatePassword']
-        )->name('profile.password');
+            '/security/password',
+            [AccountSettingsController::class, 'updatePassword']
+        )->name('security.password');
         
         // =====================================================
         // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
@@ -1953,9 +2000,12 @@ Route::middleware(['auth', 'accounting'])
         Route::post('/procurement-records/{id}/forward-president', [ProcurementRecordPackageController::class, 'forwardToPresident'])->name('accounting.procurement-records.forward');
         Route::get('/notifications', [AccountingController::class, 'notifications']);
 
-        Route::get('/profile', [AccountingController::class, 'profile'])->name('accounting.profile');
-        Route::patch('/profile', [AccountingController::class, 'updateProfile'])->name('accounting.profile.update');
-        Route::put('/profile/password', [AccountingController::class, 'updatePassword'])->name('accounting.profile.password');
+        Route::get('/profile', [AccountSettingsController::class, 'profile'])->name('accounting.profile');
+        Route::post('/profile', [AccountSettingsController::class, 'updateProfile'])->name('accounting.profile.update');
+        Route::post('/profile/picture', [AccountSettingsController::class, 'updateProfilePicture'])->name('accounting.profile.picture');
+        Route::delete('/profile/picture', [AccountSettingsController::class, 'removeProfilePicture'])->name('accounting.profile.picture.remove');
+        Route::get('/security', [AccountSettingsController::class, 'security'])->name('accounting.security');
+        Route::put('/security/password', [AccountSettingsController::class, 'updatePassword'])->name('accounting.security.password');
 
 
     });
@@ -1973,8 +2023,12 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
 
-        Route::get('/profile', [ReceivingController::class, 'profile'])->name('receiving.profile');
-        Route::get('/security', [ReceivingController::class, 'security'])->name('receiving.security');
+        Route::get('/profile', [AccountSettingsController::class, 'profile'])->name('receiving.profile');
+        Route::post('/profile', [AccountSettingsController::class, 'updateProfile'])->name('receiving.profile.update');
+        Route::post('/profile/picture', [AccountSettingsController::class, 'updateProfilePicture'])->name('receiving.profile.picture');
+        Route::delete('/profile/picture', [AccountSettingsController::class, 'removeProfilePicture'])->name('receiving.profile.picture.remove');
+        Route::get('/security', [AccountSettingsController::class, 'security'])->name('receiving.security');
+        Route::put('/security/password', [AccountSettingsController::class, 'updatePassword'])->name('receiving.security.password');
 
         Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
 

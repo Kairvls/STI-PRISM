@@ -323,10 +323,10 @@
                                     <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
                                     <button type="button" @click="printLiq({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
-                                        <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                                        <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.submit', $liq->liquidation_report_id) }}" onsubmit="return confirm('Submit this Liquidation Report?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if($archiveView)
@@ -387,7 +387,7 @@
             >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-5">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                             <i data-lucide="printer" class="h-5 w-5"></i>
                         </div>
                         <div>
@@ -476,7 +476,7 @@
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                             <i data-lucide="receipt" class="h-5 w-5"></i>
                         </div>
                         <div>
@@ -567,7 +567,7 @@
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div>
                             <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                     <i data-lucide="receipt" class="h-5 w-5"></i>
                                 </div>
                                 <div>
@@ -636,7 +636,7 @@
                             <input type="hidden" name="liquidation_report_receiving_report_id" value="{{ $liq->liquidation_report_receiving_report_id }}">
                             <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                         <i data-lucide="file-pen-line" class="h-5 w-5"></i>
                                     </div>
                                     <h3 id="liq-edit-title-{{ $liq->liquidation_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">Edit {{ $liq->liquidation_report_form_number }}</h3>

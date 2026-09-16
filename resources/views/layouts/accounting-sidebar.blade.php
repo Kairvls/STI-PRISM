@@ -22,6 +22,7 @@
                     <div class="dropdown-item" data-target="dashboard-section">Dashboard</div>
                     <div class="dropdown-item" data-target="transactions-section">Transactions</div>
                     <div class="dropdown-item" data-target="history-section">History</div>
+                    <div class="dropdown-item" data-target="account-section">Account</div>
                 </div>
             </div>
         </div>
@@ -121,6 +122,15 @@
         >
             <i class="h-5 w-5" data-lucide="history"></i>
             <span>History</span>
+        </a>
+
+        <div class="menu-title" id="account-section">ACCOUNT</div>
+        <a
+            href="{{ route('accounting.profile') }}"
+            class="menu-item {{ request()->is('accounting/profile*') || request()->is('accounting/security*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="user-cog"></i>
+            <span>Account settings</span>
         </a>
     </div>
 </div>

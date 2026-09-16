@@ -17,13 +17,18 @@ window.initReceivingTableFilters = function () {
         var emptyCards = root.querySelector('.receiving-empty-cards');
         var pager = root.querySelector('.receiving-pager');
         var showingEl = root.querySelector('.receiving-showing');
-        var prevBtn = root.querySelector('.receiving-page-prev');
-        var nextBtn = root.querySelector('.receiving-page-next');
-        var pageNum = root.querySelector('.receiving-page-num');
         var pageControls = root.querySelector('.receiving-page-controls');
+        var track = root.querySelector('.receiving-carousel-track');
+        var viewport = root.querySelector('.receiving-carousel-viewport');
+        var carouselPrev = root.querySelector('.receiving-carousel-prev');
+        var carouselNext = root.querySelector('.receiving-carousel-next');
         var searchTimer = null;
         var pageSize = 10;
         var currentPage = 1;
+        var carouselIndex = 0;
+        var lastPageCount = 1;
+        var ITEM_WIDTH = 40;
+        var VISIBLE = 5;
 
         function updateSlider(animate) {
             if (!thumbTrack || !thumb || !buttons.length) return;
@@ -55,11 +60,58 @@ window.initReceivingTableFilters = function () {
             cards.forEach(function (card) {
                 var isActive = card.getAttribute('data-filter') === currentFilter;
                 card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                card.classList.toggle('border-slate-900/20', isActive);
+                card.classList.toggle('border-[#0025cc]/60', isActive);
                 card.classList.toggle('ring-2', isActive);
-                card.classList.toggle('ring-slate-900/10', isActive);
-                card.classList.toggle('border-gray-200', !isActive);
+                card.classList.toggle('ring-[#0025cc]/15', isActive);
+                card.classList.toggle('border-slate-200', !isActive);
+
+                var indicator = card.querySelector('[data-ro-active-dot]');
+                if (isActive && !indicator) {
+                    indicator = document.createElement('span');
+                    indicator.setAttribute('data-ro-active-dot', '1');
+                    indicator.className = 'mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#0025cc]';
+                    var labelRow = card.querySelector('.flex.items-start');
+                    if (labelRow) labelRow.appendChild(indicator);
+                } else if (!isActive && indicator) {
+                    indicator.remove();
+                }
             });
+        }
+
+        function renderCarouselWindow(pageCount) {
+            if (!track || !viewport || !carouselPrev || !carouselNext) return;
+            var visible = Math.min(VISIBLE, Math.max(1, pageCount));
+            var maxIndex = Math.max(0, pageCount - visible);
+            carouselIndex = Math.min(maxIndex, Math.max(0, currentPage - Math.ceil(visible / 2)));
+            viewport.style.width = (visible * 2.5) + 'rem';
+            track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            carouselPrev.disabled = carouselIndex <= 0;
+            carouselNext.disabled = carouselIndex >= maxIndex;
+        }
+
+        function rebuildPageButtons(pageCount) {
+            if (!track) return;
+            track.innerHTML = '';
+            for (var page = 1; page <= pageCount; page++) {
+                var isCurrent = page === currentPage;
+                var el = document.createElement(isCurrent ? 'span' : 'button');
+                el.textContent = String(page);
+                el.setAttribute('data-page', String(page));
+                el.className = isCurrent
+                    ? 'flex h-10 w-10 shrink-0 items-center justify-center bg-blue-500/40 text-sm font-medium text-white'
+                    : 'flex h-10 w-10 shrink-0 items-center justify-center text-sm font-medium text-white/90 transition hover:bg-white/10';
+                if (isCurrent) {
+                    el.setAttribute('aria-current', 'page');
+                } else {
+                    el.type = 'button';
+                    el.addEventListener('click', function () {
+                        currentPage = Number(this.getAttribute('data-page')) || 1;
+                        apply();
+                    });
+                }
+                track.appendChild(el);
+            }
+            renderCarouselWindow(pageCount);
         }
 
         function itemMatches(el, needle) {
@@ -83,6 +135,7 @@ window.initReceivingTableFilters = function () {
             if (!rows.length && cardItems.length) total = matchedCards.length;
 
             var pageCount = Math.max(1, Math.ceil(total / pageSize));
+            lastPageCount = pageCount;
             if (currentPage > pageCount) currentPage = pageCount;
             var start = (currentPage - 1) * pageSize;
             var end = start + pageSize;
@@ -101,19 +154,14 @@ window.initReceivingTableFilters = function () {
                 pager.style.display = total ? 'flex' : 'none';
                 var first = total ? start + 1 : 0;
                 var last = total ? Math.min(end, total) : 0;
-                if (showingEl) showingEl.innerHTML = 'Showing <span class="font-semibold text-gray-700">' + first + '</span> – <span class="font-semibold text-gray-700">' + last + '</span> of <span class="font-semibold text-gray-700">' + total + '</span>';
-                if (pageNum) pageNum.textContent = String(currentPage);
-                if (pageControls) pageControls.style.display = total > pageSize ? 'flex' : 'none';
-                if (prevBtn) {
-                    prevBtn.disabled = currentPage <= 1;
-                    prevBtn.classList.toggle('opacity-40', currentPage <= 1);
-                    prevBtn.classList.toggle('cursor-not-allowed', currentPage <= 1);
+                if (showingEl) {
+                    showingEl.innerHTML =
+                        'Showing <span class="font-semibold text-slate-700">' + first + '</span> to ' +
+                        '<span class="font-semibold text-slate-700">' + last + '</span> of ' +
+                        '<span class="font-semibold text-slate-700">' + total + '</span>';
                 }
-                if (nextBtn) {
-                    nextBtn.disabled = currentPage >= pageCount;
-                    nextBtn.classList.toggle('opacity-40', currentPage >= pageCount);
-                    nextBtn.classList.toggle('cursor-not-allowed', currentPage >= pageCount);
-                }
+                if (pageControls) pageControls.style.display = total > pageSize ? 'inline-flex' : 'none';
+                if (total > pageSize) rebuildPageButtons(pageCount);
             }
 
             updateSlider(true);
@@ -154,14 +202,23 @@ window.initReceivingTableFilters = function () {
                 }, 180);
             });
         }
-        if (prevBtn) prevBtn.addEventListener('click', function () {
-            if (currentPage <= 1) return;
-            currentPage -= 1;
-            apply();
+
+        if (carouselPrev) carouselPrev.addEventListener('click', function () {
+            var visible = Math.min(VISIBLE, lastPageCount);
+            var maxIndex = Math.max(0, lastPageCount - visible);
+            carouselIndex = Math.max(0, carouselIndex - 1);
+            if (track) track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            carouselPrev.disabled = carouselIndex <= 0;
+            if (carouselNext) carouselNext.disabled = carouselIndex >= maxIndex;
         });
-        if (nextBtn) nextBtn.addEventListener('click', function () {
-            currentPage += 1;
-            apply();
+
+        if (carouselNext) carouselNext.addEventListener('click', function () {
+            var visible = Math.min(VISIBLE, lastPageCount);
+            var maxIndex = Math.max(0, lastPageCount - visible);
+            carouselIndex = Math.min(maxIndex, carouselIndex + 1);
+            if (track) track.style.transform = 'translateX(' + (-carouselIndex * ITEM_WIDTH) + 'px)';
+            if (carouselPrev) carouselPrev.disabled = carouselIndex <= 0;
+            carouselNext.disabled = carouselIndex >= maxIndex;
         });
 
         updateSlider(false);

@@ -156,6 +156,7 @@
                     paginationEl.innerHTML = data.pagination_html
                         ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.pagination_html + '</div>'
                         : '';
+                    if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
                 }
                 if (inboxCountEl && typeof data.total !== 'undefined') {
                     inboxCountEl.textContent = data.total;

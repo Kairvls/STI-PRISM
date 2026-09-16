@@ -75,7 +75,7 @@
             'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Resubmitted' => 'border-amber-200 bg-amber-50 text-amber-700',
-            'Accepted' => 'border-violet-200 bg-violet-50 text-violet-700',
+            'Accepted' => 'border-sky-200 bg-sky-50 text-sky-700',
             'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
             'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
             'Directly Approved' => 'border-slate-200 bg-slate-50 text-slate-600',
@@ -97,41 +97,26 @@
         $completedCount = $currentCollection->where('procurement_request_status', 'Completed')->count();
     @endphp
 
-    <div class="pur-card mb-6">
-        <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $totalRequests }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">Total Requests</p>
-            </div>
-
-            <div class="px-5 py-5">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $pendingCount }}</p>
-                    <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Pending</p>
-            </div>
-
-            <div class="px-5 py-5">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $approvedCount }}</p>
-                    <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Approved</p>
-            </div>
-
-            <div class="px-5 py-5">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $rejectedCount }}</p>
-                    <span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Rejected</p>
-            </div>
-
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $completedCount }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">Completed</p>
-            </div>
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <p class="text-sm font-medium text-gray-500">Total Requests</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $totalRequests }}</p>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <p class="text-sm font-medium text-gray-500">Pending</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $pendingCount }}</p>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <p class="text-sm font-medium text-gray-500">Approved</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $approvedCount }}</p>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <p class="text-sm font-medium text-gray-500">Rejected</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $rejectedCount }}</p>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <p class="text-sm font-medium text-gray-500">Completed</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $completedCount }}</p>
         </div>
     </div>
 
@@ -428,7 +413,7 @@
                                         <button
                                             type="button"
                                             x-on:click="openCreateRis({{ $request->procurement_request_id }})"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             title="Create RIS"
                                             aria-label="Create RIS"
                                             data-tooltip="Create RIS"
@@ -845,7 +830,7 @@
                         </button>
                         <button
                             type="submit"
-                            class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                            class="rounded-lg border border-[#0025cc] bg-[#0025cc] px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
                         >
                             Confirm Archive
                         </button>

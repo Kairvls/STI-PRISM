@@ -2,47 +2,24 @@
 
 @section('title', 'Procurement Requests')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+@endpush
+
 {{-- ===================================================== --}}
 {{-- PROCUREMENT REQUESTS — ACCEPT STAGE --}}
 {{-- ===================================================== --}}
 
 @section('content')
 
-<div class="admin-page space-y-6">
-
-
-    {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
-    {{-- ===================================================== --}}
-
-    
-
-
-    {{-- ===================================================== --}}
-    {{-- RIS CONTENT (STATS + FILTERS + TABLE + PAGINATION) --}}
-    {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
-    {{-- ===================================================== --}}
-
+<div class="admin-page">
     <div id="risContentContainer">
-
         @include('admin.procurement-review._content')
-
     </div>
 
-
-    {{-- ===================================================== --}}
-    {{-- RIS PREVIEW MODAL (purchaser print-preview chrome) --}}
-    {{-- ===================================================== --}}
-
     @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
-
-
-    {{-- Direct approve / forward modal and remarks-only amend modal --}}
     @include('admin.procurement-review._direct-approve-modal')
-
-    {{-- Accept confirmation modal --}}
     @include('admin.procurement-review._accept-modal')
-
 </div>
 
 @include('admin.partials.view-mode-script')
@@ -143,6 +120,9 @@
 
             // Re-bind event listeners after DOM update.
             bindRisEventListeners();
+            if (typeof window.bindPageCarousels === 'function') {
+                window.bindPageCarousels();
+            }
 
 
             // Update URL without reloading the page.

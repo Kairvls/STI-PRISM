@@ -145,7 +145,7 @@
             <a href="{{ route(($pp ?? 'purchaser').'.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Edit draft</a>
             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}">
                 @csrf
-                <button type="submit" class="h-10 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white">Submit ATP</button>
+                <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white">Submit ATP</button>
             </form>
         @endif
 
@@ -154,7 +154,7 @@
         @endif
 
         @if($atp->authority_purchase_status === 'Approved' && !$atp->authority_purchase_is_archived)
-            <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RFC</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800">Create RFC</a>
         @endif
 
         @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))

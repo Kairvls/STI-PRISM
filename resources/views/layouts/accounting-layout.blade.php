@@ -20,6 +20,7 @@
 @endpush
 
 @push('scripts')
+    @include('layouts.partials.page-carousel-script')
     @include('layouts.partials.prism-toast')
     @include('layouts.partials.accounting-daily-reminder')
     @include('accounting.partials.ui-scripts')

@@ -119,6 +119,7 @@
                     pagination.innerHTML = data.pagination_html
                         ? '<div class="acc-pagination mt-3">' + data.pagination_html + '</div>'
                         : '';
+                    if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
                 }
                 if (window.lucide) lucide.createIcons();
                 fetching = false;

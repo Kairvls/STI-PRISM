@@ -698,6 +698,10 @@
                     window.lucide.createIcons();
                 }
 
+                if (typeof window.bindPageCarousels === 'function') {
+                    window.bindPageCarousels();
+                }
+
                 const nextUrl = new URL(requestUrl, window.location.origin);
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
             } catch (error) {
@@ -1549,8 +1553,8 @@
         }
 
         .ris-delete-mode-switch.is-on {
-            background: #0f172a;
-            border-color: #0f172a;
+            background: #0025cc;
+            border-color: #0025cc;
         }
 
         .ris-delete-mode-switch::after {
@@ -1746,7 +1750,7 @@
                         <input type="hidden" name="ris_procurement_request_id" x-bind:value="selectedReplacement" x-bind:disabled="!(lockedReplacement && selectedReplacement)">
                         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                             <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                     <i data-lucide="link-2" class="h-4 w-4"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -2256,7 +2260,7 @@
                             <label class="mt-3 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
                                 <input
                                     type="checkbox"
-                                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]"
                                     x-model="createSaveOnUpload"
                                     x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
                                 >
@@ -2312,7 +2316,7 @@
             <label class="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
                 <input
                     type="checkbox"
-                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
+                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]"
                     x-model="createSaveOnDraw"
                     x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
                 >
@@ -2514,7 +2518,7 @@
                                         <span class="truncate" x-text="label"></span>
                                         <svg
                                             x-show="value === key"
-                                            class="h-4 w-4 shrink-0 text-[#0025cc]"
+                                            class="h-4 w-4 shrink-0 text-[#0f172a]"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -2684,7 +2688,7 @@
                                         <button
                                             type="button"
                                             x-on:click="editRisModal = 'edit-ris-{{ $ris->ris_id }}'"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             title="Edit RIS"
                                             aria-label="Edit RIS"
                                         >
@@ -2696,7 +2700,7 @@
                                         @if(!$ris->has_atp)
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                 title="Create ATP"
                                                 aria-label="Create ATP"
                                             >
@@ -4069,7 +4073,7 @@
                     @csrf
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc]">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0f172a]">
                                 <i data-lucide="send" class="h-5 w-5"></i>
                             </div>
                             <div>
@@ -4100,7 +4104,7 @@
                         <button
                             type="submit"
                             x-bind:disabled="submitRisSending"
-                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#001fa8] disabled:cursor-not-allowed disabled:opacity-50"
+                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#001db3] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             Yes, submit
                         </button>

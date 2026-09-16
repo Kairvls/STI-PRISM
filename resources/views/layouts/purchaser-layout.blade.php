@@ -7,12 +7,27 @@
 
 @section("sidebar")
 
+    {{-- Shared design tokens (Inter/Outfit) + Receiving-matched minimalist theme --}}
+    @include('layouts.partials.admin-design')
+    @include('layouts.partials.admin-grayscale-theme')
     <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
-    {{-- ===================================================== --}}
-    {{-- PURCHASER SIDEBAR HERE --}}
-    {{-- FIXED WIDTH: w-64 --}}
-    {{-- ===================================================== --}}
+    <style>
+        main,
+        main * {
+            font-family: "Inter", sans-serif !important;
+        }
+
+        main h1,
+        main .admin-page-title,
+        main .dashboard-title,
+        main .stat-value,
+        main .admin-stat-card-value,
+        main .pur-page-title,
+        main [class*="Outfit"] {
+            font-family: "Outfit", sans-serif !important;
+        }
+    </style>
 
     @include("layouts.purchaser-sidebar")
 
@@ -30,6 +45,8 @@
 @endsection
 
 @push('scripts')
+    @include('layouts.partials.page-carousel-script')
+    @include('layouts.partials.prism-toast')
     @include('layouts.partials.purchaser-daily-reminder')
     @include('partials.purchaser-print-sheet-helper')
     @include('partials.purchaser-confirm-dialog')

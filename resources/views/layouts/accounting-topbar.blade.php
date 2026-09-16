@@ -13,7 +13,8 @@
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents.'],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', 'Processed Accounting records.'],
                 request()->is('accounting/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                request()->is('accounting/profile*') => ['Profile settings', 'Update your Accounting account details.'],
+                request()->is('accounting/profile*') => ['Profile Settings', 'Update your Accounting account details.'],
+                request()->is('accounting/security*') => ['Security Settings', 'Manage your password and account security.'],
                 default => [View::yieldContent('title', 'PRISM'), 'Accounting'],
             };
 
@@ -518,7 +519,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/accounting/profile') }}"
+                        href="{{ route('accounting.profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -527,6 +528,17 @@
                         ></i>
 
                         Profile settings
+                    </a>
+                    <a
+                        href="{{ route('accounting.security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i
+                            data-lucide="shield"
+                            class="h-4 w-4 text-slate-400"
+                        ></i>
+
+                        Security settings
                     </a>
                 </div>
 

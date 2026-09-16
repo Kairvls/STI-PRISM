@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
-use App\Http\Controllers\Concerns\ManagesUserProfile;
 use App\Support\PresidentAttentionSummary;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
@@ -17,7 +16,6 @@ use App\Support\WorkflowNotifier;
 
 class PresidentController extends Controller
 {
-    use ManagesUserProfile;
     // =====================================================
     // DASHBOARD
     // =====================================================
@@ -1584,25 +1582,6 @@ class PresidentController extends Controller
                         ->where('notifications_table.notification_target_role', 'President');
                 });
         });
-    }
-
-    // =====================================================
-    // PROFILE
-    // =====================================================
-
-    public function profile(): View
-    {
-        return $this->showUserProfile('president.profile.index');
-    }
-
-    public function updateProfile(Request $request)
-    {
-        return $this->saveUserProfile($request, '/president/profile');
-    }
-
-    public function updatePassword(Request $request)
-    {
-        return $this->saveUserPassword($request, '/president/profile');
     }
 
     // =====================================================

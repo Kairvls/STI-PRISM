@@ -24,6 +24,7 @@
                     <div class="dropdown-item" data-target="direct-approvals-section">Admin Direct Approvals</div>
                     <div class="dropdown-item" data-target="reports-section">Reports</div>
                     <div class="dropdown-item" data-target="records-section">Compiled Records</div>
+                    <div class="dropdown-item" data-target="account-section">Account</div>
                 </div>
             </div>
         </div>
@@ -101,6 +102,15 @@
         >
             <i class="h-5 w-5" data-lucide="folder-archive"></i>
             <span>Compiled Records</span>
+        </a>
+
+        <div class="menu-title" id="account-section">ACCOUNT</div>
+        <a
+            href="{{ route('president.profile') }}"
+            class="menu-item {{ request()->is('president/profile*') || request()->is('president/security*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="user-cog"></i>
+            <span>Account settings</span>
         </a>
     </div>
 </div>

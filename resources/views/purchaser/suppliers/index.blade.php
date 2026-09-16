@@ -243,7 +243,7 @@
                                 @if($contactNumber)
                                     <button
                                         type="button"
-                                        class="mt-1 inline-flex max-w-full items-center gap-1 rounded text-left text-xs font-medium text-gray-600 transition hover:text-[#0025cc] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/30"
+                                        class="mt-1 inline-flex max-w-full items-center gap-1 rounded text-left text-xs font-medium text-gray-600 transition hover:text-[#0f172a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f172a]/30"
                                         title="Click to copy mobile number"
                                         aria-label="Copy mobile number {{ $contactNumber }}"
                                         x-data="{ copied: false }"
@@ -257,7 +257,7 @@
                                 @if($landlineNumber)
                                     <button
                                         type="button"
-                                        class="mt-0.5 inline-flex max-w-full items-center gap-1 rounded text-left text-xs text-gray-500 transition hover:text-[#0025cc] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/30"
+                                        class="mt-0.5 inline-flex max-w-full items-center gap-1 rounded text-left text-xs text-gray-500 transition hover:text-[#0f172a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f172a]/30"
                                         title="Click to copy landline"
                                         aria-label="Copy landline {{ $landlineNumber }}"
                                         x-data="{ copied: false }"
@@ -303,7 +303,7 @@
                                     <button
                                         type="button"
                                         x-on:click="openModal = null; editModal = 'edit-{{ $supplier->supplier_id }}'; $nextTick(() => { window.lucide && window.lucide.createIcons(); const phone = document.getElementById('edit-modal-contact-{{ $supplier->supplier_id }}'); if (phone && window.refreshPrismPhoneInput) window.refreshPrismPhoneInput(phone); })"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                         title="Edit supplier"
                                         aria-label="Edit supplier"
                                     >
@@ -418,7 +418,7 @@
                                                         <dt class="text-sm text-slate-500">Store URL</dt>
                                                         <dd class="text-sm font-medium text-slate-900">
                                                             @if(!empty($supplier->store_url))
-                                                                <a href="{{ $supplier->store_url }}" target="_blank" rel="noopener noreferrer" class="break-all text-[#0025cc] hover:underline">{{ $supplier->store_url }}</a>
+                                                                <a href="{{ $supplier->store_url }}" target="_blank" rel="noopener noreferrer" class="break-all text-[#0f172a] hover:underline">{{ $supplier->store_url }}</a>
                                                             @else
                                                                 —
                                                             @endif
@@ -451,7 +451,7 @@
 
                                         <a
                                             href="{{ route(($pp ?? 'purchaser').'.suppliers.edit', $supplier->supplier_id) }}"
-                                            class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#001fa8]"
+                                            class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#001db3]"
                                         >
                                             Edit Supplier
                                         </a>
@@ -618,7 +618,7 @@
                                             </button>
                                             <button
                                                 type="submit"
-                                                class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#001fa8]"
+                                                class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#001db3]"
                                             >
                                                 Save Changes
                                             </button>
@@ -684,7 +684,7 @@
                 <div class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="min-w-0">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                 <i data-lucide="building-2" class="h-5 w-5"></i>
                             </div>
                             <div>
@@ -719,7 +719,7 @@
                                     x-on:click="supplierType = 'Physical Store'; $nextTick(() => window.lucide && window.lucide.createIcons())"
                                     class="flex items-start gap-3 rounded-xl border p-4 text-left transition"
                                     :class="supplierType === 'Physical Store'
-                                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                                        ? 'border-[#0025cc] bg-[#0025cc] text-white shadow-sm'
                                         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'"
                                 >
                                     <div
@@ -741,7 +741,7 @@
                                     x-on:click="supplierType = 'Online Store'; $nextTick(() => window.lucide && window.lucide.createIcons())"
                                     class="flex items-start gap-3 rounded-xl border p-4 text-left transition"
                                     :class="supplierType === 'Online Store'
-                                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                                        ? 'border-[#0025cc] bg-[#0025cc] text-white shadow-sm'
                                         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'"
                                 >
                                     <div

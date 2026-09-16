@@ -11,11 +11,16 @@
             data-filter="{{ $card['filter'] }}"
             title="{{ $card['title'] ?? $card['label'] }}"
             aria-pressed="{{ $current === $card['filter'] ? 'true' : 'false' }}"
-            class="receiving-filter-card rounded-[18px] border bg-white px-5 py-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition
-                {{ $current === $card['filter'] ? 'border-slate-900/20 ring-2 ring-slate-900/10' : 'border-gray-200 hover:border-gray-300' }}"
+            class="receiving-filter-card group rounded-2xl border bg-white p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm
+                {{ $current === $card['filter'] ? 'border-[#0025cc]/60 ring-2 ring-[#0025cc]/15' : 'border-slate-200' }}"
         >
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $card['label'] }}</p>
-            <p class="mt-3 font-['Outfit'] text-3xl font-bold {{ $card['color'] ?? 'text-slate-900' }}">{{ $card['count'] }}</p>
+            <div class="flex items-start justify-between gap-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                @if ($current === $card['filter'])
+                    <span data-ro-active-dot class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#0025cc]"></span>
+                @endif
+            </div>
+            <p class="mt-4 text-3xl font-semibold tracking-tight {{ $card['color'] ?? 'text-slate-950' }}">{{ $card['count'] }}</p>
         </button>
     @endforeach
 </div>

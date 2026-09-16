@@ -170,7 +170,7 @@
                                         <button
                                             type="button"
                                             x-on:click="openModal = 'edit-po-{{ $order->purchase_order_id }}'"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             title="Edit"
                                             aria-label="Edit"
                                         >
@@ -268,7 +268,7 @@
             <div class="my-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true">
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                             <i data-lucide="shopping-bag" class="h-5 w-5"></i>
                         </div>
                         <div>
@@ -323,7 +323,7 @@
                 <div class="my-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true">
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                 <i data-lucide="pencil" class="h-5 w-5"></i>
                             </div>
                             <div>

@@ -67,7 +67,7 @@
     </label>
 
     <label class="mt-3 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
-        <input type="checkbox" id="purDocSaveOnUpload" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]" @checked($savedSignatures->count() < 4) @disabled($savedSignatures->count() >= 4)>
+        <input type="checkbox" id="purDocSaveOnUpload" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]" @checked($savedSignatures->count() < 4) @disabled($savedSignatures->count() >= 4)>
         <span class="min-w-0">
             <span class="block text-xs font-medium text-slate-700">Save uploaded signature to my list</span>
             <span class="mt-0.5 block text-[11px] text-slate-400">Keeps up to 4 signatures for the next form.</span>
@@ -98,7 +98,7 @@
                 ])
             </div>
             <label class="mt-4 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
-                <input type="checkbox" id="purDocSaveOnDraw" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]" @checked($savedSignatures->count() < 4) @disabled($savedSignatures->count() >= 4)>
+                <input type="checkbox" id="purDocSaveOnDraw" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]" @checked($savedSignatures->count() < 4) @disabled($savedSignatures->count() >= 4)>
                 <span class="min-w-0">
                     <span class="block text-xs font-medium text-slate-700">Also save this drawing to my list</span>
                     <span class="mt-0.5 block text-[11px] text-slate-400">Maximum 4 saved signatures.</span>

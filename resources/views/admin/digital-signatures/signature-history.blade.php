@@ -2,33 +2,16 @@
 
 @section('title', 'Signature History')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+@endpush
+
 @section('content')
 
-<div class="admin-page space-y-6">
-
-
-    {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
-    {{-- ===================================================== --}}
-
-    
-
-
-    {{-- ===================================================== --}}
-    {{-- HISTORY CONTENT --}}
-    {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
-    {{-- ===================================================== --}}
-
+<div class="admin-page">
     <div id="signatureHistoryContentContainer">
-
         @include('admin.digital-signatures._signature-history-content')
-
     </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- RIS PREVIEW MODAL --}}
-    {{-- ===================================================== --}}
 
     @include('admin.partials.ris-preview-modal', [
         'iframeId' => 'signatureHistoryPreviewIframe',
@@ -36,8 +19,6 @@
         'printFn' => 'printSignatureHistoryPreview',
         'zIndex' => '50',
     ])
-
-
 </div>
 
 @include('admin.partials.view-mode-script')
@@ -123,6 +104,9 @@
 
             // Re-bind event listeners after DOM update.
             bindSignatureHistoryEventListeners();
+            if (typeof window.bindPageCarousels === 'function') {
+                window.bindPageCarousels();
+            }
 
             // Update URL without reloading the page.
             const url =

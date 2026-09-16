@@ -20,7 +20,7 @@ class AccountSettingsController extends Controller
         $user = Auth::user();
         $user->loadMissing('role');
 
-        return view('maintenance-personnel.settings.profile', [
+        return view($this->profileView(), [
             'user' => $user,
         ]);
     }
@@ -72,7 +72,7 @@ class AccountSettingsController extends Controller
         Auth::setUser($user->fresh());
 
         return redirect()
-            ->route('maintenance.settings.profile')
+            ->route($this->profileRoute())
             ->with('success', 'Profile settings updated successfully.');
     }
 
@@ -129,7 +129,7 @@ class AccountSettingsController extends Controller
         $user = Auth::user();
         $user->loadMissing('role');
 
-        return view('maintenance-personnel.settings.security', [
+        return view($this->securityView(), [
             'user' => $user,
         ]);
     }
@@ -153,6 +153,67 @@ class AccountSettingsController extends Controller
         $user->save();
 
         return back()->with('success', 'Password updated successfully.');
+    }
+
+    private function portal(): string
+    {
+        if (request()->routeIs('admin.*')) {
+            return 'admin';
+        }
+
+        if (request()->routeIs('receiving.*')) {
+            return 'receiving';
+        }
+
+        if (request()->routeIs('purchaser.*')) {
+            return 'purchaser';
+        }
+
+        if (request()->routeIs('accounting.*') || request()->is('accounting/*')) {
+            return 'accounting';
+        }
+
+        if (request()->routeIs('president.*') || request()->is('president/*')) {
+            return 'president';
+        }
+
+        return 'maintenance';
+    }
+
+    private function profileView(): string
+    {
+        return match ($this->portal()) {
+            'admin' => 'admin.profile.index',
+            'receiving' => 'receiving-officer.profile.index',
+            'purchaser' => 'purchaser.profile.index',
+            'accounting' => 'accounting.profile.index',
+            'president' => 'president.profile.index',
+            default => 'maintenance-personnel.settings.profile',
+        };
+    }
+
+    private function securityView(): string
+    {
+        return match ($this->portal()) {
+            'admin' => 'admin.security.index',
+            'receiving' => 'receiving-officer.security.index',
+            'purchaser' => 'purchaser.security.index',
+            'accounting' => 'accounting.security.index',
+            'president' => 'president.security.index',
+            default => 'maintenance-personnel.settings.security',
+        };
+    }
+
+    private function profileRoute(): string
+    {
+        return match ($this->portal()) {
+            'admin' => 'admin.profile',
+            'receiving' => 'receiving.profile',
+            'purchaser' => 'purchaser.profile',
+            'accounting' => 'accounting.profile',
+            'president' => 'president.profile',
+            default => 'maintenance.settings.profile',
+        };
     }
 
     private function storeProfilePicture($user, $file): void

@@ -144,6 +144,10 @@
                     Alpine.initTree(currentRecords);
                 }
 
+                if (typeof window.bindPageCarousels === 'function') {
+                    window.bindPageCarousels();
+                }
+
                 const nextUrl = new URL(requestUrl, window.location.origin);
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
             } catch (error) {
@@ -412,15 +416,15 @@
                                     <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
-                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                                        <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
+                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
@@ -493,7 +497,7 @@
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                             <i data-lucide="receipt-text" class="h-5 w-5"></i>
                         </div>
                         <div>
@@ -644,7 +648,7 @@
                     <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
                         @if(!$archiveView && $rfc->request_check_status === 'Approved')
                             @if(!$rfc->has_rr && $rfc->funds_released)
-                                <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RR</a>
+                                <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800">Create RR</a>
                             @elseif(!$rfc->has_rr)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
                             @else

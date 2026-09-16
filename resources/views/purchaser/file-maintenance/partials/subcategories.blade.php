@@ -173,7 +173,7 @@
                                     <button
                                         type="button"
                                         @click="openEdit({ id: {{ $subcategory->item_subcategory_id }}, category_id: @js((string) $subcategory->item_category_id), name: @js($subcategory->item_subcategory_name), description: @js($subcategory->item_subcategory_description ?? ''), status: @js($subcategory->item_subcategory_status) })"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                         title="Edit"
                                         aria-label="Edit"
                                     >
@@ -229,7 +229,7 @@
 
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                 <i data-lucide="folder-tree" class="h-5 w-5"></i>
                             </div>
                             <div>

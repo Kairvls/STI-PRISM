@@ -43,6 +43,9 @@
                     >
                         Maintenance
                     </div>
+                    <div class="dropdown-item" data-target="account-section">
+                        Account
+                    </div>
                     <!--<div class="dropdown-item" data-target="users-section">
                         Users
                     </div>-->
@@ -272,6 +275,15 @@
             <i class="h-5 w-5" data-lucide="users"></i>
             <span>Reporters</span>
         </a>-->
+
+        <div class="menu-title" id="account-section">ACCOUNT</div>
+        <a
+            href="/maintenance/settings/profile"
+            class="menu-item {{ request()->is('maintenance/settings*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="user-cog"></i>
+            <span>Account settings</span>
+        </a>
     </div>
 
     <!--<div class="user-card">

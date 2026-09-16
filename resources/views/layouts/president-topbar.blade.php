@@ -13,7 +13,8 @@
                 request()->is('president/reports/monthly-summary*') => ['Reports & Summary', 'Monthly decision trends and totals.'],
                 request()->is('president/reports*') => ['Decision History', 'Approved and rejected RIS decisions.'],
                 request()->is('president/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                request()->is('president/profile*') => ['Profile', 'Account settings for the President panel.'],
+                request()->is('president/profile*') => ['Profile Settings', 'Update your President account details.'],
+                request()->is('president/security*') => ['Security Settings', 'Manage your password and account security.'],
                 default => [View::yieldContent('title', 'PRISM'), 'President Panel'],
             };
         @endphp
@@ -248,11 +249,18 @@
 
                 <div class="p-2">
                     <a
-                        href="{{ url('/president/profile') }}"
+                        href="{{ route('president.profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
+                    </a>
+                    <a
+                        href="{{ route('president.security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>
+                        Security settings
                     </a>
                 </div>
 

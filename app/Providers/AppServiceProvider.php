@@ -26,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (request()->is('maintenance*')) {
+        if (request()->is('maintenance*', 'admin*', 'receiving*', 'purchaser*', 'president*', 'accounting*')) {
             Paginator::defaultView('pagination.maintenance');
         }
 

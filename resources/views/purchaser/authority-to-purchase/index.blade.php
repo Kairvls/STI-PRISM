@@ -411,7 +411,7 @@
                                         <button
                                             type="button"
                                             @click="openEdit({{ $atp->authority_purchase_id }})"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             title="Edit"
                                             aria-label="Edit"
                                         >
@@ -434,7 +434,7 @@
                                                 @csrf
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                     title="Submit"
                                                     aria-label="Submit"
                                                 >
@@ -465,7 +465,7 @@
                                                         <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
                                                         <button
                                                             type="submit"
-                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
+                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
                                                             title="Cash Advance"
                                                             aria-label="Cash Advance"
                                                         >
@@ -476,7 +476,7 @@
                                             @else
                                                 <a
                                                     href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                     title="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
                                                     aria-label="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
                                                 >
@@ -570,7 +570,7 @@
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                             <i data-lucide="file-check-2" class="h-5 w-5"></i>
                         </div>
                         <div>
@@ -800,13 +800,13 @@
                                             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
                                                 @csrf
                                                 <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
-                                                <button type="submit" class="h-10 rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-medium text-violet-800">Cash Advance</button>
+                                                <button type="submit" class="h-10 rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-medium text-sky-800">Cash Advance</button>
                                             </form>
                                         </div>
                                     @else
                                         <a
                                             href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
-                                            class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
+                                            class="h-10 inline-flex items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800"
                                         >
                                             Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
                                         </a>

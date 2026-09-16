@@ -345,6 +345,7 @@
                 pag.innerHTML = data.queue_pagination_html
                     ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.queue_pagination_html + '</div>'
                     : '';
+                if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
             }
             if (window.lucide) lucide.createIcons();
             window.history.replaceState({}, '', url.pathname + url.search);
@@ -358,6 +359,7 @@
                 pag.innerHTML = data.activity_pagination_html
                     ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.activity_pagination_html + '</div>'
                     : '';
+                if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
             }
             if (window.lucide) lucide.createIcons();
             window.history.replaceState({}, '', url.pathname + url.search);

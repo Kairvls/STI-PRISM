@@ -1,15 +1,17 @@
-/* Purchaser modules — primary action tokens (scoped to .pur-* only; sidebar keeps its own yellow) */
+/* Purchaser modules — Receiving-matched minimalist tokens */
 :root {
     --pur-primary: #0025cc;
-    --pur-primary-hover: #001fa8;
+    --pur-primary-hover: #001db3;
     --pur-ink: #0f172a;
     --pur-muted: #64748b;
     --pur-border: #e2e8f0;
-    --pur-bg: #f1f5f9;
+    --pur-bg: #ffffff;
     --pur-card: #ffffff;
+    --pur-accent: #3b82f6;
+    --pur-accent-soft: #eff6ff;
     --pur-radius: 16px;
     --pur-radius-lg: 18px;
-    --pur-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --pur-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .pur-page-kicker {
@@ -28,11 +30,12 @@
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 999px;
-    background: var(--pur-primary);
+    background: #93c5fd;
 }
 
 .pur-page-title {
     margin-top: 0.35rem;
+    font-family: "Outfit", sans-serif;
     font-size: 1.875rem;
     line-height: 1.15;
     font-weight: 700;
@@ -67,7 +70,7 @@
 .pur-btn-primary {
     background: var(--pur-primary);
     color: #ffffff;
-    border: 1px solid #0025cc;
+    border: 1px solid var(--pur-primary);
 }
 
 .pur-btn-primary:hover {
@@ -97,13 +100,13 @@
 }
 
 .pur-btn-danger {
-    background: #dc2626;
-    color: #fff;
-    border: 1px solid #b91c1c;
+    background: #fff;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
 }
 
 .pur-btn-danger:hover {
-    background: #b91c1c;
+    background: #fef2f2;
 }
 
 .pur-card {
@@ -120,6 +123,18 @@
     border-radius: var(--pur-radius);
     padding: 1.15rem 1.25rem;
     box-shadow: var(--pur-shadow);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.pur-stat-card:hover {
+    transform: translateY(-1px);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.pur-stat-card.is-active {
+    border-color: #0025cc;
+    box-shadow: 0 0 0 2px rgba(0, 37, 204, 0.25);
 }
 
 .pur-table {
@@ -149,7 +164,7 @@
 }
 
 .pur-table tbody tr:hover {
-    background: rgba(0, 37, 204, 0.04);
+    background: #f8fafc;
 }
 
 .pur-table tbody tr:last-child td {
@@ -171,13 +186,13 @@
 }
 
 .pur-badge-approved {
-    background: #ecfdf5;
-    color: #065f46;
+    background: #eff6ff;
+    color: #1e40af;
 }
 
 .pur-badge-rejected {
-    background: #fff1f2;
-    color: #9f1239;
+    background: #f1f5f9;
+    color: #475569;
 }
 
 .pur-badge-archived,
@@ -187,8 +202,8 @@
 }
 
 .pur-badge-active {
-    background: #ecfdf5;
-    color: #065f46;
+    background: #eff6ff;
+    color: #1e40af;
 }
 
 .pur-filter-chip {
@@ -205,7 +220,7 @@
 
 .pur-filter-chip.is-active {
     background: var(--pur-primary);
-    border-color: #0025cc;
+    border-color: var(--pur-primary);
     color: #ffffff;
 }
 
@@ -219,21 +234,21 @@
 .pur-alert-success {
     margin-bottom: 1rem;
     border-radius: 0.9rem;
-    border: 1px solid #bbf7d0;
-    background: #f0fdf4;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
-    color: #166534;
+    color: #1e40af;
 }
 
 .pur-alert-error {
     margin-bottom: 1rem;
     border-radius: 0.9rem;
-    border: 1px solid #fecaca;
-    background: #fef2f2;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
-    color: #991b1b;
+    color: #475569;
 }
 
 .pur-modal {
@@ -261,6 +276,7 @@
 }
 
 .pur-modal-header h3 {
+    font-family: "Outfit", sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--pur-ink);
@@ -284,7 +300,7 @@
     width: 100%;
     border-radius: 0.75rem;
     border: 1px solid var(--pur-border);
-    background: #f8fafc;
+    background: #fff;
     padding: 0.6rem 0.85rem;
     font-size: 0.875rem;
     color: #334155;
@@ -294,6 +310,7 @@
 .pur-input:focus,
 .pur-select:focus {
     border-color: #cbd5e1;
+    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
     background: #fff;
 }
 
@@ -345,6 +362,33 @@
     font-weight: 700;
     background: #0025cc;
     border-bottom-color: transparent;
+}
+
+/* Soft action helpers (match Receiving table actions) */
+.pur-action-soft {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid transparent;
+}
+
+.pur-action-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #fff;
+    color: #334155;
+    border: 1px solid #e5e7eb;
 }
 
 /* Fullscreen document modals — paper forms fill the stage (RIS-style) */

@@ -22,7 +22,7 @@
                 width: 100%;
                 border-radius: 0.5rem;
                 border: 1px solid #e5e7eb;
-                background: #f9fafb;
+                background: #fff;
                 font-size: 0.875rem;
                 color: #1f2937;
                 outline: none;
@@ -34,12 +34,25 @@
             }
             .iti__tel-input::placeholder { color: #9ca3af; }
             .iti__tel-input:focus {
-                border-color: #d1d5db;
+                border-color: #94a3b8;
                 background: #fff;
+                box-shadow: 0 0 0 2px rgba(241, 245, 249, 1);
             }
             .iti--separate-dial-code .iti__selected-flag {
-                border-radius: 0.5rem 0 0 0.5rem;
-                background: #f3f4f6;
+                border-radius: 0.75rem 0 0 0.75rem;
+                background: transparent;
+            }
+            .iti--separate-dial-code .iti__selected-flag:hover,
+            .iti--separate-dial-code .iti__selected-flag:focus {
+                background: transparent;
+            }
+            /* Match Account Settings white field look when bg-white is passed */
+            .iti:has(.bg-white) .iti__tel-input,
+            .iti:has(.bg-white) .iti__selected-flag {
+                background: #fff !important;
+            }
+            .iti:has(.bg-white) .iti__selected-flag {
+                background: transparent !important;
             }
             .pur-input.iti__tel-input,
             .phone-input--pur {
@@ -49,9 +62,61 @@
                 padding-top: 0.625rem;
                 padding-bottom: 0.625rem;
             }
-            .iti__dropdown-content,
+            .phone-input--pur.iti__tel-input {
+                background: #f8fafc;
+            }
+            .iti:has(.phone-input--pur) .iti__selected-flag {
+                background: #f8fafc;
+            }
+
+            /* Country dropdown: teleport to body + sit above modals */
             .iti--container {
+                position: fixed !important;
                 z-index: 2147483646 !important;
+            }
+            .iti__dropdown-content {
+                z-index: 2147483646 !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 0.75rem !important;
+                box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
+                overflow: hidden;
+                background: #fff !important;
+            }
+            .iti__search-input {
+                margin: 0.5rem 0.5rem 0.25rem !important;
+                width: calc(100% - 1rem) !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 0.5rem !important;
+                background: #fff !important;
+                font-size: 0.875rem !important;
+                outline: none !important;
+            }
+            .iti__search-input:focus {
+                border-color: #94a3b8 !important;
+                background: #fff !important;
+                box-shadow: 0 0 0 2px rgba(241, 245, 249, 1);
+            }
+            .iti__country-list {
+                max-height: 220px;
+                /* Override global navy scrollbar from layouts/app */
+                scrollbar-width: thin;
+                scrollbar-color: #cbd5e1 transparent;
+            }
+            .iti__country-list::-webkit-scrollbar {
+                width: 6px;
+            }
+            .iti__country-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .iti__country-list::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 999px;
+            }
+            .iti__country-list::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+            .iti__country.iti__highlight {
+                background: #f1f5f9 !important;
             }
         </style>
     @endpush
@@ -158,9 +223,125 @@
                     nationalMode: true,
                     autoPlaceholder: 'aggressive',
                     formatOnDisplay: true,
+                    // Keep country list out of overflow:hidden modal panels
                     dropdownContainer: document.body,
+                    fixDropdownWidth: false,
+                    useFullscreenPopup: false,
                     utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js',
                 });
+
+                // Reposition after layout settles (modals often open from display:none).
+                input.addEventListener('open:countrydropdown', function () {
+                    requestAnimationFrame(function () {
+                        try {
+                            if (typeof iti._setDropdownPosition === 'function') {
+                                iti._setDropdownPosition();
+                            }
+                        } catch (e) {
+                            // private API — ignore if unavailable
+                        }
+                    });
+                });
+
+                // Modal panels call stopPropagation, so intl-tel-input's documentElement
+                // bubble listener never runs. Also, flag click only OPENs (never toggles close).
+                const isCountryDropdownOpen = function () {
+                    try {
+                        if (iti.dropdownContent) {
+                            return !iti.dropdownContent.classList.contains('iti__hide');
+                        }
+                    } catch (e) {
+                        // fall through
+                    }
+                    return !!document.querySelector('body > .iti--container .iti__dropdown-content:not(.iti__hide), body > .iti--container');
+                };
+
+                const closeCountryDropdown = function () {
+                    try {
+                        if (typeof iti.closeCountrySelector === 'function') {
+                            iti.closeCountrySelector();
+                        } else if (typeof iti.closeDropdown === 'function') {
+                            iti.closeDropdown();
+                        } else if (typeof iti._closeDropdown === 'function') {
+                            iti._closeDropdown();
+                        }
+                    } catch (e) {
+                        // fall through to DOM cleanup
+                    }
+
+                    // Hard cleanup — leftover body-teleported lists from refresh/destroy races
+                    document.querySelectorAll('body > .iti--container').forEach(function (node) {
+                        node.remove();
+                    });
+                    if (iti.dropdownContent) {
+                        iti.dropdownContent.classList.add('iti__hide');
+                    }
+                    if (iti.dropdownArrow) {
+                        iti.dropdownArrow.classList.remove('iti__arrow--up');
+                    }
+                    if (iti.selectedCountry) {
+                        iti.selectedCountry.setAttribute('aria-expanded', 'false');
+                    }
+                };
+
+                // Expose for modal close / shared helpers
+                iti.__prismCloseCountryDropdown = closeCountryDropdown;
+
+                const eventTargetElement = function (event) {
+                    const raw = event.target;
+                    if (!raw) return null;
+                    if (raw.nodeType === 1) return raw;
+                    return raw.parentElement || null;
+                };
+
+                const onDocMouseDown = function (event) {
+                    const target = eventTargetElement(event);
+                    if (!target || typeof target.closest !== 'function') return;
+                    if (!isCountryDropdownOpen()) return;
+
+                    // Keep open when interacting with the list/search itself
+                    if (target.closest('.iti--container, .iti__dropdown-content, .iti__country-list, .iti__search-input')) {
+                        return;
+                    }
+
+                    const wrap = input.closest('.iti');
+                    const onFlag = !!(wrap && target.closest(
+                        '.iti__selected-country, .iti__selected-flag, .iti__flag-container, .iti__arrow, .iti__country-container'
+                    ));
+
+                    // Flag click while open: force close (library does not toggle)
+                    if (onFlag) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        closeCountryDropdown();
+                        return;
+                    }
+
+                    // Any other outside click (including modal fields — capture beats stopPropagation)
+                    closeCountryDropdown();
+                };
+
+                document.addEventListener('mousedown', onDocMouseDown, true);
+                document.addEventListener('touchstart', onDocMouseDown, true);
+
+                const onDocKeyDown = function (event) {
+                    if (event.key === 'Escape' && isCountryDropdownOpen()) {
+                        closeCountryDropdown();
+                    }
+                };
+                document.addEventListener('keydown', onDocKeyDown, true);
+
+                // Clean up when the widget is destroyed/refreshed
+                const originalDestroy = iti.destroy && iti.destroy.bind(iti);
+                if (originalDestroy) {
+                    iti.destroy = function () {
+                        document.removeEventListener('mousedown', onDocMouseDown, true);
+                        document.removeEventListener('touchstart', onDocMouseDown, true);
+                        document.removeEventListener('keydown', onDocKeyDown, true);
+                        closeCountryDropdown();
+                        return originalDestroy();
+                    };
+                }
 
                 const seed = input.value || (window.getPrismPhoneStorage(input) || {}).value || '';
                 if (seed) {
@@ -211,6 +392,18 @@
                 input.dataset.phoneInitialized = '1';
                 window.PRISM_PHONE_INPUTS.set(input, iti);
                 return iti;
+            };
+
+            window.closeAllPrismPhoneDropdowns = function () {
+                document.querySelectorAll('[data-phone-input]').forEach(function (input) {
+                    const iti = window.PRISM_PHONE_INPUTS.get(input);
+                    if (iti && typeof iti.__prismCloseCountryDropdown === 'function') {
+                        iti.__prismCloseCountryDropdown();
+                    }
+                });
+                document.querySelectorAll('body > .iti--container').forEach(function (node) {
+                    node.remove();
+                });
             };
 
             window.refreshPrismPhoneInput = function (input) {

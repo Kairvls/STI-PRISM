@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Concerns\ManagesUserProfile;
 use App\Support\AccountingAttentionSummary;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -17,7 +16,6 @@ use App\Support\PurchaseOrderBasket;
 
 class AccountingController extends Controller
 {
-    use ManagesUserProfile;
     private const LIQ_INCOMING = ['Pending', 'Submitted', 'Under Review', 'Resubmitted'];
 
     public function dashboard(Request $request)
@@ -1469,21 +1467,6 @@ class AccountingController extends Controller
                 'preview_url' => (string) ($item->preview_url ?? ''),
             ])->values(),
         ]);
-    }
-
-    public function profile()
-    {
-        return $this->showUserProfile('accounting.profile');
-    }
-
-    public function updateProfile(Request $request)
-    {
-        return $this->saveUserProfile($request, '/accounting/profile');
-    }
-
-    public function updatePassword(Request $request)
-    {
-        return $this->saveUserPassword($request, '/accounting/profile');
     }
 
     private function metrics(): array

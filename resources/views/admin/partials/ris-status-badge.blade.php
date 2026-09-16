@@ -24,7 +24,7 @@
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';
         $risStatusTitle = 'Sent to the President for a decision';
     } elseif ($presidentApproved && $issuedBy === '') {
-        $risStatusLabel = 'Awaiting Admin';
+        $risStatusLabel = 'Pending Admin Review';
         $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-800';
         $risStatusTitle = 'President approved. Admin must sign Issued by';
     } elseif ($presidentApproved) {

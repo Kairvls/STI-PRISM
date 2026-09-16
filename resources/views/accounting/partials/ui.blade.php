@@ -1066,21 +1066,19 @@
         padding: 0.25rem 1rem 0.85rem;
     }
 
-    /* Neutralize the president pagination view's built-in top margin so it
+    /* Neutralize the pagination view's built-in top margin so it
        aligns flush with the table above, and keep both sides vertically centered. */
     .acc-pagination > nav { margin-top: 0; }
     .acc-pagination nav > div { align-items: center; }
     .acc-pagination nav p { margin: 0; }
-    .acc-pagination nav ul { margin: 0; }
 
-    /* Ensure the current page number is clearly filled (Tailwind may not always paint it). */
-    .acc-pagination nav span[aria-current="page"],
-    .acc-page .acc-pagination nav span[aria-current="page"],
-    nav[aria-label="Pagination Navigation"] span[aria-current="page"] {
-        background: #0f172a !important;
-        border-color: #0f172a !important;
+    /* Keep carousel current-page highlight (Maintenance style). */
+    .acc-pagination nav .page-carousel span[aria-current="page"],
+    .acc-page .acc-pagination nav .page-carousel span[aria-current="page"] {
+        background: rgba(59, 130, 246, 0.4) !important;
+        border-color: transparent !important;
         color: #ffffff !important;
-        font-weight: 600;
+        font-weight: 500;
     }
 
     /* Flush variant for pagination inside a card section (e.g. notifications). */

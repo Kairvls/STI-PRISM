@@ -157,16 +157,38 @@ class AdminOperationsController extends Controller
         $attention = AdminAttentionSummary::counts();
         $stats['awaiting_admin_ris'] = $attention['pendingRis'] ?? 0;
         $stats['awaiting_cosign'] = $attention['awaitingCosign'] ?? 0;
+        $stats['open_ris_amount'] = 0.0;
+        $stats['pending_admin_ris_amount'] = 0.0;
+
+        $itemsJoin = DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum');
+
+        try {
+            if (Schema::hasTable('requisition_issue_slip_table')) {
+                $stats['open_ris_amount'] = (float) DB::table('requisition_issue_slip_table')
+                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
+                    ->whereNotIn('ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived'])
+                    ->sum('ris_items_sum.ris_calculated_total');
+
+                $stats['pending_admin_ris_amount'] = (float) DB::table('requisition_issue_slip_table')
+                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
+                    ->whereNotNull('ris_requested_by_date')
+                    ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
+                    ->sum('ris_items_sum.ris_calculated_total');
+            }
+        } catch (\Throwable $e) {
+            $stats['open_ris_amount'] = 0.0;
+            $stats['pending_admin_ris_amount'] = 0.0;
+        }
 
         $exceptions = [
             [
-                'label' => 'Awaiting Admin RIS accept',
+                'label' => 'Pending Admin Review — RIS accept',
                 'count' => $stats['awaiting_admin_ris'],
                 'url' => url('/admin/procurement-review?filter=pending'),
                 'tone' => 'sky',
             ],
             [
-                'label' => 'Awaiting Admin cosign / decision',
+                'label' => 'Pending Admin Review — cosign / decision',
                 'count' => $stats['awaiting_cosign'],
                 'url' => url('/admin/digital-signatures/sign-ris'),
                 'tone' => 'indigo',
@@ -197,7 +219,163 @@ class AdminOperationsController extends Controller
             ],
         ];
 
-        return view('admin.operations.overview', compact('stats', 'exceptions'));
+        $overdueSchedulesPreview = collect();
+        try {
+            if (Schema::hasTable('maintenance_schedules_table')) {
+                $overdueSchedulesPreview = DB::table('maintenance_schedules_table')
+                    ->leftJoin(
+                        'equipment_table',
+                        'equipment_table.equipment_id',
+                        '=',
+                        'maintenance_schedules_table.maintenance_schedule_equipment_id'
+                    )
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
+                    ->where(function ($q) {
+                        $q->where('maintenance_schedule_status', 'Overdue')
+                            ->orWhere(function ($q2) {
+                                $q2->where('maintenance_schedule_status', 'Active')
+                                    ->whereDate('maintenance_schedule_next_date', '<', now()->toDateString());
+                            });
+                    })
+                    ->whereNotNull('maintenance_schedule_next_date')
+                    ->select(
+                        'maintenance_schedules_table.maintenance_schedule_id',
+                        'maintenance_schedules_table.maintenance_schedule_title',
+                        'maintenance_schedules_table.maintenance_schedule_next_date',
+                        'equipment_table.equipment_name',
+                        'rooms_table.room_name'
+                    )
+                    ->orderBy('maintenance_schedule_next_date')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $overdueSchedulesPreview = collect();
+        }
+
+        $overdueBorrowsPreview = collect();
+        try {
+            if (Schema::hasTable('borrowing_records_table')) {
+                $overdueBorrowsPreview = DB::table('borrowing_records_table')
+                    ->leftJoin(
+                        'equipment_table',
+                        'equipment_table.equipment_id',
+                        '=',
+                        'borrowing_records_table.borrowing_equipment_id'
+                    )
+                    ->where('borrowing_records_table.borrowing_status', 'Overdue')
+                    ->select(
+                        'borrowing_records_table.borrowing_record_id',
+                        'borrowing_records_table.borrowing_borrower_name',
+                        'borrowing_records_table.borrowing_expected_return_date',
+                        'equipment_table.equipment_name'
+                    )
+                    ->orderBy('borrowing_records_table.borrowing_expected_return_date')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $overdueBorrowsPreview = collect();
+        }
+
+        $urgentReportsPreview = collect();
+        try {
+            if (Schema::hasTable('reports_table')) {
+                $urgentReportsPreview = DB::table('reports_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
+                    ->where('reports_table.report_urgency_level', 'Urgent')
+                    ->whereIn('reports_table.report_current_status', ['Pending', 'Processing', 'For Replacement'])
+                    ->where(function ($q) {
+                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
+                            $q->where('reports_table.report_is_archived', 0)
+                                ->orWhereNull('reports_table.report_is_archived');
+                        }
+                    })
+                    ->select(
+                        'reports_table.report_id',
+                        'reports_table.report_current_status',
+                        'reports_table.report_suggested_issue',
+                        'reports_table.report_unlisted_equipment_name',
+                        'reports_table.report_submitted_at',
+                        'equipment_table.equipment_name',
+                        'rooms_table.room_name'
+                    )
+                    ->orderByDesc('reports_table.report_submitted_at')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $urgentReportsPreview = collect();
+        }
+
+        $lifecyclePreview = collect();
+        try {
+            $lifecyclePreview = $this->lifecycleAlertsQuery()
+                ->orderBy('years_remaining')
+                ->limit(3)
+                ->get();
+        } catch (\Throwable $e) {
+            $lifecyclePreview = collect();
+        }
+
+        $latestProcurement = collect();
+        try {
+            if (Schema::hasTable('requisition_issue_slip_table')) {
+                $query = DB::table('requisition_issue_slip_table as ris')
+                    ->leftJoin(
+                        DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                        'ris.ris_id',
+                        '=',
+                        'ris_items_sum.ris_id'
+                    )
+                    ->select(
+                        'ris.ris_id',
+                        'ris.ris_form_number',
+                        'ris.ris_status',
+                        'ris.ris_purpose_description',
+                        'ris.ris_created_at',
+                        'ris.ris_requested_by_date',
+                        'ris_items_sum.ris_calculated_total'
+                    );
+
+                if (Schema::hasTable('procurement_requests_table')) {
+                    $query->leftJoin(
+                        'procurement_requests_table',
+                        'ris.ris_procurement_request_id',
+                        '=',
+                        'procurement_requests_table.procurement_request_id'
+                    )->leftJoin(
+                        'users_table as creators',
+                        'creators.user_id',
+                        '=',
+                        'procurement_requests_table.procurement_request_created_by'
+                    )->addSelect('creators.user_full_name as created_by_name');
+                }
+
+                $latestProcurement = $query
+                    ->orderByDesc('ris.ris_id')
+                    ->limit(3)
+                    ->get()
+                    ->map(function ($row) {
+                        $row->pipeline = $this->buildAdminPipeline((int) $row->ris_id);
+
+                        return $row;
+                    });
+            }
+        } catch (\Throwable $e) {
+            $latestProcurement = collect();
+        }
+
+        return view('admin.operations.overview', [
+            'stats' => $stats,
+            'exceptions' => $exceptions,
+            'overdueSchedulesPreview' => $overdueSchedulesPreview,
+            'overdueBorrowsPreview' => $overdueBorrowsPreview,
+            'urgentReportsPreview' => $urgentReportsPreview,
+            'lifecyclePreview' => $lifecyclePreview,
+            'latestProcurement' => $latestProcurement,
+        ]);
     }
 
     public function equipment(Request $request): View
@@ -254,6 +432,47 @@ class AdminOperationsController extends Controller
             'filter' => $filter,
             'q' => $q,
             'lifecycleAlerts' => $lifecycleAlerts,
+            'usefulLifeYears' => self::DEFAULT_USEFUL_LIFE_YEARS,
+        ]);
+    }
+
+    public function showEquipment(int $id): View|RedirectResponse
+    {
+        if (! Schema::hasTable('equipment_table')) {
+            return redirect()
+                ->route('admin.operations.equipment')
+                ->with('error', 'Equipment not found.');
+        }
+
+        $equipment = DB::table('equipment_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'equipment_table.*',
+                'equipment_categories_table.equipment_category_name',
+                'rooms_table.room_name'
+            )
+            ->where('equipment_table.equipment_id', $id)
+            ->first();
+
+        if (! $equipment) {
+            return redirect()
+                ->route('admin.operations.equipment')
+                ->with('error', 'Equipment not found.');
+        }
+
+        return view('admin.operations.equipment-show', [
+            'equipment' => $equipment,
             'usefulLifeYears' => self::DEFAULT_USEFUL_LIFE_YEARS,
         ]);
     }

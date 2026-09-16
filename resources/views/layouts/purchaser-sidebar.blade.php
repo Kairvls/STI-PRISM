@@ -4,50 +4,15 @@
 
 <div id="sidebar">
 
-
-    {{-- ===================================================== --}}
-    {{-- SIDEBAR HEADER --}}
-    {{-- ===================================================== --}}
-
     <div class="sidebar-header p-5">
-
-        {{-- ================================================= --}}
-        {{-- STI LOGO --}}
-        {{-- ================================================= --}}
-
         <div class="logo-icon">
-
-            <img
-                src="{{ asset('image/STI.png') }}"
-                alt="STI Logo"
-            >
-
+            <img src="{{ asset('image/STI.png') }}" alt="STI Logo">
         </div>
-
-
-        {{-- ================================================= --}}
-        {{-- SYSTEM INFORMATION --}}
-        {{-- ================================================= --}}
-
         <div class="min-w-0">
-
-            <h2>
-                PRISM
-            </h2>
-
-            <span>
-                Purchaser System
-            </span>
-
+            <h2>PRISM</h2>
+            <span>Purchaser</span>
         </div>
-
     </div>
-
-
-
-    {{-- ===================================================== --}}
-    {{-- SCROLLABLE SIDEBAR CONTENT --}}
-    {{-- ===================================================== --}}
 
     <div class="sidebar-content">
 
@@ -76,9 +41,6 @@
                     <div class="dropdown-item" role="option" data-target="dashboard-section" tabindex="0">
                         Dashboard
                     </div>
-                    <!--<div class="dropdown-item" data-target="reports-section">
-                        Reports & Reporters
-                    </div>-->
                     <div
                         class="dropdown-item"
                         role="option"
@@ -105,11 +67,37 @@
             </div>
         </div>
 
-
-
-        {{-- ===================================================== --}}
-        {{-- DASHBOARD SECTION --}}
-        {{-- ===================================================== --}}
+        {{-- Quick actions (Receiving-matched) --}}
+        <div class="quick-actions">
+            <a
+                href="{{ route('purchaser.dashboard') }}"
+                class="quick-card {{ request()->routeIs('purchaser.dashboard') ? 'active' : '' }}"
+            >
+                <i data-lucide="layout-dashboard"></i>
+                <span>Dashboard</span>
+            </a>
+            <a
+                href="{{ route('purchaser.procurement.replacement-requests') }}"
+                class="quick-card {{ request()->routeIs('purchaser.procurement.replacement-requests') ? 'active' : '' }}"
+            >
+                <i data-lucide="inbox"></i>
+                <span>Requests</span>
+            </a>
+            <a
+                href="{{ route('purchaser.ris.index') }}"
+                class="quick-card {{ request()->routeIs('purchaser.ris*') ? 'active' : '' }}"
+            >
+                <i data-lucide="package-open"></i>
+                <span>RIS</span>
+            </a>
+            <a
+                href="{{ route('purchaser.purchase-orders.index') }}"
+                class="quick-card {{ request()->routeIs('purchaser.purchase-orders*') ? 'active' : '' }}"
+            >
+                <i data-lucide="shopping-bag"></i>
+                <span>Orders</span>
+            </a>
+        </div>
 
         <div class="menu-title" id="dashboard-section">
             DASHBOARD
@@ -450,6 +438,19 @@
 
 
 
+
+        <div class="menu-title" id="account-section">
+            ACCOUNT
+        </div>
+
+        <a
+            href="{{ route('purchaser.profile') }}"
+            class="menu-item mt-1 {{ request()->is('purchaser/profile*') || request()->is('purchaser/security*') ? 'active' : '' }}"
+        >
+            <i data-lucide="user-cog" class="h-5 w-5"></i>
+            <span>Account settings</span>
+        </a>
+
     </div>
 
 
@@ -514,7 +515,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -551,6 +552,56 @@
         width: 14px;
         height: 14px;
         color: #64748b;
+    }
+
+    /* ======================================
+   QUICK ACTIONS
+====================================== */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+    .quick-card {
+        height: 70px;
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-decoration: none;
+        color: #cbd5e1;
+        transition: all 0.2s ease;
+    }
+    .quick-card:hover {
+        background: #182235;
+        border-color: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+    }
+    .quick-card i,
+    .quick-card svg {
+        width: 16px;
+        height: 16px;
+        color: #ffffff;
+        transition: all 0.2s ease;
+    }
+    .quick-card span {
+        font-size: 11px;
+        font-weight: 500;
+    }
+    .quick-card.active {
+        border: 1.5px solid #fff200 !important;
+        color: #cbd5e1;
+        font-weight: 600;
+        box-shadow: 0 0 12px rgba(255, 242, 0, 0.18);
+    }
+    .quick-card.active i,
+    .quick-card.active svg {
+        color: #fff200;
     }
 
     /* ======================================
@@ -722,7 +773,7 @@
     height: 32px;
 
 
-    background: #fff200;
+    background: #fde68a;
 
 
     border-radius: 0 5px 5px 0;
@@ -736,9 +787,9 @@
 ====================================== */
 
 .menu-item.active svg {
-    color: #fff200 !important;
+    color: #fde68a !important;
 
-    stroke: #fff200 !important;
+    stroke: #fde68a !important;
 }
 
 
@@ -785,8 +836,8 @@
 }
 
 .menu-group-toggle.active-parent svg:not(.menu-group-chevron) {
-    color: #fff200 !important;
-    stroke: #fff200 !important;
+    color: #fde68a !important;
+    stroke: #fde68a !important;
 }
 
 .menu-sub {
@@ -829,13 +880,13 @@
 }
 
 .menu-sub-item.active {
-    color: #facc15;
-    background: rgba(250, 204, 21, 0.08);
+    color: #fde68a;
+    background: rgba(253, 230, 138, 0.08);
     font-weight: 500;
 }
 
 .menu-sub-item.active svg {
-    color: #facc15;
+    color: #fde68a;
 }
 
     /* ======================================
@@ -856,7 +907,7 @@
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: linear-gradient(135deg, #64748b, #475569);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -873,8 +924,8 @@
     }
 
     .section-highlight {
-        color: #fff200 !important;
-        text-shadow: 0 0 10px rgba(255, 242, 0, 0.5);
+        color: #fde68a !important;
+        text-shadow: 0 0 10px rgba(253, 230, 138, 0.45);
     }
 
     .sidebar-dropdown {
@@ -916,7 +967,7 @@
     }
     .dropdown-item:hover {
         background: #1f2937;
-        color: #fff200;
+        color: #fde68a;
     }
 </style>
 

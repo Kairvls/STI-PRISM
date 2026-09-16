@@ -6,6 +6,8 @@
 
         @php
             $moduleHeading = match (true) {
+                request()->is('purchaser/profile*') => ['Profile Settings', 'Update your Purchaser account details.'],
+                request()->is('purchaser/security*') => ['Security Settings', 'Manage your password and account security.'],
                 request()->is('purchaser/dashboard') => ['Dashboard', 'Overview of purchasing activity and workload.'],
                 request()->is('purchaser/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
                 request()->is('purchaser/reports/urgent*') => ['Urgent Reports', 'Reports that need immediate purchasing attention.'],
@@ -59,7 +61,7 @@
         @endphp
 
         <div class="min-w-0">
-            <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
+            <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900" style="font-family: Outfit, sans-serif;">
                 {{ $moduleHeading[0] }}
             </h1>
             <p class="mt-0.5 truncate text-sm text-slate-500">
@@ -348,7 +350,7 @@
             >
                 <div
                     data-user-avatar
-                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0025cc] text-sm font-medium text-white"
                 >
                     @if ($topbarPictureUrl)
                         <img
@@ -384,7 +386,7 @@
                     <div class="flex items-center gap-3">
                         <div
                             data-user-avatar
-                            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0025cc] text-sm font-medium text-white"
                         >
                             @if ($topbarPictureUrl)
                                 <img
@@ -410,11 +412,18 @@
 
                 <div class="p-2">
                     <a
-                        href="{{ route('profile.edit') }}"
+                        href="{{ route('purchaser.profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
+                    </a>
+                    <a
+                        href="{{ route('purchaser.security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>
+                        Security settings
                     </a>
                 </div>
 
@@ -447,23 +456,25 @@
         }
 
         .topbar{
-            height:82px;
+            height:80px;
             background:#ffffff;
             border-bottom:none;
             box-shadow:none;
             display:flex;
             align-items:center;
             justify-content:space-between;
-            padding:0 32px;
+            padding:0 28px;
             position:sticky;
             top:0;
-            z-index:10;
+            z-index:40;
         }
 
         .topbar-left{
             display:flex;
             align-items:center;
-            gap:18px;
+            gap:16px;
+            min-width:0;
+            flex:1;
         }
 
     .dashboard-toolbar-search {

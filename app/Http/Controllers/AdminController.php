@@ -2189,20 +2189,6 @@ class AdminController extends Controller
         return redirect('/admin/users');
     }
 
-    public function profile(): View
-    {
-        return view('admin.profile.index', [
-            'user' => Auth::user(),
-        ]);
-    }
-
-    public function security(): View
-    {
-        return view('admin.security.index', [
-            'user' => Auth::user(),
-        ]);
-    }
-
     public function userActivityLogs(Request $request): View
     {
         $perPage = 20;

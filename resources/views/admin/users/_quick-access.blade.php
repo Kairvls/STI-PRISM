@@ -62,25 +62,6 @@
     </div>
 
     @if(method_exists($users, 'hasPages') && $users->hasPages())
-        <div class="flex items-center justify-between border-t border-gray-100 px-5 py-3">
-            <p class="text-xs text-gray-500">
-                Showing {{ $users->firstItem() }}–{{ $users->lastItem() }} of {{ $users->total() }}
-            </p>
-            <div class="flex items-center gap-2">
-                @if($users->onFirstPage())
-                    <span class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300">&lt;</span>
-                @else
-                    <a href="{{ $users->previousPageUrl() }}" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50">&lt;</a>
-                @endif
-                <span class="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white">
-                    {{ $users->currentPage() }}
-                </span>
-                @if($users->hasMorePages())
-                    <a href="{{ $users->nextPageUrl() }}" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50">&gt;</a>
-                @else
-                    <span class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300">&gt;</span>
-                @endif
-            </div>
-        </div>
+        @include('layouts.partials.table-showing-pager', ['pager' => $users, 'noun' => 'users'])
     @endif
 </div>

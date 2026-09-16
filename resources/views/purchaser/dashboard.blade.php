@@ -34,7 +34,7 @@
     <div class="flex justify-end">
         <a
             href="{{ route('purchaser.procurement.replacement-requests') }}"
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
         >
 
             <i
@@ -67,7 +67,7 @@
                     ['status' => 'Pending']
                 )
             }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
 
             <div class="flex items-start justify-between gap-4">
@@ -131,7 +131,7 @@
                     ['status' => 'Approved']
                 )
             }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
 
             <div class="flex items-start justify-between gap-4">
@@ -195,7 +195,7 @@
                     ['status' => 'Completed']
                 )
             }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
 
             <div class="flex items-start justify-between gap-4">
@@ -253,7 +253,7 @@
 
         <a
             href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
 
             <div class="flex items-start justify-between gap-4">
@@ -306,7 +306,7 @@
 
         <a
             href="{{ route('purchaser.rfc.index', ['create' => 1]) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -327,7 +327,7 @@
 
         <a
             href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -348,7 +348,7 @@
 
         <a
             href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="group rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:border-gray-300 hover:shadow-sm"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -357,7 +357,7 @@
                         {{ number_format($rrReadyForLiq) }}
                     </p>
                 </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
                     <i data-lucide="receipt" class="h-5 w-5"></i>
                 </div>
             </div>

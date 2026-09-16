@@ -111,7 +111,7 @@
 
         <div class="flex justify-end gap-2">
             <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-btn-secondary">Cancel</a>
-            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fa8]">
+            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001db3]">
                 Save Changes
             </button>
         </div>

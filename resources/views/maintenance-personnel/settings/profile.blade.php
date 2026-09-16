@@ -123,9 +123,9 @@
             </p>
         </div>
 
-        <div class="space-y-5 px-6 py-6">
-            <div>
-                <label for="user_full_name" class="mb-2 block text-sm font-semibold text-slate-700">
+        <div class="grid grid-cols-1 gap-4 px-6 py-6 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+                <label for="user_full_name" class="mb-1.5 block text-xs font-semibold text-slate-600">
                     Full name
                 </label>
                 <input
@@ -140,7 +140,35 @@
             </div>
 
             <div>
-                <label for="user_email_address" class="mb-2 block text-sm font-semibold text-slate-700">
+                <label for="user_username" class="mb-1.5 block text-xs font-semibold text-slate-600">
+                    Username
+                </label>
+                <input
+                    id="user_username"
+                    name="user_username"
+                    type="text"
+                    value="{{ old('user_username', $user->user_username) }}"
+                    required
+                    maxlength="100"
+                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                >
+            </div>
+
+            <div>
+                <label for="user_employee_id" class="mb-1.5 block text-xs font-semibold text-slate-600">
+                    Employee ID
+                </label>
+                <input
+                    id="user_employee_id"
+                    type="text"
+                    value="{{ $user->user_employee_id ?: '—' }}"
+                    disabled
+                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-500 outline-none"
+                >
+            </div>
+
+            <div>
+                <label for="user_email_address" class="mb-1.5 block text-xs font-semibold text-slate-600">
                     Email address
                 </label>
                 <input
@@ -155,7 +183,7 @@
             </div>
 
             <div>
-                <label for="user_contact_number" class="mb-2 block text-sm font-semibold text-slate-700">
+                <label for="user_contact_number" class="mb-1.5 block text-xs font-semibold text-slate-600">
                     Contact number
                 </label>
                 @include('partials.phone-input', [
@@ -165,30 +193,6 @@
                     'inputClass' => 'h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100',
                     'placeholder' => 'XXX XXX XXXX',
                 ])
-            </div>
-
-            <div>
-                <label for="user_username" class="mb-2 block text-sm font-semibold text-slate-700">
-                    Username
-                </label>
-                <input
-                    id="user_username"
-                    name="user_username"
-                    type="text"
-                    value="{{ old('user_username', $user->user_username) }}"
-                    required
-                    maxlength="100"
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                >
-            </div>
-
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div class="flex items-center justify-between gap-4 text-sm">
-                    <span class="text-slate-500">Employee ID</span>
-                    <span class="font-medium text-slate-900">
-                        {{ $user->user_employee_id ?: '—' }}
-                    </span>
-                </div>
             </div>
         </div>
 

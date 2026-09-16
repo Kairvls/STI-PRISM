@@ -80,9 +80,9 @@ class RisWorkflowTest extends TestCase
         );
     }
 
-    public function test_president_approved_without_issued_by_shows_awaiting_admin(): void
+    public function test_president_approved_without_issued_by_shows_pending_admin_review(): void
     {
-        $this->assertSame('Awaiting Admin', RisWorkflow::statusLabel($this->ris([
+        $this->assertSame('Pending Admin Review', RisWorkflow::statusLabel($this->ris([
             'ris_status' => 'Approved by the President',
             'ris_approved_by_signature' => 'data:image/png;base64,abc',
         ])));
