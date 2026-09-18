@@ -20,6 +20,7 @@
             'Reports' => ['bg-blue-50 text-blue-600 ring-blue-100', 'border-blue-100 bg-blue-50 text-blue-700'],
             'Maintenance' => ['bg-amber-50 text-amber-600 ring-amber-100', 'border-amber-100 bg-amber-50 text-amber-700'],
             'Equipment' => ['bg-indigo-50 text-indigo-600 ring-indigo-100', 'border-indigo-100 bg-indigo-50 text-indigo-700'],
+            'Inspection' => ['bg-violet-50 text-violet-600 ring-violet-100', 'border-violet-100 bg-violet-50 text-violet-700'],
             default => ['bg-slate-50 text-slate-500 ring-slate-200/80', 'border-slate-200 bg-slate-50 text-slate-600'],
         };
     };
@@ -285,6 +286,7 @@
                         'Reports' => 'Reports',
                         'Maintenance' => 'Maintenance',
                         'Equipment' => 'Equipment',
+                        'Inspection' => 'Inspection',
                     ];
                 @endphp
 
@@ -321,6 +323,7 @@
                         'Reports' => 'clipboard-list',
                         'Maintenance' => 'wrench',
                         'Equipment' => 'monitor',
+                        'Inspection' => 'clipboard-check',
                         default => 'bell',
                     };
                     [$iconClass, $pillClass] = $categoryTone($notification->notification_category);

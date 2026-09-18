@@ -1,4 +1,4 @@
-# PRISM Infrastructure Monitoring — Implementation Blueprint
+# PaAyo Infrastructure Monitoring — Implementation Blueprint
 
 ## Outcome
 

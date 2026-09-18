@@ -495,7 +495,7 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
                                                 title="Restore"
                                                 aria-label="Restore"
                                             >
@@ -507,7 +507,7 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
                                                 title="Archive"
                                                 aria-label="Archive"
                                             >

@@ -36,7 +36,8 @@
         }
         .field:focus { border-color: #9db0ff; box-shadow: 0 0 0 4px rgba(0, 37, 204, .08); }
         .field[readonly] { background: #f8f9fd; color: #4b5563; }
-        .phone-field {
+        .phone-field,
+        .employee-id-field {
             display: flex;
             align-items: center;
             height: 46px;
@@ -45,31 +46,49 @@
             background: #fff;
             overflow: hidden;
         }
-        .phone-field:focus-within {
+        .phone-field:focus-within,
+        .employee-id-field:focus-within {
             border-color: #9db0ff;
             box-shadow: 0 0 0 4px rgba(0, 37, 204, .08);
         }
-        .phone-prefix {
+        .phone-prefix,
+        .employee-id-prefix,
+        .employee-id-suffix {
             flex-shrink: 0;
-            padding: 0 0 0 14px;
             font-size: 14px;
             font-weight: 600;
             color: var(--ink);
             letter-spacing: .04em;
         }
-        .phone-field input {
+        .phone-prefix { padding: 0 0 0 14px; }
+        .employee-id-prefix { padding: 0 0 0 14px; }
+        .employee-id-suffix {
+            padding: 0 14px 0 0;
+            min-width: 1.1em;
+            text-align: center;
+            color: var(--blue);
+        }
+        .employee-id-suffix.is-empty { color: #9aa1b5; }
+        .phone-field input,
+        .employee-id-field input {
             flex: 1;
             min-width: 0;
             height: 100%;
             border: 0;
             background: transparent;
-            padding: 0 14px 0 0;
+            padding: 0 8px 0 6px;
             font-size: 14px;
             font-family: inherit;
             color: var(--ink);
             outline: none;
-            letter-spacing: .04em;
+            letter-spacing: .12em;
         }
+        .phone-field input { padding: 0 14px 0 0; letter-spacing: .04em; }
+        .employee-id-field.is-disabled {
+            background: #f8f9fd;
+            opacity: .85;
+        }
+        .employee-id-field.is-disabled input { pointer-events: none; }
         select.field {
             appearance: none;
             -webkit-appearance: none;
@@ -230,9 +249,55 @@
                     <p class="text-[12px] mt-1.5" style="color:var(--muted);">Verified from the link we sent. This cannot be changed here.</p>
                 </div>
 
+                @php
+                    $oldType = (string) old('type', '');
+                    $oldEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('employee_id', '')));
+                    $oldIdDigits = '';
+                    if (preg_match('/^OMC(\d{1,4})[FS]?$/i', $oldEmployeeId, $m)) {
+                        $oldIdDigits = $m[1];
+                    } elseif (preg_match('/^\d{1,4}$/', $oldEmployeeId)) {
+                        $oldIdDigits = $oldEmployeeId;
+                    }
+                    $oldSuffix = $oldType === 'Staff' ? 'S' : ($oldType === 'Faculty' ? 'F' : '');
+                @endphp
+
                 <div>
-                    <label for="employee_id" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Employee ID <span style="color:#e11d48;">*</span></label>
-                    <input id="employee_id" name="employee_id" type="text" value="{{ old('employee_id') }}" required maxlength="100" placeholder="OMC****F" class="field">
+                    <label for="type" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Type <span style="color:#e11d48;">*</span></label>
+                    <div class="relative">
+                        <select id="type" name="type" required class="sr-only">
+                            <option value="">Select type</option>
+                            <option value="Faculty" @selected($oldType === 'Faculty')>Faculty</option>
+                            <option value="Staff" @selected($oldType === 'Staff')>Staff</option>
+                        </select>
+                        <button type="button" id="typeTrigger" class="type-trigger {{ $oldType ? '' : 'is-placeholder' }}">
+                            <span id="typeTriggerLabel">{{ $oldType ?: 'Select type' }}</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-[12px] mt-1.5" style="color:var(--muted);">Faculty ends with F, Staff ends with S on your employee ID.</p>
+                </div>
+
+                <div>
+                    <label for="employee_id_digits" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Employee ID <span style="color:#e11d48;">*</span></label>
+                    <div id="employeeIdField" class="employee-id-field {{ $oldType ? '' : 'is-disabled' }}">
+                        <span class="employee-id-prefix">OMC</span>
+                        <input
+                            id="employee_id_digits"
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="4"
+                            placeholder="0123"
+                            value="{{ $oldIdDigits }}"
+                            autocomplete="off"
+                            {{ $oldType ? '' : 'readonly' }}
+                            aria-describedby="employeeIdHint"
+                        >
+                        <span id="employeeIdSuffix" class="employee-id-suffix {{ $oldSuffix ? '' : 'is-empty' }}">{{ $oldSuffix ?: '?' }}</span>
+                    </div>
+                    <input type="hidden" id="employee_id" name="employee_id" value="{{ old('employee_id') }}">
+                    <p id="employeeIdHint" class="text-[12px] mt-1.5" style="color:var(--muted);">Select type first, then enter your 4-digit number only.</p>
                 </div>
 
                 <div class="grid sm:grid-cols-2 gap-4">
@@ -246,27 +311,9 @@
                     </div>
                 </div>
 
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="last_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Last name <span style="color:#e11d48;">*</span></label>
-                        <input id="last_name" name="last_name" type="text" value="{{ old('last_name') }}" required maxlength="100" class="field">
-                    </div>
-                    <div>
-                        <label for="type" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Type <span style="color:#e11d48;">*</span></label>
-                        <div class="relative">
-                            <select id="type" name="type" required class="sr-only">
-                                <option value="">Select type</option>
-                                <option value="Faculty" @selected(old('type') === 'Faculty')>Faculty</option>
-                                <option value="Staff" @selected(old('type') === 'Staff')>Staff</option>
-                            </select>
-                            <button type="button" id="typeTrigger" class="type-trigger {{ old('type') ? '' : 'is-placeholder' }}">
-                                <span id="typeTriggerLabel">{{ old('type') ?: 'Select type' }}</span>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="m6 9 6 6 6-6"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                <div>
+                    <label for="last_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Last name <span style="color:#e11d48;">*</span></label>
+                    <input id="last_name" name="last_name" type="text" value="{{ old('last_name') }}" required maxlength="100" class="field">
                 </div>
 
                 <div>
@@ -328,9 +375,44 @@
             const overlay = document.getElementById('typePicker');
             const done = document.getElementById('typePickerDone');
             const error = document.getElementById('typePickerError');
+            const digitsInput = document.getElementById('employee_id_digits');
+            const fullInput = document.getElementById('employee_id');
+            const suffixEl = document.getElementById('employeeIdSuffix');
+            const fieldWrap = document.getElementById('employeeIdField');
+            const hint = document.getElementById('employeeIdHint');
             if (!select || !trigger || !overlay) return;
 
             let pendingValue = select.value || '';
+
+            const suffixForType = (type) => {
+                if (type === 'Faculty') return 'F';
+                if (type === 'Staff') return 'S';
+                return '';
+            };
+
+            const syncEmployeeId = () => {
+                if (!digitsInput || !fullInput || !suffixEl || !fieldWrap) return;
+                const type = select.value || '';
+                const suffix = suffixForType(type);
+                const digits = String(digitsInput.value || '').replace(/\D/g, '').slice(0, 4);
+                digitsInput.value = digits;
+                suffixEl.textContent = suffix || '?';
+                suffixEl.classList.toggle('is-empty', !suffix);
+
+                if (type) {
+                    fieldWrap.classList.remove('is-disabled');
+                    digitsInput.removeAttribute('readonly');
+                    if (hint) hint.textContent = 'Enter your 4-digit number only. Prefix OMC and suffix ' + suffix + ' are fixed.';
+                } else {
+                    fieldWrap.classList.add('is-disabled');
+                    digitsInput.setAttribute('readonly', 'readonly');
+                    if (hint) hint.textContent = 'Select type first, then enter your 4-digit number only.';
+                }
+
+                fullInput.value = (type && digits.length === 4 && suffix)
+                    ? ('OMC' + digits + suffix)
+                    : '';
+            };
 
             const syncOptions = (value) => {
                 overlay.querySelectorAll('.type-option').forEach((btn) => {
@@ -370,7 +452,11 @@
                 select.value = pendingValue;
                 label.textContent = pendingValue;
                 trigger.classList.remove('is-placeholder');
+                syncEmployeeId();
                 closePicker();
+                if (digitsInput && !digitsInput.hasAttribute('readonly')) {
+                    digitsInput.focus();
+                }
             });
 
             overlay.addEventListener('click', (e) => {
@@ -384,6 +470,31 @@
                     syncOptions(pendingValue);
                 });
             });
+
+            if (digitsInput) {
+                digitsInput.addEventListener('input', syncEmployeeId);
+                digitsInput.form && digitsInput.form.addEventListener('submit', (e) => {
+                    syncEmployeeId();
+                    const type = select.value || '';
+                    const suffix = suffixForType(type);
+                    const digits = String(digitsInput.value || '').replace(/\D/g, '');
+                    if (!type) {
+                        e.preventDefault();
+                        digitsInput.setCustomValidity('Select Faculty or Staff first.');
+                        digitsInput.reportValidity();
+                        return;
+                    }
+                    if (digits.length !== 4 || !suffix) {
+                        e.preventDefault();
+                        digitsInput.setCustomValidity('Enter your 4-digit employee number.');
+                        digitsInput.reportValidity();
+                        return;
+                    }
+                    digitsInput.setCustomValidity('');
+                });
+            }
+
+            syncEmployeeId();
         })();
 
         (function () {
@@ -436,7 +547,7 @@
                     if (!/^09[0-9]{9}$/.test(full.value)) {
                         e.preventDefault();
                         rest.setCustomValidity('Enter a complete 11-digit mobile number.');
-                        rest.reportValidity(); 
+                        rest.reportValidity();
                         return;
                     }
                     rest.setCustomValidity('');

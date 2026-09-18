@@ -252,7 +252,7 @@
                                         type="button"
                                         data-tooltip="Edit Issue"
                                         aria-label="Edit issue"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600] active:scale-95"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3] active:scale-95"
                                         @click="openEditModal({
                                             id: '{{ $issue->issue_template_id }}',
                                             name: @js($issue->issue_template_name),
@@ -267,7 +267,7 @@
                                         type="button"
                                         data-tooltip="Delete Issue"
                                         aria-label="Delete issue"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-200 transition hover:bg-rose-100 active:scale-95"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50 active:scale-95"
                                         @click="openDeleteModal({
                                             id: '{{ $issue->issue_template_id }}',
                                             name: @js($issue->issue_template_name),
@@ -593,7 +593,7 @@
                     <button
                         type="submit"
                         :disabled="deleteSubmitting"
-                        class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 active:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-slate-50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         <span x-text="deleteSubmitting ? 'Deleting...' : 'Delete Issue'"></span>
                     </button>

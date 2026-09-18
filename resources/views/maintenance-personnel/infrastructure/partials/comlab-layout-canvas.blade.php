@@ -28,12 +28,12 @@
                 type="button"
                 x-show="selectedComlabRowTable"
                 @click="deleteComlabRow(selectedComlabRowTable)"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-red-700 hover:bg-slate-50"
             >
                 <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                 Delete row
             </button>
-            <button type="button" @click="addComlabRow()" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-800">
+            <button type="button" @click="addComlabRow()" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#001fad]">
                 <i data-lucide="plus" class="h-3.5 w-3.5"></i>
                 Add row
             </button>
@@ -87,13 +87,13 @@
             >
                 <div class="flex h-full min-w-0 flex-col items-center justify-center gap-1 px-3 py-2 text-center">
                     <div class="flex w-full items-center justify-between gap-1">
-                        <span class="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white" x-text="row.name"></span>
+                        <span class="rounded bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white" x-text="row.name"></span>
                         <button
                             type="button"
                             x-show="roomLayout.edit && selectedComlabRowTable === row.name"
                             @pointerdown.stop
                             @click.stop="deleteComlabRow(row.name)"
-                            class="flex h-6 w-6 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
+                            class="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-red-700 hover:bg-slate-50"
                             title="Delete row"
                         >
                             <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>

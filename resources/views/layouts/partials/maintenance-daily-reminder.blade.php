@@ -151,21 +151,21 @@
                 @elseif ($nonUrgentReportsNeedingAction > 0)
                     <a
                         href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View non-urgent reports
                     </a>
                 @elseif ($overdueMaintenance > 0)
                     <a
                         href="{{ url('/maintenance/schedules') }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View schedules
                     </a>
                 @elseif ($overdueBorrowings > 0)
                     <a
                         href="{{ url('/maintenance/borrowing?status=Overdue') }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View overdue borrows
                     </a>

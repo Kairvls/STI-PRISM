@@ -9,7 +9,7 @@
             <img src="{{ asset('image/STI.png') }}" alt="STI Logo">
         </div>
         <div class="min-w-0">
-            <h2>PRISM</h2>
+            <h2>PaAyo</h2>
             <span>Purchaser</span>
         </div>
     </div>
@@ -657,7 +657,7 @@
     DO NOT add another 14px horizontal padding.
 
     This makes the menu icon align with:
-    PRISM logo
+    PaAyo logo
     Search box
     Quick Actions
     */

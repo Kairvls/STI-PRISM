@@ -119,7 +119,7 @@
         <div class="border-b border-slate-200 px-6 py-5">
             <h3 class="text-base font-semibold text-slate-950">Profile information</h3>
             <p class="mt-1 text-sm text-slate-500">
-                Update your name, contact details, and username used across PRISM.
+                Update your name, contact details, and username used across PaAyo.
             </p>
         </div>
 

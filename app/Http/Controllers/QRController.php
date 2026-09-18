@@ -932,7 +932,7 @@ class QRController extends Controller
         // =====================================
 
         $buildingName = $building?->building_name
-            ?? 'PRISM';
+            ?? 'PaAyo';
 
 
         

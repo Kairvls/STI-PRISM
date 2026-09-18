@@ -61,4 +61,71 @@ class ReporterApprovals
             ->orderByDesc('id')
             ->first();
     }
+
+    /**
+     * Four-digit core from OMC0123F / OMC0123S (same person, different type letter).
+     */
+    public static function employeeNumber(string $employeeId): ?string
+    {
+        $id = strtoupper(preg_replace('/\s+/', '', trim($employeeId)));
+
+        if (preg_match('/^OMC(\d{4})[FS]$/', $id, $match)) {
+            return $match[1];
+        }
+
+        return null;
+    }
+
+    public static function employeeIdVariants(string $employeeId): array
+    {
+        $number = self::employeeNumber($employeeId);
+
+        if (! $number) {
+            $trimmed = trim($employeeId);
+
+            return $trimmed === '' ? [] : [$trimmed];
+        }
+
+        return ['OMC'.$number.'F', 'OMC'.$number.'S'];
+    }
+
+    public static function registeredByEmployeeNumber(string $employeeId)
+    {
+        $variants = self::employeeIdVariants($employeeId);
+
+        if ($variants === []) {
+            return null;
+        }
+
+        return DB::table('reporters_table')
+            ->where(function ($query) use ($variants) {
+                foreach ($variants as $variant) {
+                    $query->orWhereRaw('UPPER(TRIM(reporter_employee_id)) = ?', [strtoupper($variant)]);
+                }
+            })
+            ->first();
+    }
+
+    public static function pendingByEmployeeNumber(string $employeeId)
+    {
+        if (! self::hasTable()) {
+            return null;
+        }
+
+        $variants = self::employeeIdVariants($employeeId);
+
+        if ($variants === []) {
+            return null;
+        }
+
+        return self::query()
+            ->where('status', self::STATUS_PENDING)
+            ->where(function ($query) use ($variants) {
+                foreach ($variants as $variant) {
+                    $query->orWhereRaw('UPPER(TRIM(employee_id)) = ?', [strtoupper($variant)]);
+                }
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
 }

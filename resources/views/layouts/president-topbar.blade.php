@@ -15,7 +15,7 @@
                 request()->is('president/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
                 request()->is('president/profile*') => ['Profile Settings', 'Update your President account details.'],
                 request()->is('president/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PRISM'), 'President Panel'],
+                default => [View::yieldContent('title', 'PaAyo'), 'President Panel'],
             };
         @endphp
 
@@ -44,7 +44,7 @@
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages"
+            aria-label="PaAyo messages"
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>

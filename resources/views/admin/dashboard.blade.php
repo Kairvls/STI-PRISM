@@ -254,6 +254,51 @@
             </ul>
         </section>
 
+        {{-- Semester school inspections --}}
+        <section class="admin-dash-panel">
+            <div class="admin-dash-panel-head">
+                <div>
+                    <h2 class="admin-dash-panel-title">Semester inspections</h2>
+                    <p class="admin-dash-panel-sub">School checks overdue or due within 7 days</p>
+                </div>
+            </div>
+            <ul class="admin-dash-list">
+                @forelse(($semesterInspectionDue ?? collect()) as $campaign)
+                    @php
+                        $due = \Carbon\Carbon::parse($campaign->campaign_due_date)->startOfDay();
+                        $today = now()->startOfDay();
+                        $daysUntil = (int) $today->diffInDays($due, false);
+                        if ($daysUntil < 0) {
+                            $tagLabel = abs($daysUntil).'d overdue';
+                            $tagClass = 'is-alert';
+                        } elseif ($daysUntil === 0) {
+                            $tagLabel = 'Due today';
+                            $tagClass = 'is-alert';
+                        } else {
+                            $tagLabel = 'In '.$daysUntil.'d';
+                            $tagClass = '';
+                        }
+                    @endphp
+                    <li>
+                        <div class="admin-dash-list-main">
+                            <p class="admin-dash-list-title">{{ $campaign->campaign_title }}</p>
+                            <p class="admin-dash-list-meta">
+                                {{ $campaign->campaign_semester }}
+                                @if (!empty($campaign->campaign_academic_year))
+                                    · {{ $campaign->campaign_academic_year }}
+                                @endif
+                                · {{ $due->format('M j, Y') }}
+                                · {{ $campaign->campaign_status }}
+                            </p>
+                        </div>
+                        <span class="admin-dash-tag {{ $tagClass }}">{{ $tagLabel }}</span>
+                    </li>
+                @empty
+                    <li class="admin-dash-empty">No semester inspections due soon.</li>
+                @endforelse
+            </ul>
+        </section>
+
         {{-- Top 3 overdue borrowings --}}
         <section class="admin-dash-panel">
             <div class="admin-dash-panel-head">

@@ -440,7 +440,7 @@
                                             x-on:click="openArchive({{ $request->procurement_request_id }})"
                                             data-tooltip="Archive"
                                             aria-label="Archive"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
                                         >
                                             <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                                         </button>
@@ -455,7 +455,7 @@
                                                 type="submit"
                                                 data-tooltip="Restore"
                                                 aria-label="Restore"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
                                             >
                                                 <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                             </button>
@@ -830,7 +830,7 @@
                         </button>
                         <button
                             type="submit"
-                            class="rounded-lg border border-[#0025cc] bg-[#0025cc] px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-[#007a3f] transition hover:bg-slate-50"
                         >
                             Confirm Archive
                         </button>

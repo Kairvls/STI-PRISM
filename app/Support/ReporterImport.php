@@ -9,11 +9,11 @@ use ZipArchive;
 class ReporterImport
 {
     public const FIELDS = [
+        'type' => 'Type',
         'employee_id' => 'Employee ID',
         'first_name' => 'First name',
         'middle_name' => 'Middle name',
         'last_name' => 'Last name',
-        'type' => 'Type',
         'email_address' => 'Email address',
         'contact_number' => 'Contact number',
     ];

@@ -107,7 +107,7 @@
                                         <button
                                             type="button"
                                             @click="removeLine(index)"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                             aria-label="Remove equipment"
                                         >
                                             <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -687,7 +687,7 @@
                 </button>
                 <button
                     type="submit"
-                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border-0 bg-rose-600 px-4 text-sm font-medium leading-none text-white transition hover:bg-rose-700"
+                    class="inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium leading-none text-red-700 transition hover:bg-slate-50"
                 >
                     Delete
                 </button>

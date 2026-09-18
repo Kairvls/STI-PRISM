@@ -51,7 +51,7 @@
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Layouts with PRISM toasts (admin / accounting / president / receiving / maintenance)
+        // Layouts with PaAyo toasts (admin / accounting / president / receiving / maintenance)
         // already show session flashes — do not also open SweetAlert there.
         if (!window.Swal || window.__prismFlashShown || typeof window.showMpToast === 'function') {
             return;

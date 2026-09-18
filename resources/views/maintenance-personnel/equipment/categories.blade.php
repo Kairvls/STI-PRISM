@@ -22,7 +22,7 @@
         >
             <i data-lucide="plus" class="w-4 h-4"></i>
 
-            Add Equipment
+            Add Category
         </button>
     </div>
 
@@ -672,7 +672,7 @@
 
                                         data-tooltip="Edit category"
 
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                     >
 
                                         <i
@@ -699,7 +699,7 @@
 
                                         data-tooltip="Delete category"
 
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                     >
 
                                         <i
@@ -793,7 +793,7 @@
                                         <button
                                             type="button"
                                             @click="openCreateModal()"
-                                            class="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                            class="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                                         >
 
                                             <i
@@ -1438,10 +1438,24 @@
                         '#0f172a',
 
                     confirmButtonColor:
-                        '#dc2626',
+                        '#ffffff',
 
                     cancelButtonColor:
                         '#64748b',
+
+                    customClass: {
+                        confirmButton: 'swal-delete-confirm',
+                    },
+
+                    didOpen: () => {
+                        const btn = document.querySelector('.swal-delete-confirm');
+                        if (btn) {
+                            btn.style.background = '#ffffff';
+                            btn.style.color = '#b91c1c';
+                            btn.style.border = '1px solid #e2e8f0';
+                            btn.style.boxShadow = 'none';
+                        }
+                    },
 
                 }).then((result) => {
 

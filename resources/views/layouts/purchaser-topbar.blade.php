@@ -25,7 +25,7 @@
                 request()->is('purchaser/request-check*') => ['Request Check', 'Request for Check documents and status.'],
                 request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
-                default => [View::yieldContent('title', 'PRISM'), 'Purchaser'],
+                default => [View::yieldContent('title', 'PaAyo'), 'Purchaser'],
             };
 
             $unreadCount = 0;
@@ -75,7 +75,7 @@
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages"
+            aria-label="PaAyo messages"
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>

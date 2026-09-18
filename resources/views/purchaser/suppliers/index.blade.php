@@ -129,6 +129,9 @@
                     action="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
                 >
+                    @if(request()->filled('blacklisted'))
+                        <input type="hidden" name="blacklisted" value="{{ request('blacklisted') }}">
+                    @endif
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
@@ -153,12 +156,6 @@
                         @foreach(['Active', 'Inactive'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
                         @endforeach
-                    </select>
-
-                    <select name="blacklisted" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                        <option value="">Blacklist: All</option>
-                        <option value="Yes" {{ request('blacklisted') === 'Yes' ? 'selected' : '' }}>Blacklisted</option>
-                        <option value="No" {{ request('blacklisted') === 'No' ? 'selected' : '' }}>Not blacklisted</option>
                     </select>
 
                     <button

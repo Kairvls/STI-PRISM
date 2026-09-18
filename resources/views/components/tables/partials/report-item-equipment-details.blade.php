@@ -135,7 +135,7 @@
                     type="button"
                     data-eq-tab="summary"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'summary')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-900 bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-2.5 py-1 text-[11px] font-medium text-white"
                 >
                     Details
                 </button>
@@ -371,7 +371,7 @@
             if (!card) return;
 
             const activeTab =
-                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-900 bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white";
+                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-2.5 py-1 text-[11px] font-medium text-white";
             const idleTab =
                 "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50";
 

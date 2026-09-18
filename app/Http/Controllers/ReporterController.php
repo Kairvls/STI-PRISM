@@ -873,22 +873,31 @@ class ReporterController extends Controller
         }
 
         $request->validate([
-            'employee_id' => ['required', 'string', 'max:100'],
+            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{4}[FS]$/'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:Faculty,Staff'],
             'contact' => ['required', 'regex:/^09[0-9]{9}$/'],
+        ], [
+            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
         ]);
 
-        $employeeId = trim($request->employee_id);
+        $employeeId = strtoupper(trim($request->employee_id));
+        $expectedSuffix = $request->type === 'Staff' ? 'S' : 'F';
 
-        $idTaken = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->exists();
+        if (! str_ends_with($employeeId, $expectedSuffix)) {
+            return back()->withErrors([
+                'employee_id' => $request->type === 'Staff'
+                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
+                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+            ])->withInput();
+        }
+
+        $idTaken = ReporterApprovals::registeredByEmployeeNumber($employeeId);
 
         if ($idTaken) {
-            return back()->withErrors(['employee_id' => 'That employee ID is already registered.'])->withInput();
+            return back()->withErrors(['employee_id' => 'That employee number is already registered (Faculty or Staff).'])->withInput();
         }
 
         $emailTaken = DB::table('reporters_table')
@@ -911,10 +920,10 @@ class ReporterController extends Controller
                 ->with('success_title', 'Waiting for approval');
         }
 
-        $pendingEmployeeId = ReporterApprovals::pendingByEmployeeId($employeeId);
+        $pendingEmployeeId = ReporterApprovals::pendingByEmployeeNumber($employeeId);
 
         if ($pendingEmployeeId) {
-            return back()->withErrors(['employee_id' => 'That employee ID already has an application waiting for approval.'])->withInput();
+            return back()->withErrors(['employee_id' => 'That employee number already has an application waiting for approval.'])->withInput();
         }
 
         $first = trim($request->first_name);

@@ -130,7 +130,7 @@
                                     <button
                                         type="button"
                                         @click="openDelete({ id: {{ $uom->uom_id }}, name: @js($uom->uom_name) })"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                         title="Delete"
                                         aria-label="Delete"
                                     >
@@ -284,7 +284,7 @@
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
                         <button type="button" @click="openModal = null" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
-                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-red-700">Yes, delete</button>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-red-700 transition hover:bg-slate-50">Yes, delete</button>
                     </div>
                 </form>
             </div>

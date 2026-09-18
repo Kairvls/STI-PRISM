@@ -150,24 +150,68 @@
 
         <a
             href="/maintenance/reporters"
-            class="menu-item {{ request()->is('maintenance/reporters') ? 'active' : '' }} mt-2"
+            class="menu-item {{ request()->is('maintenance/reporters') && ! request()->is('maintenance/reporters/approvals*') ? 'active' : '' }} mt-2"
         >
             <i class="h-5 w-5" data-lucide="users"></i>
             <span>Reporters</span>
         </a>
         @php
             $pendingReporterApprovals = \App\Support\ReporterApprovals::pendingCount();
+            $approvalsSectionActive = request()->is('maintenance/reporters/approvals*');
+            $approvalsStatus = $approvalsSectionActive
+                ? (in_array(request('status'), ['pending', 'approved', 'rejected'], true)
+                    ? request('status')
+                    : 'pending')
+                : null;
+            $approvalLinks = [
+                [
+                    'status' => 'pending',
+                    'label' => 'Waiting',
+                    'icon' => 'clock',
+                ],
+                [
+                    'status' => 'approved',
+                    'label' => 'Approved',
+                    'icon' => 'check-circle',
+                ],
+                [
+                    'status' => 'rejected',
+                    'label' => 'Declined',
+                    'icon' => 'x-circle',
+                ],
+            ];
         @endphp
-        <a
-            href="/maintenance/reporters/approvals"
-            class="menu-item {{ request()->is('maintenance/reporters/approvals*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="user-check"></i>
-            <span>Approvals</span>
-            @if ($pendingReporterApprovals > 0)
-                <span class="menu-count">{{ $pendingReporterApprovals }}</span>
-            @endif
-        </a>
+        <div class="menu-group {{ $approvalsSectionActive ? 'is-open' : '' }} mt-1" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $approvalsSectionActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $approvalsSectionActive ? 'true' : 'false' }}"
+            >
+                <i class="h-5 w-5" data-lucide="user-check"></i>
+                <span>Approvals</span>
+                <span class="menu-group-trail">
+                    @if ($pendingReporterApprovals > 0)
+                        <span class="menu-count">{{ $pendingReporterApprovals }}</span>
+                    @endif
+                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+                </span>
+            </button>
+            <div class="menu-sub" @if (! $approvalsSectionActive) hidden @endif>
+                @foreach ($approvalLinks as $approvalLink)
+                    <a
+                        href="{{ url('/maintenance/reporters/approvals?status='.$approvalLink['status']) }}"
+                        class="menu-sub-item {{ $approvalsStatus === $approvalLink['status'] ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $approvalLink['icon'] }}"></i>
+                        <span>{{ $approvalLink['label'] }}</span>
+                        @if ($approvalLink['status'] === 'pending' && $pendingReporterApprovals > 0)
+                            <span class="menu-count">{{ $pendingReporterApprovals }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
         <a
@@ -187,18 +231,18 @@
 
         <div class="menu-title" id="equipment-section">EQUIPMENT</div>
         <a
-            href="/maintenance/equipment/all"
-            class="menu-item {{ request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') ? 'active' : '' }}"
-        >
-            <i class="h-5 w-5" data-lucide="layers"></i>
-            <span>All Equipment</span>
-        </a>
-        <a
             href="/maintenance/equipment/inventory"
-            class="menu-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }} mt-1"
+            class="menu-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="package"></i>
             <span>Inventory</span>
+        </a>
+        <a
+            href="/maintenance/equipment/all"
+            class="menu-item {{ request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="layers"></i>
+            <span>All Equipment</span>
         </a>
         <a
             href="/maintenance/equipment/deployed"
@@ -207,49 +251,72 @@
             <i class="h-5 w-5" data-lucide="boxes"></i>
             <span>Deployed Stocks</span>
         </a>
-        <a
-            href="/maintenance/equipment/categories"
-            class="menu-item {{ request()->is('maintenance/equipment/categories*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="tags"></i>
-
-            <span>Categories</span>
-        </a>
-        <a
-            href="/maintenance/equipment/suggested-issues"
-            class="menu-item {{ request()->is('maintenance/equipment/suggested-issues*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="list-checks"></i>
-            <span>Suggested Issues</span>
-        </a>
-        <a
-            href="/maintenance/equipment/qr-tools"
-            class="menu-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="qr-code"></i>
-            <span>QR Tools</span>
-        </a>
-        <a
-            href="/maintenance/equipment/transfer"
-            class="menu-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="move"></i>
-            <span>Transfers</span>
-        </a>
-        <a
-            href="/maintenance/equipment/history"
-            class="menu-item {{ request()->is('maintenance/equipment/history') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="history"></i>
-            <span>History</span>
-        </a>
-        <a
-            href="/maintenance/borrowing"
-            class="menu-item {{ request()->is('maintenance/borrowing*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="clipboard-check"></i>
-            <span>Borrowing</span>
-        </a>
+        @php
+            $equipmentToolsActive = request()->is('maintenance/equipment/transfer*')
+                || request()->is('maintenance/borrowing*')
+                || request()->is('maintenance/equipment/qr-tools*')
+                || request()->is('maintenance/equipment/categories*')
+                || request()->is('maintenance/equipment/suggested-issues*')
+                || request()->is('maintenance/equipment/history');
+        @endphp
+        <div class="menu-group {{ $equipmentToolsActive ? 'is-open' : '' }} mt-1" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $equipmentToolsActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $equipmentToolsActive ? 'true' : 'false' }}"
+            >
+                <i class="h-5 w-5" data-lucide="wrench"></i>
+                <span>Equipment tools</span>
+                <span class="menu-group-trail">
+                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+                </span>
+            </button>
+            <div class="menu-sub" @if (! $equipmentToolsActive) hidden @endif>
+                <a
+                    href="/maintenance/equipment/transfer"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="move"></i>
+                    <span>Transfers</span>
+                </a>
+                <a
+                    href="/maintenance/borrowing"
+                    class="menu-sub-item {{ request()->is('maintenance/borrowing*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="clipboard-check"></i>
+                    <span>Borrowing</span>
+                </a>
+                <a
+                    href="/maintenance/equipment/qr-tools"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="qr-code"></i>
+                    <span>QR Tools</span>
+                </a>
+                <a
+                    href="/maintenance/equipment/categories"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/categories*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="tags"></i>
+                    <span>Categories</span>
+                </a>
+                <a
+                    href="/maintenance/equipment/suggested-issues"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/suggested-issues*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="list-checks"></i>
+                    <span>Suggested Issues</span>
+                </a>
+                <a
+                    href="/maintenance/equipment/history"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/history') ? 'active' : '' }}"
+                >
+                    <i data-lucide="history"></i>
+                    <span>History</span>
+                </a>
+            </div>
+        </div>
 
         <div class="menu-title" id="maintenance-section">MAINTENANCE</div>
         <a
@@ -258,6 +325,20 @@
         >
             <i class="h-5 w-5" data-lucide="calendar-days"></i>
             <span>Schedules</span>
+        </a>
+        <a
+            href="/maintenance/semester-inspections"
+            class="menu-item {{ request()->is('maintenance/semester-inspections*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="clipboard-list"></i>
+            <span>Semester inspections</span>
+        </a>
+        <a
+            href="/maintenance/replacement-suggestions"
+            class="menu-item {{ request()->is('maintenance/replacement-suggestions*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="hourglass"></i>
+            <span>Replacement suggestions</span>
         </a>
         <a
             href="/maintenance/disposal"
@@ -496,7 +577,7 @@
     DO NOT add another 14px horizontal padding.
 
     This makes the menu icon align with:
-    PRISM logo
+    PaAyo logo
     Search box
     Quick Actions
     */
@@ -568,6 +649,109 @@
 .menu-item.active .menu-count {
     background: #fff;
     color: #0f172a !important;
+}
+
+/* ======================================
+   COLLAPSIBLE MENU GROUP
+====================================== */
+
+.menu-group {
+    margin-bottom: 2px;
+}
+
+.menu-group-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu-group-trail {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.menu-group-toggle .menu-count {
+    margin-left: 0;
+}
+
+.menu-group-toggle .menu-group-chevron {
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.menu-group.is-open > .menu-group-toggle .menu-group-chevron {
+    transform: rotate(180deg);
+    color: #94a3b8;
+}
+
+.menu-group-toggle.active-parent,
+.menu-group-toggle.active-parent span:not(.menu-count) {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.menu-group-toggle.active-parent svg:not(.menu-group-chevron) {
+    color: #fbbf24;
+    stroke: #fbbf24;
+}
+
+.menu-sub {
+    display: grid;
+    gap: 2px;
+    padding: 2px 0 8px 18px;
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+    margin: 0 0 4px 8px;
+}
+
+.menu-sub[hidden] {
+    display: none;
+}
+
+.menu-sub-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 8px 0 4px;
+    border-radius: 8px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.menu-sub-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.menu-sub-item:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.menu-sub-item.active {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+    font-weight: 500;
+}
+
+.menu-sub-item.active svg {
+    color: #fbbf24;
+}
+
+.menu-sub-item .menu-count {
+    margin-left: auto;
 }
 
 
@@ -903,6 +1087,27 @@
 
 
     // =====================================================
+    // COLLAPSIBLE MENU GROUPS
+    // =====================================================
+
+    document.querySelectorAll("[data-menu-group]").forEach((group) => {
+        const toggle = group.querySelector("[data-menu-group-toggle]");
+        const panel = group.querySelector(".menu-sub");
+        if (!toggle || !panel) return;
+
+        toggle.addEventListener("click", () => {
+            const willOpen = !group.classList.contains("is-open");
+            group.classList.toggle("is-open", willOpen);
+            panel.hidden = !willOpen;
+            toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+            if (window.lucide && typeof window.lucide.createIcons === "function") {
+                window.lucide.createIcons();
+            }
+        });
+    });
+
+
+    // =====================================================
     // SAVE SIDEBAR SCROLL POSITION
     // =====================================================
 
@@ -962,7 +1167,7 @@
 
         const activeMenuItem =
             document.querySelector(
-                ".menu-item.active"
+                ".menu-sub-item.active, .menu-item.active"
             );
 
 

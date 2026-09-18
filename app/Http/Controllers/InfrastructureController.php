@@ -40,7 +40,12 @@ class InfrastructureController extends Controller
                     : $query,
             ])
             ->orderBy('floor_building_id')->orderBy('floor_level')->get();
-        $rooms = Room::query()->with(['floor.building', 'equipment.category', 'equipment.supplier'])
+        $rooms = Room::query()->with([
+                'floor.building',
+                'equipment.category',
+                'equipment.supplier.physical',
+                'equipment.supplier.online',
+            ])
             ->when($hasRoomArchive, fn ($query) => $query->where('room_is_archived', false))
             ->orderBy('room_floor_id')->orderBy('room_name')->get();
         $roomIds = $rooms->pluck('room_id');

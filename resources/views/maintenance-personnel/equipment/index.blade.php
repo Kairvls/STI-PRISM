@@ -1278,7 +1278,7 @@
                                                 {{ json_encode($eqImageUrl($item->equipment_image)) }}
 
                                             )"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             data-tooltip="Edit equipment"
                                             aria-label="Edit equipment"
                                         >

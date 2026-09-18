@@ -145,7 +145,27 @@ class PurchaserController extends Controller
 
         return view('purchaser.reports.urgent-reports', [
             'reports' => $reports,
+            'urgentSummary' => $this->urgentReportsStatusSummary(),
         ]);
+    }
+
+    private function urgentReportsStatusSummary(): array
+    {
+        $showArchive = request()->query('archive') == 1 || request()->query('view') === 'archive';
+
+        $byStatus = DB::table('reports_table')
+            ->select('report_current_status', DB::raw('COUNT(*) as aggregate'))
+            ->where('report_urgency_level', 'Urgent')
+            ->where('report_is_archived', $showArchive ? 1 : 0)
+            ->groupBy('report_current_status')
+            ->pluck('aggregate', 'report_current_status');
+
+        return [
+            'total' => (int) $byStatus->sum(),
+            'pending' => (int) ($byStatus['Pending'] ?? 0),
+            'processing' => (int) ($byStatus['Processing'] ?? 0),
+            'for_replacement' => (int) ($byStatus['For Replacement'] ?? 0),
+        ];
     }
 
     private function urgentReportsQuery()

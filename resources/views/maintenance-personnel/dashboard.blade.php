@@ -4,7 +4,7 @@
 
 @section ("content")
     {{-- ══════════════════════════════════════════════════════════════
-     PRISM · Maintenance Personnel Dashboard
+     PaAyo · Maintenance Personnel Dashboard
      resources/views/maintenance/dashboard.blade.php
 ══════════════════════════════════════════════════════════════ --}}
 
@@ -6851,7 +6851,29 @@
 
                         <span>Borrowing</span>
                     </button>
+
+                    <a
+                        href="{{ url('/maintenance/semester-inspections') }}"
+                        class="dashboard-quick-action"
+                    >
+                        <span class="dashboard-quick-action-icon">
+                            <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+                        </span>
+                        <span>Semester check</span>
+                    </a>
+
+                    <a
+                        href="{{ url('/maintenance/replacement-suggestions') }}"
+                        class="dashboard-quick-action"
+                    >
+                        <span class="dashboard-quick-action-icon">
+                            <i data-lucide="hourglass" class="h-4 w-4"></i>
+                        </span>
+                        <span>Replacements</span>
+                    </a>
                 </div>
+
+                @include('maintenance-personnel.partials.dashboard-lifecycle-inspections')
 
                 <!-- ══ URGENT REPORTS PIPELINE ══ -->
                 {{-- ===================================================== --}}
@@ -7434,7 +7456,7 @@
                         </div>
 
                         <div class="activity-overview-description">
-                            Latest maintenance events across PRISM
+                            Latest maintenance events across PaAyo
                         </div>
 
                         {{-- ===================================================== --}}
@@ -7725,7 +7747,7 @@
                             aria-label="View equipment photo fullscreen"
                         >
                             <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
-                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                            <span class="absolute inset-0 flex items-center justify-center bg-[#0025cc]/0 transition group-hover:bg-[#0025cc]/40">
                                 <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
                             </span>
                         </button>
@@ -7869,7 +7891,7 @@
                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
                             <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
                             <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
-                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
                         </label>
                     </div>
                 </div>
@@ -7991,7 +8013,7 @@
                                             <div
                                                 x-show="String(item.equipment_asset_tag || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_asset_tag"
                                             ></div>
                                         </div>
@@ -8002,7 +8024,7 @@
                                             <div
                                                 x-show="String(item.equipment_serial_number || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_serial_number"
                                             ></div>
                                         </div>
@@ -8013,7 +8035,7 @@
                                             <div
                                                 x-show="String(item.equipment_brand_name || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_brand_name"
                                             ></div>
                                         </div>
@@ -8024,7 +8046,7 @@
                                             <div
                                                 x-show="String(item.equipment_model || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_model"
                                             ></div>
                                         </div>
@@ -8177,7 +8199,7 @@
                                         <button
                                             type="button"
                                             @click="removeLine(index)"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                             aria-label="Remove equipment"
                                         >
                                             <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -8400,7 +8422,7 @@
                                 <button
                                     type="button"
                                     @click="addSelected()"
-                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
                                 >
                                     Add
                                 </button>
@@ -8474,7 +8496,7 @@
                                                 <button
                                                     type="button"
                                                     @click="removeLine(index)"
-                                                    class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                                     aria-label="Remove item"
                                                 >
                                                     <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -8881,7 +8903,7 @@
                     <button
                         type="button"
                         onclick="closeEquipmentScanner()"
-                        class="inline-flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        class="inline-flex h-10 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-xs font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Done
                     </button>
@@ -9198,7 +9220,7 @@
             <a
                 id="urgentModalFullReportLink"
                 href="#"
-                class="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
             >
                 View Full Report
 

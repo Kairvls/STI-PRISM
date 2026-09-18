@@ -1,6 +1,6 @@
 @extends ("layouts.maintenance-layout")
 
-@section ("title", "Infrastructure Monitoring | PRISM")
+@section ("title", "Infrastructure Monitoring | PaAyo")
 
 @section ("content")
     @php
@@ -74,8 +74,9 @@
             }
         "
         @keydown.window="handleLayoutUndoHotkey($event)"
-        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackComlabRowRotation($event); trackEquipmentAction($event)"
-        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endComlabRowRotation($event); endEquipmentAction($event)"
+        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackComlabRowRotation($event); trackEquipmentAction($event); trackRoomPaintPanelDrag($event)"
+        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endComlabRowRotation($event); endEquipmentAction($event); endRoomPaintPanelDrag($event)"
+        @pointercancel.window="endRoomPaintPanelDrag($event)"
         class="flex w-full flex-1 flex-col"
     >
         {{-- ========================================================= --}}
@@ -239,7 +240,7 @@
                                         :data-tooltip="editMode ? null : 'Edit Layout'"
                                         :aria-label="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
                                         :class="editMode
-                                            ? 'group/edit-btn bg-[#FFF200] text-slate-900'
+                                            ? 'group/edit-btn bg-[#0025cc] text-white'
                                             : 'hover:bg-slate-100 text-slate-700'"
                                         class="relative flex h-12 w-full items-center justify-center transition"
                                     >
@@ -257,7 +258,7 @@
                                             class="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover/edit-btn:opacity-100"
                                             aria-hidden="true"
                                         >
-                                            <i data-lucide="x" class="h-5 w-5 text-slate-900"></i>
+                                            <i data-lucide="x" class="h-5 w-5 text-white"></i>
                                         </span>
 
                                     </button>
@@ -331,9 +332,9 @@
                                         type="button"
                                         @click="undoLayoutChange()"
                                         :disabled="!layoutUndoStack.length"
-                                        :data-tooltip="layoutUndoStack.length ? 'Undo grouped changes (Ctrl+Z)' : 'Nothing to undo'"
+                                        :data-tooltip="layoutUndoStack.length ? 'Undo last change (Ctrl+Z)' : 'Nothing to undo'"
                                         :class="layoutUndoStack.length
-                                            ? 'hover:bg-slate-100 text-slate-700'
+                                            ? 'bg-[#0025cc] text-white hover:bg-[#001db3]'
                                             : 'cursor-not-allowed text-slate-300'"
                                         class="flex h-12 w-full items-center justify-center transition"
                                     >
@@ -433,7 +434,7 @@
                                         :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
                                         class="flex w-full items-center justify-center py-3 transition"
                                     >
-                                        <i data-lucide="paintbrush" class="h-4 w-4"></i>
+                                        <i data-lucide="palette" class="h-4 w-4"></i>
                                     </button>
                                 </div>
 
@@ -487,53 +488,65 @@
 
                             <div
                                 x-show="editMode && roomPaintMode"
+                                x-cloak
+                                x-ref="roomPaintPanel"
                                 x-transition
-                                class="absolute top-0 right-full mr-2 w-[calc(100vw-5rem)] max-w-44 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl sm:w-44"
+                                @pointerdown.stop
+                                class="fixed z-[90] touch-none rounded-lg border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl"
+                                :style="roomPaintPanelStyle()"
                             >
-                                <div class="flex items-center justify-between gap-2">
-                                    <div>
-                                        <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
-                                        <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
+                                <div
+                                    class="flex cursor-grab items-start justify-between gap-1.5 border-b border-slate-100 px-2 py-1.5 active:cursor-grabbing"
+                                    @pointerdown="beginRoomPaintPanelDrag($event)"
+                                >
+                                    <div class="flex min-w-0 items-start gap-1">
+                                        <i data-lucide="grip-vertical" class="mt-0.5 h-3 w-3 shrink-0 text-slate-400"></i>
+                                        <div class="min-w-0">
+                                            <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
+                                            <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
+                                        </div>
                                     </div>
                                     <span
                                         x-show="selectedRoom"
-                                        class="rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
+                                        class="shrink-0 rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
                                         x-text="roomPaintColor || 'No color selected'"
                                     ></span>
                                 </div>
 
-                                <div class="mt-2 space-y-2">
-                                    <div class="space-y-2">
-                                        <div>
-                                            <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
-                                            <input x-model="roomPaintColor" type="color" class="h-7 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5" />
-                                        </div>
-
-                                        <div>
-                                            <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
-                                            <div class="grid grid-cols-8 gap-1">
-                                                <template x-for="color in roomPaintPresets" :key="color">
-                                                    <button
-                                                        type="button"
-                                                        @click="roomPaintColor = color"
-                                                        class="h-6 rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
-                                                        :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-2' : ''"
-                                                        :style="`background:${color}`"
-                                                        :data-tooltip="color"
-                                                    ></button>
-                                                </template>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            @click="resetSelectedRoomColor()"
-                                            :disabled="!selectedRoom"
-                                            class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50"
-                                        >
-                                            Reset room color
-                                        </button>
+                                <div class="space-y-2 p-2">
+                                    <div>
+                                        <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
+                                        <input
+                                            x-model="roomPaintColor"
+                                            type="color"
+                                            class="h-6 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
+                                        />
                                     </div>
+
+                                    <div>
+                                        <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
+                                        <div class="grid grid-cols-8 gap-1">
+                                            <template x-for="color in roomPaintPresets" :key="color">
+                                                <button
+                                                    type="button"
+                                                    @click="roomPaintColor = color"
+                                                    class="h-5 w-full rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
+                                                    :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-1' : ''"
+                                                    :style="`background:${color}`"
+                                                    :data-tooltip="color"
+                                                ></button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        @click="resetSelectedRoomColor()"
+                                        :disabled="!selectedRoom"
+                                        class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                        Reset room color
+                                    </button>
                                 </div>
                             </div>
 
@@ -1082,12 +1095,27 @@
                             type="button"
                             @click="toggleRoomLayoutEdit()"
                             :class="roomLayout.edit
-                                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                                ? 'bg-[#0025cc] text-white hover:bg-[#001db3]'
                                 : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'"
                             class="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition"
                         >
                             <i data-lucide="pencil" class="h-4 w-4"></i>
                             <span x-text="roomLayout.edit ? 'Editing…' : 'Edit layout'"></span>
+                        </button>
+                        <button
+                            type="button"
+                            x-show="roomLayout.edit"
+                            x-cloak
+                            @click="undoRoomLayoutChange()"
+                            :disabled="!roomLayoutUndoStack.length"
+                            :title="roomLayoutUndoStack.length ? 'Undo last change (Ctrl+Z)' : 'Nothing to undo'"
+                            :class="roomLayoutUndoStack.length
+                                ? 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
+                                : 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-slate-100'"
+                            class="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition disabled:opacity-60"
+                        >
+                            <i data-lucide="undo-2" class="h-4 w-4"></i>
+                            Undo
                         </button>
                         <button
                             type="button"
@@ -1636,6 +1664,7 @@
                                         roomLayout.comlabRowLayouts = JSON.parse(JSON.stringify(originalComlabRowLayouts));
                                     }
                                     layoutDirty = false;
+                                    clearRoomLayoutUndoStack();
                                 }
                                 closeRoomLayout();
                             "
@@ -2462,6 +2491,8 @@
                     layoutUndoStack: [],
                     layoutUndoLastAt: 0,
                     layoutUndoOpenedGroup: false,
+                    roomLayoutUndoStack: [],
+                    roomLayoutUndoOpenedGroup: false,
                     roomDrag: null,
                     roomResize: null,
                     equipmentFallbackBound: false,
@@ -2498,6 +2529,14 @@
                         '#EF4444',
                         '#94A3B8',
                     ],
+                    roomPaintPanel: {
+                        x: null,
+                        y: null,
+                        dragging: false,
+                        grabX: 0,
+                        grabY: 0,
+                        pointerId: null,
+                    },
                     selectedRoomControl: {
                         x: 0,
                         y: 0,
@@ -3187,6 +3226,7 @@
                             resizeTimer = setTimeout(() => {
 
                                 this.fitBlueprint();
+                                this.clampRoomPaintPanelPosition();
 
                             }, 40);
 
@@ -3716,6 +3756,7 @@
                             this._comlabFloorDidDrag = true;
                         }
 
+                        this.captureRoomLayoutUndo();
                         node.classList.add("dragging");
                         node.setPointerCapture?.(event.pointerId);
 
@@ -3748,6 +3789,7 @@
                             this._comlabFloorDidDrag = true;
                         }
 
+                        this.captureRoomLayoutUndo();
                         node.classList.add("dragging");
                         node.setPointerCapture?.(event.pointerId);
 
@@ -4020,6 +4062,7 @@
                             node.releasePointerCapture?.(event.pointerId);
                             this.equipmentPendingDrag = null;
                             this.layoutDirty = true;
+                            this.dropRoomLayoutUndoIfUnchanged();
                             this.$nextTick(() => this.updateComlabRowRotateHandlePlacement(node));
                             return;
                         }
@@ -4047,6 +4090,7 @@
                                 node.releasePointerCapture?.(event.pointerId);
                                 this.equipmentPendingDrag = null;
                                 this.layoutDirty = true;
+                                this.dropRoomLayoutUndoIfUnchanged();
                                 this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                                 return;
                             }
@@ -4082,6 +4126,7 @@
                         this.syncEquipmentZone(node);
                         this.layoutDirty = true;
                         this.equipmentPendingDrag = null;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.syncSelectedEquipmentControl();
                     },
                     getSelectedEquipmentRotation() {
@@ -4310,6 +4355,7 @@
                             this._comlabFloorDidDrag = true;
                         }
 
+                        this.captureRoomLayoutUndo();
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
                     trackEquipmentRotation(event) {
@@ -4365,6 +4411,7 @@
                         this.equipmentLiveRotation = null;
                         document.body.classList.remove("cursor-grabbing", "equipment-rotate-active-cursor");
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.$nextTick(() => {
                             if (window.lucide) lucide.createIcons();
                             this.updateEquipmentRotateHandlePlacement();
@@ -4876,17 +4923,6 @@
                             return;
                         }
 
-                        const now = Date.now();
-                        const withinGroup =
-                            this.layoutUndoStack.length > 0 &&
-                            this.layoutUndoLastAt > 0 &&
-                            now - this.layoutUndoLastAt < 3000;
-
-                        if (withinGroup) {
-                            this.layoutUndoOpenedGroup = false;
-                            return;
-                        }
-
                         this.layoutUndoStack = [
                             ...this.layoutUndoStack.slice(-39),
                             this.snapshotLayoutRooms(),
@@ -4917,6 +4953,122 @@
                         this.layoutUndoStack = [];
                         this.layoutUndoLastAt = 0;
                         this.layoutUndoOpenedGroup = false;
+                    },
+                    snapshotRoomLayoutState() {
+                        return {
+                            equipment: JSON.parse(JSON.stringify(this.roomLayout.equipment || [])),
+                            comlabRows: JSON.parse(JSON.stringify(this.roomLayout.comlabRows || [])),
+                            comlabRowLayouts: JSON.parse(
+                                JSON.stringify(this.roomLayout.comlabRowLayouts || []),
+                            ),
+                        };
+                    },
+                    roomLayoutSnapshotsEqual(left = null, right = null) {
+                        return JSON.stringify(left || {}) === JSON.stringify(right || {});
+                    },
+                    captureRoomLayoutUndo() {
+                        if (!this.roomLayout.edit) {
+                            return;
+                        }
+
+                        this.roomLayoutUndoStack = [
+                            ...this.roomLayoutUndoStack.slice(-39),
+                            this.snapshotRoomLayoutState(),
+                        ];
+                        this.roomLayoutUndoOpenedGroup = true;
+                    },
+                    dropRoomLayoutUndoIfUnchanged() {
+                        const last = this.roomLayoutUndoStack[this.roomLayoutUndoStack.length - 1];
+
+                        if (!last) {
+                            this.roomLayoutUndoOpenedGroup = false;
+                            return;
+                        }
+
+                        if (
+                            this.roomLayoutUndoOpenedGroup &&
+                            this.roomLayoutSnapshotsEqual(last, this.snapshotRoomLayoutState())
+                        ) {
+                            this.roomLayoutUndoStack = this.roomLayoutUndoStack.slice(0, -1);
+                            this.roomLayoutUndoOpenedGroup = false;
+                            return;
+                        }
+
+                        this.roomLayoutUndoOpenedGroup = false;
+                    },
+                    clearRoomLayoutUndoStack() {
+                        this.roomLayoutUndoStack = [];
+                        this.roomLayoutUndoOpenedGroup = false;
+                    },
+                    applyRoomLayoutSnapshot(snapshot = null) {
+                        if (!snapshot) {
+                            return;
+                        }
+
+                        this.roomLayout.equipment = JSON.parse(
+                            JSON.stringify(snapshot.equipment || []),
+                        );
+                        this.roomLayout.comlabRows = JSON.parse(
+                            JSON.stringify(snapshot.comlabRows || []),
+                        );
+                        this.roomLayout.comlabRowLayouts = JSON.parse(
+                            JSON.stringify(snapshot.comlabRowLayouts || []),
+                        );
+
+                        this.layoutDirty = !this.roomLayoutSnapshotsEqual(
+                            this.snapshotRoomLayoutState(),
+                            {
+                                equipment: this.originalRoomLayout || [],
+                                comlabRows: this.originalComlabRows || [],
+                                comlabRowLayouts: this.originalComlabRowLayouts || [],
+                            },
+                        );
+
+                        this.$nextTick(() => {
+                            this.bindDragging();
+                            if (this.selectedEquipmentId) {
+                                this.syncSelectedEquipmentControl();
+                                this.updateEquipmentRotateHandlePlacement();
+                            }
+                            if (this.selectedComlabRowTable) {
+                                this.updateComlabRowRotateHandlePlacement();
+                            }
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
+                    },
+                    undoRoomLayoutChange() {
+                        if (!this.roomLayout.edit || !this.roomLayoutUndoStack.length) {
+                            return;
+                        }
+
+                        if (this.equipmentAction) {
+                            const fakeEvent = {
+                                pointerId: this.equipmentAction.pointerId,
+                            };
+                            this.endEquipmentAction(fakeEvent);
+                        }
+
+                        if (this.equipmentRotationDrag) {
+                            const fakeEvent = {
+                                pointerId: this.equipmentRotationDrag.pointerId,
+                            };
+                            this.endEquipmentRotation(fakeEvent);
+                        }
+
+                        if (this.comlabRowRotationDrag) {
+                            const fakeEvent = {
+                                pointerId: this.comlabRowRotationDrag.pointerId,
+                            };
+                            this.endComlabRowRotation(fakeEvent);
+                        }
+
+                        const stack = [...this.roomLayoutUndoStack];
+                        const snapshot = stack.pop();
+                        this.roomLayoutUndoStack = stack;
+                        this.roomLayoutUndoOpenedGroup = false;
+                        this.applyRoomLayoutSnapshot(snapshot);
                     },
                     applyLayoutSnapshot(snapshot = []) {
                         snapshot.forEach((original) => {
@@ -5000,7 +5152,21 @@
                             target?.isContentEditable ||
                             ["input", "textarea", "select"].includes(tag);
 
-                        if (!this.editMode || isTypingContext) {
+                        if (isTypingContext) {
+                            return;
+                        }
+
+                        if (this.roomLayout?.open && this.roomLayout.edit) {
+                            if (!this.roomLayoutUndoStack.length) {
+                                return;
+                            }
+
+                            event.preventDefault();
+                            this.undoRoomLayoutChange();
+                            return;
+                        }
+
+                        if (!this.editMode || !this.layoutUndoStack.length) {
                             return;
                         }
 
@@ -5029,8 +5195,18 @@
                         this.roomPaintMode = !this.roomPaintMode;
 
                         if (!this.roomPaintMode) {
+                            this.roomPaintPanel.dragging = false;
+                            this.roomPaintPanel.pointerId = null;
                             return;
                         }
+
+                        this.placeRoomPaintPanelDefault();
+                        this.$nextTick(() => {
+                            this.clampRoomPaintPanelPosition();
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
 
                         if (this.selectedRoom) {
                             const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
@@ -5046,6 +5222,117 @@
                         if (fallbackRoom) {
                             this.selectRoomForPaint(fallbackRoom.id);
                         }
+                    },
+                    roomPaintPanelWidth() {
+                        const viewport = Math.max(320, window.innerWidth || 320);
+
+                        if (viewport < 420) {
+                            return Math.min(viewport - 24, 176);
+                        }
+
+                        return 176;
+                    },
+                    roomPaintPanelStyle() {
+                        const width = this.roomPaintPanelWidth();
+                        const x = this.roomPaintPanel.x;
+                        const y = this.roomPaintPanel.y;
+
+                        return {
+                            width: width + 'px',
+                            left: (x == null ? -9999 : x) + 'px',
+                            top: (y == null ? -9999 : y) + 'px',
+                            maxWidth: 'calc(100vw - 1.5rem)',
+                        };
+                    },
+                    placeRoomPaintPanelDefault() {
+                        const width = this.roomPaintPanelWidth();
+                        const height = this.$refs.roomPaintPanel?.offsetHeight || 220;
+                        const margin = 12;
+                        const dock = this.$refs.blueprintControlsDock?.getBoundingClientRect();
+                        const viewport = this.$refs.blueprintViewport?.getBoundingClientRect();
+
+                        let x;
+                        let y;
+
+                        if (dock) {
+                            x = dock.left - width - 8;
+                            y = dock.top + 8;
+                        } else if (viewport) {
+                            x = viewport.right - width - 64;
+                            y = viewport.top + 12;
+                        } else {
+                            x = window.innerWidth - width - 72;
+                            y = 120;
+                        }
+
+                        this.roomPaintPanel.x = x;
+                        this.roomPaintPanel.y = y;
+                        this.clampRoomPaintPanelPosition(width, height, margin);
+                    },
+                    clampRoomPaintPanelPosition(width = null, height = null, margin = 12) {
+                        if (!this.roomPaintMode || this.roomPaintPanel.x == null || this.roomPaintPanel.y == null) {
+                            return;
+                        }
+
+                        const panelWidth = width ?? this.roomPaintPanelWidth();
+                        const panelHeight = height
+                            ?? this.$refs.roomPaintPanel?.offsetHeight
+                            ?? 220;
+                        const maxX = Math.max(margin, window.innerWidth - panelWidth - margin);
+                        const maxY = Math.max(margin, window.innerHeight - panelHeight - margin);
+
+                        this.roomPaintPanel.x = Math.min(maxX, Math.max(margin, this.roomPaintPanel.x));
+                        this.roomPaintPanel.y = Math.min(maxY, Math.max(margin, this.roomPaintPanel.y));
+                    },
+                    beginRoomPaintPanelDrag(event) {
+                        if (event.button != null && event.button !== 0) {
+                            return;
+                        }
+
+                        const target = event.target instanceof Element ? event.target : null;
+                        if (target?.closest('button, input, a, select, textarea, [data-no-drag]')) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        this.roomPaintPanel.dragging = true;
+                        this.roomPaintPanel.pointerId = event.pointerId;
+                        this.roomPaintPanel.grabX = event.clientX - (this.roomPaintPanel.x || 0);
+                        this.roomPaintPanel.grabY = event.clientY - (this.roomPaintPanel.y || 0);
+                        event.currentTarget?.setPointerCapture?.(event.pointerId);
+                    },
+                    trackRoomPaintPanelDrag(event) {
+                        if (!this.roomPaintPanel.dragging) {
+                            return;
+                        }
+
+                        if (
+                            this.roomPaintPanel.pointerId != null
+                            && event.pointerId !== this.roomPaintPanel.pointerId
+                        ) {
+                            return;
+                        }
+
+                        this.roomPaintPanel.x = event.clientX - this.roomPaintPanel.grabX;
+                        this.roomPaintPanel.y = event.clientY - this.roomPaintPanel.grabY;
+                        this.clampRoomPaintPanelPosition();
+                    },
+                    endRoomPaintPanelDrag(event) {
+                        if (!this.roomPaintPanel.dragging) {
+                            return;
+                        }
+
+                        if (
+                            event
+                            && this.roomPaintPanel.pointerId != null
+                            && event.pointerId !== this.roomPaintPanel.pointerId
+                        ) {
+                            return;
+                        }
+
+                        this.roomPaintPanel.dragging = false;
+                        this.roomPaintPanel.pointerId = null;
+                        this.clampRoomPaintPanelPosition();
                     },
                     selectRoomForPaint(roomId) {
                         const normalizedRoomId = Number(roomId);
@@ -6423,6 +6710,7 @@
 
                             event.preventDefault();
 
+                            this.captureRoomLayoutUndo();
                             node.classList.add("dragging");
 
                             node.setPointerCapture?.(event.pointerId);
@@ -6520,6 +6808,7 @@
                             if (this.roomLayout.edit) {
 
                                 this.layoutDirty = true;
+                                this.dropRoomLayoutUndoIfUnchanged();
 
                             }
 
@@ -6658,6 +6947,7 @@
 
                                 this.layoutDirty = false;
                                 this.clearLayoutUndoStack();
+                                this.clearRoomLayoutUndoStack();
                                 // Exit room editing mode
                                 this.roomLayout.edit = false;
 
@@ -7442,6 +7732,7 @@
                         this.comlabRowLiveRotation = startRotation;
                         this.comlabRowRotationDisplayAngle = this.formatRotationDisplay(startRotation);
                         document.body.classList.add('equipment-rotate-active-cursor');
+                        this.captureRoomLayoutUndo();
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
 
@@ -7489,6 +7780,7 @@
                         this.comlabRowRotationDisplayAngle = this.formatRotationDisplay(finalRotation);
                         document.body.classList.remove('equipment-rotate-active-cursor');
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.$nextTick(() => this.updateComlabRowRotateHandlePlacement(node));
                     },
 
@@ -7625,6 +7917,7 @@
                         const x = Math.round(((event.clientX - rect.left) / rect.width) * 100);
                         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
 
+                        this.captureRoomLayoutUndo();
                         item.x = Math.min(96, Math.max(4, x));
                         item.y = Math.min(96, Math.max(4, y));
                         item.placement_zone = 'Floor';
@@ -7637,6 +7930,7 @@
                             Math.max(0, this.comlabHoldingPageCount() - 1),
                         );
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                     },
 
                     returnEquipmentToHolding(item) {
@@ -7653,6 +7947,7 @@
                         const item = (this.roomLayout.equipment || []).find((entry) => entry.id === Number(equipmentId));
                         if (!item) return;
 
+                        this.captureRoomLayoutUndo();
                         const wasInRow = this.isComlabRowZone(item.placement_zone || item.location || '');
                         this.returnEquipmentToHolding(item);
                         if (this.selectedEquipmentId === item.id) {
@@ -7669,6 +7964,7 @@
                         }
                         this.roomLayout.comlabHoldingPage = 0;
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 
@@ -7682,6 +7978,7 @@
                     deleteComlabRow(rowName) {
                         if (!this.roomLayout.edit || !rowName) return;
 
+                        this.captureRoomLayoutUndo();
                         (this.roomLayout.equipment || []).forEach((item) => {
                             const zone = item.placement_zone || item.location || '';
                             if (zone === rowName) {
@@ -7704,6 +8001,7 @@
 
                         this.roomLayout.comlabHoldingPage = 0;
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
                     isComputerSetComponent(name) {
@@ -8017,6 +8315,7 @@
                         let n = existing.length + 1;
                         while (used.has(`Row ${n}`)) n += 1;
                         const name = `Row ${n}`;
+                        this.captureRoomLayoutUndo();
                         this.roomLayout.comlabRowLayouts = [
                             ...existing,
                             {
@@ -8030,12 +8329,17 @@
                         ];
                         this.roomLayout.comlabRows = this.roomLayout.comlabRowLayouts.map((entry) => entry.name);
                         this.layoutDirty = true;
+                        this.dropRoomLayoutUndoIfUnchanged();
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 
                     assignEquipmentToComlabRow(equipmentId, rowName) {
                         const item = this.roomLayout.equipment.find((e) => e.id === equipmentId);
                         if (!item || !rowName) return;
+                        const captureStandalone = !this.equipmentAction && !this.roomLayoutUndoOpenedGroup;
+                        if (captureStandalone) {
+                            this.captureRoomLayoutUndo();
+                        }
                         item.placement_zone = rowName;
                         item.location = rowName;
                         item._holding = false;
@@ -8044,6 +8348,9 @@
                             Math.max(0, this.comlabHoldingPageCount() - 1),
                         );
                         this.layoutDirty = true;
+                        if (captureStandalone) {
+                            this.dropRoomLayoutUndoIfUnchanged();
+                        }
                     },
 
                     findComlabRowAtClientPoint(clientX, clientY) {
@@ -8492,6 +8799,7 @@
                         this.roomLayout.open = false;
                         this.roomLayout.edit = false;
                         this.roomLayout.fullscreen = false;
+                        this.clearRoomLayoutUndoStack();
                         this.clearLayoutSelection();
                     },
                     requestCloseRoomLayout(){
@@ -8554,11 +8862,19 @@
                                 ? JSON.parse(JSON.stringify(this.roomLayout.comlabRowLayouts || []))
                                 : null;
                             this.layoutDirty = false;
+                            this.clearRoomLayoutUndoStack();
+                        } else {
+                            this.clearRoomLayoutUndoStack();
                         }
 
                         this.roomLayout.edit = !this.roomLayout.edit;
 
-                        this.$nextTick(() => this.bindDragging());
+                        this.$nextTick(() => {
+                            this.bindDragging();
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
 
                     },
                     equipmentIcon(name, size = null) {

@@ -504,7 +504,7 @@
                                             <button
                                                 type="button"
                                                 @click="activeWizardFloor.rooms.splice(ri, 1)"
-                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-red-700 hover:bg-slate-50"
                                                 aria-label="Remove room"
                                             >
                                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -632,7 +632,7 @@
                                             <button
                                                 type="button"
                                                 @click="activeWizardFloor.rooms.splice(ri, 1)"
-                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-red-700 hover:bg-slate-50"
                                                 aria-label="Remove room"
                                             >
                                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -671,7 +671,7 @@
                                                         <button
                                                             type="button"
                                                             @click="room.equipment.splice(ei, 1)"
-                                                            class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-[11px] font-normal text-red-600 transition hover:bg-red-50"
+                                                            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-normal text-red-700 transition hover:bg-slate-50"
                                                         >
                                                             <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                                                             Remove

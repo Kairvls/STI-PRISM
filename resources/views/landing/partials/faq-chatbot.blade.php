@@ -523,7 +523,7 @@
                 },
                 {
                     n: score(['reporter detail', 'my details', 'first name', 'last name', 'contact number', 'contact no', 'personal info']),
-                    reply: 'Reporter details are about you, not the damage report. On the registration form, enter employee ID, first name, optional middle name, last name, type (Faculty or Staff), and contact number. Your email is already filled from the verified link.'
+                    reply: 'Reporter details are about you, not the damage report. On the registration form, choose type (Faculty or Staff), enter your 4-digit employee number (OMC and F/S are filled for you), then first name, optional middle name, last name, and contact number. Your email is already filled from the verified link.'
                 },
                 {
                     n: score(['employee id', 'verified', 'verify', 'recognized', 'not found', 'unknown id', 'id not']),

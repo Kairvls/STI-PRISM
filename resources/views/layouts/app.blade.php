@@ -10,7 +10,7 @@
 
     <title>
 
-        @yield('title', 'PRISM')
+        @yield('title', 'PaAyo')
 
     </title>
 
@@ -374,7 +374,7 @@
     DO NOT add another 14px horizontal padding.
 
     This makes the menu icon align with:
-    PRISM logo
+    PaAyo logo
     Search box
     Quick Actions
     */

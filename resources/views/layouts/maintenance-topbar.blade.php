@@ -27,9 +27,13 @@
                 request()->is('maintenance/borrowing*') => ['Borrowing', 'Borrowed equipment and return status.'],
                 request()->is('maintenance/schedules*') => ['Schedules', 'Planned maintenance work.'],
                 request()->is('maintenance/disposal*') => ['Disposal', 'Items marked for disposal.'],
+                request()->is('maintenance/semester-inspections/create') => ['New Campaign', 'Check equipment at STI College Ormoc.'],
+                request()->is('maintenance/semester-inspections/*') => [View::yieldContent('title', 'Campaign'), 'Semester inspection walkthrough.'],
+                request()->is('maintenance/semester-inspections') => ['Semester Inspections', 'STI College Ormoc · campus equipment checks'],
+                request()->is('maintenance/replacement-suggestions*') => ['Replacement Suggestions', 'Assets near or past their useful lifespan.'],
                 request()->is('maintenance/settings/profile*') => ['Profile Settings', 'Update your account information.'],
                 request()->is('maintenance/settings/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PRISM'), 'Maintenance Personnel'],
+                default => [View::yieldContent('title', 'PaAyo'), 'Maintenance Personnel'],
             };
         @endphp
 
@@ -48,7 +52,7 @@
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages"
+            aria-label="PaAyo messages"
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>

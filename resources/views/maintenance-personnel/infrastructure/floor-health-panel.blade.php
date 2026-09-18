@@ -55,7 +55,7 @@
         <button
             type="button"
             @click="scrollToFloorInsights()"
-            class="mt-4 flex w-full items-center justify-center rounded-xl bg-[#E8E8E8] py-3.5 text-[13px] font-semibold text-[#333333] transition hover:bg-[#DDDDDD]"
+            class="mt-4 flex w-full items-center justify-center border border-slate-200 rounded-xl bg-white py-3.5 text-[13px] font-semibold text-[#333333] transition hover:bg-slate-100"
         >
             View detailed report
         </button>

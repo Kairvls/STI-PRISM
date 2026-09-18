@@ -160,12 +160,12 @@
         @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
-                <button type="submit" class="h-10 rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700">Archive</button>
+                <button type="submit" class="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-[#007a3f] transition hover:bg-slate-50">Archive</button>
             </form>
         @elseif($atp->authority_purchase_is_archived)
             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
-                <button type="submit" class="h-10 rounded-lg bg-blue-50 px-5 text-sm font-medium text-blue-600">Restore</button>
+                <button type="submit" class="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-[#0025cc] transition hover:bg-slate-50">Restore</button>
             </form>
         @endif
     </div>

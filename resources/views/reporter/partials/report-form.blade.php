@@ -1,5 +1,5 @@
 {{-- ══════════════════════════════════════════════════════════════
-     MAINTENANCE REPORT FORM  ·  PRISM Dark Theme
+     MAINTENANCE REPORT FORM  ·  PaAyo Dark Theme
      reporter/partials/report-form.blade.php
 ══════════════════════════════════════════════════════════════ --}}
 

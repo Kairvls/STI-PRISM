@@ -133,7 +133,7 @@
     <div class="py-3">
         <a
             :href="selectedLayoutAsset()?.view_url || ('/maintenance/equipment/view/' + selectedLayoutAsset()?.id)"
-            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
         >
             <i data-lucide="external-link" class="h-4 w-4"></i>
             Open full profile

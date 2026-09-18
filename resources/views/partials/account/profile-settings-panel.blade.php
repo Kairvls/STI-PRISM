@@ -12,7 +12,7 @@
     <div class="border-b border-gray-100 px-5 py-4 sm:px-6">
         <h2 class="text-sm font-semibold text-gray-900">Profile information</h2>
         <p class="mt-1 text-xs text-gray-500">
-            Your name and contact details as shown across PRISM. Saving will be enabled in a later update.
+            Your name and contact details as shown across PaAyo. Saving will be enabled in a later update.
         </p>
     </div>
 

@@ -113,7 +113,7 @@ class MicrosoftController extends Controller
                 return redirect('/')
                     ->with(
                         'error',
-                        'Your Microsoft account is not registered in PRISM. Ask an admin to add your Office 365 email first.'
+                        'Your Microsoft account is not registered in PaAyo. Ask an admin to add your Office 365 email first.'
                     );
             }
 

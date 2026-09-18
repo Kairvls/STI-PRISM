@@ -88,3 +88,5 @@ in the system in every signage make everything to be center of the fullname alwa
 also for the toggle switch Brands, UOM, Categories, Sub Categories how to make it will be move in the sidebar like on the section of file maintenance that it will collapsable too 
 
 the modals backdrop bg being cut
+
+in the Maintenance Personnel side is there already a feature where the maintenance personnel set a semestral for checking all equipment

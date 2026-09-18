@@ -423,7 +423,7 @@
 
                                             @click="archiveEquipment()"
 
-                                            class="rounded-xl bg-red-600 px-5 py-2 text-white"
+                                            class="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-[#007a3f] transition hover:bg-slate-50"
 
                                         >
 

@@ -2765,7 +2765,7 @@
                                                     @method('DELETE')
                                                     <button
                                                         type="submit"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50"
+                                                        class="flex w-full items-center gap-2.5 border border-slate-200 bg-white px-3 py-2 text-left text-sm text-red-700 transition hover:bg-slate-50"
                                                     >
                                                         <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                                                         Delete draft
@@ -3186,7 +3186,7 @@
                             @method('DELETE')
                             <button
                                 type="submit"
-                                class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-slate-50"
                             >
                                 Delete draft
                             </button>

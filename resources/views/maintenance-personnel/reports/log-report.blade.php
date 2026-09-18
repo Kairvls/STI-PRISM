@@ -429,24 +429,90 @@
     .lr-upload-remove:hover {
         color: #0f172a;
     }
+
+    .lr-employee-id-field {
+        display: flex;
+        align-items: stretch;
+        height: 2.75rem;
+        overflow: hidden;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .lr-employee-id-field:focus-within {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .lr-employee-id-field.is-disabled {
+        background: #f8fafc;
+        opacity: 0.85;
+    }
+
+    .lr-employee-id-prefix,
+    .lr-employee-id-suffix {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        background: #f8fafc;
+        user-select: none;
+    }
+
+    .lr-employee-id-prefix {
+        padding: 0 0 0 0.875rem;
+    }
+
+    .lr-employee-id-suffix {
+        padding: 0 0.875rem 0 0;
+        min-width: 2rem;
+        justify-content: center;
+    }
+
+    .lr-employee-id-suffix.is-empty {
+        color: #94a3b8;
+    }
+
+    .lr-employee-id-field input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        padding: 0 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        color: #0f172a;
+        outline: none;
+        text-align: center;
+    }
+
+    .lr-employee-id-field.is-disabled input {
+        pointer-events: none;
+        color: #94a3b8;
+    }
 </style>
 @endpush
 
 @section('content')
-    <div >
-        <div class="mb-6">
+    <div class="mx-auto max-w-3xl space-y-6">
+        <div>
             <a href="/maintenance/reports" class="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-slate-800">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 Back to Reports
             </a>
-            <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900">Log Walk-in Report</h1>
-            <p class="mt-1 max-w-2xl text-sm text-slate-500">
+            <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Log Walk-in Report</h1>
+            <p class="mt-1 text-sm text-slate-500">
                 Enter a concern on behalf of a faculty or staff reporter who walked in or cannot use the online form.
                 The reporter must already be registered and active.
             </p>
         </div>
 
-        <div class="mb-5 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
+        <div class="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
             <strong>Audit trail:</strong> this form records you as the staff member who logged the report, while keeping the walk-in person as the reporter.
         </div>
 
@@ -461,19 +527,57 @@
 
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Reporter</h2>
+                @php
+                    $oldEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('report_reporter_employee_id', '')));
+                    $oldType = '';
+                    $oldIdDigits = '';
+                    if (preg_match('/^OMC(\d{1,4})([FS])$/i', $oldEmployeeId, $m)) {
+                        $oldIdDigits = $m[1];
+                        $oldType = strtoupper($m[2]) === 'S' ? 'Staff' : 'Faculty';
+                    } elseif (preg_match('/^\d{1,4}$/', $oldEmployeeId)) {
+                        $oldIdDigits = $oldEmployeeId;
+                    }
+                    $oldSuffix = $oldType === 'Staff' ? 'S' : ($oldType === 'Faculty' ? 'F' : '');
+                @endphp
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        <label for="employeeIdInput" class="mb-1.5 block text-sm font-medium text-slate-700">Employee ID</label>
+                    <div>
+                        <label for="reporterTypeSelect" class="mb-1.5 block text-sm font-medium text-slate-700">Type</label>
+                        <select
+                            id="reporterTypeSelect"
+                            class="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none ring-blue-500/30 focus:border-blue-500 focus:ring-2"
+                        >
+                            <option value="">Select type</option>
+                            <option value="Faculty" @selected($oldType === 'Faculty')>Faculty</option>
+                            <option value="Staff" @selected($oldType === 'Staff')>Staff</option>
+                        </select>
+                        <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
+                    </div>
+                    <div>
+                        <label for="employeeIdDigits" class="mb-1.5 block text-sm font-medium text-slate-700">Employee ID</label>
+                        <div id="employeeIdField" class="lr-employee-id-field {{ $oldType ? '' : 'is-disabled' }}">
+                            <span class="lr-employee-id-prefix">OMC</span>
+                            <input
+                                id="employeeIdDigits"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="4"
+                                placeholder="0123"
+                                value="{{ $oldIdDigits }}"
+                                autocomplete="off"
+                                {{ $oldType ? '' : 'readonly' }}
+                            >
+                            <span id="employeeIdSuffix" class="lr-employee-id-suffix {{ $oldSuffix ? '' : 'is-empty' }}">{{ $oldSuffix ?: '?' }}</span>
+                        </div>
                         <input
-                            type="text"
+                            type="hidden"
                             name="report_reporter_employee_id"
                             id="employeeIdInput"
                             value="{{ old('report_reporter_employee_id') }}"
                             required
-                            autocomplete="off"
-                            placeholder="Enter reporter employee ID"
-                            class="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none ring-blue-500/30 focus:border-blue-500 focus:ring-2"
                         >
+                        <p class="mt-1.5 text-xs text-slate-400" id="employeeIdHint">
+                            {{ $oldType ? 'Enter the 4-digit number only. OMC and '.$oldSuffix.' are fixed.' : 'Select type first, then enter the 4-digit number.' }}
+                        </p>
                     </div>
                     <p id="employeeError" class="hidden sm:col-span-2 text-sm text-red-500"></p>
                     <div id="pendingReporterBox" class="hidden sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -651,7 +755,7 @@
                 </div>
             </section>
 
-            <div class="flex flex-wrap items-center justify-end gap-3 pb-8">
+            <div class="flex flex-wrap items-center justify-end gap-3">
                 <a href="/maintenance/reports" class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     Cancel
                 </a>
@@ -660,6 +764,7 @@
                 </button>
             </div>
         </form>
+    </div>
 
         <section class="mt-10 pb-8">
             <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -775,11 +880,15 @@
                 @endif
             </div>
         </section>
-    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const employeeInput = document.getElementById('employeeIdInput');
+            const employeeDigitsInput = document.getElementById('employeeIdDigits');
+            const reporterTypeSelect = document.getElementById('reporterTypeSelect');
+            const employeeIdSuffix = document.getElementById('employeeIdSuffix');
+            const employeeIdField = document.getElementById('employeeIdField');
+            const employeeIdHint = document.getElementById('employeeIdHint');
             const reporterInfoBox = document.getElementById('reporterInfoBox');
             const reporterErrorBox = document.getElementById('reporterErrorBox');
             const reporterName = document.getElementById('reporterName');
@@ -821,6 +930,101 @@
             let selectedItems = [];
             let reporterVerified = false;
             let reporterPending = false;
+            let verifyTimer = null;
+
+            function suffixForType(type) {
+                if (type === 'Faculty') return 'F';
+                if (type === 'Staff') return 'S';
+                return '';
+            }
+
+            function syncEmployeeIdField() {
+                if (!employeeDigitsInput || !employeeInput || !employeeIdSuffix || !employeeIdField) return '';
+
+                const type = reporterTypeSelect ? reporterTypeSelect.value : '';
+                const suffix = suffixForType(type);
+                const digits = String(employeeDigitsInput.value || '').replace(/\D/g, '').slice(0, 4);
+                employeeDigitsInput.value = digits;
+                employeeIdSuffix.textContent = suffix || '?';
+                employeeIdSuffix.classList.toggle('is-empty', !suffix);
+
+                if (type) {
+                    employeeIdField.classList.remove('is-disabled');
+                    employeeDigitsInput.removeAttribute('readonly');
+                    if (employeeIdHint) {
+                        employeeIdHint.textContent = 'Enter the 4-digit number only. OMC and ' + suffix + ' are fixed.';
+                    }
+                } else {
+                    employeeIdField.classList.add('is-disabled');
+                    employeeDigitsInput.setAttribute('readonly', 'readonly');
+                    if (employeeIdHint) {
+                        employeeIdHint.textContent = 'Select type first, then enter the 4-digit number.';
+                    }
+                }
+
+                const fullId = (type && digits.length === 4 && suffix)
+                    ? ('OMC' + digits + suffix)
+                    : '';
+                employeeInput.value = fullId;
+                return fullId;
+            }
+
+            function clearReporterFeedback() {
+                reporterVerified = false;
+                reporterPending = false;
+                reporterInfoBox.classList.add('hidden');
+                reporterErrorBox.classList.add('hidden');
+                pendingReporterBox.classList.add('hidden');
+                employeeError.classList.add('hidden');
+                if (employeeIdField) employeeIdField.style.borderColor = '';
+            }
+
+            function verifyReporterById(id) {
+                clearReporterFeedback();
+                if (!id || id.length < 8) return;
+
+                fetch('/get-reporter/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && data.reporter_status === 'Pending Approval') {
+                            reporterPending = true;
+                            reporterErrorBox.textContent = 'This reporter application is still waiting for maintenance approval.';
+                            reporterErrorBox.classList.remove('hidden');
+                            return;
+                        }
+                        if (data && data.reporter_full_name && data.reporter_status === 'Active') {
+                            reporterVerified = true;
+                            reporterName.textContent = data.reporter_full_name;
+                            const typeLabel = reporterTypeSelect && reporterTypeSelect.value
+                                ? reporterTypeSelect.value
+                                : 'Active';
+                            reporterMeta.textContent = typeLabel + ' reporter · ' + id;
+                            reporterInfoBox.classList.remove('hidden');
+                            return;
+                        }
+                        if (data && data.reporter_full_name && data.reporter_status !== 'Active') {
+                            reporterErrorBox.textContent = 'This reporter account is inactive and cannot submit maintenance reports.';
+                            reporterErrorBox.classList.remove('hidden');
+                            return;
+                        }
+                        reporterErrorBox.textContent = 'Employee ID not recognized.';
+                        reporterErrorBox.classList.remove('hidden');
+                    })
+                    .catch(function () {
+                        reporterErrorBox.textContent = 'Could not verify employee ID.';
+                        reporterErrorBox.classList.remove('hidden');
+                    });
+            }
+
+            function queueReporterVerify() {
+                const fullId = syncEmployeeIdField();
+                clearReporterFeedback();
+                if (verifyTimer) clearTimeout(verifyTimer);
+                if (fullId.length < 8) return;
+                verifyTimer = setTimeout(function () {
+                    verifyReporterById(fullId);
+                }, 250);
+            }
 
             function hideFormErrors() {
                 employeeError.classList.add('hidden');
@@ -831,7 +1035,9 @@
                 issueError.classList.add('hidden');
                 reporterErrorBox.classList.add('hidden');
                 pendingReporterBox.classList.add('hidden');
-                employeeInput.style.borderColor = '';
+                if (employeeInput) employeeInput.style.borderColor = '';
+                if (reporterTypeSelect) reporterTypeSelect.style.borderColor = '';
+                if (employeeIdField) employeeIdField.style.borderColor = '';
                 roomSelect.style.borderColor = '';
                 equipmentSelect.style.borderColor = '';
                 if (equipmentPickerTrigger) {
@@ -1086,46 +1292,18 @@
                 updatePriorityCards();
             }
 
-            employeeInput.addEventListener('input', function () {
-                const id = this.value.trim();
-                reporterVerified = false;
-                reporterPending = false;
-                reporterInfoBox.classList.add('hidden');
-                reporterErrorBox.classList.add('hidden');
-                pendingReporterBox.classList.add('hidden');
-                employeeError.classList.add('hidden');
-                employeeInput.style.borderColor = '';
-                if (id.length < 8) return;
+            if (reporterTypeSelect) {
+                reporterTypeSelect.addEventListener('change', function () {
+                    queueReporterVerify();
+                    if (this.value && employeeDigitsInput && !employeeDigitsInput.hasAttribute('readonly')) {
+                        employeeDigitsInput.focus();
+                    }
+                });
+            }
 
-                fetch('/get-reporter/' + encodeURIComponent(id))
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        if (data && data.reporter_status === 'Pending Approval') {
-                            reporterPending = true;
-                            reporterErrorBox.textContent = 'This reporter application is still waiting for maintenance approval.';
-                            reporterErrorBox.classList.remove('hidden');
-                            return;
-                        }
-                        if (data && data.reporter_full_name && data.reporter_status === 'Active') {
-                            reporterVerified = true;
-                            reporterName.textContent = data.reporter_full_name;
-                            reporterMeta.textContent = 'Active reporter';
-                            reporterInfoBox.classList.remove('hidden');
-                            return;
-                        }
-                        if (data && data.reporter_full_name && data.reporter_status !== 'Active') {
-                            reporterErrorBox.textContent = 'This reporter account is inactive and cannot submit maintenance reports.';
-                            reporterErrorBox.classList.remove('hidden');
-                            return;
-                        }
-                        reporterErrorBox.textContent = 'Employee ID not recognized.';
-                        reporterErrorBox.classList.remove('hidden');
-                    })
-                    .catch(function () {
-                        reporterErrorBox.textContent = 'Could not verify employee ID.';
-                        reporterErrorBox.classList.remove('hidden');
-                    });
-            });
+            if (employeeDigitsInput) {
+                employeeDigitsInput.addEventListener('input', queueReporterVerify);
+            }
 
             roomSelect.addEventListener('change', function () {
                 locationError.classList.add('hidden');
@@ -1315,6 +1493,32 @@
 
             walkInReportForm.addEventListener('submit', function (e) {
                 hideFormErrors();
+                syncEmployeeIdField();
+
+                const type = reporterTypeSelect ? reporterTypeSelect.value : '';
+                const digits = employeeDigitsInput
+                    ? String(employeeDigitsInput.value || '').replace(/\D/g, '')
+                    : '';
+
+                if (!type) {
+                    e.preventDefault();
+                    employeeError.textContent = 'Select Faculty or Staff first.';
+                    employeeError.classList.remove('hidden');
+                    if (reporterTypeSelect) {
+                        reporterTypeSelect.style.borderColor = '#dc2626';
+                        reporterTypeSelect.focus();
+                    }
+                    return;
+                }
+
+                if (digits.length !== 4) {
+                    e.preventDefault();
+                    employeeError.textContent = 'Enter the 4-digit employee number.';
+                    employeeError.classList.remove('hidden');
+                    if (employeeIdField) employeeIdField.style.borderColor = '#dc2626';
+                    if (employeeDigitsInput) employeeDigitsInput.focus();
+                    return;
+                }
 
                 const roomId = roomSelect.value;
                 if (!roomId) {
@@ -1367,15 +1571,16 @@
                     e.preventDefault();
                     employeeError.textContent = 'Employee ID not recognized.';
                     employeeError.classList.remove('hidden');
-                    employeeInput.style.borderColor = '#dc2626';
-                    employeeInput.focus();
+                    if (employeeIdField) employeeIdField.style.borderColor = '#dc2626';
+                    if (employeeDigitsInput) employeeDigitsInput.focus();
                 }
             });
 
             if (window.lucide) lucide.createIcons();
 
-            if (employeeInput.value.trim().length >= 8) {
-                employeeInput.dispatchEvent(new Event('input'));
+            syncEmployeeIdField();
+            if (employeeInput && employeeInput.value.trim().length >= 8) {
+                verifyReporterById(employeeInput.value.trim());
             }
 
             if (roomSelect.value) {

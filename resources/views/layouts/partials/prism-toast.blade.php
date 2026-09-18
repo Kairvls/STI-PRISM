@@ -1,5 +1,5 @@
 {{--
-    Shared PRISM toast (same API as Maintenance showMpToast).
+    Shared PaAyo toast (same API as Maintenance showMpToast).
     Include from module layouts only — do not edit Maintenance to use this.
 --}}
 <style>

@@ -203,7 +203,7 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
                                                 title="Archive"
                                                 aria-label="Archive"
                                             >
@@ -216,7 +216,7 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                                class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-[#0025cc] transition hover:bg-slate-50"
                                             >
                                                 <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
                                                 Restore

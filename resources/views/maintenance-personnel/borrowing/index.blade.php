@@ -896,8 +896,8 @@
                                                 '{{ $record->borrowing_status }}'
                                             )"
 
-                                            class="flex h-10 w-10 items-center
-                                                justify-center rounded-xl
+                                            class="flex h-9 w-9 items-center
+                                                justify-center rounded-lg
                                                 bg-slate-100 text-slate-600
                                                 transition
                                                 hover:bg-slate-200
@@ -909,7 +909,7 @@
                                         >
                                             <i
                                                 data-lucide="eye"
-                                                class="h-[18px] w-[18px]"
+                                                class="h-4 w-4"
                                             ></i>
                                         </button>
 
@@ -929,11 +929,11 @@
                                                     '{{$record->equipment_name}}'
                                                 )"
 
-                                                class="flex h-10 w-10 items-center
-                                                    justify-center rounded-xl
-                                                    bg-slate-950 text-white
-                                                    shadow-sm transition
-                                                    hover:bg-slate-800
+                                                class="flex h-9 w-9 items-center
+                                                    justify-center rounded-lg
+                                                    bg-[#0025cc] text-white
+                                                    transition
+                                                    hover:bg-[#001db3]
                                                     active:scale-95"
 
                                                 data-tooltip="Return equipment"
@@ -942,7 +942,7 @@
                                             >
                                                 <i
                                                     data-lucide="archive-restore"
-                                                    class="h-[18px] w-[18px]"
+                                                    class="h-4 w-4"
                                                 ></i>
                                             </button>
 
@@ -1158,7 +1158,7 @@
                                 <button
                                     type="button"
                                     @click="addSelected()"
-                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
                                 >
                                     Add
                                 </button>
@@ -1232,7 +1232,7 @@
                                                 <button
                                                     type="button"
                                                     @click="removeLine(index)"
-                                                    class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
                                                     aria-label="Remove item"
                                                 >
                                                     <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -1732,7 +1732,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-[#001a99]"
                 >
                     Confirm return
                 </button>

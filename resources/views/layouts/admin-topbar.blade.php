@@ -26,7 +26,7 @@
                 request()->is('admin/profile*') => ['Profile Settings', 'Update your Administrator account details.'],
                 request()->is('admin/security*') => ['Security Settings', 'Manage your password and account security.'],
                 request()->is('admin/settings*') => ['System Settings', 'Campus setup and system configuration.'],
-                default => [View::yieldContent('title', 'PRISM'), 'Administrator'],
+                default => [View::yieldContent('title', 'PaAyo'), 'Administrator'],
             };
 
             $unreadCount = 0;
@@ -73,7 +73,7 @@
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages"
+            aria-label="PaAyo messages"
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>

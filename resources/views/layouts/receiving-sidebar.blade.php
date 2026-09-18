@@ -35,7 +35,7 @@
 
         <div>
 
-            <h2>PRISM</h2>
+            <h2>PaAyo</h2>
 
             <span>Receiving Officer</span>
 
@@ -455,7 +455,7 @@
     DO NOT add another 14px horizontal padding.
 
     This makes the menu icon align with:
-    PRISM logo
+    PaAyo logo
     Search box
     Quick Actions
     */

@@ -689,7 +689,7 @@
                                     <button
                                         type="button"
                                         onclick='openEditRoomModal(@json($room))'
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                         title="Edit"
                                     >
                                         <i data-lucide="pencil" class="h-4 w-4"></i>
@@ -760,7 +760,7 @@
         </div>
         <div class="flex items-center justify-end gap-2 px-6 py-5">
             <button type="button" onclick="closeRoomValidationModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Close</button>
-            <button type="button" onclick="retryAddRoomFromValidation()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800">Fix & retry</button>
+            <button type="button" onclick="retryAddRoomFromValidation()" class="h-10 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]">Fix & retry</button>
         </div>
     </div>
 </div>
@@ -856,7 +856,7 @@
                                 <button
                                     type="button"
                                     onclick="removeAddRoomRow(this)"
-                                    class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:pointer-events-none disabled:opacity-30"
+                                    class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-30"
                                     title="Remove row"
                                     @disabled(count($oldRooms) === 1)
                                 >
@@ -931,7 +931,7 @@
                 <button
                     type="button"
                     onclick="removeAddRoomRow(this)"
-                    class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:pointer-events-none disabled:opacity-30"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-30"
                     title="Remove row"
                 >
                     <i data-lucide="trash-2" class="h-4 w-4"></i>

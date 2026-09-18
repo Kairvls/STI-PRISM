@@ -68,7 +68,7 @@
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div
-            class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 xl:flex-row xl:items-center"
+            class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
         >
             <div class="flex shrink-0 items-center gap-3">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
@@ -77,55 +77,15 @@
                 <div>
                     <h2 class="text-sm font-semibold text-slate-900">Reporter applications</h2>
                     <p class="mt-0.5 text-xs text-slate-400">
+                        {{ match ($status) {
+                            'approved' => 'Approved',
+                            'rejected' => 'Declined',
+                            default => 'Waiting',
+                        } }}
+                        ·
                         {{ $applications->total() }}
                         {{ $applications->total() === 1 ? 'record' : 'records' }}
-                        in this view
                     </p>
-                </div>
-            </div>
-
-            <div class="min-w-0 flex-1 xl:ml-4">
-                <div
-                    class="flex items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                    <a
-                        href="{{ url('/maintenance/reporters/approvals?status=pending') }}"
-                        class="shrink-0 rounded-lg px-3 py-1.5
-                            text-[13px] transition
-                            {{
-                                $status === 'pending'
-                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                            }}"
-                    >
-                        Waiting
-                    </a>
-
-                    <a
-                        href="{{ url('/maintenance/reporters/approvals?status=approved') }}"
-                        class="shrink-0 rounded-lg px-3 py-1.5
-                            text-[13px] transition
-                            {{
-                                $status === 'approved'
-                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                            }}"
-                    >
-                        Approved
-                    </a>
-
-                    <a
-                        href="{{ url('/maintenance/reporters/approvals?status=rejected') }}"
-                        class="shrink-0 rounded-lg px-3 py-1.5
-                            text-[13px] transition
-                            {{
-                                $status === 'rejected'
-                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                            }}"
-                    >
-                        Declined
-                    </a>
                 </div>
             </div>
 
@@ -166,17 +126,15 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[980px] text-left">
+            <table class="w-full table-fixed text-left">
                 <thead class="border-b border-slate-200 bg-slate-50/70">
-                    <tr class="text-[12px] font-semibold uppercase tracking-[0.08em] text-black">
-                        <th class="px-5 py-3">Employee ID</th>
-                        <th class="px-5 py-3">Applicant</th>
-                        <th class="px-5 py-3">Type</th>
-                        <th class="px-5 py-3">Email</th>
-                        <th class="px-5 py-3">Contact</th>
-                        <th class="px-5 py-3">Submitted</th>
-                        <th class="px-5 py-3">Status</th>
-                        <th class="w-28 px-5 py-3 text-center">Actions</th>
+                    <tr class="text-[11px] font-semibold uppercase tracking-[0.08em] text-black">
+                        <th class="w-[18%] px-3 py-2.5 sm:px-4">Employee ID</th>
+                        <th class="w-[28%] px-3 py-2.5 sm:px-4">Applicant</th>
+                        <th class="w-[12%] px-3 py-2.5 sm:px-4">Type</th>
+                        <th class="w-[14%] px-3 py-2.5 sm:px-4">Submitted</th>
+                        <th class="w-[12%] px-3 py-2.5 sm:px-4">Status</th>
+                        <th class="w-[16%] px-3 py-2.5 text-center sm:px-4">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -198,80 +156,74 @@
                                 'rejected' => 'Declined',
                                 default => 'Waiting',
                             };
+                            $submittedAt = \Carbon\Carbon::parse($application->created_at);
                         @endphp
                         <tr class="transition-colors hover:bg-slate-50/70">
-                            <td class="px-5 py-4">
-                                <span class="font-mono text-sm font-medium tracking-wider text-black">
+                            <td class="px-3 py-3 sm:px-4">
+                                <span class="block truncate font-mono text-[13px] font-medium tracking-wide text-black" title="{{ $application->employee_id }}">
                                     {{ $application->employee_id }}
                                 </span>
                             </td>
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                            <td class="px-3 py-3 sm:px-4">
+                                <div class="flex min-w-0 items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
                                         {{ strtoupper(substr($application->full_name, 0, 1)) }}
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="max-w-[220px] truncate text-sm font-semibold text-slate-800">
+                                        <p class="truncate text-sm font-semibold text-slate-800" title="{{ $application->full_name }}">
                                             {{ $application->full_name }}
                                         </p>
-                                        <p class="mt-0.5 text-[11px] text-slate-400">
-                                            Applied to report
+                                        <p class="mt-0.5 truncate text-[11px] text-slate-400" title="{{ $application->email }}">
+                                            {{ $application->email }}
                                         </p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                            <td class="px-3 py-3 sm:px-4">
+                                <span class="inline-flex max-w-full truncate rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
                                     {{ $application->employment_type }}
                                 </span>
                             </td>
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-2">
-                                    <i data-lucide="mail" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                    <span class="max-w-[240px] truncate text-xs text-slate-600">
-                                        {{ $application->email }}
-                                    </span>
-                                </div>
+                            <td class="px-3 py-3 sm:px-4">
+                                <p class="text-xs text-slate-600">{{ $submittedAt->format('M j, Y') }}</p>
+                                <p class="mt-0.5 text-[11px] text-slate-400">{{ $submittedAt->format('g:i A') }}</p>
                             </td>
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-2">
-                                    <i data-lucide="phone" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                    <span class="whitespace-nowrap text-xs text-slate-600">
-                                        {{ $application->contact }}
-                                    </span>
-                                </div>
-                            </td>
-                            <td class="px-5 py-4">
-                                <p class="text-xs text-slate-600">
-                                    {{ \Carbon\Carbon::parse($application->created_at)->format('M j, Y') }}
-                                </p>
-                                <p class="mt-0.5 text-[11px] text-slate-400">
-                                    {{ \Carbon\Carbon::parse($application->created_at)->format('g:i A') }}
-                                </p>
-                            </td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 {{ $statusClass }}">
-                                    <span class="h-1.5 w-1.5 rounded-full {{ $statusDot }}"></span>
+                            <td class="px-3 py-3 sm:px-4">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $statusClass }}">
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $statusDot }}"></span>
                                     {{ $statusLabel }}
                                 </span>
-                                @if ($application->reviewed_by_name)
-                                    <p class="mt-1 text-[11px] text-slate-400">
-                                        by {{ $application->reviewed_by_name }}
-                                    </p>
-                                @endif
-                                @if ($appStatus === 'rejected' && $application->rejection_reason)
-                                    <p class="mt-1 max-w-[180px] text-[11px] text-rose-500">
-                                        {{ $application->rejection_reason }}
-                                    </p>
-                                @endif
                             </td>
-                            <td class="px-5 py-4">
-                                @if ($appStatus === 'pending')
-                                    <div class="flex items-center justify-center gap-2">
+                            <td class="px-3 py-3 sm:px-4">
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-900 active:scale-95"
+                                        data-tooltip="View application"
+                                        aria-label="View application"
+                                        onclick="viewApplication(this)"
+                                        data-employee="{{ $application->employee_id }}"
+                                        data-name="{{ $application->full_name }}"
+                                        data-first="{{ $application->first_name }}"
+                                        data-middle="{{ $application->middle_name }}"
+                                        data-last="{{ $application->last_name }}"
+                                        data-type="{{ $application->employment_type }}"
+                                        data-email="{{ $application->email }}"
+                                        data-contact="{{ $application->contact }}"
+                                        data-status="{{ $statusLabel }}"
+                                        data-submitted="{{ $submittedAt->format('M j, Y g:i A') }}"
+                                        data-reviewed-by="{{ $application->reviewed_by_name }}"
+                                        data-reason="{{ $application->rejection_reason }}"
+                                    >
+                                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                                    </button>
+
+                                    @if ($appStatus === 'pending')
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700 active:scale-95"
                                             data-tooltip="Confirm faculty or staff"
+                                            aria-label="Confirm faculty or staff"
                                             onclick="openApproveModal(this)"
                                             data-id="{{ $application->id }}"
                                             data-name="{{ $application->full_name }}"
@@ -280,28 +232,25 @@
                                             data-type="{{ $application->employment_type }}"
                                         >
                                             <i data-lucide="check" class="h-3.5 w-3.5"></i>
-                                            Confirm
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg  bg-white px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95"
                                             data-tooltip="Decline this application"
+                                            aria-label="Decline this application"
                                             onclick="openRejectModal(this)"
                                             data-id="{{ $application->id }}"
                                             data-name="{{ $application->full_name }}"
                                         >
-                                            
-                                            Decline
+                                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
                                         </button>
-                                    </div>
-                                @else
-                                    <p class="text-center text-xs text-slate-400">Reviewed</p>
-                                @endif
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-16">
+                            <td colspan="6" class="px-5 py-16">
                                 <div class="flex flex-col items-center text-center">
                                     <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                                         <i data-lucide="user-check" class="h-5 w-5"></i>
@@ -339,6 +288,24 @@
             </div>
         @endif
     </section>
+
+    <div id="viewApplicationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+            <div class="flex items-start justify-between px-6 pb-4 pt-6">
+                <div>
+                    <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Application</p>
+                    <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Reporter details</h2>
+                </div>
+                <button type="button" onclick="closeViewApplicationModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <div id="applicationDetails" class="px-6 pb-2"></div>
+            <div class="flex justify-end px-6 py-4">
+                <button type="button" onclick="closeViewApplicationModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-950 hover:text-slate-600">Close</button>
+            </div>
+        </div>
+    </div>
 
     <div id="approveModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4">
         <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
@@ -412,6 +379,101 @@
     </div>
 
     <script>
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function viewApplication(button) {
+            const modal = document.getElementById('viewApplicationModal');
+            const details = document.getElementById('applicationDetails');
+            if (!modal || !details) return;
+
+            const name = button.dataset.name || '—';
+            const employee = button.dataset.employee || '—';
+            const first = button.dataset.first || '';
+            const middle = button.dataset.middle || '';
+            const last = button.dataset.last || '';
+            const type = button.dataset.type || '';
+            const email = button.dataset.email || '—';
+            const contact = button.dataset.contact || '—';
+            const status = button.dataset.status || '—';
+            const submitted = button.dataset.submitted || '—';
+            const reviewedBy = button.dataset.reviewedBy || '';
+            const reason = button.dataset.reason || '';
+
+            const initials = name
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0].toUpperCase())
+                .join('') || '?';
+
+            const typeChip = type
+                ? `<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">${escapeHtml(type)}</span>`
+                : `<span class="text-xs text-slate-400">No type set</span>`;
+
+            const nameParts = [first, middle, last].filter(Boolean).join(' ') || name;
+
+            details.innerHTML = `
+                <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100/80 text-sm font-semibold text-slate-950">${escapeHtml(initials)}</div>
+                        <div class="min-w-0">
+                            <p class="truncate text-base font-semibold text-slate-900">${escapeHtml(name)}</p>
+                            <p class="mt-0.5 font-mono text-xs text-slate-500">${escapeHtml(employee)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        ${typeChip}
+                        <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">${escapeHtml(status)}</span>
+                    </div>
+                </div>
+                <dl class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200/70">
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Full name</dt>
+                        <dd class="min-w-0 break-words text-right text-sm font-medium text-slate-800">${escapeHtml(nameParts)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Email</dt>
+                        <dd class="min-w-0 break-all text-right text-sm font-medium text-slate-800">${escapeHtml(email)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Contact</dt>
+                        <dd class="text-right text-sm font-medium text-slate-800">${escapeHtml(contact)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Submitted</dt>
+                        <dd class="text-right text-sm font-medium text-slate-800">${escapeHtml(submitted)}</dd>
+                    </div>
+                    ${reviewedBy ? `
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Reviewed by</dt>
+                        <dd class="text-right text-sm font-medium text-slate-800">${escapeHtml(reviewedBy)}</dd>
+                    </div>` : ''}
+                    ${reason ? `
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Decline reason</dt>
+                        <dd class="min-w-0 break-words text-right text-sm font-medium text-rose-600">${escapeHtml(reason)}</dd>
+                    </div>` : ''}
+                </dl>
+            `;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function closeViewApplicationModal() {
+            const modal = document.getElementById('viewApplicationModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function openApproveModal(button) {
             const modal = document.getElementById('approveModal');
             const form = document.getElementById('approveForm');
@@ -447,6 +509,9 @@
             modal.classList.remove('flex');
         }
 
+        document.getElementById('viewApplicationModal')?.addEventListener('click', function (event) {
+            if (event.target === this) closeViewApplicationModal();
+        });
         document.getElementById('approveModal')?.addEventListener('click', function (event) {
             if (event.target === this) closeApproveModal();
         });

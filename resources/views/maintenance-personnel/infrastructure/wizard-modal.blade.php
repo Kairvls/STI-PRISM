@@ -49,7 +49,7 @@
 
 @extends ("layouts.maintenance-layout")
 
-@section ("title", "Infrastructure Monitoring | PRISM")
+@section ("title", "Infrastructure Monitoring | PaAyo")
 
 @section ("content")
     @php
@@ -146,8 +146,9 @@
 
             step = 1;
         "
-        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event)"
-        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event)"
+        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event); trackRoomPaintPanelDrag($event)"
+        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event); endRoomPaintPanelDrag($event)"
+        @pointercancel.window="endRoomPaintPanelDrag($event)"
         class="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
     >
         <header class="mb-6 flex justify-end">
@@ -282,14 +283,14 @@
                         <button
                             @click="toggleBlueprintEdit()"
                             :class="editMode
-                                ? 'bg-[#FFF200] text-slate-950 hover:bg-[#f3e80e]'
-                                : 'bg-[#FFF200] text-slate-950 hover:bg-[#f3e80e]'"
+                                ? 'bg-[#0025cc] text-white hover:bg-[#001db3]'
+                                : 'bg-[#0025cc] text-white hover:bg-[#001db3]'"
                             class="inline-flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-medium backdrop-blur-md transition-all duration-200 ease-in-out active:scale-95"
                         >
 
                             <span x-show="editMode" class="relative flex h-2 w-2">
-                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-slate-900 opacity-75"></span>
-                                <span class="relative inline-flex h-2 w-2 rounded-full bg-slate-900"></span>
+                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+                                <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
                             </span>
 
                             <i
@@ -548,54 +549,65 @@
 
                     <div
                         x-show="editMode && roomPaintMode"
+                        x-cloak
+                        x-ref="roomPaintPanel"
                         x-transition
-                        class="absolute top-0 right-2 w-[calc(100vw-0.5rem)] max-w-44 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl sm:right-16 sm:w-44"
-                        :class="isFullscreen ? 'top-0' : 'top-0'"
+                        @pointerdown.stop
+                        class="fixed z-[90] touch-none rounded-lg border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl"
+                        :style="roomPaintPanelStyle()"
                     >
-                        <div class="flex items-center justify-between gap-2">
-                            <div>
-                                <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
-                                <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
+                        <div
+                            class="flex cursor-grab items-start justify-between gap-1.5 border-b border-slate-100 px-2 py-1.5 active:cursor-grabbing"
+                            @pointerdown="beginRoomPaintPanelDrag($event)"
+                        >
+                            <div class="flex min-w-0 items-start gap-1">
+                                <i data-lucide="grip-vertical" class="mt-0.5 h-3 w-3 shrink-0 text-slate-400"></i>
+                                <div class="min-w-0">
+                                    <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
+                                    <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
+                                </div>
                             </div>
                             <span
                                 x-show="selectedRoom"
-                                class="rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
+                                class="shrink-0 rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
                                 x-text="roomPaintColor || 'No color selected'"
                             ></span>
                         </div>
 
-                        <div class="mt-2 space-y-2">
-                            <div class="space-y-2">
-                                <div>
-                                    <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
-                                    <input x-model="roomPaintColor" type="color" class="h-7 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5" />
-                                </div>
-
-                                <div>
-                                    <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
-                                    <div class="grid grid-cols-8 gap-1">
-                                        <template x-for="color in roomPaintPresets" :key="color">
-                                            <button
-                                                type="button"
-                                                @click="roomPaintColor = color"
-                                                class="h-6 rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
-                                                :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-2' : ''"
-                                                :style="`background:${color}`"
-                                                :data-tooltip="color"
-                                            ></button>
-                                        </template>
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    @click="resetSelectedRoomColor()"
-                                    :disabled="!selectedRoom"
-                                    class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50"
-                                >
-                                    Reset room color
-                                </button>
+                        <div class="space-y-2 p-2">
+                            <div>
+                                <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
+                                <input
+                                    x-model="roomPaintColor"
+                                    type="color"
+                                    class="h-6 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
+                                />
                             </div>
+
+                            <div>
+                                <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
+                                <div class="grid grid-cols-8 gap-1">
+                                    <template x-for="color in roomPaintPresets" :key="color">
+                                        <button
+                                            type="button"
+                                            @click="roomPaintColor = color"
+                                            class="h-5 w-full rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
+                                            :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-1' : ''"
+                                            :style="`background:${color}`"
+                                            :data-tooltip="color"
+                                        ></button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                @click="resetSelectedRoomColor()"
+                                :disabled="!selectedRoom"
+                                class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Reset room color
+                            </button>
                         </div>
                     </div>
 
@@ -1032,7 +1044,7 @@
                             type="button"
                             @click="toggleRoomLayoutEdit()"
                             :class="roomLayout.edit
-                                ? 'bg-[#FFF200] text-slate-950 hover:bg-[#f3e80e]'
+                                ? 'bg-[#0025cc] text-white hover:bg-[#001db3]'
                                 : 'bg-white/10 text-white hover:bg-white/20'"
                             class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
                         >
@@ -1818,6 +1830,14 @@
                         '#EF4444',
                         '#94A3B8',
                     ],
+                    roomPaintPanel: {
+                        x: null,
+                        y: null,
+                        dragging: false,
+                        grabX: 0,
+                        grabY: 0,
+                        pointerId: null,
+                    },
                     selectedRoomControl: {
                         x: 0,
                         y: 0,
@@ -2119,6 +2139,7 @@
 
                         window.addEventListener("resize", () => {
                             this.fitBlueprint();
+                            this.clampRoomPaintPanelPosition();
                         });
 
                         this.$nextTick(() => {
@@ -3254,8 +3275,18 @@
                         this.roomPaintMode = !this.roomPaintMode;
 
                         if (!this.roomPaintMode) {
+                            this.roomPaintPanel.dragging = false;
+                            this.roomPaintPanel.pointerId = null;
                             return;
                         }
+
+                        this.placeRoomPaintPanelDefault();
+                        this.$nextTick(() => {
+                            this.clampRoomPaintPanelPosition();
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
 
                         if (this.selectedRoom) {
                             const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
@@ -3271,6 +3302,113 @@
                         if (fallbackRoom) {
                             this.selectRoomForPaint(fallbackRoom.id);
                         }
+                    },
+                    roomPaintPanelWidth() {
+                        const viewport = Math.max(320, window.innerWidth || 320);
+
+                        if (viewport < 420) {
+                            return Math.min(viewport - 24, 176);
+                        }
+
+                        return 176;
+                    },
+                    roomPaintPanelStyle() {
+                        const width = this.roomPaintPanelWidth();
+                        const x = this.roomPaintPanel.x;
+                        const y = this.roomPaintPanel.y;
+
+                        return {
+                            width: width + 'px',
+                            left: (x == null ? -9999 : x) + 'px',
+                            top: (y == null ? -9999 : y) + 'px',
+                            maxWidth: 'calc(100vw - 1.5rem)',
+                        };
+                    },
+                    placeRoomPaintPanelDefault() {
+                        const width = this.roomPaintPanelWidth();
+                        const height = this.$refs.roomPaintPanel?.offsetHeight || 220;
+                        const margin = 12;
+                        const viewport = this.$refs.blueprintViewport?.getBoundingClientRect();
+
+                        let x;
+                        let y;
+
+                        if (viewport) {
+                            x = viewport.right - width - 72;
+                            y = viewport.top + 12;
+                        } else {
+                            x = window.innerWidth - width - 72;
+                            y = 120;
+                        }
+
+                        this.roomPaintPanel.x = x;
+                        this.roomPaintPanel.y = y;
+                        this.clampRoomPaintPanelPosition(width, height, margin);
+                    },
+                    clampRoomPaintPanelPosition(width = null, height = null, margin = 12) {
+                        if (!this.roomPaintMode || this.roomPaintPanel.x == null || this.roomPaintPanel.y == null) {
+                            return;
+                        }
+
+                        const panelWidth = width ?? this.roomPaintPanelWidth();
+                        const panelHeight = height
+                            ?? this.$refs.roomPaintPanel?.offsetHeight
+                            ?? 220;
+                        const maxX = Math.max(margin, window.innerWidth - panelWidth - margin);
+                        const maxY = Math.max(margin, window.innerHeight - panelHeight - margin);
+
+                        this.roomPaintPanel.x = Math.min(maxX, Math.max(margin, this.roomPaintPanel.x));
+                        this.roomPaintPanel.y = Math.min(maxY, Math.max(margin, this.roomPaintPanel.y));
+                    },
+                    beginRoomPaintPanelDrag(event) {
+                        if (event.button != null && event.button !== 0) {
+                            return;
+                        }
+
+                        const target = event.target instanceof Element ? event.target : null;
+                        if (target?.closest('button, input, a, select, textarea, [data-no-drag]')) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        this.roomPaintPanel.dragging = true;
+                        this.roomPaintPanel.pointerId = event.pointerId;
+                        this.roomPaintPanel.grabX = event.clientX - (this.roomPaintPanel.x || 0);
+                        this.roomPaintPanel.grabY = event.clientY - (this.roomPaintPanel.y || 0);
+                        event.currentTarget?.setPointerCapture?.(event.pointerId);
+                    },
+                    trackRoomPaintPanelDrag(event) {
+                        if (!this.roomPaintPanel.dragging) {
+                            return;
+                        }
+
+                        if (
+                            this.roomPaintPanel.pointerId != null
+                            && event.pointerId !== this.roomPaintPanel.pointerId
+                        ) {
+                            return;
+                        }
+
+                        this.roomPaintPanel.x = event.clientX - this.roomPaintPanel.grabX;
+                        this.roomPaintPanel.y = event.clientY - this.roomPaintPanel.grabY;
+                        this.clampRoomPaintPanelPosition();
+                    },
+                    endRoomPaintPanelDrag(event) {
+                        if (!this.roomPaintPanel.dragging) {
+                            return;
+                        }
+
+                        if (
+                            event
+                            && this.roomPaintPanel.pointerId != null
+                            && event.pointerId !== this.roomPaintPanel.pointerId
+                        ) {
+                            return;
+                        }
+
+                        this.roomPaintPanel.dragging = false;
+                        this.roomPaintPanel.pointerId = null;
+                        this.clampRoomPaintPanelPosition();
                     },
                     selectRoomForPaint(roomId) {
                         const normalizedRoomId = Number(roomId);

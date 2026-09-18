@@ -17,3 +17,7 @@ Schedule::command('maintenance:check-alerts')
     ->hourly()
 
     ->withoutOverlapping();
+
+Schedule::command('maintenance:check-semester-inspections')
+    ->hourly()
+    ->withoutOverlapping();

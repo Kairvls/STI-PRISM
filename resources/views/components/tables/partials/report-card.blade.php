@@ -246,7 +246,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     @if ($canArchivePurchaserUrgent)
                         <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
                             @csrf
-                            <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+                            <button class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50">
                                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                                 Archive
                             </button>
@@ -255,7 +255,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     @if ($report->report_is_archived && (int) $report->report_assigned_purchaser_id === (int) auth()->id())
                         <form method="POST" action="{{ route('purchaser.reports.urgent.restore', $report->report_id) }}">
                             @csrf
-                            <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50">
+                            <button class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#0025cc] transition hover:bg-slate-50">
                                 <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                 Restore
                             </button>
@@ -269,7 +269,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     <form method="POST" action="/maintenance/reports/archive/{{ $report->report_id }}">
                         @csrf
                         <button
-                            class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                            class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50"
                         >
                             <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                             Archive
@@ -280,7 +280,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                 @if ($report->report_is_archived)
                     <form method="POST" action="/maintenance/reports/restore/{{ $report->report_id }}">
                         @csrf
-                        <button class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50">
+                        <button class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#0025cc] transition hover:bg-slate-50">
                             <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                             Restore
                         </button>

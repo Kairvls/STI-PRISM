@@ -420,7 +420,7 @@
                         x-show="selected.length > 0"
                         x-cloak
                         @click="printSelected()"
-                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
+                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#001fad]"
                     >
                         <i data-lucide="printer" class="h-3.5 w-3.5"></i>
                         Print
@@ -835,7 +835,7 @@
                                                         alt="{{ $item->equipment_name }}"
                                                         class="h-full w-full object-cover"
                                                     >
-                                                    <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                                    <span class="absolute inset-0 flex items-center justify-center bg-[#0025cc]/0 transition group-hover:bg-[#0025cc]/40">
                                                         <i data-lucide="expand" class="h-3 w-3 text-white opacity-0 transition group-hover:opacity-100"></i>
                                                     </span>
                                                 </button>
@@ -1510,7 +1510,7 @@
                     <button
                         type="button"
                         @click="printSelected()"
-                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[#001fad]"
                     >
                         <i data-lucide="printer" class="h-4 w-4"></i>
                         Print selected
@@ -1533,7 +1533,7 @@
         x-cloak
         x-transition.opacity
         style="display: none;"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0025cc]/50 p-4 backdrop-blur-[2px]"
     >
 
         <div
@@ -1796,7 +1796,7 @@
                                 Preparing ${this.selected.length} QR label${this.selected.length === 1 ? '' : 's'} for printing...
                             </div>
                             <div class="mt-5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
-                                <div class="qr-print-loading-line h-full rounded-full bg-slate-900"></div>
+                                <div class="qr-print-loading-line h-full rounded-full bg-[#0025cc]"></div>
                             </div>
                         `,
                         width: 380,
@@ -1853,7 +1853,7 @@
                         customClass: {
                             popup: 'rounded-2xl',
                             confirmButton:
-                                'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white',
+                                'rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-medium text-white',
                         },
                         buttonsStyling: false,
                     });
@@ -1890,7 +1890,7 @@
                         popup: 'rounded-2xl',
 
                         confirmButton:
-                            'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white'
+                            'rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-medium text-white'
 
                     }
 
@@ -1941,7 +1941,7 @@
                         <div
                             class="qr-print-loading-line
                                 h-full rounded-full
-                                bg-slate-900"
+                                bg-[#0025cc]"
                         ></div>
 
                     </div>
@@ -2023,7 +2023,7 @@
                     popup: 'rounded-3xl border border-slate-200 shadow-2xl',
                     title: 'text-lg font-semibold text-slate-900',
                     htmlContainer: 'text-left',
-                    confirmButton: 'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white',
+                    confirmButton: 'rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-medium text-white',
                     cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100',
                     actions: 'gap-2',
                 },
@@ -2181,7 +2181,7 @@
                                     'rounded-2xl border border-slate-200 shadow-xl',
 
                                 confirmButton:
-                                    'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white'
+                                    'rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-medium text-white'
 
                             }
 
@@ -2308,7 +2308,7 @@
                                 <div
                                     class="qr-print-loading-line
                                         h-full rounded-full
-                                        bg-slate-900"
+                                        bg-[#0025cc]"
                                 ></div>
 
                             </div>

@@ -16,6 +16,8 @@ use Illuminate\View\View;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
+use App\Support\EquipmentLifecycle;
+use App\Support\SemesterInspections;
 
 class AdminController extends Controller
 {
@@ -935,37 +937,8 @@ class AdminController extends Controller
             + (int) $overview['overdue_schedules']
             + (int) $overview['overdue_borrows'];
 
-        $lifecycleAlerts = collect();
-        $usefulLifeYears = 5;
-        try {
-            if (Schema::hasTable('equipment_table')) {
-                $lifeExpr = Schema::hasColumn('equipment_table', 'equipment_useful_life_years')
-                    ? 'COALESCE(equipment_useful_life_years, 5)'
-                    : '5';
-                $lifecycleAlerts = DB::table('equipment_table')
-                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
-                    ->whereRaw('COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at) IS NOT NULL')
-                    ->where(function ($q) {
-                        $q->whereNull('equipment_inventory_status')
-                            ->orWhereNotIn('equipment_inventory_status', ['Disposed']);
-                    })
-                    ->select(
-                        'equipment_table.equipment_id',
-                        'equipment_table.equipment_name',
-                        'equipment_table.equipment_inventory_status',
-                        'rooms_table.room_name',
-                        DB::raw("{$lifeExpr} as useful_life_years"),
-                        DB::raw('TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE()) as age_years'),
-                        DB::raw("({$lifeExpr} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) as years_remaining")
-                    )
-                    ->havingRaw('years_remaining <= 1')
-                    ->orderBy('years_remaining')
-                    ->limit(6)
-                    ->get();
-            }
-        } catch (\Throwable $e) {
-            $lifecycleAlerts = collect();
-        }
+        $lifecycleAlerts = EquipmentLifecycle::agingAlerts(6);
+        $usefulLifeYears = EquipmentLifecycle::DEFAULT_USEFUL_LIFE_YEARS;
 
         $upcomingMaintenanceSchedules = collect();
         try {
@@ -979,27 +952,18 @@ class AdminController extends Controller
                         'maintenance_schedules_table.maintenance_schedule_equipment_id'
                     )
                     ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
-                    ->where(function ($q) use ($horizon) {
-                        $q->where('maintenance_schedule_status', 'Overdue')
-                            ->orWhere(function ($q2) use ($horizon) {
-                                $q2->where('maintenance_schedule_status', 'Active')
-                                    ->whereDate('maintenance_schedule_next_date', '<=', $horizon);
-                            });
-                    })
+                    ->whereIn('maintenance_schedule_status', ['Active', 'Overdue'])
                     ->whereNotNull('maintenance_schedule_next_date')
+                    ->where(function ($q) use ($horizon) {
+                        $q->whereDate('maintenance_schedule_next_date', '<=', $horizon)
+                            ->orWhere('maintenance_schedule_status', 'Overdue');
+                    })
                     ->select(
-                        'maintenance_schedules_table.maintenance_schedule_id',
-                        'maintenance_schedules_table.maintenance_schedule_title',
-                        'maintenance_schedules_table.maintenance_schedule_next_date',
-                        'maintenance_schedules_table.maintenance_schedule_status',
-                        'maintenance_schedules_table.maintenance_schedule_frequency',
+                        'maintenance_schedules_table.*',
                         'equipment_table.equipment_name',
                         'rooms_table.room_name'
                     )
-                    ->orderByRaw("CASE
-                        WHEN maintenance_schedule_status = 'Overdue' OR maintenance_schedule_next_date < CURDATE() THEN 0
-                        ELSE 1
-                    END")
+                    ->orderByRaw("CASE WHEN maintenance_schedule_status = 'Overdue' OR maintenance_schedule_next_date < CURDATE() THEN 0 ELSE 1 END")
                     ->orderBy('maintenance_schedule_next_date')
                     ->limit(3)
                     ->get();
@@ -1007,6 +971,8 @@ class AdminController extends Controller
         } catch (\Throwable $e) {
             $upcomingMaintenanceSchedules = collect();
         }
+
+        $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
 
         $overdueBorrowsPreview = collect();
         try {
@@ -1114,6 +1080,7 @@ class AdminController extends Controller
             'lifecycleAlerts',
             'usefulLifeYears',
             'upcomingMaintenanceSchedules',
+            'semesterInspectionDue',
             'overdueBorrowsPreview',
         ));
     }

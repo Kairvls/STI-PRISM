@@ -203,7 +203,7 @@
                 @elseif ($atpReadyForRfc > 0)
                     <a
                         href="{{ route('purchaser.rfc.index', ['create' => 1]) }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Create RFC
                     </a>

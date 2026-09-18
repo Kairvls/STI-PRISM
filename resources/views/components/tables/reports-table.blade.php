@@ -1,4 +1,4 @@
-﻿<style>
+﻿ï»¿Ã¯Â»Â¿ÃÂ¯ÃÂ»ÃÂ¿<style>
     @keyframes scanner {
         0% {
             left: -40%;
@@ -238,7 +238,7 @@
                             data-lucide="search"
                             class="h-4 w-4"
                         ></i>
-                    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0025cc] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                         Search
                     </span>
                 </button>
@@ -436,21 +436,21 @@
 
     <!-- TABLE VIEW -->
     <div id="table-view" class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full table-fixed">
             <thead>
                 <tr class="border-b border-gray-100">
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[12%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Report ID
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[18%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Reporter
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[22%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Room & Equipment
                     </th>
@@ -460,22 +460,22 @@
                         Equipment
                     </th>-->
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[10%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Urgency
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[12%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Status
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[12%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Date Submitted
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black"
+                        class="w-[14%] bg-gray-50 px-5 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Actions
                     </th>
@@ -517,11 +517,13 @@
                         class="border-b border-gray-100 hover:bg-yellow-50/30 transition {{ $rowBg }}"
                     >
                         <td class="px-5 py-4 text-sm font-semibold text-gray-500">
-                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
+                            <span class="block truncate" title="{{ \App\Support\ReportGrouping::ticketCode($report) }}">
+                                {{ \App\Support\ReportGrouping::ticketCode($report) }}
+                            </span>
                         </td>
                         <td class="px-5 py-4">
-                            <div>
-                                <p class="text-sm font-semibold text-gray-800">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-gray-800" title="{{ $report->reporter_full_name ?? 'Unknown Reporter' }}">
                                     {{
                                         $report->reporter_full_name ??
                                             "Unknown Reporter"
@@ -530,7 +532,7 @@
 
                                 <hr class="mb-1 mt-1" />
 
-                                <p class="text-xs text-black">
+                                <p class="truncate text-xs text-black">
                                     ID: {{ $report->reporter_employee_id }}
                                 </p>
                             </div>
@@ -549,14 +551,14 @@
                         </td>-->
 
                         <td class="px-5 py-4 text-sm text-gray-600">
-                            <div>
-                                <div class="flex flex-wrap items-center gap-1.5">
+                            <div class="min-w-0">
+                                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
                                     @php
                                         $tableEqParts = \App\Support\ReportItems::splitMoreLabel(
                                             $report->equipment_display ?? $report->equipment_name ?? 'Unlisted'
                                         );
                                     @endphp
-                                    <p class="font-medium text-slate-800">
+                                    <p class="min-w-0 truncate font-medium text-slate-800" title="{{ $tableEqParts['primary'] }}">
                                         {{ $tableEqParts['primary'] }}
                                     </p>
                                     @if ($tableEqParts['more'] > 0)
@@ -580,7 +582,7 @@
                                         </button>
                                     @endif
                                 </div>
-                                <p class="text-xs text-slate-400">
+                                <p class="truncate text-xs text-slate-400" title="{{ $report->room_name }}">
                                     {{ $report->room_name }}
                                 </p>
                             </div>
@@ -660,7 +662,7 @@
                                     @if ($canArchivePurchaserUrgent)
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
                                             @csrf
-                                            <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)]">
+                                            <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50">
                                                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                                             </button>
                                         </form>
@@ -668,7 +670,7 @@
                                     @if ($report->report_is_archived && (int) $report->report_assigned_purchaser_id === (int) auth()->id())
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.restore', $report->report_id) }}">
                                             @csrf
-                                            <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
+                                            <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
                                                 <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                             </button>
                                         </form>
@@ -679,7 +681,7 @@
                                         type="button"
                                         data-tooltip="Update Report"
                                         onclick="openReportModal('update-modal-{{ $report->report_id }}')"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                     >
                                         <i
                                             data-lucide="edit-3"
@@ -700,7 +702,7 @@
 
                                         <button
                                             data-tooltip="Archive Report"
-                                            class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs  text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)] active:scale-95"
+                                            class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
                                         >
                                             <i
                                                 data-lucide="archive"
@@ -717,7 +719,7 @@
                                     >
                                         @csrf
 
-                                        <button data-tooltip="Restore Report" class="flex items-center gap-1.5 h-9 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
+                                        <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
                                         <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                         
                                         </button>
@@ -962,7 +964,7 @@
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="hash" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                <span>{{ $report->reporter_employee_id ?? "—" }} · {{ \App\Support\ReportGrouping::ticketCode($report) }}</span>
+                                <span>{{ $report->reporter_employee_id ?? "ÃÂ¯ÃÂ¿ÃÂ½" }} ÃÂ¯ÃÂ¿ÃÂ½ {{ \App\Support\ReportGrouping::ticketCode($report) }}</span>
                             </p>
                         </div>
                     </div>
@@ -983,7 +985,7 @@
                         onclick="switchReportViewTab({{ $report->report_id }}, 'history')"
                         class="border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-slate-400 hover:text-slate-600"
                     >
-                        Timeline{{ $historyCount ? " · ".$historyCount : "" }}
+                        Timeline{{ $historyCount ? " ÃÂ¯ÃÂ¿ÃÂ½ ".$historyCount : "" }}
                     </button>
                 </div>
 
@@ -995,7 +997,7 @@
                                 class="rounded-2xl transition ring-0 ring-transparent"
                             >
                             <p class="mb-3 text-sm font-medium text-slate-600">
-                                Equipment items{{ $viewItems->count() > 1 ? " · ".$viewItems->count() : "" }}
+                                Equipment items{{ $viewItems->count() > 1 ? " ÃÂ¯ÃÂ¿ÃÂ½ ".$viewItems->count() : "" }}
                             </p>
                             <ul class="mb-5 space-y-3">
                                 @foreach ($viewItems as $item)
@@ -1209,7 +1211,7 @@
                                                 <span class="mt-0.5 block text-xs text-gray-500">
                                                     Current: {{ $item->report_item_status }}
                                                     @if (!empty($item->report_item_suggested_issue))
-                                                        · {{ $item->report_item_suggested_issue }}
+                                                        ÃÂ¯ÃÂ¿ÃÂ½ {{ $item->report_item_suggested_issue }}
                                                     @endif
                                                 </span>
                                                 @include('components.tables.partials.report-item-equipment-details', [
@@ -1298,7 +1300,7 @@
                                 </div>
                                 <div id="upload-text-container-{{ $report->report_id }}" class="min-w-0 flex-1">
                                     <p class="text-sm text-slate-800">Upload image</p>
-                                    <p class="text-xs text-slate-400">PNG, JPG, JPEG or WEBP · 10MB max</p>
+                                    <p class="text-xs text-slate-400">PNG, JPG, JPEG or WEBP ÃÂ¯ÃÂ¿ÃÂ½ 10MB max</p>
                                 </div>
                                 <input
                                     type="file"
@@ -1358,7 +1360,7 @@
                         </button>
                         <button
                             type="submit"
-                            class="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                            class="rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                         >
                             Update Status
                         </button>
@@ -1385,7 +1387,7 @@
             >
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ \App\Support\ReportGrouping::ticketCode($report) }} · {{ $report->report_current_status }}</p>
+                        <p class="text-xs text-slate-400">{{ \App\Support\ReportGrouping::ticketCode($report) }} ÃÂ¯ÃÂ¿ÃÂ½ {{ $report->report_current_status }}</p>
                         <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
                             {{ $equipmentLabel }}
                         </h2>

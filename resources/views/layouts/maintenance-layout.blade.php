@@ -369,7 +369,7 @@
             const originalFire = Swal.fire.bind(Swal);
 
             Swal.fire = function (options) {
-                // Toast calls → custom PRISM toast card
+                // Toast calls → custom PaAyo toast card
                 if (options && typeof options === 'object' && options.toast) {
                     const icon = options.icon || 'success';
                     const type = icon === 'error' || icon === 'warning' || icon === 'info'
@@ -400,7 +400,7 @@
             Swal.__mpToastWrapped = true;
         }
 
-        // Report toast → PRISM card
+        // Report toast → PaAyo card
         const originalShowReportToast = window.showReportToast;
         window.showReportToast = function (report) {
             if (!report) {

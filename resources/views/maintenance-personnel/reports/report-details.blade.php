@@ -98,11 +98,6 @@
 
                 <div class="min-w-0">
 
-                    {{-- META --}}
-
-                    
-
-
                     {{-- TITLE --}}
 
                     <h1
@@ -154,8 +149,13 @@
 
                 </div>
 
-
-                
+                <a
+                    href="{{ url('/maintenance/reports') }}"
+                    class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                    Back
+                </a>
 
             </div>
 
@@ -716,7 +716,7 @@
                         <button
                             type="button"
                             onclick="openUpdateStatusModal()"
-                            class="flex w-full items-center justify-between rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                            class="flex w-full items-center justify-between rounded-xl bg-[#0025cc] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                         >
                             <span class="flex items-center gap-2.5">
 
@@ -789,7 +789,7 @@
                         <div class="relative pb-1">
 
                             <span
-                                class="absolute -left-7 top-1.5 flex h-3 w-3 items-center justify-center rounded-full bg-gray-900 ring-4 ring-white"
+                                class="absolute -left-7 top-1.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#0025cc] ring-4 ring-white"
                             ></span>
 
                             <p
@@ -1046,7 +1046,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                        class="rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Update Status
                     </button>

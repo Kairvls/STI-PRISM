@@ -362,6 +362,7 @@
                 action="{{ url()->current() }}"
                 class="border-b border-slate-200 px-5 py-4"
             >
+                <input type="hidden" name="archive" value="{{ !empty($showArchive) ? 1 : 0 }}" />
 
                 <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
 
@@ -610,7 +611,7 @@
                     )
 
                         <a
-                            href="{{ url()->current() }}"
+                            href="{{ url()->current() }}?archive={{ !empty($showArchive) ? 1 : 0 }}"
 
                             class="inline-flex h-10 items-center
                                 justify-center gap-2 rounded-lg
@@ -633,6 +634,31 @@
                         </a>
 
                     @endif
+
+                    <div class="hidden h-6 w-px bg-slate-200 xl:block"></div>
+
+                    <div class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1">
+                        <a
+                            href="{{ url('/maintenance/disposal') }}?archive=0"
+                            class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
+                                {{ empty($showArchive)
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600' }}"
+                        >
+                            <i data-lucide="folder-open" class="h-3.5 w-3.5"></i>
+                            Active
+                        </a>
+                        <a
+                            href="{{ url('/maintenance/disposal') }}?archive=1"
+                            class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
+                                {{ !empty($showArchive)
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600' }}"
+                        >
+                            <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                            Archive
+                        </a>
+                    </div>
 
                 </div>
 
@@ -970,10 +996,10 @@
                                                 ($record->equipment_condition_status ?? '') === 'Disposed';
                                         @endphp
 
-                                        @if (! $isFinallyDisposed)
+                                        @if (empty($showArchive) && ! $isFinallyDisposed)
                                             <button
                                                 type="button"
-                                                class="js-restore-disposal flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+                                                class="js-restore-disposal flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
                                                 data-disposal-id="{{ (int) $record->disposal_record_id }}"
                                                 data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
                                                 data-tooltip="Restore to Inventory"
@@ -984,7 +1010,7 @@
 
                                             <button
                                                 type="button"
-                                                class="js-finalize-dispose flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-800"
+                                                class="js-finalize-dispose flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white transition hover:bg-red-700"
                                                 data-disposal-id="{{ (int) $record->disposal_record_id }}"
                                                 data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
                                                 data-tooltip="Finalize disposal (cannot restore)"
@@ -1028,32 +1054,33 @@
 
 
                                         {{-- ================================= --}}
-                                        {{-- DELETE BUTTON --}}
+                                        {{-- ARCHIVE / UNARCHIVE (finalized only) --}}
                                         {{-- ================================= --}}
 
-                                        <button
-                                            type="button"
-
-                                            onclick='openDeleteModal(
-                                                @js($record->disposal_record_id)
-                                            )'
-
-                                            class="flex h-9 w-9 items-center
-                                                justify-center rounded-xl
-                                                bg-red-600 text-white
-                                                shadow-sm transition
-                                                hover:bg-red-700
-                                                active:scale-95"
-
-                                            data-tooltip="Delete disposal record"
-
-                                            aria-label="Delete disposal record"
-                                        >
-                                            <i
-                                                data-lucide="trash-2"
-                                                class="h-3.5"
-                                            ></i>
-                                        </button>
+                                        @if (!empty($showArchive))
+                                            <form method="POST" action="/maintenance/disposal/unarchive" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="disposal_id" value="{{ (int) $record->disposal_record_id }}" />
+                                                <button
+                                                    type="submit"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50 active:scale-95"
+                                                    data-tooltip="Restore from archive"
+                                                    aria-label="Restore from archive"
+                                                >
+                                                    <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                                </button>
+                                            </form>
+                                        @elseif ($isFinallyDisposed)
+                                            <button
+                                                type="button"
+                                                onclick='openArchiveModal(@js($record->disposal_record_id))'
+                                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
+                                                data-tooltip="Archive disposal record"
+                                                aria-label="Archive disposal record"
+                                            >
+                                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        @endif
 
                                     </div>
 
@@ -1115,7 +1142,9 @@
 
                                                     ? 'No matching disposal records'
 
-                                                    : 'No disposal records yet'
+                                                    : (!empty($showArchive)
+                                                        ? 'Archive is empty'
+                                                        : 'No disposal records yet')
                                             }}
 
                                         </h3>
@@ -1135,7 +1164,9 @@
 
                                                     ? 'No disposal records match your current search or filters.'
 
-                                                    : 'Equipment moved to disposal will appear here with its reason, location, and disposal date.'
+                                                    : (!empty($showArchive)
+                                                        ? 'Finalized disposals you archive will appear here.'
+                                                        : 'Equipment moved to disposal will appear here with its reason, location, and disposal date.')
                                             }}
 
                                         </p>
@@ -1445,7 +1476,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 active:bg-rose-800"
+                    class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-slate-50 focus:outline-none"
                 >
                     Dispose equipment
                 </button>
@@ -1517,7 +1548,7 @@
                 <button
                     type="button"
                     onclick="closeViewModal()"
-                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad] focus:outline-none focus:ring-4 focus:ring-slate-200"
                 >
                     Done
                 </button>
@@ -1586,7 +1617,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-[#0025cc] transition hover:bg-slate-50 focus:outline-none"
                     >
                         Confirm restore
                     </button>
@@ -1613,7 +1644,7 @@
         >
             <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
                 <div class="min-w-0">
-                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white">
                         <i data-lucide="archive-x" class="h-4 w-4"></i>
                     </div>
 
@@ -1657,7 +1688,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200"
+                        class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-100"
                     >
                         Confirm dispose
                     </button>
@@ -1667,94 +1698,57 @@
     </div>
 
     <!-- ===================================================== -->
-    <!-- DELETE DISPOSAL MODAL -->
+    <!-- ARCHIVE DISPOSAL MODAL -->
     <!-- ===================================================== -->
 
     <div
-    id="deleteModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- DELETE DISPOSAL RECORD MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="archiveModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeArchiveModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
-            <div class="min-w-0">
-                <!-- DELETE ICON -->
-                <div
-                    class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600"
-                >
-                    <i data-lucide="trash-2" class="h-4 w-4"></i>
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                        <i data-lucide="archive" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Archive disposal record?
+                    </h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        This finalized disposal will move to Archive. You can restore it to the active list anytime.
+                    </p>
                 </div>
-
-                <h2
-                    class="text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Delete disposal record?
-                </h2>
-
-                <p class="mt-2 text-sm leading-6 text-slate-500">
-                    This disposal record will be permanently deleted. This
-                    action cannot be undone.
-                </p>
-            </div>
-
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeDeleteModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- DELETE FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/disposal/delete"
-            method="POST"
-        >
-            @csrf
-            @method('DELETE')
-
-            <input
-                type="hidden"
-                id="deleteDisposalId"
-                name="disposal_id"
-            />
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4"
-            >
                 <button
                     type="button"
-                    onclick="closeDeleteModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    onclick="closeArchiveModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
                 >
-                    Cancel
-                </button>
-
-                <button
-                    type="submit"
-                    class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 active:bg-rose-800"
-                >
-                    Delete record
+                    <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
-        </form>
+            <form action="/maintenance/disposal/archive" method="POST">
+                @csrf
+                <input type="hidden" id="archiveDisposalId" name="disposal_id" />
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="closeArchiveModal()"
+                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-[#007a3f] transition hover:bg-slate-50 focus:outline-none"
+                    >
+                        Archive record
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
     <script>
         function openDisposeModal() {
@@ -2020,15 +2014,15 @@
             );
         });
 
-        function openDeleteModal(id) {
-            document.getElementById("deleteDisposalId").value = id;
-            document.getElementById("deleteModal").classList.remove("hidden");
-            document.getElementById("deleteModal").classList.add("flex");
+        function openArchiveModal(id) {
+            document.getElementById("archiveDisposalId").value = id;
+            document.getElementById("archiveModal").classList.remove("hidden");
+            document.getElementById("archiveModal").classList.add("flex");
         }
 
-        function closeDeleteModal() {
-            document.getElementById("deleteModal").classList.add("hidden");
-            document.getElementById("deleteModal").classList.remove("flex");
+        function closeArchiveModal() {
+            document.getElementById("archiveModal").classList.add("hidden");
+            document.getElementById("archiveModal").classList.remove("flex");
         }
 
         window.openDisposeModal = openDisposeModal;
@@ -2040,8 +2034,8 @@
         window.closeRestoreDisposalModal = closeRestoreDisposalModal;
         window.openFinalizeDisposeModal = openFinalizeDisposeModal;
         window.closeFinalizeDisposeModal = closeFinalizeDisposeModal;
-        window.openDeleteModal = openDeleteModal;
-        window.closeDeleteModal = closeDeleteModal;
+        window.openArchiveModal = openArchiveModal;
+        window.closeArchiveModal = closeArchiveModal;
     </script>
 
 @endsection

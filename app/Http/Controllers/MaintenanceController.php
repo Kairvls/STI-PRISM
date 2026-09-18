@@ -15,6 +15,8 @@ use App\Support\RoomName;
 use App\Support\SuggestedIssues;
 use App\Support\EquipmentQrCodes;
 use App\Support\EquipmentViewReturn;
+use App\Support\EquipmentLifecycle;
+use App\Support\SemesterInspections;
 use App\Models\RoomActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -2410,6 +2412,14 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
+        // LIFECYCLE + SEMESTER INSPECTION SNAPSHOTS
+        // =====================================================
+
+        $lifecycleAlerts = EquipmentLifecycle::agingAlerts(5);
+        $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
+
+
+        // =====================================================
         // RETURN DASHBOARD VIEW
         // =====================================================
 
@@ -2532,7 +2542,11 @@ class MaintenanceController extends Controller
 
                 'borrowableEquipmentJson',
 
-                'usedAssetTags'
+                'usedAssetTags',
+
+                'lifecycleAlerts',
+
+                'semesterInspectionDue',
 
             )
 
@@ -11674,6 +11688,9 @@ class MaintenanceController extends Controller
         // SEARCH AND FILTERS APPLY BEFORE PAGINATION
         // =====================================================
 
+        $showArchive = $request->query('archive') == 1 || $request->query('view') === 'archive';
+        $hasArchiveColumn = Schema::hasColumn('disposal_records_table', 'disposal_is_archived');
+
         $query = DB::table('disposal_records_table')
 
             ->leftJoin(
@@ -11696,6 +11713,16 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_condition_status',
                 'equipment_table.equipment_inventory_status',
                 'equipment_categories_table.equipment_category_name'
+            )
+
+            ->when(
+                $hasArchiveColumn,
+                function ($q) use ($showArchive) {
+                    $q->where(
+                        'disposal_records_table.disposal_is_archived',
+                        $showArchive ? 1 : 0
+                    );
+                }
             );
 
 
@@ -11850,6 +11877,10 @@ class MaintenanceController extends Controller
 
         $totalDisposalRecords =
             DB::table('disposal_records_table')
+                ->when(
+                    $hasArchiveColumn,
+                    fn ($q) => $q->where('disposal_is_archived', 0)
+                )
                 ->count();
 
 
@@ -11873,6 +11904,11 @@ class MaintenanceController extends Controller
                 ->where(
                     'equipment_table.equipment_condition_status',
                     'Damaged'
+                )
+
+                ->when(
+                    $hasArchiveColumn,
+                    fn ($q) => $q->where('disposal_records_table.disposal_is_archived', 0)
                 )
 
                 ->count();
@@ -12105,6 +12141,7 @@ class MaintenanceController extends Controller
                 'disposals',
                 'equipment',
                 'categories',
+                'showArchive',
 
                 // =================================================
                 // DISPOSAL DASHBOARD VARIABLES
@@ -12188,6 +12225,10 @@ class MaintenanceController extends Controller
 
             $existingDisposal = DB::table('disposal_records_table')
                 ->where('disposal_equipment_id', $request->equipment_id)
+                ->when(
+                    Schema::hasColumn('disposal_records_table', 'disposal_is_archived'),
+                    fn ($q) => $q->where('disposal_is_archived', 0)
+                )
                 ->orderByDesc('disposal_record_id')
                 ->first();
 
@@ -12355,27 +12396,58 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE DISPOSAL RECORD
+    | ARCHIVE / UNARCHIVE DISPOSAL RECORD
+    | Finalized disposals only — keeps audit trail, hides from active list.
     |--------------------------------------------------------------------------
     */
 
-    public function deleteDisposal(Request $request)
+    public function archiveDisposal(Request $request)
     {
-        DB::table(
-            'disposal_records_table'
-        )
+        if (! Schema::hasColumn('disposal_records_table', 'disposal_is_archived')) {
+            return back()->with('error', 'Archive is not available yet.');
+        }
 
-        ->where(
-            'disposal_record_id',
-            $request->disposal_id
-        )
+        $record = DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->first();
 
-        ->delete();
+        if (! $record) {
+            return back()->with('error', 'Disposal record not found.');
+        }
 
-        return back()->with(
-            'success',
-            'Disposal record deleted.'
-        );
+        $equipment = DB::table('equipment_table')
+            ->where('equipment_id', $record->disposal_equipment_id)
+            ->first();
+
+        if (($equipment->equipment_condition_status ?? '') !== 'Disposed') {
+            return back()->with(
+                'error',
+                'Only finalized disposals can be archived. Restore or finalize the item first.'
+            );
+        }
+
+        DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->update(['disposal_is_archived' => 1]);
+
+        return back()->with('success', 'Disposal record archived.');
+    }
+
+    public function unarchiveDisposal(Request $request)
+    {
+        if (! Schema::hasColumn('disposal_records_table', 'disposal_is_archived')) {
+            return back()->with('error', 'Archive is not available yet.');
+        }
+
+        $updated = DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->update(['disposal_is_archived' => 0]);
+
+        if (! $updated) {
+            return back()->with('error', 'Disposal record not found.');
+        }
+
+        return back()->with('success', 'Disposal record restored from archive.');
     }
 
 
@@ -13320,21 +13392,43 @@ class MaintenanceController extends Controller
     {
         $request->validate([
             'reporter_id' => 'required',
-            'employee_id' => 'required|string|max:100',
+            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{4}[FS]$/'],
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
-            'type' => 'nullable|in:Faculty,Staff',
+            'type' => 'required|in:Faculty,Staff',
             'email' => 'nullable|email|max:255',
             'contact' => 'nullable|string|max:50',
+        ], [
+            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
         ]);
+
+        $employeeId = strtoupper(trim($request->employee_id));
+        $expectedSuffix = $request->type === 'Staff' ? 'S' : 'F';
+
+        if (! str_ends_with($employeeId, $expectedSuffix)) {
+            return back()->withErrors([
+                'employee_id' => $request->type === 'Staff'
+                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
+                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+            ])->withInput();
+        }
+
+        $taken = ReporterApprovals::registeredByEmployeeNumber($employeeId);
+
+        if ($taken && (string) $taken->reporter_id !== (string) $request->reporter_id) {
+            return back()->with(
+                'error',
+                'That employee number is already used by another reporter (Faculty or Staff).'
+            );
+        }
 
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
 
         $payload = [
-            'reporter_employee_id' => trim($request->employee_id),
+            'reporter_employee_id' => $employeeId,
             'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
             'reporter_email_address' => $request->email ?: null,
             'reporter_contact_number' => $request->contact ?: null,
@@ -13493,12 +13587,10 @@ class MaintenanceController extends Controller
 
         $employeeId = trim($application->employee_id);
 
-        $idTaken = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->exists();
+        $idTaken = ReporterApprovals::registeredByEmployeeNumber($employeeId);
 
         if ($idTaken) {
-            return back()->with('error', 'That employee ID is already in the reporters list.');
+            return back()->with('error', 'That employee number is already in the reporters list (Faculty or Staff).');
         }
 
         $emailTaken = DB::table('reporters_table')
@@ -13961,6 +14053,7 @@ class MaintenanceController extends Controller
             'Reports',
             'Maintenance',
             'Equipment',
+            'Inspection',
         ];
 
 
@@ -15286,12 +15379,11 @@ class MaintenanceController extends Controller
     {
         $request->validate([
             // Employee ID
-            // Required and must be unique
+            // Required: OMC + 4 digits + F/S; unique by 4-digit number (F/S variants share one number)
             'employee_id' => [
                 'required',
                 'string',
-                'max:100',
-                'unique:reporters_table,reporter_employee_id',
+                'regex:/^OMC[0-9]{4}[FS]$/',
             ],
 
             // First Name
@@ -15339,19 +15431,33 @@ class MaintenanceController extends Controller
                 'nullable',
                 'digits:11',
             ],
+        ], [
+            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
         ]);
 
-        $employeeId = trim($request->employee_id);
+        $employeeId = strtoupper(trim($request->employee_id));
+        $expectedSuffix = $request->type === 'Staff' ? 'S' : 'F';
 
-            if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
-                return back()->with(
-                    'error',
-                    'That employee ID already has an application waiting for approval.'
-                );
-            }
+        if (! str_ends_with($employeeId, $expectedSuffix)) {
+            return back()->withErrors([
+                'employee_id' => $request->type === 'Staff'
+                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
+                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+            ])->withInput();
+        }
 
-        if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
-            return back()->with('error', 'That employee ID already has an application waiting for approval.');
+        if (ReporterApprovals::registeredByEmployeeNumber($employeeId)) {
+            return back()->with(
+                'error',
+                'That employee number is already in the reporters list (Faculty or Staff).'
+            );
+        }
+
+        if (ReporterApprovals::pendingByEmployeeNumber($employeeId)) {
+            return back()->with(
+                'error',
+                'That employee number already has an application waiting for approval.'
+            );
         }
 
         $first = trim($request->first_name);
@@ -15394,8 +15500,8 @@ class MaintenanceController extends Controller
         $callback = function () {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_values(ReporterImport::FIELDS));
-            fputcsv($handle, ['OMC0130F', 'John', 'Michael', 'Smith', 'Faculty', 'john@company.com', "\t09171234567"]);
-            fputcsv($handle, ['', 'Sarah', '', 'Connor', 'Staff', 'sarah@company.com', "\t09179876543"]);
+            fputcsv($handle, ['Faculty', 'OMC0130F', 'John', 'Michael', 'Smith', 'john@company.com', "\t09171234567"]);
+            fputcsv($handle, ['Staff', '', 'Sarah', '', 'Connor', 'sarah@company.com', "\t09179876543"]);
             fclose($handle);
         };
 
@@ -15500,6 +15606,14 @@ class MaintenanceController extends Controller
             ->map(fn ($id) => strtoupper((string) $id))
             ->all();
 
+        $existingNumbers = [];
+        foreach ($existingIds as $existingId) {
+            $number = ReporterApprovals::employeeNumber($existingId);
+            if ($number) {
+                $existingNumbers[$number] = true;
+            }
+        }
+
         $existingEmails = DB::table('reporters_table')
             ->pluck('reporter_email_address')
             ->filter()
@@ -15521,6 +15635,12 @@ class MaintenanceController extends Controller
                 ->all();
 
             $existingIds = array_values(array_unique(array_merge($existingIds, $pendingIds)));
+            foreach ($pendingIds as $pendingId) {
+                $number = ReporterApprovals::employeeNumber($pendingId);
+                if ($number) {
+                    $existingNumbers[$number] = true;
+                }
+            }
             $existingEmails = array_values(array_unique(array_merge($existingEmails, $pendingEmails)));
         }
 
@@ -15560,10 +15680,11 @@ class MaintenanceController extends Controller
             }
 
             $idKey = strtoupper($employeeId);
+            $numberKey = ReporterApprovals::employeeNumber($idKey);
 
-            if (in_array($idKey, $existingIds, true)) {
+            if (in_array($idKey, $existingIds, true) || ($numberKey && isset($existingNumbers[$numberKey]))) {
                 $skipped++;
-                $errors[] = "Row {$line}: employee ID {$employeeId} already exists.";
+                $errors[] = "Row {$line}: employee number {$employeeId} already exists (Faculty or Staff).";
                 continue;
             }
 
@@ -15595,6 +15716,9 @@ class MaintenanceController extends Controller
             DB::table('reporters_table')->insert($payload);
 
             $existingIds[] = $idKey;
+            if ($numberKey) {
+                $existingNumbers[$numberKey] = true;
+            }
             if ($email !== '') {
                 $existingEmails[] = $email;
             }

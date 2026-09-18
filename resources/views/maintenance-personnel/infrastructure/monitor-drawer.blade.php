@@ -1497,7 +1497,7 @@
                                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
                                             <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
                                             <input type="checkbox" x-model="addBorrowable" class="peer sr-only">
-                                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
                                         </label>
                                     </div>
                                 </div>
@@ -1564,7 +1564,7 @@
                                     <button
                                         type="button"
                                         @click="applyPlacementToAll()"
-                                        class="h-10 rounded-lg bg-slate-900 px-4 text-xs font-medium text-white hover:bg-slate-800"
+                                        class="h-10 rounded-lg bg-[#0025cc] px-4 text-xs font-medium text-white hover:bg-[#001fad]"
                                         x-text="'Apply to all ' + addItems.length"
                                     ></button>
                                     <div class="flex flex-wrap items-end gap-2 border-l border-slate-200 pl-3" x-show="addItems.length >= 2">
@@ -1670,7 +1670,7 @@
                                     x-show="addStep === 1 && needsItemDetails()"
                                     @click="continueAddEquipment()"
                                     :disabled="saving"
-                                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-[#001fad] disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Continue
                                 </button>
@@ -1679,7 +1679,7 @@
                                     x-show="addStep === 2 || !needsItemDetails()"
                                     @click="addStep === 2 ? storeEquipment() : continueAddEquipment()"
                                     :disabled="saving"
-                                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-[#001fad] disabled:cursor-not-allowed disabled:opacity-50"
                                     x-text="saving
                                         ? 'Saving…'
                                         : (addStep === 2
@@ -2407,7 +2407,7 @@
                                         <button
                                             type="button"
                                             @click="applyDestinationToSelected()"
-                                            class="h-10 rounded-lg bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"
+                                            class="h-10 rounded-lg bg-[#0025cc] px-3 text-xs font-medium text-white hover:bg-[#001fad]"
                                         >Apply to selected</button>
                                         <button
                                             type="button"
@@ -3109,6 +3109,9 @@
                                                     <button
                                                         @click="
                                                             transferRoom = '';
+                                                            transferRoomLabel = '';
+                                                            transferRoomSearch = '';
+                                                            transferRoomOpen = false;
                                                             panel = 'transfer';
                                                             menu = false;
                                                         "
@@ -3245,7 +3248,7 @@
                                             </h4>
 
                                             <p class="mt-0.5 text-xs text-slate-500">
-                                                Asset identification, purchase, and assignment details.
+                                                Full identity, status, location, and acquisition details.
                                             </p>
 
                                         </div>
@@ -3282,341 +3285,229 @@
                                     <!-- PANEL BODY -->
                                     <!-- ===================================================== -->
 
-                                    <div class="p-5">
+                                    <div class="space-y-5 p-5">
+                                        @php
+                                            $detailNa = static function ($value, string $fallback = '—') {
+                                                if ($value === null || $value === '') {
+                                                    return $fallback;
+                                                }
 
+                                                return $value;
+                                            };
+                                            $detailDate = static function ($value) use ($detailNa) {
+                                                if ($value === null || $value === '') {
+                                                    return $detailNa(null);
+                                                }
 
-                                        <!-- ================================================= -->
-                                        <!-- INFORMATION GRID -->
-                                        <!-- ================================================= -->
+                                                try {
+                                                    return \Illuminate\Support\Carbon::parse($value)->format('M j, Y');
+                                                } catch (\Throwable $e) {
+                                                    return (string) $value;
+                                                }
+                                            };
+                                            $detailCategory = optional($item->category)->equipment_category_name;
+                                            $detailSupplier = null;
+                                            if ($item->supplier) {
+                                                $detailSupplier = optional($item->supplier->physical)->company_name
+                                                    ?? optional($item->supplier->online)->shop_name;
+                                            }
+                                            $detailPlacement = $item->equipment_placement_zone
+                                                ?: $item->equipment_current_location;
+                                            $detailHasQr = filled($item->equipment_qr_code ?? null);
+                                            $detailHasImage = filled($item->equipment_image ?? null);
+                                        @endphp
 
-                                        <div
-                                            class="
-                                                grid
-                                                grid-cols-2
-                                                gap-x-6
-                                                gap-y-5
-                                            "
-                                        >
-
-
-                                            <!-- ASSET TAG -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Asset Tag
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        truncate
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_asset_tag
-                                                            ?: "Not Assigned"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-
-
-                                            <!-- SERIAL NUMBER -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Serial Number
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        truncate
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_serial_number
-                                                            ?? "Unavailable"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-
-
-                                            <!-- WARRANTY -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Warranty
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_warranty_expiration
-                                                            ?? "Unknown"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-
-
-                                            <!-- SUPPLIER -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Supplier
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        truncate
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_supplier
-                                                            ?? "Not Assigned"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-
-
-                                            <!-- PURCHASE DATE -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Purchase Date
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_purchase_date
-                                                            ?? "Unknown"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-
-
-                                            <!-- ASSIGNED TECHNICIAN -->
-
-                                            <div class="min-w-0">
-
-                                                <p
-                                                    class="
-                                                        text-[10px]
-                                                        font-medium
-                                                        uppercase
-                                                        tracking-wide
-                                                        text-slate-400
-                                                    "
-                                                >
-                                                    Assigned Technician
-                                                </p>
-
-                                                <p
-                                                    class="
-                                                        mt-1
-                                                        truncate
-                                                        text-sm
-                                                        font-medium
-                                                        text-slate-800
-                                                    "
-                                                >
-                                                    {{
-                                                        $item->equipment_assigned_to
-                                                            ?? "Unassigned"
-                                                    }}
-                                                </p>
-
-                                            </div>
-
-                                        </div>
-
-
-
-                                        <!-- ================================================= -->
-                                        <!-- QR CODE SECTION -->
-                                        <!-- ================================================= -->
-
-                                        <div
-                                            class="
-                                                mt-6
-                                                border-t
-                                                border-slate-100
-                                                pt-5
-                                            "
-                                        >
-
-                                            <div
-                                                class="
-                                                    flex
-                                                    items-center
-                                                    justify-between
-                                                    gap-4
-                                                "
-                                            >
-
-                                                <!-- QR INFORMATION -->
-
+                                        {{-- Identity --}}
+                                        <div>
+                                            <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Identity</p>
+                                            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                                                <div class="col-span-2 min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Equipment name</p>
+                                                    <p class="mt-1 break-words text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_name) }}</p>
+                                                </div>
                                                 <div class="min-w-0">
-
-                                                    <div class="flex items-center gap-2">
-
-                                                        <i
-                                                            data-lucide="qr-code"
-                                                            class="h-4 w-4 text-slate-400"
-                                                        ></i>
-
-                                                        <p
-                                                            class="
-                                                                text-sm
-                                                                font-medium
-                                                                text-slate-800
-                                                            "
-                                                        >
-                                                            QR Code
-                                                        </p>
-
-                                                    </div>
-
-
-                                                    <p
-                                                        class="
-                                                            mt-1
-                                                            max-w-[220px]
-                                                            text-xs
-                                                            leading-5
-                                                            text-slate-500
-                                                        "
-                                                    >
-                                                        Asset QR identification will be available in the Asset
-                                                        Management phase.
-                                                    </p>
-
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Category</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($detailCategory) }}</p>
                                                 </div>
-
-
-
-                                                <!-- QR PLACEHOLDER -->
-
-                                                <div
-                                                    class="
-                                                        flex
-                                                        h-20
-                                                        w-20
-                                                        shrink-0
-                                                        items-center
-                                                        justify-center
-                                                        rounded-lg
-                                                        border
-                                                        border-dashed
-                                                        border-slate-200
-                                                        bg-slate-50
-                                                    "
-                                                >
-
-                                                    <i
-                                                        data-lucide="qr-code"
-                                                        class="h-7 w-7 text-slate-300"
-                                                    ></i>
-
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Tracking</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_tracking_mode ?: 'Individual') }}</p>
                                                 </div>
-
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Brand</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_brand_name) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Model</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_model) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Asset tag</p>
+                                                    <p class="mt-1 break-all font-mono text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_asset_tag, 'Not Assigned') }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Serial number</p>
+                                                    <p class="mt-1 break-all text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_serial_number, 'Unavailable') }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_quantity ?? 1) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ !empty($item->equipment_is_borrowable) ? 'Yes' : 'No' }}</p>
+                                                </div>
                                             </div>
-
                                         </div>
 
+                                        {{-- Status --}}
+                                        <div class="border-t border-slate-100 pt-5">
+                                            <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Status</p>
+                                            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Condition</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_condition_status) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Inventory status</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_inventory_status) }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {{-- Location --}}
+                                        <div class="border-t border-slate-100 pt-5">
+                                            <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Location</p>
+                                            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Placement zone</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($detailPlacement, 'Not plotted') }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Current location</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_current_location, '—') }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Layout position</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">
+                                                        @if ($item->equipment_position_x !== null || $item->equipment_position_y !== null)
+                                                            X {{ (int) ($item->equipment_position_x ?? 0) }}% · Y {{ (int) ($item->equipment_position_y ?? 0) }}%
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Room</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($room->room_name) }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {{-- Acquisition --}}
+                                        <div class="border-t border-slate-100 pt-5">
+                                            <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Acquisition</p>
+                                            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Purchase date</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailDate($item->equipment_purchase_date) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Acquired date</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailDate($item->equipment_acquired_date) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Purchase cost</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">
+                                                        @if ($item->equipment_purchase_cost !== null && $item->equipment_purchase_cost !== '')
+                                                            ₱{{ number_format((float) $item->equipment_purchase_cost, 2) }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Warranty</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailDate($item->equipment_warranty_expiration) }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Useful life</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">
+                                                        @if (!empty($item->equipment_useful_life_years))
+                                                            {{ (int) $item->equipment_useful_life_years }} years
+                                                        @else
+                                                            — <span class="text-[10px] font-normal text-slate-400">(default 5)</span>
+                                                        @endif
+                                                    </p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Supplier</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($detailSupplier, 'Not Assigned') }}</p>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Record created</p>
+                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailDate($item->equipment_created_at) }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {{-- Photo --}}
+                                        @if ($detailHasImage)
+                                            <div class="border-t border-slate-100 pt-5">
+                                                <p class="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Photo</p>
+                                                <img
+                                                    src="{{ asset('storage/'.$item->equipment_image) }}"
+                                                    alt="{{ $item->equipment_name }}"
+                                                    class="h-28 w-full rounded-lg object-cover ring-1 ring-slate-200"
+                                                >
+                                            </div>
+                                        @endif
+
+                                        {{-- QR --}}
+                                        <div class="border-t border-slate-100 pt-5">
+                                            <div class="flex items-center justify-between gap-4">
+                                                <div class="min-w-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <i data-lucide="qr-code" class="h-4 w-4 text-slate-400"></i>
+                                                        <p class="text-sm font-medium text-slate-800">QR Code</p>
+                                                    </div>
+                                                    @if ($detailHasQr)
+                                                        <p class="mt-1 break-all font-mono text-[11px] text-slate-500">{{ $item->equipment_qr_code }}</p>
+                                                    @else
+                                                        <p class="mt-1 max-w-[220px] text-xs leading-5 text-slate-500">
+                                                            No QR code assigned to this equipment yet.
+                                                        </p>
+                                                    @endif
+                                                </div>
+
+                                                @if ($detailHasQr)
+                                                    <img
+                                                        src="{{ url('/maintenance/equipment/qr-image/'.$item->equipment_qr_code) }}"
+                                                        alt="QR for {{ $item->equipment_name }}"
+                                                        class="h-20 w-20 shrink-0 rounded-lg border border-slate-200 bg-white object-contain p-1"
+                                                    >
+                                                @else
+                                                    <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                                        <i data-lucide="qr-code" class="h-7 w-7 text-slate-300"></i>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </div>
 
                                 </div>
 
                                 <div
                                     x-show="panel === 'edit'"
-                                    x-transition
-                                    class="
-                                        mt-5
-                                        overflow-hidden
-                                        rounded-xl
-                                        border
-                                        border-slate-200
-                                        bg-white
-                                    "
+                                    x-cloak
+                                    x-transition.opacity
+                                    @click.self="panel = ''"
+                                    class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
                                 >
+                                    <div
+                                        class="flex max-h-[calc(90dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                                        @click.stop
+                                    >
 
                                     <!-- ===================================================== -->
                                     <!-- PANEL HEADER -->
@@ -3625,6 +3516,7 @@
                                     <div
                                         class="
                                             flex
+                                            shrink-0
                                             items-center
                                             justify-between
                                             border-b
@@ -3678,7 +3570,7 @@
                                     <!-- FORM BODY -->
                                     <!-- ===================================================== -->
 
-                                    <div class="space-y-5 p-5">
+                                    <div class="eq-modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
 
 
                                         <!-- ================================================= -->
@@ -4068,20 +3960,21 @@
 
                                     </div>
 
+                                    </div>
+
                                 </div>
 
                                 <div
                                     x-show="panel === 'transfer'"
-                                    x-collapse
-                                    class="
-                                        mt-5
-                                        
-                                        rounded-xl
-                                        border
-                                        border-slate-200
-                                        bg-white
-                                    "
+                                    x-cloak
+                                    x-transition.opacity
+                                    @click.self="panel = ''"
+                                    class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
                                 >
+                                    <div
+                                        class="flex max-h-[calc(90dvh-2rem)] w-full max-w-md flex-col overflow-visible rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                                        @click.stop
+                                    >
 
                                     <!-- ===================================================== -->
                                     <!-- PANEL HEADER -->
@@ -4090,6 +3983,7 @@
                                     <div
                                         class="
                                             flex
+                                            shrink-0
                                             items-center
                                             justify-between
                                             border-b
@@ -4145,7 +4039,7 @@
                                     <!-- PANEL BODY -->
                                     <!-- ===================================================== -->
 
-                                    <div class="p-5">
+                                    <div class="relative z-10 p-5">
 
 
                                         <!-- ================================================= -->
@@ -4167,9 +4061,10 @@
                                             </label>
 
 
-                                            <div class="relative">
-
-                                                <!-- LOCATION ICON -->
+                                            <div
+                                                class="relative"
+                                                @click.outside="transferRoomOpen = false"
+                                            >
 
                                                 <div
                                                     class="
@@ -4177,6 +4072,7 @@
                                                         absolute
                                                         left-3
                                                         top-1/2
+                                                        z-10
                                                         -translate-y-1/2
                                                         text-slate-400
                                                     "
@@ -4187,57 +4083,117 @@
                                                     ></i>
                                                 </div>
 
+                                                <button
+                                                    type="button"
+                                                    @click="transferRoomOpen = !transferRoomOpen; if (transferRoomOpen) { transferRoomSearch = ''; $nextTick(() => { if (window.lucide) lucide.createIcons(); $refs.transferRoomSearch?.focus(); }); }"
+                                                    class="
+                                                        flex
+                                                        h-10
+                                                        w-full
+                                                        items-center
+                                                        rounded-lg
+                                                        border
+                                                        border-slate-200
+                                                        bg-white
+                                                        pl-8
+                                                        pr-10
+                                                        text-left
+                                                        text-sm
+                                                        text-slate-700
+                                                        outline-none
+                                                        transition
 
-                                                <div 
-                                                    x-data="{ 
-                                                        open: false, 
-                                                        transferRoom: '', 
-                                                        rooms: [
-                                                            {{-- We can pass the PHP rooms data straight to JS if needed, or just let Alpine handle the click --}}
-                                                        ]
-                                                    }" 
-                                                    class="relative w-full"
-                                                    @click.outside="open = false"
+                                                        hover:border-slate-300
+
+                                                        focus:border-[#005EA6]
+                                                        focus:ring-2
+                                                        focus:ring-blue-100
+                                                    "
+                                                    :class="transferRoomOpen ? 'border-[#005EA6] ring-2 ring-blue-100' : ''"
                                                 >
-                                                    <button 
-                                                        type="button"
-                                                        @click="open = !open"
-                                                        class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-10 text-left text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
-                                                    >
-                                                        <span x-text="transferRoom ? document.getElementById('room-opt-' + transferRoom)?.innerText : 'Select destination room'"></span>
-                                                        
-                                                        <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500">
-                                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                                        </span>
-                                                    </button>
+                                                    <span
+                                                        class="truncate"
+                                                        :class="transferRoomLabel ? 'text-slate-800' : 'text-slate-400'"
+                                                        x-text="transferRoomLabel || 'Select destination room'"
+                                                    ></span>
 
-                                                    <input type="hidden" name="transferRoom" x-model="transferRoom">
+                                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                                                        <i data-lucide="chevron-down" class="h-4 w-4 transition" :class="transferRoomOpen ? 'rotate-180' : ''"></i>
+                                                    </span>
+                                                </button>
 
-                                                    <div 
-                                                        x-show="open" 
-                                                        x-transition
-                                                        class="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg py-1 text-sm text-slate-700 max-h-[160px] overflow-y-auto"
-                                                        style="display: none;"
-                                                    >
-                                                        <div 
-                                                            @click="transferRoom = ''; open = false" 
-                                                            class="cursor-pointer px-4 py-2 hover:bg-slate-100 text-slate-400"
+                                                <div
+                                                    x-show="transferRoomOpen"
+                                                    x-cloak
+                                                    x-transition.origin.top
+                                                    class="absolute left-0 right-0 top-full z-[120] mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+                                                >
+                                                    <div class="border-b border-slate-100 p-2">
+                                                        <div class="relative">
+                                                            <i
+                                                                data-lucide="search"
+                                                                class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                                                            ></i>
+                                                            <input
+                                                                x-ref="transferRoomSearch"
+                                                                type="text"
+                                                                x-model="transferRoomSearch"
+                                                                @keydown.escape.stop="transferRoomOpen = false"
+                                                                placeholder="Search rooms..."
+                                                                class="
+                                                                    h-9
+                                                                    w-full
+                                                                    rounded-lg
+                                                                    border
+                                                                    border-slate-200
+                                                                    bg-slate-50
+                                                                    pl-8
+                                                                    pr-3
+                                                                    text-sm
+                                                                    text-slate-800
+                                                                    outline-none
+                                                                    transition
+
+                                                                    placeholder:text-slate-400
+
+                                                                    focus:border-[#005EA6]
+                                                                    focus:bg-white
+                                                                    focus:ring-2
+                                                                    focus:ring-blue-100
+                                                                "
+                                                            >
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="max-h-48 overflow-y-auto overscroll-contain py-1">
+                                                        <button
+                                                            type="button"
+                                                            @click="transferRoom = ''; transferRoomLabel = ''; transferRoomOpen = false"
+                                                            class="flex w-full px-3 py-2 text-left text-sm text-slate-400 transition hover:bg-slate-50"
                                                         >
                                                             Select destination room
-                                                        </div>
+                                                        </button>
 
                                                         @foreach ($rooms as $destination)
                                                             @if ($destination->room_id != $room->room_id)
-                                                                <div 
-                                                                    id="room-opt-{{ $destination->room_id }}"
-                                                                    @click="transferRoom = '{{ $destination->room_id }}'; open = false"
-                                                                    class="cursor-pointer px-4 py-2 hover:bg-blue-50 hover:text-[#005EA6] transition-colors"
-                                                                    :class="transferRoom == '{{ $destination->room_id }}' ? 'bg-blue-50 text-[#005EA6] font-medium' : ''"
+                                                                <button
+                                                                    type="button"
+                                                                    x-show="matchesTransferRoomSearch(@js($destination->room_name))"
+                                                                    @click="selectTransferRoom(@js((string) $destination->room_id), @js($destination->room_name))"
+                                                                    class="flex w-full px-3 py-2 text-left text-sm transition hover:bg-blue-50 hover:text-[#005EA6]"
+                                                                    :class="String(transferRoom) === @js((string) $destination->room_id) ? 'bg-blue-50 font-medium text-[#005EA6]' : 'text-slate-700'"
                                                                 >
-                                                                    {{ $destination->room_name }}
-                                                                </div>
+                                                                    <span class="truncate">{{ $destination->room_name }}</span>
+                                                                </button>
                                                             @endif
                                                         @endforeach
+
+                                                        <p
+                                                            x-show="transferRoomSearch.trim() !== '' && !hasTransferRoomMatches()"
+                                                            class="px-3 py-3 text-center text-xs text-slate-400"
+                                                        >
+                                                            No rooms match your search.
+                                                        </p>
                                                     </div>
                                                 </div>
 
@@ -4319,20 +4275,21 @@
 
                                     </div>
 
+                                    </div>
+
                                 </div>
 
                                 <div
                                     x-show="panel === 'archive'"
-                                    x-collapse
-                                    class="
-                                        mt-5
-                                        overflow-hidden
-                                        rounded-xl
-                                        border
-                                        border-slate-200
-                                        bg-white
-                                    "
+                                    x-cloak
+                                    x-transition.opacity
+                                    @click.self="panel = ''"
+                                    class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
                                 >
+                                    <div
+                                        class="flex max-h-[calc(90dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                                        @click.stop
+                                    >
 
                                     <!-- ===================================================== -->
                                     <!-- PANEL HEADER -->
@@ -4341,6 +4298,7 @@
                                     <div
                                         class="
                                             flex
+                                            shrink-0
                                             items-center
                                             justify-between
                                             border-b
@@ -4420,7 +4378,7 @@
                                     <!-- PANEL BODY -->
                                     <!-- ===================================================== -->
 
-                                    <div class="p-5">
+                                    <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto p-5">
 
 
                                         <!-- ================================================= -->
@@ -4576,22 +4534,25 @@
                                                 @click="archiveEquipment()"
                                                 class="
                                                     rounded-lg
-                                                    bg-red-600
+                                                    border
+                                                    border-slate-200
+                                                    bg-white
                                                     px-5
                                                     py-2
                                                     text-sm
                                                     font-semibold
-                                                    text-white
-                                                    shadow-sm
+                                                    text-[#007a3f]
                                                     transition
 
-                                                    hover:bg-red-700
+                                                    hover:bg-slate-50
                                                 "
                                             >
                                                 Archive
                                             </button>
 
                                         </div>
+
+                                    </div>
 
                                     </div>
 
@@ -5603,11 +5564,49 @@
                 panel: "",
 
                 transferRoom: "",
+                transferRoomLabel: "",
+                transferRoomSearch: "",
+                transferRoomOpen: false,
                 archiveReason: "",
 
                 equipmentId: equipmentId,
 
                 form: null,
+
+                selectTransferRoom(id, label) {
+                    this.transferRoom = String(id || "");
+                    this.transferRoomLabel = label || "";
+                    this.transferRoomOpen = false;
+                    this.transferRoomSearch = "";
+                },
+
+                matchesTransferRoomSearch(name) {
+                    const query = String(this.transferRoomSearch || "").trim().toLowerCase();
+
+                    if (!query) {
+                        return true;
+                    }
+
+                    return String(name || "").toLowerCase().includes(query);
+                },
+
+                hasTransferRoomMatches() {
+                    const query = String(this.transferRoomSearch || "").trim().toLowerCase();
+
+                    if (!query) {
+                        return true;
+                    }
+
+                    const rooms = window.infrastructure?.roomCatalog || [];
+
+                    return rooms.some((room) => {
+                        if (Number(room.id) === Number(this.roomId)) {
+                            return false;
+                        }
+
+                        return String(room.name || "").toLowerCase().includes(query);
+                    });
+                },
 
                 equipment() {
                     const layout = window.infrastructure.roomLayout;
@@ -5759,6 +5758,10 @@
                             }
 
                             this.panel = "";
+                            this.transferRoom = "";
+                            this.transferRoomLabel = "";
+                            this.transferRoomOpen = false;
+                            this.transferRoomSearch = "";
 
                             return window.infrastructure.refreshRoomEquipment(
                                 this.roomId,
@@ -5828,6 +5831,24 @@
                             Object.assign(this.form, equipment);
                         },
                     );
+
+                    this.$watch("panel", (value) => {
+                        const isModal = value === "edit" || value === "transfer" || value === "archive";
+                        document.body.style.overflow = isModal ? "hidden" : "";
+
+                        if (value !== "transfer") {
+                            this.transferRoomOpen = false;
+                            this.transferRoomSearch = "";
+                        }
+
+                        if (isModal) {
+                            this.$nextTick(() => {
+                                if (window.lucide) {
+                                    lucide.createIcons();
+                                }
+                            });
+                        }
+                    });
                 },
             }),
         );

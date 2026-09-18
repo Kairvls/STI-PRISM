@@ -2,6 +2,66 @@
 
 @section ("content")
 
+<style>
+    .reporter-employee-id-field {
+        display: flex;
+        align-items: stretch;
+        height: 2.75rem;
+        overflow: hidden;
+        border-radius: 0.75rem;
+        background: #f8fafc;
+        box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .reporter-employee-id-field:focus-within {
+        background: #fff;
+        box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
+    }
+
+    .reporter-employee-id-field.is-disabled {
+        opacity: 0.85;
+    }
+
+    .reporter-employee-id-prefix,
+    .reporter-employee-id-suffix {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        user-select: none;
+    }
+
+    .reporter-employee-id-prefix { padding-left: 0.875rem; }
+    .reporter-employee-id-suffix {
+        min-width: 2rem;
+        justify-content: center;
+        padding-right: 0.875rem;
+    }
+    .reporter-employee-id-suffix.is-empty { color: #94a3b8; }
+
+    .reporter-employee-id-field input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        padding: 0 0.5rem;
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        color: #0f172a;
+        outline: none;
+    }
+
+    .reporter-employee-id-field.is-disabled input {
+        pointer-events: none;
+        color: #94a3b8;
+    }
+</style>
+
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
@@ -699,7 +759,7 @@
 
                 <div class="overflow-x-auto">
 
-                    <table class="w-full min-w-[1050px] text-left">
+                    <table class="w-full table-fixed text-left">
 
                         {{-- ================================================= --}}
                         {{-- TABLE HEADER --}}
@@ -715,31 +775,31 @@
                                     tracking-[0.08em] text-black"
                             >
 
-                                <th class="px-5 py-3">
+                                <th class="w-[14%] px-4 py-3">
                                     Report
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[20%] px-4 py-3">
                                     Issue
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[16%] px-4 py-3">
                                     Equipment
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[14%] px-4 py-3">
                                     Room
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[10%] px-4 py-3">
                                     Urgency
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[12%] px-4 py-3">
                                     Status
                                 </th>
 
-                                <th class="px-5 py-3">
+                                <th class="w-[14%] px-4 py-3">
                                     Submitted
                                 </th>
 
@@ -869,7 +929,7 @@
 
                                     <td class="px-5 py-4">
 
-                                        <div class="max-w-[260px]">
+                                        <div class="min-w-0">
 
                                             <p
                                                 class="truncate text-sm
@@ -1490,43 +1550,39 @@
 
             <div class="overflow-x-auto">
 
-                <table class="w-full min-w-[950px] text-left">
+                <table class="w-full table-fixed text-left">
 
                     {{-- ================================================= --}}
                     {{-- TABLE HEADER --}}
                     {{-- ================================================= --}}
 
-                    <thead class="border-b border-slate-200 bg-slate-50/70">
+                    <thead class="border-b border-gray-100 bg-gray-50">
 
                         <tr
-                            class="text-[12px] font-semibold uppercase
-                                tracking-[0.08em] text-black"
+                            class="text-[12px] font-bold uppercase
+                                tracking-wider text-black"
                         >
-                            <th class="px-5 py-3">
+                            <th class="w-[13%] px-5 py-3 text-left">
                                 Employee ID
                             </th>
 
-                            <th class="px-5 py-3">
+                            <th class="w-[30%] px-5 py-3 text-left">
                                 Reporter
                             </th>
 
-                            <th class="px-5 py-3">
+                            <th class="w-[12%] px-5 py-3 text-left">
                                 Type
                             </th>
 
-                            <th class="px-5 py-3">
-                                Email Address
-                            </th>
-
-                            <th class="px-5 py-3">
+                            <th class="w-[14%] px-5 py-3 text-left">
                                 Contact
                             </th>
 
-                            <th class="px-5 py-3 ">
+                            <th class="w-[10%] px-5 py-3 text-left">
                                 Status
                             </th>
 
-                            <th class="w-16 px-5 py-3 text-center">
+                            <th class="w-[21%] px-5 py-3 text-center">
                                 Actions
                             </th>
                         </tr>
@@ -1572,8 +1628,8 @@
 
 
                             <tr
-                                class="reporter-row group transition-colors
-                                    hover:bg-slate-50/70"
+                                class="reporter-row group border-b border-gray-100 transition-colors
+                                    hover:bg-yellow-50/30"
 
                                 data-status="{{ strtolower($reporterStatus) }}"
                             >
@@ -1585,8 +1641,9 @@
                                 <td class="px-5 py-4">
 
                                     <span
-                                        class="font-mono text-sm font-medium
-                                            tracking-wider text-black"
+                                        class="block truncate font-mono text-sm font-semibold
+                                            tracking-wide text-gray-500"
+                                        title="{{ $reporter->reporter_employee_id }}"
                                     >
                                         {{ $reporter->reporter_employee_id }}
                                     </span>
@@ -1601,7 +1658,7 @@
 
                                 <td class="px-5 py-4">
 
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex min-w-0 items-center gap-3">
 
                                         {{-- AVATAR --}}
                                         <div
@@ -1626,19 +1683,24 @@
                                         <div class="min-w-0">
 
                                             <p
-                                                class="max-w-[220px] truncate
+                                                class="truncate
                                                     text-sm font-semibold
-                                                    text-slate-800"
+                                                    text-gray-800"
+                                                title="{{ $reporter->reporter_full_name }}"
                                             >
                                                 {{ $reporter->reporter_full_name }}
                                             </p>
 
 
                                             <p
-                                                class="mt-0.5 text-[11px]
+                                                class="mt-0.5 truncate text-xs
                                                     text-slate-400"
+                                                title="{{ $reporter->reporter_email_address ?: '' }}"
                                             >
-                                                Reporter account
+                                                {{
+                                                    $reporter->reporter_email_address
+                                                        ?: 'No email'
+                                                }}
                                             </p>
 
                                         </div>
@@ -1655,42 +1717,12 @@
 
                                 <td class="px-5 py-4">
                                     @if ($reporter->reporter_employment_type)
-                                        <span class="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                                        <span class="inline-flex max-w-full truncate rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
                                             {{ $reporter->reporter_employment_type }}
                                         </span>
                                     @else
-                                        <span class="text-xs text-slate-400">—</span>
+                                        <span class="text-sm text-slate-400">—</span>
                                     @endif
-                                </td>
-
-
-
-                                {{-- ===================================== --}}
-                                {{-- EMAIL --}}
-                                {{-- ===================================== --}}
-
-                                <td class="px-5 py-4">
-
-                                    <div class="flex items-center gap-2">
-
-                                        <i
-                                            data-lucide="mail"
-                                            class="h-3.5 w-3.5 shrink-0
-                                                text-slate-400"
-                                        ></i>
-
-                                        <span
-                                            class="max-w-[240px] truncate
-                                                text-xs text-slate-600"
-                                        >
-                                            {{
-                                                $reporter->reporter_email_address
-                                                    ?? "No email provided"
-                                            }}
-                                        </span>
-
-                                    </div>
-
                                 </td>
 
 
@@ -1700,27 +1732,23 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <div class="flex items-center gap-2">
-
-                                        <i
-                                            data-lucide="phone"
-                                            class="h-3.5 w-3.5 shrink-0
-                                                text-slate-400"
-                                        ></i>
-
-                                        <span
-                                            class="whitespace-nowrap
-                                                text-xs text-slate-600"
+                                    @if ($reporter->reporter_contact_number)
+                                        <button
+                                            type="button"
+                                            onclick="copyReporterContact(this)"
+                                            data-contact="{{ $reporter->reporter_contact_number }}"
+                                            data-tooltip="Click to copy"
+                                            class="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-sm text-gray-600 transition hover:bg-slate-100 hover:text-slate-900"
+                                            aria-label="Copy contact number"
                                         >
-                                            {{
-                                                $reporter->reporter_contact_number
-                                                    ?? "No contact provided"
-                                            }}
-                                        </span>
-
-                                    </div>
-
+                                            <span class="truncate font-medium select-all">
+                                                {{ $reporter->reporter_contact_number }}
+                                            </span>
+                                            <i data-lucide="copy" class="h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition group-hover:opacity-100"></i>
+                                        </button>
+                                    @else
+                                        <span class="text-sm text-slate-400">—</span>
+                                    @endif
                                 </td>
 
 
@@ -1733,14 +1761,14 @@
 
                                     <span
                                         class="inline-flex items-center gap-1.5
-                                            rounded-full px-2.5 py-1
+                                            rounded-md px-2.5 py-1
                                             text-[11px] font-medium
                                             ring-1 ring-inset
                                             {{ $reporterStatusClass }}"
                                     >
 
                                         <span
-                                            class="h-1.5 w-1.5 rounded-full
+                                            class="h-1.5 w-1.5 shrink-0 rounded-full
                                                 {{ $reporterStatusDotClass }}"
                                         ></span>
 
@@ -1758,7 +1786,7 @@
 
                                 <td class="px-5 py-4">
 
-                                    <div class="flex items-center justify-center gap-2">
+                                    <div class="flex items-center justify-center gap-1.5">
 
                                         {{-- ================================= --}}
                                         {{-- VIEW BUTTON --}}
@@ -1776,7 +1804,7 @@
                                             )"
 
                                             class="flex h-9 w-9 shrink-0 items-center
-                                                justify-center rounded-xl
+                                                justify-center rounded-lg
                                                 bg-slate-100 text-slate-600
                                                 transition
                                                 hover:bg-slate-200
@@ -1811,7 +1839,7 @@
 
                                             class="flex h-9 w-9 shrink-0
                                                 items-center justify-center
-                                                rounded-xl bg-slate-100
+                                                rounded-lg bg-slate-100
                                                 text-slate-600 transition
                                                 hover:bg-slate-200
                                                 hover:text-slate-900
@@ -1848,11 +1876,11 @@
                                                     @js($reporter->reporter_contact_number)
                                                 )"
 
-                                                class="flex h-9 w-9 items-center
+                                                class="flex h-9 w-9 shrink-0 items-center
                                                     justify-center rounded-lg
-                                                    bg-[#FFF200] text-black
+                                                    bg-[#0025cc] text-white
                                                     transition
-                                                    hover:bg-[#E6E600]
+                                                    hover:bg-[#001db3]
                                                     active:scale-95"
 
                                                 data-tooltip="Edit reporter"
@@ -1886,8 +1914,8 @@
                                                     'deactivate'
                                                 )"
 
-                                                class="flex h-9 w-9 items-center
-                                                    justify-center rounded-xl
+                                                class="flex h-9 w-9 shrink-0 items-center
+                                                    justify-center rounded-lg
                                                     bg-amber-50 text-amber-700
                                                     ring-1 ring-inset ring-amber-200
                                                     transition
@@ -1914,8 +1942,8 @@
                                                     'reactivate'
                                                 )"
 
-                                                class="flex h-9 w-9 items-center
-                                                    justify-center rounded-xl
+                                                class="flex h-9 w-9 shrink-0 items-center
+                                                    justify-center rounded-lg
                                                     bg-emerald-50 text-emerald-700
                                                     ring-1 ring-inset ring-emerald-200
                                                     transition
@@ -2186,7 +2214,7 @@
                     <button
                         type="button"
                         onclick="document.getElementById('importResultModal').classList.add('hidden'); document.getElementById('importResultModal').classList.remove('flex');"
-                        class="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white"
+                        class="h-10 rounded-lg bg-[#0025cc] px-4 text-sm font-medium text-white"
                     >
                         Got it
                     </button>
@@ -2287,7 +2315,7 @@
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
                     <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Add reporter</h2>
-                    <p class="mt-1 text-sm text-slate-500">Fill in the employee details. Middle name, type, email, and contact are optional.</p>
+                    <p class="mt-1 text-sm text-slate-500">Fill in the employee details. Choose type first so the employee ID uses OMC + 4 digits + F/S. Middle name, email, and contact are optional.</p>
                 </div>
                 <button type="button" onclick="closeCreateModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -2296,8 +2324,31 @@
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
                 <div>
-                    <label for="employee_id" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-rose-500">*</span></label>
-                    <input id="employee_id" name="employee_id" type="text" placeholder="OMC****F" required class="{{ $reporterFieldClass }}" />
+                    <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-rose-500">*</span></label>
+                    <select id="type" name="type" required class="{{ $reporterFieldClass }}">
+                        <option value="">Select type</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="Staff">Staff</option>
+                    </select>
+                    <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
+                </div>
+                <div>
+                    <label for="employee_id_digits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-rose-500">*</span></label>
+                    <div id="createEmployeeIdField" class="reporter-employee-id-field is-disabled">
+                        <span class="reporter-employee-id-prefix">OMC</span>
+                        <input
+                            id="employee_id_digits"
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="4"
+                            placeholder="0123"
+                            autocomplete="off"
+                            readonly
+                        >
+                        <span id="createEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
+                    </div>
+                    <input type="hidden" id="employee_id" name="employee_id" value="" required>
+                    <p id="createEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 4-digit number.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -2309,19 +2360,9 @@
                         <input id="middle_name" name="middle_name" type="text" placeholder="Optional" class="{{ $reporterFieldClass }}" />
                     </div>
                 </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="last_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name <span class="text-rose-500">*</span></label>
-                        <input id="last_name" name="last_name" type="text" placeholder="Smith" required class="{{ $reporterFieldClass }}" />
-                    </div>
-                    <div>
-                        <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type</label>
-                        <select id="type" name="type" class="{{ $reporterFieldClass }}">
-                            <option value="">Select type</option>
-                            <option value="Faculty">Faculty</option>
-                            <option value="Staff">Staff</option>
-                        </select>
-                    </div>
+                <div>
+                    <label for="last_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name <span class="text-rose-500">*</span></label>
+                    <input id="last_name" name="last_name" type="text" placeholder="Smith" required class="{{ $reporterFieldClass }}" />
                 </div>
                 <div>
                     <label for="email" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Email address</label>
@@ -2379,7 +2420,7 @@
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
                     <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Edit profile</h2>
-                    <p class="mt-1 text-sm text-slate-500">Update employee details. Middle name, type, email, and contact are optional.</p>
+                    <p class="mt-1 text-sm text-slate-500">Update employee details. Type drives the F/S suffix on the employee ID. Middle name, email, and contact are optional.</p>
                 </div>
                 <button type="button" onclick="closeEditModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -2388,8 +2429,31 @@
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
                 <div>
-                    <label for="editEmployeeId" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID</label>
-                    <input type="text" name="employee_id" id="editEmployeeId" required class="{{ $reporterFieldClass }}" />
+                    <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-rose-500">*</span></label>
+                    <select name="type" id="editType" required class="{{ $reporterFieldClass }}">
+                        <option value="">Select type</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="Staff">Staff</option>
+                    </select>
+                    <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
+                </div>
+                <div>
+                    <label for="editEmployeeIdDigits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-rose-500">*</span></label>
+                    <div id="editEmployeeIdField" class="reporter-employee-id-field is-disabled">
+                        <span class="reporter-employee-id-prefix">OMC</span>
+                        <input
+                            id="editEmployeeIdDigits"
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="4"
+                            placeholder="0123"
+                            autocomplete="off"
+                            readonly
+                        >
+                        <span id="editEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
+                    </div>
+                    <input type="hidden" name="employee_id" id="editEmployeeId" value="" required>
+                    <p id="editEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 4-digit number.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -2401,19 +2465,9 @@
                         <input type="text" name="middle_name" id="editMiddleName" class="{{ $reporterFieldClass }}" />
                     </div>
                 </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="editLastName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name</label>
-                        <input type="text" name="last_name" id="editLastName" required class="{{ $reporterFieldClass }}" />
-                    </div>
-                    <div>
-                        <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type</label>
-                        <select name="type" id="editType" class="{{ $reporterFieldClass }}">
-                            <option value="">Select type</option>
-                            <option value="Faculty">Faculty</option>
-                            <option value="Staff">Staff</option>
-                        </select>
-                    </div>
+                <div>
+                    <label for="editLastName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name</label>
+                    <input type="text" name="last_name" id="editLastName" required class="{{ $reporterFieldClass }}" />
                 </div>
                 <div>
                     <label for="editEmail" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Email address</label>
@@ -2693,7 +2747,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 active:bg-rose-800"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-slate-50"
                     >
                         Delete reporter
                     </button>
@@ -2721,6 +2775,9 @@
         }
 
         function openCreateModal() {
+            const form = document.getElementById('createReporterForm');
+            if (form) form.reset();
+            syncReporterEmployeeId('create');
             createModal.classList.remove("hidden");
             createModal.classList.add("flex");
         }
@@ -2743,6 +2800,108 @@
         function closeDeleteModal() {
             deleteModal.classList.add("hidden");
             deleteModal.classList.remove("flex");
+        }
+
+        function suffixForReporterType(type) {
+            if (type === 'Faculty') return 'F';
+            if (type === 'Staff') return 'S';
+            return '';
+        }
+
+        function syncReporterEmployeeId(mode) {
+            const isEdit = mode === 'edit';
+            const typeEl = document.getElementById(isEdit ? 'editType' : 'type');
+            const digitsEl = document.getElementById(isEdit ? 'editEmployeeIdDigits' : 'employee_id_digits');
+            const fullEl = document.getElementById(isEdit ? 'editEmployeeId' : 'employee_id');
+            const suffixEl = document.getElementById(isEdit ? 'editEmployeeIdSuffix' : 'createEmployeeIdSuffix');
+            const fieldEl = document.getElementById(isEdit ? 'editEmployeeIdField' : 'createEmployeeIdField');
+            const hintEl = document.getElementById(isEdit ? 'editEmployeeIdHint' : 'createEmployeeIdHint');
+            if (!typeEl || !digitsEl || !fullEl || !suffixEl || !fieldEl) return '';
+
+            const type = typeEl.value || '';
+            const suffix = suffixForReporterType(type);
+            const digits = String(digitsEl.value || '').replace(/\D/g, '').slice(0, 4);
+            digitsEl.value = digits;
+            suffixEl.textContent = suffix || '?';
+            suffixEl.classList.toggle('is-empty', !suffix);
+
+            if (type) {
+                fieldEl.classList.remove('is-disabled');
+                digitsEl.removeAttribute('readonly');
+                if (hintEl) hintEl.textContent = 'Enter the 4-digit number only. OMC and ' + suffix + ' are fixed.';
+            } else {
+                fieldEl.classList.add('is-disabled');
+                digitsEl.setAttribute('readonly', 'readonly');
+                if (hintEl) hintEl.textContent = 'Select type first, then enter the 4-digit number.';
+            }
+
+            const fullId = (type && digits.length === 4 && suffix) ? ('OMC' + digits + suffix) : '';
+            fullEl.value = fullId;
+            return fullId;
+        }
+
+        function parseReporterEmployeeId(employeeId) {
+            const raw = String(employeeId || '').toUpperCase().replace(/\s+/g, '');
+            const match = raw.match(/^OMC(\d{1,4})([FS])$/);
+            if (!match) {
+                return { digits: '', type: '', suffix: '' };
+            }
+            return {
+                digits: match[1],
+                type: match[2] === 'S' ? 'Staff' : 'Faculty',
+                suffix: match[2],
+            };
+        }
+
+        ['type', 'employee_id_digits'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener(id === 'type' ? 'change' : 'input', () => syncReporterEmployeeId('create'));
+        });
+
+        ['editType', 'editEmployeeIdDigits'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener(id === 'editType' ? 'change' : 'input', () => syncReporterEmployeeId('edit'));
+        });
+
+        syncReporterEmployeeId('create');
+        syncReporterEmployeeId('edit');
+
+        function copyReporterContact(button) {
+            const contact = (button?.dataset?.contact || '').trim();
+            if (!contact) return;
+
+            const notifyCopied = () => {
+                if (typeof window.showMpToast === 'function') {
+                    window.showMpToast('Contact number copied!', {
+                        type: 'success',
+                        timer: 2200,
+                        replaceGroup: 'reporter-contact-copy',
+                    });
+                    return;
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'Contact number copied!',
+                        showConfirmButton: false,
+                        timer: 2200,
+                    });
+                }
+            };
+
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(contact).then(notifyCopied).catch(() => {
+                    window.prompt('Copy contact number:', contact);
+                });
+                return;
+            }
+
+            window.prompt('Copy contact number:', contact);
+            notifyCopied();
         }
 
         function viewReporter(employee, name, type, email, contact) {
@@ -2775,28 +2934,33 @@
                     </div>
                     <div class="flex items-start justify-between gap-4 px-4 py-3">
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Contact</dt>
-                        <dd class="text-right text-sm font-medium text-slate-800">${contact || "—"}</dd>
+                        <dd class="text-right text-sm font-medium text-slate-800">
+                            ${contact
+                                ? `<button type="button" onclick="copyReporterContact(this)" data-contact="${String(contact).replace(/"/g, '&quot;')}" data-tooltip="Click to copy" class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition hover:bg-slate-100">${contact}<i data-lucide="copy" class="h-3 w-3 text-slate-400"></i></button>`
+                                : '—'}
+                        </dd>
                     </div>
                 </dl>
             `;
 
-            // =====================================
-            // OPEN VIEW MODAL
-            // =====================================
             viewModal.classList.remove("hidden");
             viewModal.classList.add("flex");
+            if (typeof lucide !== "undefined") lucide.createIcons();
         }
 
         function editReporter(id, employee, first, middle, last, type, email, contact) {
             document.getElementById("editReporterId").value = id;
-            document.getElementById("editEmployeeId").value = employee;
             document.getElementById("editFirstName").value = first || "";
             document.getElementById("editMiddleName").value = middle || "";
             document.getElementById("editLastName").value = last || "";
             const typeMap = { 'Full-Time': 'Faculty', 'Part-Time': 'Staff' };
-            document.getElementById("editType").value = typeMap[type] || type || "";
+            const parsed = parseReporterEmployeeId(employee);
+            const resolvedType = typeMap[type] || type || parsed.type || "";
+            document.getElementById("editType").value = resolvedType;
+            document.getElementById("editEmployeeIdDigits").value = parsed.digits || "";
             document.getElementById("editEmail").value = email || "";
             document.getElementById("editContact").value = contact || "";
+            syncReporterEmployeeId('edit');
 
             editModal.classList.remove("hidden");
             editModal.classList.add("flex");
@@ -3251,17 +3415,39 @@
 
 
             // =================================================
-            // EMPLOYEE ID
+            // TYPE + EMPLOYEE ID (OMC####F/S)
             // =================================================
 
-            if (!data.employeeId) {
+            if (!data.type) {
+                reporterAlert(
+                    'warning',
+                    'Type required',
+                    'Please select Faculty or Staff first.'
+                );
+                return false;
+            }
 
+            syncReporterEmployeeId(form.id === 'editReporterForm' ? 'edit' : 'create');
+            data.employeeId = form.querySelector('[name="employee_id"]')?.value.trim() || '';
+
+            if (!data.employeeId || !/^OMC\d{4}[FS]$/.test(data.employeeId)) {
                 reporterAlert(
                     'warning',
                     'Employee ID required',
-                    'Please enter the reporter employee ID.'
+                    'Enter the 4-digit employee number. Format must be OMC0123F or OMC0123S.'
                 );
+                return false;
+            }
 
+            const expectedSuffix = data.type === 'Staff' ? 'S' : 'F';
+            if (!data.employeeId.endsWith(expectedSuffix)) {
+                reporterAlert(
+                    'warning',
+                    'Employee ID mismatch',
+                    data.type === 'Staff'
+                        ? 'Staff employee IDs must end with S.'
+                        : 'Faculty employee IDs must end with F.'
+                );
                 return false;
             }
 

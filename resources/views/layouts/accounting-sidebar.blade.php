@@ -4,7 +4,7 @@
             <img src="{{ asset('image/STI.png') }}" alt="" />
         </div>
         <div>
-            <h2>PRISM</h2>
+            <h2>PaAyo</h2>
             <span>Accounting Panel</span>
         </div>
     </div>

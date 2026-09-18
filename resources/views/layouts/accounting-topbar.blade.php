@@ -15,7 +15,7 @@
                 request()->is('accounting/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
                 request()->is('accounting/profile*') => ['Profile Settings', 'Update your Accounting account details.'],
                 request()->is('accounting/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PRISM'), 'Accounting'],
+                default => [View::yieldContent('title', 'PaAyo'), 'Accounting'],
             };
 
             $headerUnreadCount = $headerUnreadCount ?? 0;
@@ -47,7 +47,7 @@
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages"
+            aria-label="PaAyo messages"
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>

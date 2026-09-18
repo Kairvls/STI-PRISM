@@ -2690,7 +2690,7 @@
         // USER ONLINE STATUS HEARTBEAT
         //
         // Tells Laravel that the current user is still
-        // actively using PRISM.
+        // actively using PaAyo.
         // =====================================================
 
         async function sendUserHeartbeat() {
@@ -2768,7 +2768,7 @@
 
 
         // =====================================================
-        // USER JUST LOADED PRISM
+        // USER JUST LOADED PaAyo
         // =====================================================
 
         const runMessagingIdleWork = () => {
@@ -3236,7 +3236,7 @@
                     preview.substring(0, 90) + '...';
             }
 
-            // PRISM toast card (Maintenance / President / Admin layouts)
+            // PaAyo toast card (Maintenance / President / Admin layouts)
             // replaceGroup keeps only the latest message toast visible.
             if (typeof window.showMpToast === 'function') {
                 const result = window.showMpToast(preview, {
@@ -7785,7 +7785,7 @@ if (!isGroup) {
         // =====================================================
         // PRIVATE CALL MEDIA
         // Video calls no longer fail completely when the webcam
-        // is unavailable. PRISM falls back to microphone only.
+        // is unavailable. PaAyo falls back to microphone only.
         // =====================================================
         function updatePrivateCallCameraButton() {
             const button = document.getElementById('privateCallCameraButton');

@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\SemesterInspectionController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
@@ -1396,6 +1397,62 @@ Route::post(
 
 /*
 |--------------------------------------------------------------------------
+| SEMESTER CAMPUS INSPECTIONS
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/maintenance/semester-inspections',
+    [SemesterInspectionController::class, 'index']
+)->name('maintenance.semester-inspections.index');
+
+Route::get(
+    '/maintenance/semester-inspections/create',
+    [SemesterInspectionController::class, 'create']
+)->name('maintenance.semester-inspections.create');
+
+Route::post(
+    '/maintenance/semester-inspections',
+    [SemesterInspectionController::class, 'store']
+)->name('maintenance.semester-inspections.store');
+
+Route::get(
+    '/maintenance/semester-inspections/{id}',
+    [SemesterInspectionController::class, 'show']
+)->whereNumber('id')->name('maintenance.semester-inspections.show');
+
+Route::post(
+    '/maintenance/semester-inspections/{id}/inspect/{itemId}',
+    [SemesterInspectionController::class, 'inspect']
+)->whereNumber('id')->whereNumber('itemId')->name('maintenance.semester-inspections.inspect');
+
+Route::post(
+    '/maintenance/semester-inspections/{id}/complete',
+    [SemesterInspectionController::class, 'complete']
+)->whereNumber('id')->name('maintenance.semester-inspections.complete');
+
+Route::post(
+    '/maintenance/semester-inspections/{id}/cancel',
+    [SemesterInspectionController::class, 'cancel']
+)->whereNumber('id')->name('maintenance.semester-inspections.cancel');
+
+Route::post(
+    '/maintenance/semester-inspections/{id}/activate',
+    [SemesterInspectionController::class, 'activate']
+)->whereNumber('id')->name('maintenance.semester-inspections.activate');
+
+Route::get(
+    '/maintenance/replacement-suggestions',
+    [SemesterInspectionController::class, 'replacementSuggestions']
+)->name('maintenance.replacement-suggestions');
+
+Route::post(
+    '/maintenance/replacement-suggestions/{equipmentId}',
+    [SemesterInspectionController::class, 'markForReplacement']
+)->whereNumber('equipmentId')->name('maintenance.replacement-suggestions.mark');
+
+/*
+|--------------------------------------------------------------------------
 | COMPLETE SCHEDULE
 |--------------------------------------------------------------------------
 */
@@ -1454,9 +1511,14 @@ Route::post(
     [MaintenanceController::class, 'confirmDisposal']
 );
 
-Route::delete(
-    '/maintenance/disposal/delete',
-    [MaintenanceController::class, 'deleteDisposal']
+Route::post(
+    '/maintenance/disposal/archive',
+    [MaintenanceController::class, 'archiveDisposal']
+);
+
+Route::post(
+    '/maintenance/disposal/unarchive',
+    [MaintenanceController::class, 'unarchiveDisposal']
 );
 
 

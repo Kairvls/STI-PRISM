@@ -347,12 +347,12 @@
                                     @if($archiveView)
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.restore', $rr->receiving_report_id) }}">
                                             @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rr->receiving_report_status, ['Completed','Returned'], true))
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.archive', $rr->receiving_report_id) }}" onsubmit="return confirm('Archive this Receiving Report?')">
                                             @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
                                     @endif
                                 </div>

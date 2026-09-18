@@ -318,7 +318,7 @@
                 <button
                     type="button"
                     onclick="openScheduleModal()"
-                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad]"
                 >
                     Schedule maintenance
                 </button>
@@ -343,7 +343,7 @@
                 <span>{{ $completedPctBar }}%</span>
             </div>
             <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-slate-900" style="width: {{ $completedPctBar }}%"></div>
+                <div class="h-full rounded-full bg-[#0025cc]" style="width: {{ $completedPctBar }}%"></div>
             </div>
         </div>
     </div>
@@ -1135,10 +1135,10 @@
                                                 );
                                             "
                                             class="flex w-full items-center gap-2.5
-                                                rounded-lg px-3 py-2
-                                                text-xs font-medium text-red-600
+                                                rounded-lg border border-slate-200 bg-white px-3 py-2
+                                                text-xs font-medium text-red-700
                                                 transition
-                                                hover:bg-red-50"
+                                                hover:bg-slate-50"
                                         >
                                             <i
                                                 data-lucide="trash-2"
