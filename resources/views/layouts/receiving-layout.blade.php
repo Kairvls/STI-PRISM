@@ -20,7 +20,10 @@
 @endsection
 
 @push('scripts')
+    @include('layouts.partials.receiving-ris-preview')
     @include('layouts.partials.prism-toast')
     @include('layouts.partials.receiving-daily-reminder')
     @include('layouts.partials.receiving-table-filters-script')
+    @include('partials.purchaser-print-sheet-helper')
+    @include('partials.receiving-browser-print-helper')
 @endpush

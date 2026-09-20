@@ -172,7 +172,7 @@ class SeedPurchasingWorkflowDemo extends Command
         $totalAmount = array_sum(array_column($risItems, 'amount'));
         $rfcId = $this->insert('request_check_table', $this->onlyExisting('request_check_table', [
             'request_check_authority_purchase_id' => $atpId,
-            'request_check_form_number' => 'DEMO-RFC-' . now()->format('Y') . '-' . $formSuffix,
+            'request_check_form_number' => 'DEMO-RFC-' . now()->format('Ym') . '-' . $formSuffix,
             'request_check_date' => $now->copy()->addDays(3)->toDateString(),
             'request_check_payee' => $supplier['display_name'],
             'request_check_amount_words' => 'Demo amount for workflow testing',
@@ -193,7 +193,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'request_check_updated_at' => $now->copy()->addDays(4),
             'request_check_created_at' => $now->copy()->addDays(3),
         ]));
-        $record['rfc_form'] = 'DEMO-RFC-' . now()->format('Y') . '-' . $formSuffix;
+        $record['rfc_form'] = 'DEMO-RFC-' . now()->format('Ym') . '-' . $formSuffix;
 
         $this->log('RFC', $rfcId, $actors['purchaser'], 'Submitted', 'Request Check submitted to Accounting.', $now->copy()->addDays(3));
 
@@ -226,7 +226,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'receiving_report_procurement_request_id' => $procurementRequestId,
             'receiving_report_atp_id' => $atpId,
             'receiving_report_ris_id' => $risId,
-            'receiving_report_form_number' => 'DEMO-RR-' . now()->format('Y') . '-' . $formSuffix,
+            'receiving_report_form_number' => 'DEMO-RR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT),
             'receiving_report_supplier_id' => $supplier['supplier_id'],
             'receiving_report_supplier_address_override' => $supplier['address'],
             'receiving_report_received_from' => $supplier['display_name'],
@@ -245,7 +245,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'receiving_report_updated_at' => $profile['stage'] === 'rr_receiving_queue' ? $now->copy()->addDays(6) : $now->copy()->addDays(7),
             'receiving_report_created_at' => $now->copy()->addDays(6),
         ]));
-        $record['rr_form'] = 'DEMO-RR-' . now()->format('Y') . '-' . $formSuffix;
+        $record['rr_form'] = 'DEMO-RR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT);
 
         $this->seedReceivingItems($rrId, $risItems);
         $this->log('RR', $rrId, $actors['purchaser'], 'Submitted', 'Receiving Report submitted to Receiving.', $now->copy()->addDays(6));
@@ -270,7 +270,7 @@ class SeedPurchasingWorkflowDemo extends Command
         $liqId = $this->insert('liquidation_reports_table', $this->onlyExisting('liquidation_reports_table', [
             'liquidation_report_receiving_report_id' => $rrId,
             'liquidation_report_procurement_request_id' => $procurementRequestId,
-            'liquidation_report_form_number' => 'DEMO-LIQ-' . now()->format('Y') . '-' . $formSuffix,
+            'liquidation_report_form_number' => 'DEMO-LR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT),
             'liquidation_report_employee_name' => 'Demo Purchaser',
             'liquidation_report_cheque_number' => 'DEMO-CHK-' . $formSuffix,
             'liquidation_report_purpose' => 'Liquidation for ' . $referenceLabel,
@@ -295,7 +295,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'liquidation_report_updated_at' => $profile['stage'] === 'liq_accounting_queue' ? $now->copy()->addDays(8) : $now->copy()->addDays(9),
             'liquidation_report_created_at' => $now->copy()->addDays(8),
         ]));
-        $record['liq_form'] = 'DEMO-LIQ-' . now()->format('Y') . '-' . $formSuffix;
+        $record['liq_form'] = 'DEMO-LR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT);
 
         $this->seedLiquidationItems($liqId, $risItems, $formSuffix);
         $this->log('LIQ', $liqId, $actors['purchaser'], 'Submitted', 'Liquidation Report submitted to Accounting.', $now->copy()->addDays(8));

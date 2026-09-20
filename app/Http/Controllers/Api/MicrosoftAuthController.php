@@ -69,16 +69,24 @@ class MicrosoftAuthController extends Controller
         }
 
         // =====================================================
-        // ROLE CHECK
+        // ROLE CHECK (primary OR additional Maintenance)
         // =====================================================
 
-        if (! \App\Support\RoleAccess::hasAnyRole([2, 3], $user)) {
+        if (! \App\Support\RoleAccess::hasRole(
+            \App\Support\RoleAccess::MAINTENANCE,
+            $user
+        )) {
 
             return response()->json([
-                'message' => 'Only Maintenance Personnel or Purchaser can use this app.',
+                'message' => 'Only Maintenance Personnel can use this app.',
             ], 403);
 
         }
+
+        $roleIds = \App\Support\RoleAccess::roleIds($user);
+        $mobilePortals = \App\Support\RoleAccess::mobilePortals($user);
+        $primaryRoleId = (int) $user->user_role_id;
+        $activeRoleId = \App\Support\RoleAccess::MAINTENANCE;
 
         // =====================================================
         // CREATE SANCTUM TOKEN
@@ -102,9 +110,24 @@ class MicrosoftAuthController extends Controller
 
                 'email' => $user->user_email_address,
 
-                'role' => $user->user_role_id,
+                // Primary role (web default dashboard). Kept for backward compat.
+                'role' => $primaryRoleId,
+
+                // Active mobile portal role (primary if mobile-eligible, else first).
+                'active_role' => (int) $activeRoleId,
+
+                // All assigned role IDs (primary + additional).
+                'roles' => $roleIds,
 
             ],
+
+            'mobile_portals' => array_map(static function (array $portal) {
+                return [
+                    'role_id' => (int) $portal['role_id'],
+                    'key' => $portal['key'],
+                    'label' => $portal['label'],
+                ];
+            }, $mobilePortals),
 
             'token' => $token,
 

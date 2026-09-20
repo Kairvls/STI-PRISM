@@ -31,12 +31,6 @@ class AccountSettingsController extends Controller
 
         $rules = [
             'user_full_name' => ['required', 'string', 'max:255'],
-            'user_email_address' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users_table', 'user_email_address')->ignore($user->user_id, 'user_id'),
-            ],
             'user_contact_number' => ['nullable', 'string', 'max:32'],
             'user_username' => [
                 'required',
@@ -54,7 +48,7 @@ class AccountSettingsController extends Controller
         $validated = $request->validate($rules);
 
         $user->user_full_name = trim($validated['user_full_name']);
-        $user->user_email_address = trim($validated['user_email_address']);
+        // Office 365 email is admin-managed only (Users module). Ignore any posted value.
         $user->user_contact_number = filled($validated['user_contact_number'] ?? null)
             ? trim($validated['user_contact_number'])
             : null;

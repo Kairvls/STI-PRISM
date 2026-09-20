@@ -10,6 +10,8 @@ window.initReceivingTableFilters = function () {
         var buttons = root.querySelectorAll('.receiving-filter-btn');
         var cards = root.querySelectorAll('.receiving-filter-card');
         var search = root.querySelector('.receiving-live-search');
+        var searchBtn = root.querySelector('.receiving-search-btn');
+        var resetBtn = root.querySelector('.receiving-reset-btn');
         var countEl = root.querySelector('.receiving-total-count');
         var rows = Array.prototype.slice.call(root.querySelectorAll('tbody tr[data-ro-status]'));
         var cardItems = Array.prototype.slice.call(root.querySelectorAll('[data-ro-card-item]'));
@@ -22,7 +24,7 @@ window.initReceivingTableFilters = function () {
         var viewport = root.querySelector('.receiving-carousel-viewport');
         var carouselPrev = root.querySelector('.receiving-carousel-prev');
         var carouselNext = root.querySelector('.receiving-carousel-next');
-        var searchTimer = null;
+        var appliedNeedle = '';
         var pageSize = 10;
         var currentPage = 1;
         var carouselIndex = 0;
@@ -123,8 +125,32 @@ window.initReceivingTableFilters = function () {
         }
 
         function matched(list) {
-            var needle = search ? search.value.trim().toLowerCase() : '';
-            return list.filter(function (el) { return itemMatches(el, needle); });
+            return list.filter(function (el) { return itemMatches(el, appliedNeedle); });
+        }
+
+        function syncReset() {
+            if (!resetBtn) return;
+            var show = appliedNeedle !== '';
+            resetBtn.classList.toggle('hidden', !show);
+            resetBtn.classList.toggle('inline-flex', show);
+            if (show && window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        function runSearch() {
+            appliedNeedle = search ? search.value.trim().toLowerCase() : '';
+            currentPage = 1;
+            syncReset();
+            apply();
+        }
+
+        function resetSearch() {
+            if (search) search.value = '';
+            appliedNeedle = '';
+            currentPage = 1;
+            syncReset();
+            apply();
         }
 
         function apply() {
@@ -193,13 +219,22 @@ window.initReceivingTableFilters = function () {
             });
         });
 
+        if (searchBtn) {
+            searchBtn.addEventListener('click', runSearch);
+        }
+        if (resetBtn) {
+            resetBtn.addEventListener('click', resetSearch);
+        }
         if (search) {
-            search.addEventListener('input', function () {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(function () {
-                    currentPage = 1;
-                    apply();
-                }, 180);
+            search.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                runSearch();
+            });
+            search.addEventListener('search', function () {
+                if (search.value.trim() === '' && appliedNeedle !== '') {
+                    resetSearch();
+                }
             });
         }
 

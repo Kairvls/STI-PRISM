@@ -27,8 +27,13 @@
     }
     .ris-preview-modal-body iframe { width: 100%; height: calc(90vh - 110px); min-height: 400px; border: none; }
     .ris-preview-modal-footer {
-        padding: 12px 20px; border-top: 1px solid #e2e8f0;
-        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 12px 20px;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        min-height: 60px;
+        gap: 8px;
     }
     .ris-preview-modal-btn-print {
         width: 32px; height: 32px; padding: 0; border-radius: 8px; background: #0025cc; color: #fff;
@@ -37,9 +42,31 @@
     }
     .ris-preview-modal-btn-print i, .ris-preview-modal-btn-print svg { width: 16px; height: 16px; }
     .ris-preview-modal-btn-open {
-        padding: 8px 14px; border-radius: 8px; background: #f8fafc; color: #0f172a;
-        font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #e2e8f0;
-        display: inline-flex; align-items: center;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 14px;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: background .15s ease, border-color .15s ease;
+    }
+    .ris-preview-modal-btn-open:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .ris-preview-modal-btn-open i,
+    .ris-preview-modal-btn-open svg {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
     }
 </style>
 <div id="risPreviewModal" class="ris-preview-modal-overlay">
@@ -57,7 +84,10 @@
         </div>
         <div class="ris-preview-modal-body" id="risPreviewModalBody"></div>
         <div class="ris-preview-modal-footer">
-            <a href="#" id="risPreviewPrintLink" target="_blank" class="ris-preview-modal-btn-open">Open full page</a>
+            <a href="#" id="risPreviewPrintLink" class="ris-preview-modal-btn-open">
+                <i data-lucide="maximize-2"></i>
+                Open full page
+            </a>
         </div>
     </div>
 </div>
@@ -95,7 +125,7 @@ window.printReceivingRisPreview = function () {
     }
     var printLink = document.getElementById('risPreviewPrintLink');
     if (printLink && printLink.href && printLink.href !== '#') {
-        window.open(printLink.href, '_blank');
+        window.location.href = printLink.href;
     }
 };
 window.closeReceivingRisPreview = function () {

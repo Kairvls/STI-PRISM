@@ -134,7 +134,7 @@
         {{-- EMERGENCY RESPONSE SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title" id="emergency-response-section">
+        <!--<div class="menu-title" id="emergency-response-section">
             EMERGENCY RESPONSE
         </div>
 
@@ -166,7 +166,7 @@
                 Urgent Reports
             </span>
 
-        </a>
+        </a>-->
 
         {{-- ===================================================== --}}
         {{-- FILE MAINTENANCE SECTION --}}
@@ -594,14 +594,14 @@
         font-weight: 500;
     }
     .quick-card.active {
-        border: 1.5px solid #fff200 !important;
+        border: 1.5px solidrgb(0, 255, 85) !important;
         color: #cbd5e1;
         font-weight: 600;
         box-shadow: 0 0 12px rgba(255, 242, 0, 0.18);
     }
     .quick-card.active i,
     .quick-card.active svg {
-        color: #fff200;
+        color: #ffffff;
     }
 
     /* ======================================

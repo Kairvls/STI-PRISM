@@ -780,31 +780,60 @@
                 }
 
                 /* ===================================================== */
-                /* SIDEBAR QUICK ACTIONS — MOBILE ONLY */
-                /* Equipment / Schedule / Borrowing */
+                /* SIDEBAR QUICK ACTIONS — horizontal drag carousel */
+                /* Equipment / Schedule / Borrowing / … */
                 /* ===================================================== */
 
                 .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
                     width: 100%;
                     margin-left: 0;
                     min-width: 0;
+                    max-width: 100%;
+                    display: flex;
+                    flex-wrap: nowrap;
+                    align-items: center;
+                    gap: 8px;
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    white-space: nowrap;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    cursor: grab;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: pan-y;
+                }
+
+                .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions.is-dragging {
+                    cursor: grabbing;
+                }
+
+                .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
+                    flex: 0 0 auto;
+                }
+
+                .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions.has-dragged .dashboard-quick-action {
+                    pointer-events: none;
                 }
 
                 @media (max-width: 768px) {
 
                     .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
-                        display: grid;
-                        grid-template-columns: repeat(3, minmax(0, 1fr));
-                        gap: 8px;
-                        overflow: visible;
-                        white-space: normal;
+                        display: flex;
+                        flex-wrap: nowrap;
+                        overflow-x: auto;
+                        white-space: nowrap;
                     }
 
                     .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
-                        width: 100%;
+                        width: auto;
                         min-width: 0;
-                        flex: none;
-                        padding: 8px 6px;
+                        flex: 0 0 auto;
+                        padding: 8px 10px;
                         gap: 6px;
                         flex-direction: row;
                         align-items: center;
@@ -841,14 +870,10 @@
 
                 @media (max-width: 380px) {
 
-                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
-                        grid-template-columns: 1fr;
-                    }
-
                     .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
                         flex-direction: row;
                         justify-content: flex-start;
-                        padding: 10px 12px;
+                        padding: 8px 10px;
                         font-size: 12px;
                     }
 
@@ -3794,6 +3819,99 @@
             flex-shrink: 0;
         }
 
+        .eq-stats-carousel {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            z-index: 80;
+            width: min(260px, calc(100vw - 32px));
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .eq-stats-carousel.hidden {
+            display: none;
+        }
+
+        .eq-stats-carousel-track {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: auto;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            touch-action: pan-y;
+        }
+
+        .eq-stats-carousel-track::-webkit-scrollbar {
+            display: none;
+        }
+
+        .eq-stats-carousel-track.is-dragging {
+            cursor: grabbing;
+            scroll-snap-type: none;
+        }
+
+        .eq-stats-carousel-card {
+            flex: 0 0 78%;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 88px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #eef0f3;
+            background: #fafafa;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .eq-stats-carousel-card:hover {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+
+        .eq-stats-carousel-card.is-drag-cancel {
+            pointer-events: none;
+        }
+
+        .eq-stats-carousel-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: #eceff3;
+            color: #6b7280;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .eq-stats-carousel-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.25;
+        }
+
+        .eq-stats-carousel-desc {
+            margin-top: 2px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #9ca3af;
+            line-height: 1.3;
+        }
+
         .eq-metrics-pill {
             display: inline-flex;
             align-items: center;
@@ -3807,6 +3925,70 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
+        }
+
+        .eq-period-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 80;
+            min-width: 148px;
+            padding: 6px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        /* Fixed so menus escape overflow:hidden on funnel / metrics slots */
+        .eq-funnel-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1200;
+            min-width: 168px;
+            padding: 6px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+        }
+
+        .eq-period-menu.hidden,
+        .eq-funnel-menu.hidden {
+            display: none;
+        }
+
+        .eq-period-option,
+        .eq-funnel-menu a {
+            display: block;
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: left;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .eq-period-option:hover,
+        .eq-funnel-menu a:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .eq-period-option.is-active {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .eq-funnel-more-wrap {
+            position: relative;
+            z-index: 9;
         }
 
         .eq-metrics-icon-btn {
@@ -3863,8 +4045,8 @@
             width: 18px;
             height: 18px;
             border-radius: 999px;
-            background: #111827;
-            color: #ffffff;
+            background: #f3f4f6;
+            color: #111827;
             font-size: 10px;
             font-weight: 700;
             display: inline-flex;
@@ -4039,6 +4221,8 @@
             gap: 10px;
             margin-bottom: 4px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 8;
         }
 
         .eq-funnel-title {
@@ -4071,6 +4255,7 @@
             grid-template-columns: 26px minmax(0, 1fr);
             gap: 2px;
             position: relative;
+            z-index: 1;
         }
 
         .eq-funnel-axis {
@@ -4394,9 +4579,9 @@
         }
 
         .mh-year-tab.is-active {
-            background: #111827;
-            border-color: #111827;
-            color: #ffffff;
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+            color: #111827;
         }
 
         .mh-saved-main {
@@ -5877,11 +6062,34 @@
                     {{-- ===================================================== --}}
 
                     @php
+                        $metricsDashboard = $metricsDashboard ?? [
+                            'period' => 'week',
+                            'year' => (int) now()->format('Y'),
+                            'periods' => [],
+                            'years' => [],
+                            'periodLabels' => [
+                                'week' => 'Week',
+                                'month' => 'Month',
+                                'year' => 'Year',
+                                'all' => 'All',
+                            ],
+                        ];
                         $eqAvailable = max(0, (int) $totalEquipment - (int) $underMaintenance - (int) $borrowedEquipment);
                         $eqInventoryBase = max(1, (int) $totalEquipment);
                         $eqAvailablePercent = min(100, round(($eqAvailable / $eqInventoryBase) * 100));
                         $eqMetricCount = 4;
-                        $eqOpsCount = (int) $pendingReports + (int) $overdueMaintenance;
+                        $metricsWeek = $metricsDashboard['periods']['all']
+                            ?? $metricsDashboard['periods']['week']
+                            ?? [
+                            'pending' => (int) $pendingReports,
+                            'overdue' => (int) $overdueMaintenance,
+                            'open' => (int) $pendingReports + (int) $overdueMaintenance,
+                            'handled' => 100,
+                            'fill_percent' => 22,
+                            'wave_y' => 156,
+                            'reports' => [],
+                        ];
+                        $eqOpsCount = (int) ($metricsWeek['open'] ?? ((int) $pendingReports + (int) $overdueMaintenance));
                         $eqDateStrip = [];
                         for ($d = 5; $d >= 0; $d--) {
                             $eqDateStrip[] = now()->copy()->subDays($d);
@@ -5961,11 +6169,25 @@
                             ['label' => 'Under Maintenance', 'value' => (int) $underMaintenance, 'unit' => 'items'],
                         ]);
 
-                        $eqPendingCount = (int) ($reportStatusChart['data'][0] ?? 0);
-                        $eqProcessingCount = (int) ($reportStatusChart['data'][1] ?? 0);
-                        $eqResolvedCount = (int) ($reportStatusChart['data'][2] ?? 0);
-                        $eqReplacementCount = (int) ($reportStatusChart['data'][3] ?? 0);
-                        $eqRejectedCount = (int) ($reportStatusChart['data'][4] ?? 0);
+                        $eqPendingCount = (int) ($metricsWeek['reports']['pending'] ?? ($reportStatusChart['data'][0] ?? 0));
+                        $eqProcessingCount = (int) ($metricsWeek['reports']['processing'] ?? ($reportStatusChart['data'][1] ?? 0));
+                        $eqResolvedCount = (int) ($metricsWeek['reports']['resolved'] ?? ($reportStatusChart['data'][2] ?? 0));
+                        $eqReplacementCount = (int) ($metricsWeek['reports']['replacement'] ?? ($reportStatusChart['data'][3] ?? 0));
+                        $eqRejectedCount = (int) ($metricsWeek['reports']['rejected'] ?? ($reportStatusChart['data'][4] ?? 0));
+                        $eqFunnelEquipmentHrefs = [
+                            'Total Equipment' => url('/maintenance/equipment/inventory'),
+                            'Operational' => url('/maintenance/equipment/inventory'),
+                            'Available' => url('/maintenance/equipment/inventory'),
+                            'Borrowed' => url('/maintenance/equipment/inventory?status=Borrowed'),
+                            'Under Maintenance' => url('/maintenance/equipment/inventory?status=Under Maintenance'),
+                        ];
+                        $eqFunnelReportHrefs = [
+                            'Submitted Reports' => url('/maintenance/reports'),
+                            'Accepted Reports' => url('/maintenance/reports/pending'),
+                            'In Progress+' => url('/maintenance/reports/processing'),
+                            'Closed Outcomes' => url('/maintenance/reports/resolved'),
+                            'Resolved' => url('/maintenance/reports/resolved'),
+                        ];
                         $eqSubmittedCount = $eqPendingCount + $eqProcessingCount + $eqResolvedCount + $eqReplacementCount + $eqRejectedCount;
                         $eqAcceptedCount = max(0, $eqSubmittedCount - $eqRejectedCount);
                         $eqActionedCount = $eqProcessingCount + $eqResolvedCount + $eqReplacementCount;
@@ -5983,13 +6205,33 @@
                     <div class="flow-card" id="equipmentMetricsCard">
                         <div class="eq-metrics-head">
                         <div class="eq-metrics-top">
-                            <h2 class="flow-title">Metrics</h2>
+                            <h2 class="flow-title">Overview</h2>
 
                             <div class="eq-metrics-controls relative" id="equipmentStatisticsMenu">
-                                <button type="button" class="eq-metrics-pill" aria-label="Period">
-                                    Week
+                                <button
+                                    type="button"
+                                    class="eq-metrics-pill"
+                                    id="eqPeriodPill"
+                                    aria-label="Overview period"
+                                    aria-haspopup="menu"
+                                    aria-expanded="false"
+                                    aria-controls="eqPeriodMenu"
+                                >
+                                    <span id="eqPeriodPillLabel">All</span>
                                     <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
                                 </button>
+                                <div id="eqPeriodMenu" class="eq-period-menu hidden" role="menu" aria-label="Overview period">
+                                    @foreach (($metricsDashboard['periodLabels'] ?? ['week' => 'Week', 'month' => 'Month', 'year' => 'Year', 'all' => 'All']) as $periodKey => $periodLabel)
+                                        <button
+                                            type="button"
+                                            class="eq-period-option {{ $periodKey === 'all' ? 'is-active' : '' }}"
+                                            role="menuitem"
+                                            data-eq-period="{{ $periodKey }}"
+                                        >
+                                            {{ $periodLabel }}
+                                        </button>
+                                    @endforeach
+                                </div>
 
                                 <button
                                     type="button"
@@ -6004,66 +6246,76 @@
 
                                 <div
                                     id="equipmentStatisticsDropdown"
-                                    class="absolute right-0 top-full z-50 mt-1 hidden w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg"
+                                    class="eq-stats-carousel hidden"
+                                    role="menu"
+                                    aria-label="Equipment shortcuts"
                                 >
-                                    <a
-                                        href="{{ url('/maintenance/equipment/inventory') }}"
-                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                    >
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                                            <i data-lucide="monitor" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-semibold text-gray-800">Equipment Inventory</div>
-                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">View all equipment</div>
-                                        </div>
-                                    </a>
+                                    <div class="eq-stats-carousel-track" id="equipmentStatisticsCarouselTrack">
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory') }}"
+                                            class="eq-stats-carousel-card"
+                                            role="menuitem"
+                                            draggable="false"
+                                        >
+                                            <div class="eq-stats-carousel-icon">
+                                                <i data-lucide="monitor" class="h-3.5 w-3.5"></i>
+                                            </div>
+                                            <div>
+                                                <div class="eq-stats-carousel-title">Equipment Inventory</div>
+                                                <div class="eq-stats-carousel-desc">View all equipment</div>
+                                            </div>
+                                        </a>
 
-                                    <a
-                                        href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}"
-                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                    >
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                                            <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-semibold text-gray-800">Under Maintenance</div>
-                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">Equipment requiring service</div>
-                                        </div>
-                                    </a>
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}"
+                                            class="eq-stats-carousel-card"
+                                            role="menuitem"
+                                            draggable="false"
+                                        >
+                                            <div class="eq-stats-carousel-icon">
+                                                <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
+                                            </div>
+                                            <div>
+                                                <div class="eq-stats-carousel-title">Under Maintenance</div>
+                                                <div class="eq-stats-carousel-desc">Equipment requiring service</div>
+                                            </div>
+                                        </a>
 
-                                    <a
-                                        href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}"
-                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                    >
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                                            <i data-lucide="package-open" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-semibold text-gray-800">Borrowed Equipment</div>
-                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">View borrowed equipment</div>
-                                        </div>
-                                    </a>
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}"
+                                            class="eq-stats-carousel-card"
+                                            role="menuitem"
+                                            draggable="false"
+                                        >
+                                            <div class="eq-stats-carousel-icon">
+                                                <i data-lucide="package-open" class="h-3.5 w-3.5"></i>
+                                            </div>
+                                            <div>
+                                                <div class="eq-stats-carousel-title">Borrowed Equipment</div>
+                                                <div class="eq-stats-carousel-desc">View borrowed equipment</div>
+                                            </div>
+                                        </a>
 
-                                    <div class="my-1 border-t border-gray-100"></div>
-
-                                    <a
-                                        href="{{ url('/maintenance/equipment/categories') }}"
-                                        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
-                                    >
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                                            <i data-lucide="tags" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-semibold text-gray-800">Equipment Categories</div>
-                                            <div class="mt-0.5 text-[10px] leading-tight text-gray-400">Manage categories</div>
-                                        </div>
-                                    </a>
+                                        <a
+                                            href="{{ url('/maintenance/equipment/categories') }}"
+                                            class="eq-stats-carousel-card"
+                                            role="menuitem"
+                                            draggable="false"
+                                        >
+                                            <div class="eq-stats-carousel-icon">
+                                                <i data-lucide="tags" class="h-3.5 w-3.5"></i>
+                                            </div>
+                                            <div>
+                                                <div class="eq-stats-carousel-title">Equipment Categories</div>
+                                                <div class="eq-stats-carousel-desc">Manage categories</div>
+                                            </div>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="eq-metrics-tabs" role="tablist" aria-label="Metrics sections">
+                        <div class="eq-metrics-tabs" role="tablist" aria-label="Overview sections">
                             <button
                                 type="button"
                                 class="eq-metrics-tab is-active"
@@ -6072,7 +6324,7 @@
                                 aria-selected="true"
                             >
                                 <span class="eq-metrics-tab-count">{{ $eqMetricCount }}</span>
-                                Equipment Metrics
+                                Equipment
                             </button>
 
                             <button
@@ -6082,8 +6334,8 @@
                                 role="tab"
                                 aria-selected="false"
                             >
-                                <span class="eq-metrics-tab-count">{{ min(99, $eqOpsCount) }}</span>
-                                Ops Widgets
+                                <span class="eq-metrics-tab-count" id="eqOpsTabCount">{{ min(99, $eqOpsCount) }}</span>
+                                Workloads
                             </button>
                         </div>
                         </div>
@@ -6149,7 +6401,7 @@
                                 </div>
 
                                 <div class="eq-metrics-value-row">
-                                    <div class="eq-metrics-value">{{ number_format((int) $pendingReports) }}</div>
+                                    <div class="eq-metrics-value" id="eqOpsPendingValue">{{ number_format((int) ($metricsWeek['pending'] ?? $pendingReports)) }}</div>
                                     <div class="eq-metrics-label">Pending Reports</div>
                                 </div>
                             </div>
@@ -6162,19 +6414,19 @@
                                     </span>
                                 </div>
 
-                                <div class="eq-metrics-value">{{ number_format((int) $overdueMaintenance) }}</div>
+                                <div class="eq-metrics-value" id="eqOpsOverdueValue">{{ number_format((int) ($metricsWeek['overdue'] ?? $overdueMaintenance)) }}</div>
 
                                 <div class="eq-goal-meta">
                                     <span>Workload</span>
-                                    <span>{{ number_format($eqOpsCount) }} open</span>
+                                    <span id="eqOpsOpenLabel">{{ number_format($eqOpsCount) }} open</span>
                                 </div>
 
                                 <div class="eq-goal-bar" aria-hidden="true">
                                     @php
                                         $eqOpsMax = max(1, $eqOpsCount);
-                                        $eqOverdueShare = min(100, round(((int) $overdueMaintenance / $eqOpsMax) * 100));
+                                        $eqOverdueShare = min(100, round(((int) ($metricsWeek['overdue'] ?? $overdueMaintenance) / $eqOpsMax) * 100));
                                     @endphp
-                                    <div class="eq-goal-fill" style="width: {{ $eqOverdueShare }}%"></div>
+                                    <div class="eq-goal-fill" id="eqOpsOverdueFill" style="width: {{ $eqOverdueShare }}%"></div>
                                 </div>
                             </div>
                         </div>
@@ -6184,9 +6436,17 @@
                                 <div class="eq-funnel-card" data-eq-metrics-panel="equipment" data-eq-funnel>
                                     <div class="eq-funnel-header">
                                         <h3 class="eq-funnel-title">Inventory</h3>
-                                        <button type="button" class="eq-funnel-more" aria-label="Inventory options">
-                                            <i data-lucide="ellipsis" class="h-4 w-4"></i>
-                                        </button>
+                                        <div class="eq-funnel-more-wrap">
+                                            <button type="button" class="eq-funnel-more" data-eq-funnel-menu-btn="inventory" aria-label="Inventory options" aria-expanded="false" aria-controls="eqInventoryFunnelMenu">
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+                                            <div id="eqInventoryFunnelMenu" class="eq-funnel-menu hidden" role="menu">
+                                                <a href="{{ url('/maintenance/equipment/inventory') }}">All equipment</a>
+                                                <a href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}">Borrowed</a>
+                                                <a href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}">Under maintenance</a>
+                                                <a href="{{ url('/maintenance/equipment/categories') }}">Categories</a>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="eq-funnel-body">
                                         <div class="eq-funnel-axis" aria-hidden="true">
@@ -6203,6 +6463,8 @@
                                                     data-unit="{{ $stage['unit'] }}"
                                                     data-conversion="{{ $stage['conversion'] }}"
                                                     data-dropoff="{{ $stage['dropoff'] }}"
+                                                    data-href="{{ $eqFunnelEquipmentHrefs[$stage['label']] ?? url('/maintenance/equipment/inventory') }}"
+                                                    title="View {{ $stage['label'] }}"
                                                 >
                                                     <div class="eq-funnel-col-head">
                                                         <span class="eq-funnel-col-label">{{ $stage['label'] }}</span>
@@ -6226,25 +6488,37 @@
                                 <div class="eq-funnel-card is-hidden" data-eq-metrics-panel="operations" data-eq-funnel>
                                     <div class="eq-funnel-header">
                                         <h3 class="eq-funnel-title">Reports</h3>
-                                        <button type="button" class="eq-funnel-more" aria-label="Reports options">
-                                            <i data-lucide="ellipsis" class="h-4 w-4"></i>
-                                        </button>
+                                        <div class="eq-funnel-more-wrap">
+                                            <button type="button" class="eq-funnel-more" data-eq-funnel-menu-btn="reports" aria-label="Reports options" aria-expanded="false" aria-controls="eqReportsFunnelMenu">
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+                                            <div id="eqReportsFunnelMenu" class="eq-funnel-menu hidden" role="menu">
+                                                <a href="{{ url('/maintenance/reports') }}">All reports</a>
+                                                <a href="{{ url('/maintenance/reports/pending') }}">Pending</a>
+                                                <a href="{{ url('/maintenance/reports/processing') }}">Processing</a>
+                                                <a href="{{ url('/maintenance/reports/resolved') }}">Resolved</a>
+                                                <a href="{{ url('/maintenance/schedules') }}">Schedules</a>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="eq-funnel-body">
-                                        <div class="eq-funnel-axis" aria-hidden="true">
+                                        <div class="eq-funnel-axis" id="eqReportsFunnelAxis" aria-hidden="true">
                                             @foreach ($eqFunnelOperations['axis'] as $axisLabel)
                                                 <span>{{ $axisLabel }}</span>
                                             @endforeach
                                         </div>
-                                        <div class="eq-funnel-cols">
+                                        <div class="eq-funnel-cols" id="eqReportsFunnelCols">
                                             @foreach ($eqFunnelOperations['stages'] as $stageIndex => $stage)
                                                 <button
                                                     type="button"
                                                     class="eq-funnel-col"
+                                                    data-eq-report-stage="{{ $stageIndex }}"
                                                     data-display="{{ $stage['display'] }}"
                                                     data-unit="{{ $stage['unit'] }}"
                                                     data-conversion="{{ $stage['conversion'] }}"
                                                     data-dropoff="{{ $stage['dropoff'] }}"
+                                                    data-href="{{ $eqFunnelReportHrefs[$stage['label']] ?? url('/maintenance/reports') }}"
+                                                    title="View {{ $stage['label'] }}"
                                                 >
                                                     <div class="eq-funnel-col-head">
                                                         <span class="eq-funnel-col-label">{{ $stage['label'] }}</span>
@@ -6268,18 +6542,18 @@
                         </div>
                     </div>
 
-                    <section class="maintenance-hero">
+                    <section class="maintenance-hero" id="activeWorkloadCard">
                         @php
-                            $opsPending = (int) $pendingReports;
-                            $opsOverdue = (int) $overdueMaintenance;
-                            $opsTotal = $opsPending + $opsOverdue;
-                            $opsFillPercent = $opsTotal > 0
+                            $opsPending = (int) ($metricsWeek['pending'] ?? $pendingReports);
+                            $opsOverdue = (int) ($metricsWeek['overdue'] ?? $overdueMaintenance);
+                            $opsTotal = (int) ($metricsWeek['open'] ?? ($opsPending + $opsOverdue));
+                            $opsFillPercent = (int) ($metricsWeek['fill_percent'] ?? ($opsTotal > 0
                                 ? min(92, max(18, round(($opsPending / max(1, $opsTotal)) * 100)))
-                                : 22;
-                            $opsClearedPercent = $opsTotal > 0
+                                : 22));
+                            $opsClearedPercent = (int) ($metricsWeek['handled'] ?? ($opsTotal > 0
                                 ? max(0, 100 - round(($opsOverdue / max(1, $opsTotal)) * 100))
-                                : 100;
-                            $opsWaveY = 200 - (($opsFillPercent / 100) * 200);
+                                : 100));
+                            $opsWaveY = (float) ($metricsWeek['wave_y'] ?? (200 - (($opsFillPercent / 100) * 200)));
                             $opsYearNow = (int) now()->format('Y');
                             $opsYears = [$opsYearNow, $opsYearNow - 1, $opsYearNow - 2, $opsYearNow - 3];
                         @endphp
@@ -6306,6 +6580,7 @@
                                     type="button"
                                     class="mh-year-tab {{ $opsYear === $opsYearNow ? 'is-active' : '' }}"
                                     data-mh-year="{{ $opsYear }}"
+                                    aria-pressed="{{ $opsYear === $opsYearNow ? 'true' : 'false' }}"
                                 >
                                     {{ $opsYear }}
                                 </button>
@@ -6332,6 +6607,7 @@
 
                                     <g clip-path="url(#mhLiquidClip)">
                                         <path
+                                            id="mhLiquidWaveSoft"
                                             fill="rgba(0, 37, 204, 0.38)"
                                             d="M0 {{ $opsWaveY - 8 }}
                                                C 35 {{ $opsWaveY - 22 }}, 65 {{ $opsWaveY + 8 }}, 100 {{ $opsWaveY - 4 }}
@@ -6339,6 +6615,7 @@
                                                L 200 200 L 0 200 Z"
                                         />
                                         <path
+                                            id="mhLiquidWaveSolid"
                                             fill="#0025cc"
                                             d="M0 {{ $opsWaveY + 6 }}
                                                C 40 {{ $opsWaveY - 10 }}, 70 {{ $opsWaveY + 16 }}, 100 {{ $opsWaveY + 2 }}
@@ -6348,7 +6625,7 @@
                                     </g>
                                 </svg>
 
-                                <div class="mh-liquid-value {{ $opsFillPercent < 48 ? 'is-dark' : '' }}">{{ number_format($opsTotal) }}</div>
+                                <div class="mh-liquid-value {{ $opsFillPercent < 48 ? 'is-dark' : '' }}" id="mhLiquidValue">{{ number_format($opsTotal) }}</div>
                             </div>
 
                             <div class="mh-liquid-legend">
@@ -6364,8 +6641,8 @@
                         </div>
 
                         <div class="mh-saved-footer">
-                            <span>Overdue items: <strong>{{ number_format($opsOverdue) }}</strong></span>
-                            <span>Handled: <strong>{{ number_format($opsClearedPercent) }}%</strong></span>
+                            <span>Overdue items: <strong id="mhOverdueItems">{{ number_format($opsOverdue) }}</strong></span>
+                            <span>Handled: <strong id="mhHandledPct">{{ number_format($opsClearedPercent) }}%</strong></span>
                         </div>
                     </section>
                 </div>
@@ -6774,6 +7051,7 @@
 
             <div
                     class="dashboard-toolbar-actions dashboard-sidebar-quick-actions ml-auto flex items-center gap-2"
+                    id="sidebarQuickActionsTrack"
                 >
                     {{-- ===================================================== --}}
                     {{-- ADD EQUIPMENT --}}
@@ -9473,6 +9751,99 @@ function toggleEquipmentStatisticsMenu(event) {
 
     }
 }
+
+// =====================================================
+// EQUIPMENT SHORTCUTS — DRAG CAROUSEL (NO ARROWS)
+// =====================================================
+
+(function initDragScrollTracks() {
+    const bindDragScroll = (track, interactiveSelector) => {
+        if (!track || track.dataset.dragBound === '1') {
+            return;
+        }
+        track.dataset.dragBound = '1';
+
+        let isDown = false;
+        let startX = 0;
+        let scrollLeft = 0;
+        let moved = false;
+        let suppressClick = false;
+
+        const endDrag = () => {
+            if (!isDown) {
+                return;
+            }
+            isDown = false;
+            track.classList.remove('is-dragging');
+            if (moved) {
+                suppressClick = true;
+                track.classList.add('has-dragged');
+                // Keep buttons inert until the ghost click from this drag is gone.
+                window.setTimeout(() => {
+                    suppressClick = false;
+                    track.classList.remove('has-dragged');
+                }, 0);
+            }
+        };
+
+        track.addEventListener('mousedown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
+            isDown = true;
+            moved = false;
+            suppressClick = false;
+            startX = event.pageX;
+            scrollLeft = track.scrollLeft;
+        });
+
+        track.addEventListener('mousemove', (event) => {
+            if (!isDown) {
+                return;
+            }
+            const walk = event.pageX - startX;
+            if (!moved && Math.abs(walk) <= 6) {
+                return;
+            }
+            moved = true;
+            track.classList.add('is-dragging');
+            event.preventDefault();
+            track.scrollLeft = scrollLeft - walk;
+        });
+
+        track.addEventListener('mouseleave', endDrag);
+        window.addEventListener('mouseup', endDrag);
+
+        // Block activation after a drag (covers inline onclick + <a href>).
+        track.addEventListener('click', (event) => {
+            if (!suppressClick && !moved) {
+                return;
+            }
+            const target = event.target.closest(interactiveSelector);
+            if (!target || !track.contains(target)) {
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            suppressClick = false;
+            moved = false;
+            track.classList.remove('has-dragged');
+        }, true);
+
+        track.querySelectorAll(interactiveSelector).forEach((el) => {
+            el.addEventListener('dragstart', (event) => event.preventDefault());
+        });
+    };
+
+    bindDragScroll(
+        document.getElementById('equipmentStatisticsCarouselTrack'),
+        'a.eq-stats-carousel-card'
+    );
+    bindDragScroll(
+        document.getElementById('sidebarQuickActionsTrack'),
+        'button.dashboard-quick-action, a.dashboard-quick-action'
+    );
+})();
 
 
 // =====================================================
@@ -13009,6 +13380,9 @@ document.addEventListener(
                 // =============================================
 
                 roomDetailsView.dataset.roomId = room.roomId;
+                if (room.floorId) {
+                    roomDetailsView.dataset.floorId = room.floorId;
+                }
 
                 // =============================================
                 // SHOW PANEL
@@ -17477,14 +17851,26 @@ document.addEventListener(
             // VIEW FULL ROOM DETAILS
             // =====================================================
 
-            roomDetailsView?.addEventListener("click", () => {
-                const roomId = roomDetailsView.dataset.roomId;
-
-                if (!roomId) {
+            function goToRoomLayout(roomId, floorId) {
+                if (!roomId || goToRoomLayout.busy) {
                     return;
                 }
 
-                window.location.href = `/maintenance/infrastructure?room=${encodeURIComponent(roomId)}`;
+                goToRoomLayout.busy = true;
+
+                const params = new URLSearchParams({ room: String(roomId) });
+                if (floorId) {
+                    params.set("floor", String(floorId));
+                }
+
+                window.location.href = `/maintenance/infrastructure?${params.toString()}`;
+            }
+
+            roomDetailsView?.addEventListener("click", () => {
+                goToRoomLayout(
+                    roomDetailsView.dataset.roomId,
+                    roomDetailsView.dataset.floorId,
+                );
             });
 
             // =====================================================
@@ -17506,20 +17892,7 @@ document.addEventListener(
                     return;
                 }
 
-                // ==============================================
-                // CREATE INFRASTRUCTURE MONITOR URL
-                //
-                // Example:
-                // /maintenance/infrastructure?room=11
-                // ==============================================
-
-                const monitorUrl = `/maintenance/infrastructure?room=${encodeURIComponent(room.roomId)}`;
-
-                // ==============================================
-                // OPEN INFRASTRUCTURE MONITOR
-                // ==============================================
-
-                window.location.href = monitorUrl;
+                goToRoomLayout(room.roomId, room.floorId);
             }
 
             // =====================================================
@@ -17971,43 +18344,124 @@ document.addEventListener(
                 return;
             }
 
-            const tabs = metricsCard.querySelectorAll('[data-eq-metrics-tab]');
-            const panels = metricsCard.querySelectorAll('[data-eq-metrics-panel]');
+            const metricsDashboard = @json($metricsDashboard ?? []);
+            const reportFunnelSpec = [
+                { label: 'Submitted Reports', key: 'submitted', unit: 'reports', href: @json(url('/maintenance/reports')) },
+                { label: 'Accepted Reports', key: 'accepted', unit: 'reports', href: @json(url('/maintenance/reports/pending')) },
+                { label: 'In Progress+', key: 'actioned', unit: 'reports', href: @json(url('/maintenance/reports/processing')) },
+                { label: 'Closed Outcomes', key: 'closed', unit: 'reports', href: @json(url('/maintenance/reports/resolved')) },
+                { label: 'Resolved', key: 'resolved', unit: 'reports', href: @json(url('/maintenance/reports/resolved')) },
+            ];
 
-            tabs.forEach((tab) => {
-                tab.addEventListener('click', () => {
-                    const target = tab.getAttribute('data-eq-metrics-tab');
-
-                    tabs.forEach((item) => {
-                        const isActive = item === tab;
-                        item.classList.toggle('is-active', isActive);
-                        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                    });
-
-                    panels.forEach((panel) => {
-                        const matches = panel.getAttribute('data-eq-metrics-panel') === target;
-                        panel.classList.toggle('is-hidden', !matches);
-                    });
-                });
-            });
-
-            document.querySelectorAll('.mh-year-tab').forEach((yearTab) => {
-                yearTab.addEventListener('click', () => {
-                    document.querySelectorAll('.mh-year-tab').forEach((item) => {
-                        item.classList.toggle('is-active', item === yearTab);
-                    });
-                });
-            });
-
+            const formatCount = (value) => Number(value || 0).toLocaleString();
+            const formatCompact = (value) => {
+                const n = Number(value) || 0;
+                if (n >= 1000000) {
+                    return `${String((n / 1000000).toFixed(1)).replace(/\.0$/, '')}M`;
+                }
+                if (n >= 1000) {
+                    return `${String((n / 1000).toFixed(1)).replace(/\.0$/, '')}k`;
+                }
+                return formatCount(n);
+            };
             const formatDropoff = (value) => {
                 const n = Number(value) || 0;
                 return `${n > 0 ? '+' : ''}${n}%`;
             };
+            const buildFunnel = (stages) => {
+                const values = stages.map((stage) => Number(stage.value) || 0);
+                const max = Math.max(1, ...values);
+                let axisTop = Math.ceil(max / 5) * 5;
+                if (axisTop < 5) {
+                    axisTop = Math.max(5, max);
+                }
+                const built = stages.map((stage, index) => {
+                    const value = Number(stage.value) || 0;
+                    const height = Math.max(10, Math.round((value / Math.max(1, axisTop)) * 100));
+                    const prev = index > 0 ? (Number(stages[index - 1].value) || 0) : value;
+                    const conversion = prev > 0 ? Math.round((value / prev) * 100) : 100;
+                    const nextHeight = index < stages.length - 1
+                        ? Math.max(10, Math.round(((Number(stages[index + 1].value) || 0) / Math.max(1, axisTop)) * 100))
+                        : height;
+                    let slope = height > 0 ? Math.max(0, Math.round(((height - nextHeight) / height) * 100)) : 0;
+                    if (nextHeight > height) {
+                        slope = 0;
+                    }
+                    return {
+                        ...stage,
+                        value,
+                        display: formatCompact(value),
+                        height,
+                        conversion,
+                        dropoff: conversion - 100,
+                        slope,
+                    };
+                });
+                const axis = [];
+                for (let i = 0; i < 5; i += 1) {
+                    axis.push(formatCompact(Math.round(axisTop * (1 - (i / 4)))));
+                }
+                return { stages: built, axis };
+            };
+            const wavePath = (waveY, variant) => {
+                if (variant === 'soft') {
+                    return `M0 ${waveY - 8} C 35 ${waveY - 22}, 65 ${waveY + 8}, 100 ${waveY - 4} S 165 ${waveY - 20}, 200 ${waveY - 2} L 200 200 L 0 200 Z`;
+                }
+                return `M0 ${waveY + 6} C 40 ${waveY - 10}, 70 ${waveY + 16}, 100 ${waveY + 2} S 160 ${waveY - 12}, 200 ${waveY + 8} L 200 200 L 0 200 Z`;
+            };
 
-            metricsCard.querySelectorAll('[data-eq-funnel]').forEach((funnel) => {
+            const placeFunnelMenu = (btn, menu) => {
+                if (!btn || !menu) {
+                    return;
+                }
+                const rect = btn.getBoundingClientRect();
+                const menuWidth = Math.max(168, menu.offsetWidth || 168);
+                const gap = 6;
+                let left = rect.right - menuWidth;
+                let top = rect.bottom + gap;
+                const maxLeft = window.innerWidth - menuWidth - 8;
+                left = Math.max(8, Math.min(left, maxLeft));
+                menu.style.left = `${left}px`;
+                menu.style.top = `${top}px`;
+                menu.style.right = 'auto';
+                // If it would clip below the viewport, flip above the button.
+                const menuHeight = menu.offsetHeight || 160;
+                if (top + menuHeight > window.innerHeight - 8) {
+                    top = Math.max(8, rect.top - menuHeight - gap);
+                    menu.style.top = `${top}px`;
+                }
+            };
+
+            const closeMenus = (except = null) => {
+                const periodMenu = document.getElementById('eqPeriodMenu');
+                const periodPill = document.getElementById('eqPeriodPill');
+                if (periodMenu && except !== periodMenu) {
+                    periodMenu.classList.add('hidden');
+                    periodPill?.setAttribute('aria-expanded', 'false');
+                }
+                metricsCard.querySelectorAll('.eq-funnel-menu').forEach((menu) => {
+                    if (menu !== except) {
+                        menu.classList.add('hidden');
+                        menu.style.top = '';
+                        menu.style.left = '';
+                        menu.style.right = '';
+                    }
+                });
+                metricsCard.querySelectorAll('[data-eq-funnel-menu-btn]').forEach((btn) => {
+                    if (except && btn.getAttribute('aria-controls') === except.id) {
+                        return;
+                    }
+                    btn.setAttribute('aria-expanded', 'false');
+                });
+                if (except?.id !== 'equipmentStatisticsDropdown') {
+                    document.getElementById('equipmentStatisticsDropdown')?.classList.add('hidden');
+                    document.getElementById('equipmentStatisticsMenuButton')?.setAttribute('aria-expanded', 'false');
+                }
+            };
+
+            const bindFunnel = (funnel) => {
                 const tip = funnel.querySelector('.eq-funnel-tip');
-                const cols = funnel.querySelectorAll('.eq-funnel-col');
-
+                const cols = () => funnel.querySelectorAll('.eq-funnel-col');
                 const showTip = (col) => {
                     if (!tip || !col) return;
                     const display = col.getAttribute('data-display') || '0';
@@ -18017,30 +18471,230 @@ document.addEventListener(
                     tip.innerHTML = `<strong>${display}</strong> ${unit} | Conversion: <strong>${conversion}%</strong> | Drop-off: <strong>${formatDropoff(dropoff)}</strong>`;
                     tip.classList.add('is-visible');
                 };
-
                 const hideTip = () => tip?.classList.remove('is-visible');
-
                 const clearActive = () => {
-                    cols.forEach((item) => item.classList.remove('is-active'));
+                    cols().forEach((item) => item.classList.remove('is-active'));
                     hideTip();
                 };
-
                 const setActive = (col) => {
                     if (!col) return;
-                    cols.forEach((item) => item.classList.toggle('is-active', item === col));
+                    cols().forEach((item) => item.classList.toggle('is-active', item === col));
                     showTip(col);
                 };
 
-                cols.forEach((col) => {
-                    col.addEventListener('mouseenter', () => setActive(col));
-                    col.addEventListener('focus', () => setActive(col));
+                funnel.addEventListener('mouseover', (event) => {
+                    const col = event.target.closest('.eq-funnel-col');
+                    if (col && funnel.contains(col)) {
+                        setActive(col);
+                    }
                 });
-
+                funnel.addEventListener('focusin', (event) => {
+                    const col = event.target.closest('.eq-funnel-col');
+                    if (col && funnel.contains(col)) {
+                        setActive(col);
+                    }
+                });
                 funnel.addEventListener('mouseleave', clearActive);
+                funnel.addEventListener('click', (event) => {
+                    const col = event.target.closest('.eq-funnel-col');
+                    if (!col || !funnel.contains(col)) {
+                        return;
+                    }
+                    const href = col.getAttribute('data-href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            };
 
-                clearActive();
+            const applySlice = (slice) => {
+                if (!slice) {
+                    return;
+                }
+                const pending = Number(slice.pending) || 0;
+                const overdue = Number(slice.overdue) || 0;
+                const open = Number(slice.open) || (pending + overdue);
+                const handled = Number(slice.handled) || 0;
+                const fillPercent = Number(slice.fill_percent) || 22;
+                const waveY = Number(slice.wave_y) || (200 - ((fillPercent / 100) * 200));
+
+                const pendingEl = document.getElementById('eqOpsPendingValue');
+                const overdueEl = document.getElementById('eqOpsOverdueValue');
+                const openEl = document.getElementById('eqOpsOpenLabel');
+                const fillEl = document.getElementById('eqOpsOverdueFill');
+                const tabCount = document.getElementById('eqOpsTabCount');
+                if (pendingEl) pendingEl.textContent = formatCount(pending);
+                if (overdueEl) overdueEl.textContent = formatCount(overdue);
+                if (openEl) openEl.textContent = `${formatCount(open)} open`;
+                if (fillEl) fillEl.style.width = `${open > 0 ? Math.min(100, Math.round((overdue / Math.max(1, open)) * 100)) : 0}%`;
+                if (tabCount) tabCount.textContent = String(Math.min(99, open));
+
+                const liquidValue = document.getElementById('mhLiquidValue');
+                const waveSoft = document.getElementById('mhLiquidWaveSoft');
+                const waveSolid = document.getElementById('mhLiquidWaveSolid');
+                const overdueItems = document.getElementById('mhOverdueItems');
+                const handledPct = document.getElementById('mhHandledPct');
+                if (liquidValue) {
+                    liquidValue.textContent = formatCount(open);
+                    liquidValue.classList.toggle('is-dark', fillPercent < 48);
+                }
+                if (waveSoft) waveSoft.setAttribute('d', wavePath(waveY, 'soft'));
+                if (waveSolid) waveSolid.setAttribute('d', wavePath(waveY, 'solid'));
+                if (overdueItems) overdueItems.textContent = formatCount(overdue);
+                if (handledPct) handledPct.textContent = `${formatCount(handled)}%`;
+
+                const reports = slice.reports || {};
+                const funnel = buildFunnel(reportFunnelSpec.map((spec) => ({
+                    ...spec,
+                    value: Number(reports[spec.key]) || 0,
+                })));
+                const axis = document.getElementById('eqReportsFunnelAxis');
+                const colsWrap = document.getElementById('eqReportsFunnelCols');
+                if (axis) {
+                    axis.innerHTML = funnel.axis.map((label) => `<span>${label}</span>`).join('');
+                }
+                if (colsWrap) {
+                    colsWrap.innerHTML = funnel.stages.map((stage, index) => `
+                        <button
+                            type="button"
+                            class="eq-funnel-col"
+                            data-eq-report-stage="${index}"
+                            data-display="${stage.display}"
+                            data-unit="${stage.unit}"
+                            data-conversion="${stage.conversion}"
+                            data-dropoff="${stage.dropoff}"
+                            data-href="${stage.href}"
+                            title="View ${stage.label}"
+                        >
+                            <div class="eq-funnel-col-head">
+                                <span class="eq-funnel-col-label">${stage.label}</span>
+                                <span class="eq-funnel-col-value">${stage.display}</span>
+                            </div>
+                            <div class="eq-funnel-col-plot">
+                                <div class="eq-funnel-bar" style="height: ${stage.height}%;">
+                                    <span class="eq-funnel-tick"></span>
+                                    ${index < funnel.stages.length - 1 ? `<span class="eq-funnel-slope" style="--slope-drop: ${stage.slope}%;"></span>` : ''}
+                                </div>
+                            </div>
+                        </button>
+                    `).join('');
+                }
+            };
+
+            const setPeriodLabel = (label, periodKey = null) => {
+                const pillLabel = document.getElementById('eqPeriodPillLabel');
+                if (pillLabel) {
+                    pillLabel.textContent = label;
+                }
+                metricsCard.querySelectorAll('[data-eq-period]').forEach((option) => {
+                    option.classList.toggle('is-active', periodKey !== null && option.getAttribute('data-eq-period') === periodKey);
+                });
+            };
+
+            const tabs = metricsCard.querySelectorAll('[data-eq-metrics-tab]');
+            const panels = metricsCard.querySelectorAll('[data-eq-metrics-panel]');
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const target = tab.getAttribute('data-eq-metrics-tab');
+                    tabs.forEach((item) => {
+                        const isActive = item === tab;
+                        item.classList.toggle('is-active', isActive);
+                        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    });
+                    panels.forEach((panel) => {
+                        const matches = panel.getAttribute('data-eq-metrics-panel') === target;
+                        panel.classList.toggle('is-hidden', !matches);
+                    });
+                });
             });
 
+            const periodPill = document.getElementById('eqPeriodPill');
+            const periodMenu = document.getElementById('eqPeriodMenu');
+            periodPill?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const willOpen = periodMenu?.classList.contains('hidden');
+                closeMenus(willOpen ? periodMenu : null);
+                periodMenu?.classList.toggle('hidden', !willOpen);
+                periodPill.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            });
+            metricsCard.querySelectorAll('[data-eq-period]').forEach((option) => {
+                option.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const key = option.getAttribute('data-eq-period');
+                    const slice = metricsDashboard?.periods?.[key];
+                    applySlice(slice);
+                    setPeriodLabel(metricsDashboard?.periodLabels?.[key] || option.textContent.trim(), key);
+                    document.querySelectorAll('.mh-year-tab').forEach((item) => {
+                        const isCurrentYear = item.getAttribute('data-mh-year') === String(metricsDashboard?.year || '');
+                        item.classList.toggle('is-active', isCurrentYear);
+                        item.setAttribute('aria-pressed', isCurrentYear ? 'true' : 'false');
+                    });
+                    closeMenus();
+                });
+            });
+
+            document.querySelectorAll('.mh-year-tab').forEach((yearTab) => {
+                yearTab.addEventListener('click', () => {
+                    const year = yearTab.getAttribute('data-mh-year');
+                    const slice = metricsDashboard?.years?.[year];
+                    applySlice(slice);
+                    setPeriodLabel(year, null);
+                    document.querySelectorAll('.mh-year-tab').forEach((item) => {
+                        const isActive = item === yearTab;
+                        item.classList.toggle('is-active', isActive);
+                        item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                    });
+                });
+            });
+
+            metricsCard.querySelectorAll('[data-eq-funnel-menu-btn]').forEach((btn) => {
+                btn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const menu = document.getElementById(btn.getAttribute('aria-controls') || '');
+                    const willOpen = menu?.classList.contains('hidden');
+                    closeMenus(willOpen ? menu : null);
+                    if (!menu) {
+                        return;
+                    }
+                    menu.classList.toggle('hidden', !willOpen);
+                    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                    if (willOpen) {
+                        placeFunnelMenu(btn, menu);
+                        requestAnimationFrame(() => placeFunnelMenu(btn, menu));
+                    } else {
+                        menu.style.top = '';
+                        menu.style.left = '';
+                        menu.style.right = '';
+                    }
+                });
+            });
+
+            metricsCard.querySelectorAll('[data-eq-funnel]').forEach(bindFunnel);
+
+            const repositionOpenFunnelMenu = () => {
+                const openBtn = metricsCard.querySelector('[data-eq-funnel-menu-btn][aria-expanded="true"]');
+                if (!openBtn) {
+                    return;
+                }
+                const menu = document.getElementById(openBtn.getAttribute('aria-controls') || '');
+                if (menu && !menu.classList.contains('hidden')) {
+                    placeFunnelMenu(openBtn, menu);
+                }
+            };
+            window.addEventListener('resize', repositionOpenFunnelMenu);
+            window.addEventListener('scroll', repositionOpenFunnelMenu, true);
+
+            document.addEventListener('click', (event) => {
+                if (
+                    event.target.closest('#eqPeriodPill') ||
+                    event.target.closest('#eqPeriodMenu') ||
+                    event.target.closest('[data-eq-funnel-menu-btn]') ||
+                    event.target.closest('.eq-funnel-menu')
+                ) {
+                    return;
+                }
+                closeMenus();
+            });
         });
     </script>
 

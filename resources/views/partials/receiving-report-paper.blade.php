@@ -33,24 +33,14 @@
     $secondCount = $rr?->receiving_report_second_count_signature ?? $rr?->receiving_report_second_count_by ?? '';
     $officerName = $officerName ?? (auth()->user()->user_full_name ?? 'Receiving Officer');
     $signSuffix = $signSuffix ?? (string) ($rr?->receiving_report_id ?? 'sc');
-    $suggestedRrFormNumber = $suggestedRrFormNumber ?? '0000001';
+    $suggestedRrFormNumber = $suggestedRrFormNumber ?? \App\Support\RrFormNumber::next();
     if (old('receiving_report_form_number') !== null) {
         $formNo = (string) old('receiving_report_form_number');
     } elseif ($rr) {
         $existingNo = trim((string) ($rr->receiving_report_form_number ?? ''));
-        if (preg_match('/^\d{7}$/', $existingNo)) {
-            $formNo = $existingNo;
-        } elseif (preg_match('/(\d+)$/', $existingNo, $m)) {
-            $seq = (int) $m[1];
-            if ($seq > 9999999) {
-                $seq = (int) substr((string) $seq, -7);
-            }
-            $formNo = str_pad((string) $seq, 7, '0', STR_PAD_LEFT);
-        } else {
-            $formNo = $existingNo;
-        }
+        $formNo = \App\Support\RrFormNumber::isValid($existingNo) ? $existingNo : '';
     } else {
-        $formNo = $editable ? $suggestedRrFormNumber : '';
+        $formNo = '';
     }
     $oldItems = old('items');
 @endphp
@@ -68,11 +58,11 @@
                     type="text"
                     name="receiving_report_form_number"
                     value="{{ $formNo }}"
-                    maxlength="7"
-                    inputmode="numeric"
-                    pattern="\d{7}"
-                    title="7-digit Receiving Report number"
-                    class="w-24 border-0 bg-transparent px-0 font-semibold text-red-700 outline-none"
+                    maxlength="17"
+                    pattern="RR-\d{6}-\d{7}"
+                    title="Assigned on submit (RR-YYYYMM-0000001)"
+                    placeholder="{{ $suggestedRrFormNumber }}"
+                    class="w-44 border-0 bg-transparent px-0 font-semibold text-red-700 outline-none"
                 >
             @else
                 <span>{{ $formNo ?: '______' }}</span>

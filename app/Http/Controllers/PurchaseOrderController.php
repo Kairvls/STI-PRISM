@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
+use App\Support\AtpFormNumber;
 use App\Support\ProcurementPortal;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaserDocumentAccess;
@@ -220,7 +221,15 @@ class PurchaseOrderController extends Controller
                 ->update($poUpdate);
 
             foreach ($atpIds as $atpId) {
+                $atp = DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $atpId)
+                    ->lockForUpdate()
+                    ->first();
+
+                $formNumber = AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null);
+
                 $update = [
+                    'authority_purchase_form_number' => $formNumber,
                     'authority_purchase_status' => 'Pending',
                     'authority_purchase_submitted_by' => Auth::id(),
                     'authority_purchase_submitted_at' => $now,
@@ -405,11 +414,18 @@ class PurchaseOrderController extends Controller
                 '=',
                 'online_suppliers_table.supplier_id'
             )
+            ->leftJoin(
+                'requisition_issue_slip_table',
+                'authority_to_purchase_table.authority_purchase_ris_id',
+                '=',
+                'requisition_issue_slip_table.ris_id'
+            )
             ->whereIn('authority_to_purchase_table.authority_purchase_id', $ids)
             ->select(
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
                 'authority_to_purchase_table.authority_purchase_date',
+                'requisition_issue_slip_table.ris_form_number',
                 'suppliers_table.supplier_store_type',
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name'
@@ -435,7 +451,9 @@ class PurchaseOrderController extends Controller
             return 'One of the linked ATPs no longer exists.';
         }
 
-        $label = $atp->authority_purchase_form_number ?: ('ATP #'.$atpId);
+        $label = filled($atp->authority_purchase_form_number)
+            ? (string) $atp->authority_purchase_form_number
+            : 'Draft ATP (Record #'.$atpId.')';
 
         if ((string) ($atp->authority_purchase_status ?? '') !== 'Pending' || filled($atp->authority_purchase_submitted_at ?? null)) {
             return "{$label} is not a draft and cannot be submitted with this Purchase Order.";
@@ -447,10 +465,6 @@ class PurchaseOrderController extends Controller
 
         if (blank($atp->authority_purchase_date)) {
             return "{$label}: date is required before submitting.";
-        }
-
-        if (! \App\Support\AtpFormNumber::isValid($atp->authority_purchase_form_number ?? null)) {
-            return "{$label}: ATP number must follow the format ATP-YYYYMM-0001 before submitting.";
         }
 
         if (blank($atp->authority_purchase_received_by_name)) {

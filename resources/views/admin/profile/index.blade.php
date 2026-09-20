@@ -179,16 +179,13 @@
                 </label>
                 <input
                     id="user_email_address"
-                    name="user_email_address"
                     type="email"
-                    value="{{ old('user_email_address', $user->user_email_address) }}"
-                    required
-                    maxlength="255"
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                    value="{{ $user->user_email_address ?: '—' }}"
+                    disabled
+                    readonly
+                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-500 outline-none"
                 >
-                @error('user_email_address')
-                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                @enderror
+                <p class="mt-1.5 text-xs text-slate-500">Managed by your administrator. Must match your Office 365 sign-in email.</p>
             </div>
 
             <div>

@@ -324,7 +324,10 @@
                                     </td>
                                     <td>
                                         <div class="flex items-center gap-2">
-                                            @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
+                                            @include('layouts.partials.receiving-ris-eye', [
+                                                'reportId' => $row->receiving_report_id ?? null,
+                                                'risId' => $previewRisId,
+                                            ])
                                             <a class="ro-link" href="{{ route('receiving.rr.index', ['status' => 'queue']) }}">Inspect</a>
                                         </div>
                                     </td>
@@ -382,9 +385,12 @@
                                     <td>{{ $row->officer_name ?: '—' }}</td>
                                     <td>
                                         <div class="flex items-center gap-2">
-                                            @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
+                                            @include('layouts.partials.receiving-ris-eye', [
+                                                'reportId' => $row->receiving_report_id ?? null,
+                                                'risId' => $previewRisId,
+                                            ])
                                             @if(!empty($row->receiving_report_id))
-                                                <a class="ro-preview-btn" href="/receiving/reports/{{ $row->receiving_report_id }}/print" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>
+                                                <button type="button" class="ro-preview-btn" onclick="receivingBrowserPrintRr({{ (int) $row->receiving_report_id }})" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                             @endif
                                         </div>
                                     </td>

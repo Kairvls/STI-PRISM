@@ -29,11 +29,9 @@
         $formNumberValue = (string) old('authority_purchase_form_number');
     } elseif ($atp) {
         $existingNo = trim((string) ($atp->authority_purchase_form_number ?? ''));
-        $formNumberValue = \App\Support\AtpFormNumber::isValid($existingNo)
-            ? $existingNo
-            : $suggestedAtpFormNumber;
+        $formNumberValue = \App\Support\AtpFormNumber::isValid($existingNo) ? $existingNo : '';
     } else {
-        $formNumberValue = $suggestedAtpFormNumber;
+        $formNumberValue = '';
     }
 
     $supplierLabel = '';
@@ -68,8 +66,8 @@
                         value="{{ $formNumberValue }}"
                         maxlength="16"
                         pattern="ATP-\d{6}-\d{4}"
-                        title="ATP-YYYYMM-0001"
-                        placeholder="ATP-YYYYMM-0001"
+                        title="Assigned on submit (ATP-YYYYMM-0001)"
+                        placeholder="{{ $suggestedAtpFormNumber }}"
                         class="w-40 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
                     >
                 @elseif($isBlank)

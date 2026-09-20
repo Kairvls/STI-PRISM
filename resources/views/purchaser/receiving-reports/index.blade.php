@@ -275,7 +275,7 @@
                                         <i data-lucide="package-check" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number }}</p>
+                                        <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number ?: '—' }}</p>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rr->receiving_report_id }}</p>
                                     </div>
                                 </div>
@@ -429,7 +429,7 @@
                                 'allowMultiSupplier' => true,
                                 'suppliers' => $suppliers ?? collect(),
                                 'signKey' => 'rr-create',
-                                'suggestedRrFormNumber' => $suggestedRrFormNumber ?? '0000001',
+                                'suggestedRrFormNumber' => $suggestedRrFormNumber ?? \App\Support\RrFormNumber::next(),
                             ])
                             <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>

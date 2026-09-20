@@ -88,9 +88,9 @@
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                     </button>
                                     @if($rrId)
-                                        <a href="/receiving/reports/{{ $rrId }}/print" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Print" aria-label="Print">
+                                        <button type="button" onclick="receivingBrowserPrintRr({{ (int) $rrId }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Print" aria-label="Print">
                                             <i data-lucide="printer" class="h-4 w-4"></i>
-                                        </a>
+                                        </button>
                                     @else
                                         <button type="button" disabled class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 opacity-40" title="Print unavailable" aria-label="Print unavailable">
                                             <i data-lucide="printer" class="h-4 w-4"></i>

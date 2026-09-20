@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\MobileReportController;
 use App\Http\Controllers\Api\MobileMaintenanceController;
-use App\Http\Controllers\Api\MobilePurchaserController;
+use App\Http\Controllers\Api\MobileSemesterInspectionController;
 use App\Http\Controllers\Api\MicrosoftAuthController;
 
 /*
@@ -143,29 +143,27 @@ Route::prefix('maintenance')->group(function () {
             [MobileMaintenanceController::class, 'updateSchedule']
         );
 
+        Route::get(
+            '/semester-inspections',
+            [MobileSemesterInspectionController::class, 'index']
+        );
+
+        Route::get(
+            '/semester-inspections/{id}',
+            [MobileSemesterInspectionController::class, 'show']
+        )->whereNumber('id');
+
+        Route::get(
+            '/semester-inspections/{id}/by-qr',
+            [MobileSemesterInspectionController::class, 'resolveByQr']
+        )->whereNumber('id');
+
+        Route::post(
+            '/semester-inspections/{id}/inspect/{itemId}',
+            [MobileSemesterInspectionController::class, 'inspect']
+        )->whereNumber('id')->whereNumber('itemId');
+
     });
-
-});
-
-Route::prefix('purchaser')->middleware(['auth:sanctum', 'purchaser.api'])->group(function () {
-
-    Route::get('/summary', [MobilePurchaserController::class, 'summary']);
-
-    Route::get('/reports', [MobilePurchaserController::class, 'listReports']);
-
-    Route::get('/reports/{id}', [MobilePurchaserController::class, 'showReport']);
-
-    Route::post('/reports/{id}/accept', [MobilePurchaserController::class, 'acceptReport']);
-
-    Route::post('/reports/{id}/resolve', [MobilePurchaserController::class, 'resolveReport']);
-
-    Route::post('/reports/{id}/replacement', [MobilePurchaserController::class, 'replaceReport']);
-
-    Route::post('/reports/{id}/reject', [MobilePurchaserController::class, 'rejectReport']);
-
-    Route::post('/reports/{id}/archive', [MobilePurchaserController::class, 'archiveReport']);
-
-    Route::post('/reports/{id}/restore', [MobilePurchaserController::class, 'restoreReport']);
 
 });
 

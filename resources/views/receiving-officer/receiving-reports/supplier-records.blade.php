@@ -31,20 +31,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div class="relative w-full max-w-md">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                            <i data-lucide="search" class="h-4 w-4 text-slate-400"></i>
-                        </div>
-                        <input
-                            id="receivingSupplierSearch"
-                            type="search"
-                            class="receiving-live-search h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-                            placeholder="Search supplier, contact, type..."
-                            autocomplete="off"
-                            title="Search supplier, contact, type..."
-                        >
-                    </div>
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    @include('layouts.partials.receiving-filters', [
+                        'searchId' => 'receivingSupplierSearch',
+                        'placeholder' => 'Search supplier, contact, type...',
+                    ])
                 </div>
             </div>
         </div>

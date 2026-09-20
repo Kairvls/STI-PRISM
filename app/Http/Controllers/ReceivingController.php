@@ -586,26 +586,43 @@ class ReceivingController extends Controller
                 ->orderBy('receiving_report_item_id')
                 ->get();
         }
-        if ($items->isEmpty() && !empty($row->authority_purchase_id)) {
-            $items = $this->atpItems((int) $row->authority_purchase_id);
+        if ($items->isEmpty() && ! empty($row->authority_purchase_id)) {
+            $items = $this->atpItems((int) $row->authority_purchase_id)->map(function ($item) {
+                return (object) [
+                    'receiving_report_item_quantity' => $item->atp_quantity ?? null,
+                    'receiving_report_item_ordered_qty' => $item->atp_quantity ?? null,
+                    'receiving_report_item_unit' => $item->atp_unit ?? null,
+                    'receiving_report_item_article' => $item->atp_description ?? null,
+                    'receiving_report_item_unit_price' => $item->atp_unit_price ?? null,
+                    'receiving_report_item_condition' => 'ok',
+                    'receiving_report_item_condition_remarks' => null,
+                    'receiving_report_item_supplier_id' => null,
+                    'receiving_report_item_supplier_name' => null,
+                ];
+            });
         }
 
-        $checklist = [];
-        if (!empty($row->receiving_report_checklist)) {
-            $decoded = json_decode((string) $row->receiving_report_checklist, true);
-            $checklist = is_array($decoded) ? $decoded : [];
+        // Prefer purchaser "Received from" / address; fall back to joined supplier label when blank.
+        if (blank($row->receiving_report_received_from ?? null) && ! blank($row->supplier_name ?? null)) {
+            $row->receiving_report_received_from = $row->supplier_name;
         }
 
         $officerSig = (string) ($row->officer_signature ?? $row->receiving_report_second_count_signature ?? '');
         $officerName = $row->officer_name
             ?? $row->receiving_report_second_count_by
-            ?? (!RisWorkflow::isDrawnSignature($officerSig) ? trim($officerSig) : '')
+            ?? (! RisWorkflow::isDrawnSignature($officerSig) ? trim($officerSig) : '')
             ?: 'Receiving Officer';
 
+        if (
+            blank($row->receiving_report_second_count_signature ?? null)
+            && RisWorkflow::isDrawnSignature($officerSig)
+        ) {
+            $row->receiving_report_second_count_signature = $officerSig;
+        }
+
         return view('receiving-officer.receiving-reports.print', [
-            'row' => $row,
-            'items' => $items,
-            'checklist' => $checklist,
+            'rr' => $row,
+            'rows' => $items->values(),
             'officerName' => $officerName,
         ]);
     }

@@ -10,6 +10,7 @@ use Illuminate\Validation\Rule;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
+use App\Support\RfcFormNumber;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -185,7 +186,7 @@ class RequestForCheckController extends Controller
             $id = DB::table('request_check_table')->insertGetId($this->rfcPayload($payload));
             if ($this->rfcHas('request_check_form_number')) {
                 DB::table('request_check_table')->where('request_check_id', $id)->update([
-                    'request_check_form_number' => 'RFC-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
+                    'request_check_form_number' => $isDraft ? null : RfcFormNumber::next(),
                 ]);
             }
 
@@ -260,6 +261,11 @@ class RequestForCheckController extends Controller
                 'request_check_submitted_at' => $isDraft ? ($rfc->request_check_submitted_at ?? null) : $now,
                 'request_check_updated_at' => $now,
             ];
+            if ($this->rfcHas('request_check_form_number')) {
+                $payload['request_check_form_number'] = $isDraft
+                    ? ($wasRevision ? ($rfc->request_check_form_number ?? null) : null)
+                    : RfcFormNumber::allocateOnSubmit($rfc->request_check_form_number ?? null);
+            }
             if (! $isDraft && $this->rfcHas('request_check_assigned_reviewer_id')) {
                 $payload['request_check_assigned_reviewer_id'] = $reviewerId;
             }
@@ -322,6 +328,9 @@ class RequestForCheckController extends Controller
                 'request_check_submitted_at' => now(),
                 'request_check_updated_at' => now(),
             ];
+            if ($this->rfcHas('request_check_form_number')) {
+                $payload['request_check_form_number'] = RfcFormNumber::allocateOnSubmit($rfc->request_check_form_number ?? null);
+            }
             if ($this->rfcHas('request_check_assigned_reviewer_id')) {
                 $payload['request_check_assigned_reviewer_id'] = $reviewerId;
             }

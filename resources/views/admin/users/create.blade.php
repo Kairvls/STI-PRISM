@@ -21,7 +21,8 @@
 
             <input type="text"
                 name="employee_id"
-                class="w-full border p-2 rounded">
+                class="w-full border p-2 rounded"
+                placeholder="e.g. OMC0126F">
         </div>
 
         <div>
@@ -29,7 +30,8 @@
 
             <input type="text"
                 name="full_name"
-                class="w-full border p-2 rounded">
+                class="w-full border p-2 rounded"
+                placeholder="e.g. Juan Dela Cruz">
         </div>
 
         <div>
@@ -45,7 +47,8 @@
 
             <input type="email"
                 name="email"
-                class="w-full border p-2 rounded">
+                class="w-full border p-2 rounded"
+                placeholder="e.g. juan.delacruz@sti.edu.ph">
         </div>
 
         <div>

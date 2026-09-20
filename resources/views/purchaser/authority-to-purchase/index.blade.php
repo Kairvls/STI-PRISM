@@ -297,7 +297,7 @@
                                     </div>
                                     <div>
                                         <p class="font-semibold text-gray-900">
-                                            {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
+                                            {{ $atp->authority_purchase_form_number ?: '—' }}
                                         </p>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $atp->authority_purchase_id }}</p>
                                     </div>
@@ -663,7 +663,7 @@
                         <div>
                             <div class="flex flex-wrap items-center gap-3">
                                 <h3 id="atp-view-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">
-                                    {{ $atp->authority_purchase_form_number ?? 'ATP #' . $atp->authority_purchase_id }}
+                                    {{ $atp->authority_purchase_form_number ?: '—' }}
                                 </h3>
 
                                 @include('accounting.partials.status-badge', [
@@ -961,7 +961,7 @@
                             <div>
                                 <h3 id="atp-edit-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">Edit ATP Draft</h3>
                                 <p class="mt-1 text-sm text-gray-500">
-                                    {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
+                                    {{ $atp->authority_purchase_form_number ?: '—' }}
                                 </p>
                             </div>
 

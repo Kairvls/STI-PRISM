@@ -199,6 +199,12 @@ class InfrastructureController extends Controller
             ->whereNotIn('equipment_inventory_status', ['Disposed'])
             ->pluck('equipment_asset_tag');
 
+        $requestedFloorId = (int) $request->integer('floor');
+        $requestedRoomId = (int) $request->integer('room');
+        if ($requestedFloorId <= 0 && $requestedRoomId > 0) {
+            $requestedFloorId = (int) ($rooms->firstWhere('room_id', $requestedRoomId)->room_floor_id ?? 0);
+        }
+
         return view('maintenance-personnel.infrastructure.monitor', [
             'buildings' => Building::query()->orderBy('building_name')->get(),
             'floors' => $floors,
@@ -206,7 +212,7 @@ class InfrastructureController extends Controller
             'categories' => $categories,
             'wizardCampus' => $wizardCampus,
             'canManageCampusSetup' => $canManageCampusSetup,
-            'requestedFloorId' => (int) $request->integer('floor'),
+            'requestedFloorId' => $requestedFloorId,
             'usedAssetTags' => $usedAssetTags,
         ]);
     }

@@ -55,19 +55,10 @@
                             'ariaLabel' => 'Log filters',
                             'options' => $sliderOptions,
                         ])
-                        <div class="relative w-full max-w-md lg:ml-auto">
-                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                                <i data-lucide="search" class="h-4 w-4 text-slate-400"></i>
-                            </div>
-                            <input
-                                id="receivingLogsSearch"
-                                type="search"
-                                class="receiving-live-search h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-                                placeholder="Search action, reference, officer..."
-                                autocomplete="off"
-                                title="Search action, reference, officer..."
-                            >
-                        </div>
+                        @include('layouts.partials.receiving-filters', [
+                            'searchId' => 'receivingLogsSearch',
+                            'placeholder' => 'Search action, reference, officer...',
+                        ])
                     </div>
                 </div>
             </div>
@@ -156,14 +147,15 @@
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
                                         @if($rrId)
-                                            <a
-                                                href="/receiving/reports/{{ $rrId }}/print"
+                                            <button
+                                                type="button"
+                                                onclick="receivingBrowserPrintRr({{ (int) $rrId }})"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                                                 title="Print"
                                                 aria-label="Print"
                                             >
                                                 <i data-lucide="printer" class="h-4 w-4"></i>
-                                            </a>
+                                            </button>
                                         @else
                                             <button type="button" disabled class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 opacity-40" title="Print unavailable" aria-label="Print unavailable">
                                                 <i data-lucide="printer" class="h-4 w-4"></i>
@@ -225,7 +217,7 @@
                         if ($rrId) {
                             $actionsHtml =
                                 '<button type="button" onclick="openReceivingReportPreview(\''.$rrId.'\')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>'
-                                .'<a href="/receiving/reports/'.$rrId.'/print" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>';
+                                .'<button type="button" onclick="receivingBrowserPrintRr('.(int) $rrId.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
                         }
                     @endphp
                     @include('receiving-officer.partials.list-info-card', [

@@ -31,8 +31,13 @@
             @forelse($linked as $atp)
                 <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div>
-                        <p class="font-semibold text-slate-900">ATP {{ $atp->authority_purchase_form_number ?: ('#'.$atp->authority_purchase_id) }}</p>
-                        <p class="text-xs text-slate-500">{{ $atp->supplier_display ?? 'Supplier' }} · RIS {{ $atp->ris_form_number ?: '—' }}</p>
+                        <p class="font-semibold text-slate-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
+                        <p class="text-xs text-slate-500">
+                            {{ $atp->supplier_display ?? 'Supplier' }}
+                            @if(filled($atp->ris_form_number))
+                                · RIS {{ $atp->ris_form_number }}
+                            @endif
+                        </p>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-medium text-slate-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</span>

@@ -73,11 +73,12 @@
                 <span class="text-xs font-semibold text-slate-600">Email address</span>
                 <input
                     type="email"
-                    name="user_email_address"
-                    value="{{ old('user_email_address', $user->user_email_address ?? '') }}"
-                    autocomplete="email"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    value="{{ $user->user_email_address ?? '—' }}"
+                    disabled
+                    readonly
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500 outline-none"
                 >
+                <p class="mt-1.5 text-xs text-slate-500">Managed by your administrator. Must match your Office 365 sign-in email.</p>
             </label>
 
             <label class="block">

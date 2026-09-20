@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\LrFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
@@ -98,9 +99,6 @@ class LiquidationReportController extends Controller
         return DB::transaction(function () use ($request, $validated, $isDraft) {
             $payload = $this->payloadFromValidated($validated, $isDraft, null);
             $id = DB::table('liquidation_reports_table')->insertGetId($payload);
-            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
-                'liquidation_report_form_number' => 'LIQ-' . now()->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
-            ]);
             $this->replaceItems($id, $validated['items'] ?? []);
             if (!$isDraft && !$this->hasCompleteLiqItem($id)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -218,6 +216,9 @@ class LiquidationReportController extends Controller
                 'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
                 'liquidation_report_updated_at' => now(),
             ];
+            if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
+                $update['liquidation_report_form_number'] = LrFormNumber::allocateOnSubmit($liq->liquidation_report_form_number ?? null);
+            }
             if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_assigned_reviewer_id')) {
                 $update['liquidation_report_assigned_reviewer_id'] = $reviewerId;
             }
@@ -393,6 +394,12 @@ class LiquidationReportController extends Controller
             'liquidation_report_is_archived' => 0,
             'liquidation_report_updated_at' => $now,
         ];
+
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
+            $row['liquidation_report_form_number'] = $isDraft
+                ? ($wasRevision ? ($existing?->liquidation_report_form_number ?? null) : null)
+                : LrFormNumber::allocateOnSubmit($existing?->liquidation_report_form_number ?? null);
+        }
 
         if (!$existing) {
             $row['liquidation_report_created_by'] = auth()->id();

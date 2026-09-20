@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
+use App\Support\AdminLoginGate;
+use App\Support\RoleAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,14 +17,36 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
+        AdminLoginGate::clearIntent();
+
         return view('auth.login');
     }
 
     /**
-     * HANDLE LOGIN REQUEST
-     * Password login is disabled — Office 365 SSO only.
+     * Quiet Office 365-only admin entry (not linked from the public landing).
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function createAdmin(Request $request): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            if (RoleAccess::isAdmin(Auth::user())) {
+                return redirect('/admin/dashboard');
+            }
+
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        AdminLoginGate::markAdminIntent();
+
+        return view('auth.admin-login');
+    }
+
+    /**
+     * HANDLE LOGIN REQUEST
+     * Password login is disabled — Office 365 SSO only (person by email + MFA).
+     */
+    public function store(Request $request): RedirectResponse
     {
         return redirect('/')
             ->with(
@@ -40,6 +63,7 @@ class AuthenticatedSessionController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        AdminLoginGate::clearIntent();
 
         return redirect('/');
     }

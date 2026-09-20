@@ -31,20 +31,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div class="relative w-full max-w-md">
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                            <i data-lucide="search" class="h-4 w-4 text-slate-400"></i>
-                        </div>
-                        <input
-                            id="receivingDeliveredSearch"
-                            type="search"
-                            class="receiving-live-search h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-                            placeholder="Search RIS, ATP, items, supplier..."
-                            autocomplete="off"
-                            title="Search RIS, ATP, items, supplier..."
-                        >
-                    </div>
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    @include('layouts.partials.receiving-filters', [
+                        'searchId' => 'receivingDeliveredSearch',
+                        'placeholder' => 'Search RIS, ATP, items, supplier...',
+                    ])
                 </div>
             </div>
         </div>
@@ -138,16 +129,20 @@
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-2">
-                                    @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
+                                    @include('layouts.partials.receiving-ris-eye', [
+                                        'reportId' => $row->receiving_report_id ?? null,
+                                        'risId' => $previewRisId,
+                                    ])
                                     @if(!empty($row->receiving_report_id))
-                                        <a
-                                            href="/receiving/reports/{{ $row->receiving_report_id }}/print"
+                                        <button
+                                            type="button"
+                                            onclick="receivingBrowserPrintRr({{ (int) $row->receiving_report_id }})"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                                             title="Print"
                                             aria-label="Print"
                                         >
                                             <i data-lucide="printer" class="h-4 w-4"></i>
-                                        </a>
+                                        </button>
                                     @endif
                                 </div>
                             </td>
@@ -186,9 +181,12 @@
                     $itemsLabel = $rrItems->isNotEmpty()
                         ? $rrItems->take(3)->map(fn ($i) => ($i->receiving_report_item_article ?: '—').' ×'.(int) ($i->receiving_report_item_quantity ?? 0))->implode(', ')
                         : ($row->item_names ?: '—');
-                    $actionsHtml = view('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])->render();
+                    $actionsHtml = view('layouts.partials.receiving-ris-eye', [
+                        'reportId' => $row->receiving_report_id ?? null,
+                        'risId' => $previewRisId,
+                    ])->render();
                     if (!empty($row->receiving_report_id)) {
-                        $actionsHtml .= '<a href="/receiving/reports/'.$row->receiving_report_id.'/print" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></a>';
+                        $actionsHtml .= '<button type="button" onclick="receivingBrowserPrintRr('.(int) $row->receiving_report_id.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
                     }
                 @endphp
                 @include('receiving-officer.partials.list-info-card', [

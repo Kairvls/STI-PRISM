@@ -47,10 +47,19 @@
             });
         },
         printRr(id) {
+            if (typeof window.receivingBrowserPrintRr === 'function') {
+                window.receivingBrowserPrintRr(id);
+                return;
+            }
+            const sheetId = 'rr-print-' + id;
+            if (window.purchaserPrintSheet) {
+                window.purchaserPrintSheet(sheetId, 'rr-print-active');
+                return;
+            }
             document.querySelectorAll('.rr-print-sheet').forEach(function (sheet) {
                 sheet.classList.remove('rr-print-active');
             });
-            const sheet = document.getElementById('rr-print-' + id);
+            const sheet = document.getElementById(sheetId);
             if (sheet) sheet.classList.add('rr-print-active');
             window.print();
         }
@@ -113,20 +122,24 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                     <input
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
                         placeholder="Search RR, RFC, or received from"
-                        class="h-10 w-full max-w-md rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                        class="h-10 w-full max-w-md sm:ml-auto rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
                     >
-                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                    <button type="submit" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                        <i data-lucide="search" class="h-3.5 w-3.5"></i>
                         Search
                     </button>
-                    <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                        Reset
-                    </a>
+                    @if(request()->filled('search'))
+                        <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            Reset
+                        </a>
+                    @endif
                 </div>
             </div>
 
@@ -335,7 +348,7 @@
                         </div>
 
                         <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-white px-6 py-4">
-                            <button type="button" @click="signOpen = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancel</button>
+                            <button type="button" @click="signOpen = false" class="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:text-gray-900">Cancel</button>
                             <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800">Confirm Second Count</button>
                         </div>
                     </form>
@@ -508,10 +521,8 @@
 <style>
     [x-cloak] { display: none !important; }
     @media print {
-        body * { visibility: hidden !important; }
-        .rr-print-active, .rr-print-active * { visibility: visible !important; }
-        .rr-print-active { position: absolute !important; left: 0 !important; top: 0 !important; width: 210mm !important; box-shadow: none !important; }
-        @page { size: A4 portrait; margin: 10mm; }
+        @page { size: A4 portrait; margin: 8mm; }
+        .rr-print-active { background: #fff !important; }
     }
 </style>
 

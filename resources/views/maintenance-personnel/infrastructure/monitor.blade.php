@@ -2268,20 +2268,28 @@
         body.equipment-rotate-active-cursor {
             cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%230F172A' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='2.1' fill='%230F172A' stroke='%23ffffff' stroke-width='1.4'/%3E%3C/svg%3E") 16 16, crosshair !important;
         }
-        .room-search-highlight {
-            animation: roomSearchPulse 1.2s ease-in-out 3;
+        .blueprint-grid.is-focusing {
+            overflow: visible;
+            transition: transform 800ms cubic-bezier(0.4, 0, 0.2, 1);
         }
-        @keyframes roomSearchPulse {
+        .room-search-highlight {
+            z-index: 50 !important;
+            transition: none !important;
+            outline: 4px solid #0025cc;
+            outline-offset: 3px;
+            animation: roomFocusFlicker 0.28s ease-in-out 12;
+        }
+        @keyframes roomFocusFlicker {
             0%,
             100% {
-                box-shadow:
-                    0 14px 22px rgba(15, 23, 42, 0.18),
-                    0 0 0 0 rgba(255, 242, 0, 0.9);
+                filter: brightness(1);
+                outline-color: rgba(0, 37, 204, 0.2);
+                box-shadow: 0 0 0 0 rgba(0, 37, 204, 0.75);
             }
             50% {
-                box-shadow:
-                    0 18px 28px rgba(15, 23, 42, 0.24),
-                    0 0 0 14px rgba(255, 242, 0, 0);
+                filter: brightness(1.2);
+                outline-color: #0025cc;
+                box-shadow: 0 0 0 14px rgba(0, 37, 204, 0);
             }
         }
         .critical-room {
@@ -2474,6 +2482,12 @@
                 return {
                     activeFloor: initialFloor || null,
                     selectedRoom: null,
+                    pendingRoomFocusId: null,
+                    pendingRoomFocusAnimate: false,
+                    roomFocusUntil: 0,
+                    blueprintFocusRaf: 0,
+                    blueprintFocusAnim: null,
+                    blueprintFocusToken: 0,
                     drawerOpen: true,
                     drawerAnimating: false,
                     drawerAnimFrame: 0,
@@ -3255,7 +3269,19 @@
 
                                     requestAnimationFrame(() => {
 
-                                        this.fitBlueprint();
+                                        this.fitBlueprint({ immediate: true });
+
+                                        if (this.pendingRoomFocusId) {
+                                            const focusId = this.pendingRoomFocusId;
+                                            this.pendingRoomFocusId = null;
+                                            this.pendingRoomFocusAnimate = false;
+                                            setTimeout(() => {
+                                                this.focusRoomOnCanvas(focusId, {
+                                                    animate: true,
+                                                    duration: 800,
+                                                });
+                                            }, 220);
+                                        }
 
                                     });
 
@@ -3313,6 +3339,7 @@
                             if (dashboardRoom) {
                                 this.activeFloor = Number(dashboardRoom.floor_id);
                                 this.selectedRoom = roomId;
+                                this.pendingRoomFocusId = roomId;
                             } else {
                                 this.selectPriorityRoom();
                             }
@@ -4618,6 +4645,10 @@
 
                     fitBlueprint(options = {}) {
 
+                        if (this.roomFocusUntil && Date.now() < this.roomFocusUntil && !options.force) {
+                            return;
+                        }
+
                         const workspace = this.$refs.blueprintWorkspace;
                         const toolbar = this.$refs.blueprintToolbar;
                         const viewport = this.$refs.blueprintViewport;
@@ -4725,6 +4756,12 @@
 
                             this.blueprint.panY =
                                 (availableHeight - scaledHeight) / 2;
+
+                            this.applyBlueprintTransform?.(
+                                this.blueprint.zoom,
+                                this.blueprint.panX,
+                                this.blueprint.panY,
+                            );
                         };
 
                         if (options.immediate) {
@@ -5430,6 +5467,180 @@
 
                         this.paintRoomColor(this.selectedRoom, this.defaultRoomColor(room.type));
                     },
+                    easeInOutCubic(t) {
+                        return t < 0.5
+                            ? 4 * t * t * t
+                            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                    },
+                    stopBlueprintFocusAnim() {
+                        this.blueprintFocusToken += 1;
+                        if (this.blueprintFocusRaf) {
+                            cancelAnimationFrame(this.blueprintFocusRaf);
+                            this.blueprintFocusRaf = 0;
+                        }
+                        this.blueprintFocusAnim = null;
+                    },
+                    applyBlueprintTransform(zoom, panX, panY) {
+                        this.blueprint.zoom = zoom;
+                        this.blueprint.panX = panX;
+                        this.blueprint.panY = panY;
+                        this.zoomInput = Math.round(zoom * 100);
+                        const canvas = this.$refs.blueprintCanvas;
+                        if (!canvas) {
+                            return;
+                        }
+                        canvas.style.transformOrigin = "0 0";
+                        canvas.style.transform =
+                            `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
+                    },
+                    animateBlueprintTo({ zoom, panX, panY, duration = 800, onDone }) {
+                        this.stopBlueprintFocusAnim();
+
+                        const canvas = this.$refs.blueprintCanvas;
+                        const animDuration = Math.max(400, Number(duration) || 800);
+                        const token = this.blueprintFocusToken;
+                        const endZoom = Number(zoom);
+                        const endX = Number(panX);
+                        const endY = Number(panY);
+
+                        this.roomFocusUntil = Date.now() + animDuration + 900;
+                        let settled = false;
+
+                        const finish = () => {
+                            if (settled || token !== this.blueprintFocusToken) {
+                                return;
+                            }
+                            settled = true;
+                            canvas?.classList.remove("is-focusing");
+                            if (canvas) {
+                                canvas.style.transition = "";
+                            }
+                            this.applyBlueprintTransform(endZoom, endX, endY);
+                            this.$nextTick(() => this.updateRotateHandlePlacement?.());
+                            if (typeof onDone === "function") {
+                                onDone();
+                            }
+                        };
+
+                        if (!canvas) {
+                            this.applyBlueprintTransform(endZoom, endX, endY);
+                            finish();
+                            return;
+                        }
+
+                        this.applyBlueprintTransform(
+                            Number(this.blueprint.zoom) || 1,
+                            Number(this.blueprint.panX) || 0,
+                            Number(this.blueprint.panY) || 0,
+                        );
+                        canvas.classList.add("is-focusing");
+                        canvas.style.transition =
+                            `transform ${animDuration}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+
+                        const onEnd = (event) => {
+                            if (event.propertyName && event.propertyName !== "transform") {
+                                return;
+                            }
+                            canvas.removeEventListener("transitionend", onEnd);
+                            finish();
+                        };
+                        canvas.addEventListener("transitionend", onEnd);
+
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                if (token !== this.blueprintFocusToken) {
+                                    return;
+                                }
+                                this.applyBlueprintTransform(endZoom, endX, endY);
+                            });
+                        });
+
+                        window.setTimeout(() => {
+                            if (token !== this.blueprintFocusToken) {
+                                return;
+                            }
+                            canvas.removeEventListener("transitionend", onEnd);
+                            finish();
+                        }, animDuration + 80);
+                    },
+                    focusRoomOnCanvas(roomId, options = {}) {
+                        const normalizedRoomId = Number(roomId);
+                        const room = (this.roomCatalog || []).find(
+                            (item) => Number(item.id) === normalizedRoomId,
+                        );
+
+                        if (!Number.isFinite(normalizedRoomId) || normalizedRoomId <= 0 || !room) {
+                            return false;
+                        }
+
+                        this.activeFloor = Number(room.floor_id);
+                        this.selectedRoom = normalizedRoomId;
+
+                        const applyFocus = () => {
+                            const viewport = this.$refs.blueprintViewport;
+                            const node = document.querySelector(
+                                `.room-block[data-id="${normalizedRoomId}"]`,
+                            );
+                            const x = Number(node?.dataset.x ?? room.x) || 0;
+                            const y = Number(node?.dataset.y ?? room.y) || 0;
+                            const width = Math.max(Number(node?.dataset.width ?? room.width) || 120, 48);
+                            const height = Math.max(Number(node?.dataset.height ?? room.height) || 80, 48);
+                            const viewW = viewport?.clientWidth || 720;
+                            const viewH = viewport?.clientHeight || 480;
+                            const dockWidth = this.$refs.blueprintControlsDock?.clientWidth || 64;
+                            const availableW = Math.max(180, viewW - dockWidth - 24);
+                            const availableH = Math.max(180, viewH - 24);
+                            const zoom = Math.min(
+                                Math.max(
+                                    Math.min(availableW / (width * 1.7), availableH / (height * 1.7)),
+                                    1.35,
+                                ),
+                                2.4,
+                            );
+                            const panX = availableW / 2 - (x + width / 2) * zoom;
+                            const panY = availableH / 2 - (y + height / 2) * zoom;
+
+                            const playHighlight = () => {
+                                const target = document.querySelector(
+                                    `.room-block[data-id="${normalizedRoomId}"]`,
+                                );
+                                if (!target) {
+                                    return;
+                                }
+                                target.classList.remove("room-search-highlight");
+                                void target.offsetWidth;
+                                target.classList.add("room-search-highlight");
+                                const clearHighlight = () => {
+                                    target.classList.remove("room-search-highlight");
+                                    target.removeEventListener("animationend", clearHighlight);
+                                };
+                                target.addEventListener("animationend", clearHighlight);
+                            };
+
+                            if (options.animate === false) {
+                                this.applyBlueprintTransform(zoom, panX, panY);
+                                this.roomFocusUntil = Date.now() + 1800;
+                                playHighlight();
+                                this.$nextTick(() => this.updateRotateHandlePlacement?.());
+                                return;
+                            }
+
+                            playHighlight();
+                            this.animateBlueprintTo({
+                                zoom,
+                                panX,
+                                panY,
+                                duration: options.duration || 800,
+                                onDone: playHighlight,
+                            });
+                        };
+
+                        this.$nextTick(() => {
+                            requestAnimationFrame(() => requestAnimationFrame(applyFocus));
+                        });
+
+                        return true;
+                    },
                     focusRoomSearch() {
                         const query = this.roomSearch.trim().toLowerCase();
                         if (!query) return;
@@ -5448,25 +5659,7 @@
                             return;
                         }
 
-                        this.activeFloor = room.floor_id;
-                        this.selectedRoom = room.id;
-                        this.blueprint.zoom = 1.35;
-                        this.blueprint.panX = Math.round(
-                            360 - room.x * this.blueprint.zoom,
-                        );
-                        this.blueprint.panY = Math.round(
-                            240 - room.y * this.blueprint.zoom,
-                        );
-
-                        this.$nextTick(() => {
-                            const node = document.querySelector(
-                                `.room-block[data-id="${room.id}"]`,
-                            );
-                            if (!node) return;
-                            node.classList.remove("room-search-highlight");
-                            void node.offsetWidth;
-                            node.classList.add("room-search-highlight");
-                        });
+                        this.focusRoomOnCanvas(room.id);
                     },
                     addFloor() {
                         this.form.floors.push({

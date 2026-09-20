@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -19,192 +21,78 @@ class LoginRequest extends FormRequest
         return true;
     }
 
-
     /**
      * VALIDATION RULES
      */
     public function rules(): array
     {
         return [
-
-            // =====================================================
-            // EMPLOYEE ID VALIDATION HERE
-            // =====================================================
-
-            'user_employee_id' => [
+            // Person identifier: employee ID or email
+            'login' => [
                 'required',
                 'string',
             ],
-
-
-            // =====================================================
-            // PASSWORD VALIDATION HERE
-            // =====================================================
 
             'password' => [
                 'required',
                 'string',
             ],
-
-
-            // =====================================================
-            // SELECTED LOGIN ROLE VALIDATION HERE
-            // =====================================================
-
-            'login_role_id' => [
-                'required',
-                'integer',
-                'in:1,2,3,4,5,6',
-            ],
-
         ];
     }
 
-
     /**
      * HANDLE AUTHENTICATION
+     *
+     * Authenticates the person (employee ID or email + password).
+     * Roles are not credentials — primary role only chooses the home dashboard.
      */
     public function authenticate(): void
     {
-        // =====================================================
-        // CHECK RATE LIMIT HERE
-        // =====================================================
-
         $this->ensureIsNotRateLimited();
 
+        $login = Str::lower(trim($this->string('login')->toString()));
+        $password = $this->input('password');
 
-        // =====================================================
-        // GET LOGIN DATA HERE
-        // =====================================================
+        $user = User::query()
+            ->where(function ($query) use ($login) {
+                $query->whereRaw('LOWER(user_employee_id) = ?', [$login])
+                    ->orWhereRaw('LOWER(user_email_address) = ?', [$login]);
+            })
+            ->first();
 
-        $employeeId = $this->string(
-            'user_employee_id'
-        )->toString();
-
-
-        $roleId = (int) $this->input(
-            'login_role_id'
-        );
-
-
-        // =====================================================
-        // ATTEMPT LOGIN HERE
-        // EMPLOYEE ID + ROLE + PASSWORD MUST MATCH SAME USER
-        // =====================================================
-
-        if (! Auth::attempt([
-
-            // EMPLOYEE ID
-            'user_employee_id' => $this->input('user_employee_id'),
-
-            // SELECTED ROLE
-            'user_role_id' => $this->integer('login_role_id'),
-
-            // PASSWORD
-            'password' => $this->input('password'),
-
-            ],
-
-            $this->boolean('remember')
-
-        )) {
-
-            // =====================================================
-            // RECORD FAILED LOGIN ATTEMPT HERE
-            // =====================================================
-
-            RateLimiter::hit(
-                $this->throttleKey()
-            );
-
-
-            // =====================================================
-            // RETURN LOGIN ERROR HERE
-            // =====================================================
+        if (! $user || ! Hash::check($password, (string) $user->user_password)) {
+            RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-
-                'user_employee_id'
-                    => 'Incorrect User ID, Password, or Staff Role.',
-
-            ])->redirectTo(
-                url()->previous()
-            );
+                'login' => 'Incorrect employee ID / email or password.',
+            ])->redirectTo(url()->previous());
         }
 
+        Auth::login($user, $this->boolean('remember'));
 
-        // =====================================================
-        // CLEAR RATE LIMIT HERE
-        // =====================================================
-
-        RateLimiter::clear(
-            $this->throttleKey()
-        );
+        RateLimiter::clear($this->throttleKey());
     }
-
 
     /**
      * CHECK RATE LIMIT
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts(
-
-            $this->throttleKey(),
-
-            5
-
-        )) {
-
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
 
+        event(new Lockout($this));
 
-        // =====================================================
-        // FIRE LOCKOUT EVENT HERE
-        // =====================================================
-
-        event(
-            new Lockout($this)
-        );
-
-
-        // =====================================================
-        // GET REMAINING LOCKOUT TIME HERE
-        // =====================================================
-
-        $seconds = RateLimiter::availableIn(
-
-            $this->throttleKey()
-
-        );
-
-
-        // =====================================================
-        // RETURN RATE LIMIT ERROR HERE
-        // =====================================================
+        $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-
-            'user_employee_id' => trans(
-
-                'auth.throttle',
-
-                [
-
-                    'seconds'
-                        => $seconds,
-
-                    'minutes'
-                        => ceil($seconds / 60),
-
-                ]
-
-            ),
-
+            'login' => trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => ceil($seconds / 60),
+            ]),
         ]);
     }
-
 
     /**
      * THROTTLE KEY
@@ -212,25 +100,7 @@ class LoginRequest extends FormRequest
     public function throttleKey(): string
     {
         return Str::transliterate(
-
-            Str::lower(
-
-                $this->string(
-                    'user_employee_id'
-                )
-
-            )
-
-            . '|'
-
-            . $this->input(
-                'login_role_id'
-            )
-
-            . '|'
-
-            . $this->ip()
-
+            Str::lower($this->string('login')->toString()).'|'.$this->ip()
         );
     }
 }

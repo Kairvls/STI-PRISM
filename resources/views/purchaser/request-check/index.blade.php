@@ -353,7 +353,7 @@
                                         <i data-lucide="receipt-text" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?? 'RFC-'.$rfc->request_check_id }}</p>
+                                        <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?: '—' }}</p>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rfc->request_check_id }}</p>
                                     </div>
                                 </div>
@@ -516,7 +516,7 @@
                                     <option value="">Select approved ATP</option>
                                     @foreach($eligibleAtps as $atp)
                                         <option value="{{ $atp->authority_purchase_id }}" {{ old('request_check_authority_purchase_id', $selectedAtpId ?? '') == $atp->authority_purchase_id ? 'selected' : '' }}>
-                                            {{ $atp->authority_purchase_form_number ?? 'ATP-'.$atp->authority_purchase_id }}
+                                            {{ $atp->authority_purchase_form_number ?: '—' }}
                                             @if($atp->ris_form_number) · {{ $atp->ris_form_number }} @endif
                                         </option>
                                     @endforeach

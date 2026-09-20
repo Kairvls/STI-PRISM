@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Multi-role helpers. user_role_id remains the primary (login) role.
+ * Multi-role helpers. user_role_id remains the primary (default dashboard) role.
+ * Login authenticates the person; roles gate portals after sign-in.
  */
 class RoleAccess
 {
@@ -197,6 +198,22 @@ class RoleAccess
     public static function hasMultiplePortals(?object $user = null): bool
     {
         return count(self::availablePortals($user)) > 1;
+    }
+
+    /**
+     * Mobile app portals only (Maintenance).
+     * Purchaser stays web-only; assign Maintenance as additional role for app access.
+     *
+     * @return array<int, array{key: string, label: string, path: string, match: string, role_id: int}>
+     */
+    public static function mobilePortals(?object $user = null): array
+    {
+        $allowed = [self::MAINTENANCE];
+
+        return array_values(array_filter(
+            self::availablePortals($user),
+            fn (array $portal) => in_array((int) $portal['role_id'], $allowed, true)
+        ));
     }
 
     public static function currentPortalKey(): ?string

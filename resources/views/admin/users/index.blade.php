@@ -21,6 +21,350 @@
         #editRolesModal .pur-select:focus {
             background: #fff !important;
         }
+
+        #viewUserModal .view-user-shell {
+            overflow: hidden;
+            border: 1px solid #e8eaed;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+        }
+
+        #viewUserModal .view-user-hero {
+            position: relative;
+            padding: 1.35rem 1.35rem 1.15rem;
+            background:
+                linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        #viewUserModal .view-user-avatar {
+            appearance: none;
+            border: none;
+            padding: 0;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f172a;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            flex-shrink: 0;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        #viewUserModal .view-user-avatar:disabled {
+            cursor: default;
+            opacity: 1;
+        }
+
+        #viewUserModal .view-user-avatar.has-photo {
+            background: #e2e8f0;
+            cursor: zoom-in;
+        }
+
+        #viewUserModal .view-user-avatar.has-photo:hover {
+            box-shadow: 0 0 0 2px #c7d2fe;
+        }
+
+        #viewUserModal .view-user-avatar.has-photo:focus-visible {
+            outline: 2px solid #0025cc;
+            outline-offset: 2px;
+        }
+
+        #viewUserModal .view-user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        #viewUserPictureViewer {
+            position: fixed;
+            inset: 0;
+            z-index: 13000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(4px);
+        }
+
+        #viewUserPictureViewer.is-open {
+            display: flex;
+        }
+
+        #viewUserPictureViewer .view-user-picture-frame {
+            position: relative;
+            max-width: min(92vw, 560px);
+            max-height: 88vh;
+        }
+
+        #viewUserPictureViewer img {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: min(92vw, 560px);
+            max-height: 88vh;
+            border-radius: 1rem;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+            object-fit: contain;
+            background: #0f172a;
+        }
+
+        #viewUserPictureViewer .view-user-picture-close {
+            position: absolute;
+            top: -0.65rem;
+            right: -0.65rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.15rem;
+            height: 2.15rem;
+            border: none;
+            border-radius: 999px;
+            background: #fff;
+            color: #0f172a;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        #viewUserPictureViewer .view-user-picture-close:hover {
+            background: #f1f5f9;
+        }
+
+        #viewUserModal .view-user-name {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            line-height: 1.25;
+        }
+
+        #viewUserModal .view-user-meta {
+            margin-top: 0.2rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        #viewUserModal .view-user-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.65rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        #viewUserModal .view-user-status.is-active {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        #viewUserModal .view-user-status-dot {
+            width: 0.375rem;
+            height: 0.375rem;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        #viewUserModal .view-user-section {
+            padding: 1rem 1.35rem 0.35rem;
+        }
+
+        #viewUserModal .view-user-section-label {
+            margin: 0 0 0.55rem;
+            font-size: 0.65rem;
+            font-weight: 650;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+
+        #viewUserModal .view-user-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem 1rem;
+        }
+
+        #viewUserModal .view-user-field {
+            min-width: 0;
+        }
+
+        #viewUserModal .view-user-field.is-wide {
+            grid-column: 1 / -1;
+        }
+
+        #viewUserModal .view-user-label {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        #viewUserModal .view-user-value {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        #viewUserModal .view-user-copy-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+
+        #viewUserModal .view-user-copy-row .view-user-value {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #viewUserModal .view-user-copy-btn {
+            position: relative;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem;
+            height: 1.75rem;
+            margin-top: -0.1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.45rem;
+            background: #fff;
+            color: #64748b;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        #viewUserModal .view-user-copy-btn:hover {
+            color: #0025cc;
+            border-color: #c7d2fe;
+            background: #f8faff;
+        }
+
+        #viewUserModal .view-user-copy-btn.is-copied {
+            color: #059669;
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+        }
+
+        #viewUserModal .view-user-copy-btn.is-copied::after {
+            content: 'Copied!';
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 0.4rem);
+            transform: translateX(-50%);
+            padding: 0.28rem 0.5rem;
+            border-radius: 0.4rem;
+            background: #0f172a;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+            z-index: 2;
+        }
+
+        #viewUserModal .view-user-copy-btn.is-copied::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 0.15rem);
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #0f172a;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #viewUserModal .view-user-copy-btn svg {
+            width: 0.85rem;
+            height: 0.85rem;
+        }
+
+        #viewUserModal .view-user-chip {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        #viewUserModal .view-user-extra-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            min-width: 0;
+        }
+
+        #viewUserModal .view-user-extra-item {
+            display: block;
+            color: #0025cc;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            line-height: 1.35;
+            white-space: nowrap;
+        }
+
+        #viewUserModal .view-user-extra-item.is-muted {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        #viewUserModal .view-user-footer {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0.85rem 1.35rem 1.15rem;
+        }
+
+        #viewUserModal .view-user-close-btn {
+            appearance: none;
+            border: none;
+            background: #0025cc;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.55rem 1.15rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        #viewUserModal .view-user-close-btn:hover {
+            background: #001fad;
+        }
+
+        @media (max-width: 420px) {
+            #viewUserModal .view-user-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 @endpush
 
@@ -102,7 +446,6 @@
                     <tr>
                         <th>Employee ID</th>
                         <th>Full Name</th>
-                        <th>Username</th>
                         <th>Primary role</th>
                         <th>Additional roles</th>
                         <th>Procurement</th>
@@ -124,19 +467,28 @@
                             $canProcurement = (bool) ($user->user_can_procurement ?? false) || $isPurchaser;
                             $extraNames = $roleMeta['extra_names'] ?? [];
                             $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
+                            $profilePictureUrl = null;
+                            $rawPicture = trim((string) ($user->user_profile_picture ?? ''));
+                            if ($rawPicture !== '') {
+                                if (preg_match('#^https?://#i', $rawPicture) || str_starts_with($rawPicture, '/')) {
+                                    $profilePictureUrl = $rawPicture;
+                                } else {
+                                    $normalized = ltrim(preg_replace('#^storage/#', '', str_replace('\\', '/', $rawPicture)), '/');
+                                    $profilePictureUrl = asset('storage/'.$normalized);
+                                }
+                            }
                         @endphp
                         <tr class="user-row transition hover:bg-gray-50/70" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
                             <td class="text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
                             <td class="text-sm text-gray-700">{{ $user->user_full_name }}</td>
-                            <td class="text-sm text-gray-600">{{ $user->user_username }}</td>
                             <td>
                                 <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">{{ $user->role_name ?: '-' }}</span>
                             </td>
                             <td>
                                 @if(count($extraNames))
-                                    <div class="flex flex-wrap gap-1">
+                                    <div class="flex flex-col gap-0.5">
                                         @foreach($extraNames as $extraName)
-                                            <span class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">{{ $extraName }}</span>
+                                            <span class="whitespace-nowrap text-xs font-medium text-[#0025cc]">• {{ $extraName }}</span>
                                         @endforeach
                                     </div>
                                 @else
@@ -198,6 +550,16 @@
                                         <i data-lucide="shield" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
                                     <button type="button"
+                                        onclick="openEditEmailModal(this)"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                                        title="Edit Office 365 email"
+                                        data-user-id="{{ $user->user_id }}"
+                                        data-full-name="{{ $user->user_full_name }}"
+                                        data-email="{{ $user->user_email_address ?: '' }}"
+                                    >
+                                        <i data-lucide="mail" class="h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                    <button type="button"
                                         onclick="openViewUserModal(this)"
                                         class="view-user-btn inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
                                         title="View user details"
@@ -209,6 +571,7 @@
                                         data-email="{{ $user->user_email_address ?: '-' }}"
                                         data-contact="{{ $user->user_contact_number ?: '-' }}"
                                         data-status="{{ $isActive ? 'Active' : 'Inactive' }}"
+                                        data-profile-picture="{{ $profilePictureUrl ?: '' }}"
                                         data-procurement="{{ $isPurchaser && (int) $user->user_role_id === 3 ? 'Always on' : ($isPurchaser ? 'Enabled' : (($isMaintenance || $isAdminUser) ? ($canProcurement ? 'Enabled' : 'Disabled') : '—')) }}"
                                     >
                                         <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
@@ -217,10 +580,10 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="pur-empty">No user accounts found.</td></tr>
+                        <tr><td colspan="8" class="pur-empty">No user accounts found.</td></tr>
                     @endforelse
                     <tr id="usersEmptyFilterRow" class="hidden">
-                        <td colspan="9" class="pur-empty">No accounts match this filter.</td>
+                        <td colspan="8" class="pur-empty">No accounts match this filter.</td>
                     </tr>
                 </tbody>
             </table>
@@ -272,35 +635,99 @@
 
 <div id="viewUserModal" class="fixed inset-0 z-[12000] hidden">
     <div class="pur-modal !z-[12000]" onclick="closeViewUserModal()">
-        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
-            <div class="pur-modal-header">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3>User Details</h3>
-                        <p class="mt-0.5 text-sm font-normal text-gray-500">Account information</p>
+        <div class="pur-modal-panel max-w-md !bg-transparent !p-0 !shadow-none !border-0" onclick="event.stopPropagation()">
+            <div class="view-user-shell">
+                <div class="view-user-hero">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex min-w-0 items-start gap-3">
+                            <button type="button" class="view-user-avatar" id="viewUserAvatar" aria-label="Profile picture" disabled>—</button>
+                            <div class="min-w-0">
+                                <h3 class="view-user-name" id="viewUserFullName">—</h3>
+                                <p class="view-user-meta">
+                                    <span id="viewUserUsername">—</span>
+                                    <span class="mx-1 text-slate-300">·</span>
+                                    <span id="viewUserEmployeeId">—</span>
+                                </p>
+                                <span class="view-user-status" id="viewUserStatusPill">
+                                    <span class="view-user-status-dot"></span>
+                                    <span id="viewUserStatus">—</span>
+                                </span>
+                            </div>
+                        </div>
+                        <button type="button" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeViewUserModal()" aria-label="Close">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeViewUserModal()" aria-label="Close">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                </div>
+
+                <div class="view-user-section">
+                    <p class="view-user-section-label">Access</p>
+                    <div class="view-user-grid">
+                        <div class="view-user-field">
+                            <span class="view-user-label">Primary role</span>
+                            <span class="view-user-chip" id="viewUserRole">—</span>
+                        </div>
+                        <div class="view-user-field">
+                            <span class="view-user-label">Procurement</span>
+                            <span class="view-user-value" id="viewUserProcurement">—</span>
+                        </div>
+                        <div class="view-user-field is-wide">
+                            <span class="view-user-label">Additional roles</span>
+                            <div class="view-user-extra-list" id="viewUserExtraRoles">
+                                <span class="view-user-extra-item is-muted">None</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-user-section" style="padding-bottom: 0.85rem;">
+                    <p class="view-user-section-label">Contact</p>
+                    <div class="view-user-grid">
+                        <div class="view-user-field is-wide">
+                            <span class="view-user-label">Office 365 email</span>
+                            <div class="view-user-copy-row">
+                                <span class="view-user-value" id="viewUserEmail">—</span>
+                                <button type="button" class="view-user-copy-btn" data-copy-target="viewUserEmail" data-copy-label="Copy email" title="Copy email" aria-label="Copy email" onclick="copyViewUserField(this)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="view-user-field is-wide">
+                            <span class="view-user-label">Phone</span>
+                            <div class="view-user-copy-row">
+                                <span class="view-user-value" id="viewUserContact">—</span>
+                                <button type="button" class="view-user-copy-btn" data-copy-target="viewUserContact" data-copy-label="Copy phone" title="Copy phone" aria-label="Copy phone" onclick="copyViewUserField(this)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-user-footer">
+                    <button type="button" class="view-user-close-btn" onclick="closeViewUserModal()">Done</button>
                 </div>
             </div>
-            <div class="pur-modal-body space-y-1 text-sm">
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Employee ID</span><span id="viewUserEmployeeId" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Full Name</span><span id="viewUserFullName" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Username</span><span id="viewUserUsername" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Primary role</span><span id="viewUserRole" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Additional roles</span><span id="viewUserExtraRoles" class="text-right font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Procurement</span><span id="viewUserProcurement" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Status</span><span id="viewUserStatus" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 border-b border-gray-50 py-2.5"><span class="text-gray-500">Email</span><span id="viewUserEmail" class="font-semibold text-gray-950"></span></div>
-                <div class="flex justify-between gap-4 py-2.5"><span class="text-gray-500">Contact</span><span id="viewUserContact" class="font-semibold text-gray-950"></span></div>
-            </div>
-            <div class="pur-modal-footer">
-                <button type="button" class="pur-btn-secondary" onclick="closeViewUserModal()">Close</button>
-            </div>
         </div>
+    </div>
+</div>
+
+<div id="viewUserPictureViewer" role="dialog" aria-modal="true" aria-label="Profile picture" aria-hidden="true" onclick="closeViewUserPictureViewer()">
+    <div class="view-user-picture-frame" onclick="event.stopPropagation()">
+        <button type="button" class="view-user-picture-close" onclick="closeViewUserPictureViewer()" aria-label="Close picture">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+        <img id="viewUserPictureViewerImage" src="" alt="Profile picture">
     </div>
 </div>
 
@@ -325,11 +752,11 @@
                 <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
                     <div>
                         <label class="pur-label">Employee ID</label>
-                        <input type="text" name="employee_id" class="pur-input mt-1.5" required />
+                        <input type="text" name="employee_id" class="pur-input mt-1.5" placeholder="e.g. OMC0126F" required />
                     </div>
                     <div>
                         <label class="pur-label">Full Name</label>
-                        <input type="text" name="full_name" class="pur-input mt-1.5" required />
+                        <input type="text" name="full_name" class="pur-input mt-1.5" placeholder="e.g. Juan Dela Cruz" required />
                     </div>
                     <div>
                         <label class="pur-label">Username</label>
@@ -337,20 +764,42 @@
                     </div>
                     <div>
                         <label class="pur-label">Email</label>
-                        <input type="email" name="email" class="pur-input mt-1.5" required />
+                        <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
                     </div>
-                    <div>
-                        <label class="pur-label">Contact Number</label>
-                        @include('partials.phone-input', [
-                            'name' => 'contact_number',
-                            'value' => old('contact_number'),
-                            'id' => 'admin-index-user-contact-number',
-                            'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
-                        ])
-                    </div>
-                    <div>
-                        <label class="pur-label">Password</label>
-                        <input type="password" name="password" class="pur-input mt-1.5" required />
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="min-w-0">
+                            <label class="pur-label" for="createUserPassword">Password</label>
+                            <div class="relative mt-1.5">
+                                <input
+                                    type="password"
+                                    name="password"
+                                    id="createUserPassword"
+                                    class="pur-input w-full pr-11"
+                                    required
+                                    autocomplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    id="createUserPasswordToggle"
+                                    class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-gray-400 transition hover:text-gray-700"
+                                    aria-label="Show password"
+                                    aria-pressed="false"
+                                    onclick="toggleCreateUserPassword()"
+                                >
+                                    <i data-lucide="eye" class="create-password-icon-show h-4 w-4 pointer-events-none"></i>
+                                    <i data-lucide="eye-off" class="create-password-icon-hide hidden h-4 w-4 pointer-events-none"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <label class="pur-label">Contact Number</label>
+                            @include('partials.phone-input', [
+                                'name' => 'contact_number',
+                                'value' => old('contact_number'),
+                                'id' => 'admin-index-user-contact-number',
+                                'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
+                            ])
+                        </div>
                     </div>
                     <div>
                         <label class="pur-label">Primary role <span class="font-normal text-gray-400">(used for Office 365 login)</span></label>
@@ -454,6 +903,51 @@
     </div>
 </div>
 
+<div id="editEmailModal" class="fixed inset-0 z-[12000] hidden">
+    <div class="pur-modal !z-[12000]" onclick="closeEditEmailModal()">
+        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
+            <div class="pur-modal-header">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3>Edit Office 365 email</h3>
+                        <p id="editEmailSubtitle" class="mt-0.5 text-sm font-normal text-gray-500">Must match the Microsoft sign-in email exactly.</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeEditEmailModal()" aria-label="Close">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <form method="POST" id="editEmailForm" action="#">
+                @csrf
+                <div class="pur-modal-body space-y-4">
+                    <div>
+                        <label class="pur-label" for="editUserEmail">Email</label>
+                        <input
+                            type="email"
+                            name="email"
+                            id="editUserEmail"
+                            class="pur-input mt-1.5"
+                            required
+                            autocomplete="off"
+                            placeholder="name@sti.edu.ph"
+                        />
+                        <p class="mt-1.5 text-xs text-gray-500">PaAyo matches this to the Microsoft account after Office 365 sign-in.</p>
+                    </div>
+                    @error('email')
+                        <p class="text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="pur-modal-footer">
+                    <button type="button" class="pur-btn-secondary" onclick="closeEditEmailModal()">Cancel</button>
+                    <button type="submit" class="pur-btn-primary">Save email</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
     function mountUserModal(modal) {
@@ -463,26 +957,230 @@
         return modal;
     }
 
+    async function syncAdminUsersCsrf(form) {
+        try {
+            var res = await fetch('/user/csrf-token', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            if (!res.ok) {
+                return false;
+            }
+            var data = await res.json();
+            var token = data && data.token ? String(data.token) : '';
+            if (!token) {
+                return false;
+            }
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            if (meta) {
+                meta.setAttribute('content', token);
+            }
+            if (form) {
+                var input = form.querySelector('input[name="_token"]');
+                if (input) {
+                    input.value = token;
+                }
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function bindAdminUsersCsrfForm(formId) {
+        var form = document.getElementById(formId);
+        if (!form || form.dataset.csrfBound === '1') {
+            return;
+        }
+        form.dataset.csrfBound = '1';
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.csrfReady === '1') {
+                form.dataset.csrfReady = '0';
+                return;
+            }
+            event.preventDefault();
+            syncAdminUsersCsrf(form).then(function (ok) {
+                if (!ok) {
+                    window.alert('Your session token expired. Refresh the page and try again.');
+                    return;
+                }
+                form.dataset.csrfReady = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+        });
+    }
+
+    window.closeViewUserPictureViewer = function() {
+        var viewer = document.getElementById('viewUserPictureViewer');
+        var image = document.getElementById('viewUserPictureViewerImage');
+        if (viewer) {
+            viewer.classList.remove('is-open');
+            viewer.setAttribute('aria-hidden', 'true');
+        }
+        if (image) {
+            image.removeAttribute('src');
+            image.alt = 'Profile picture';
+        }
+    };
+
+    window.openViewUserPictureViewer = function(url, alt) {
+        if (!url) return;
+        var viewer = document.getElementById('viewUserPictureViewer');
+        var image = document.getElementById('viewUserPictureViewerImage');
+        if (!viewer || !image) return;
+        image.src = url;
+        image.alt = alt || 'Profile picture';
+        viewer.classList.add('is-open');
+        viewer.setAttribute('aria-hidden', 'false');
+    };
+
     window.closeViewUserModal = function() {
+        closeViewUserPictureViewer();
         var modal = document.getElementById('viewUserModal');
         if (modal) modal.classList.add('hidden');
     };
+
+    window.copyViewUserField = function(btn) {
+        if (!btn) return;
+        var targetId = btn.getAttribute('data-copy-target');
+        var target = targetId ? document.getElementById(targetId) : null;
+        var text = target ? String(target.textContent || '').trim() : '';
+        if (!text || text === '—') return;
+
+        var markCopied = function() {
+            btn.classList.add('is-copied');
+            btn.setAttribute('title', 'Copied!');
+            btn.setAttribute('aria-label', 'Copied!');
+            window.clearTimeout(btn._copyTimer);
+            btn._copyTimer = window.setTimeout(function() {
+                btn.classList.remove('is-copied');
+                var restore = btn.getAttribute('data-copy-label') || 'Copy';
+                btn.setAttribute('title', restore);
+                btn.setAttribute('aria-label', restore);
+            }, 1600);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(markCopied).catch(function() {
+                fallbackCopy(text, markCopied);
+            });
+            return;
+        }
+        fallbackCopy(text, markCopied);
+    };
+
+    function fallbackCopy(text, onSuccess) {
+        try {
+            var area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.left = '-9999px';
+            document.body.appendChild(area);
+            area.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(area);
+            if (ok && typeof onSuccess === 'function') onSuccess();
+        } catch (e) {}
+    }
 
     window.openViewUserModal = function(btn) {
         if (!btn) return;
         var setText = function(id, value) {
             var el = document.getElementById(id);
-            if (el) el.textContent = value || '-';
+            if (el) el.textContent = value || '—';
         };
+        var fullName = btn.getAttribute('data-full-name') || '—';
+        var status = btn.getAttribute('data-status') || '—';
+        var extraRoles = btn.getAttribute('data-extra-roles') || '—';
         setText('viewUserEmployeeId', btn.getAttribute('data-employee-id'));
-        setText('viewUserFullName', btn.getAttribute('data-full-name'));
+        setText('viewUserFullName', fullName);
         setText('viewUserUsername', btn.getAttribute('data-username'));
         setText('viewUserRole', btn.getAttribute('data-role'));
-        setText('viewUserExtraRoles', btn.getAttribute('data-extra-roles'));
         setText('viewUserProcurement', btn.getAttribute('data-procurement'));
-        setText('viewUserStatus', btn.getAttribute('data-status'));
+        setText('viewUserStatus', status);
         setText('viewUserEmail', btn.getAttribute('data-email'));
         setText('viewUserContact', btn.getAttribute('data-contact'));
+
+        var extraList = document.getElementById('viewUserExtraRoles');
+        if (extraList) {
+            extraList.innerHTML = '';
+            var rawExtra = String(extraRoles || '').trim();
+            var isEmpty = !rawExtra || rawExtra === '—' || rawExtra === '-' || rawExtra.toLowerCase() === 'none';
+            if (isEmpty) {
+                var noneItem = document.createElement('span');
+                noneItem.className = 'view-user-extra-item is-muted';
+                noneItem.textContent = 'None';
+                extraList.appendChild(noneItem);
+            } else {
+                rawExtra.split(',').map(function (part) {
+                    return String(part || '').trim();
+                }).filter(Boolean).forEach(function (roleName) {
+                    var item = document.createElement('span');
+                    item.className = 'view-user-extra-item';
+                    item.textContent = '• ' + roleName;
+                    extraList.appendChild(item);
+                });
+            }
+        }
+
+        var avatar = document.getElementById('viewUserAvatar');
+        if (avatar) {
+            var pictureUrl = (btn.getAttribute('data-profile-picture') || '').trim();
+            var parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+            var initials = parts.length >= 2
+                ? (parts[0].charAt(0) + parts[parts.length - 1].charAt(0))
+                : (parts[0] ? parts[0].slice(0, 2) : '—');
+            initials = initials.toUpperCase();
+            var pictureAlt = fullName !== '—' ? fullName : 'Profile picture';
+
+            avatar.innerHTML = '';
+            avatar.classList.remove('has-photo');
+            avatar.disabled = true;
+            avatar.removeAttribute('title');
+            avatar.onclick = null;
+            avatar.onkeydown = null;
+
+            if (pictureUrl) {
+                var img = document.createElement('img');
+                img.src = pictureUrl;
+                img.alt = pictureAlt;
+                img.loading = 'lazy';
+                img.onerror = function () {
+                    avatar.classList.remove('has-photo');
+                    avatar.disabled = true;
+                    avatar.removeAttribute('title');
+                    avatar.onclick = null;
+                    avatar.innerHTML = '';
+                    avatar.textContent = initials;
+                };
+                avatar.classList.add('has-photo');
+                avatar.disabled = false;
+                avatar.setAttribute('title', 'View profile picture');
+                avatar.setAttribute('aria-label', 'View profile picture');
+                avatar.onclick = function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openViewUserPictureViewer(pictureUrl, pictureAlt);
+                };
+                avatar.appendChild(img);
+            } else {
+                avatar.setAttribute('aria-label', 'Profile picture');
+                avatar.textContent = initials;
+            }
+        }
+
+        var statusPill = document.getElementById('viewUserStatusPill');
+        if (statusPill) {
+            statusPill.classList.toggle('is-active', String(status).toLowerCase() === 'active');
+        }
+
         var modal = mountUserModal(document.getElementById('viewUserModal'));
         if (modal) modal.classList.remove('hidden');
     };
@@ -499,6 +1197,9 @@
                 window.refreshPrismPhoneInput(phone);
             });
         }
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     };
 
     window.closeCreateUserModal = function() {
@@ -507,11 +1208,63 @@
         }
         var modal = document.getElementById('createUserModal');
         if (modal) modal.classList.add('hidden');
+        var input = document.getElementById('createUserPassword');
+        var toggle = document.getElementById('createUserPasswordToggle');
+        if (input) input.type = 'password';
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', 'false');
+            toggle.setAttribute('aria-label', 'Show password');
+            var showIcon = toggle.querySelector('.create-password-icon-show');
+            var hideIcon = toggle.querySelector('.create-password-icon-hide');
+            if (showIcon) showIcon.classList.remove('hidden');
+            if (hideIcon) hideIcon.classList.add('hidden');
+        }
+    };
+
+    window.toggleCreateUserPassword = function() {
+        var input = document.getElementById('createUserPassword');
+        var toggle = document.getElementById('createUserPasswordToggle');
+        if (!input || !toggle) return;
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+        toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+        var showIcon = toggle.querySelector('.create-password-icon-show');
+        var hideIcon = toggle.querySelector('.create-password-icon-hide');
+        if (showIcon) showIcon.classList.toggle('hidden', !showing);
+        if (hideIcon) hideIcon.classList.toggle('hidden', showing);
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     };
 
     window.closeEditRolesModal = function() {
         var modal = document.getElementById('editRolesModal');
         if (modal) modal.classList.add('hidden');
+    };
+
+    window.closeEditEmailModal = function() {
+        var modal = document.getElementById('editEmailModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.openEditEmailModal = function(btn) {
+        if (!btn) return;
+        var userId = btn.getAttribute('data-user-id');
+        var form = document.getElementById('editEmailForm');
+        if (form) form.action = '/admin/users/' + userId + '/email';
+        var subtitle = document.getElementById('editEmailSubtitle');
+        if (subtitle) {
+            subtitle.textContent = 'Office 365 email for ' + (btn.getAttribute('data-full-name') || 'user') + ' — must match Microsoft sign-in exactly.';
+        }
+        var input = document.getElementById('editUserEmail');
+        if (input) {
+            input.value = btn.getAttribute('data-email') || '';
+            requestAnimationFrame(function () { input.focus(); input.select(); });
+        }
+        var modal = mountUserModal(document.getElementById('editEmailModal'));
+        if (modal) modal.classList.remove('hidden');
+        syncAdminUsersCsrf(form);
     };
 
     window.openEditRolesModal = function(btn) {
@@ -639,6 +1392,11 @@
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
+        var pictureViewer = document.getElementById('viewUserPictureViewer');
+        if (pictureViewer && pictureViewer.classList.contains('is-open')) {
+            closeViewUserPictureViewer();
+            return;
+        }
         closeViewUserModal();
         closeCreateUserModal();
         closeEditRolesModal();
@@ -787,6 +1545,31 @@
         });
         syncCreateAdditionalRolesVisibility();
         syncCreateProcurementAccess();
+
+        bindAdminUsersCsrfForm('editEmailForm');
+        bindAdminUsersCsrfForm('editRolesForm');
+        var createForm = document.querySelector('#createUserModal form');
+        if (createForm) {
+            if (!createForm.id) {
+                createForm.id = 'createUserForm';
+            }
+            bindAdminUsersCsrfForm(createForm.id);
+        }
+
+        @if(session('edit_email_user_id'))
+        (function () {
+            var form = document.getElementById('editEmailForm');
+            if (form) form.action = '/admin/users/{{ (int) session('edit_email_user_id') }}/email';
+            var subtitle = document.getElementById('editEmailSubtitle');
+            if (subtitle) {
+                subtitle.textContent = 'Office 365 email for {{ addslashes((string) session('edit_email_full_name', 'user')) }} — must match Microsoft sign-in exactly.';
+            }
+            var input = document.getElementById('editUserEmail');
+            if (input) input.value = @json(old('email', ''));
+            var modal = mountUserModal(document.getElementById('editEmailModal'));
+            if (modal) modal.classList.remove('hidden');
+        })();
+        @endif
     });
 </script>
 @endpush

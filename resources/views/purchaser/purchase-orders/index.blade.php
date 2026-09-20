@@ -304,8 +304,13 @@
                     @forelse($linked as $atp)
                         <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
                             <div>
-                                <p class="font-semibold text-gray-900">{{ $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id) }}</p>
-                                <p class="mt-0.5 text-xs text-gray-500">{{ $atp->supplier_display ?? 'Supplier' }} · RIS {{ $atp->ris_form_number ?: '—' }}</p>
+                                <p class="font-semibold text-gray-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
+                                <p class="mt-0.5 text-xs text-gray-500">
+                                    {{ $atp->supplier_display ?? 'Supplier' }}
+                                    @if(filled($atp->ris_form_number))
+                                        · RIS {{ $atp->ris_form_number }}
+                                    @endif
+                                </p>
                             </div>
                             <p class="text-sm font-semibold tabular-nums text-gray-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</p>
                         </div>
@@ -356,8 +361,13 @@
                                 @forelse($linked as $atp)
                                     <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
                                         <div>
-                                            <p class="font-medium text-gray-900">{{ $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id) }}</p>
-                                            <p class="mt-0.5 text-xs text-gray-500">{{ $atp->supplier_display ?? 'Supplier' }}</p>
+                                            <p class="font-medium text-gray-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
+                                            <p class="mt-0.5 text-xs text-gray-500">
+                                                {{ $atp->supplier_display ?? 'Supplier' }}
+                                                @if(filled($atp->ris_form_number))
+                                                    · RIS {{ $atp->ris_form_number }}
+                                                @endif
+                                            </p>
                                         </div>
                                         <form method="POST" action="{{ route($pp.'.purchase-orders.detach', $order->purchase_order_id) }}">
                                             @csrf
@@ -381,8 +391,13 @@
                                     @foreach($availableAtps as $atp)
                                         <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-gray-200 px-4 py-3">
                                             <div>
-                                                <p class="font-medium text-gray-900">{{ $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id) }}</p>
-                                                <p class="mt-0.5 text-xs text-gray-500">{{ $atp->supplier_display ?? 'Supplier' }}</p>
+                                                <p class="font-medium text-gray-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
+                                                <p class="mt-0.5 text-xs text-gray-500">
+                                                    {{ $atp->supplier_display ?? 'Supplier' }}
+                                                    @if(filled($atp->ris_form_number))
+                                                        · RIS {{ $atp->ris_form_number }}
+                                                    @endif
+                                                </p>
                                             </div>
                                             <form method="POST" action="{{ route($pp.'.purchase-orders.attach', $order->purchase_order_id) }}">
                                                 @csrf

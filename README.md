@@ -83,6 +83,8 @@ Web Running:
 Web to Email form for registering as reporter:
 - php artisan serve --host=0.0.0.0 --port=8000
 
+For alerts locally: php artisan schedule:work (or run php artisan maintenance:check-semester-inspections).
+
 in the system in every signage make everything to be center of the fullname always overlary, even its signed on the side when in signing stage and add a height of the signage area digital signature like 10px or above
 
 also for the toggle switch Brands, UOM, Categories, Sub Categories how to make it will be move in the sidebar like on the section of file maintenance that it will collapsable too 
@@ -90,3 +92,49 @@ also for the toggle switch Brands, UOM, Categories, Sub Categories how to make i
 the modals backdrop bg being cut
 
 in the Maintenance Personnel side is there already a feature where the maintenance personnel set a semestral for checking all equipment
+
+in the system for all the view button that is solo in the action column to be like this design, like same on the maintenance personnel system log walk in report module table
+
+as i notice, since we now implemented the multi role for each person depends on the admin decision if she'll assign a primary role and addiotional role for that person, my problem or question need to solve is how do we handle that in loggin in should we change it from role base to email like instead of purchaser.demo we make it alven.demo@... since we now depends on multi role on persons not just one but still have primary role for just that they still have main job or role, but upon loggin in should we change to depends base on email not role?
+
+for the log in on mobile since in the web system we implemented a primary role and additional role can we change that in log in we also adopt the primary role and additional role like its already given that whoever has primary role of maintenance role already can login, but what about those who has maintenance personnel role but just an additional role right?
+
+and also in the web system theres a semestral campaign of checking all equipments either entire campus or what, should we put that in a mobile too about updating on-site for equipments status during checking of all equipments so that the maintenance personnel wont need to go back to computer or laptop first before can update the statuses or findings of equipments
+
+on developing a app for the codefest competition how to use the recycler viewer template in android developers or on https://developer.android.com/
+
+-------------------------------------------------------------------------------------------------------
+
+Those accounts on the Microsoft picker come from your Entra/Azure tenant — I'll confirm how PaAyo matches them so you know what to change where.
+
+Yes — those emails on “Pick an account” are Microsoft Entra ID (Azure AD) users, not PaAyo settings.
+
+1. Microsoft side (what the picker shows)
+In Azure Portal / Microsoft Entra admin center:
+
+Identity → Users (or Entra → Users)
+
+There you create/edit users like:
+
+purchaser.demo@…onmicrosoft.com → change to person emails, e.g. alven.demo@… or a real STI mailbox
+Or create new person users and stop using role-named accounts
+Password and MFA are also managed there (or via Microsoft 365 admin).
+
+Your app only sends people to Microsoft login; it does not invent that account list.
+
+2. PaAyo side (must match)
+After Microsoft signs you in, PaAyo looks up:
+
+users_table.user_email_address = Microsoft email (case-insensitive)
+
+So update emails in Admin → Users (or DB/seeders) to the same addresses as in Entra. If Azure says alven@… but PaAyo still has purchaser.demo@…, login fails with “not registered.”
+
+Practical move to person-based
+Place	What to do
+Azure / Entra Users
+Person accounts (email + password + MFA)
+PaAyo users
+Same email on each person; primary + extra roles in PaAyo
+Azure App Registration
+Usually leave as-is (client ID / redirect) — that’s the app, not the user emails
+Short answer: change sign-in emails in Azure/Entra Users, then mirror those emails in PaAyo user records.

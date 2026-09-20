@@ -2076,6 +2076,10 @@ class AdminController extends Controller
             )
             ->orderBy('users_table.user_full_name');
 
+        if (Schema::hasColumn('users_table', 'user_profile_picture')) {
+            $query->addSelect('users_table.user_profile_picture');
+        }
+
         if (Schema::hasColumn('users_table', 'user_can_procurement')) {
             $query->addSelect('users_table.user_can_procurement');
         }
@@ -2355,6 +2359,57 @@ class AdminController extends Controller
         );
     }
 
+    public function updateUserEmail(Request $request, int $userId)
+    {
+        $user = User::query()->findOrFail($userId);
+
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            $request->all(),
+            [
+                'email' => [
+                    'required',
+                    'email',
+                    'max:255',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($userId) {
+                        $email = strtolower(trim((string) $value));
+                        $exists = User::query()
+                            ->whereRaw('LOWER(user_email_address) = ?', [$email])
+                            ->where('user_id', '!=', $userId)
+                            ->exists();
+
+                        if ($exists) {
+                            $fail('That email is already assigned to another PaAyo user.');
+                        }
+                    },
+                ],
+            ],
+            [
+                'email.required' => 'Email is required.',
+                'email.email' => 'Enter a valid email address.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return redirect('/admin/users')
+                ->withErrors($validator)
+                ->withInput()
+                ->with('edit_email_user_id', $userId)
+                ->with('edit_email_full_name', $user->user_full_name);
+        }
+
+        $email = strtolower(trim((string) $validator->validated()['email']));
+        $previous = (string) ($user->user_email_address ?? '');
+        $user->user_email_address = $email;
+        $user->save();
+
+        return redirect('/admin/users')->with(
+            'success',
+            $previous === $email
+                ? 'Email unchanged for '.$user->user_full_name.'.'
+                : 'Office 365 email updated for '.$user->user_full_name.'. Sign-in must use this exact address.'
+        );
+    }
+
     public function updateUserProcurementAccess(Request $request, int $userId)
     {
         if (! Schema::hasColumn('users_table', 'user_can_procurement')) {
@@ -2581,6 +2636,9 @@ class AdminController extends Controller
                 'receiving_reports_table.receiving_report_created_at',
                 'receiving_reports_table.receiving_report_received_by_signature',
             ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
+                $select[] = 'receiving_reports_table.receiving_report_received_by_name';
+            }
             $supplierParts = [];
             if (Schema::hasTable('physical_suppliers_table')) {
                 $supplierParts[] = 'physical_suppliers_table.company_name';
@@ -2598,6 +2656,9 @@ class AdminController extends Controller
                     $q->where('receiving_reports_table.receiving_report_invoice_no', 'like', $needle)
                         ->orWhere('receiving_reports_table.receiving_report_status', 'like', $needle)
                         ->orWhere('receiving_reports_table.receiving_report_received_by_signature', 'like', $needle);
+                    if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
+                        $q->orWhere('receiving_reports_table.receiving_report_received_by_name', 'like', $needle);
+                    }
                 });
             }
 

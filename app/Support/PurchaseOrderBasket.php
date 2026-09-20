@@ -281,11 +281,11 @@ class PurchaseOrderBasket
             $order->open_slots = max(0, self::MAX_ATPS - $lineAtps->count());
             $first = $lineAtps->first();
             $order->atp_display = $first
-                ? trim((string) ($first->authority_purchase_form_number ?: ('ATP #'.$first->authority_purchase_id)))
+                ? self::atpListLabel($first)
                     .($lineAtps->count() > 1 ? ' +'.($lineAtps->count() - 1).' more' : '')
                 : 'No ATPs';
             $order->atp_numbers = $lineAtps->map(
-                fn ($a) => (string) ($a->authority_purchase_form_number ?: ('#'.$a->authority_purchase_id))
+                fn ($a) => self::atpListLabel($a)
             )->all();
             $order->po_total_amount = $lineAtps->sum(fn ($a) => (float) ($a->po_total_amount ?? 0));
         }
@@ -314,6 +314,20 @@ class PurchaseOrderBasket
         $next = min($max + 1, 99999);
 
         return $prefix.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * List label for a linked/available ATP: official ATP No., else "ATP —".
+     */
+    public static function atpListLabel(?object $atp): string
+    {
+        if (! $atp) {
+            return 'ATP —';
+        }
+
+        $atpNo = trim((string) ($atp->authority_purchase_form_number ?? ''));
+
+        return $atpNo !== '' ? $atpNo : 'ATP —';
     }
 
     /**

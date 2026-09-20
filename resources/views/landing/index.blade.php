@@ -2775,6 +2775,9 @@
             </button>
 
             <h2 class="login-title mb-5 pr-8 leading-snug">Log in</h2>
+            <!--<p class="login-subtitle mb-4">
+                Use your STI Office 365 account (email, password, and MFA). You’ll open your primary role first; use the portal switcher for any extra roles.
+            </p>-->
 
             <a href="{{ route('auth.microsoft.redirect') }}" class="login-microsoft" style="margin-bottom:0;" id="msLoginPrimary">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-4 h-4" alt="Microsoft">

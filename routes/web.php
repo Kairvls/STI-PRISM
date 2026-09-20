@@ -96,6 +96,10 @@ Route::middleware('auth')->group(function () {
 // ADMIN ROUTES
 // =====================================================
 
+Route::get('/admin/login', [AuthenticatedSessionController::class, 'createAdmin'])
+    ->middleware('throttle:20,1')
+    ->name('admin.login');
+
 Route::middleware(['auth', 'admin'])
     ->prefix('admin')
     ->name('admin.')
@@ -322,6 +326,11 @@ Route::middleware(['auth', 'admin'])
             '/users/{userId}/roles',
             [AdminController::class, 'updateUserRoles']
         )->whereNumber('userId')->name('users.roles');
+
+        Route::post(
+            '/users/{userId}/email',
+            [AdminController::class, 'updateUserEmail']
+        )->whereNumber('userId')->name('users.email');
 
         Route::post(
             '/users/{userId}/procurement-access',
@@ -633,12 +642,12 @@ Route::middleware(['auth'])->group(function () {
 Route::get(
     '/auth/microsoft',
     [MicrosoftController::class, 'redirectToMicrosoft']
-)->name('auth.microsoft.redirect');
+)->middleware('throttle:30,1')->name('auth.microsoft.redirect');
 
 Route::get(
     '/auth/microsoft/callback',
     [MicrosoftController::class, 'handleMicrosoftCallback']
-)->name('auth.microsoft.callback');
+)->middleware('throttle:30,1')->name('auth.microsoft.callback');
 
 
 
@@ -2347,4 +2356,11 @@ Route::post('/user/heartbeat', function () {
     ]);
 
 })->middleware('auth');
+
+Route::get('/user/csrf-token', function () {
+    return response()->json([
+        'token' => csrf_token(),
+    ]);
+})->middleware('auth');
+
 require __DIR__.'/auth.php';

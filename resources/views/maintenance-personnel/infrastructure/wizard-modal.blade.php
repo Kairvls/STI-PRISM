@@ -1653,19 +1653,23 @@
             cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%230F172A' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='2.1' fill='%230F172A' stroke='%23ffffff' stroke-width='1.4'/%3E%3C/svg%3E") 16 16, crosshair !important;
         }
         .room-search-highlight {
-            animation: roomSearchPulse 1.2s ease-in-out 3;
+            z-index: 50 !important;
+            transition: none !important;
+            outline: 4px solid #0025cc;
+            outline-offset: 3px;
+            animation: roomFocusFlicker 0.28s ease-in-out 12;
         }
-        @keyframes roomSearchPulse {
+        @keyframes roomFocusFlicker {
             0%,
             100% {
-                box-shadow:
-                    0 14px 22px rgba(15, 23, 42, 0.18),
-                    0 0 0 0 rgba(255, 242, 0, 0.9);
+                filter: brightness(1);
+                outline-color: rgba(0, 37, 204, 0.2);
+                box-shadow: 0 0 0 0 rgba(0, 37, 204, 0.75);
             }
             50% {
-                box-shadow:
-                    0 18px 28px rgba(15, 23, 42, 0.24),
-                    0 0 0 14px rgba(255, 242, 0, 0);
+                filter: brightness(1.2);
+                outline-color: #0025cc;
+                box-shadow: 0 0 0 14px rgba(0, 37, 204, 0);
             }
         }
         .critical-room {
@@ -3495,6 +3499,65 @@
 
                         this.paintRoomColor(this.selectedRoom, this.defaultRoomColor(room.type));
                     },
+                    focusRoomOnCanvas(roomId) {
+                        const normalizedRoomId = Number(roomId);
+                        const room = (this.roomCatalog || []).find(
+                            (item) => Number(item.id) === normalizedRoomId,
+                        );
+
+                        if (!Number.isFinite(normalizedRoomId) || normalizedRoomId <= 0 || !room) {
+                            return false;
+                        }
+
+                        this.activeFloor = Number(room.floor_id);
+                        this.selectedRoom = normalizedRoomId;
+
+                        const applyFocus = () => {
+                            const viewport = this.$refs.blueprintViewport;
+                            const node = document.querySelector(
+                                `.room-block[data-id="${normalizedRoomId}"]`,
+                            );
+                            const x = Number(node?.dataset.x ?? room.x) || 0;
+                            const y = Number(node?.dataset.y ?? room.y) || 0;
+                            const width = Math.max(Number(node?.dataset.width ?? room.width) || 120, 48);
+                            const height = Math.max(Number(node?.dataset.height ?? room.height) || 80, 48);
+                            const viewW = viewport?.clientWidth || 720;
+                            const viewH = viewport?.clientHeight || 480;
+                            const zoom = Math.min(
+                                Math.max(
+                                    Math.min(viewW / (width * 2.15), viewH / (height * 2.15)),
+                                    1.2,
+                                ),
+                                2.15,
+                            );
+
+                            this.blueprint.zoom = zoom;
+                            this.zoomInput = Math.round(zoom * 100);
+                            this.blueprint.panX = Math.round(
+                                viewW / 2 - (x + width / 2) * zoom,
+                            );
+                            this.blueprint.panY = Math.round(
+                                viewH / 2 - (y + height / 2) * zoom,
+                            );
+
+                            if (node) {
+                                node.classList.remove("room-search-highlight");
+                                void node.offsetWidth;
+                                node.classList.add("room-search-highlight");
+                                const clearHighlight = () => {
+                                    node.classList.remove("room-search-highlight");
+                                    node.removeEventListener("animationend", clearHighlight);
+                                };
+                                node.addEventListener("animationend", clearHighlight);
+                            }
+                        };
+
+                        this.$nextTick(() => {
+                            requestAnimationFrame(() => requestAnimationFrame(applyFocus));
+                        });
+
+                        return true;
+                    },
                     focusRoomSearch() {
                         const query = this.roomSearch.trim().toLowerCase();
                         if (!query) return;
@@ -3513,25 +3576,7 @@
                             return;
                         }
 
-                        this.activeFloor = room.floor_id;
-                        this.selectedRoom = room.id;
-                        this.blueprint.zoom = 1.35;
-                        this.blueprint.panX = Math.round(
-                            360 - room.x * this.blueprint.zoom,
-                        );
-                        this.blueprint.panY = Math.round(
-                            240 - room.y * this.blueprint.zoom,
-                        );
-
-                        this.$nextTick(() => {
-                            const node = document.querySelector(
-                                `.room-block[data-id="${room.id}"]`,
-                            );
-                            if (!node) return;
-                            node.classList.remove("room-search-highlight");
-                            void node.offsetWidth;
-                            node.classList.add("room-search-highlight");
-                        });
+                        this.focusRoomOnCanvas(room.id);
                     },
                     addFloor() {
                         this.form.floors.push({

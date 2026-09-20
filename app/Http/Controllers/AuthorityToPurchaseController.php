@@ -233,7 +233,7 @@ class AuthorityToPurchaseController extends Controller
                 'integer',
                 'exists:requisition_issue_slip_table,ris_id',
             ],
-            'authority_purchase_form_number' => $this->atpFormNumberRules(!$isDraft),
+            'authority_purchase_form_number' => $this->atpFormNumberRules(false),
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
@@ -306,9 +306,11 @@ class AuthorityToPurchaseController extends Controller
                 ? null
                 : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
-            $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
-                ? (string) $validated['authority_purchase_form_number']
-                : AtpFormNumber::next();
+            $formNumber = $isDraft
+                ? null
+                : (filled($validated['authority_purchase_form_number'] ?? null)
+                    ? (string) $validated['authority_purchase_form_number']
+                    : AtpFormNumber::next());
 
             $payload = [
                 'authority_purchase_ris_id' => $risId,
@@ -443,7 +445,7 @@ class AuthorityToPurchaseController extends Controller
 
         $validated = $request->validate([
             'save_action' => ['required', 'in:save,draft,submit'],
-            'authority_purchase_form_number' => $this->atpFormNumberRules(!$isDraft, $id),
+            'authority_purchase_form_number' => $this->atpFormNumberRules(false, $id),
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
@@ -495,10 +497,11 @@ class AuthorityToPurchaseController extends Controller
                 ? null
                 : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
-            $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
-                ? (string) $validated['authority_purchase_form_number']
-                : (AtpFormNumber::normalizeForEdit($atp->authority_purchase_form_number ?? null)
-                    ?: AtpFormNumber::next());
+            $formNumber = $isDraft
+                ? null
+                : (filled($validated['authority_purchase_form_number'] ?? null)
+                    ? (string) $validated['authority_purchase_form_number']
+                    : AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null));
 
             $payload = [
                 'authority_purchase_form_number' => $formNumber,
@@ -581,9 +584,7 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
-            if (! AtpFormNumber::isValid($atp->authority_purchase_form_number ?? null)) {
-                return back()->with('error', 'ATP number must follow the format ATP-YYYYMM-0001 before submitting.');
-            }
+            $formNumber = AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null);
 
             if (blank($atp->authority_purchase_received_by_name)) {
                 return back()->with('error', 'Received By is required before submitting.');
@@ -633,6 +634,7 @@ class AuthorityToPurchaseController extends Controller
 
             $update = [
                 'authority_purchase_status' => 'Pending',
+                'authority_purchase_form_number' => $formNumber,
                 'authority_purchase_submitted_by' => auth()->id(),
                 'authority_purchase_submitted_at' => now(),
                 'authority_purchase_rejection_reason' => null,
@@ -646,7 +648,7 @@ class AuthorityToPurchaseController extends Controller
                 ->where('authority_purchase_id', $id)
                 ->update($update);
 
-            $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number, $reviewerId);
+            $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
 
             return redirect()
                 ->route(ProcurementPortal::routeName('atp.index'))

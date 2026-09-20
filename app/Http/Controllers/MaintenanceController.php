@@ -2417,6 +2417,7 @@ class MaintenanceController extends Controller
 
         $lifecycleAlerts = EquipmentLifecycle::agingAlerts(5);
         $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
+        $metricsDashboard = $this->dashboardMetricsBundle();
 
 
         // =====================================================
@@ -2548,9 +2549,131 @@ class MaintenanceController extends Controller
 
                 'semesterInspectionDue',
 
+                'metricsDashboard',
+
             )
 
         );
+    }
+
+    /**
+     * Period / year slices for the dashboard Metrics + Active Workload widgets.
+     *
+     * @return array{
+     *     period: string,
+     *     periods: array<string, array<string, mixed>>,
+     *     years: array<int, array<string, mixed>>,
+     *     periodLabels: array<string, string>
+     * }
+     */
+    private function dashboardMetricsBundle(): array
+    {
+        $now = now();
+        $yearNow = (int) $now->format('Y');
+
+        $buildSlice = function ($from, $to): array {
+            $statusQuery = DB::table('reports_table')
+                ->where('report_is_archived', false);
+
+            if ($from && $to) {
+                $statusQuery->whereBetween('report_submitted_at', [$from, $to]);
+            }
+
+            $statusRows = $statusQuery
+                ->select('report_current_status')
+                ->selectRaw('COUNT(*) AS status_count')
+                ->groupBy('report_current_status')
+                ->pluck('status_count', 'report_current_status');
+
+            $pending = (int) $statusRows->get('Pending', 0);
+            $processing = (int) $statusRows->get('Processing', 0);
+            $resolved = (int) $statusRows->get('Resolved', 0);
+            $replacement = (int) $statusRows->get('For Replacement', 0);
+            $rejected = (int) $statusRows->get('Rejected', 0);
+            $submitted = $pending + $processing + $resolved + $replacement + $rejected;
+            $accepted = max(0, $submitted - $rejected);
+            $actioned = $processing + $resolved + $replacement;
+            $closed = $resolved + $replacement;
+
+            $overdueQuery = DB::table('maintenance_schedules_table')
+                ->where(function ($query) {
+                    $query
+                        ->where('maintenance_schedule_status', 'Overdue')
+                        ->orWhere(function ($activePastDue) {
+                            $activePastDue
+                                ->where('maintenance_schedule_status', 'Active')
+                                ->whereDate(
+                                    'maintenance_schedule_next_date',
+                                    '<',
+                                    today()
+                                );
+                        });
+                });
+
+            if ($from && $to) {
+                $overdueQuery->whereBetween(
+                    'maintenance_schedule_next_date',
+                    [$from->toDateString(), $to->toDateString()]
+                );
+            }
+
+            $overdue = (int) $overdueQuery->count();
+            $open = $pending + $overdue;
+            $fillPercent = $open > 0
+                ? min(92, max(18, (int) round(($pending / max(1, $open)) * 100)))
+                : 22;
+            $handled = $open > 0
+                ? max(0, 100 - (int) round(($overdue / max(1, $open)) * 100))
+                : 100;
+
+            return [
+                'pending' => $pending,
+                'overdue' => $overdue,
+                'open' => $open,
+                'handled' => $handled,
+                'fill_percent' => $fillPercent,
+                'wave_y' => 200 - (($fillPercent / 100) * 200),
+                'reports' => [
+                    'pending' => $pending,
+                    'processing' => $processing,
+                    'resolved' => $resolved,
+                    'replacement' => $replacement,
+                    'rejected' => $rejected,
+                    'submitted' => $submitted,
+                    'accepted' => $accepted,
+                    'actioned' => $actioned,
+                    'closed' => $closed,
+                ],
+            ];
+        };
+
+        $periods = [
+            'week' => $buildSlice($now->copy()->startOfWeek(), $now->copy()->endOfWeek()),
+            'month' => $buildSlice($now->copy()->startOfMonth(), $now->copy()->endOfMonth()),
+            'year' => $buildSlice($now->copy()->startOfYear(), $now->copy()->endOfYear()),
+            'all' => $buildSlice(null, null),
+        ];
+
+        $years = [];
+        for ($year = $yearNow; $year >= $yearNow - 3; $year--) {
+            $years[$year] = $buildSlice(
+                $now->copy()->setYear($year)->startOfYear(),
+                $now->copy()->setYear($year)->endOfYear()
+            );
+        }
+
+        return [
+            'period' => 'all',
+            'year' => $yearNow,
+            'periods' => $periods,
+            'years' => $years,
+            'periodLabels' => [
+                'week' => 'Week',
+                'month' => 'Month',
+                'year' => 'Year',
+                'all' => 'All',
+            ],
+        ];
     }
 
     // =====================================================

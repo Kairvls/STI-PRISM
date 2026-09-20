@@ -9,7 +9,7 @@
 
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-semibold text-slate-900">{{ $atp->authority_purchase_form_number ?? 'ATP #'.$atp->authority_purchase_id }}</h2>
+            <h2 class="text-2xl font-semibold text-slate-900">{{ $atp->authority_purchase_form_number ?: '—' }}</h2>
             <p class="text-sm text-slate-600">RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
         </div>
         <a href="{{ route(($pp ?? 'purchaser').'.atp.index') }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Back to list</a>
