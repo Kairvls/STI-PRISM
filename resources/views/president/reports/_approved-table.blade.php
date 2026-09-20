@@ -20,7 +20,7 @@
             $statusClass = 'status-rejected';
         } elseif ($isApproved) {
             $awaitingNotify = trim((string) ($row->ris_issued_by_signature ?? '')) === '';
-            $displayStatus = $awaitingNotify ? 'Notify Admin' : 'Approved';
+            $displayStatus = $awaitingNotify ? 'Notify Administrator' : 'Approved';
             $statusClass = $awaitingNotify ? 'status-notify' : 'status-approved';
         } elseif (
             \App\Support\RisWorkflow::isAwaitingPresident($row)

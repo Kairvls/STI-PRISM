@@ -3,44 +3,14 @@
 @section('content')
 
 <div class="text-black">
-    <div class="grid grid-cols-3 gap-6 mb-10">
-
-        <div class="bg-white rounded-2xl p-6 shadow">
-
-            <p class="text-gray-500">
-                Buildings
-            </p>
-
-            <h2 class="text-3xl font-bold">
-                {{ $totalBuildings }}
-            </h2>
-
-        </div>
-
-        <div class="bg-white rounded-2xl p-6 shadow">
-
-            <p class="text-gray-500">
-                Floors
-            </p>
-
-            <h2 class="text-3xl font-bold">
-                {{ $totalFloors }}
-            </h2>
-
-        </div>
-
-        <div class="bg-white rounded-2xl p-6 shadow">
-
-            <p class="text-gray-500">
-                Rooms
-            </p>
-
-            <h2 class="text-3xl font-bold">
-                {{ $totalRooms }}
-            </h2>
-
-        </div>
-
+    <div class="mb-10">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Buildings', 'hint' => '', 'value' => number_format($totalBuildings)],
+                ['label' => 'Floors', 'hint' => '', 'value' => number_format($totalFloors)],
+                ['label' => 'Rooms', 'hint' => '', 'value' => number_format($totalRooms)],
+            ],
+        ])
     </div>
 
     <table>

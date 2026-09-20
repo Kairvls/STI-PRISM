@@ -53,7 +53,7 @@
                                     <i data-lucide="pin" class="h-4 w-4"></i>
                                 </button>
                                 @if ($hasAdminForward)
-                                    <button type="button" class="icon-btn" data-tip="Admin supporting details" aria-label="Admin supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
+                                    <button type="button" class="icon-btn" data-tip="Administrator supporting details" aria-label="Administrator supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
                                         <i data-lucide="message-square" class="h-4 w-4"></i>
                                     </button>
                                 @endif
@@ -99,7 +99,7 @@
                         <td class="col-actions">
                             <div class="row-actions">
                                 @if ($hasAdminForward)
-                                    <button type="button" class="icon-btn" data-tip="Admin supporting details" aria-label="Admin supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
+                                    <button type="button" class="icon-btn" data-tip="Administrator supporting details" aria-label="Administrator supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
                                         <i data-lucide="message-square" class="h-4 w-4"></i>
                                     </button>
                                 @endif

@@ -92,7 +92,7 @@
                         <th>Status</th>
                         <th>Assignee</th>
                         <th>Submitted</th>
-                        <th class="text-center">Admin action</th>
+                        <th class="text-center">Administrator action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -140,10 +140,10 @@
                                                     Start processing
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline" onsubmit="return confirm('Reject this report as Admin override?')">
+                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline" onsubmit="return confirm('Reject this report as Administrator override?')">
                                                 @csrf
                                                 <input type="hidden" name="status" value="Rejected">
-                                                <input type="hidden" name="remarks" value="Rejected by Admin override">
+                                                <input type="hidden" name="remarks" value="Rejected by Administrator override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
                                                     Reject
                                                 </button>
@@ -152,7 +152,7 @@
                                             <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="status" value="Resolved">
-                                                <input type="hidden" name="remarks" value="Resolved by Admin override">
+                                                <input type="hidden" name="remarks" value="Resolved by Administrator override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-500">
                                                     Resolve
                                                 </button>
@@ -160,7 +160,7 @@
                                             <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="status" value="For Replacement">
-                                                <input type="hidden" name="remarks" value="Marked for replacement by Admin override">
+                                                <input type="hidden" name="remarks" value="Marked for replacement by Administrator override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-white px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-50">
                                                     For replacement
                                                 </button>

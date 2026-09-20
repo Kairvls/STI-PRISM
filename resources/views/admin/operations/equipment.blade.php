@@ -142,10 +142,10 @@
                             </td>
                             <td class="whitespace-nowrap text-sm text-gray-500">{{ $formatDate($row->equipment_warranty_expiration) }}</td>
                             <td class="text-right">
-                                <a
-                                    href="{{ route('admin.operations.equipment.show', $row->equipment_id) }}"
-                                    class="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                                >View</a>
+                                <x-view-action-button
+                                    :href="route('admin.operations.equipment.show', $row->equipment_id)"
+                                    label="View"
+                                />
                             </td>
                         </tr>
                     @empty

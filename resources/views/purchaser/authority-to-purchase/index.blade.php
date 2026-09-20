@@ -174,78 +174,32 @@
     </div>
 
     {{-- SUMMARY CARDS --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Draft</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['draft']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Incomplete drafts awaiting submit</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Submitted</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['submitted']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                    <i data-lucide="send" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Waiting for accounting review</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Approved</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['approved']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Ready for purchasing workflow</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Rejected</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($atpSummary['rejected']) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
-                    <i data-lucide="circle-x" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Returned or declined ATP</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Draft',
+                    'hint' => 'Incomplete drafts awaiting submit',
+                    'value' => number_format($atpSummary['draft']),
+                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Draft']),
+                    'active' => request('status') === 'Draft',
+                ],
+                [
+                    'label' => 'Submitted',
+                    'hint' => 'Waiting for accounting review',
+                    'value' => number_format($atpSummary['submitted']),
+                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Submitted']),
+                    'active' => request('status') === 'Submitted',
+                ],
+                [
+                    'label' => 'Approved',
+                    'hint' => 'Ready for purchasing workflow',
+                    'value' => number_format($atpSummary['approved']),
+                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Approved']),
+                    'active' => request('status') === 'Approved',
+                ],
+            ],
+        ])
     </div>
 
     {{-- ATP RECORDS --}}
@@ -427,9 +381,10 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                                data-pur-confirm="Submit this Authority to Purchase for review?"
-                                                data-pur-confirm-title="Submit ATP"
-                                                data-pur-confirm-ok="Submit"
+                                            data-pur-confirm="Submit this Authority to Purchase for review?"
+                                            data-pur-confirm-title="Submit ATP"
+                                            data-pur-confirm-ok="Submit"
+                                            data-pur-confirm-reviewer-role="Accounting"
                                             >
                                                 @csrf
                                                 <button
@@ -442,6 +397,19 @@
                                                 </button>
                                             </form>
                                         @endif
+                                    @endif
+
+                                    @if(
+                                        !$archiveView
+                                        && $atp->authority_purchase_status === 'Pending'
+                                        && $atp->authority_purchase_submitted_at
+                                        && empty($atp->purchase_order_id)
+                                    )
+                                        @include('partials.purchaser-reassign-reviewer', [
+                                            'type' => 'atp',
+                                            'id' => $atp->authority_purchase_id,
+                                            'currentReviewerId' => $atp->authority_purchase_assigned_reviewer_id ?? null,
+                                        ])
                                     @endif
 
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
@@ -503,7 +471,14 @@
                                             </button>
                                         </form>
                                     @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"
+                                            data-pur-confirm="Archive this Authority to Purchase?"
+                                            data-pur-confirm-title="Archive ATP"
+                                            data-pur-confirm-ok="Archive"
+                                            data-pur-confirm-kind="archive"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
@@ -701,21 +676,6 @@
                             <p class="mt-1 text-sm text-gray-500">
                                 RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}
                             </p>
-                            @php
-                                $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
-                                $atpHint = \App\Support\DocumentLineage::reviewHint(
-                                    \App\Support\RisWorkflow::atpStatusLabel($atp),
-                                    null,
-                                    'atp'
-                                );
-                            @endphp
-                            <div class="mt-3">
-                                @include('partials.document-lineage', [
-                                    'lineage' => $atpLineage,
-                                    'currentType' => 'ATP',
-                                    'statusHint' => $atpHint,
-                                ])
-                            </div>
                             @if($atp->authority_purchase_rejection_reason)
                                 <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                                     {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason:' : 'Revision requested:' }}
@@ -724,7 +684,42 @@
                             @endif
                         </div>
 
-                        <div class="flex shrink-0 items-center gap-1">
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <button
+                                type="button"
+                                @click="printAtp({{ $atp->authority_purchase_id }})"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-slate-300 hover:bg-gray-50"
+                                data-tooltip="Print ATP"
+                                aria-label="Print ATP"
+                            >
+                                <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                            </button>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.atp.export-xlsx', $atp->authority_purchase_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-50"
+                                data-tooltip="Export to Excel"
+                                aria-label="Export to Excel"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                                </svg>
+                            </a>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.atp.export-docx', $atp->authority_purchase_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300 hover:bg-blue-50"
+                                data-tooltip="Export to Word file"
+                                aria-label="Export to Word file"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.32-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                                </svg>
+                            </a>
                             @include('purchaser.partials.modal-fullscreen-button')
                             <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
@@ -732,6 +727,20 @@
                         </div>
 
                     </div>
+
+                    @php
+                        $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
+                        $atpHint = \App\Support\DocumentLineage::reviewHint(
+                            \App\Support\RisWorkflow::atpStatusLabel($atp),
+                            null,
+                            'atp'
+                        );
+                    @endphp
+                    @include('partials.document-lineage', [
+                        'lineage' => $atpLineage,
+                        'currentType' => 'ATP',
+                        'statusHint' => $atpHint,
+                    ])
 
                     {{-- ATP PAPER PREVIEW --}}
                     <div class="bg-slate-100 p-3 md:p-5">
@@ -744,93 +753,63 @@
                     </div>
 
                     {{-- Footer Actions --}}
-                    <div class="flex justify-between border-t border-gray-200 px-6 py-4">
+                    <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <button
+                            type="button"
+                            @click="viewOpen = false"
+                            class="px-2 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950"
+                        >
+                            Close
+                        </button>
 
-                        <div class="flex gap-2">
-                            @if(
-                                !$archiveView
-                                && !$atp->authority_purchase_submitted_at
-                                && $atp->authority_purchase_status === 'Pending'
-                            )
-                                <button
-                                    type="button"
-                                    @click="
-                                        viewOpen = false;
-                                        openEdit({{ $atp->authority_purchase_id }});
-                                    "
-                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm"
-                                >
-                                    Edit ATP
+                        @if(
+                            !$archiveView
+                            && !$atp->authority_purchase_submitted_at
+                            && $atp->authority_purchase_status === 'Pending'
+                            && empty($atp->purchase_order_id)
+                        )
+                            <form
+                                method="POST"
+                                action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                            data-pur-confirm="Submit this Authority to Purchase for review?"
+                                            data-pur-confirm-title="Submit ATP"
+                                            data-pur-confirm-ok="Submit"
+                                            data-pur-confirm-reviewer-role="Accounting"
+                            >
+                                @csrf
+                                <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
+                                    Submit to Review
                                 </button>
+                            </form>
+                        @endif
 
-                                @if(!empty($atp->purchase_order_id))
-                                    <a
-                                        href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
-                                        class="pur-btn-primary inline-flex items-center"
-                                    >
-                                        Open Purchase Order
-                                    </a>
-                                @else
-                                    <form
-                                        method="POST"
-                                        action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                        data-pur-confirm="Submit this Authority to Purchase for review?"
-                                        data-pur-confirm-title="Submit ATP"
-                                        data-pur-confirm-ok="Submit"
-                                    >
+                        @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
+                            @if(!$atp->has_rfc)
+                                @if(empty($atp->authority_purchase_payment_path))
+                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
                                         @csrf
-                                        <button type="submit" class="pur-btn-primary">
-                                            Submit to Review
-                                        </button>
+                                        <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
+                                        <button type="submit" class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800">Request for Check</button>
                                     </form>
-                                @endif
-                            @endif
-                        </div>
-
-                        <div class="flex gap-2">
-                            @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
-                                @if(!$atp->has_rfc)
-                                    @if(empty($atp->authority_purchase_payment_path))
-                                        <div class="flex flex-wrap gap-2">
-                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
-                                                @csrf
-                                                <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
-                                                <button type="submit" class="h-10 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-800">Request for Check</button>
-                                            </form>
-                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
-                                                @csrf
-                                                <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
-                                                <button type="submit" class="h-10 rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-medium text-sky-800">Cash Advance</button>
-                                            </form>
-                                        </div>
-                                    @else
-                                        <a
-                                            href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
-                                            class="h-10 inline-flex items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800"
-                                        >
-                                            Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
-                                        </a>
-                                    @endif
+                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
+                                        @csrf
+                                        <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
+                                        <button type="submit" class="inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800">Cash Advance</button>
+                                    </form>
                                 @else
-                                    <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">
-                                        RFC Created
-                                    </span>
+                                    <a
+                                        href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                        class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                    >
+                                        Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                    </a>
                                 @endif
+                            @else
+                                <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+                                    RFC Created
+                                </span>
                             @endif
-                            <button type="button" @click="printAtp({{ $atp->authority_purchase_id }})" class="pur-btn-primary">
-                                Print
-                            </button>
-                            <a href="{{ route(($pp ?? 'purchaser').'.atp.export-xlsx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                Excel
-                            </a>
-                            <a href="{{ route(($pp ?? 'purchaser').'.atp.export-docx', $atp->authority_purchase_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                Word
-                            </a>
-                            <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">
-                                Close
-                            </button>
-                        </div>
-
+                        @endif
                     </div>
 
                 </div>
@@ -893,31 +872,46 @@
                     ])
                 </div>
 
-                <div class="print-hidden flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                <div class="print-hidden flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4">
                     <button
                         type="button"
                         x-on:click="emptyOpen = false"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        class="px-2 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
                     >
                         Cancel
                     </button>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.atp.export-blank-xlsx') }}"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        data-tooltip="Export to Excel"
+                        aria-label="Export to Excel"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300"
                     >
-                        Excel
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                        </svg>
                     </a>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.atp.export-blank-docx') }}"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        data-tooltip="Export to Word file"
+                        aria-label="Export to Word file"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300"
                     >
-                        Word
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                        </svg>
                     </a>
                     <button
                         type="button"
                         @click="printAtp('blank')"
-                        class="pur-btn-primary"
+                        class="flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
                     >
+                        <i data-lucide="printer" class="h-4 w-4"></i>
                         Print Empty ATP
                     </button>
                 </div>
@@ -996,28 +990,58 @@
                                 <div id="purSigSlot-atp-{{ $atp->authority_purchase_id }}" class="mt-4 w-full"></div>
                             </div>
 
-                            <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-                                <button type="button" @click="editOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">
+                            <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <button
+                                    type="button"
+                                    @click="editOpen = false"
+                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
+                                >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     onclick="this.form.querySelector('input[name=save_action]').value='save'"
-                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
+                                    class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                 >
-                                    Update Draft
+                                    Save Changes
                                 </button>
                                 <button
-                                    type="submit"
+                                    type="button"
                                     onclick="
-                                        this.form.querySelector('input[name=save_action]').value='submit';
-                                        if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                            event.preventDefault();
-                                            if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                            else alert('Draw or upload your signature before submitting.');
-                                        }
+                                        (async function (btn) {
+                                            var form = btn.form;
+                                            if (!form) return;
+                                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                                else alert('Draw or upload your signature before submitting.');
+                                                return;
+                                            }
+                                            form.querySelector('input[name=save_action]').value = 'submit';
+                                            var result = true;
+                                            if (typeof window.purConfirm === 'function') {
+                                                result = await window.purConfirm({
+                                                    title: 'Submit ATP',
+                                                    text: 'Submit this Authority to Purchase for review?',
+                                                    confirmText: 'Submit',
+                                                    reviewerRole: 'Accounting'
+                                                });
+                                            }
+                                            if (!result) return;
+                                            if (result && result.reviewerId) {
+                                                var input = form.querySelector('input[name=assigned_reviewer_id]');
+                                                if (!input) {
+                                                    input = document.createElement('input');
+                                                    input.type = 'hidden';
+                                                    input.name = 'assigned_reviewer_id';
+                                                    form.appendChild(input);
+                                                }
+                                                input.value = result.reviewerId;
+                                            }
+                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                                            else form.submit();
+                                        })(this);
                                     "
-                                    class="pur-btn-primary"
+                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
                                 >
                                     Save & Submit
                                 </button>

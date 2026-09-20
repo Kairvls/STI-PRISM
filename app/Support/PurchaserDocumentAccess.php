@@ -71,6 +71,7 @@ class PurchaserDocumentAccess
             'rfc' => ['request_check_requested_by_user_id', 'request_check_submitted_by'],
             'rr' => ['receiving_report_created_by', 'receiving_report_submitted_by'],
             'liq' => ['liquidation_report_created_by', 'liquidation_report_submitted_by'],
+            'po' => ['purchase_order_created_by', 'purchase_order_submitted_by'],
             default => [],
         };
 

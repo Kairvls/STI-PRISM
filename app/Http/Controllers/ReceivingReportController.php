@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -142,6 +143,9 @@ class ReceivingReportController extends Controller
         return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig) {
             $now = now();
             $user = auth()->user();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_RECEIVING);
             $formNumber = filled($validated['receiving_report_form_number'] ?? null)
                 ? (string) $validated['receiving_report_form_number']
                 : $this->nextSuggestedRrFormNumber();
@@ -167,6 +171,9 @@ class ReceivingReportController extends Controller
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
             }
+            if (! $isDraft && Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
+                $payload['receiving_report_assigned_reviewer_id'] = $reviewerId;
+            }
 
             $id = DB::table('receiving_reports_table')->insertGetId($payload);
 
@@ -180,7 +187,7 @@ class ReceivingReportController extends Controller
             $this->attachRelatedDocuments($id, $validated['receiving_report_request_check_id'] ?? null);
 
             if (!$isDraft) {
-                $this->notifyReceiving($id);
+                $this->notifyReceiving($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
@@ -221,6 +228,9 @@ class ReceivingReportController extends Controller
 
         return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $receivedName, $receivedSig) {
             $now = now();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_RECEIVING);
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
             $status = $isDraft
                 ? ($wasRevision ? 'Minor Revision' : 'Draft')
@@ -249,6 +259,9 @@ class ReceivingReportController extends Controller
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
             }
+            if (! $isDraft && Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
+                $payload['receiving_report_assigned_reviewer_id'] = $reviewerId;
+            }
 
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($payload);
 
@@ -262,7 +275,7 @@ class ReceivingReportController extends Controller
             $this->attachRelatedDocuments($id, $rfcId);
 
             if (!$isDraft) {
-                $this->notifyReceiving($id);
+                $this->notifyReceiving($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
@@ -274,7 +287,9 @@ class ReceivingReportController extends Controller
 
     public function submit($id)
     {
-        return DB::transaction(function () use ($id) {
+        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_RECEIVING);
+
+        return DB::transaction(function () use ($id, $reviewerId) {
             $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->lockForUpdate()->first();
             if (!$rr || !$this->isEditable($rr)) {
                 return back()->with('error', 'This Receiving Report cannot be submitted.');
@@ -306,15 +321,19 @@ class ReceivingReportController extends Controller
             }
 
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+            $update = [
                 'receiving_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
                 'receiving_report_submitted_by' => auth()->id(),
                 'receiving_report_submitted_at' => now(),
                 'receiving_report_updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
+                $update['receiving_report_assigned_reviewer_id'] = $reviewerId;
+            }
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($update);
             $this->linkRfc($rr->receiving_report_request_check_id, $id);
             $this->attachRelatedDocuments($id, $rr->receiving_report_request_check_id);
-            $this->notifyReceiving($id);
+            $this->notifyReceiving($id, $reviewerId);
 
             return back()->with('success', 'Receiving Report submitted to Receiving.');
         });
@@ -944,7 +963,7 @@ class ReceivingReportController extends Controller
         return $exporter->downloadWord($rr, $items);
     }
 
-    private function notifyReceiving($id): void
+    private function notifyReceiving($id, ?int $reviewerId = null): void
     {
         $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
         $ref = $rr->receiving_report_form_number ?? ('RR #' . $id);
@@ -955,7 +974,8 @@ class ReceivingReportController extends Controller
             'rr_submitted',
             'RR',
             (int) $id,
-            '/receiving/reports'
+            '/receiving/reports',
+            $reviewerId
         );
     }
 

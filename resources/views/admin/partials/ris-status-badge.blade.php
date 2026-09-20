@@ -10,7 +10,7 @@
     if (in_array($risStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
         $risStatusLabel = 'Pending';
         $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
-        $risStatusTitle = 'Waiting for Admin to accept this procurement request';
+        $risStatusTitle = 'Waiting for Administrator to accept this procurement request';
     } elseif ($risStatus === 'Accepted') {
         $risStatusLabel = 'Accepted';
         $risStatusClass = 'border-violet-200 bg-violet-50 text-violet-700';
@@ -24,13 +24,13 @@
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';
         $risStatusTitle = 'Sent to the President for a decision';
     } elseif ($presidentApproved && $issuedBy === '') {
-        $risStatusLabel = 'Pending Admin Review';
+        $risStatusLabel = 'Pending Administrator Review';
         $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-800';
-        $risStatusTitle = 'President approved. Admin must sign Issued by';
+        $risStatusTitle = 'President approved. Administrator must sign Issued by';
     } elseif ($presidentApproved) {
         $risStatusLabel = 'Approved by the President';
         $risStatusClass = 'border-slate-200 bg-white text-slate-600';
-        $risStatusTitle = 'Approved by the President and signed by Admin';
+        $risStatusTitle = 'Approved by the President and signed by Administrator';
     } elseif (in_array($risStatus, ['Rejected by the President', 'Rejected by President'], true)) {
         $risStatusLabel = 'Rejected by the President';
         $risStatusClass = 'border-slate-500 bg-slate-800 text-slate-100';

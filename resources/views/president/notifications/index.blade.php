@@ -25,58 +25,26 @@
         @endif
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div class="pm-card p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Unread Alerts</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $unreadCount ?? 0 }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                    <i data-lucide="bell" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <span class="h-1.5 w-1.5 rounded-full {{ ($unreadCount ?? 0) > 0 ? 'bg-slate-500' : 'bg-blue-500' }}"></span>
-                <p class="text-xs text-slate-400">
-                    {{ ($unreadCount ?? 0) > 0 ? 'Requires your attention' : 'All caught up' }}
-                </p>
-            </div>
-        </div>
-
-        <div class="pm-card p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Inbox</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ ($notifications ?? collect())->count() }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                    <i data-lucide="inbox" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <p class="text-xs text-slate-400">Showing latest President alerts</p>
-            </div>
-        </div>
-
-        <a
-            href="/president/approvals"
-            class="pm-card p-5 sm:col-span-2 xl:col-span-1"
-        >
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">RIS Approvals</p>
-                    <p class="mt-2 text-base font-semibold tracking-tight text-slate-950">Open approval queue</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                    <i data-lucide="clipboard-check" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <p class="text-xs text-slate-400">Review forwarded RIS documents</p>
-            </div>
-        </a>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Unread Alerts',
+                'hint' => ($unreadCount ?? 0) > 0 ? 'Requires your attention' : 'All caught up',
+                'value' => number_format((int) ($unreadCount ?? 0)),
+            ],
+            [
+                'label' => 'Inbox',
+                'hint' => 'Showing latest President alerts',
+                'value' => number_format(($notifications ?? collect())->count()),
+            ],
+            [
+                'label' => 'RIS Approvals',
+                'hint' => 'Review forwarded RIS documents',
+                'value' => 'Open queue',
+                'href' => '/president/approvals',
+            ],
+        ],
+    ])
 
     <section class="pm-card p-5">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

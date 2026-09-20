@@ -632,6 +632,7 @@
 </script>
 
 @include('layouts.partials.maintenance-daily-reminder')
+@include('partials.purchaser-confirm-dialog')
 @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
     @include('partials.purchaser-print-sheet-helper')
 @endif

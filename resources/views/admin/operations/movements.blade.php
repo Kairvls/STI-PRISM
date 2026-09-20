@@ -30,49 +30,31 @@
 
 <div class="admin-page space-y-6">
     {{-- Summary metrics --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-2 divide-gray-100 lg:grid-cols-4 lg:divide-x">
-            <a href="{{ route('admin.operations.movements', ['tab' => 'transfers']) }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $counts['transfers'] }}</p>
-                    @if($tab === 'transfers')
-                        <span class="h-1.5 w-1.5 rounded-full bg-[#0025cc]"></span>
-                    @endif
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Transfers</p>
-            </a>
-
-            <a href="{{ route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'active']) }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $counts['borrowing_active'] }}</p>
-                    @if((int) $counts['borrowing_overdue'] > 0)
-                        <span class="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
-                    @elseif($tab === 'borrowing')
-                        <span class="h-1.5 w-1.5 rounded-full bg-[#0025cc]"></span>
-                    @endif
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Active borrows</p>
-                @if((int) $counts['borrowing_overdue'] > 0)
-                    <p class="mt-1 text-xs font-medium text-rose-600">{{ $counts['borrowing_overdue'] }} overdue</p>
-                @endif
-            </a>
-
-            <a href="{{ route('admin.operations.movements', ['tab' => 'disposal']) }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $counts['disposal'] }}</p>
-                    @if($tab === 'disposal')
-                        <span class="h-1.5 w-1.5 rounded-full bg-[#0025cc]"></span>
-                    @endif
-                </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Disposals</p>
-            </a>
-
-            <a href="{{ route('admin.operations.equipment') }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <p class="text-sm font-semibold text-gray-900">Inventory</p>
-                <p class="mt-1 text-xs font-medium text-[#0025cc]">Open equipment monitor →</p>
-            </a>
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Transfers',
+                'value' => number_format($counts['transfers']),
+                'href' => route('admin.operations.movements', ['tab' => 'transfers']),
+                'active' => $tab === 'transfers',
+            ],
+            [
+                'label' => 'Active borrows',
+                'hint' => ((int) $counts['borrowing_overdue'] > 0)
+                    ? number_format($counts['borrowing_overdue']).' overdue'
+                    : null,
+                'value' => number_format($counts['borrowing_active']),
+                'href' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'active']),
+                'active' => $tab === 'borrowing',
+            ],
+            [
+                'label' => 'Disposals',
+                'value' => number_format($counts['disposal']),
+                'href' => route('admin.operations.movements', ['tab' => 'disposal']),
+                'active' => $tab === 'disposal',
+            ],
+        ],
+    ])
 
     {{-- Records --}}
     <div class="pur-card">

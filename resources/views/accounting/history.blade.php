@@ -1,8 +1,45 @@
 @extends('layouts.accounting-layout')
 
-@section('title', 'Accounting History')
+@section('title', 'History')
+
+@push('styles')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+<style>
+    .acc-history-page,
+    .acc-history-page * {
+        font-family: "Inter", sans-serif;
+    }
+    .acc-history-page .pur-card .acc-pagination {
+        padding: 0.75rem 1.25rem 1rem;
+        border-top: 1px solid #f1f5f9;
+    }
+    .acc-history-page #historyTableBody.is-loading {
+        opacity: .45;
+        filter: saturate(.6);
+        pointer-events: none;
+        transition: opacity .18s ease, filter .18s ease;
+    }
+    .acc-history-page #historyTableBody.acc-animate tr {
+        animation: accFadeSwap .35s ease both;
+    }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(1)  { animation-delay: .02s; }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(2)  { animation-delay: .05s; }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(3)  { animation-delay: .08s; }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(4)  { animation-delay: .11s; }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(5)  { animation-delay: .14s; }
+    .acc-history-page #historyTableBody.acc-animate tr:nth-child(6)  { animation-delay: .17s; }
+    @media (prefers-reduced-motion: reduce) {
+        .acc-history-page #historyTableBody.acc-animate tr { animation: none; }
+    }
+</style>
+@endpush
 
 @section('content')
+@include('accounting.partials.flash')
+
 @php
     $historyFilters = [
         'all' => 'All types',
@@ -12,51 +49,42 @@
     ];
 @endphp
 
-<div class="acc-page acc-content-fill fade-in">
-    
+<div class="acc-page acc-history-page acc-content-fill space-y-6 fade-in">
+    <div class="pur-card">
+        @include('accounting.partials.status-filter-bar', [
+            'filters' => $historyFilters,
+            'activeFilter' => $type,
+            'queryKey' => 'type',
+            'baseUrl' => '/accounting/history',
+            'searchValue' => $search,
+            'searchPlaceholder' => 'Search reference, related document...',
+            'formId' => 'historySearchForm',
+            'searchId' => 'historySearch',
+        ])
 
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div class="pm-seg" id="historyFilterSlider" role="tablist" aria-label="History type filters" data-active="{{ $type }}">
-            <span class="pm-seg-thumb" aria-hidden="true"></span>
-            @foreach ($historyFilters as $key => $label)
-                <a
-                    href="/accounting/history?type={{ $key }}{{ $search ? '&search='.urlencode($search) : '' }}"
-                    role="tab"
-                    class="pm-seg-btn history-filter-btn {{ $type === $key ? 'is-active' : '' }}"
-                    data-filter="{{ $key }}"
-                    aria-selected="{{ $type === $key ? 'true' : 'false' }}"
-                >{{ $label }}</a>
-            @endforeach
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[900px] text-sm">
+                <thead class="bg-gray-50/70">
+                    <tr class="border-b border-gray-100">
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Type</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Reference</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Related</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Updated</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody" class="divide-y divide-gray-100 bg-white acc-animate">
+                    @include('accounting._history-rows', ['records' => $records])
+                </tbody>
+            </table>
         </div>
-        
-        
-        <div class="acc-toolbar">
-            <input type="search" name="search" id="historySearch" value="{{ $search }}" placeholder="Search reference, related document..." class="acc-search">
-        </div>
-    
-    </div>
 
-    <div class="acc-table-wrap mt-4 slide-up">
-        <table class="acc-table acc-table--spaced min-w-[760px]">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Reference</th>
-                    <th>Related</th>
-                    <th class="!text-right">Amount</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                </tr>
-            </thead>
-            <tbody id="historyTableBody" class="acc-animate">
-                @include('accounting._history-rows', ['records' => $records])
-            </tbody>
-        </table>
-    </div>
-    <div id="historyPagination">
-        @if ($records->hasPages())
-            <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
-        @endif
+        <div id="historyPagination">
+            @if ($records->hasPages())
+                <div class="acc-pagination">{{ $records->links('pagination.president') }}</div>
+            @endif
+        </div>
     </div>
 </div>
 
@@ -65,24 +93,25 @@
         const tbody = document.getElementById('historyTableBody');
         const pagination = document.getElementById('historyPagination');
         const searchInput = document.getElementById('historySearch');
-        const filterSlider = document.getElementById('historyFilterSlider');
-        const filterButtons = document.querySelectorAll('#historyFilterSlider .history-filter-btn');
+        const searchForm = document.getElementById('historySearchForm');
+        const filterTabs = document.querySelectorAll('.status-filter-tab');
         let currentType = '{{ $type }}';
         let searchTimeout = null;
         let fetching = false;
 
         function updateFilterButtons(activeFilter) {
-            if (filterSlider) {
-                filterSlider.setAttribute('data-active', activeFilter);
-                if (typeof window.pmUpdateSegControl === 'function') {
-                    window.pmUpdateSegControl(filterSlider, activeFilter, true);
-                }
-            }
-            filterButtons.forEach(btn => {
-                const active = btn.getAttribute('data-filter') === activeFilter;
-                btn.classList.toggle('is-active', active);
-                btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            filterTabs.forEach(tab => {
+                const active = tab.getAttribute('data-filter') === activeFilter;
+                tab.classList.toggle('bg-gray-100/80', active);
+                tab.classList.toggle('font-medium', active);
+                tab.classList.toggle('text-black', active);
+                tab.classList.toggle('text-slate-500', !active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
             });
+            if (searchForm) {
+                const hidden = searchForm.querySelector('input[name="type"]');
+                if (hidden) hidden.value = activeFilter;
+            }
         }
 
         function buildUrl(page, type, search) {
@@ -110,14 +139,13 @@
                 if (tbody) {
                     tbody.innerHTML = data.table_html;
                     tbody.classList.remove('is-loading');
-                    // Re-trigger the staggered row entrance animation
                     tbody.classList.remove('acc-animate');
                     void tbody.offsetWidth;
                     tbody.classList.add('acc-animate');
                 }
                 if (pagination) {
                     pagination.innerHTML = data.pagination_html
-                        ? '<div class="acc-pagination mt-3">' + data.pagination_html + '</div>'
+                        ? '<div class="acc-pagination">' + data.pagination_html + '</div>'
                         : '';
                     if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
                 }
@@ -135,17 +163,28 @@
             window.history.replaceState({}, '', buildUrl(page, type, search));
         }
 
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', function (e) {
+        function applyFilter(newType) {
+            if (newType === currentType) return;
+            currentType = newType;
+            updateFilterButtons(newType);
+            fetchData(1, newType);
+            pushUrl(1, newType, searchInput ? searchInput.value.trim() : '');
+        }
+
+        filterTabs.forEach(tab => {
+            tab.addEventListener('click', function (e) {
                 e.preventDefault();
-                const newType = this.getAttribute('data-filter');
-                if (newType === currentType) return;
-                currentType = newType;
-                updateFilterButtons(newType);
-                fetchData(1, newType);
-                pushUrl(1, newType, searchInput ? searchInput.value.trim() : '');
+                applyFilter(this.getAttribute('data-filter'));
             });
         });
+
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                fetchData(1, currentType);
+                pushUrl(1, currentType, searchInput ? searchInput.value.trim() : '');
+            });
+        }
 
         if (searchInput) {
             searchInput.addEventListener('input', function () {
@@ -157,7 +196,6 @@
             });
         }
 
-        // Delegate pagination clicks (live, no page reload)
         if (pagination) {
             pagination.addEventListener('click', function (e) {
                 const link = e.target.closest('a[href]');
@@ -170,7 +208,6 @@
             });
         }
 
-        // Handle browser back/forward
         window.addEventListener('popstate', function () {
             const params = new URLSearchParams(window.location.search);
             const type = params.get('type') || 'all';

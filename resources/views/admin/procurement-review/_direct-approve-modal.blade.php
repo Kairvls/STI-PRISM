@@ -180,7 +180,7 @@
                 ? 'Review the RIS form, then forward it to the President. Issued by is signed later on Sign RIS after approval.'
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
-                    : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm Admin Approval.');
+                    : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm Administrator Approval.');
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';

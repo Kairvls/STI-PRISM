@@ -491,7 +491,7 @@
                         adminLink.target = '_blank';
                         adminLink.rel = 'noopener';
                         adminLink.className = 'review-attachment-link';
-                        adminLink.textContent = adminFile.name || 'Admin attachment';
+                        adminLink.textContent = adminFile.name || 'Administrator attachment';
                         adminLink.setAttribute('data-tip', 'Open admin attachment');
                         adminList.appendChild(adminLink);
                         hasAdmin = true;

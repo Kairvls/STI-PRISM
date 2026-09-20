@@ -97,7 +97,7 @@
                 @if (request('search'))
                     No results match your search criteria.
                 @else
-                    When Admin uses Approve Directly, those RIS records will appear here for your review.
+                    When Administrator uses Approve Directly, those RIS records will appear here for your review.
                 @endif
             </p>
         </td>

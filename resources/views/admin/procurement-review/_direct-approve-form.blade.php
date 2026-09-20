@@ -1,6 +1,6 @@
 {{-- Admin Checked by / Issued by: Direct Approve, Forward to President, or Co-sign --}}
 @php
-    $adminName = Auth::user()->user_full_name ?? 'Admin';
+    $adminName = Auth::user()->user_full_name ?? 'Administrator';
     $todayDisplay = now()->format('d/m/Y');
     $items = $risItems ?? collect();
     $mode = in_array(($mode ?? 'direct'), ['direct', 'forward', 'cosign'], true) ? $mode : 'direct';
@@ -265,7 +265,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            Admin supporting details
+                            Administrator supporting details
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
                             Optional note and attachment for the President explaining why this RIS should be approved. Separate from Purchaser supporting documents below.
@@ -414,7 +414,7 @@
                                     maxlength="255"
                                     autocomplete="off"
                                     class="ris-signature-input"
-                                    title="Admin name for Checked by"
+                                    title="Administrator name for Checked by"
                                 >
                             </div>
                             <div class="ris-date-label">Date:</div>
@@ -480,7 +480,7 @@
                                 maxlength="255"
                                 autocomplete="off"
                                 class="ris-signature-input"
-                                title="Admin name for Issued by"
+                                title="Administrator name for Issued by"
                             >
                         </div>
                         <div class="ris-date-label">Date:</div>
@@ -576,7 +576,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            {{ $isDirect ? 'Admin signature' : 'Issued by signature' }}
+                            {{ $isDirect ? 'Administrator signature' : 'Issued by signature' }}
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
                             @if ($isDirect)
@@ -843,7 +843,7 @@
             class="rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition {{ $isForward ? 'bg-[#0025cc] hover:bg-blue-800' : 'bg-[#0025cc] hover:bg-blue-800' }}"
             title="{{ $isForward ? 'Forward this RIS to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Confirm direct approval, notify President for record, and return to Purchaser') }}"
         >
-            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm Admin Approval') }}
+            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm Administrator Approval') }}
         </button>
     </div>
 </form>

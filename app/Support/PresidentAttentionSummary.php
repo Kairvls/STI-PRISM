@@ -99,7 +99,8 @@ class PresidentAttentionSummary
                 ->where('approval_log_reference_id', $risId)
                 ->where('approval_log_level', 'President')
                 ->where(function ($q) {
-                    $q->where('approval_log_approval_remarks', 'Notified Admin for co-sign')
+                    $q->where('approval_log_approval_remarks', 'Notified Administrator for co-sign')
+                        ->orWhere('approval_log_approval_remarks', 'Notified Admin for co-sign')
                         ->orWhere('approval_log_approval_remarks', 'Forwarded to Admin for co-sign');
                 })
                 ->exists();

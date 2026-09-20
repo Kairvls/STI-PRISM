@@ -6,6 +6,7 @@ use App\Services\DocumentWorkflowService;
 use App\Support\ProcurementPortal;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
 use Illuminate\Http\Request;
@@ -168,7 +169,9 @@ class PurchaseOrderController extends Controller
 
     public function submit($id)
     {
-        return DB::transaction(function () use ($id) {
+        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+
+        return DB::transaction(function () use ($id, $reviewerId) {
             $order = DB::table('purchase_orders_table')
                 ->where('purchase_order_id', $id)
                 ->lockForUpdate()
@@ -200,16 +203,21 @@ class PurchaseOrderController extends Controller
             $poNumber = $order->purchase_order_number ?: PurchaseOrderBasket::allocateNumberOnSubmit();
             $now = now();
 
+            $poUpdate = [
+                'purchase_order_number' => $poNumber,
+                'purchase_order_status' => PurchaseOrderBasket::STATUS_SUBMITTED,
+                'purchase_order_submitted_by' => Auth::id(),
+                'purchase_order_submitted_at' => $now,
+                'purchase_order_revision_reason' => null,
+                'purchase_order_updated_at' => $now,
+            ];
+            if (Schema::hasColumn('purchase_orders_table', 'purchase_order_assigned_reviewer_id')) {
+                $poUpdate['purchase_order_assigned_reviewer_id'] = $reviewerId;
+            }
+
             DB::table('purchase_orders_table')
                 ->where('purchase_order_id', $id)
-                ->update([
-                    'purchase_order_number' => $poNumber,
-                    'purchase_order_status' => PurchaseOrderBasket::STATUS_SUBMITTED,
-                    'purchase_order_submitted_by' => Auth::id(),
-                    'purchase_order_submitted_at' => $now,
-                    'purchase_order_revision_reason' => null,
-                    'purchase_order_updated_at' => $now,
-                ]);
+                ->update($poUpdate);
 
             foreach ($atpIds as $atpId) {
                 $update = [
@@ -222,6 +230,9 @@ class PurchaseOrderController extends Controller
 
                 if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_reference_po_no')) {
                     $update['authority_purchase_reference_po_no'] = $poNumber;
+                }
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
+                    $update['authority_purchase_assigned_reviewer_id'] = $reviewerId;
                 }
 
                 DB::table('authority_to_purchase_table')
@@ -236,7 +247,8 @@ class PurchaseOrderController extends Controller
                 'po_submitted',
                 'PO',
                 (int) $id,
-                '/accounting/purchase-orders?status=incoming'
+                '/accounting/purchase-orders?status=incoming',
+                $reviewerId
             );
 
             return redirect()

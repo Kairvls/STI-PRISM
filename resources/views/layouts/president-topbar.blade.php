@@ -7,9 +7,9 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('president/dashboard') => ['Dashboard', 'Overview of RIS decisions and workload.'],
-                request()->is('president/direct-approvals*') => ['Admin Direct Approvals', 'View RIS records Admin approved directly, with reason and proof.'],
+                request()->is('president/direct-approvals*') => ['Administrator Direct Approvals', 'View RIS records Administrator approved directly, with reason and proof.'],
                 request()->is('president/approvals/history*') => ['Approval History', 'Past presidential decisions on RIS documents.'],
-                request()->is('president/approvals*') => ['RIS Approvals', 'Review, sign, and notify Admin when ready.'],
+                request()->is('president/approvals*') => ['RIS Approvals', 'Review, sign, and notify Administrator when ready.'],
                 request()->is('president/reports/monthly-summary*') => ['Reports & Summary', 'Monthly decision trends and totals.'],
                 request()->is('president/reports*') => ['Decision History', 'Approved and rejected RIS decisions.'],
                 request()->is('president/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
@@ -127,7 +127,7 @@
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-[11px] leading-4 text-slate-500">
-                                    Open the daily summary of RIS awaiting decision or Admin notify.
+                                    Open the daily summary of RIS awaiting decision or Administrator notify.
                                 </p>
                             </div>
                         </button>

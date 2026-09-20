@@ -87,7 +87,7 @@ class RfcFormExporter
         $sheet->mergeCells('C15:D15');
         $sheet->setCellValue('C15', $approved);
         $sheet->getStyle('C15:D15')->applyFromArray($bottom);
-        $sheet->setCellValue('C16', 'Administrator');
+        $sheet->setCellValue('C16', 'Accountant');
 
         foreach (['A' => 16, 'B' => 28, 'C' => 16, 'D' => 28] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
@@ -156,7 +156,7 @@ class RfcFormExporter
             ->addText($this->plainName($rfc->request_check_approved_by_signature ?? $rfc->request_check_approved_by_admin ?? ''), ['size' => 11], ['alignment' => Jc::CENTER]);
         $sigs->addRow();
         $sigs->addCell(6000)->addText('');
-        $sigs->addCell(6000)->addText('Administrator', ['size' => 10], ['alignment' => Jc::CENTER]);
+        $sigs->addCell(6000)->addText('Accountant', ['size' => 10], ['alignment' => Jc::CENTER]);
 
         $filename = (($rfc->request_check_form_number ?? '') ?: 'blank-rfc') . '.docx';
         $tmp = tempnam(sys_get_temp_dir(), 'rfc');

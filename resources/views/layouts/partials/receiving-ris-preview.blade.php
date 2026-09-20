@@ -31,7 +31,7 @@
         display: flex; justify-content: flex-end; gap: 8px;
     }
     .ris-preview-modal-btn-print {
-        width: 32px; height: 32px; padding: 0; border-radius: 8px; background: #0f172a; color: #fff;
+        width: 32px; height: 32px; padding: 0; border-radius: 8px; background: #0025cc; color: #fff;
         text-decoration: none; border: none; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center;
     }

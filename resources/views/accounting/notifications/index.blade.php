@@ -24,36 +24,25 @@
         <p class="text-sm leading-6 text-gray-500">Accounting alerts from the topbar bell.</p>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="pm-card p-5 slide-up">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Inbox</p>
-                    <p id="notifInboxCount" class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ ($items->total() ?? 0) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <i data-lucide="bell" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <p id="notifInboxHint" class="text-xs text-slate-400">Alerts {{ $periodLabels[$activePeriod] ?? 'today' }}</p>
-            </div>
-        </div>
-        <a href="/accounting/dashboard" class="pm-card p-5 slide-up" style="animation-delay:.06s">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Queues</p>
-                    <p class="mt-2 text-base font-semibold tracking-tight text-slate-950">Open dashboard</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                    <i data-lucide="layout-dashboard" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <p class="text-xs text-slate-400">ATP, Request Checks, and liquidations</p>
-            </div>
-        </a>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Inbox',
+                'hint' => 'Alerts '.($periodLabels[$activePeriod] ?? 'today'),
+                'value' => number_format($items->total() ?? 0),
+                'valueId' => 'notifInboxCount',
+                'hintId' => 'notifInboxHint',
+                'extraClass' => 'slide-up',
+            ],
+            [
+                'label' => 'Queues',
+                'hint' => 'ATP, Request Checks, and liquidations',
+                'value' => 'Open dashboard',
+                'href' => '/accounting/dashboard',
+                'extraClass' => 'slide-up',
+            ],
+        ],
+    ])
 
     <section class="pm-card overflow-hidden slide-up" style="animation-delay:.1s">
         <div class="border-b border-slate-100 px-5 py-4">

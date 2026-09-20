@@ -12,50 +12,33 @@
 {{-- ===================================== --}}
 {{-- KPI SUMMARY CARDS --}}
 {{-- ===================================== --}}
-<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.05s">
-        <div class="pm-stat-icon bg-blue-50 text-blue-600">
-            <i data-lucide="file-text"></i>
-        </div>
-        <div class="min-w-0 flex-1">
-            <p class="pm-stat-label">All time records</p>
-            <p class="pm-stat-value"><span class="count-up" data-target="{{ $totalRisCount ?? 0 }}">0</span> Total RIS</p>
-        </div>
-    </div>
-
-    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.1s">
-        <div class="pm-stat-icon bg-blue-50 text-blue-600">
-            <i data-lucide="clock-3"></i>
-        </div>
-        <div class="min-w-0 flex-1">
-            <p class="pm-stat-label">Awaiting decision</p>
-            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</span> Pending</p>
-        </div>
-        <a href="/president/approvals" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View pending</span></a>
-    </div>
-
-    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.15s">
-        <div class="pm-stat-icon bg-blue-50 text-blue-600">
-            <i data-lucide="circle-check-big"></i>
-        </div>
-        <div class="min-w-0 flex-1">
-            <p class="pm-stat-label">Successfully approved</p>
-            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</span> Approved</p>
-        </div>
-        <a href="/president/reports/approved" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View approved</span></a>
-    </div>
-
-    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.2s">
-        <div class="pm-stat-icon bg-slate-100 text-slate-600">
-            <i data-lucide="x-circle"></i>
-        </div>
-        <div class="min-w-0 flex-1">
-            <p class="pm-stat-label">Declined requests</p>
-            <p class="pm-stat-value"><span class="count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">0</span> Rejected</p>
-        </div>
-        <a href="/president/reports/approved?filter=rejected" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View rejected</span></a>
-    </div>
-</div>
+@include('layouts.partials.maintenance-stat-cards', [
+    'cards' => [
+        [
+            'label' => 'Total RIS',
+            'hint' => 'All time records',
+            'value' => number_format((int) ($totalRisCount ?? 0)),
+        ],
+        [
+            'label' => 'Pending',
+            'hint' => 'Awaiting decision',
+            'value' => number_format((int) ($pendingApprovalsCount ?? 0)),
+            'href' => '/president/approvals',
+        ],
+        [
+            'label' => 'Approved',
+            'hint' => 'Successfully approved',
+            'value' => number_format((int) ($approvedDecisionsCount ?? 0)),
+            'href' => '/president/reports/approved',
+        ],
+        [
+            'label' => 'Rejected',
+            'hint' => 'Declined requests',
+            'value' => number_format((int) ($rejectedDecisionsCount ?? 0)),
+            'href' => '/president/reports/approved?filter=rejected',
+        ],
+    ],
+])
 
 {{-- ===================================== --}}
 {{-- CHARTS + TOP 3 RECENT RIS --}}
@@ -173,7 +156,7 @@
                     <span class="text-xl font-bold text-blue-700">{{ $awaitingNotifyCount ?? 0 }}</span>
                 </div>
                 <p class="mt-3 text-sm font-semibold text-gray-900">Ready to notify</p>
-                <p class="mt-0.5 text-[11px] text-gray-500">Approved, Admin not yet notified</p>
+                <p class="mt-0.5 text-[11px] text-gray-500">Approved, Administrator not yet notified</p>
             </a>
             <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
                 <div class="flex items-center justify-between">
@@ -222,7 +205,7 @@
                         </div>
                         @if ($awaiting)
                             <span class="inline-flex items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
-                                Notify Admin
+                                Notify Administrator
                             </span>
                         @else
                             <span class="inline-flex items-center rounded-xl bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">

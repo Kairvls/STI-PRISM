@@ -86,7 +86,7 @@
                     class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
                 >
                 @error('campaign_due_date') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
-                <p class="mt-1.5 text-xs text-slate-400">Maintenance and Admin are notified 7 days before and on the due date.</p>
+                <p class="mt-1.5 text-xs text-slate-400">Maintenance and Administrator are notified 7 days before and on the due date.</p>
             </div>
         </div>
 

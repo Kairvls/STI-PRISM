@@ -32,7 +32,15 @@
                 Confirm New PIN
                 <input type="password" name="campus_setup_pin_confirmation" required minlength="4" maxlength="20" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300" placeholder="Re-enter the new PIN" autocomplete="new-password">
             </label>
-            <button type="submit" class="admin-btn-primary">Save PIN</button>
+            <div class="flex justify-end">
+                <button
+                    type="submit"
+                    class="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition"
+                    style="background-color: #0025cc;"
+                    onmouseover="this.style.backgroundColor='#001fa3'"
+                    onmouseout="this.style.backgroundColor='#0025cc'"
+                >Save PIN</button>
+            </div>
         </form>
     </div>
 </div>

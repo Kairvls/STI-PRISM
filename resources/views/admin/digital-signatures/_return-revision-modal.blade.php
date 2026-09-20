@@ -32,7 +32,7 @@
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs text-slate-700">
-                            Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to Admin.
+                            Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to Administrator.
                         </p>
                     </div>
                 </div>

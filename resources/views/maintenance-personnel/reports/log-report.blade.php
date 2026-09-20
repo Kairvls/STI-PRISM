@@ -850,13 +850,10 @@
                                             {{ $report->report_logged_by_name ?? '—' }}
                                         </td>
                                         <td class="whitespace-nowrap px-4 py-3 text-right">
-                                            <a
-                                                href="{{ url('/maintenance/reports/details/' . $report->report_id) }}"
-                                                class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-[#0025cc] transition hover:bg-blue-50"
-                                            >
-                                                View
-                                                <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
-                                            </a>
+                                            <x-view-action-button
+                                                :href="url('/maintenance/reports/details/' . $report->report_id)"
+                                                label="View"
+                                            />
                                         </td>
                                     </tr>
                                 @endforeach

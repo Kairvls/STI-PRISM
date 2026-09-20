@@ -59,7 +59,7 @@
                                 {{ $pendingRis }} procurement requests to accept
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Purchaser submissions waiting for Admin accept before Sign RIS.
+                                Purchaser submissions waiting for Administrator accept before Sign RIS.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-blue-400"></i>

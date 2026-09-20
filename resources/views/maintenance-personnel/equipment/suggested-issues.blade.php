@@ -39,90 +39,19 @@
     </div>
 
     {{-- Dashboard --}}
-    <div class="mb-6 mt-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm">
-        <div class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]">
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Total Issues</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($totalIssues) }}
-                    </h2>
-                    <p class="mt-3 text-sm">
-                        @if ($issuesMonthlyPercentage === null)
-                            <span class="font-semibold text-emerald-500">New activity</span>
-                        @else
-                            <span
-                                class="font-semibold {{ $issuesMonthlyPercentage > 0 ? 'text-emerald-500' : ($issuesMonthlyPercentage < 0 ? 'text-red-500' : 'text-slate-500') }}"
-                            >
-                                {{ $issuesMonthlyPercentage > 0 ? '+' : '' }}{{ number_format($issuesMonthlyPercentage, 2) }}%
-                            </span>
-                        @endif
-                        <span class="text-slate-500">From last month</span>
-                    </p>
-                </div>
-
-                <div class="ml-6 h-20 w-40 shrink-0">
-                    <svg viewBox="0 0 300 100" class="h-full w-full" fill="none">
-                        <polygon
-                            points="{{ $issueTrendAreaPoints }}"
-                            fill="currentColor"
-                            fill-opacity=".08"
-                            class="text-slate-900"
-                        />
-                        <polyline
-                            points="{{ $issueTrendPoints }}"
-                            fill="none"
-                            stroke="#3b82f6"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-                    </svg>
-                </div>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">Categories Covered</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($categoriesCovered) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($categoriesCoveredPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">of all categories</span>
-                </p>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">Category-wide</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($categoryWideIssues) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-emerald-600">
-                        {{ number_format($categoryWidePercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">of all issues</span>
-                </p>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">Component-specific</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($componentSpecificIssues) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-blue-600">
-                        {{ number_format($componentSpecificPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">of all issues</span>
-                </p>
-            </div>
-        </div>
+    @php
+        $issuesMonthlyHint = $issuesMonthlyPercentage === null
+            ? 'New activity vs last month'
+            : (($issuesMonthlyPercentage > 0 ? '+' : '') . number_format($issuesMonthlyPercentage, 2) . '% vs last month');
+    @endphp
+    <div class="mb-6 mt-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total Issues', 'hint' => $issuesMonthlyHint, 'value' => number_format($totalIssues)],
+                ['label' => 'Categories Covered', 'hint' => number_format($categoriesCoveredPercentage, 2) . '% of all categories', 'value' => number_format($categoriesCovered)],
+                ['label' => 'Category-wide', 'hint' => number_format($categoryWidePercentage, 2) . '% of all issues', 'value' => number_format($categoryWideIssues)],
+            ],
+        ])
     </div>
 
     {{-- Table --}}

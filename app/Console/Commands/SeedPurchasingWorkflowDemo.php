@@ -315,7 +315,7 @@ class SeedPurchasingWorkflowDemo extends Command
     private function applyRisStage(string $stage, int $risId, array $actors, Carbon $now): void
     {
         if ($stage === 'ris_admin_pending') {
-            $this->log('RIS', $risId, $actors['purchaser'], 'Submitted', 'RIS submitted for Admin review.', $now->copy()->addHour());
+            $this->log('RIS', $risId, $actors['purchaser'], 'Submitted', 'RIS submitted for Administrator review.', $now->copy()->addHour());
             return;
         }
 
@@ -510,11 +510,11 @@ class SeedPurchasingWorkflowDemo extends Command
         $risForm = (string) DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->value('ris_form_number');
 
         match ($stage) {
-            'ris_admin_pending' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ADMIN, 'New RIS submitted', $risForm . ' is waiting for Admin review.', 'ris_submitted', 'RIS', $risId, '/admin/procurement-review'),
+            'ris_admin_pending' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ADMIN, 'New RIS submitted', $risForm . ' is waiting for Administrator review.', 'ris_submitted', 'RIS', $risId, '/admin/procurement-review'),
             'ris_purchaser_revision' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'RIS returned for revision', $risForm . ' needs correction before resubmission.', 'ris_revision', 'RIS', $risId, '/purchaser/ris'),
-            'president_queue' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PRESIDENT, 'RIS ready for presidential review', $risForm . ' was forwarded by Admin.', 'ris_forwarded', 'RIS', $risId, '/president/approvals'),
+            'president_queue' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PRESIDENT, 'RIS ready for presidential review', $risForm . ' was forwarded by Administrator.', 'ris_forwarded', 'RIS', $risId, '/president/approvals'),
             'president_rejected' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ADMIN, 'President rejected an RIS', $risForm . ' was rejected. Return it to Purchaser for revision.', 'ris_president_rejected', 'RIS', $risId, '/admin/digital-signatures/sign-ris'),
-            'admin_cosign_queue' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ADMIN, 'President approved an RIS', $risForm . ' is waiting for Admin Sign RIS.', 'ris_president_approved', 'RIS', $risId, '/admin/digital-signatures/sign-ris'),
+            'admin_cosign_queue' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ADMIN, 'President approved an RIS', $risForm . ' is waiting for Administrator Sign RIS.', 'ris_president_approved', 'RIS', $risId, '/admin/digital-signatures/sign-ris'),
             'atp_ready_direct', 'atp_ready_president' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'RIS released', $risForm . ' is ready. Create an Authority to Purchase.', 'ris_released', 'RIS', $risId, '/purchaser/ris'),
             'atp_accounting_queue' => $atpId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ACCOUNTING, 'ATP submitted for review', (string) DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->value('authority_purchase_form_number') . ' is waiting for Accounting review.', 'atp_submitted', 'ATP', $atpId, '/accounting/authority-to-purchase/' . $atpId) : null,
             'rfc_ready' => $atpId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'ATP approved', (string) DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->value('authority_purchase_form_number') . ' was approved. Create a Request for Check.', 'atp_approved', 'ATP', $atpId, '/purchaser/request-check?selected_atp=' . $atpId) : null,

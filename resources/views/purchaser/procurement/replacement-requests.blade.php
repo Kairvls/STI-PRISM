@@ -97,27 +97,23 @@
         $completedCount = $currentCollection->where('procurement_request_status', 'Completed')->count();
     @endphp
 
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <p class="text-sm font-medium text-gray-500">Total Requests</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $totalRequests }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $pendingCount }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $approvedCount }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $rejectedCount }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <p class="text-sm font-medium text-gray-500">Completed</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ $completedCount }}</p>
-        </div>
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Pending',
+                    'value' => $pendingCount,
+                ],
+                [
+                    'label' => 'Approved',
+                    'value' => $approvedCount,
+                ],
+                [
+                    'label' => 'Rejected',
+                    'value' => $rejectedCount,
+                ],
+            ],
+        ])
     </div>
 
     <div class="pur-card">

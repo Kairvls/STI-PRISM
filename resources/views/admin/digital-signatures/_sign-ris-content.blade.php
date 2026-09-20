@@ -10,93 +10,40 @@
         $search = $search ?? '';
         $signRisCards = [
             [
-                'filter' => 'all',
-                'label' => 'All',
-                'count' => $allCount ?? ($signableRisRecords->total() ?? 0),
-                'amount' => $allAmount ?? 0,
-                'color' => 'text-gray-950',
-                'dot' => 'bg-slate-400',
-                'title' => 'Show all Sign RIS records',
-            ],
-            [
-                'filter' => 'pending',
                 'label' => 'Pending',
-                'count' => $pendingActionCount ?? (($forDecisionCount ?? 0) + ($forCosignCount ?? 0)),
-                'amount' => $pendingActionAmount ?? 0,
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-[#0025cc]',
+                'hint' => '₱'.number_format((float) ($pendingActionAmount ?? 0), 2),
+                'value' => number_format($pendingActionCount ?? (($forDecisionCount ?? 0) + ($forCosignCount ?? 0))),
+                'tag' => 'button',
+                'filterKey' => 'pending',
+                'extraClass' => 'sign-ris-filter-card',
+                'active' => $filter === 'pending',
                 'title' => 'Accepted decisions plus Issued by awaiting signature',
             ],
             [
-                'filter' => 'for_decision',
                 'label' => 'For Decision',
-                'count' => $forDecisionCount ?? 0,
-                'amount' => $forDecisionAmount ?? 0,
-                'color' => 'text-gray-950',
-                'dot' => 'bg-violet-400',
+                'hint' => '₱'.number_format((float) ($forDecisionAmount ?? 0), 2),
+                'value' => number_format($forDecisionCount ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'for_decision',
+                'extraClass' => 'sign-ris-filter-card',
+                'active' => $filter === 'for_decision',
                 'title' => 'Accepted RIS ready to Forward, Approve Directly, or Return',
             ],
             [
-                'filter' => 'for_cosign',
                 'label' => 'Awaiting Issued by',
-                'count' => $forCosignCount ?? 0,
-                'amount' => $forCosignAmount ?? 0,
-                'color' => 'text-amber-700',
-                'dot' => 'bg-amber-400',
+                'hint' => '₱'.number_format((float) ($forCosignAmount ?? 0), 2),
+                'value' => number_format($forCosignCount ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'for_cosign',
+                'extraClass' => 'sign-ris-filter-card',
+                'active' => $filter === 'for_cosign',
                 'title' => 'President-approved RIS awaiting Issued by',
-            ],
-            [
-                'filter' => 'cosigned',
-                'label' => 'Co-signed',
-                'count' => $cosignedCount ?? 0,
-                'amount' => $cosignedAmount ?? 0,
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-sky-400',
-                'title' => 'RIS you signed after the President approved',
-            ],
-            [
-                'filter' => 'president_rejected',
-                'label' => 'Rejected by the President',
-                'count' => $presidentRejectedCount ?? 0,
-                'amount' => $presidentRejectedAmount ?? 0,
-                'color' => 'text-amber-700',
-                'dot' => 'bg-amber-500',
-                'title' => 'President-rejected RIS that can be returned for revision',
             ],
         ];
     @endphp
 
     {{-- Metric strip --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 xl:grid-cols-6 xl:divide-x">
-            @foreach ($signRisCards as $card)
-                <button
-                    type="button"
-                    data-filter="{{ $card['filter'] }}"
-                    title="{{ $card['title'] }}"
-                    aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
-                    class="sign-ris-filter-card block px-5 py-5 text-left transition hover:bg-gray-50/70
-                        {{ $filter === $card['filter'] ? 'bg-gray-50/80' : '' }}
-                    "
-                >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                        {{ $card['label'] }}
-                    </p>
-                    <div class="mt-2 flex items-center gap-2">
-                        <span class="text-2xl font-semibold tracking-tight {{ $card['color'] }}">
-                            {{ $card['count'] }}
-                        </span>
-                        @if($filter === $card['filter'])
-                            <span class="h-1.5 w-1.5 rounded-full {{ $card['dot'] }}"></span>
-                        @endif
-                    </div>
-                    <p class="mt-1 text-xs text-gray-400">
-                        ₱{{ number_format((float) $card['amount'], 2) }}
-                    </p>
-                </button>
-            @endforeach
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', ['cards' => $signRisCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -152,11 +99,11 @@
                         <button
                             type="button"
                             role="tab"
-                            data-filter="{{ $card['filter'] }}"
+                            data-filter="{{ $card['filterKey'] }}"
                             title="{{ $card['title'] }}"
-                            aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                            aria-selected="{{ $filter === $card['filterKey'] ? 'true' : 'false' }}"
                             class="sign-ris-filter-btn relative z-10 flex h-8 shrink-0 items-center whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition-colors
-                                {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                {{ $filter === $card['filterKey'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             {{ $card['label'] }}

@@ -125,6 +125,8 @@ class AtpFormExporter
         $row++;
         $sheet->setCellValue("A{$row}", 'Signature over Printed Name');
         $sheet->getStyle("A{$row}")->getFont()->setSize(8)->setItalic(true);
+        $sheet->setCellValue("D{$row}", '(Accountant)');
+        $sheet->getStyle("D{$row}")->getFont()->setSize(8)->setItalic(true);
         $row += 2;
         $sheet->mergeCells("A{$row}:B{$row}");
         $sheet->setCellValue("A{$row}", $atp->authority_purchase_reference_po_no ?? '');
@@ -241,7 +243,7 @@ class AtpFormExporter
             ->addText($this->plainName($atp->authority_purchase_authorized_by_signature ?? ''), ['size' => 10], ['alignment' => Jc::CENTER]);
         $sigs->addRow();
         $sigs->addCell(5000)->addText('Signature over Printed Name', ['size' => 8, 'italic' => true], ['alignment' => Jc::CENTER]);
-        $sigs->addCell(4000)->addText('');
+        $sigs->addCell(4000)->addText('(Accountant)', ['size' => 8, 'italic' => true], ['alignment' => Jc::CENTER]);
         $sigs->addRow();
         $sigs->addCell(5000, ['borderBottomSize' => 6, 'borderBottomColor' => '000000'])
             ->addText((string) ($atp->authority_purchase_reference_po_no ?? ''), ['size' => 10], ['alignment' => Jc::CENTER]);

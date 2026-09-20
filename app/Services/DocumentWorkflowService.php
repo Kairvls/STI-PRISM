@@ -74,7 +74,7 @@ class DocumentWorkflowService
     }
 
     /**
-     * Notify a role that a document was submitted for review.
+     * Notify a specific reviewer (preferred) or the whole role (legacy fallback).
      */
     public static function notifySubmitted(
         string $role,
@@ -83,8 +83,15 @@ class DocumentWorkflowService
         string $type,
         string $refType,
         int $refId,
-        string $url
+        string $url,
+        ?int $reviewerId = null
     ): void {
+        if ($reviewerId && $reviewerId > 0) {
+            WorkflowNotifier::toUser($reviewerId, $role, $title, $message, $type, $refType, $refId, $url);
+
+            return;
+        }
+
         WorkflowNotifier::toRole($role, $title, $message, $type, $refType, $refId, $url);
     }
 

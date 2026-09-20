@@ -172,7 +172,7 @@
 
     $checkedDate = $hasCheckedSign ? $ris->ris_approved_by_date : null;
     $checkedName = $hasCheckedImage
-        ? ($adminIssuedName ?: 'Admin')
+        ? ($adminIssuedName ?: 'Administrator')
         : ($hasCheckedSign && !$hasCheckedImage ? $rawApproved : '');
 
     $approvedDate = $hasPresidentSign ? $ris->ris_approved_by_date : null;
@@ -304,10 +304,10 @@
                         @if (!empty($adminIssuedName))
                             <span class="signature-name">{{ $adminIssuedName }}</span>
                         @endif
-                        <span class="signature-position">Admin</span>
+                        <span class="signature-position">Administrator</span>
                     @elseif ($issuedDisplay !== '')
                         <span class="signature-name">{{ $issuedDisplay }}</span>
-                        <span class="signature-position">Admin</span>
+                        <span class="signature-position">Administrator</span>
                     @endif
                 </div>
                 <div class="date-row">

@@ -34,26 +34,26 @@
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'maintenance'])
 
     {{-- KPI strip --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-2 divide-gray-100 xl:grid-cols-4 xl:divide-x">
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Filed</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $filed }}</p>
-            </div>
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Resolved</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $resolved }}</p>
-            </div>
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Rejected</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $rejected }}</p>
-            </div>
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">For replacement</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $replacement }}</p>
-            </div>
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Filed',
+                'value' => number_format($filed),
+            ],
+            [
+                'label' => 'Resolved',
+                'value' => number_format($resolved),
+            ],
+            [
+                'label' => 'Rejected',
+                'value' => number_format($rejected),
+            ],
+            [
+                'label' => 'For replacement',
+                'value' => number_format($replacement),
+            ],
+        ],
+    ])
 
     {{-- Insights --}}
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

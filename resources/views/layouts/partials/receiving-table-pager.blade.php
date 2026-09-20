@@ -1,7 +1,7 @@
 <div class="receiving-pager print-hidden flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style="display:none">
     <p class="receiving-showing text-xs text-slate-500">Showing 0 of 0</p>
     <div
-        class="receiving-page-controls page-carousel inline-flex items-center overflow-hidden rounded-lg bg-slate-800 text-white shadow-sm"
+        class="receiving-page-controls page-carousel inline-flex items-center overflow-hidden rounded-lg bg-[#0025cc] text-white shadow-sm"
         style="display:none"
     >
         <button

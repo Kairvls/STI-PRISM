@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -154,8 +155,11 @@ class RequestForCheckController extends Controller
         return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig) {
             $now = now();
             $user = auth()->user();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
 
-            $id = DB::table('request_check_table')->insertGetId($this->rfcPayload([
+            $payload = [
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? null,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
@@ -173,7 +177,12 @@ class RequestForCheckController extends Controller
                 'request_check_is_archived' => 0,
                 'request_check_created_at' => $now,
                 'request_check_updated_at' => $now,
-            ]));
+            ];
+            if (! $isDraft && $this->rfcHas('request_check_assigned_reviewer_id')) {
+                $payload['request_check_assigned_reviewer_id'] = $reviewerId;
+            }
+
+            $id = DB::table('request_check_table')->insertGetId($this->rfcPayload($payload));
             if ($this->rfcHas('request_check_form_number')) {
                 DB::table('request_check_table')->where('request_check_id', $id)->update([
                     'request_check_form_number' => 'RFC-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
@@ -183,7 +192,7 @@ class RequestForCheckController extends Controller
             $this->storeAttachments($request, $id);
 
             if (!$isDraft) {
-                $this->notifyAccountingRfc($id);
+                $this->notifyAccountingRfc($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rfc.index')->with(
@@ -225,6 +234,9 @@ class RequestForCheckController extends Controller
 
         return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig) {
             $now = now();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
             $wasRevision = in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
                 && $rfc->request_check_status !== 'Draft'
                 && $rfc->request_check_status !== 'Pending';
@@ -232,7 +244,7 @@ class RequestForCheckController extends Controller
                 ? $this->rfcPersistStatus($wasRevision ? 'Minor Revision' : 'Draft')
                 : $this->rfcPersistStatus($wasRevision ? 'Resubmitted' : 'Submitted');
 
-            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
+            $payload = [
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
@@ -247,13 +259,18 @@ class RequestForCheckController extends Controller
                 'request_check_submitted_by' => $isDraft ? ($rfc->request_check_submitted_by ?? null) : auth()->id(),
                 'request_check_submitted_at' => $isDraft ? ($rfc->request_check_submitted_at ?? null) : $now,
                 'request_check_updated_at' => $now,
-            ]));
+            ];
+            if (! $isDraft && $this->rfcHas('request_check_assigned_reviewer_id')) {
+                $payload['request_check_assigned_reviewer_id'] = $reviewerId;
+            }
+
+            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload($payload));
 
             $this->deleteRequestedAttachments($request, $id);
             $this->storeAttachments($request, $id);
 
             if (!$isDraft) {
-                $this->notifyAccountingRfc($id);
+                $this->notifyAccountingRfc($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rfc.index')->with(
@@ -267,7 +284,9 @@ class RequestForCheckController extends Controller
 
     public function submit($id)
     {
-        return DB::transaction(function () use ($id) {
+        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+
+        return DB::transaction(function () use ($id, $reviewerId) {
             $rfc = DB::table('request_check_table')->where('request_check_id', $id)->lockForUpdate()->first();
             if (!$rfc) {
                 return back()->with('error', 'Request for Check not found.');
@@ -296,15 +315,20 @@ class RequestForCheckController extends Controller
 
             $wasRevision = $rfc->request_check_status === 'Minor Revision';
 
-            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
+            $payload = [
                 'request_check_status' => $this->rfcPersistStatus($wasRevision ? 'Resubmitted' : 'Submitted'),
                 'request_check_review_stage' => 'accounting',
                 'request_check_submitted_by' => auth()->id(),
                 'request_check_submitted_at' => now(),
                 'request_check_updated_at' => now(),
-            ]));
+            ];
+            if ($this->rfcHas('request_check_assigned_reviewer_id')) {
+                $payload['request_check_assigned_reviewer_id'] = $reviewerId;
+            }
 
-            $this->notifyAccountingRfc($id);
+            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload($payload));
+
+            $this->notifyAccountingRfc($id, $reviewerId);
 
             return back()->with('success', 'Request for Check submitted to Accounting.');
         });
@@ -951,7 +975,7 @@ class RequestForCheckController extends Controller
         return implode(' ', array_reverse($parts));
     }
 
-    private function notifyAccountingRfc($id): void
+    private function notifyAccountingRfc($id, ?int $reviewerId = null): void
     {
         $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
         $ref = $rfc->request_check_form_number ?? ('RFC #' . $id);
@@ -962,7 +986,8 @@ class RequestForCheckController extends Controller
             'rfc_submitted',
             'RFC',
             (int) $id,
-            '/accounting/request-check/' . $id
+            '/accounting/request-check/' . $id,
+            $reviewerId
         );
     }
 

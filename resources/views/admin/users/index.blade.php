@@ -35,22 +35,22 @@
         <div class="pur-alert-error">{{ session('error') }}</div>
     @endif
 
-    <div class="pur-card">
-        <div class="grid grid-cols-1 divide-gray-100 sm:grid-cols-3 sm:divide-x">
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Total users</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $totalUsers }}</p>
-            </div>
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Recently active</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $activeUsers }}</p>
-            </div>
-            <div class="px-5 py-5">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Roles in use</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">{{ $roleCount }}</p>
-            </div>
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Total users',
+                'value' => number_format($totalUsers),
+            ],
+            [
+                'label' => 'Recently active',
+                'value' => number_format($activeUsers),
+            ],
+            [
+                'label' => 'Roles in use',
+                'value' => number_format($roleCount),
+            ],
+        ],
+    ])
 
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
@@ -380,7 +380,7 @@
                             <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                             <span>
                                 <span class="block text-sm font-semibold text-gray-950">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Admin portal stays accept/sign + monitor only.</span>
+                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Administrator portal stays accept/sign + monitor only.</span>
                             </span>
                         </label>
                     </div>

@@ -21,7 +21,7 @@
                 <div id="dropdownMenu" class="dropdown-menu">
                     <div class="dropdown-item" data-target="dashboard-section">Dashboard</div>
                     <div class="dropdown-item" data-target="approvals-section">RIS Approvals</div>
-                    <div class="dropdown-item" data-target="direct-approvals-section">Admin Direct Approvals</div>
+                    <div class="dropdown-item" data-target="direct-approvals-section">Administrator Direct Approvals</div>
                     <div class="dropdown-item" data-target="reports-section">Reports</div>
                     <div class="dropdown-item" data-target="records-section">Compiled Records</div>
                     <div class="dropdown-item" data-target="account-section">Account</div>
@@ -64,13 +64,7 @@
             <i class="h-5 w-5" data-lucide="clipboard-check"></i>
             <span>RIS Approvals</span>
         </a>
-        <a
-            href="/president/approvals/history"
-            class="menu-item {{ request()->is('president/approvals/history*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="history"></i>
-            <span>Approval History</span>
-        </a>
+        
         <a
             href="/president/direct-approvals"
             class="menu-item {{ request()->is('president/direct-approvals*') ? 'active' : '' }} mt-1"
@@ -78,6 +72,14 @@
         >
             <i class="h-5 w-5" data-lucide="shield-check"></i>
             <span>Admin Direct Approvals</span>
+        </a>
+
+        <a
+            href="/president/approvals/history"
+            class="menu-item {{ request()->is('president/approvals/history*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="history"></i>
+            <span>Approval History</span>
         </a>
 
         <div class="menu-title" id="reports-section">DECISION REPORTS</div>

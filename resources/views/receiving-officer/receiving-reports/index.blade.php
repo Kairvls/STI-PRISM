@@ -162,7 +162,7 @@
                                             @click="openView({{ $rr->receiving_report_id }}); fetch('{{ route('receiving.rr.start-review', $rr->receiving_report_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})"
                                             class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                                         >
-                                            View
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
                                         <button
                                             type="button"
@@ -253,8 +253,8 @@
         @php $rrItems = $items->get($rr->receiving_report_id, collect())->values(); @endphp
         <div x-show="viewOpen && selectedRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
             <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
+            <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6">
+                <div @click.stop class="relative my-auto w-full max-w-5xl rounded-2xl bg-white shadow-xl">
                     <div class="flex items-center justify-between gap-3 border-b px-6 py-5">
                         <div>
                             <h3 class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
@@ -267,7 +267,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
+                    <div class="bg-gray-100 p-6">
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
                     </div>
                 </div>
@@ -283,13 +283,13 @@
         @if($reviewable)
             <div x-show="signOpen && signRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="fixed inset-0 bg-black/40" @click="signOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6">
                     <form
                         method="POST"
                         action="{{ route('receiving.rr.second-count', $rr->receiving_report_id) }}"
                         enctype="multipart/form-data"
                         @click.stop
-                        class="relative flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                        class="relative my-auto w-full max-w-5xl rounded-2xl bg-white shadow-xl"
                         data-second-count-form="{{ $rr->receiving_report_id }}"
                     >
                         @csrf
@@ -305,7 +305,7 @@
                             </button>
                         </div>
 
-                        <div class="min-h-0 flex-1 overflow-y-auto bg-gray-100 p-6">
+                        <div class="bg-gray-100 p-6">
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
                                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
                                     <label class="mb-1.5 block text-sm font-medium text-gray-700">Product verification photos</label>

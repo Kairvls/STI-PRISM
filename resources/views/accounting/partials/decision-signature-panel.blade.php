@@ -2,7 +2,7 @@
 @include('partials.ris-signature-overlay-styles')
 @php
     $savedSignatures = $savedSignatures ?? collect();
-    $signTitle = $signTitle ?? 'Accounting signature';
+    $signTitle = $signTitle ?? 'Accountant signature';
     $signHint = $signHint ?? 'Pick a saved signature, draw one, or upload an image before approving.';
     $padTitle = $padTitle ?? 'Draw your signature';
     $padHint = $padHint ?? 'Sign clearly. This will be applied to the document.';
@@ -19,22 +19,47 @@
         </div>
     </div>
 
-    <div class="mt-3">
-        <div class="relative mx-auto flex min-h-[3.25rem] w-full max-w-sm items-center justify-center border-b border-slate-800 px-2 pb-1">
-            <span class="signature-name-stack">
+    @php
+        $accDefaultPrintedName = \App\Support\AccountingSigner::currentUserName() ?: 'Accountant';
+    @endphp
+    <div class="mt-10">
+        <div id="accSigPreviewWrap" class="relative mx-auto flex min-h-0 w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-0.5">
+            <span class="signature-name-stack w-full">
                 <img
                     id="accSigPreview"
                     alt="Signature preview"
                     class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[90%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
                     style="display:none;"
                 >
-                <span id="accSigPrintedName" class="signature-name relative z-[1] text-center text-xs font-medium leading-5 text-slate-800">
-                    {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
-                </span>
+                <input
+                    type="text"
+                    id="accSigPrintedName"
+                    name="signer_name"
+                    value="{{ $accDefaultPrintedName }}"
+                    data-default-name="{{ $accDefaultPrintedName }}"
+                    maxlength="120"
+                    autocomplete="off"
+                    aria-label="Printed full name under signature"
+                    class="acc-sig-printed-name relative z-[1] h-auto w-full border-0 bg-transparent px-1 py-0 text-center text-[13px] font-normal not-italic leading-tight text-slate-900 outline-none ring-0 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                >
             </span>
         </div>
-        <p class="mt-1 text-center text-[10px] uppercase tracking-wide text-slate-400">Preview · signature overlays printed name</p>
+        <p class="mt-1 text-center text-[10px] uppercase tracking-wide text-slate-400">Preview · signature overlays printed name · name is editable</p>
     </div>
+    <style>
+        /* Accounting sign modal only — do not affect Purchaser RIS */
+        #accSignaturePanel #accSigPrintedName.acc-sig-printed-name {
+            font-size: 13px;
+            font-weight: 400;
+            font-style: normal;
+            line-height: 1.2;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        #accSignaturePanel #accSigPreviewWrap {
+            min-height: 0;
+        }
+    </style>
 
     <div class="mt-3">
         <div class="flex items-center justify-between gap-2">
@@ -238,11 +263,13 @@
     var deleteLabel = document.getElementById('accDeleteSigLabel');
     var deleteConfirmBtn = document.getElementById('accDeleteSigConfirm');
     var deleteCancelBtn = document.getElementById('accDeleteSigCancel');
+    var printedNameInput = document.getElementById('accSigPrintedName');
     var pendingSaveDataUrl = '';
     var pendingDeleteId = '';
     var maxSavedSignatures = 4;
     var storeUrl = @json(route('accounting.saved-signatures.store'));
     var destroyBase = @json(url('/accounting/saved-signatures'));
+    var syncingPrintedName = false;
 
     function csrfToken() {
         var meta = document.querySelector('meta[name="csrf-token"]');
@@ -255,6 +282,39 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function defaultPrintedName() {
+        if (!printedNameInput) return 'Accountant';
+        return String(printedNameInput.getAttribute('data-default-name') || printedNameInput.defaultValue || 'Accountant').trim() || 'Accountant';
+    }
+
+    function syncPrintedName(value, source) {
+        var next = String(value == null ? '' : value);
+        syncingPrintedName = true;
+        if (printedNameInput && source !== 'modal') {
+            printedNameInput.value = next;
+        }
+        var paperName = document.getElementById('accPaperSigPrintedName');
+        if (paperName && source !== 'paper') {
+            if (paperName.tagName === 'INPUT' || paperName.tagName === 'TEXTAREA') {
+                paperName.value = next;
+            } else {
+                paperName.textContent = next;
+            }
+        }
+        syncingPrintedName = false;
+        if (previewImg && previewImg.style.display !== 'none') {
+            pinOverlay(previewImg);
+        }
+        var paperOverlay = document.getElementById('accPaperSigOverlay');
+        if (paperOverlay && paperOverlay.style.display !== 'none') {
+            pinOverlay(paperOverlay);
+        }
+    }
+
+    function resetPrintedName() {
+        syncPrintedName(defaultPrintedName(), null);
     }
 
     function canvasHasDrawing(canvas) {
@@ -283,7 +343,17 @@
             overlay.dataset.sigTrimmed = '';
             overlay.src = url;
             overlay.style.display = '';
-            if (nameEl) nameEl.style.display = '';
+            if (nameEl) {
+                if (nameEl.style) nameEl.style.display = '';
+                var currentName = printedNameInput ? String(printedNameInput.value || '').trim() : '';
+                if (currentName) {
+                    if (nameEl.tagName === 'INPUT' || nameEl.tagName === 'TEXTAREA') {
+                        nameEl.value = currentName;
+                    } else {
+                        nameEl.textContent = currentName;
+                    }
+                }
+            }
             pinOverlay(overlay);
         } else {
             overlay.removeAttribute('src');
@@ -330,6 +400,11 @@
             uploadNameOut.classList.add('hidden');
         }
         applySignature('');
+    }
+
+    function resetPanel() {
+        clearSignature();
+        resetPrintedName();
     }
 
     function updateSaveAvailability(count) {
@@ -529,6 +604,23 @@
     if (cancelPadBtn) cancelPadBtn.addEventListener('click', closeSignPad);
     if (clearSignBtn) clearSignBtn.addEventListener('click', clearSignature);
 
+    if (printedNameInput) {
+        printedNameInput.addEventListener('input', function () {
+            if (syncingPrintedName) return;
+            syncPrintedName(printedNameInput.value, 'modal');
+        });
+        printedNameInput.addEventListener('change', function () {
+            if (syncingPrintedName) return;
+            syncPrintedName(printedNameInput.value, 'modal');
+        });
+    }
+    document.addEventListener('input', function (event) {
+        if (syncingPrintedName) return;
+        if (!event.target || event.target.id !== 'accPaperSigPrintedName') return;
+        syncPrintedName(event.target.value, 'paper');
+    });
+    syncPrintedName(printedNameInput ? printedNameInput.value : defaultPrintedName(), null);
+
     if (saveCurrentBtn) {
         saveCurrentBtn.addEventListener('click', function () {
             var dataUrl = sigHidden ? String(sigHidden.value || '') : '';
@@ -636,8 +728,11 @@
             var v = sigHidden ? String(sigHidden.value || '') : '';
             return v.indexOf('data:image/') === 0;
         },
+        printedName: function () {
+            return printedNameInput ? String(printedNameInput.value || '').trim() : defaultPrintedName();
+        },
         clear: clearSignature,
-        reset: clearSignature
+        reset: resetPanel
     };
 })();
 </script>

@@ -10,66 +10,40 @@
         $search = $search ?? '';
         $procurementCards = [
             [
-                'filter' => 'all',
                 'label' => 'All',
-                'count' => $allRis ?? ($risRecords->total() ?? 0),
-                'amount' => $allRisAmount ?? 0,
-                'color' => 'text-gray-950',
-                'dot' => 'bg-slate-400',
+                'hint' => '₱'.number_format((float) ($allRisAmount ?? 0), 2),
+                'value' => number_format($allRis ?? ($risRecords->total() ?? 0)),
+                'tag' => 'button',
+                'filterKey' => 'all',
+                'extraClass' => 'ris-filter-card',
+                'active' => $filter === 'all',
                 'title' => 'Show all RIS records, including completed work',
             ],
             [
-                'filter' => 'pending',
                 'label' => 'Pending Accept',
-                'count' => $pendingRis ?? 0,
-                'amount' => $pendingRisAmount ?? 0,
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-[#0025cc]',
-                'title' => 'Show procurement requests waiting for Admin accept',
+                'hint' => '₱'.number_format((float) ($pendingRisAmount ?? 0), 2),
+                'value' => number_format($pendingRis ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'pending',
+                'extraClass' => 'ris-filter-card',
+                'active' => $filter === 'pending',
+                'title' => 'Show procurement requests waiting for Administrator accept',
             ],
             [
-                'filter' => 'accepted',
                 'label' => 'Accepted',
-                'count' => $acceptedRis ?? 0,
-                'amount' => $acceptedRisAmount ?? 0,
-                'color' => 'text-gray-950',
-                'dot' => 'bg-violet-400',
+                'hint' => '₱'.number_format((float) ($acceptedRisAmount ?? 0), 2),
+                'value' => number_format($acceptedRis ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'accepted',
+                'extraClass' => 'ris-filter-card',
+                'active' => $filter === 'accepted',
                 'title' => 'Accepted requests waiting for a Sign RIS decision',
             ],
         ];
     @endphp
 
     {{-- Metric strip --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-1 divide-gray-100 sm:grid-cols-3 sm:divide-x">
-            @foreach ($procurementCards as $card)
-                <button
-                    type="button"
-                    data-filter="{{ $card['filter'] }}"
-                    title="{{ $card['title'] }}"
-                    aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
-                    class="ris-filter-card block px-5 py-5 text-left transition hover:bg-gray-50/70
-                        {{ $filter === $card['filter'] ? 'bg-gray-50/80' : '' }}
-                    "
-                >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                        {{ $card['label'] }}
-                    </p>
-                    <div class="mt-2 flex items-center gap-2">
-                        <span class="text-2xl font-semibold tracking-tight {{ $card['color'] }}">
-                            {{ $card['count'] }}
-                        </span>
-                        @if($filter === $card['filter'])
-                            <span class="h-1.5 w-1.5 rounded-full {{ $card['dot'] }}"></span>
-                        @endif
-                    </div>
-                    <p class="mt-1 text-xs text-gray-400">
-                        ₱{{ number_format((float) ($card['amount'] ?? 0), 2) }}
-                    </p>
-                </button>
-            @endforeach
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', ['cards' => $procurementCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -152,11 +126,11 @@
                         <button
                             type="button"
                             role="tab"
-                            data-filter="{{ $card['filter'] }}"
+                            data-filter="{{ $card['filterKey'] }}"
                             title="{{ $card['title'] }}"
-                            aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                            aria-selected="{{ $filter === $card['filterKey'] ? 'true' : 'false' }}"
                             class="ris-filter-btn relative z-10 flex h-8 shrink-0 items-center whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition-colors
-                                {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                {{ $filter === $card['filterKey'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             {{ $card['label'] }}

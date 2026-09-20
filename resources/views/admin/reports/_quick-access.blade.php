@@ -14,12 +14,26 @@
     </div>
 
     <div id="qa-pane-maintenance" class="qa-report-pane space-y-4">
-        <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Filed</p><p class="mt-1 font-['Outfit'] text-2xl font-bold">{{ $m['filed'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Resolved</p><p class="mt-1 font-['Outfit'] text-2xl font-bold text-slate-700">{{ $m['resolved'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Rejected</p><p class="mt-1 font-['Outfit'] text-2xl font-bold text-slate-600">{{ $m['rejected'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Replacement</p><p class="mt-1 font-['Outfit'] text-2xl font-bold text-slate-600">{{ $m['replacement'] ?? 0 }}</p></div>
-        </div>
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Filed',
+                    'value' => number_format($m['filed'] ?? 0),
+                ],
+                [
+                    'label' => 'Resolved',
+                    'value' => number_format($m['resolved'] ?? 0),
+                ],
+                [
+                    'label' => 'Rejected',
+                    'value' => number_format($m['rejected'] ?? 0),
+                ],
+                [
+                    'label' => 'Replacement',
+                    'value' => number_format($m['replacement'] ?? 0),
+                ],
+            ],
+        ])
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[900px] text-left">
@@ -51,12 +65,22 @@
     </div>
 
     <div id="qa-pane-receiving" class="qa-report-pane space-y-4 hidden">
-        <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Delivered</p><p class="mt-1 font-['Outfit'] text-2xl font-bold text-slate-700">{{ $r['accepted'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Returned</p><p class="mt-1 font-['Outfit'] text-2xl font-bold text-slate-600">{{ $r['returned'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">With OR</p><p class="mt-1 font-['Outfit'] text-2xl font-bold">{{ $r['withOr'] ?? 0 }}</p></div>
-            <div class="rounded-xl border border-gray-200 px-4 py-3"><p class="text-xs font-semibold uppercase text-gray-500">Inventory lines</p><p class="mt-1 font-['Outfit'] text-2xl font-bold">{{ $r['inventoryLines'] ?? 0 }}</p></div>
-        </div>
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Delivered',
+                    'value' => number_format($r['accepted'] ?? 0),
+                ],
+                [
+                    'label' => 'Returned',
+                    'value' => number_format($r['returned'] ?? 0),
+                ],
+                [
+                    'label' => 'With OR',
+                    'value' => number_format($r['withOr'] ?? 0),
+                ],
+            ],
+        ])
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[800px] text-left">

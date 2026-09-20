@@ -196,7 +196,7 @@
                 @elseif ($risReadyForAtp > 0)
                     <a
                         href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Open approved RIS
                     </a>
@@ -210,14 +210,14 @@
                 @elseif ($rfcReadyForRr > 0)
                     <a
                         href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Open approved RFC
                     </a>
                 @elseif ($rrReadyForLiq > 0)
                     <a
                         href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Open completed RR
                     </a>

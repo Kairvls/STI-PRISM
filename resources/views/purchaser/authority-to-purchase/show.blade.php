@@ -11,24 +11,23 @@
         <div>
             <h2 class="text-2xl font-semibold text-slate-900">{{ $atp->authority_purchase_form_number ?? 'ATP #'.$atp->authority_purchase_id }}</h2>
             <p class="text-sm text-slate-600">RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
-            @php
-                $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
-                $atpHint = \App\Support\DocumentLineage::reviewHint(
-                    \App\Support\RisWorkflow::atpStatusLabel($atp),
-                    null,
-                    'atp'
-                );
-            @endphp
-            <div class="mt-3 max-w-3xl">
-                @include('partials.document-lineage', [
-                    'lineage' => $atpLineage,
-                    'currentType' => 'ATP',
-                    'statusHint' => $atpHint,
-                ])
-            </div>
         </div>
         <a href="{{ route(($pp ?? 'purchaser').'.atp.index') }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Back to list</a>
     </div>
+
+    @php
+        $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
+        $atpHint = \App\Support\DocumentLineage::reviewHint(
+            \App\Support\RisWorkflow::atpStatusLabel($atp),
+            null,
+            'atp'
+        );
+    @endphp
+    @include('partials.document-lineage', [
+        'lineage' => $atpLineage,
+        'currentType' => 'ATP',
+        'statusHint' => $atpHint,
+    ])
 
     <div class="grid gap-6 lg:grid-cols-2">
         <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -143,7 +142,14 @@
     <div class="flex flex-wrap gap-2">
         @if(!$atp->authority_purchase_submitted_at && $atp->authority_purchase_status === 'Pending')
             <a href="{{ route(($pp ?? 'purchaser').'.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Edit draft</a>
-            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}">
+            <form
+                method="POST"
+                action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                data-pur-confirm="Submit this Authority to Purchase for review?"
+                data-pur-confirm-title="Submit ATP"
+                data-pur-confirm-ok="Submit"
+                data-pur-confirm-reviewer-role="Accounting"
+            >
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white">Submit ATP</button>
             </form>
@@ -158,7 +164,15 @@
         @endif
 
         @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
-            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}" class="inline-block">
+            <form
+                method="POST"
+                action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"
+                class="inline-block"
+                data-pur-confirm="Archive this Authority to Purchase?"
+                data-pur-confirm-title="Archive ATP"
+                data-pur-confirm-ok="Archive"
+                data-pur-confirm-kind="archive"
+            >
                 @csrf
                 <button type="submit" class="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-[#007a3f] transition hover:bg-slate-50">Archive</button>
             </form>

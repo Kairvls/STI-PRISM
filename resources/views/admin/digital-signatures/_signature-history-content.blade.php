@@ -10,76 +10,37 @@
         $filter = $filter ?? 'all';
         $historyCards = [
             [
-                'filter' => 'all',
-                'label' => 'All',
-                'count' => $allCount ?? ($signatureHistory->total() ?? 0),
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-[#0025cc]',
-                'title' => 'Show every identifiable RIS record',
+                'label' => 'Administrator Approved',
+                'value' => number_format($directApprovedCount ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'direct_approved',
+                'extraClass' => 'signature-history-filter-card',
+                'active' => $filter === 'direct_approved',
+                'title' => 'Permanent administrator record of RIS forms approved directly (with reason and proof)',
             ],
             [
-                'filter' => 'direct_approved',
-                'label' => 'Admin Approved',
-                'count' => $directApprovedCount ?? 0,
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-sky-400',
-                'title' => 'Permanent admin record of RIS forms approved directly (with reason and proof)',
-            ],
-            [
-                'filter' => 'president_approved',
                 'label' => 'Approved by the President',
-                'count' => $presidentApprovedCount ?? 0,
-                'color' => 'text-[#0025cc]',
-                'dot' => 'bg-blue-400',
+                'value' => number_format($presidentApprovedCount ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'president_approved',
+                'extraClass' => 'signature-history-filter-card',
+                'active' => $filter === 'president_approved',
                 'title' => 'Show RIS forms approved by the President',
             ],
             [
-                'filter' => 'president_rejected',
                 'label' => 'Rejected by the President',
-                'count' => $presidentRejectedCount ?? 0,
-                'color' => 'text-amber-700',
-                'dot' => 'bg-amber-400',
+                'value' => number_format($presidentRejectedCount ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'president_rejected',
+                'extraClass' => 'signature-history-filter-card',
+                'active' => $filter === 'president_rejected',
                 'title' => 'Show RIS forms rejected by the President',
-            ],
-            [
-                'filter' => 'amend',
-                'label' => 'Amend',
-                'count' => $amendedCount ?? 0,
-                'color' => 'text-amber-700',
-                'dot' => 'bg-amber-500',
-                'title' => 'Show RIS forms returned to Purchaser for amendment',
             ],
         ];
     @endphp
 
     {{-- Metric strip --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 xl:grid-cols-5 xl:divide-x">
-            @foreach ($historyCards as $card)
-                <button
-                    type="button"
-                    data-filter="{{ $card['filter'] }}"
-                    title="{{ $card['title'] }}"
-                    aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
-                    class="signature-history-filter-card block px-5 py-5 text-left transition hover:bg-gray-50/70
-                        {{ $filter === $card['filter'] ? 'bg-gray-50/80' : '' }}
-                    "
-                >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                        {{ $card['label'] }}
-                    </p>
-                    <div class="mt-2 flex items-center gap-2">
-                        <span class="text-2xl font-semibold tracking-tight {{ $card['color'] }}">
-                            {{ $card['count'] }}
-                        </span>
-                        @if($filter === $card['filter'])
-                            <span class="h-1.5 w-1.5 rounded-full {{ $card['dot'] }}"></span>
-                        @endif
-                    </div>
-                </button>
-            @endforeach
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', ['cards' => $historyCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -135,11 +96,11 @@
                         <button
                             type="button"
                             role="tab"
-                            data-filter="{{ $card['filter'] }}"
+                            data-filter="{{ $card['filterKey'] }}"
                             title="{{ $card['title'] }}"
-                            aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                            aria-selected="{{ $filter === $card['filterKey'] ? 'true' : 'false' }}"
                             class="signature-history-filter-btn relative z-10 flex h-8 shrink-0 items-center whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition-colors
-                                {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                {{ $filter === $card['filterKey'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             {{ $card['label'] }}

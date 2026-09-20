@@ -36,23 +36,15 @@
     </div>
 
     {{-- Weekly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
-            <p class="text-sm font-medium text-gray-500">Total RIS</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
-            <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
-            <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
-            <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
-        </div>
+    <div class="mt-4">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total RIS', 'hint' => 'This week', 'value' => number_format((int) ($totalRis ?? 0))],
+                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approved ?? 0))],
+                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejected ?? 0))],
+                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pending ?? 0))],
+            ],
+        ])
     </div>
 
     {{-- Weekly Chart --}}
@@ -119,23 +111,15 @@
     </div>
 
     {{-- Monthly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
-            <p class="text-sm font-medium text-gray-500">Total RIS</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
-            <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
-            <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
-            <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
-        </div>
+    <div class="mt-4">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total RIS', 'hint' => 'This month', 'value' => number_format((int) ($totalRis ?? 0))],
+                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approved ?? 0))],
+                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejected ?? 0))],
+                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pending ?? 0))],
+            ],
+        ])
     </div>
 
     {{-- Monthly Chart --}}

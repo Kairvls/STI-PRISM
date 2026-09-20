@@ -50,7 +50,7 @@
                     <div id="historyAttachmentsList" class="review-attachments-list"></div>
                 </div>
                 <div id="historyAdminAttachments" class="review-attachments-inline hidden">
-                    <p class="review-attachments-label">Admin supporting details</p>
+                    <p class="review-attachments-label">Administrator supporting details</p>
                     <p id="historyAdminDetailsText" class="review-forward-details hidden"></p>
                     <div id="historyAdminAttachmentsList" class="review-attachments-list"></div>
                 </div>

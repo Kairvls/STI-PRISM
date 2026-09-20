@@ -1,41 +1,37 @@
 @extends('layouts.president-layout')
 
-@section('title', 'Admin Direct Approvals')
+@section('title', 'Administrator Direct Approvals')
 
 @section('content')
 
-
-
-<div class="slide-up" style="animation-delay: 0.05s">
-    <div class="flex flex-wrap items-center gap-3">
-        <div class="relative flex-1 min-w-[220px]">
-            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-            <input
-                type="text"
-                id="directApprovalSearch"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Search by ID, RIS Number, reason, or Admin..."
-                class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
-                autocomplete="off"
-            />
-        </div>
-    </div>
-</div>
-
-<div class="mt-4 grid grid-cols-1 gap-4">
-    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.1s">
-        <div class="flex items-center justify-between gap-4">
-            <div>
-                <h2 class="text-sm font-semibold text-gray-900">Direct Approvals by Admin</h2>
+<div class="grid grid-cols-1 gap-4">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="min-w-0">
+                <h2 class="text-sm font-semibold text-gray-900">Direct Approvals by Administrator</h2>
                 <p class="mt-1 text-xs text-gray-500">
                     These bypassed presidential signing. Use this module for oversight and audit only.
                 </p>
             </div>
 
-            <span id="directApprovalCount" class="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200">
-                {{ $records->total() }} total
-            </span>
+            <div class="flex flex-wrap items-center gap-3 flex-1 justify-end min-w-0">
+                <div class="relative w-full min-w-[220px] max-w-md">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                    <input
+                        type="text"
+                        id="directApprovalSearch"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Search by ID, RIS Number, reason, or Administrator..."
+                        class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
+                        autocomplete="off"
+                    />
+                </div>
+
+                <span id="directApprovalCount" class="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200 shrink-0">
+                    {{ $records->total() }} total
+                </span>
+            </div>
         </div>
 
         <div class="mt-4 overflow-x-auto">
@@ -101,7 +97,7 @@
 
             <div class="space-y-4 px-5 py-4">
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Approved by Admin</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Approved by Administrator</p>
                     <p id="directApprovalDetailAdmin" class="mt-1 text-sm font-medium text-slate-900">—</p>
                     <p id="directApprovalDetailDate" class="mt-0.5 text-xs text-slate-500">—</p>
                 </div>

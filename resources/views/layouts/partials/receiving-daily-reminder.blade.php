@@ -126,7 +126,7 @@
                 @elseif ($returnedCount > 0)
                     <a
                         href="{{ url('/receiving/history') }}"
-                        class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001db3]"
                     >
                         View history
                     </a>

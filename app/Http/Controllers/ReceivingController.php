@@ -11,6 +11,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\WorkflowNotifier;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 
@@ -223,6 +224,10 @@ class ReceivingController extends Controller
                 }
             }
             $query->select($select);
+        }
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
+            ReviewerAssignment::applyQueueFilter($query, 'receiving_reports_table.receiving_report_assigned_reviewer_id');
         }
 
         return $query;
@@ -1494,6 +1499,13 @@ class ReceivingController extends Controller
         if (!in_array($rr->receiving_report_status, ['Pending', 'Submitted', 'Resubmitted', 'Under Review'], true)) {
             return back()->with('error', 'Only submitted Receiving Reports can be reviewed.');
         }
+
+        ReviewerAssignment::assertCanAct(
+            isset($rr->receiving_report_assigned_reviewer_id)
+                ? (int) $rr->receiving_report_assigned_reviewer_id
+                : null,
+            'Receiving Report'
+        );
 
         return $rr;
     }

@@ -182,13 +182,13 @@ class AdminOperationsController extends Controller
 
         $exceptions = [
             [
-                'label' => 'Pending Admin Review — RIS accept',
+                'label' => 'Pending Administrator Review — RIS accept',
                 'count' => $stats['awaiting_admin_ris'],
                 'url' => url('/admin/procurement-review?filter=pending'),
                 'tone' => 'sky',
             ],
             [
-                'label' => 'Pending Admin Review — cosign / decision',
+                'label' => 'Pending Administrator Review — cosign / decision',
                 'count' => $stats['awaiting_cosign'],
                 'url' => url('/admin/digital-signatures/sign-ris'),
                 'tone' => 'indigo',
@@ -621,11 +621,11 @@ class AdminOperationsController extends Controller
         $this->logAdminOverride(
             'equipment_report',
             $reportId,
-            'Admin override: set status to '.$status,
+            'Administrator override: set status to '.$status,
             $remarks
         );
 
-        return back()->with('success', ($result['message'] ?? 'Report updated.').' (Admin override)');
+        return back()->with('success', ($result['message'] ?? 'Report updated.').' (Administrator override)');
     }
 
     public function procurement(Request $request): View
@@ -1319,7 +1319,7 @@ class AdminOperationsController extends Controller
                 'approval_log_reference_type' => $refType,
                 'approval_log_reference_id' => $refId,
                 'approval_log_approval_status' => $status,
-                'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Admin override',
+                'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Administrator override',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approved_at' => now(),
             ];

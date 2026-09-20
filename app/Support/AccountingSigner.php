@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schema;
 
 class AccountingSigner
 {
+    /** Printed designation under Accounting signatures on paper forms. */
+    public const SIGNATURE_TITLE = 'Accountant';
+
     public static function currentUserName(): string
     {
         $user = Auth::user();
@@ -23,6 +26,27 @@ class AccountingSigner
         }
 
         return '';
+    }
+
+    /**
+     * Printed name from an approve request (editable in the sign modal), else the logged-in user.
+     */
+    public static function nameFromRequest(?\Illuminate\Http\Request $request = null): string
+    {
+        $request = $request ?: request();
+        $fromRequest = trim((string) ($request->input('signer_name') ?? $request->input('printed_name') ?? ''));
+        if ($fromRequest !== '' && !RisWorkflow::isDrawnSignature($fromRequest)) {
+            return mb_substr($fromRequest, 0, 120);
+        }
+
+        $fallback = self::currentUserName();
+        if ($fallback !== '') {
+            return $fallback;
+        }
+
+        $user = Auth::user();
+
+        return trim((string) ($user->user_full_name ?? $user->name ?? 'Accounting'));
     }
 
     public static function fromUserId(?int $userId): string
@@ -170,6 +194,13 @@ class AccountingSigner
     {
         if (!$liq) {
             return '';
+        }
+
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_checked_by_name')) {
+            $stored = trim((string) ($liq->liquidation_report_checked_by_name ?? ''));
+            if ($stored !== '' && !RisWorkflow::isDrawnSignature($stored)) {
+                return $stored;
+            }
         }
 
         $sig = trim((string) ($liq->liquidation_report_checked_by_accountant ?? ''));

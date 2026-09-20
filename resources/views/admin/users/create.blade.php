@@ -105,7 +105,7 @@
                 <input type="checkbox" name="user_can_procurement" value="1" class="mt-1">
                 <span>
                     <span class="block font-medium">Enable procurement workflow</span>
-                    <span class="block text-sm text-gray-600">For Administrator or Maintenance. Assigns Purchaser access — use the portal switcher to run RIS → ATP → RFC → RR → Liquidation. Admin portal stays accept/sign + monitor.</span>
+                    <span class="block text-sm text-gray-600">For Administrator or Maintenance. Assigns Purchaser access — use the portal switcher to run RIS → ATP → RFC → RR → Liquidation. Administrator portal stays accept/sign + monitor.</span>
                 </span>
             </label>
         </div>

@@ -145,70 +145,32 @@
         @endunless
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Draft</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($summary['draft']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Incomplete drafts awaiting submit</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">In Review</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($summary['submitted']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                    <i data-lucide="send" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Waiting for accounting review</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Completed']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Completed</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($summary['completed']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Approved by Receiving Officer</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Returned']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Returned</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($summary['returned']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
-                    <i data-lucide="undo-2" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Sent back for revision</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Draft',
+                    'hint' => 'Incomplete drafts awaiting submit',
+                    'value' => number_format($summary['draft']),
+                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Draft']),
+                    'active' => request('status') === 'Draft',
+                ],
+                [
+                    'label' => 'In Review',
+                    'hint' => 'Waiting for accounting review',
+                    'value' => number_format($summary['submitted']),
+                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Submitted']),
+                    'active' => request('status') === 'Submitted',
+                ],
+                [
+                    'label' => 'Completed',
+                    'hint' => 'Approved by Receiving Officer',
+                    'value' => number_format($summary['completed']),
+                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Completed']),
+                    'active' => request('status') === 'Completed',
+                ],
+            ],
+        ])
     </div>
 
     @php
@@ -330,10 +292,27 @@
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}" onsubmit="return confirm('Submit this Receiving Report?')">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}"
+                                            data-pur-confirm="Submit this Receiving Report for review?"
+                                            data-pur-confirm-title="Submit RR"
+                                            data-pur-confirm-ok="Submit"
+                                            data-pur-confirm-reviewer-role="Receiving Officer"
+                                        >
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
+                                    @endif
+                                    @if(
+                                        !$archiveView
+                                        && in_array($rr->receiving_report_status, ['Submitted', 'Under Review', 'Resubmitted'], true)
+                                    )
+                                        @include('partials.purchaser-reassign-reviewer', [
+                                            'type' => 'rr',
+                                            'id' => $rr->receiving_report_id,
+                                            'currentReviewerId' => $rr->receiving_report_assigned_reviewer_id ?? null,
+                                        ])
                                     @endif
                                     @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                                         @if(!$rr->has_liq)
@@ -350,7 +329,14 @@
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rr->receiving_report_status, ['Completed','Returned'], true))
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.archive', $rr->receiving_report_id) }}" onsubmit="return confirm('Archive this Receiving Report?')">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rr.archive', $rr->receiving_report_id) }}"
+                                            data-pur-confirm="Archive this Receiving Report?"
+                                            data-pur-confirm-title="Archive RR"
+                                            data-pur-confirm-ok="Archive"
+                                            data-pur-confirm-kind="archive"
+                                        >
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
@@ -447,16 +433,14 @@
                             ])
                             <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>
-                        <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                            <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Save Draft</button>
-                            <button type="submit" onclick="
-                                this.form.save_action.value='submit';
-                                if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                    event.preventDefault();
-                                    if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                    else alert('Draw or upload your signature before submitting.');
-                                }
-                            " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
+                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                                Cancel
+                            </button>
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                                <i data-lucide="check" class="h-4 w-4"></i>
+                                Save Draft
+                            </button>
                         </div>
                     </form>
                 @endif
@@ -503,31 +487,71 @@
                                     <p class="mt-0.5 text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
                                 </div>
                             </div>
-                            @php
-                                $rrLineage = \App\Support\DocumentLineage::forRr((int) $rr->receiving_report_id);
-                                $rrHint = \App\Support\DocumentLineage::reviewHint($rr->receiving_report_status ?? null, null, 'rr');
-                            @endphp
-                            <div class="mt-3">
-                                @include('partials.document-lineage', [
-                                    'lineage' => $rrLineage,
-                                    'currentType' => 'RR',
-                                    'statusHint' => $rrHint,
-                                ])
-                            </div>
                             @if($rr->receiving_report_revision_notes)<p class="mt-2 text-sm text-amber-700">Revision: {{ $rr->receiving_report_revision_notes }}</p>@endif
                             @if($rr->receiving_report_return_reason)<p class="mt-2 text-sm text-red-700">Returned: {{ $rr->receiving_report_return_reason }}</p>@endif
                         </div>
-                        <div class="flex shrink-0 items-center gap-1">
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <button
+                                type="button"
+                                @click="printRr({{ $rr->receiving_report_id }})"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-slate-300 hover:bg-gray-50"
+                                data-tooltip="Print RR"
+                                aria-label="Print RR"
+                            >
+                                <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                            </button>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.rr.export-xlsx', $rr->receiving_report_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-50"
+                                data-tooltip="Export to Excel"
+                                aria-label="Export to Excel"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                                </svg>
+                            </a>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.rr.export-docx', $rr->receiving_report_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300 hover:bg-blue-50"
+                                data-tooltip="Export to Word file"
+                                aria-label="Export to Word file"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                                </svg>
+                            </a>
                             @include('purchaser.partials.modal-fullscreen-button')
                             <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
                     </div>
+                    @php
+                        $rrLineage = \App\Support\DocumentLineage::forRr((int) $rr->receiving_report_id);
+                        $rrHint = \App\Support\DocumentLineage::reviewHint($rr->receiving_report_status ?? null, null, 'rr');
+                    @endphp
+                    @include('partials.document-lineage', [
+                        'lineage' => $rrLineage,
+                        'currentType' => 'RR',
+                        'statusHint' => $rrHint,
+                    ])
                     <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
                     </div>
-                    <div class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                    <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <button
+                            type="button"
+                            @click="viewOpen = false"
+                            class="px-2 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950"
+                        >
+                            Close
+                        </button>
                         @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                             @if(!$rr->has_liq)
                                 <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
@@ -537,10 +561,6 @@
                         @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && empty($rr->requires_liquidation))
                             <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Workflow complete</span>
                         @endif
-                        <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Print</button>
-                        <a href="{{ route(($pp ?? 'purchaser').'.rr.export-xlsx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Excel</a>
-                        <a href="{{ route(($pp ?? 'purchaser').'.rr.export-docx', $rr->receiving_report_id) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Word</a>
-                        <button type="button" @click="viewOpen = false" class="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Close</button>
                     </div>
                 </div>
             </div>
@@ -592,16 +612,61 @@
                                 @include('partials.receiving-report-paper', ['editable' => true, 'rr' => $rr, 'rows' => $rrItems, 'allowMultiSupplier' => true, 'suppliers' => $suppliers ?? collect(), 'signKey' => 'rr-'.$rr->receiving_report_id])
                                 <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                             </div>
-                            <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                                <button type="submit" class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Update Draft</button>
-                                <button type="submit" onclick="
-                                    this.form.save_action.value='submit';
-                                    if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                        event.preventDefault();
-                                        if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                        else alert('Draw or upload your signature before submitting.');
-                                    }
-                                " class="inline-flex items-center rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800">Save & Submit</button>
+                            <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <button
+                                    type="button"
+                                    @click="editOpen = false; modalFullscreen = false"
+                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    onclick="this.form.querySelector('input[name=save_action]').value='draft'"
+                                    class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Save Changes
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="
+                                        (async function (btn) {
+                                            var form = btn.form;
+                                            if (!form) return;
+                                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
+                                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
+                                                else alert('Draw or upload your signature before submitting.');
+                                                return;
+                                            }
+                                            form.querySelector('input[name=save_action]').value = 'submit';
+                                            var result = true;
+                                            if (typeof window.purConfirm === 'function') {
+                                                result = await window.purConfirm({
+                                                    title: 'Submit RR',
+                                                    text: 'Submit this Receiving Report for review?',
+                                                    confirmText: 'Submit',
+                                                    reviewerRole: 'Receiving Officer'
+                                                });
+                                            }
+                                            if (!result) return;
+                                            if (result && result.reviewerId) {
+                                                var input = form.querySelector('input[name=assigned_reviewer_id]');
+                                                if (!input) {
+                                                    input = document.createElement('input');
+                                                    input.type = 'hidden';
+                                                    input.name = 'assigned_reviewer_id';
+                                                    form.appendChild(input);
+                                                }
+                                                input.value = result.reviewerId;
+                                            }
+                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                                            else form.submit();
+                                        })(this);
+                                    "
+                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
+                                >
+                                    Save & Submit
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -660,30 +725,44 @@
                     @include('partials.receiving-report-paper', ['editable' => false, 'rr' => null, 'rows' => collect(), 'printId' => 'rr-print-blank'])
                 </div>
 
-                <div class="print-hidden flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                <div class="print-hidden flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4">
                     <button
                         type="button"
                         x-on:click="emptyOpen = false"
-                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        class="px-2 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
                     >
                         Cancel
                     </button>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.rr.export-blank-xlsx') }}"
-                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        data-tooltip="Export to Excel"
+                        aria-label="Export to Excel"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300"
                     >
-                        Excel
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                        </svg>
                     </a>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.rr.export-blank-docx') }}"
-                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        data-tooltip="Export to Word file"
+                        aria-label="Export to Word file"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300"
                     >
-                        Word
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                        </svg>
                     </a>
                     <button
                         type="button"
                         @click="printRr('blank')"
-                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
+                        class="flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
                     >
                         <i data-lucide="printer" class="h-4 w-4"></i>
                         Print Empty RR

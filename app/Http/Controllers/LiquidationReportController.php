@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReviewerAssignment;
 use App\Support\WorkflowNotifier;
 use App\Support\ProcurementPortal;
 
@@ -174,7 +175,9 @@ class LiquidationReportController extends Controller
 
     public function submit($id)
     {
-        return DB::transaction(function () use ($id) {
+        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+
+        return DB::transaction(function () use ($id, $reviewerId) {
             $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->lockForUpdate()->first();
             if (!$liq || !$this->isEditable($liq)) {
                 return back()->with('error', 'This Liquidation Report cannot be submitted.');
@@ -205,7 +208,7 @@ class LiquidationReportController extends Controller
             }
 
             $wasRevision = $liq->liquidation_report_status === 'Minor Revision';
-            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+            $update = [
                 'liquidation_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
                 'liquidation_report_review_stage' => 'accounting',
                 'liquidation_report_submitted_by' => auth()->id(),
@@ -214,9 +217,13 @@ class LiquidationReportController extends Controller
                 'liquidation_report_submitted_by_date' => now()->toDateString(),
                 'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
                 'liquidation_report_updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_assigned_reviewer_id')) {
+                $update['liquidation_report_assigned_reviewer_id'] = $reviewerId;
+            }
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update($update);
 
-            $this->notifyAccountingLiq($id);
+            $this->notifyAccountingLiq($id, $reviewerId);
 
             return back()->with('success', 'Liquidation Report submitted to Accounting.');
         });
@@ -783,7 +790,7 @@ class LiquidationReportController extends Controller
         return $liq;
     }
 
-    private function notifyAccountingLiq($id): void
+    private function notifyAccountingLiq($id, ?int $reviewerId = null): void
     {
         $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
         $ref = $liq->liquidation_report_form_number ?? ('LIQ #' . $id);
@@ -794,7 +801,8 @@ class LiquidationReportController extends Controller
             'liq_submitted',
             'LIQ',
             (int) $id,
-            '/accounting/liquidation-reports/' . $id
+            '/accounting/liquidation-reports/' . $id,
+            $reviewerId
         );
     }
 

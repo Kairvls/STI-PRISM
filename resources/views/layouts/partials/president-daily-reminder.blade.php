@@ -75,10 +75,10 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-slate-900">
-                                {{ $awaitingNotifyCount }} approved {{ \Illuminate\Support\Str::plural('RIS', $awaitingNotifyCount) }} need Admin notify
+                                {{ $awaitingNotifyCount }} approved {{ \Illuminate\Support\Str::plural('RIS', $awaitingNotifyCount) }} need Administrator notify
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Approved by you — notify Admin for co-sign when ready.
+                                Approved by you — notify Administrator for co-sign when ready.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-400"></i>

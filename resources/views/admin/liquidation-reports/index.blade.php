@@ -5,11 +5,28 @@
         <h1 class="text-2xl font-bold">Liquidation Report Approval</h1>
         <p class="text-sm text-gray-600">Endorse and recommend approval after Accounting has checked the report.</p>
     </div>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <a href="{{ route('admin.liq.index', ['status'=>'pending']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='pending'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Pending</p><p class="mt-3 text-3xl font-semibold">{{ $counts['pending'] }}</p></a>
-        <a href="{{ route('admin.liq.index', ['status'=>'approved']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='approved'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Approved</p><p class="mt-3 text-3xl font-semibold">{{ $counts['approved'] }}</p></a>
-        <a href="{{ route('admin.liq.index', ['status'=>'rejected']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='rejected'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Rejected</p><p class="mt-3 text-3xl font-semibold">{{ $counts['rejected'] }}</p></a>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Pending',
+                'value' => number_format($counts['pending']),
+                'href' => route('admin.liq.index', ['status' => 'pending']),
+                'active' => $filter === 'pending',
+            ],
+            [
+                'label' => 'Approved',
+                'value' => number_format($counts['approved']),
+                'href' => route('admin.liq.index', ['status' => 'approved']),
+                'active' => $filter === 'approved',
+            ],
+            [
+                'label' => 'Rejected',
+                'value' => number_format($counts['rejected']),
+                'href' => route('admin.liq.index', ['status' => 'rejected']),
+                'active' => $filter === 'rejected',
+            ],
+        ],
+    ])
     <div class="overflow-x-auto overflow-hidden rounded-xl border bg-white">
         <table class="w-full min-w-[1000px] text-sm">
             <thead class="border-b bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">

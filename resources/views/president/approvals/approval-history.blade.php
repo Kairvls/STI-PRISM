@@ -4,40 +4,33 @@
 
 @section('content')
 
-
-
-{{-- ============================== --}}
-{{-- SEARCH --}}
-{{-- ============================== --}}
-<div class="slide-up" style="animation-delay: 0.05s">
-    <div class="flex flex-wrap items-center gap-3">
-        <div class="relative flex-1 min-w-[220px]">
-            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-            <input
-                type="text"
-                id="historySearch"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Search by ID, RIS Number, or Purpose..."
-                class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
-                autocomplete="off"
-            />
-        </div>
-    </div>
-</div>
-
 {{-- History table --}}
-<div class="mt-4 grid grid-cols-1 gap-4">
-    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.1s">
-        <div class="flex items-center justify-between gap-4">
-            <div>
+<div class="grid grid-cols-1 gap-4">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="min-w-0">
                 <h2 class="text-sm font-semibold text-gray-900">Decision Records</h2>
                 <p class="mt-1 text-xs text-gray-500">A timeline of approval decisions made by the President.</p>
             </div>
 
-            <span id="historyCount" class="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200">
-                {{ $approvalHistoryRecords->total() }} total
-            </span>
+            <div class="flex flex-wrap items-center gap-3 flex-1 justify-end min-w-0">
+                <div class="relative w-full min-w-[220px] max-w-md">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                    <input
+                        type="text"
+                        id="historySearch"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Search by ID, RIS Number, or Purpose..."
+                        class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
+                        autocomplete="off"
+                    />
+                </div>
+
+                <span id="historyCount" class="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200 shrink-0">
+                    {{ $approvalHistoryRecords->total() }} total
+                </span>
+            </div>
         </div>
 
         <div class="mt-4 overflow-x-auto">

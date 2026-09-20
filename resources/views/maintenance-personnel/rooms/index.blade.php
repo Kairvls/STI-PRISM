@@ -60,133 +60,20 @@
     @endif
 
     @if (!($historyRoom ?? null))
-    {{-- ===================================================== --}}
     {{-- ROOMS DASHBOARD --}}
-    {{-- ===================================================== --}}
-
-    <div class="mb-6 mt-6 overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm">
-        <div class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]">
-
-            {{-- TOTAL ROOMS --}}
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">
-                        Total Rooms
-                    </p>
-
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($totalRooms) }}
-                    </h2>
-
-                    <p class="mt-3 text-sm">
-                        @if ($roomMonthlyPercentage === null)
-                            <span class="font-semibold text-emerald-500">
-                                New activity
-                            </span>
-                        @else
-                            <span
-                                class="font-semibold
-                                    {{
-                                        $roomMonthlyPercentage > 0
-                                            ? 'text-emerald-500'
-                                            : (
-                                                $roomMonthlyPercentage < 0
-                                                    ? 'text-red-500'
-                                                    : 'text-slate-500'
-                                            )
-                                    }}"
-                            >
-                                {{ $roomMonthlyPercentage > 0 ? '+' : '' }}{{ number_format($roomMonthlyPercentage, 2) }}%
-                            </span>
-                        @endif
-
-                        <span class="text-slate-500">
-                            From last month
-                        </span>
-                    </p>
-                </div>
-
-                <div class="ml-6 h-20 w-40 shrink-0">
-                    <svg viewBox="0 0 300 100" class="h-full w-full" fill="none">
-                        <polyline
-                            points="{{ $roomTrendPoints }}"
-                            fill="none"
-                            stroke="#3b82f6"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-                    </svg>
-                </div>
-            </div>
-
-            {{-- NORMAL --}}
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    Normal
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($normalRooms) }}
-                </h2>
-
-                <p class="text-base">
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($normalRoomsPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">
-                        of all rooms
-                    </span>
-                </p>
-            </div>
-
-            {{-- NEEDS ATTENTION --}}
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    Needs Attention
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($needsAttentionRooms) }}
-                </h2>
-
-                <p class="text-base">
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($needsAttentionPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">
-                        of all rooms
-                    </span>
-                </p>
-            </div>
-
-            {{-- WITH EQUIPMENT --}}
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    With Equipment
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($roomsWithEquipment) }}
-                </h2>
-
-                <p class="text-base">
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($roomsWithEquipmentPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">
-                        of all rooms
-                    </span>
-                </p>
-            </div>
-
-        </div>
+    @php
+        $roomMonthlyHint = $roomMonthlyPercentage === null
+            ? 'New activity vs last month'
+            : (($roomMonthlyPercentage > 0 ? '+' : '') . number_format($roomMonthlyPercentage, 2) . '% vs last month');
+    @endphp
+    <div class="mb-6 mt-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total Rooms', 'hint' => $roomMonthlyHint, 'value' => number_format($totalRooms)],
+                ['label' => 'Normal', 'hint' => number_format($normalRoomsPercentage, 2) . '% of all rooms', 'value' => number_format($normalRooms)],
+                ['label' => 'Needs Attention', 'hint' => number_format($needsAttentionPercentage, 2) . '% of all rooms', 'value' => number_format($needsAttentionRooms)],
+            ],
+        ])
     </div>
 
     @endif

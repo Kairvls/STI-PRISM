@@ -16,6 +16,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReceivingReportController;
 use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\RequestForCheckController;
+use App\Http\Controllers\ReviewerReassignController;
 use App\Http\Controllers\RisController;
 use App\Http\Controllers\UomController;
 use App\Support\ProcurementPortal;
@@ -68,6 +69,8 @@ Route::get('/ris/export-blank-docx', [RisController::class, 'exportBlankWord'])-
 Route::put('/ris/{risId}', [RisController::class, 'update'])->name('ris.update');
 Route::delete('/ris/{risId}', [RisController::class, 'destroy'])->name('ris.destroy');
 Route::post('/ris/{risId}/submit', [RisController::class, 'submit'])->name('ris.submit');
+Route::post('/ris/{risId}/archive', [RisController::class, 'archive'])->name('ris.archive');
+Route::post('/ris/{risId}/restore', [RisController::class, 'restore'])->name('ris.restore');
 Route::get('/ris/{risId}/print', [RisController::class, 'print'])->name('ris.print');
 Route::get('/ris/{risId}/export-xlsx', [RisController::class, 'exportExcel'])->name('ris.export-xlsx');
 Route::get('/ris/{risId}/export-docx', [RisController::class, 'exportWord'])->name('ris.export-docx');
@@ -156,6 +159,16 @@ Route::post('/liquidation-reports/{id}/restore', [LiquidationReportController::c
 Route::get('/liquidation-reports/{id}/attachments/{attachmentId}', [LiquidationReportController::class, 'downloadAttachment'])->name('liq.attachment');
 Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('liq.export-xlsx');
 Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('liq.export-docx');
+
+// =====================================================
+// REVIEWER REASSIGN (purchaser only — while in review)
+// =====================================================
+
+Route::post(
+    '/reviewer-reassign/{type}/{id}',
+    ReviewerReassignController::class
+)->whereIn('type', ['atp', 'ris', 'rfc', 'rr', 'liq', 'po'])
+    ->name('reviewer.reassign');
 
 
 // =====================================================

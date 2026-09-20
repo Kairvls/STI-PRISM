@@ -86,22 +86,14 @@
         </div>
     </header>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach ([
-            ['Total equipment', $progress['total'], 'package'],
-            ['Inspected', $progress['inspected'], 'check-circle'],
-            ['Pending', $progress['pending'], 'clock'],
-            ['Defects found', $progress['defects'], 'triangle-alert'],
-        ] as [$label, $value, $icon])
-            <div class="rounded-2xl border border-slate-200 bg-white p-5">
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ $label }}</p>
-                <div class="mt-2 flex items-end justify-between">
-                    <p class="text-3xl font-semibold text-slate-950">{{ $value }}</p>
-                    <i data-lucide="{{ $icon }}" class="h-5 w-5 text-slate-300"></i>
-                </div>
-            </div>
-        @endforeach
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            ['label' => 'Inspected', 'hint' => '', 'value' => number_format($progress['inspected'])],
+            ['label' => 'Pending', 'hint' => '', 'value' => number_format($progress['pending'])],
+            ['label' => 'Defects found', 'hint' => '', 'value' => number_format($progress['defects'])],
+        ],
+    ])
+
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="border-b border-slate-100 p-4 sm:p-5">

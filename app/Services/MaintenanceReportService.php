@@ -282,7 +282,7 @@ class MaintenanceReportService
                     $result = [
                         'success' => true,
                         'message' => $adminOverride
-                            ? 'Admin override: report is now being processed.'
+                            ? 'Administrator override: report is now being processed.'
                             : 'Report is now being processed.',
                         'report' => $this->getReportPayload($id),
                     ];

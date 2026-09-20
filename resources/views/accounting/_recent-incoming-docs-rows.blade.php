@@ -17,14 +17,13 @@
             >{{ $doc->arrived_relative }}</span>
         </td>
         <td class="text-right">
-            <a
-                href="{{ $doc->url }}"
-                class="icon-btn"
-                data-tip="Open document"
+            <x-view-action-button
+                :href="$doc->url"
+                label="View"
+                title="Open document"
                 aria-label="Open document"
-            >
-                <i data-lucide="eye" class="h-4 w-4"></i>
-            </a>
+                data-tip="Open document"
+            />
         </td>
     </tr>
 @empty

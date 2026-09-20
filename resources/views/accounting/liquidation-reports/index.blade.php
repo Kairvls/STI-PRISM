@@ -2,6 +2,41 @@
 
 @section('title', 'Liquidation Reports')
 
+@push('styles')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+<style>
+    .acc-liq-page,
+    .acc-liq-page * {
+        font-family: "Inter", sans-serif;
+    }
+    .acc-liq-page .pur-card .acc-pagination {
+        padding: 0.75rem 1.25rem 1rem;
+        border-top: 1px solid #f1f5f9;
+    }
+    .acc-liq-page #liqTableBody.is-loading {
+        opacity: .45;
+        filter: saturate(.6);
+        pointer-events: none;
+        transition: opacity .18s ease, filter .18s ease;
+    }
+    .acc-liq-page #liqTableBody.acc-animate tr {
+        animation: accFadeSwap .35s ease both;
+    }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(1)  { animation-delay: .02s; }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(2)  { animation-delay: .05s; }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(3)  { animation-delay: .08s; }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(4)  { animation-delay: .11s; }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(5)  { animation-delay: .14s; }
+    .acc-liq-page #liqTableBody.acc-animate tr:nth-child(6)  { animation-delay: .17s; }
+    @media (prefers-reduced-motion: reduce) {
+        .acc-liq-page #liqTableBody.acc-animate tr { animation: none; }
+    }
+</style>
+@endpush
+
 @section('content')
 @include('accounting.partials.flash')
 
@@ -12,68 +47,43 @@
         'revision' => 'Revision',
         'approved' => 'Approved',
     ];
-    $filterCounts = [
-        'incoming' => $counts['incoming'],
-        'revision' => $counts['revision'],
-        'approved' => $counts['approved'],
-    ];
+    $searchQuery = request('search') ? '&search='.urlencode(request('search')) : '';
     $statCards = [
-        ['key' => 'incoming', 'label' => 'Needs review', 'value' => $counts['incoming'], 'hint' => 'Pending review', 'icon' => 'receipt', 'tone' => 'blue'],
-        ['key' => 'revision', 'label' => 'Revision', 'value' => $counts['revision'], 'hint' => 'Sent back', 'icon' => 'pencil', 'tone' => 'slate'],
-        ['key' => 'approved', 'label' => 'Approved', 'value' => $counts['approved'], 'hint' => 'Completed', 'icon' => 'badge-check', 'tone' => 'blue'],
-        ['key' => 'all', 'label' => 'All liquidations', 'value' => $counts['all'], 'hint' => 'In queue', 'icon' => 'folder', 'tone' => 'slate'],
+        [
+            'label' => 'Needs review',
+            'hint' => 'Pending Accounting review',
+            'value' => number_format($counts['incoming'] ?? 0),
+            'href' => '/accounting/liquidation-reports?status=incoming'.$searchQuery,
+            'filterKey' => 'incoming',
+            'active' => $filter === 'incoming',
+        ],
+        [
+            'label' => 'Revision',
+            'hint' => 'Sent back to Purchaser',
+            'value' => number_format($counts['revision'] ?? 0),
+            'href' => '/accounting/liquidation-reports?status=revision'.$searchQuery,
+            'filterKey' => 'revision',
+            'active' => $filter === 'revision',
+        ],
+        [
+            'label' => 'Approved',
+            'hint' => 'Completed liquidations',
+            'value' => number_format($counts['approved'] ?? 0),
+            'href' => '/accounting/liquidation-reports?status=approved'.$searchQuery,
+            'filterKey' => 'approved',
+            'active' => $filter === 'approved',
+        ],
+    ];
+    $filterLabels = [
+        'all' => 'All liquidation report records',
+        'incoming' => 'Liquidations awaiting your review',
+        'revision' => 'Liquidations sent back for revision',
+        'approved' => 'Liquidations cleared by Accounting',
     ];
 @endphp
 
-<div class="acc-page acc-content-fill fade-in">
-    
-
-    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach ($statCards as $i => $card)
-            <a
-                href="/accounting/liquidation-reports?status={{ $card['key'] }}{{ request('search') ? '&search='.urlencode(request('search')) : '' }}"
-                class="pm-stat-card relative slide-up status-filter-card {{ $filter === $card['key'] ? 'ring-2 ring-blue-200 border-blue-200' : '' }}"
-                style="animation-delay:{{ 0.04 + ($i * 0.04) }}s"
-                data-filter="{{ $card['key'] }}"
-            >
-                <div class="pm-stat-icon {{ $card['tone'] === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600' }}">
-                    <i data-lucide="{{ $card['icon'] }}"></i>
-                </div>
-                <div class="min-w-0 flex-1">
-                    <p class="pm-stat-label">{{ $card['label'] }}</p>
-                    <p class="pm-stat-value {{ $card['tone'] === 'blue' ? 'is-blue' : '' }}">
-                        <span data-count="{{ $card['key'] }}">{{ $card['value'] }}</span> {{ $card['hint'] }}
-                    </p>
-                </div>
-            </a>
-        @endforeach
-    </div>
-
-    <div class="flex flex-col gap-4 sm:flex-row mt-4 sm:items-end sm:justify-between">
-        <div class="pm-seg" id="liqFilterSlider" role="tablist" aria-label="Liquidation status filters" data-active="{{ $filter }}">
-            <span class="pm-seg-thumb" aria-hidden="true"></span>
-            @foreach ($filters as $key => $label)
-                <a
-                    href="/accounting/liquidation-reports?status={{ $key }}{{ request('search') ? '&search='.urlencode(request('search')) : '' }}"
-                    role="tab"
-                    class="pm-seg-btn status-filter-btn {{ $filter === $key ? 'is-active' : '' }}"
-                    data-filter="{{ $key }}"
-                    aria-selected="{{ $filter === $key ? 'true' : 'false' }}"
-                >{{ $label }}@if (isset($filterCounts[$key]))<span class="acc-count-badge">{{ $filterCounts[$key] }}</span>@endif</a>
-            @endforeach
-        </div>
-
-        
-        
-        <form method="GET" class="acc-toolbar" id="liqSearchForm">
-            <input type="hidden" name="status" value="{{ $filter }}">
-            @if (!empty($deadlineFilter))
-                <input type="hidden" name="deadline" value="{{ $deadlineFilter }}">
-            @endif
-            <input type="search" name="search" id="liqSearch" value="{{ request('search') }}" placeholder="Search liquidation or employee..." class="acc-search">
-        </form>
-    
-    </div>
+<div class="acc-page acc-liq-page acc-content-fill space-y-6 fade-in">
+    @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
 
     @if (!empty($deadlineFilter))
         @php
@@ -84,7 +94,7 @@
             ][$deadlineFilter] ?? null;
         @endphp
         @if ($deadlineBanner)
-            <div class="acc-deadline-banner is-{{ $deadlineBanner['tone'] }} mt-4 slide-up" id="liqDeadlineBanner">
+            <div class="acc-deadline-banner is-{{ $deadlineBanner['tone'] }}" id="liqDeadlineBanner">
                 <div class="min-w-0">
                     <p class="acc-deadline-banner-title">{{ $deadlineBanner['label'] }}</p>
                     <p class="acc-deadline-banner-hint">{{ $deadlineBanner['hint'] }} · showing matching liquidations only</p>
@@ -97,28 +107,41 @@
         @endif
     @endif
 
-    <div class="acc-table-wrap mt-4 slide-up">
-        <table class="acc-table min-w-[820px]">
-            <thead>
-                <tr>
-                    <th>No.</th>
-                    <th>RR</th>
-                    <th>Employee</th>
-                    <th class="!text-right">Amount</th>
-                    <th>Submitted</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="liqTableBody" class="acc-animate">
-                @include('accounting.liquidation-reports._rows', ['records' => $records, 'filter' => $filter, 'deadlineFilter' => $deadlineFilter ?? null])
-            </tbody>
-        </table>
-    </div>
-    <div id="liqPagination">
-        @if ($records->hasPages())
-            <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
-        @endif
+    <div class="pur-card">
+        @include('accounting.partials.status-filter-bar', [
+            'filters' => $filters,
+            'activeFilter' => $filter,
+            'baseUrl' => '/accounting/liquidation-reports',
+            'searchPlaceholder' => 'Search liquidation or employee...',
+            'formId' => 'liqSearchForm',
+            'searchId' => 'liqSearch',
+            'extraHidden' => !empty($deadlineFilter) ? ['deadline' => $deadlineFilter] : [],
+        ])
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[980px] text-sm">
+                <thead class="bg-gray-50/70">
+                    <tr class="border-b border-gray-100">
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RR</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Employee</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="liqTableBody" class="divide-y divide-gray-100 bg-white acc-animate">
+                    @include('accounting.liquidation-reports._rows', ['records' => $records, 'filter' => $filter, 'deadlineFilter' => $deadlineFilter ?? null])
+                </tbody>
+            </table>
+        </div>
+
+        <div id="liqPagination">
+            @if ($records->hasPages())
+                <div class="acc-pagination">{{ $records->links('pagination.president') }}</div>
+            @endif
+        </div>
     </div>
 </div>
 
@@ -128,31 +151,24 @@
         const pagination = document.getElementById('liqPagination');
         const searchInput = document.getElementById('liqSearch');
         const searchForm = document.getElementById('liqSearchForm');
-        const filterSlider = document.getElementById('liqFilterSlider');
-        const filterButtons = document.querySelectorAll('#liqFilterSlider .status-filter-btn');
         const filterCards = document.querySelectorAll('.status-filter-card');
+        const filterTabs = document.querySelectorAll('.status-filter-tab');
         let currentFilter = '{{ $filter }}';
         let currentDeadline = @json($deadlineFilter ?? null);
         let searchTimeout = null;
         let fetching = false;
 
         function updateFilterButtons(activeFilter) {
-            if (filterSlider) {
-                filterSlider.setAttribute('data-active', activeFilter);
-                if (typeof window.pmUpdateSegControl === 'function') {
-                    window.pmUpdateSegControl(filterSlider, activeFilter, true);
-                }
-            }
-            filterButtons.forEach(btn => {
-                const active = btn.getAttribute('data-filter') === activeFilter;
-                btn.classList.toggle('is-active', active);
-                btn.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
             filterCards.forEach(card => {
-                const active = card.getAttribute('data-filter') === activeFilter;
-                card.classList.toggle('ring-2', active);
-                card.classList.toggle('ring-blue-200', active);
-                card.classList.toggle('border-blue-200', active);
+                card.classList.toggle('is-active', card.getAttribute('data-filter') === activeFilter);
+            });
+            filterTabs.forEach(tab => {
+                const active = tab.getAttribute('data-filter') === activeFilter;
+                tab.classList.toggle('bg-gray-100/80', active);
+                tab.classList.toggle('font-medium', active);
+                tab.classList.toggle('text-black', active);
+                tab.classList.toggle('text-slate-500', !active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
             });
             if (searchForm) {
                 const hidden = searchForm.querySelector('input[name="status"]');
@@ -193,23 +209,15 @@
                 }
                 if (pagination) {
                     pagination.innerHTML = data.pagination_html
-                        ? '<div class="acc-pagination mt-3">' + data.pagination_html + '</div>'
+                        ? '<div class="acc-pagination">' + data.pagination_html + '</div>'
                         : '';
                     if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
                 }
                 if (data.counts) {
                     Object.keys(data.counts).forEach(key => {
                         document.querySelectorAll('[data-count="' + key + '"]').forEach(el => {
-                            el.textContent = data.counts[key];
+                            el.textContent = Number(data.counts[key]).toLocaleString();
                         });
-                    });
-                    const map = { incoming: 'incoming', revision: 'revision', approved: 'approved' };
-                    filterButtons.forEach(btn => {
-                        const key = btn.getAttribute('data-filter');
-                        const badge = btn.querySelector('.acc-count-badge');
-                        if (map[key] && badge && typeof data.counts[map[key]] !== 'undefined') {
-                            badge.textContent = data.counts[map[key]];
-                        }
                     });
                 }
                 currentDeadline = data.deadline_filter || null;
@@ -252,15 +260,15 @@
             pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
         }
 
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', function (e) {
+        filterCards.forEach(card => {
+            card.addEventListener('click', function (e) {
                 e.preventDefault();
                 applyFilter(this.getAttribute('data-filter'));
             });
         });
 
-        filterCards.forEach(card => {
-            card.addEventListener('click', function (e) {
+        filterTabs.forEach(tab => {
+            tab.addEventListener('click', function (e) {
                 e.preventDefault();
                 applyFilter(this.getAttribute('data-filter'));
             });
@@ -301,6 +309,7 @@
             const filter = params.get('status') || 'incoming';
             const search = params.get('search') || '';
             currentFilter = filter;
+            currentDeadline = params.get('deadline') || null;
             if (searchInput) searchInput.value = search;
             updateFilterButtons(filter);
             fetchData(1, filter);

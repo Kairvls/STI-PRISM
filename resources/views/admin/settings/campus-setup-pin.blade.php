@@ -83,17 +83,20 @@
                 >
             </label>
 
-            <div class="flex items-center gap-3">
-                <button
-                    type="submit"
-                    class="admin-btn-primary"
-                >
-                    Save PIN
-                </button>
-
+            <div class="flex items-center justify-between gap-3">
                 <p class="text-xs text-slate-500">
                     Tip: choose a PIN that only branch staff know.
                 </p>
+
+                <button
+                    type="submit"
+                    class="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition"
+                    style="background-color: #0025cc;"
+                    onmouseover="this.style.backgroundColor='#001fa3'"
+                    onmouseout="this.style.backgroundColor='#0025cc'"
+                >
+                    Save PIN
+                </button>
             </div>
         </form>
     </div>

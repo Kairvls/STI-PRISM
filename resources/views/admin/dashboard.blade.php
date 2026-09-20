@@ -1,6 +1,6 @@
 @extends('layouts.admin-layout')
 
-@section('title', 'Admin Dashboard')
+@section('title', 'Administrator Dashboard')
 
 @section('content')
 @php
@@ -67,7 +67,7 @@
             <div class="admin-dash-panel-head">
                 <div>
                     <h2 class="admin-dash-panel-title">Your queue</h2>
-                    <p class="admin-dash-panel-sub">Work waiting on Admin</p>
+                    <p class="admin-dash-panel-sub">Work waiting on Administrator</p>
                 </div>
                 <div class="admin-dash-links">
                     <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}">Accept</a>
@@ -374,7 +374,7 @@
                     <p class="admin-dash-budget-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 0) }}</p>
                 </div>
                 <div>
-                    <p class="admin-dash-budget-label">Admin OK</p>
+                    <p class="admin-dash-budget-label">Administrator OK</p>
                     <p class="admin-dash-budget-value">₱{{ number_format((float) ($budgetAdminApprovedAmount ?? 0), 0) }}</p>
                 </div>
                 <div>

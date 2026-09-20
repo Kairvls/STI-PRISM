@@ -65,79 +65,28 @@
         </div>
     </header>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Unread alerts</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $unreadCount }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
-                    <i data-lucide="bell" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <span class="h-1.5 w-1.5 rounded-full {{ $unreadCount > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>
-                <p class="text-xs text-slate-400">
-                    {{ $unreadCount > 0 ? 'Requires your attention' : 'All caught up' }}
-                </p>
-            </div>
-        </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Unread alerts',
+                'hint' => $unreadCount > 0 ? 'Requires your attention' : 'All caught up',
+                'value' => number_format($unreadCount),
+            ],
+            [
+                'label' => 'Urgent reports',
+                'hint' => $urgentReports > 0 ? 'Needs immediate action' : 'No urgent reports',
+                'value' => number_format($urgentReports),
+                'href' => url('/maintenance/reports/urgent'),
+            ],
+            [
+                'label' => 'Overdue',
+                'hint' => $overdueMaintenance > 0 ? 'Past scheduled date' : 'No overdue maintenance',
+                'value' => number_format($overdueMaintenance),
+                'href' => url('/maintenance/schedules'),
+            ],
+        ],
+    ])
 
-        <a href="{{ url('/maintenance/reports/urgent') }}" class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-rose-200 hover:bg-rose-50/40">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Urgent reports</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $urgentReports }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
-                    <i data-lucide="triangle-alert" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <span class="h-1.5 w-1.5 rounded-full {{ $urgentReports > 0 ? 'bg-rose-500' : 'bg-emerald-500' }}"></span>
-                <p class="text-xs text-slate-400">
-                    {{ $urgentReports > 0 ? 'Needs immediate action' : 'No urgent reports' }}
-                </p>
-            </div>
-        </a>
-
-        <a href="{{ url('/maintenance/schedules/today') }}" class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-amber-200 hover:bg-amber-50/40">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Due today</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $dueToday }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
-                    <i data-lucide="calendar-clock" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <span class="h-1.5 w-1.5 rounded-full {{ $dueToday > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>
-                <p class="text-xs text-slate-400">
-                    {{ $dueToday > 0 ? 'Scheduled for today' : 'Nothing due today' }}
-                </p>
-            </div>
-        </a>
-
-        <a href="{{ url('/maintenance/schedules') }}" class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-orange-200 hover:bg-orange-50/40">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Overdue</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $overdueMaintenance }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
-                    <i data-lucide="calendar-x-2" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-                <span class="h-1.5 w-1.5 rounded-full {{ $overdueMaintenance > 0 ? 'bg-orange-500' : 'bg-emerald-500' }}"></span>
-                <p class="text-xs text-slate-400">
-                    {{ $overdueMaintenance > 0 ? 'Past scheduled date' : 'No overdue maintenance' }}
-                </p>
-            </div>
-        </a>
-    </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="p-4 sm:p-5">

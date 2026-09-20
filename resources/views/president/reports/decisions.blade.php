@@ -12,32 +12,16 @@
 </div>
 
 {{-- Summary Cards --}}
-<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.05s">
-        <p class="text-xs font-medium text-gray-500">Approved Today</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $approvedToday ?? 0 }}">{{ $approvedToday ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.1s">
-        <p class="text-xs font-medium text-gray-500">Rejected Today</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $rejectedToday ?? 0 }}">{{ $rejectedToday ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.15s">
-        <p class="text-xs font-medium text-gray-500">Archived Today</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ ($approvedToday ?? 0) + ($rejectedToday ?? 0) }}">{{ ($approvedToday ?? 0) + ($rejectedToday ?? 0) }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.2s">
-        <p class="text-xs font-medium text-gray-500">Total Approved</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.25s">
-        <p class="text-xs font-medium text-gray-500">Total Rejected</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4 card-hover slide-up" style="animation-delay: 0.3s">
-        <p class="text-xs font-medium text-gray-500">Total Decisions</p>
-        <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
-    </div>
-</div>
+@include('layouts.partials.maintenance-stat-cards', [
+    'cards' => [
+        ['label' => 'Approved Today', 'hint' => 'Decisions made today', 'value' => number_format((int) ($approvedToday ?? 0))],
+        ['label' => 'Rejected Today', 'hint' => 'Declined today', 'value' => number_format((int) ($rejectedToday ?? 0))],
+        ['label' => 'Archived Today', 'hint' => 'Approved + rejected today', 'value' => number_format((int) (($approvedToday ?? 0) + ($rejectedToday ?? 0)))],
+        ['label' => 'Total Approved', 'hint' => 'All-time approvals', 'value' => number_format((int) ($totalApproved ?? 0))],
+        ['label' => 'Total Rejected', 'hint' => 'All-time rejections', 'value' => number_format((int) ($totalRejected ?? 0))],
+        ['label' => 'Total Decisions', 'hint' => 'All-time decisions', 'value' => number_format((int) ($totalDecisions ?? 0))],
+    ],
+])
 
 {{-- Search & Filters --}}
 <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.35s">

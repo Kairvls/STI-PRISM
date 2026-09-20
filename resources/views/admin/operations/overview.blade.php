@@ -219,7 +219,7 @@
                 <p class="mt-1 text-xs text-gray-500">{{ (int) $stats['open_ris'] }} open procurement record{{ (int) $stats['open_ris'] === 1 ? '' : 's' }}</p>
             </a>
             <a href="{{ url('/admin/procurement-review?filter=pending') }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pending Admin review</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pending Administrator review</p>
                 <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">₱{{ number_format((float) ($stats['pending_admin_ris_amount'] ?? 0), 2) }}</p>
                 <p class="mt-1 text-xs text-gray-500">{{ (int) $stats['awaiting_admin_ris'] }} RIS awaiting accept</p>
             </a>
@@ -339,7 +339,7 @@
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <h2 class="text-base font-semibold text-gray-950">Exceptions</h2>
-            <p class="mt-1 text-xs text-gray-400">Items that usually need Admin visibility or action.</p>
+            <p class="mt-1 text-xs text-gray-400">Items that usually need Administrator visibility or action.</p>
         </div>
         <div class="divide-y divide-gray-100">
             @forelse($exceptions as $item)

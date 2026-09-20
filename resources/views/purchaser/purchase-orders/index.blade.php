@@ -187,6 +187,13 @@
                                             Submit
                                         </button>
                                     @endif
+                                    @if(!$archiveView && $st === 'Submitted')
+                                        @include('partials.purchaser-reassign-reviewer', [
+                                            'type' => 'po',
+                                            'id' => $order->purchase_order_id,
+                                            'currentReviewerId' => $order->purchase_order_assigned_reviewer_id ?? null,
+                                        ])
+                                    @endif
                                     @if(!$archiveView && in_array($st, ['Draft', 'Submitted'], true))
                                         <button
                                             type="button"
@@ -199,7 +206,14 @@
                                         </button>
                                     @endif
                                     @if(!$archiveView && in_array($st, ['Approved','Rejected','Cancelled'], true))
-                                        <form method="POST" action="{{ route($pp.'.purchase-orders.archive', $order->purchase_order_id) }}">
+                                        <form
+                                            method="POST"
+                                            action="{{ route($pp.'.purchase-orders.archive', $order->purchase_order_id) }}"
+                                            data-pur-confirm="Archive this Purchase Order?"
+                                            data-pur-confirm-title="Archive Purchase Order"
+                                            data-pur-confirm-ok="Archive"
+                                            data-pur-confirm-kind="archive"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
@@ -384,9 +398,9 @@
                             </div>
                         @endif
                     </div>
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
-                        <p class="text-xs text-gray-500">Supplier can’t meet quota? Cancel the PO — the record is kept.</p>
-                        <div class="flex gap-2">
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
+                        <p class="mr-auto text-xs text-gray-500">Supplier can’t meet quota? Cancel the PO — the record is kept.</p>
+                        <div class="flex shrink-0 items-center gap-2">
                             <button type="button" x-on:click="openModal = null" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Close</button>
                             <button
                                 type="button"
@@ -445,7 +459,7 @@
                         </div>
                         <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
                             <button type="button" x-on:click="openModal = null" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Keep</button>
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-stone-800 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-stone-900">Cancel PO</button>
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-red-700">Cancel PO</button>
                         </div>
                     </form>
                 </div>
@@ -474,12 +488,29 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold tracking-tight text-gray-950">Submit to Accounting</h3>
-                        <p class="mt-1 text-sm text-gray-600">
-                            Submit <span class="font-semibold text-gray-900" x-text="submitConfirm?.number"></span> with its linked ATPs?
-                        </p>
+                        <p class="mt-1 text-sm text-gray-600">Choose who should review this Purchase Order.</p>
                     </div>
                 </div>
-                <div class="flex justify-end gap-3 bg-gray-50 px-5 py-4">
+                <div class="space-y-4 px-5 py-5">
+                    <p class="text-sm text-gray-600">
+                        Submit <span class="font-semibold text-gray-900" x-text="submitConfirm?.number"></span> with its linked ATPs?
+                    </p>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to Accounting <span class="text-red-500">*</span></label>
+                        <select
+                            name="assigned_reviewer_id"
+                            required
+                            class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
+                        >
+                            <option value="">Select Accounting…</option>
+                            @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_ACCOUNTING) as $reviewer)
+                                <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1.5 text-xs text-gray-400">Only the selected Accounting user will receive this PO for review.</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
                     <button type="button" x-on:click="closeSubmit()" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
                     <button type="submit" x-bind:disabled="submitSending" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-50">
                         Yes, submit

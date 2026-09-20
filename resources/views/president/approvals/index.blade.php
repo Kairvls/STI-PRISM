@@ -7,7 +7,7 @@
 <div class="ris-workspace pm-page">
     <header class="ris-page-header">
         <div class="min-w-0 hidden sm:block">
-            <p class="text-sm leading-6 text-gray-500">Review forwarded RIS documents. Approve to sign, then notify Admin when ready.</p>
+            <p class="text-sm leading-6 text-gray-500">Review forwarded RIS documents. Approve to sign, then notify Administrator when ready.</p>
         </div>
         <div class="awaiting-indicator" data-tip="RIS currently waiting for your review" id="awaitingIndicator">
             <span class="awaiting-label">Awaiting review</span>
@@ -134,9 +134,9 @@
     <div class="confirm-card wide" onclick="event.stopPropagation()">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-                <p class="eyebrow" style="margin:0">Admin</p>
+                <p class="eyebrow" style="margin:0">Administrator</p>
                 <h3 id="adminForwardRisTitle">Supporting details</h3>
-                <p id="adminForwardSubtitle" class="mt-1">Notes and files from Admin when this RIS was forwarded.</p>
+                <p id="adminForwardSubtitle" class="mt-1">Notes and files from Administrator when this RIS was forwarded.</p>
             </div>
             <button type="button" class="icon-close" onclick="closeAdminForwardDetails()" data-tip="Close" aria-label="Close">
                 <i data-lucide="x"></i>
@@ -211,9 +211,9 @@
             <div class="doc-actions-right">
                 
                 <button type="button" class="btn-ghost" data-tip="Keep approval and close" onclick="closeApprovedRisPreviewModal(true)">Close</button>
-                <button type="button" class="btn-send" id="sendApprovedRisBtn" data-tip="Notify Admin for co-sign" onclick="sendApprovedRisToAdmin()">
+                <button type="button" class="btn-send" id="sendApprovedRisBtn" data-tip="Notify Administrator for co-sign" onclick="sendApprovedRisToAdmin()">
                     <i data-lucide="bell" class="h-4 w-4"></i>
-                    <span data-notify-label>Notify Admin</span>
+                    <span data-notify-label>Notify Administrator</span>
                 </button>
             </div>
         </div>
@@ -223,11 +223,11 @@
 <div id="sendConfirmationModal" class="confirm-modal hidden">
     <div class="confirm-backdrop" onclick="closeSendConfirmationModal()"></div>
     <div class="confirm-card" onclick="event.stopPropagation()">
-        <h3>Notify Admin?</h3>
-        <p>This notifies Admin that the approved RIS is ready for co-sign. Your approval stays saved.</p>
+        <h3>Notify Administrator?</h3>
+        <p>This notifies Administrator that the approved RIS is ready for co-sign. Your approval stays saved.</p>
         <div class="confirm-actions">
             <button type="button" class="btn-ghost" data-tip="Cancel" onclick="closeSendConfirmationModal()">Cancel</button>
-            <button type="button" class="btn-send" id="confirmSendActionBtn" data-tip="Send notification to Admin" onclick="executeSendRis()">Confirm</button>
+            <button type="button" class="btn-send" id="confirmSendActionBtn" data-tip="Send notification to Administrator" onclick="executeSendRis()">Confirm</button>
         </div>
     </div>
 </div>
@@ -553,7 +553,7 @@
             .then(res => res.json())
             .then(data => {
                 if (title) {
-                    title.textContent = (data.form_number || window.risFormNumberLabel(risId)) + ' · Admin details';
+                    title.textContent = (data.form_number || window.risFormNumberLabel(risId)) + ' · Administrator details';
                 }
 
                 const details = (data.forward_details || '').trim();
@@ -572,7 +572,7 @@
                     link.target = '_blank';
                     link.rel = 'noopener';
                     link.className = 'review-attachment-link';
-                    link.textContent = adminFile.name || 'Admin attachment';
+                    link.textContent = adminFile.name || 'Administrator attachment';
                     link.setAttribute('data-tip', 'Open admin attachment');
                     list.appendChild(link);
                     hasInfo = true;
@@ -616,13 +616,13 @@
         } else if (!icon) {
             notifyBtn.insertAdjacentHTML('afterbegin', '<i data-lucide="bell" class="h-4 w-4"></i>');
         }
-        if (label) label.textContent = options.label || 'Notify Admin';
+        if (label) label.textContent = options.label || 'Notify Administrator';
 
         if (options.notified) {
             notifyBtn.classList.remove('hidden');
             notifyBtn.classList.add('is-notified');
             notifyBtn.disabled = true;
-            notifyBtn.setAttribute('data-tip', 'Admin has already been notified');
+            notifyBtn.setAttribute('data-tip', 'Administrator has already been notified');
             notifyBtn.setAttribute('aria-disabled', 'true');
         } else if (options.hidden) {
             notifyBtn.classList.add('hidden');
@@ -630,7 +630,7 @@
         } else {
             notifyBtn.classList.remove('hidden', 'is-notified');
             notifyBtn.disabled = false;
-            notifyBtn.setAttribute('data-tip', 'Notify Admin for co-sign');
+            notifyBtn.setAttribute('data-tip', 'Notify Administrator for co-sign');
             notifyBtn.setAttribute('aria-disabled', 'false');
         }
         if (window.lucide) lucide.createIcons();
@@ -654,7 +654,7 @@
         document.getElementById('previewPresidentName').textContent = presidentDisplayName;
         document.getElementById('previewApprovedDate').textContent = options.approvedDate
             || new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-        setNotifyAdminButtonState(notifyBtn, { label: 'Notify Admin' });
+        setNotifyAdminButtonState(notifyBtn, { label: 'Notify Administrator' });
         modal.classList.remove('hidden');
         requestAnimationFrame(() => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit'));
         iframe.onload = () => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit');
@@ -671,9 +671,9 @@
             }
             if (notifyBtn) {
                 if (data.admin_notified) {
-                    setNotifyAdminButtonState(notifyBtn, { label: 'Admin Notified', notified: true });
+                    setNotifyAdminButtonState(notifyBtn, { label: 'Administrator Notified', notified: true });
                 } else if (data.awaiting_notify || data.is_president_approved) {
-                    setNotifyAdminButtonState(notifyBtn, { label: 'Notify Admin' });
+                    setNotifyAdminButtonState(notifyBtn, { label: 'Notify Administrator' });
                 } else {
                     setNotifyAdminButtonState(notifyBtn, { hidden: true });
                 }
@@ -740,12 +740,12 @@
         })
         .then(async response => {
             const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to notify Admin.');
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to notify Administrator.');
             unpinRis(risId);
             closeSendConfirmationModal();
             window.approvedPreviewDirty = false;
             closeApprovedRisPreviewModal(false);
-            showToast(data.message || 'Admin has been notified.', { title: 'Success', type: 'success' });
+            showToast(data.message || 'Administrator has been notified.', { title: 'Success', type: 'success' });
             setTimeout(() => window.location.reload(), 900);
         })
         .catch(error => {
@@ -753,7 +753,7 @@
             confirmBtn.textContent = original;
             confirmBtn.disabled = false;
             if (typeof window.showMpToast === 'function') {
-                showMpToast(error.message || 'Unable to notify Admin.', { title: 'Unable to complete', type: 'error', timer: 4200 });
+                showMpToast(error.message || 'Unable to notify Administrator.', { title: 'Unable to complete', type: 'error', timer: 4200 });
             } else {
                 alert(error.message);
             }

@@ -30,14 +30,13 @@
                         @include('accounting.partials.status-badge', ['status' => $item->status])
                     </td>
                     <td class="text-right">
-                        <a
-                            href="{{ $item->url }}"
-                            class="icon-btn"
-                            data-tip="{{ $actionTip }}"
-                            aria-label="{{ $actionTip }}"
-                        >
-                            <i data-lucide="eye" class="h-4 w-4"></i>
-                        </a>
+                        <x-view-action-button
+                            :href="$item->url"
+                            label="View"
+                            :title="$actionTip"
+                            :aria-label="$actionTip"
+                            :data-tip="$actionTip"
+                        />
                     </td>
                 </tr>
             @empty

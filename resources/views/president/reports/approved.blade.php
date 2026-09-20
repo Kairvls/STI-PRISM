@@ -7,24 +7,34 @@
 
 
 {{-- Summary Cards --}}
-<div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
-    <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
-        <p class="text-xs font-semibold text-gray-500">Total Approved</p>
-        <p id="cardTotalApproved" class="mt-2 text-3xl font-bold text-blue-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
-    </div>
-    <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
-        <p class="text-xs font-semibold text-gray-500">Total Rejected</p>
-        <p id="cardTotalRejected" class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
-    </div>
-    <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
-        <p class="text-xs font-semibold text-gray-500">Pending RIS</p>
-        <p id="cardTotalPending" class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
-    </div>
-    <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
-        <p class="text-xs font-semibold text-gray-500">Total Decisions</p>
-        <p id="cardTotalDecisions" class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
-    </div>
-</div>
+@include('layouts.partials.maintenance-stat-cards', [
+    'cards' => [
+        [
+            'label' => 'Total Approved',
+            'hint' => 'Presidential approvals',
+            'value' => number_format((int) ($totalApproved ?? 0)),
+            'valueId' => 'cardTotalApproved',
+        ],
+        [
+            'label' => 'Total Rejected',
+            'hint' => 'Declined RIS',
+            'value' => number_format((int) ($totalRejected ?? 0)),
+            'valueId' => 'cardTotalRejected',
+        ],
+        [
+            'label' => 'Pending RIS',
+            'hint' => 'Awaiting decision',
+            'value' => number_format((int) ($totalPending ?? 0)),
+            'valueId' => 'cardTotalPending',
+        ],
+        [
+            'label' => 'Total Decisions',
+            'hint' => 'Approved + rejected',
+            'value' => number_format((int) ($totalDecisions ?? 0)),
+            'valueId' => 'cardTotalDecisions',
+        ],
+    ],
+])
 
 {{-- Table --}}
 <div class="mt-4 grid grid-cols-1 gap-4">

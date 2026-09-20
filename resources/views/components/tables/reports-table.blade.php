@@ -1,4 +1,4 @@
-﻿ï»¿Ã¯Â»Â¿ÃÂ¯ÃÂ»ÃÂ¿<style>
+﻿<style>
     @keyframes scanner {
         0% {
             left: -40%;
@@ -486,7 +486,7 @@
                     @php
                         $urgencyPill =
                             $report->report_urgency_level == "Urgent"
-                                ? "bg-rose-50 text-rose-700"
+                                ? "bg-[#dc2626] text-white"
                                 : "bg-slate-100 text-slate-600";
 
                         $statusMap = [
@@ -660,7 +660,14 @@
                                         </button>
                                     @endif
                                     @if ($canArchivePurchaserUrgent)
-                                        <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
+                                        <form
+                                            method="POST"
+                                            action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}"
+                                            data-pur-confirm="Archive this urgent report?"
+                                            data-pur-confirm-title="Archive Report"
+                                            data-pur-confirm-ok="Archive"
+                                            data-pur-confirm-kind="archive"
+                                        >
                                             @csrf
                                             <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50">
                                                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -697,6 +704,10 @@
                                     <form
                                         method="POST"
                                         action="/maintenance/reports/archive/{{ $report->report_id }}"
+                                        data-pur-confirm="Archive this report?"
+                                        data-pur-confirm-title="Archive Report"
+                                        data-pur-confirm-ok="Archive"
+                                        data-pur-confirm-kind="archive"
                                     >
                                         @csrf
 
@@ -895,7 +906,7 @@
         $statusPill = $statusMap[$report->report_current_status] ?? "bg-slate-100 text-slate-600";
         $urgencyPill =
             $report->report_urgency_level == "Urgent"
-                ? "bg-rose-50 text-rose-700"
+                ? "bg-[#dc2626] text-white"
                 : "bg-slate-100 text-slate-500";
         $historyCount = collect($report->report_timeline ?? $report->equipment_report_history ?? [])->count();
         $viewItems = collect($report->report_items ?? []);

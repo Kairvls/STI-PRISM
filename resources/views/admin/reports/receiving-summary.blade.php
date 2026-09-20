@@ -13,24 +13,22 @@
 
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'receiving'])
 
-    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Delivered</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-700">{{ $accepted }}</p>
-        </div>
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Returned</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-600">{{ $returned }}</p>
-        </div>
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">With OR</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-900">{{ $withOr }}</p>
-        </div>
-        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Inventory lines</p>
-            <p class="mt-2 font-['Outfit'] text-3xl font-bold text-slate-900">{{ $inventoryLines }}</p>
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Delivered',
+                'value' => number_format($accepted),
+            ],
+            [
+                'label' => 'Returned',
+                'value' => number_format($returned),
+            ],
+            [
+                'label' => 'With OR',
+                'value' => number_format($withOr),
+            ],
+        ],
+    ])
 
     <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">
         @include('layouts.partials.admin-system-reports-filters', ['placeholder' => 'Search OR, status, officer...'])

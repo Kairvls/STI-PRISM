@@ -15,89 +15,59 @@
     
 
     {{-- Metric cards --}}
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <a href="/accounting/authority-to-purchase?status=incoming" class="pm-stat-card relative slide-up" style="animation-delay:.04s">
-            <div class="pm-stat-icon bg-blue-50 text-blue-600">
-                <i data-lucide="file-check"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="pm-stat-label">Pending ATP</p>
-                <p class="pm-stat-value is-blue"><span>{{ $metrics['atp_pending'] }}</span> awaiting review</p>
-            </div>
-        </a>
-        <a href="/accounting/request-check?status=incoming" class="pm-stat-card relative slide-up" style="animation-delay:.08s">
-            <div class="pm-stat-icon bg-blue-50 text-blue-600">
-                <i data-lucide="clipboard-list"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="pm-stat-label">Pending checks</p>
-                <p class="pm-stat-value is-blue"><span>{{ $metrics['rfc_pending'] }}</span> pending review</p>
-            </div>
-        </a>
-        <a href="/accounting/request-check?status=funds" class="pm-stat-card relative slide-up" style="animation-delay:.12s">
-            <div class="pm-stat-icon bg-blue-50 text-blue-600">
-                <i data-lucide="banknote"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="pm-stat-label">Funds to release</p>
-                <p class="pm-stat-value is-blue"><span>{{ $metrics['funds_awaiting'] }}</span> ready</p>
-            </div>
-        </a>
-        <a href="/accounting/liquidation-reports?status=incoming" class="pm-stat-card relative slide-up" style="animation-delay:.16s">
-            <div class="pm-stat-icon bg-slate-100 text-slate-600">
-                <i data-lucide="receipt"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="pm-stat-label">Pending liquid.</p>
-                <p class="pm-stat-value"><span>{{ $metrics['liq_pending'] }}</span> pending review</p>
-            </div>
-        </a>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'Pending ATP',
+                'hint' => 'Awaiting review',
+                'value' => number_format((int) ($metrics['atp_pending'] ?? 0)),
+                'href' => '/accounting/authority-to-purchase?status=incoming',
+            ],
+            [
+                'label' => 'Pending checks',
+                'hint' => 'Pending review',
+                'value' => number_format((int) ($metrics['rfc_pending'] ?? 0)),
+                'href' => '/accounting/request-check?status=incoming',
+            ],
+            [
+                'label' => 'Funds to release',
+                'hint' => 'Ready for release',
+                'value' => number_format((int) ($metrics['funds_awaiting'] ?? 0)),
+                'href' => '/accounting/request-check?status=funds',
+            ],
+            [
+                'label' => 'Pending liquid.',
+                'hint' => 'Pending review',
+                'value' => number_format((int) ($metrics['liq_pending'] ?? 0)),
+                'href' => '/accounting/liquidation-reports?status=incoming',
+            ],
+        ],
+    ])
 
-    {{-- Deadlines (prominent) --}}
-    @php
-        $deadlineCards = [
-            [
-                'label' => 'Overdue',
-                'value' => (int) ($deadlines['overdue'] ?? 0),
-                'hint' => 'Past submission deadline',
-                'href' => '/accounting/liquidation-reports?status=incoming&deadline=overdue',
-                'tone' => 'rose',
-                'icon' => 'alert-triangle',
+    {{-- Deadlines --}}
+    <div class="mt-4">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Overdue',
+                    'hint' => 'Past submission deadline',
+                    'value' => number_format((int) ($deadlines['overdue'] ?? 0)),
+                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=overdue',
+                ],
+                [
+                    'label' => 'Due today',
+                    'hint' => 'Must be submitted today',
+                    'value' => number_format((int) ($deadlines['due_today'] ?? 0)),
+                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=due_today',
+                ],
+                [
+                    'label' => 'This week',
+                    'hint' => 'Due within 7 days',
+                    'value' => number_format((int) ($deadlines['this_week'] ?? 0)),
+                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=this_week',
+                ],
             ],
-            [
-                'label' => 'Due today',
-                'value' => (int) ($deadlines['due_today'] ?? 0),
-                'hint' => 'Must be submitted today',
-                'href' => '/accounting/liquidation-reports?status=incoming&deadline=due_today',
-                'tone' => 'amber',
-                'icon' => 'clock',
-            ],
-            [
-                'label' => 'This week',
-                'value' => (int) ($deadlines['this_week'] ?? 0),
-                'hint' => 'Due within 7 days',
-                'href' => '/accounting/liquidation-reports?status=incoming&deadline=this_week',
-                'tone' => 'blue',
-                'icon' => 'calendar',
-            ],
-        ];
-    @endphp
-    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        @foreach ($deadlineCards as $i => $card)
-            <a href="{{ $card['href'] }}" class="acc-deadline-card slide-up is-{{ $card['tone'] }}" style="animation-delay:{{ 0.18 + ($i * 0.03) }}s">
-                <div class="acc-deadline-icon">
-                    <i data-lucide="{{ $card['icon'] }}"></i>
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center justify-between gap-2">
-                        <p class="acc-deadline-label">{{ $card['label'] }}</p>
-                        <p class="acc-deadline-value">{{ $card['value'] }}</p>
-                    </div>
-                    <p class="acc-deadline-hint">{{ $card['hint'] }}</p>
-                </div>
-            </a>
-        @endforeach
+        ])
     </div>
 
     {{-- Recent incoming (primary actionable feed) --}}

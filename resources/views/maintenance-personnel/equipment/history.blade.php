@@ -35,90 +35,19 @@
     x-init="init()"
 >
   {{-- Dashboard --}}
-    <div class="mb-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm">
-        <div class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]">
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Total Reports</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($totalReports) }}
-                    </h2>
-                    <p class="mt-3 text-sm">
-                        @if ($reportsMonthlyPercentage === null)
-                            <span class="font-semibold text-emerald-500">New activity</span>
-                        @else
-                            <span
-                                class="font-semibold {{ $reportsMonthlyPercentage > 0 ? 'text-emerald-500' : ($reportsMonthlyPercentage < 0 ? 'text-red-500' : 'text-slate-500') }}"
-                            >
-                                {{ $reportsMonthlyPercentage > 0 ? '+' : '' }}{{ number_format($reportsMonthlyPercentage, 2) }}%
-                            </span>
-                        @endif
-                        <span class="text-slate-500">From last month</span>
-                    </p>
-                </div>
-
-                <div class="ml-6 h-20 w-40 shrink-0">
-                    <svg viewBox="0 0 300 100" class="h-full w-full" fill="none">
-                        <polygon
-                            points="{{ $reportTrendAreaPoints }}"
-                            fill="currentColor"
-                            fill-opacity=".08"
-                            class="text-slate-900"
-                        />
-                        <polyline
-                            points="{{ $reportTrendPoints }}"
-                            fill="none"
-                            stroke="#3b82f6"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-                    </svg>
-                </div>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">With History</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($equipmentWithReports) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($equipmentWithReportsPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">of all equipment</span>
-                </p>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">Open Reports</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($openReports) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-amber-600">
-                        {{ number_format($openReportsPercentage, 2) }}%
-                    </span>
-                    <span class="text-slate-500">of all reports</span>
-                </p>
-            </div>
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-                <span class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"></span>
-                <p class="text-md font-medium text-slate-600">Total Equipment</p>
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($totalEquipment) }}
-                </h2>
-                <p class="text-base">
-                    <span class="font-semibold text-blue-600">
-                        {{ number_format($totalEquipment) }}
-                    </span>
-                    <span class="text-slate-500">tracked items</span>
-                </p>
-            </div>
-        </div>
+    @php
+        $reportsMonthlyHint = $reportsMonthlyPercentage === null
+            ? 'New activity vs last month'
+            : (($reportsMonthlyPercentage > 0 ? '+' : '') . number_format($reportsMonthlyPercentage, 2) . '% vs last month');
+    @endphp
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total Reports', 'hint' => $reportsMonthlyHint, 'value' => number_format($totalReports)],
+                ['label' => 'With History', 'hint' => number_format($equipmentWithReportsPercentage, 2) . '% of all equipment', 'value' => number_format($equipmentWithReports)],
+                ['label' => 'Open Reports', 'hint' => number_format($openReportsPercentage, 2) . '% of all reports', 'value' => number_format($openReports)],
+            ],
+        ])
     </div>
 
     {{-- Table --}}

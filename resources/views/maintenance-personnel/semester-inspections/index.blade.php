@@ -23,26 +23,14 @@
             Semester inspection tables are missing. Run <code class="font-mono text-xs">php artisan migrate</code> to enable this module.
         </div>
     @else
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            @foreach ([
-                ['Active campaigns', $stats['active'], 'clipboard-check', 'bg-blue-50 text-blue-600 ring-blue-100'],
-                ['Due within 7 days', $stats['dueSoon'], 'calendar-clock', 'bg-amber-50 text-amber-600 ring-amber-100'],
-                ['Overdue', $stats['overdue'], 'calendar-x-2', 'bg-rose-50 text-rose-600 ring-rose-100'],
-                ['Completed', $stats['completed'], 'badge-check', 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
-            ] as [$label, $value, $icon, $tone])
-                <div class="rounded-2xl border border-slate-200 bg-white p-5">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ $label }}</p>
-                            <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $value }}</p>
-                        </div>
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl ring-1 {{ $tone }}">
-                            <i data-lucide="{{ $icon }}" class="h-5 w-5"></i>
-                        </div>
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Active campaigns', 'hint' => '', 'value' => number_format($stats['active'])],
+                ['label' => 'Due within 7 days', 'hint' => '', 'value' => number_format($stats['dueSoon'])],
+                ['label' => 'Overdue', 'hint' => '', 'value' => number_format($stats['overdue'])],
+            ],
+        ])
+
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">

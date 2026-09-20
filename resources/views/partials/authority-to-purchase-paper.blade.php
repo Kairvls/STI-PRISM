@@ -338,16 +338,22 @@
                 @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
             >
                 @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($atp?->authority_purchase_authorized_by_signature ?? '')))
-                    <span class="signature-name-stack">
+                    <span class="signature-name-stack w-full">
                         <img
                             id="accPaperSigOverlay"
                             alt=""
                             class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
                             style="display:none;"
                         >
-                        <span id="accPaperSigPrintedName" class="signature-name relative z-[1] text-center text-xs font-medium leading-5">
-                            {{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}
-                        </span>
+                        <input
+                            type="text"
+                            id="accPaperSigPrintedName"
+                            value="{{ \App\Support\AccountingSigner::currentUserName() ?: 'Accountant' }}"
+                            maxlength="120"
+                            autocomplete="off"
+                            aria-label="Authorized by printed name"
+                            class="ris-signature-input relative z-[1] w-full border-0 bg-transparent px-1 text-center text-xs font-normal not-italic leading-5 text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"
+                        >
                     </span>
                 @elseif(!$editable)
                     @include('partials.drawn-signature', [
@@ -356,6 +362,7 @@
                     ])
                 @endif
             </div>
+            <div class="mt-1 text-center text-[11px] italic">({{ \App\Support\AccountingSigner::SIGNATURE_TITLE }})</div>
         </div>
     </div>
 </div>

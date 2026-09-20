@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReplacementRequestBasket;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -37,6 +38,8 @@ class RisController extends Controller
 
     public function index(Request $request)
     {
+        $archiveView = $request->query('view') === 'archive';
+
         $risQuery = DB::table('requisition_issue_slip_table')
             ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
             ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
@@ -88,6 +91,17 @@ class RisController extends Controller
 
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')) {
             $risQuery->addSelect('requisition_issue_slip_table.ris_direct_approval_by');
+        }
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
+            $risQuery->addSelect('requisition_issue_slip_table.ris_is_archived');
+            DocumentWorkflowService::applyArchiveFilter(
+                $risQuery,
+                'requisition_issue_slip_table.ris_is_archived',
+                $archiveView
+            );
+        } elseif ($archiveView) {
+            $risQuery->whereRaw('0 = 1');
         }
 
         PurchaserDocumentAccess::scopeOwned($risQuery, 'ris', 'requisition_issue_slip_table');
@@ -204,7 +218,7 @@ class RisController extends Controller
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
-            $ris->can_create_atp = RisWorkflow::isEligibleForAtp($ris);
+            $ris->can_create_atp = empty($ris->ris_is_archived) && RisWorkflow::isEligibleForAtp($ris);
         }
 
         // Dashboard counts
@@ -286,7 +300,8 @@ class RisController extends Controller
             'risCopyPrefill',
             'defaultRequestedBy',
             'defaultRequestedByDate',
-            'savedSignatures'
+            'savedSignatures',
+            'archiveView'
         ));
     }
 
@@ -655,6 +670,12 @@ class RisController extends Controller
             if ($submitError) {
                 return back()->withInput()->with('error', $submitError);
             }
+
+            if (! $this->risHasSupportingDocument(0, $request->file('ris_attachments', []))) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Please attach a supporting document (Word or Excel) before submitting to Administrator.');
+            }
         }
 
 
@@ -877,6 +898,13 @@ class RisController extends Controller
             if ($isDraft) {
                 $this->notifyPurchaserDraft((int) $risId);
             } else {
+                $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ADMIN);
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+                    DB::table('requisition_issue_slip_table')
+                        ->where('ris_id', $risId)
+                        ->update(['ris_assigned_reviewer_id' => $reviewerId]);
+                }
+
                 $savedRis = (object) [
                     'ris_id' => (int) $risId,
                     'ris_copied_from_id' => $copiedFromRisId,
@@ -887,21 +915,22 @@ class RisController extends Controller
                 DocumentWorkflowService::notifySubmitted(
                     WorkflowNotifier::ROLE_ADMIN,
                     'New RIS submitted',
-                    RisWorkflow::formNumber($formNumber) . ' was submitted for Admin review.',
+                    RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.',
                     'ris_submitted',
                     'RIS',
                     (int) $risId,
-                    '/admin/procurement-review'
+                    '/admin/procurement-review',
+                    $reviewerId
                 );
             }
 
             $success = $isDraft
                 ? 'RIS saved as draft.'
-                : 'RIS submitted to Admin successfully.';
+                : 'RIS submitted to Administrator successfully.';
             if ($procurementRequestId) {
                 $success = $isDraft
                     ? 'RIS draft created from replacement request #' . $procurementRequestId . '.'
-                    : 'RIS from replacement request #' . $procurementRequestId . ' was submitted to Admin.';
+                    : 'RIS from replacement request #' . $procurementRequestId . ' was submitted to Administrator.';
             }
 
             return redirect()
@@ -1244,8 +1273,12 @@ public function update(Request $request, $risId)
         if (! $blockedSubmitMessage) {
             $incomingSignature = RisWorkflow::normalizeDrawnSignature($validated['signature_data'] ?? null);
             if (! $incomingSignature && ! $this->risHasRequestedBySignature($ris)) {
-                $blockedSubmitMessage = 'Please sign the RIS before submitting to Admin.';
+                $blockedSubmitMessage = 'Please sign the RIS before submitting to Administrator.';
             }
+        }
+
+        if (! $blockedSubmitMessage && ! $this->risHasSupportingDocument((int) $risId, $request->file('ris_attachments', []))) {
+            $blockedSubmitMessage = 'Please attach a supporting document (Word or Excel) before submitting to Administrator.';
         }
 
         // Keep the purchaser's edits (brand, unit, etc.) even when submit is blocked.
@@ -1377,6 +1410,7 @@ public function update(Request $request, $risId)
         // =================================================
         // SUBMISSION TRACKING
         // =================================================
+        $reviewerId = null;
         if (
             in_array(
                 $saveAction,
@@ -1390,6 +1424,11 @@ public function update(Request $request, $risId)
 
             $updateData['ris_submitted_at'] =
                 now();
+
+            $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ADMIN);
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+                $updateData['ris_assigned_reviewer_id'] = $reviewerId;
+            }
         }
 
 
@@ -1465,10 +1504,10 @@ public function update(Request $request, $risId)
         $message = match ($saveAction) {
 
             'submit' =>
-                'RIS updated and submitted to Admin.',
+                'RIS updated and submitted to Administrator.',
 
             'resubmit' =>
-                'RIS corrections saved and resubmitted to Admin.',
+                'RIS corrections saved and resubmitted to Administrator.',
 
             default =>
                 'RIS changes saved successfully.',
@@ -1487,11 +1526,12 @@ public function update(Request $request, $risId)
             DocumentWorkflowService::notifySubmitted(
                 WorkflowNotifier::ROLE_ADMIN,
                 $saveAction === 'resubmit' ? 'RIS resubmitted' : 'New RIS submitted',
-                RisWorkflow::formNumber($formNumber ?: $ris) . ' was submitted for Admin review.',
+                RisWorkflow::formNumber($formNumber ?: $ris) . ' was submitted for Administrator review.',
                 'ris_submitted',
                 'RIS',
                 (int) $risId,
-                '/admin/procurement-review'
+                '/admin/procurement-review',
+                $reviewerId
             );
         }
 
@@ -1510,7 +1550,9 @@ public function update(Request $request, $risId)
 // =====================================================
 public function submit($risId)
 {
-    return DB::transaction(function () use ($risId) {
+    $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ADMIN);
+
+    return DB::transaction(function () use ($risId, $reviewerId) {
 
         // =================================================
         // GET AND LOCK RIS
@@ -1561,7 +1603,7 @@ public function submit($risId)
         if (! $this->risHasRequestedBySignature($ris)) {
             return $this->backWithEditRisError(
                 $risId,
-                'Please sign the RIS before submitting to Admin.'
+                'Please sign the RIS before submitting to Administrator.'
             );
         }
 
@@ -1601,6 +1643,13 @@ public function submit($risId)
         $submitError = $this->validateRisItemsForSubmit($items);
         if ($submitError) {
             return $this->backWithEditRisError($risId, $submitError);
+        }
+
+        if (! $this->risHasSupportingDocument((int) $risId)) {
+            return $this->backWithEditRisError(
+                $risId,
+                'Please attach a supporting document (Word or Excel) before submitting to Administrator.'
+            );
         }
 
 
@@ -1676,25 +1725,20 @@ public function submit($risId)
         // =================================================
         $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
 
+        $risSubmitUpdate = [
+            'ris_status' => 'Submitted',
+            'ris_form_number' => $formNumber,
+            'ris_submitted_by' => Auth::id(),
+            'ris_submitted_at' => now(),
+            'ris_updated_at' => now(),
+        ];
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+            $risSubmitUpdate['ris_assigned_reviewer_id'] = $reviewerId;
+        }
+
         DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
-            ->update([
-
-                'ris_status' =>
-                    'Submitted',
-
-                'ris_form_number' =>
-                    $formNumber,
-
-                'ris_submitted_by' =>
-                    Auth::id(),
-
-                'ris_submitted_at' =>
-                    now(),
-
-                'ris_updated_at' =>
-                    now(),
-            ]);
+            ->update($risSubmitUpdate);
 
         $ris->ris_form_number = $formNumber;
         $this->deleteCopiedSourceDraftIfNeeded($ris);
@@ -1702,18 +1746,19 @@ public function submit($risId)
         DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ADMIN,
             'New RIS submitted',
-            RisWorkflow::formNumber($formNumber) . ' was submitted for Admin review.',
+            RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.',
             'ris_submitted',
             'RIS',
             (int) $risId,
-            '/admin/procurement-review'
+            '/admin/procurement-review',
+            $reviewerId
         );
 
         return redirect()
             ->route(ProcurementPortal::routeName('ris.index'))
             ->with(
                 'success',
-                'RIS submitted to Admin successfully.'
+                'RIS submitted to Administrator successfully.'
             );
     });
 }
@@ -1738,6 +1783,68 @@ public function submit($risId)
         return redirect()
             ->route(ProcurementPortal::routeName('ris.index'))
             ->with('success', 'Draft RIS deleted.');
+    }
+
+    public function archive($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        if (!$ris) {
+            return back()->with('error', 'RIS not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($ris, 'ris');
+
+        if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
+            return back()->with('error', 'Archive is not available yet. Please run migrations.');
+        }
+
+        $groups = $this->risStatusGroups();
+        $archivable = array_merge($groups['approved'], $groups['rejected']);
+        if (!in_array((string) ($ris->ris_status ?? ''), $archivable, true)) {
+            return back()->with('error', 'Only approved or rejected RIS records can be archived.');
+        }
+
+        DocumentWorkflowService::setArchived(
+            'requisition_issue_slip_table',
+            'ris_id',
+            $risId,
+            'ris_is_archived',
+            'ris_updated_at',
+            true
+        );
+
+        return back()->with('success', 'RIS archived.');
+    }
+
+    public function restore($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        if (!$ris) {
+            return back()->with('error', 'RIS not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($ris, 'ris');
+
+        if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
+            return back()->with('error', 'Archive is not available yet. Please run migrations.');
+        }
+
+        DocumentWorkflowService::setArchived(
+            'requisition_issue_slip_table',
+            'ris_id',
+            $risId,
+            'ris_is_archived',
+            'ris_updated_at',
+            false
+        );
+
+        return back()->with('success', 'RIS restored from archive.');
     }
 
     // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
@@ -2056,7 +2163,7 @@ public function submit($risId)
             Auth::id(),
             WorkflowNotifier::ROLE_PURCHASER,
             'Draft RIS saved',
-            'You have a draft RIS waiting to be completed and submitted to Admin.',
+            'You have a draft RIS waiting to be completed and submitted to Administrator.',
             'ris_draft',
             'RIS',
             $risId,
@@ -2078,20 +2185,54 @@ public function submit($risId)
 
     private function risStatusSummary(): array
     {
-        $counts = DB::table('requisition_issue_slip_table')
-            ->select('ris_status', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('ris_status')
-            ->pluck('aggregate', 'ris_status');
+        $hasArchived = Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived');
 
+        $query = DB::table('requisition_issue_slip_table')
+            ->select(
+                'ris_status',
+                DB::raw('COUNT(*) as aggregate')
+            );
+
+        if ($hasArchived) {
+            $query->addSelect('ris_is_archived')
+                ->groupBy('ris_status', 'ris_is_archived');
+        } else {
+            $query->groupBy('ris_status');
+        }
+
+        $rows = $query->get();
         $groups = $this->risStatusGroups();
 
-        return [
-            'total' => (int) $counts->sum(),
-            'draft' => (int) ($counts['Draft'] ?? 0),
-            'submitted' => (int) $counts->only($groups['submitted'])->sum(),
-            'approved' => (int) $counts->only($groups['approved'])->sum(),
-            'rejected' => (int) $counts->only($groups['rejected'])->sum(),
+        $summary = [
+            'total' => 0,
+            'draft' => 0,
+            'submitted' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+            'archived' => 0,
         ];
+
+        foreach ($rows as $row) {
+            $count = (int) $row->aggregate;
+            if ($hasArchived && (int) ($row->ris_is_archived ?? 0) === 1) {
+                $summary['archived'] += $count;
+                continue;
+            }
+
+            $summary['total'] += $count;
+            $status = (string) ($row->ris_status ?? '');
+            if ($status === 'Draft') {
+                $summary['draft'] += $count;
+            } elseif (in_array($status, $groups['submitted'], true)) {
+                $summary['submitted'] += $count;
+            } elseif (in_array($status, $groups['approved'], true)) {
+                $summary['approved'] += $count;
+            } elseif (in_array($status, $groups['rejected'], true)) {
+                $summary['rejected'] += $count;
+            }
+        }
+
+        return $summary;
     }
 
     private function uomTableExists(): bool
@@ -2225,6 +2366,28 @@ public function submit($risId)
         }
 
         return null;
+    }
+
+    private function risHasSupportingDocument(int $risId = 0, $incomingFiles = null): bool
+    {
+        $files = $incomingFiles;
+        if ($files === null) {
+            $files = [];
+        } elseif (! is_array($files)) {
+            $files = [$files];
+        }
+
+        foreach ($files as $file) {
+            if ($file && method_exists($file, 'isValid') && $file->isValid()) {
+                return true;
+            }
+        }
+
+        if ($risId > 0 && Schema::hasTable('ris_attachments_table')) {
+            return DB::table('ris_attachments_table')->where('ris_id', $risId)->exists();
+        }
+
+        return false;
     }
 
     private function validateRisItemsForSubmit($items): ?string

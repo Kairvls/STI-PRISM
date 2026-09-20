@@ -1152,9 +1152,9 @@
                     });
                 }
                 if (typeof window.showToast === 'function') {
-                    showToast('RIS approved. Notify Admin when ready.', { title: 'Approved', type: 'success' });
+                    showToast('RIS approved. Notify Administrator when ready.', { title: 'Approved', type: 'success' });
                 } else if (typeof window.showMpToast === 'function') {
-                    showMpToast('RIS approved. Notify Admin when ready.', { title: 'Approved', type: 'success', timer: 3600 });
+                    showMpToast('RIS approved. Notify Administrator when ready.', { title: 'Approved', type: 'success', timer: 3600 });
                 }
             })
             .catch(function (error) {

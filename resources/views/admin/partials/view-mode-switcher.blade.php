@@ -5,18 +5,18 @@
 @endphp
 <div
     id="{{ $switcherId }}"
-    class="admin-view-switcher relative inline-flex items-center rounded-full border border-gray-200 bg-gray-100 p-0.5"
+    class="admin-view-switcher relative inline-flex items-center rounded-lg border border-gray-200 bg-gray-100 p-0.5"
     role="group"
     aria-label="View mode"
 >
     <span
-        class="admin-view-switcher-thumb pointer-events-none absolute top-0.5 left-0.5 z-0 h-[calc(100%-4px)] rounded-full bg-slate-900 shadow-sm"
+        class="admin-view-switcher-thumb pointer-events-none absolute top-0.5 left-0.5 z-0 h-[calc(100%-4px)] rounded-lg bg-[#0025cc] shadow-sm"
         aria-hidden="true"
     ></span>
     <button
         type="button"
         data-view-mode="cards"
-        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
+        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
         title="Cards view"
     >
         <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -30,7 +30,7 @@
     <button
         type="button"
         data-view-mode="table"
-        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
+        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
         title="Table view"
     >
         <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

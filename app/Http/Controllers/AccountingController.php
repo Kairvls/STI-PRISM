@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Support\WorkflowNotifier;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\PurchaseOrderBasket;
@@ -441,12 +442,18 @@ class AccountingController extends Controller
         return DB::transaction(function () use ($request, $id) {
         $atp = $this->lockAtp($id);
         abort_if(!$atp, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($atp->authority_purchase_assigned_reviewer_id)
+                ? (int) $atp->authority_purchase_assigned_reviewer_id
+                : null,
+            'ATP'
+        );
 
         if ($atp->authority_purchase_status !== 'Pending' || $atp->authority_purchase_submitted_at === null) {
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
-        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
+        $name = \App\Support\AccountingSigner::nameFromRequest($request);
         $update = [
             'authority_purchase_status' => 'Approved',
             'authority_purchase_authorized_by_signature' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
@@ -484,6 +491,12 @@ class AccountingController extends Controller
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
         $atp = $this->lockAtp($id);
         abort_if(!$atp, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($atp->authority_purchase_assigned_reviewer_id)
+                ? (int) $atp->authority_purchase_assigned_reviewer_id
+                : null,
+            'ATP'
+        );
 
         if ($atp->authority_purchase_status !== 'Pending' || $atp->authority_purchase_submitted_at === null) {
             return back()->with('error', 'Only submitted ATP records can be sent back for revision.');
@@ -526,6 +539,11 @@ class AccountingController extends Controller
                 $q->whereNull('purchase_order_is_archived')
                     ->orWhere('purchase_order_is_archived', 0);
             });
+        $this->applyAssignedReviewerFilter(
+            $query,
+            'purchase_orders_table',
+            'purchase_order_assigned_reviewer_id'
+        );
 
         if ($filter === 'incoming') {
             $query->where('purchase_order_status', PurchaseOrderBasket::STATUS_SUBMITTED);
@@ -600,13 +618,19 @@ class AccountingController extends Controller
                 ->lockForUpdate()
                 ->first();
             abort_if(! $order, 404);
+            ReviewerAssignment::assertCanAct(
+                isset($order->purchase_order_assigned_reviewer_id)
+                    ? (int) $order->purchase_order_assigned_reviewer_id
+                    : null,
+                'Purchase Order'
+            );
 
             if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
                 return back()->with('error', 'Only submitted Purchase Orders can be approved.');
             }
 
             $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
-            $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
+            $name = \App\Support\AccountingSigner::nameFromRequest($request);
             $now = now();
 
             DB::table('purchase_orders_table')
@@ -665,6 +689,12 @@ class AccountingController extends Controller
                 ->lockForUpdate()
                 ->first();
             abort_if(! $order, 404);
+            ReviewerAssignment::assertCanAct(
+                isset($order->purchase_order_assigned_reviewer_id)
+                    ? (int) $order->purchase_order_assigned_reviewer_id
+                    : null,
+                'Purchase Order'
+            );
 
             if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
                 return back()->with('error', 'Only submitted Purchase Orders can be sent back for revision.');
@@ -836,12 +866,18 @@ class AccountingController extends Controller
     {
         $rfc = $this->lockRfc($id);
         abort_if(!$rfc, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($rfc->request_check_assigned_reviewer_id)
+                ? (int) $rfc->request_check_assigned_reviewer_id
+                : null,
+            'Request for Check'
+        );
 
         if (!in_array($rfc->request_check_status, $this->rfcIncomingStatuses(), true)) {
             return back()->with('error', 'This Request Check is not awaiting Accounting review.');
         }
 
-        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
+        $name = \App\Support\AccountingSigner::nameFromRequest($request);
         $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
         $this->rfcUpdate($id, [
             'request_check_status' => 'Approved',
@@ -877,6 +913,12 @@ class AccountingController extends Controller
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
         $rfc = $this->lockRfc($id);
         abort_if(!$rfc, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($rfc->request_check_assigned_reviewer_id)
+                ? (int) $rfc->request_check_assigned_reviewer_id
+                : null,
+            'Request for Check'
+        );
 
         if (!in_array($rfc->request_check_status, $this->rfcIncomingStatuses(), true)) {
             return back()->with('error', 'This Request Check cannot be sent for revision.');
@@ -1122,6 +1164,12 @@ class AccountingController extends Controller
     {
         $liq = $this->lockLiq($id);
         abort_if(!$liq, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($liq->liquidation_report_assigned_reviewer_id)
+                ? (int) $liq->liquidation_report_assigned_reviewer_id
+                : null,
+            'Liquidation Report'
+        );
 
         if (!in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true)) {
             return back()->with('error', 'This liquidation report is not awaiting Accounting review.');
@@ -1135,14 +1183,21 @@ class AccountingController extends Controller
             );
         }
 
-        $name = \App\Support\AccountingSigner::currentUserName() ?: (Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting');
-        $this->liqUpdate($id, [
+        $name = \App\Support\AccountingSigner::nameFromRequest($request);
+        $liqPayload = [
             'liquidation_report_status' => 'Approved',
             'liquidation_report_review_stage' => 'completed',
             'liquidation_report_checked_by_accountant' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
             'liquidation_report_checked_by_date' => now()->toDateString(),
             'liquidation_report_updated_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_checked_by_user_id')) {
+            $liqPayload['liquidation_report_checked_by_user_id'] = Auth::id();
+        }
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_checked_by_name')) {
+            $liqPayload['liquidation_report_checked_by_name'] = $name;
+        }
+        $this->liqUpdate($id, $liqPayload);
 
         $this->log('LIQ', (int) $id, 'Approved', 'Liquidation approved. Transaction completed.');
         $this->completeLinkedProcurementRequest($liq);
@@ -1167,6 +1222,12 @@ class AccountingController extends Controller
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
         $liq = $this->lockLiq($id);
         abort_if(!$liq, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($liq->liquidation_report_assigned_reviewer_id)
+                ? (int) $liq->liquidation_report_assigned_reviewer_id
+                : null,
+            'Liquidation Report'
+        );
 
         if (!in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true)) {
             return back()->with('error', 'This liquidation report cannot be sent for revision.');
@@ -1861,7 +1922,22 @@ class AccountingController extends Controller
             $select[] = 'atp_totals.atp_total';
         }
 
+        $this->applyAssignedReviewerFilter(
+            $query,
+            'authority_to_purchase_table',
+            'authority_purchase_assigned_reviewer_id'
+        );
+
         return $query->select($select);
+    }
+
+    private function applyAssignedReviewerFilter($query, string $table, string $column): void
+    {
+        if (! Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        ReviewerAssignment::applyQueueFilter($query, $table.'.'.$column);
     }
 
     private function rfcQuery()
@@ -1879,6 +1955,12 @@ class AccountingController extends Controller
                 '=',
                 'requisition_issue_slip_table.ris_id'
             );
+
+        $this->applyAssignedReviewerFilter(
+            $query,
+            'request_check_table',
+            'request_check_assigned_reviewer_id'
+        );
 
         return $query->select(
             'request_check_table.*',
@@ -1902,6 +1984,12 @@ class AccountingController extends Controller
             );
             $select[] = 'receiving_reports_table.receiving_report_form_number';
         }
+
+        $this->applyAssignedReviewerFilter(
+            $query,
+            'liquidation_reports_table',
+            'liquidation_report_assigned_reviewer_id'
+        );
 
         return $query->select($select);
     }

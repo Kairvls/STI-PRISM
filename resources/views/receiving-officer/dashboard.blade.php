@@ -121,14 +121,14 @@
     align-items: center;
     padding: 8px 12px;
     border-radius: 10px;
-    background: #0f172a;
+    background: #0025cc;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
     text-decoration: none;
     white-space: nowrap;
 }
-.ro-attention-cta:hover { background: #1e293b; }
+.ro-attention-cta:hover { background: #001db3; }
 .sidebar-calendar-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
 .sidebar-calendar-header { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
 .sidebar-calendar-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; }

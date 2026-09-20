@@ -167,7 +167,7 @@
         }
     "
     @keydown.escape.window="closeAll()"
-    class="space-y-6"
+    class="flex flex-col gap-6"
 >
     <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -210,70 +210,32 @@
         @endunless
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Draft</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['draft']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Incomplete drafts awaiting submit</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">In Review</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['submitted']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                    <i data-lucide="send" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Waiting for accounting review</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Approved</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['approved']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Approved for receiving workflow</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
-
-        <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Rejected']) }}" class="pur-stat-card group">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Rejected</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{{ number_format($rfcSummary['rejected']) }}</p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
-                    <i data-lucide="circle-x" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span>Returned or declined RFC</span>
-                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
-            </div>
-        </a>
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                [
+                    'label' => 'Draft',
+                    'hint' => 'Incomplete drafts awaiting submit',
+                    'value' => number_format($rfcSummary['draft']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft']),
+                    'active' => request('status') === 'Draft',
+                ],
+                [
+                    'label' => 'In Review',
+                    'hint' => 'Waiting for accounting review',
+                    'value' => number_format($rfcSummary['submitted']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted']),
+                    'active' => request('status') === 'Submitted',
+                ],
+                [
+                    'label' => 'Approved',
+                    'hint' => 'Approved for receiving workflow',
+                    'value' => number_format($rfcSummary['approved']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved']),
+                    'active' => request('status') === 'Approved',
+                ],
+            ],
+        ])
     </div>
 
     @php
@@ -290,7 +252,7 @@
     <div id="rfc-records-section" class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
+                <div class="min-w-0 shrink">
                     <div class="flex items-center gap-3">
                         <h2 class="text-base font-semibold text-gray-950">
                             {{ $archiveView ? 'Archived RFC' : 'RFC Records' }}
@@ -300,7 +262,7 @@
                         </span>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
-                        {{ $archiveView ? 'Stored Request for Check records.' : 'Search and manage Request for Check records.' }}
+                        {{ $archiveView ? 'Stored RFC records.' : 'Manage RFC records.' }}
                     </p>
                 </div>
 
@@ -309,12 +271,12 @@
                     action="{{ route(($pp ?? 'purchaser').'.rfc.index') }}"
                     x-ref="rfcFilterForm"
                     x-on:submit.prevent="refreshRfcRecords()"
-                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+                    class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:ml-auto xl:w-auto xl:flex-nowrap"
                 >
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
-                    <div class="relative">
+                    <div class="relative shrink-0">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
                         </svg>
@@ -327,19 +289,19 @@
                                 searchTimer = setTimeout(() => refreshRfcRecords(), 350);
                             "
                             placeholder="Search RFC, ATP, payee..."
-                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-52"
                         >
                     </div>
 
-                    <select name="status" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <select name="status" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
                         @endforeach
                     </select>
 
-                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" x-on:change="refreshRfcRecords()" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_to" value="{{ request('date_to') }}" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
 
                     <button
                         type="submit"
@@ -417,10 +379,27 @@
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}" onsubmit="return confirm('Submit this Request for Check to Accounting?')">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
+                                            data-pur-confirm="Submit this Request for Check to Accounting?"
+                                            data-pur-confirm-title="Submit RFC"
+                                            data-pur-confirm-ok="Submit"
+                                            data-pur-confirm-reviewer-role="Accounting"
+                                        >
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
                                         </form>
+                                    @endif
+                                    @if(
+                                        !$archiveView
+                                        && in_array($rfc->request_check_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
+                                    )
+                                        @include('partials.purchaser-reassign-reviewer', [
+                                            'type' => 'rfc',
+                                            'id' => $rfc->request_check_id,
+                                            'currentReviewerId' => $rfc->request_check_assigned_reviewer_id ?? null,
+                                        ])
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
@@ -437,7 +416,14 @@
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
                                     @elseif(in_array($rfc->request_check_status, ['Approved', 'Rejected'], true))
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.archive', $rfc->request_check_id) }}" onsubmit="return confirm('Archive this Request for Check?')">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rfc.archive', $rfc->request_check_id) }}"
+                                            data-pur-confirm="Archive this Request for Check?"
+                                            data-pur-confirm-title="Archive RFC"
+                                            data-pur-confirm-ok="Archive"
+                                            data-pur-confirm-kind="archive"
+                                        >
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50" title="Archive" aria-label="Archive"><i data-lucide="archive" class="h-4 w-4"></i></button>
                                         </form>
@@ -539,26 +525,62 @@
                         @endif
                         @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
                         <div id="purSigSlot-rfc-create" class="mt-4 w-full"></div>
-                        <div class="mt-4 rounded-lg bg-white p-4">
-                            <label class="text-xs font-medium text-gray-500">Supporting documents (PDF, JPG, PNG · max 5MB each)</label>
-                            <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-2 block w-full text-sm">
+                        <div
+                            class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white"
+                            x-data="{ attachmentNames: [] }"
+                        >
+                            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
+                                    <p class="truncate text-[11px] text-slate-500">Optional · PDF, JPG, PNG · max 5MB each</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    x-show="attachmentNames.length"
+                                    x-cloak
+                                    x-on:click="attachmentNames = []; $refs.createRfcAttachments.value = ''"
+                                    class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                            <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
+                                <template x-for="(name, index) in attachmentNames" :key="index">
+                                    <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
+                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="name"></p>
+                                    </div>
+                                </template>
+                                <label class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50">
+                                    <input
+                                        type="file"
+                                        name="attachments[]"
+                                        multiple
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        class="sr-only"
+                                        x-ref="createRfcAttachments"
+                                        x-on:change="attachmentNames = Array.from($event.target.files || []).map((f) => f.name); $nextTick(() => window.lucide && window.lucide.createIcons())"
+                                    >
+                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
+                                        <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-medium text-slate-800">Add files</p>
+                                        <p class="truncate text-[10px] text-slate-500">Choose PDF, JPG, or PNG</p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Cancel</button>
-                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50">
-                            Save Draft
+                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                            Cancel
                         </button>
-                        <button type="submit" onclick="
-                            this.form.save_action.value='submit';
-                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                event.preventDefault();
-                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                else alert('Draw or upload your signature before submitting.');
-                            }
-                        " class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800" @if($eligibleAtps->isEmpty()) disabled title="Link an approved ATP before submitting" @endif>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                             <i data-lucide="check" class="h-4 w-4"></i>
-                            Save & Submit
+                            Save Draft
                         </button>
                     </div>
                 </form>
@@ -603,17 +625,6 @@
                                     · RR: {{ $rfc->receiving_report_form_number }} ({{ $rfc->receiving_report_status }})
                                 @endif
                             </p>
-                            @php
-                                $rfcLineage = \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id);
-                                $rfcHint = \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc');
-                            @endphp
-                            <div class="mt-3">
-                                @include('partials.document-lineage', [
-                                    'lineage' => $rfcLineage,
-                                    'currentType' => 'RFC',
-                                    'statusHint' => $rfcHint,
-                                ])
-                            </div>
                             @if($rfc->request_check_revision_notes)
                                 <p class="mt-2 text-sm text-amber-700">Revision notes: {{ $rfc->request_check_revision_notes }}</p>
                             @endif
@@ -621,13 +632,57 @@
                                 <p class="mt-2 text-sm text-red-700">Rejection: {{ $rfc->request_check_rejection_reason }}</p>
                             @endif
                         </div>
-                        <div class="flex shrink-0 items-center gap-1">
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <button
+                                type="button"
+                                @click="printRfc({{ $rfc->request_check_id }})"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-slate-300 hover:bg-gray-50"
+                                data-tooltip="Print RFC"
+                                aria-label="Print RFC"
+                            >
+                                <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                            </button>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.rfc.export-xlsx', $rfc->request_check_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-50"
+                                data-tooltip="Export to Excel"
+                                aria-label="Export to Excel"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                                </svg>
+                            </a>
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.rfc.export-docx', $rfc->request_check_id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300 hover:bg-blue-50"
+                                data-tooltip="Export to Word file"
+                                aria-label="Export to Word file"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                                    <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                                    <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                                    <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                                    <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                                </svg>
+                            </a>
                             @include('purchaser.partials.modal-fullscreen-button')
                             <button type="button" @click="viewOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
                     </div>
+                    @php
+                        $rfcLineage = \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id);
+                        $rfcHint = \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc');
+                    @endphp
+                    @include('partials.document-lineage', [
+                        'lineage' => $rfcLineage,
+                        'currentType' => 'RFC',
+                        'statusHint' => $rfcHint,
+                    ])
                     <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc, 'printId' => 'rfc-print-'.$rfc->request_check_id])
                         @if($rfcFiles->isNotEmpty())
@@ -645,20 +700,21 @@
                             </div>
                         @endif
                     </div>
-                    <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+                    <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <button
+                            type="button"
+                            @click="viewOpen = false"
+                            class="px-2 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950"
+                        >
+                            Close
+                        </button>
                         @if(!$archiveView && $rfc->request_check_status === 'Approved')
-                            @if(!$rfc->has_rr && $rfc->funds_released)
-                                <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800">Create RR</a>
-                            @elseif(!$rfc->has_rr)
-                                <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
-                            @else
+                            @if($rfc->has_rr)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">RR Created</span>
+                            @elseif(!$rfc->funds_released)
+                                <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
                             @endif
                         @endif
-                        <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="pur-btn-primary">Print</button>
-                        <a href="{{ route(($pp ?? 'purchaser').'.rfc.export-xlsx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Excel</a>
-                        <a href="{{ route(($pp ?? 'purchaser').'.rfc.export-docx', $rfc->request_check_id) }}" class="h-10 inline-flex items-center rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Word</a>
-                        <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">Close</button>
                     </div>
                 </div>
             </div>
@@ -778,31 +834,46 @@
                     @include('partials.request-check-paper', ['editable' => false, 'rfc' => null, 'printId' => 'rfc-print-blank'])
                 </div>
 
-                <div class="print-hidden flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                <div class="print-hidden flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4">
                     <button
                         type="button"
                         x-on:click="emptyOpen = false"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        class="px-2 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950"
                     >
                         Cancel
                     </button>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.rfc.export-blank-xlsx') }}"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        data-tooltip="Export to Excel"
+                        aria-label="Export to Excel"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 transition hover:border-emerald-300"
                     >
-                        Excel
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185C37" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#21A366" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#107C41" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="M7.35 21.35 9.9 16.75l-2.4-4.5h1.85l1.5 3.15c.14.3.24.53.31.72h.04c.08-.22.19-.47.33-.76l1.55-3.11h1.7l-2.48 4.52 2.55 4.68h-1.82l-1.7-3.45c-.09-.18-.16-.35-.21-.52h-.04c-.05.18-.12.36-.22.55l-1.74 3.42H7.35z"/>
+                        </svg>
                     </a>
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.rfc.export-blank-docx') }}"
-                        class="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        data-tooltip="Export to Word file"
+                        aria-label="Export to Word file"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 transition hover:border-blue-300"
                     >
-                        Word
+                        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path fill="#185ABD" d="M18.5 3H8.8C7.25 3 6 4.25 6 5.8v20.4C6 27.75 7.25 29 8.8 29h14.4c1.55 0 2.8-1.25 2.8-2.8V10.5L18.5 3z"/>
+                            <path fill="#4CA1FF" d="M18.5 3v6.2c0 1.21.99 2.2 2.2 2.2H29L18.5 3z"/>
+                            <path fill="#2B7CD3" d="M14.2 9H4.9C3.85 9 3 9.85 3 10.9v12.2C3 24.15 3.85 25 4.9 25h9.3c1.05 0 1.9-.85 1.9-1.9V10.9C16.1 9.85 15.25 9 14.2 9z"/>
+                            <path fill="#FFF" d="m6.55 21.2 1.45-6.55h1.55l.9 4.35c.08.4.14.74.18 1.02h.04c.05-.28.12-.62.22-1.02l1.05-4.35h1.45l1.1 4.35c.09.37.16.71.21 1.02h.04c.04-.28.11-.64.21-1.05l.95-4.32h1.48L15.4 21.2h-1.55l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.04c-.04.32-.11.64-.2.98l-1.1 4.17H9.7l-1.05-4.2c-.08-.33-.14-.64-.18-.95h-.03c-.04.3-.11.62-.2.95l-1.08 4.2H6.55z"/>
+                        </svg>
                     </a>
                     <button
                         type="button"
                         @click="printRfc('blank')"
-                        class="pur-btn-primary"
+                        class="flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
                     >
+                        <i data-lucide="printer" class="h-4 w-4"></i>
                         Print Empty RFC
                     </button>
                 </div>

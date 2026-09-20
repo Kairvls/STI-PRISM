@@ -85,23 +85,15 @@
 {{-- Weekly Tab --}}
 <div id="weeklyTab" class="mt-6 {{ request('tab') === 'monthly' ? 'hidden' : '' }}">
     {{-- Weekly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
-            <p class="text-xs font-medium text-slate-500">Total RIS</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
-            <p class="text-xs font-medium text-slate-500">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-slate-500">Rejected</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-slate-500">Pending</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
-        </div>
+    <div class="mt-4">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total RIS', 'hint' => 'This period', 'value' => number_format((int) ($totalRis ?? 0))],
+                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approvedDecisionsCount ?? 0))],
+                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejectedDecisionsCount ?? 0))],
+                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pendingApprovalsCount ?? 0))],
+            ],
+        ])
     </div>
 
     {{-- Weekly Chart --}}
@@ -224,23 +216,15 @@
     </div>
 
     {{-- Monthly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
-            <p class="text-xs font-medium text-slate-500">Total RIS</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-slate-500">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-slate-500">Rejected</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
-        </div>
-        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
-            <p class="text-xs font-medium text-slate-500">Pending</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
-        </div>
+    <div class="mt-4">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Total RIS', 'hint' => 'This period', 'value' => number_format((int) ($totalRis ?? 0))],
+                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approvedDecisionsCount ?? 0))],
+                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejectedDecisionsCount ?? 0))],
+                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pendingApprovalsCount ?? 0))],
+            ],
+        ])
     </div>
 
     {{-- Monthly Chart --}}

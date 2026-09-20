@@ -764,7 +764,7 @@ class PresidentController extends Controller
         }
 
         if (!$this->risIsAwaitingPresident($target)) {
-            return $fail('Only RIS records forwarded by Admin can be decided by President.');
+            return $fail('Only RIS records forwarded by Administrator can be decided by President.');
         }
 
         if ($decision === 'Rejected' && trim((string) $remarks) === '') {
@@ -844,7 +844,7 @@ class PresidentController extends Controller
                     : null,
                 'admin_notified' => false,
                 'message' => $decision === 'Approved'
-                    ? 'RIS approved successfully. Notify Admin when ready.'
+                    ? 'RIS approved successfully. Notify Administrator when ready.'
                     : 'RIS rejected successfully.',
             ]);
         }
@@ -1664,7 +1664,7 @@ class PresidentController extends Controller
             ]),
             'forward_details' => $forwardDetails !== '' ? $forwardDetails : null,
             'forward_attachment' => $forwardAttachmentPath !== '' ? [
-                'name' => $forwardAttachmentName !== '' ? $forwardAttachmentName : 'Admin attachment',
+                'name' => $forwardAttachmentName !== '' ? $forwardAttachmentName : 'Administrator attachment',
                 'url' => route('president.ris.forward-attachment', $record->ris_id),
             ] : null,
             'has_president_signature' => trim((string) ($record->ris_approved_by_signature ?? '')) !== '',
@@ -1708,7 +1708,7 @@ class PresidentController extends Controller
         if (!RisWorkflow::isPresidentApproved($record)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Only an approved RIS can notify Admin.',
+                'message' => 'Only an approved RIS can notify Administrator.',
             ], 422);
         }
 
@@ -1717,7 +1717,7 @@ class PresidentController extends Controller
                 'ok' => true,
                 'ris_id' => (int) $record->ris_id,
                 'already_notified' => true,
-                'message' => 'Admin was already notified for this RIS.',
+                'message' => 'Administrator was already notified for this RIS.',
             ]);
         }
 
@@ -1728,7 +1728,7 @@ class PresidentController extends Controller
                 'approval_log_level' => 'President',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Approved',
-                'approval_log_approval_remarks' => 'Notified Admin for co-sign',
+                'approval_log_approval_remarks' => 'Notified Administrator for co-sign',
                 'approval_log_approved_at' => now(),
             ]);
         } catch (\Throwable $e) {
@@ -1738,7 +1738,7 @@ class PresidentController extends Controller
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_ADMIN,
             'President approved an RIS',
-            $form . ' was approved by the President and is ready for Admin co-sign.',
+            $form . ' was approved by the President and is ready for Administrator co-sign.',
             'ris_president_approved',
             'RIS',
             (int) $record->ris_id,
@@ -1749,7 +1749,7 @@ class PresidentController extends Controller
             'ok' => true,
             'ris_id' => (int) $record->ris_id,
             'already_notified' => false,
-            'message' => 'Admin has been notified.',
+            'message' => 'Administrator has been notified.',
         ]);
     }
 
@@ -1762,7 +1762,7 @@ class PresidentController extends Controller
         abort_if(!$ris, 404);
 
         if (!$this->risIsAwaitingPresident($ris)) {
-            abort(403, 'Only RIS records forwarded by Admin can be signed by the President.');
+            abort(403, 'Only RIS records forwarded by Administrator can be signed by the President.');
         }
 
         $risItems = $this->risItemsWithUom($risId);
@@ -1918,7 +1918,8 @@ class PresidentController extends Controller
                 ->where('approval_log_reference_id', $risId)
                 ->where('approval_log_level', 'President')
                 ->where(function ($q) {
-                    $q->where('approval_log_approval_remarks', 'Notified Admin for co-sign')
+                    $q->where('approval_log_approval_remarks', 'Notified Administrator for co-sign')
+                        ->orWhere('approval_log_approval_remarks', 'Notified Admin for co-sign')
                         ->orWhere('approval_log_approval_remarks', 'Forwarded to Admin for co-sign');
                 })
                 ->exists();

@@ -11,6 +11,7 @@ use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -301,6 +302,9 @@ class AuthorityToPurchaseController extends Controller
 
         return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig, $risId) {
             $now = now();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
             $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
                 ? (string) $validated['authority_purchase_form_number']
@@ -324,6 +328,9 @@ class AuthorityToPurchaseController extends Controller
             if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')) {
                 $payload['authority_purchase_received_by_signature'] = $receivedSig;
             }
+            if (! $isDraft && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
+                $payload['authority_purchase_assigned_reviewer_id'] = $reviewerId;
+            }
 
             $authorityPurchaseId = DB::table('authority_to_purchase_table')->insertGetId($payload);
 
@@ -332,7 +339,7 @@ class AuthorityToPurchaseController extends Controller
             if ($isDraft) {
                 PurchaseOrderBasket::attachAtp((int) $authorityPurchaseId, (int) auth()->id());
             } else {
-                $this->notifyAccountingAtp($authorityPurchaseId, $formNumber);
+                $this->notifyAccountingAtp($authorityPurchaseId, $formNumber, $reviewerId);
             }
 
             $message = $isDraft
@@ -484,6 +491,9 @@ class AuthorityToPurchaseController extends Controller
 
         return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp, $receivedSig) {
             $now = now();
+            $reviewerId = $isDraft
+                ? null
+                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
             $formNumber = filled($validated['authority_purchase_form_number'] ?? null)
                 ? (string) $validated['authority_purchase_form_number']
@@ -508,6 +518,9 @@ class AuthorityToPurchaseController extends Controller
                 $payload['authority_purchase_submitted_at'] = $now;
                 $payload['authority_purchase_status'] = 'Pending';
                 $payload['authority_purchase_rejection_reason'] = null;
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
+                    $payload['authority_purchase_assigned_reviewer_id'] = $reviewerId;
+                }
             }
 
             DB::table('authority_to_purchase_table')
@@ -520,7 +533,7 @@ class AuthorityToPurchaseController extends Controller
                 if (PurchaseOrderBasket::poIdForAtp((int) $id)) {
                     return back()->with('error', 'This ATP is on a Purchase Order. Submit it from Purchase Orders instead.');
                 }
-                $this->notifyAccountingAtp($id, $formNumber);
+                $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
             }
 
             $message = $isDraft
@@ -535,7 +548,9 @@ class AuthorityToPurchaseController extends Controller
 
     public function submit($id)
     {
-        return DB::transaction(function () use ($id) {
+        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+
+        return DB::transaction(function () use ($id, $reviewerId) {
             $atp = DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_id', $id)
                 ->lockForUpdate()
@@ -616,17 +631,22 @@ class AuthorityToPurchaseController extends Controller
                     ]);
             }
 
+            $update = [
+                'authority_purchase_status' => 'Pending',
+                'authority_purchase_submitted_by' => auth()->id(),
+                'authority_purchase_submitted_at' => now(),
+                'authority_purchase_rejection_reason' => null,
+                'authority_purchase_updated_at' => now(),
+            ];
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
+                $update['authority_purchase_assigned_reviewer_id'] = $reviewerId;
+            }
+
             DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_id', $id)
-                ->update([
-                    'authority_purchase_status' => 'Pending',
-                    'authority_purchase_submitted_by' => auth()->id(),
-                    'authority_purchase_submitted_at' => now(),
-                    'authority_purchase_rejection_reason' => null,
-                    'authority_purchase_updated_at' => now(),
-                ]);
+                ->update($update);
 
-            $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number);
+            $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number, $reviewerId);
 
             return redirect()
                 ->route(ProcurementPortal::routeName('atp.index'))
@@ -686,7 +706,7 @@ class AuthorityToPurchaseController extends Controller
         return back()->with('success', 'ATP restored from archive.');
     }
 
-    private function notifyAccountingAtp($id, ?string $formNumber): void
+    private function notifyAccountingAtp($id, ?string $formNumber, ?int $reviewerId = null): void
     {
         DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ACCOUNTING,
@@ -695,7 +715,8 @@ class AuthorityToPurchaseController extends Controller
             'atp_submitted',
             'ATP',
             (int) $id,
-            '/accounting/authority-to-purchase/' . $id
+            '/accounting/authority-to-purchase/' . $id,
+            $reviewerId
         );
     }
 
@@ -773,6 +794,13 @@ class AuthorityToPurchaseController extends Controller
             );
 
         $this->applyAtpEligibleRisScope($query);
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
+            $query->where(function ($q) {
+                $q->whereNull('requisition_issue_slip_table.ris_is_archived')
+                    ->orWhere('requisition_issue_slip_table.ris_is_archived', 0);
+            });
+        }
 
         return $query
             ->whereNotExists(function ($query) {

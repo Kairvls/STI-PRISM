@@ -16,14 +16,6 @@
         'liq' => 'At LIQ',
     ];
 
-    $metricDots = [
-        'ris' => 'bg-[#0025cc]',
-        'atp' => 'bg-sky-400',
-        'rfc' => 'bg-amber-400',
-        'receiving' => 'bg-emerald-500',
-        'liquidation' => 'bg-violet-400',
-    ];
-
     $risStatusClasses = [
         'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
         'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
@@ -140,7 +132,7 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <p class="max-w-2xl text-sm leading-relaxed text-gray-500">
             View-only track of RIS → ATP → RFC/CA → RR → Liquidation.
-            To <span class="font-semibold text-gray-900">create and drive</span> documents, enable procurement on your Admin account and open the
+            To <span class="font-semibold text-gray-900">create and drive</span> documents, enable procurement on your Administrator account and open the
             <span class="font-semibold text-gray-900">Purchaser</span> portal.
         </p>
         <div class="flex flex-wrap items-center gap-2">
@@ -152,25 +144,22 @@
     </div>
 
     {{-- Stage metrics --}}
-    <div class="pur-card">
-        <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
-            @foreach([
-                'ris' => 'RIS forms',
-                'atp' => 'ATP',
-                'rfc' => 'Request for Check',
-                'receiving' => 'Receiving',
-                'liquidation' => 'Liquidation',
-            ] as $key => $label)
-                <div class="px-5 py-5">
-                    <div class="flex items-center gap-2">
-                        <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $stageCounts[$key] ?? 0 }}</p>
-                        <span class="h-1.5 w-1.5 rounded-full {{ $metricDots[$key] ?? 'bg-gray-300' }}"></span>
-                    </div>
-                    <p class="mt-1 text-xs font-medium text-gray-500">{{ $label }}</p>
-                </div>
-            @endforeach
-        </div>
-    </div>
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            [
+                'label' => 'RIS forms',
+                'value' => number_format($stageCounts['ris'] ?? 0),
+            ],
+            [
+                'label' => 'ATP',
+                'value' => number_format($stageCounts['atp'] ?? 0),
+            ],
+            [
+                'label' => 'Request for Check',
+                'value' => number_format($stageCounts['rfc'] ?? 0),
+            ],
+        ],
+    ])
 
     {{-- Records card --}}
     <div class="pur-card">

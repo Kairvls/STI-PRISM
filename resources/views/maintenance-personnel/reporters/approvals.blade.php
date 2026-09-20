@@ -10,60 +10,14 @@
         $status = $status ?? 'pending';
     @endphp
 
-    <div
-        class="mb-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
-    >
-        <div
-            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4"
-        >
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Waiting</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($pendingCount) }}
-                    </h2>
-                    <p class="mt-3 text-sm text-slate-500">
-                        Need confirmation as faculty or staff
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Approved this month</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($approvedThisMonth) }}
-                    </h2>
-                    <p class="mt-3 text-sm text-slate-500">
-                        Added to the reporters list
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Declined this month</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($rejectedThisMonth) }}
-                    </h2>
-                    <p class="mt-3 text-sm text-slate-500">
-                        Not added to the reporters list
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between px-8 py-6">
-                <div class="flex flex-col">
-                    <p class="text-sm font-medium text-slate-500">Total applications</p>
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($totalApplications) }}
-                    </h2>
-                    <p class="mt-3 text-sm text-slate-500">
-                        All submitted reporter applications
-                    </p>
-                </div>
-            </div>
-        </div>
+    <div class="mb-6">
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Waiting', 'hint' => 'Need confirmation as faculty or staff', 'value' => number_format($pendingCount)],
+                ['label' => 'Approved this month', 'hint' => 'Added to the reporters list', 'value' => number_format($approvedThisMonth)],
+                ['label' => 'Declined this month', 'hint' => 'Not added to the reporters list', 'value' => number_format($rejectedThisMonth)],
+            ],
+        ])
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">

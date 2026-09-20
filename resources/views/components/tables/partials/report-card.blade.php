@@ -4,7 +4,7 @@ $isPurchaserUrgent = $context === 'purchaser-urgent';
 $isUrgent = $report->report_urgency_level == "Urgent";
 
 $urgencyPill = $isUrgent
-    ? "bg-red-700 text-white"
+    ? "bg-[#dc2626] text-white"
     : "bg-neutral-50 text-slate-500 ring-1 ring-slate-200/80";
 
 $statusMap = [
@@ -244,7 +244,14 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
 
                 @if ($isPurchaserUrgent)
                     @if ($canArchivePurchaserUrgent)
-                        <form method="POST" action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}">
+                        <form
+                            method="POST"
+                            action="{{ route('purchaser.reports.urgent.archive', $report->report_id) }}"
+                            data-pur-confirm="Archive this urgent report?"
+                            data-pur-confirm-title="Archive Report"
+                            data-pur-confirm-ok="Archive"
+                            data-pur-confirm-kind="archive"
+                        >
                             @csrf
                             <button class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50">
                                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -266,7 +273,14 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     in_array($currentStatus, ["Resolved", "Rejected", "For Replacement"]) &&
                     !$report->report_is_archived
                 )
-                    <form method="POST" action="/maintenance/reports/archive/{{ $report->report_id }}">
+                    <form
+                        method="POST"
+                        action="/maintenance/reports/archive/{{ $report->report_id }}"
+                        data-pur-confirm="Archive this report?"
+                        data-pur-confirm-title="Archive Report"
+                        data-pur-confirm-ok="Archive"
+                        data-pur-confirm-kind="archive"
+                    >
                         @csrf
                         <button
                             class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50"

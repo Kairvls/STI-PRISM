@@ -3,7 +3,7 @@
         $isApproved = !empty($ris->is_president_approved);
         $isRejected = in_array((string) ($ris->ris_status ?? ''), ['Rejected', 'Rejected by President', 'Rejected by the President'], true);
         $displayStatus = $isApproved
-            ? (!empty($ris->awaiting_notify) ? 'Notify Admin' : 'Approved')
+            ? (!empty($ris->awaiting_notify) ? 'Notify Administrator' : 'Approved')
             : ($isRejected ? 'Rejected' : 'Pending');
         $statusClass = $isApproved
             ? (!empty($ris->awaiting_notify) ? 'status-notify' : 'status-approved')

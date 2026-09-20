@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use App\Support\RisWorkflow;
+use App\Support\ReviewerAssignment;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Support\EquipmentLifecycle;
@@ -1186,6 +1187,10 @@ class AdminController extends Controller
         }
     });
 
+    if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+        ReviewerAssignment::applyQueueFilter($baseQuery, 'requisition_issue_slip_table.ris_assigned_reviewer_id');
+    }
+
 
     // =====================================================
     // DASHBOARD CARD COUNTS
@@ -1865,11 +1870,11 @@ class AdminController extends Controller
         }
 
         if (!RisWorkflow::isPresidentApproved($target)) {
-            return back()->with('error', 'Only RIS records approved by the President can be signed by Admin.');
+            return back()->with('error', 'Only RIS records approved by the President can be signed by Administrator.');
         }
 
         if (RisWorkflow::hasIssuedBy($target)) {
-            return back()->with('error', 'This RIS has already been signed by Admin.');
+            return back()->with('error', 'This RIS has already been signed by Administrator.');
         }
 
         $issuedDate = $this->parseFlexibleDate((string) $adminDate) ?: $adminDate;
@@ -2918,7 +2923,7 @@ class AdminController extends Controller
                 return back()->with('error', 'Only accepted RIS records can be forwarded to the President.');
             }
 
-            $adminName = Auth::user()->user_full_name ?? 'Admin';
+            $adminName = Auth::user()->user_full_name ?? 'Administrator';
             $forwardDetails = trim((string) ($validated['forward_details'] ?? ''));
 
             $attachmentPath = null;
@@ -2982,7 +2987,7 @@ class AdminController extends Controller
                 // Ignore logging failures
             }
 
-            $notifyMessage = RisWorkflow::formNumber($ris) . ' was forwarded by Admin.';
+            $notifyMessage = RisWorkflow::formNumber($ris) . ' was forwarded by Administrator.';
             if ($forwardDetails !== '') {
                 $notifyMessage .= ' ' . \Illuminate\Support\Str::limit($forwardDetails, 100);
             }
@@ -3095,13 +3100,18 @@ class AdminController extends Controller
             return 'not_found';
         }
 
+        ReviewerAssignment::assertCanAct(
+            isset($ris->ris_assigned_reviewer_id) ? (int) $ris->ris_assigned_reviewer_id : null,
+            'RIS'
+        );
+
         if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
             return 'not_reviewable';
         }
 
         $this->markRisUnderReview($ris);
 
-        $adminName = Auth::user()->user_full_name ?? 'Admin';
+        $adminName = Auth::user()->user_full_name ?? 'Administrator';
 
         try {
             DB::table('requisition_issue_slip_table')
@@ -3148,7 +3158,7 @@ class AdminController extends Controller
                 abort(403, 'Only President-approved RIS records awaiting Issued by can be signed here.');
             }
         } elseif (!RisWorkflow::isAccepted($ris) || empty($ris->ris_requested_by_date)) {
-            abort(403, 'Only accepted RIS records can be signed by Admin on Sign RIS.');
+            abort(403, 'Only accepted RIS records can be signed by Administrator on Sign RIS.');
         }
 
         $risItems = $this->loadRisItemsWithLookups((int) $risId);
@@ -3379,7 +3389,7 @@ class AdminController extends Controller
             WorkflowNotifier::toUser(
                 $ris->ris_submitted_by,
                 WorkflowNotifier::ROLE_PURCHASER,
-                'RIS approved by Admin',
+                'RIS approved by Administrator',
                 RisWorkflow::formNumber($ris) . ' was approved. You may create an ATP.',
                 'ris_approved',
                 'RIS',
@@ -3389,9 +3399,9 @@ class AdminController extends Controller
 
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PRESIDENT,
-                'Admin direct approval recorded',
+                'Administrator direct approval recorded',
                 RisWorkflow::formNumber($ris)
-                    . ' was directly approved by Admin. Reason: '
+                    . ' was directly approved by Administrator. Reason: '
                     . \Illuminate\Support\Str::limit($reason, 120),
                 'ris_direct_approved',
                 'RIS',
@@ -3431,7 +3441,7 @@ class AdminController extends Controller
                 ])
                 ->with(
                     'success',
-                    'Directly approved and sent to Purchaser. Kept in Signature History (Admin Approved) and recorded for President.'
+                    'Directly approved and sent to Purchaser. Kept in Signature History (Administrator Approved) and recorded for President.'
                 );
         });
     }
@@ -3584,7 +3594,7 @@ public function rejectRis(Request $request, $risId)
                 ->where('ris_id', $risId)
                 ->update([
                     'ris_status' => 'Rejected',
-                    'ris_rejection_reason' => $remarks !== '' ? $remarks : 'Rejected by Admin.',
+                    'ris_rejection_reason' => $remarks !== '' ? $remarks : 'Rejected by Administrator.',
                 ]);
 
             try {
@@ -3594,7 +3604,7 @@ public function rejectRis(Request $request, $risId)
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Rejected',
-                    'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Rejected by Admin.',
+                    'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Rejected by Administrator.',
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
@@ -4307,7 +4317,7 @@ public function rejectRis(Request $request, $risId)
                 $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Forwarded to President', $ris->ris_id, $url);
             }
             $this->pushCalendarEvent($events, $ris->ris_approved_by_date, $ref.' · Approved by President', $ris->ris_id, $url);
-            $this->pushCalendarEvent($events, $ris->ris_issued_by_date, $ref.' · Issued by Admin', $ris->ris_id, $url);
+            $this->pushCalendarEvent($events, $ris->ris_issued_by_date, $ref.' · Issued by Administrator', $ris->ris_id, $url);
         }
 
         return $events->sortBy('event_date')->values();
@@ -4615,7 +4625,7 @@ public function rejectRis(Request $request, $risId)
     {
         return redirect()
             ->route('admin.procurement-review.index')
-            ->with('success', 'Request for Check and Liquidation Reports are reviewed by Accounting. In Admin you only review and sign RIS. To create procurement documents, switch to the Purchaser portal (Decision A).');
+            ->with('success', 'Request for Check and Liquidation Reports are reviewed by Accounting. In Administrator you only review and sign RIS. To create procurement documents, switch to the Purchaser portal (Decision A).');
     }
 
     private function attachRisSupportingDocuments($records): void

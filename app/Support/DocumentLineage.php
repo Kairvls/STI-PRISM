@@ -154,20 +154,20 @@ class DocumentLineage
             return 'Submitted — waiting on President';
         }
         if ($status === RisWorkflow::PRESIDENT_APPROVED || $status === RisWorkflow::APPROVED_LEGACY) {
-            return 'Approved — waiting on Admin release';
+            return 'Approved — waiting on Administrator release';
         }
         if ($stage === 'purchaser') {
             return 'Returned to purchaser — update and resubmit';
         }
         if (in_array($status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending', 'Pending Admin Approval'], true)) {
             if ($stage === 'admin' || $status === 'Pending Admin Approval') {
-                return 'Submitted — waiting on Admin';
+                return 'Submitted — waiting on Administrator';
             }
             if ($stage === 'receiving' || $docType === 'rr') {
                 return 'Submitted — waiting on Receiving';
             }
             if ($docType === 'ris') {
-                return 'Submitted — waiting on Admin';
+                return 'Submitted — waiting on Administrator';
             }
 
             return 'Submitted — waiting on Accounting';
@@ -196,16 +196,16 @@ class DocumentLineage
             return 'Approved — ready for ATP';
         }
         if (RisWorkflow::isPresidentApproved($ris) && !RisWorkflow::hasIssuedBy($ris)) {
-            return 'Approved by President — waiting on Admin release';
+            return 'Approved by President — waiting on Administrator release';
         }
         if ($status === RisWorkflow::ACCEPTED) {
-            return 'Accepted — waiting on Admin signing decision';
+            return 'Accepted — waiting on Administrator signing decision';
         }
         if (RisWorkflow::isAwaitingPresident($ris) || $status === RisWorkflow::FORWARDED) {
             return 'Submitted — waiting on President';
         }
         if (in_array($status, RisWorkflow::incomingStatuses(), true)) {
-            return 'Submitted — waiting on Admin accept';
+            return 'Submitted — waiting on Administrator accept';
         }
 
         return self::reviewHint($status, null, 'ris');

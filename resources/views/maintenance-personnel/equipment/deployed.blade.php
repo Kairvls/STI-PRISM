@@ -25,68 +25,14 @@
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
 <div class="space-y-6" x-data="{ openKey: null }">
-    {{-- Summary cards (purchaser pattern) --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <div class="pur-stat-card">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Rooms with stock</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($roomsWithStock) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <i data-lucide="door-open" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 text-xs font-medium text-gray-500">Rooms currently holding deployed units</div>
-        </div>
-
-        <div class="pur-stat-card">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Total deployed qty</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($totalDeployedQty) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-[#0025cc]">
-                    <i data-lucide="package" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 text-xs font-medium text-gray-500">Combined quantity across stock groups</div>
-        </div>
-
-        <div class="pur-stat-card">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">Stock types</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($stockTypes) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                    <i data-lucide="layers" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 text-xs font-medium text-gray-500">Distinct equipment stocks on rooms</div>
-        </div>
-
-        <div class="pur-stat-card">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-500">On floor</p>
-                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                        {{ number_format($onFloorQty) }}
-                    </p>
-                </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <i data-lucide="map-pin" class="h-5 w-5"></i>
-                </div>
-            </div>
-            <div class="mt-5 text-xs font-medium text-gray-500">Excluding holding / storage staging</div>
-        </div>
-    </div>
+    {{-- Summary cards --}}
+    @include('layouts.partials.maintenance-stat-cards', [
+        'cards' => [
+            ['label' => 'Rooms with stock', 'hint' => 'Rooms currently holding deployed units', 'value' => number_format($roomsWithStock)],
+            ['label' => 'Total deployed qty', 'hint' => 'Combined quantity across stock groups', 'value' => number_format($totalDeployedQty)],
+            ['label' => 'On floor', 'hint' => 'Excluding holding / storage staging', 'value' => number_format($onFloorQty)],
+        ],
+    ])
 
     {{-- Records card --}}
     <div class="pur-card">
