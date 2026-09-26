@@ -20,7 +20,7 @@ class RisWorkflow
     public const URGENCY_URGENT = 'Urgent';
     public const URGENCY_NON_URGENT = 'Non-Urgent';
 
-    /** RIS No. pattern: RIS-YYYYMM-0000001 */
+    /** RIS No. pattern: RIS-YYYYMM-0000000 */
     public const FORM_NUMBER_REGEX = '/^RIS-\d{6}-\d{7}$/';
 
     public static function urgencyOptions(): array
@@ -50,7 +50,7 @@ class RisWorkflow
     }
 
     /**
-     * Display / stored RIS "No." value (RIS-YYYYMM-0000001).
+     * Display / stored RIS "No." value (RIS-YYYYMM-0000000).
      * Prefers the saved form number; otherwise builds a display fallback from id + month.
      *
      * @param  object|string|null  $risOrNumber
@@ -128,9 +128,14 @@ class RisWorkflow
 
     /**
      * Assign the next RIS No. Call inside a DB transaction with a locked row when possible.
+     * Purchaser override is not supported (multi-purchaser safe).
      */
-    public static function allocateFormNumberOnSubmit(): string
+    public static function allocateFormNumberOnSubmit(?string $existing = null): string
     {
+        if (self::isValidFormNumber($existing)) {
+            return trim((string) $existing);
+        }
+
         return self::nextFormNumber();
     }
 

@@ -24,7 +24,6 @@
     $signKey = $signKey ?? ($atp?->authority_purchase_id ? 'atp-'.$atp->authority_purchase_id : 'atp-create');
     $poNo = old('authority_purchase_reference_po_no', $atp?->authority_purchase_reference_po_no ?? '');
     $oldItems = old('items');
-    $suggestedAtpFormNumber = $suggestedAtpFormNumber ?? \App\Support\AtpFormNumber::next();
     if (old('authority_purchase_form_number') !== null) {
         $formNumberValue = (string) old('authority_purchase_form_number');
     } elseif ($atp) {
@@ -44,6 +43,9 @@
     $rowCount = $editable
         ? max(8, $items->count() + ($atp ? 1 : 0))
         : max(8, $items->count());
+
+    // Match RIS line-item inputs: no inner border inside table cells.
+    $atpCellClass = 'w-full min-w-0 border-0 bg-transparent px-1 py-1.5 text-sm outline-none ring-0 focus:outline-none focus:ring-0';
 @endphp
 
 <div
@@ -60,16 +62,19 @@
             <div class="flex items-end gap-2 text-red-600">
                 <strong class="font-semibold">No.</strong>
                 @if($editable)
-                    <input
-                        type="text"
-                        name="authority_purchase_form_number"
-                        value="{{ $formNumberValue }}"
-                        maxlength="16"
-                        pattern="ATP-\d{6}-\d{4}"
-                        title="Assigned on submit (ATP-YYYYMM-0001)"
-                        placeholder="{{ $suggestedAtpFormNumber }}"
-                        class="w-40 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
-                    >
+                    @if(filled($formNumberValue))
+                        <input
+                            type="text"
+                            name="authority_purchase_form_number"
+                            value="{{ $formNumberValue }}"
+                            readonly
+                            class="w-40 border-0 bg-transparent px-1 text-center font-semibold text-red-600 outline-none"
+                            aria-label="ATP number"
+                        >
+                    @else
+                        <span class="inline-block min-w-[10rem] px-1 text-center text-xs font-normal text-gray-500">Assigned when submitted</span>
+                        <input type="hidden" name="authority_purchase_form_number" value="">
+                    @endif
                 @elseif($isBlank)
                     <span class="inline-block min-w-[4rem] text-center font-semibold">&nbsp;</span>
                 @else
@@ -85,6 +90,7 @@
                         name="authority_purchase_date"
                         value="{{ $dateValue }}"
                         class="border-0 border-b border-black bg-transparent outline-none"
+                        title="Required before submitting to Accounting"
                     >
                 @elseif($isBlank)
                     <span class="inline-block min-w-[7rem] border-b border-black text-center">&nbsp;</span>
@@ -107,7 +113,8 @@
             @endphp
             <select
                 name="authority_purchase_supplier_id"
-                class="ml-2 w-[420px] border-0 border-b border-black bg-transparent"
+                class="ml-2 w-[420px] border-0 border-b border-black bg-transparent outline-none ring-0 focus:outline-none focus:ring-0"
+                title="Required before submitting to Accounting"
                 onchange="
                     const opt = this.options[this.selectedIndex];
                     const warn = this.parentElement.querySelector('[data-supplier-blacklist-warn]');
@@ -166,7 +173,12 @@
         <thead>
             <tr>
                 <th class="border border-black p-2">Quantity</th>
-                <th class="border border-black p-2">Supplier Stock</th>
+                <th class="border border-black p-2">
+                    Supplier Stock
+                    @if($editable)
+                        <span class="font-normal text-[10px]">(opt.)</span>
+                    @endif
+                </th>
                 <th class="border border-black p-2">Unit</th>
                 <th class="border border-black p-2 text-left">Description</th>
                 <th class="border border-black p-2">Unit Price</th>
@@ -190,26 +202,26 @@
                     @endphp
                     <tr>
                         <td class="border border-black p-1">
-                            <input type="number" name="items[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="w-full border-0 text-center">
+                            <input type="number" name="items[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="{{ $atpCellClass }} text-center">
                         </td>
                         <td class="border border-black p-1">
-                            <input type="number" name="items[{{ $i }}][supplier_stock]" value="{{ $stock }}" min="0" class="w-full border-0 text-center" title="Available stock at supplier (manual entry)">
+                            <input type="number" name="items[{{ $i }}][supplier_stock]" value="{{ $stock }}" min="0" class="{{ $atpCellClass }} text-center" title="Available stock at supplier (manual entry)">
                         </td>
                         <td class="border border-black p-1">
-                            <input type="text" name="items[{{ $i }}][unit]" value="{{ $unit }}" class="w-full border-0 text-center">
+                            <input type="text" name="items[{{ $i }}][unit]" value="{{ $unit }}" class="{{ $atpCellClass }} text-center">
                         </td>
                         <td class="border border-black p-1">
-                            <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" class="w-full border-0">
+                            <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" class="{{ $atpCellClass }}">
                         </td>
                         <td class="border border-black p-1">
-                            <input type="number" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $price }}" min="0" class="w-full border-0 text-right">
+                            <input type="number" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $price }}" min="0" class="{{ $atpCellClass }} text-right">
                         </td>
                         <td class="border border-black p-1">
                             <input
                                 readonly
                                 name="items[{{ $i }}][amount_display]"
                                 value="{{ $amount }}"
-                                class="w-full border-0 bg-transparent text-right"
+                                class="{{ $atpCellClass }} cursor-not-allowed bg-gray-50 text-right text-gray-500"
                                 placeholder="0.00"
                             >
                         </td>
@@ -291,7 +303,7 @@
                             value="{{ $receivedBy }}"
                             maxlength="255"
                             autocomplete="off"
-                            class="relative z-[1] w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none"
+                            class="relative z-[1] w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none ring-0 focus:outline-none focus:ring-0"
                         >
                     </span>
                     <input
@@ -308,7 +320,7 @@
                         type="text"
                         name="authority_purchase_reference_po_no"
                         value="{{ $poNo }}"
-                        class="min-w-0 flex-1 border-0 border-b border-black bg-transparent pb-1 outline-none"
+                        class="min-w-0 flex-1 border-0 border-b border-black bg-transparent pb-1 outline-none ring-0 focus:outline-none focus:ring-0"
                     >
                 </div>
             @else

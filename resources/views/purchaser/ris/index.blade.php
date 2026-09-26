@@ -1994,7 +1994,7 @@
                                     <div class="flex items-end gap-2">
                                         <label class="text-xs font-medium sm:text-sm">No.</label>
                                         <p class="w-44 border-0 border-b border-gray-800 px-1 py-1 text-xs text-gray-500 sm:w-52 sm:text-sm">
-                                            Assigned when submitted to Administrator
+                                            Assigned when submitted
                                         </p>
                                     </div>
                                 </div>
@@ -3690,7 +3690,7 @@
                                         <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                                         <div class="ris-number-area">
                                             <span class="ris-number-label">No.</span>
-                                            @if($ris->ris_status === 'Draft')
+                                            @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true) && blank($ris->ris_form_number))
                                                 <span class="ris-number-input text-gray-500">Assigned when submitted</span>
                                             @else
                                                 <input

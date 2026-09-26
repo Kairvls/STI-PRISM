@@ -195,6 +195,8 @@
         align-items: center;
         gap: 8px;
         flex-shrink: 0;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border-top: 1px solid #eef2f8;
     }
 
     .chat-input {
@@ -243,20 +245,44 @@
         height: 64px;
         border: 0;
         border-radius: 999px;
-        background: var(--blue);
-        color: #fff;
+        background: #fff;
+        color: var(--blue);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 20px 40px rgba(0, 37, 204, .28);
         cursor: pointer;
         z-index: 60;
-        transition: transform .2s ease, background .2s ease;
+        transition: transform .2s ease, background .2s ease, opacity .2s ease, visibility .2s ease;
+        padding: 0;
+        overflow: hidden;
+        border: 2px solid #e8ecf4;
+    }
+
+    .chat-fab img {
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
+        display: block;
+        pointer-events: none;
     }
 
     .chat-fab:hover {
-        background: var(--blue-dark);
+        background: #f7f9ff;
         transform: translateY(-2px) scale(1.03);
+        border-color: #c7d2fe;
+    }
+
+    body.chat-open .chat-fab,
+    body.modal-open .chat-fab {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: scale(.92);
+    }
+
+    body.modal-open .chat-widget {
+        display: none !important;
     }
 
     .chat-widget {
@@ -314,20 +340,49 @@
     @media (max-width: 640px) {
         .chat-fab {
             right: 16px;
-            bottom: 16px;
+            bottom: max(16px, env(safe-area-inset-bottom));
             width: 58px;
             height: 58px;
         }
 
-        .chat-widget {
-            right: 12px;
-            left: 12px;
-            bottom: 86px;
-            width: auto;
+        .chat-widget,
+        .chat-widget.chat-widget--from-cta {
+            top: auto;
+            right: 0;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: none;
+            height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px)));
+            max-height: none;
+            border-radius: 20px 20px 0 0;
+            border-left: 0;
+            border-right: 0;
+            border-bottom: 0;
+            box-shadow: 0 -12px 40px rgba(15, 23, 42, .18);
         }
 
-        .chat-widget.chat-widget--from-cta {
-            bottom: 12px;
+        .chat-widget-header {
+            padding-top: 0.85rem;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .chat-widget-body {
+            min-height: 0;
+            flex: 1;
+        }
+
+        .chat-form {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+
+        body.chat-open::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: rgba(11, 18, 32, 0.4);
+            z-index: 55;
+            pointer-events: none;
         }
     }
 </style>
@@ -376,25 +431,25 @@
                 </div>
             </div>
         </div>
-
-        <form id="faqChatForm" class="chat-form">
-            <input
-                id="faqChatInput"
-                type="text"
-                class="chat-input"
-                placeholder="Type your question..."
-                autocomplete="off"
-            >
-            <button type="submit" class="chat-send" aria-label="Send question">
-                <i data-lucide="send" class="w-4 h-4"></i>
-            </button>
-        </form>
     </div>
+
+    <form id="faqChatForm" class="chat-form px-4 pb-4 pt-1">
+        <input
+            id="faqChatInput"
+            type="text"
+            class="chat-input"
+            placeholder="Type your question..."
+            autocomplete="off"
+        >
+        <button type="submit" class="chat-send" aria-label="Send question">
+            <i data-lucide="send" class="w-4 h-4"></i>
+        </button>
+    </form>
 </div>
 
 @if ($showChatFab)
-    <button id="faqChatToggle" type="button" class="chat-fab" aria-label="Open chatbot">
-        <i data-lucide="message-circle-more" class="w-7 h-7"></i>
+    <button id="faqChatToggle" type="button" class="chat-fab" aria-label="Ask PaAyo" title="Ask PaAyo">
+        <img src="{{ asset('image/paayo_logo_original.png') }}" alt="" width="42" height="42">
     </button>
 @endif
 

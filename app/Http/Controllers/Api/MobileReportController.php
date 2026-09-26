@@ -21,6 +21,13 @@ class MobileReportController extends Controller
 
     public function rooms()
     {
+        $equipmentCountSub = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
+                ->whereNotNull('equipment_room_id')
+                ->groupBy('equipment_room_id')
+        );
+
         $rooms = DB::table('rooms_table')
 
             ->when(
@@ -35,6 +42,14 @@ class MobileReportController extends Controller
                 'floors_table.floor_id'
             )
 
+            ->leftJoinSub(
+                $equipmentCountSub,
+                'room_equipment_counts',
+                'rooms_table.room_id',
+                '=',
+                'room_equipment_counts.equipment_room_id'
+            )
+
             ->select(
 
                 'rooms_table.room_id',
@@ -45,7 +60,9 @@ class MobileReportController extends Controller
                         ' - ',
                         rooms_table.room_name
                     ) AS location
-                ")
+                "),
+
+                DB::raw('COALESCE(room_equipment_counts.equipment_count, 0) as equipment_count')
 
             )
 
@@ -66,30 +83,46 @@ class MobileReportController extends Controller
 
     public function equipment($roomId)
     {
+        $query = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->where('equipment_table.equipment_room_id', $roomId)
+        );
+
+        if (Schema::hasTable('equipment_categories_table')) {
+            $query->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            );
+        }
+
         $columns = [
-            'equipment_id',
-            'equipment_name',
-            'equipment_brand_name',
-            'equipment_model',
+            'equipment_table.equipment_id',
+            'equipment_table.equipment_name',
+            'equipment_table.equipment_brand_name',
+            'equipment_table.equipment_model',
         ];
 
         foreach ([
             'equipment_asset_tag',
             'equipment_serial_number',
             'equipment_placement_zone',
+            'equipment_category_id',
         ] as $optional) {
             if (Schema::hasColumn('equipment_table', $optional)) {
-                $columns[] = $optional;
+                $columns[] = "equipment_table.$optional";
             }
         }
 
+        if (Schema::hasTable('equipment_categories_table')) {
+            $columns[] = 'equipment_categories_table.equipment_category_name';
+        }
+
         $equipment = ReportGrouping::enrichEquipmentWithOpenReports(
-            ReportGrouping::applyReporterEquipmentFilters(
-                DB::table('equipment_table')
-                    ->where('equipment_room_id', $roomId)
-            )
+            $query
                 ->select($columns)
-                ->orderBy('equipment_name')
+                ->orderBy('equipment_table.equipment_name')
                 ->get(),
             (int) $roomId
         );

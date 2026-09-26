@@ -161,7 +161,7 @@
         flex-direction: column;
         overflow: hidden;
         font-family: "Plus Jakarta Sans", "Inter", sans-serif;
-        transform: translateZ(0);
+        isolation: isolate;
     }
 
     @media (min-width: 768px) {
@@ -175,8 +175,10 @@
 
     .rf-picker-head {
         position: relative;
+        flex: 0 0 auto;
         padding: 18px 52px 12px 18px;
         border-bottom: 1px solid #e8ecf4;
+        background: #fff;
     }
 
     .rf-picker-dismiss {
@@ -217,7 +219,31 @@
         color: #1a1a2e;
     }
 
+    .rf-picker-hint {
+        margin-top: 4px;
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.35;
+    }
+
+    .rf-picker-hint:empty,
+    .rf-picker-hint[hidden] {
+        display: none !important;
+    }
+
+    /* Body = search + chips + scrollable list (mirrors Flutter Column) */
+    .rf-picker-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #fff;
+    }
+
     .rf-picker-search {
+        flex: 0 0 auto;
         margin: 14px 18px 0;
         display: flex;
         align-items: center;
@@ -225,9 +251,9 @@
         background: #f3f6ff;
         border: 1px solid #e8ecf4;
         border-radius: 18px;
-        padding: 0 18px;
-        min-height: 64px;
-        height: 64px;
+        padding: 0 16px;
+        min-height: 56px;
+        height: 56px;
     }
 
     .rf-picker-search input {
@@ -239,11 +265,67 @@
         color: #1a1a2e;
     }
 
+    .rf-picker-categories {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        flex: 0 0 48px;
+        height: 48px;
+        max-height: 48px;
+        gap: 8px;
+        margin: 0;
+        padding: 10px 16px 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
+    .rf-picker-categories::-webkit-scrollbar {
+        display: none;
+    }
+
+    .rf-picker-categories[hidden] {
+        display: none !important;
+        flex-basis: 0 !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .rf-picker-chip {
+        flex: 0 0 auto;
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        background: #fff;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .rf-picker-chip.is-active {
+        border-color: #0025cc;
+        background: #eef2ff;
+        color: #0025cc;
+    }
+
     .rf-picker-list {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
+        overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
-        padding: 8px 10px 16px;
-        min-height: 120px;
+        overscroll-behavior: contain;
+        padding: 8px 10px;
+        background: #fff;
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
@@ -268,6 +350,7 @@
         color: #1a1a2e;
         font-size: 14px;
         font-weight: 600;
+        line-height: 1.35;
     }
 
     .rf-picker-item:hover,
@@ -287,10 +370,12 @@
         text-align: center;
         color: #6b7280;
         font-size: 13px;
+        font-weight: 600;
         padding: 28px 12px;
     }
 
     .rf-picker-close {
+        flex: 0 0 auto;
         margin: 10px 18px 22px;
         min-height: 56px;
         height: 56px;
@@ -301,6 +386,307 @@
         font-weight: 800;
         font-size: 17px;
         cursor: pointer;
+    }
+
+    /* ── Photo source sheet (PRISM mobile Take photo / Gallery) ── */
+    .rf-photo-source-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100055;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        background: rgba(11, 18, 32, 0.55);
+        padding: 0;
+        overscroll-behavior: contain;
+    }
+
+    .rf-photo-source-overlay.is-open {
+        display: flex !important;
+    }
+
+    .rf-photo-source-overlay[hidden] {
+        display: none !important;
+    }
+
+    .rf-photo-source-sheet {
+        width: 100%;
+        max-width: 480px;
+        background: #fff;
+        border-radius: 12px 12px 0 0;
+        padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+        box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.18);
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    }
+
+    .rf-photo-source-handle {
+        width: 40px;
+        height: 4px;
+        margin: 0 auto 16px;
+        border-radius: 999px;
+        background: #e2e8f0;
+    }
+
+    .rf-photo-source-tile {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-align: left;
+        padding: 14px;
+        border: 0;
+        border-radius: 12px;
+        background: #f3f4f6;
+        color: #1a1a2e;
+        cursor: pointer;
+        box-sizing: border-box;
+        transition: background 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .rf-photo-source-tile + .rf-photo-source-tile {
+        margin-top: 10px;
+    }
+
+    .rf-photo-source-tile:hover,
+    .rf-photo-source-tile:active {
+        background: #eef2ff;
+    }
+
+    .rf-photo-source-icon {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        color: #0025cc;
+    }
+
+    .rf-photo-source-copy {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .rf-photo-source-title {
+        display: block;
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #1a1a2e;
+        line-height: 1.3;
+    }
+
+    .rf-photo-source-sub {
+        display: block;
+        margin-top: 2px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #6b7280;
+        line-height: 1.3;
+    }
+
+    .rf-photo-source-chevron {
+        flex-shrink: 0;
+        color: #cbd5e1;
+    }
+
+    /* Must NOT use display:none — browsers block file picker on hidden inputs */
+    .rf-file-input-native {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        z-index: -1 !important;
+        pointer-events: none !important;
+    }
+
+    /* ── Proof image preview (PRISM mobile) ── */
+    .rf-proof-preview {
+        position: relative;
+        width: 100%;
+        height: 140px;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1.5px solid #0025cc;
+        background: #f3f6ff;
+    }
+
+    .rf-proof-preview[hidden] {
+        display: none !important;
+    }
+
+    .rf-proof-preview-tap {
+        display: block;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .rf-proof-preview-tap img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .rf-proof-preview-hint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 6px 8px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 11.5px;
+        font-weight: 600;
+        text-align: center;
+        line-height: 1.3;
+        pointer-events: none;
+    }
+
+    .rf-proof-preview-remove {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .upload-zone[hidden] {
+        display: none !important;
+    }
+
+    /* Fullscreen proof viewer */
+    .rf-proof-fs {
+        position: fixed;
+        inset: 0;
+        z-index: 100080;
+        display: none;
+        background: #000;
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    }
+
+    .rf-proof-fs.is-open {
+        display: block !important;
+    }
+
+    .rf-proof-fs[hidden] {
+        display: none !important;
+    }
+
+    .rf-proof-fs-close {
+        position: absolute;
+        top: calc(8px + env(safe-area-inset-top));
+        left: 8px;
+        z-index: 2;
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1.5px solid rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        cursor: pointer;
+        box-shadow:
+            0 2px 10px rgba(0, 0, 0, 0.45),
+            0 0 6px rgba(255, 255, 255, 0.25);
+    }
+
+    .rf-proof-fs-stage {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .rf-proof-fs-stage img {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        transform-origin: center center;
+        user-select: none;
+        -webkit-user-drag: none;
+        pointer-events: none;
+    }
+
+    .rf-proof-fs-hint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        z-index: 2;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 12.5px;
+        font-weight: 500;
+        pointer-events: none;
+    }
+
+    /* ── Employee ID icon (PRISM mobile face_retouching_natural) ── */
+    .rf-employee-id-wrap {
+        position: relative;
+        width: 100%;
+    }
+
+    .rf-employee-id-icon {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        color: #0025cc;
+        pointer-events: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+    }
+
+    .rf-employee-id-icon svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+        fill: currentColor;
+    }
+
+    .rf-employee-id-input.rf-input {
+        padding-left: 42px !important;
+    }
+
+    .rf-employee-id-input.rf-input::placeholder {
+        color: #9aa1b5;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
     }
 
     .rf-picker-trigger.is-open {
@@ -456,13 +842,23 @@
 
     .rf-picker-item.rf-picker-item--equipment {
         height: auto;
-        min-height: 62px;
+        min-height: 0;
         align-items: flex-start;
         flex-direction: column;
         justify-content: center;
         gap: 4px;
-        padding: 12px 14px;
+        padding: 14px 12px;
         white-space: normal;
+        margin: 0;
+    }
+
+    .rf-picker-item.rf-picker-item--equipment:has(.rf-equipment-option-sub) {
+        background: #fffbeb;
+    }
+
+    .rf-picker-item.rf-picker-item--equipment.is-active:has(.rf-equipment-option-sub),
+    .rf-picker-item.rf-picker-item--equipment.is-active {
+        background: #f3f6ff;
     }
 
     .rf-dropdown-item:hover {
@@ -889,6 +1285,72 @@
         flex-direction: column;
     }
 
+    /* Desktop optional full-screen expand: full width, height follows content, vertically centered */
+    #reportModal.is-expanded {
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+    }
+
+    #reportModal.is-expanded > div,
+    #reportModal.is-expanded .report-modal-wrap {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: 100dvh !important;
+        align-self: center;
+        margin-top: auto;
+        margin-bottom: auto;
+    }
+
+    #reportModal.is-expanded .report-form-frame,
+    #reportModal.is-expanded #reportForm,
+    #reportModal.is-expanded .report-form-shell {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: 100dvh !important;
+    }
+
+    #reportModal.is-expanded .report-form-shell {
+        border-radius: 0 !important;
+        overflow: hidden !important;
+    }
+
+    #reportModal.is-expanded .report-form-grid {
+        min-height: 0;
+        height: auto;
+        max-height: 100dvh;
+    }
+
+    #reportModal.is-expanded .report-form-scroll,
+    #reportModal.is-expanded .report-form-aside {
+        max-height: 100dvh;
+        overflow-y: auto;
+    }
+
+    .rf-expand-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e8ecf4;
+        color: #6b7280;
+        cursor: pointer;
+    }
+
+    .rf-expand-btn:hover {
+        color: #1a1a2e;
+        background: #f3f6ff;
+        border-color: #dbe3ff;
+    }
+
+    @media (max-width: 767px) {
+        .rf-expand-btn {
+            display: none !important;
+        }
+    }
+
     #reportForm,
     #reportModal .report-form-frame {
         max-height: 100%;
@@ -1162,9 +1624,9 @@
     }
 
     .priority-card.p-urgent {
-        border-color: #fff200;
-        background: #fffce6;
-        box-shadow: 0 0 0 4px rgba(255, 242, 0, 0.18);
+        border-color: #ef4444;
+        background: #fef2f2;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
     }
 
     .priority-title {
@@ -1177,7 +1639,7 @@
     }
 
     .priority-card.p-urgent .priority-title {
-        color: #1a1a2e;
+        color: #dc2626;
     }
 
     .priority-desc {
@@ -1193,7 +1655,7 @@
     }
 
     .priority-card.p-urgent input {
-        accent-color: #ca8a04;
+        accent-color: #ef4444;
     }
 
     .upload-zone {
@@ -1223,7 +1685,8 @@
     }
 
     .rf-close-desktop,
-    .rf-close-mobile {
+    .rf-close-mobile,
+    .rf-expand-btn {
         width: 36px !important;
         height: 36px !important;
         border-radius: 12px !important;
@@ -1233,7 +1696,8 @@
     }
 
     .rf-close-desktop:hover,
-    .rf-close-mobile:hover {
+    .rf-close-mobile:hover,
+    .rf-expand-btn:hover {
         color: #1a1a2e !important;
         background: #f3f6ff !important;
         border-color: #dbe3ff !important;
@@ -1507,25 +1971,331 @@
             min-height: 120px;
         }
 
-        #reportModal .rf-equipment-row {
-            display: grid !important;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: stretch;
+        /* Mobile: PRISM_MOBILE Report an issue layout (structure only) */
+        #reportModal .rf-loc-equip-card {
+            gap: 0 !important;
+            margin-bottom: 10px !important;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #fff;
+            overflow: hidden;
         }
 
-        #reportModal .rf-equipment-row .rf-select-wrap,
-        #reportModal .rf-equipment-row .rf-input {
+        #reportModal .rf-loc-block {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        #reportModal .rf-equip-block {
+            padding: 12px 14px;
+        }
+
+        #reportModal .rf-loc-equip-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #reportModal .rf-loc-equip-icon {
+            display: inline-flex !important;
+            height: 36px;
+            width: 36px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: #f3f4f6;
+            color: #64748b;
+        }
+
+        #reportModal .rf-loc-equip-hint {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            line-height: 1.2;
+        }
+
+        /* No second border inside Location / Equipment — outer card only (PRISM_MOBILE) */
+        #reportModal .rf-loc-equip-control {
             min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        #reportModal .rf-loc-equip-control .rf-select-wrap,
+        #reportModal .rf-loc-equip-control .rf-input {
             width: 100%;
         }
 
-        #reportModal #addEquipmentBtn,
-        #reportModal #addManualEquipmentBtn {
-            min-width: 72px;
-            width: auto;
-            align-self: stretch;
+        #reportModal .rf-loc-equip-card .rf-input,
+        #reportModal .rf-loc-equip-card .rf-picker-trigger,
+        #reportModal .rf-loc-equip-card .details-textarea {
+            height: auto !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            color: #9ca3af !important;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-picker-trigger:not(.is-placeholder) {
+            color: #0f172a !important;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-input:focus,
+        #reportModal .rf-loc-equip-card .details-textarea:focus,
+        #reportModal .rf-loc-equip-card .rf-picker-trigger:focus,
+        #reportModal .rf-loc-equip-card .rf-picker-trigger.is-open {
+            border: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            outline: none !important;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-select-wrap::after {
+            display: none !important;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-picker-trigger {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-picker-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        #reportModal .rf-loc-equip-card .rf-picker-trigger > i,
+        #reportModal .rf-loc-equip-card .rf-picker-trigger > svg {
+            flex-shrink: 0;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 7px;
+            border-radius: 10px;
+            background: #f3f4f6;
+            color: #64748b !important;
+            stroke: #64748b !important;
+            box-sizing: border-box;
+        }
+
+        #reportModal .rf-loc-equip-card #equipmentManualInput {
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+
+        #reportModal .rf-loc-equip-actions {
+            display: flex !important;
+            align-items: stretch;
+            gap: 10px;
+            margin-bottom: 12px !important;
+        }
+
+        #reportModal .rf-unlisted-toggle {
+            flex: 1 1 auto;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: 48px;
+            padding: 0 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            background: #fff;
+            color: #0f172a;
+            font-size: 12px !important;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        #reportModal .rf-unlisted-switch {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            flex-shrink: 0;
+            border-radius: 999px;
+            background: #e5e7eb;
+            transition: background 0.15s ease;
+        }
+
+        #reportModal .rf-unlisted-switch::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+            transition: transform 0.15s ease;
+        }
+
+        #reportModal .rf-unlisted-toggle.is-on .rf-unlisted-switch {
+            background: #0025cc;
+        }
+
+        #reportModal .rf-unlisted-toggle.is-on .rf-unlisted-switch::after {
+            transform: translateX(16px);
+        }
+
+        #reportModal .rf-add-equip-btn {
+            flex: 0 0 auto !important;
+            min-width: 88px !important;
+            width: auto !important;
+            min-height: 48px;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        #reportModal .rf-add-equip-btn.hidden {
+            display: none !important;
+        }
+
+        #reportModal .rf-equip-instruction {
+            margin: 0 !important;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            color: #6b7280 !important;
+            font-size: 12px !important;
+            line-height: 1.45 !important;
+        }
+
+        #reportModal .rf-header {
+            flex-wrap: wrap;
+        }
+
+        #reportModal .rf-header .rf-kicker {
+            order: -1;
+            width: auto;
+            max-width: max-content;
+            flex: 0 0 auto;
+            align-self: flex-start;
+            margin-bottom: 10px;
+        }
+
+        /* Section titles — match Location & equipment (PRISM_MOBILE) */
+        #reportModal .rf-loc-equip-mobile-title,
+        #reportModal .rf-mobile-section-title,
+        #reportModal .rf-section-title {
+            display: block !important;
+            margin-bottom: 8px !important;
+            color: #0f172a !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            text-transform: none !important;
+            letter-spacing: 0 !important;
+            line-height: 1.25 !important;
+        }
+
+        #reportModal .rf-issues-block {
+            margin-top: 16px !important;
+        }
+
+        #reportModal .rf-issues-head {
+            margin-bottom: 8px !important;
+        }
+
+        #reportModal .rf-issues-panel {
+            display: flex !important;
+            min-height: 112px;
+            padding: 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        #reportModal .rf-issues-panel:has(.issue-btn) {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            align-items: stretch;
+            gap: 8px;
+            padding: 10px;
+            min-height: 0;
+        }
+
+        #reportModal .issue-placeholder {
+            width: 100%;
+            min-height: 84px;
+            margin: 0;
+            padding: 8px 10px;
+            border: 0 !important;
+            border-radius: 0;
+            background: transparent !important;
+            display: flex !important;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #9ca3af !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            line-height: 1.4;
+            text-align: center;
+            white-space: normal;
+        }
+
+        #reportModal .issue-placeholder-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+
+        #reportModal .issue-placeholder-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        #reportModal .rf-details-block {
+            margin-top: 20px !important;
+        }
+
+        #reportModal .rf-details-head {
+            display: block !important;
+            margin-bottom: 8px !important;
+        }
+
+        #reportModal .rf-details-hint {
+            margin: 4px 0 0;
+            color: #9ca3af;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.35;
+        }
+
+        #reportModal #problemDescription {
+            min-height: 132px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 12px !important;
+            background: #fff !important;
+            padding: 14px 40px 14px 14px !important;
+            font-size: 15px !important;
+            line-height: 1.5 !important;
+            box-shadow: none !important;
+        }
+
+        #reportModal #problemDescription::placeholder {
+            color: #9ca3af;
         }
 
         #reportModal #equipmentDropdownContainer,
@@ -1573,19 +2343,127 @@
         #reportModal .rf-label {
             font-size: 10px;
         }
+    }
 
-        #reportModal #toggleEquipmentInput {
-            font-size: 10px !important;
+    @media (min-width: 768px) {
+        #reportModal .rf-loc-equip-mobile-title {
+            display: none !important;
         }
 
-        #reportModal .rf-equipment-row {
-            grid-template-columns: 1fr;
+        #reportModal .rf-mobile-section-title,
+        #reportModal .rf-section-title {
+            color: #94a3b8 !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.08em !important;
+            line-height: inherit !important;
         }
 
-        #reportModal #addEquipmentBtn,
-        #reportModal #addManualEquipmentBtn {
-            width: 100%;
-            min-height: 44px;
+        #reportModal .rf-loc-equip {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 1.25rem;
+            row-gap: 0.65rem;
+        }
+
+        #reportModal .rf-loc-equip-card {
+            display: contents;
+            border: 0;
+            background: transparent;
+            overflow: visible;
+            margin: 0 !important;
+        }
+
+        #reportModal .rf-loc-block {
+            grid-column: 1;
+            grid-row: 1;
+            padding: 0;
+            border: 0;
+        }
+
+        #reportModal .rf-equip-block {
+            grid-column: 2;
+            grid-row: 1;
+            padding: 0;
+        }
+
+        #reportModal .rf-loc-equip-row {
+            display: block;
+        }
+
+        #reportModal .rf-loc-equip-icon,
+        #reportModal .rf-loc-equip-hint {
+            display: none !important;
+        }
+
+        #reportModal .rf-loc-equip-actions {
+            grid-column: 2;
+            grid-row: 2;
+            justify-content: flex-end;
+            margin-bottom: 0 !important;
+        }
+
+        #reportModal .rf-unlisted-toggle {
+            display: none !important;
+        }
+
+        #reportModal .rf-unlisted-link {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0037c7;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        #reportModal #selectedEquipmentList,
+        #reportModal #selectedEquipmentInputs,
+        #reportModal .rf-equip-instruction,
+        #reportModal #equipmentError {
+            grid-column: 1 / -1;
+        }
+
+        #reportModal .rf-equip-instruction {
+            padding: 0;
+            background: transparent;
+            font-size: 11px !important;
+            color: #94a3b8 !important;
+        }
+
+        #reportModal .rf-add-equip-btn {
+            min-width: 72px;
+        }
+
+        #reportModal .rf-details-head {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        #reportModal .rf-details-hint {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        #reportModal .rf-issues-panel {
+            min-height: 0;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+        }
+
+        #reportModal .issue-placeholder {
+            flex-direction: row;
+            gap: 8px;
+            min-height: 52px;
+            border: 1px solid #eceff4 !important;
+            border-radius: 16px;
+            background: #fff !important;
+            padding: 10px 14px;
         }
     }
 </style>
@@ -1928,20 +2806,17 @@
 
                     {{-- EMPLOYEE ID --}}
                     <div class="mb-5">
-                        <label class="rf-label">Employee ID</label>
+                        <label class="rf-label rf-mobile-section-title" for="employeeIdInput">Employee ID</label>
 
-                        <div style="position: relative">
-                            <span
-                                style="
-                                    position: absolute;
-                                    left: 13px;
-                                    top: 50%;
-                                    transform: translateY(-50%);
-                                    color: #2947f0;
-                                    pointer-events: none;
-                                "
-                            >
-                                <i data-lucide="scan-face" class="h-5 w-5"></i>
+                        <div class="rf-employee-id-wrap">
+                            <span class="rf-employee-id-icon" aria-hidden="true">
+                                {{-- Material Icons filled: face_retouching_natural (PRISM mobile) --}}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" focusable="false">
+                                    <circle cx="9" cy="13" r="1.25"/>
+                                    <path d="m20.77 8.58-.92 2.01c.09.46.15.93.15 1.41 0 4.41-3.59 8-8 8s-8-3.59-8-8c0-.05.01-.1 0-.14 2.6-.98 4.69-2.99 5.74-5.55A10 10 0 0 0 17.5 10c.45 0 .89-.04 1.33-.1l-.6-1.32-.88-1.93-1.93-.88-2.79-1.27 2.79-1.27.71-.32A9.86 9.86 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-1.47-.33-2.87-.9-4.13l-.33.71z"/>
+                                    <circle cx="15" cy="13" r="1.25"/>
+                                    <path d="M20.6 5.6 19.5 8l-1.1-2.4L16 4.5l2.4-1.1L19.5 1l1.1 2.4L23 4.5z"/>
+                                </svg>
                             </span>
                             <input
                                 type="text"
@@ -1949,8 +2824,10 @@
                                 name="report_reporter_employee_id"
                                 value="{{ old('report_reporter_employee_id') }}"
                                 placeholder="EMPLOYEE ID"
-                                class="rf-input details-textarea"
-                                style="padding-left: 42px; height: 48px"
+                                class="rf-input details-textarea rf-employee-id-input"
+                                autocomplete="off"
+                                autocapitalize="characters"
+                                spellcheck="false"
                                 required
                             />
                         </div>
@@ -2062,144 +2939,164 @@
                         </div>
                     </div>
 
-                    {{-- LOCATION + EQUIPMENT --}}
-                    <div class="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                        {{-- LOCATION --}}
-                        <div>
-                            <div class="mb-2 flex items-center justify-between">
-                                <label class="rf-label" style="margin-bottom: 0"
-                                    >Location</label
-                                >
-                            </div>
+                    {{-- LOCATION + EQUIPMENT (mobile layout mirrors PRISM_MOBILE Report an issue) --}}
+                    <div class="rf-loc-equip mb-5">
+                        <label class="rf-label rf-loc-equip-mobile-title rf-mobile-section-title mb-2 hidden">Location &amp; equipment</label>
 
-                            <div
-                                id="roomDropdownContainer"
-                                class="rf-select-wrap"
-                            >
-                                <select
-                                    name="report_room_id"
-                                    id="roomSelect"
-                                    class="rf-input details-textarea rf-native-select"
-                                    data-picker-title="Select location"
-                                    data-picker-search="Search rooms"
-                                    style="
-                                        height: 48px;
-                                        padding-right: 36px;
-                                        color: #0f172a;
-                                        cursor: pointer;
-                                    "
-                                >
-                                    <option value="">Select Location</option>
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->room_id }}">
-                                            {{ $room->floor_level }} - {{ $room->room_name }} - {{ (int) ($room->equipment_count ?? 0) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <div class="rf-loc-equip-card mb-3 grid grid-cols-1 gap-5 md:mb-0 md:grid-cols-2">
+                            {{-- LOCATION --}}
+                            <div class="rf-loc-block min-w-0">
+                                <div class="mb-2 hidden items-center justify-between md:flex">
+                                    <label class="rf-label" style="margin-bottom: 0">Location</label>
+                                </div>
 
-                            <p id="locationError" class="mt-1 hidden text-[14px] text-red-500">Please select a location.</p>
-                        </div>
-
-                        {{-- EQUIPMENT (one-to-many) --}}
-                        <div class="min-w-0">
-                            <div class="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                <label class="rf-label" style="margin-bottom: 0"
-                                    >Equipment</label
-                                >
-                                <button
-                                    type="button"
-                                    id="toggleEquipmentInput"
-                                    class="self-start sm:self-auto"
-                                    style="
-                                        font-size: 11px;
-                                        font-weight: 700;
-                                        color: #0037c7;
-                                        background: none;
-                                        border: none;
-                                        cursor: pointer;
-                                        transition: color 0.2s;
-                                    "
-                                    onmouseover="this.style.color = '#002ea8'"
-                                    onmouseout="this.style.color = '#0037C7'"
-                                >
-                                    Equipment not listed?
-                                </button>
-                            </div>
-
-                            <div id="equipmentDropdownContainer">
-                                <div class="rf-equipment-row flex items-center gap-2">
-                                    <div
-                                        class="rf-select-wrap min-w-0"
-                                        style="flex: 1; min-width: 0"
-                                    >
-                                        <select
-                                            id="equipmentSelect"
-                                            class="rf-input details-textarea rf-native-select"
-                                            data-picker-title="Select equipment"
-                                            data-picker-search="Search equipment"
-                                            style="
-                                                height: 48px;
-                                                padding-right: 36px;
-                                                cursor: pointer;
-                                                width: 100%;
-                                            "
+                                <div class="rf-loc-equip-row">
+                                    <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
+                                        <i data-lucide="map-pin" class="h-4 w-4"></i>
+                                    </span>
+                                    <div class="rf-loc-equip-control min-w-0 flex-1">
+                                        <span class="rf-loc-equip-hint md:hidden">Tap to choose</span>
+                                        <div
+                                            id="roomDropdownContainer"
+                                            class="rf-select-wrap"
                                         >
-                                            <option value="">Select Equipment</option>
-                                        </select>
+                                            <select
+                                                name="report_room_id"
+                                                id="roomSelect"
+                                                class="rf-input details-textarea rf-native-select"
+                                                data-picker-title="Select location"
+                                                data-picker-search="Search rooms"
+                                                style="
+                                                    height: 48px;
+                                                    padding-right: 36px;
+                                                    color: #0f172a;
+                                                    cursor: pointer;
+                                                "
+                                            >
+                                                <option value="">Select Location</option>
+                                                @foreach ($rooms as $room)
+                                                    <option value="{{ $room->room_id }}">
+                                                        {{ $room->floor_level }} - {{ $room->room_name }} - Eq. {{ (int) ($room->equipment_count ?? 0) }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        id="addEquipmentBtn"
-                                        class="shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                        style="height: 48px; min-width: 72px"
-                                    >
-                                        Add
-                                    </button>
                                 </div>
+
+                                <p id="locationError" class="mt-1 hidden text-[14px] text-red-500">Please select a location.</p>
                             </div>
 
-                            <div id="equipmentManualContainer" class="hidden">
-                                <div class="rf-equipment-row flex items-center gap-2">
-                                    <input
-                                        type="text"
-                                        id="equipmentManualInput"
-                                        placeholder="Enter equipment name manually..."
-                                        class="rf-input details-textarea min-w-0"
-                                        style="height: 48px; flex: 1; min-width: 0"
-                                    />
+                            {{-- EQUIPMENT --}}
+                            <div class="rf-equip-block min-w-0">
+                                <div class="mb-2 hidden items-center justify-between md:flex">
+                                    <label class="rf-label" style="margin-bottom: 0">Equipment</label>
                                     <button
                                         type="button"
-                                        id="addManualEquipmentBtn"
-                                        class="shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                        style="height: 48px; min-width: 72px"
+                                        id="toggleEquipmentInputDesktop"
+                                        class="rf-unlisted-link"
                                     >
-                                        Add
+                                        Equipment not listed?
                                     </button>
                                 </div>
+
+                                <div id="equipmentDropdownContainer">
+                                    <div class="rf-loc-equip-row">
+                                        <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
+                                            <i data-lucide="monitor" class="h-4 w-4"></i>
+                                        </span>
+                                        <div class="rf-loc-equip-control min-w-0 flex-1">
+                                            <span class="rf-loc-equip-hint md:hidden">Tap to choose</span>
+                                            <div class="rf-select-wrap" style="width: 100%">
+                                                <select
+                                                    id="equipmentSelect"
+                                                    class="rf-input details-textarea rf-native-select"
+                                                    data-picker-title="Select equipment"
+                                                    data-picker-search="Search equipment"
+                                                    style="
+                                                        height: 48px;
+                                                        padding-right: 36px;
+                                                        cursor: pointer;
+                                                        width: 100%;
+                                                    "
+                                                >
+                                                    <option value="">Select Equipment</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="equipmentManualContainer" class="hidden">
+                                    <div class="rf-loc-equip-row">
+                                        <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
+                                            <i data-lucide="keyboard" class="h-4 w-4"></i>
+                                        </span>
+                                        <div class="rf-loc-equip-control min-w-0 flex-1">
+                                            <span class="rf-loc-equip-hint md:hidden">Type equipment name</span>
+                                            <input
+                                                type="text"
+                                                id="equipmentManualInput"
+                                                placeholder="Enter equipment name manually..."
+                                                class="rf-input details-textarea"
+                                                style="height: 48px; width: 100%"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-
-                            <div
-                                id="selectedEquipmentList"
-                                class="mt-3 flex flex-col gap-2"
-                            ></div>
-                            <div id="selectedEquipmentInputs"></div>
-
-                            <p class="mt-1 text-[11px] text-slate-400">
-                                Select equipment, then choose a suggested issue or fill Additional Details, then click Add. Labels include asset tag/serial so identical names stay distinguishable.
-                            </p>
-
-                            <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
                         </div>
+
+                        {{-- Actions: unlisted + Add (Flutter row on mobile; desktop Add beside fields via CSS) --}}
+                        <div class="rf-loc-equip-actions mb-3 flex items-stretch gap-2">
+                            <button
+                                type="button"
+                                id="toggleEquipmentInput"
+                                class="rf-unlisted-toggle md:hidden"
+                                aria-pressed="false"
+                            >
+                                <span>Equipment not listed</span>
+                                <span class="rf-unlisted-switch" aria-hidden="true"></span>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="addEquipmentBtn"
+                                class="rf-add-equip-btn shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                style="height: 48px; min-width: 72px"
+                            >
+                                <span class="rf-add-equip-label">Add</span>
+                            </button>
+                            <button
+                                type="button"
+                                id="addManualEquipmentBtn"
+                                class="rf-add-equip-btn hidden shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                style="height: 48px; min-width: 72px"
+                            >
+                                <span class="rf-add-equip-label">Add</span>
+                            </button>
+                        </div>
+
+                        <div
+                            id="selectedEquipmentList"
+                            class="mb-3 flex flex-col gap-2"
+                        ></div>
+                        <div id="selectedEquipmentInputs"></div>
+
+                        <div class="rf-equip-instruction mb-1 text-[11px] leading-relaxed text-slate-400">
+                            Select equipment, then choose a suggested issue or fill Additional Details, then click Add. Labels include asset tag/serial so identical names stay distinguishable.
+                        </div>
+
+                        <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
                     </div>
 
                     {{-- SUGGESTED ISSUES --}}
-                    <div>
+                    <div class="rf-issues-block mt-3">
                         <div
-                            class="mb-3 mt-3 flex items-center justify-between"
+                            class="rf-issues-head mb-2 flex items-center justify-between gap-2"
                         >
-                            <label class="rf-label" style="margin-bottom: 0">
-                                Suggested Issues
+                            <label class="rf-label rf-section-title rf-mobile-section-title" style="margin-bottom: 0">
+                                Suggested issues
                                 <span id="issueCount">(0)</span>
                             </label>
 
@@ -2244,13 +3141,16 @@
 
                         <div
                             id="issueCarousel"
-                            class="flex gap-2 overflow-x-auto scroll-smooth"
+                            class="rf-issues-panel flex gap-2 overflow-x-auto scroll-smooth"
                         >
                             <div
                                 id="issuePlaceholder"
                                 class="issue-placeholder"
                             >
-                                Select a location and equipment, then choose a suggested issue before clicking Add
+                                <span class="issue-placeholder-icon" aria-hidden="true">
+                                    <i data-lucide="info" class="h-4 w-4"></i>
+                                </span>
+                                <span class="issue-placeholder-text">Select equipment first to see suggested issues.</span>
                             </div>
                         </div>
 
@@ -2260,8 +3160,8 @@
                             style="
                                 color: red;
                                 font-size: 14px;
-                                margin-top: -12px;
-                                margin-bottom: 22px;
+                                margin-top: 8px;
+                                margin-bottom: 8px;
                             "
                         >Please select a suggested issue or provide additional details.</p>
 
@@ -2273,30 +3173,26 @@
                     </div>
 
                     <!-- PROBLEM DESCRIPTION WRAPPER -->
-                    <div class="rf-details-block" style="margin-top: 4px">
-                        <div
-                            class="mb-2 flex items-center justify-between gap-4"
-                        >
+                    <div class="rf-details-block mt-4">
+                        <div class="rf-details-head mb-2">
                             <label
-                                class="rf-label"
-                                style="margin-top: 12px; margin-bottom: 8px"
+                                class="rf-label rf-section-title rf-mobile-section-title"
+                                style="margin-bottom: 0"
                             >
-                                Additional Details
+                                Additional details
                             </label>
 
-                            <span class="text-xs text-slate-400">
+                            <p class="rf-details-hint">
                                 Optional if a suggested issue is selected
-                            </span>
+                            </p>
                         </div>
-
-                        
 
                         <div class="rf-details-field" style="position: relative">
                             <textarea
                                 id="problemDescription"
                                 name="report_problem_description"
                                 rows="4"
-                                placeholder="Provide specific details or context about the issue here..."
+                                placeholder="Describe the problem..."
                                 class="rf-input details-textarea"
                                 style="
                                     resize: none;
@@ -2385,7 +3281,17 @@
                     "
                 >
                     {{-- CLOSE (desktop) --}}
-                    <div class="report-form-aside-head hidden justify-end lg:flex">
+                    <div class="report-form-aside-head hidden items-center justify-end gap-2 lg:flex">
+                        <button
+                            type="button"
+                            id="reportModalExpandBtn"
+                            onclick="toggleReportModalExpand()"
+                            class="rf-expand-btn inline-flex h-8 w-8 items-center justify-center rounded-lg transition"
+                            title="Full screen"
+                            aria-label="Full screen"
+                        >
+                            <i data-lucide="maximize-2" id="reportModalExpandIcon" class="h-4 w-4"></i>
+                        </button>
                         <button
                             type="button"
                             onclick="closeReportModal()"
@@ -2399,9 +3305,9 @@
                     {{-- PRIORITY LEVEL --}}
                     <div>
                         <label
-                            class="rf-label"
-                            style="margin-bottom: 14px; color: white"
-                            >Priority Level</label
+                            class="rf-label rf-mobile-section-title"
+                            style="margin-bottom: 14px"
+                            >Priority level</label
                         >
 
                         {{-- NON-URGENT --}}
@@ -2457,8 +3363,8 @@
                         <div class="mb-2 flex items-center justify-between gap-4">
                             <label
                                 for="preferredActionDateInput"
-                                class="rf-label"
-                                style="margin-bottom: 0; color: white"
+                                class="rf-label rf-mobile-section-title"
+                                style="margin-bottom: 0"
                             >Preferred date</label>
                             <span class="text-xs text-slate-400">Optional</span>
                         </div>
@@ -2482,15 +3388,17 @@
                     {{-- UPLOAD PROOF --}}
                     <div>
                         <label
-                            class="rf-label"
-                            style="margin-bottom: 10px; color: white"
-                            >Upload Proof Image</label
+                            class="rf-label rf-mobile-section-title"
+                            style="margin-bottom: 10px"
+                            >Upload proof image</label
                         >
 
-                        <label
-                            for="proofImageInput"
+                        <div
                             class="upload-zone"
                             id="uploadZone"
+                            role="button"
+                            tabindex="0"
+                            aria-label="Upload proof image"
                             style="position: relative"
                         >
                             <i
@@ -2511,38 +3419,6 @@
                                 (Optional)
                             </div>
                             <div
-                                id="removeFileBtn"
-                                class="hidden"
-                                style="
-                                    position: absolute;
-                                    top: 10px;
-                                    right: 10px;
-                                    z-index: 20;
-                                "
-                            >
-                                <button
-                                    type="button"
-                                    onclick="
-                                        event.preventDefault();
-                                        removeSelectedFile();
-                                    "
-                                    class="flex items-center justify-center transition"
-                                    style="
-                                        width: 30px;
-                                        height: 30px;
-                                        border-radius: 999px;
-                                        background: rgba(239, 68, 68, 0.15);
-                                        border: 1px solid rgba(239, 68, 68, 0.3);
-                                        color: #ef4444;
-                                        font-size: 14px;
-                                        font-weight: 700;
-                                    "
-                                    title="Remove file"
-                                >
-                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                </button>
-                            </div>
-                            <div
                                 class="upload-hint"
                                 style="
                                     color: #777777;
@@ -2556,11 +3432,33 @@
                                 type="file"
                                 id="proofImageInput"
                                 name="report_uploaded_image"
-                                accept=".jpg,.jpeg,.png,.webp"
-                                class="hidden"
-                                onchange="handleFileSelect(this)"
+                                accept=".jpg,.jpeg,.png,.webp,image/*"
+                                class="rf-file-input-native"
+                                tabindex="-1"
+                                aria-hidden="true"
                             />
-                        </label>
+                        </div>
+
+                        <div id="proofPreview" class="rf-proof-preview" hidden>
+                            <button
+                                type="button"
+                                class="rf-proof-preview-tap"
+                                id="proofPreviewOpen"
+                                aria-label="View proof image full screen"
+                            >
+                                <img id="proofPreviewImg" alt="Proof image preview" />
+                                <span class="rf-proof-preview-hint">Tap to view full screen</span>
+                            </button>
+                            <button
+                                type="button"
+                                id="removeProofImageBtn"
+                                class="rf-proof-preview-remove"
+                                title="Remove file"
+                                aria-label="Remove proof image"
+                            >
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
                     </div>
 
@@ -2594,17 +3492,77 @@
         <div class="rf-picker-head">
             <div class="rf-picker-kicker">Choose an option</div>
             <div class="rf-picker-title" id="rfPickerTitle">Select</div>
+            <div class="rf-picker-hint" id="rfPickerHint" hidden></div>
             <button type="button" class="rf-picker-dismiss" id="rfPickerDismiss" aria-label="Close">
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
-        <div class="rf-picker-search">
-            <i data-lucide="search" class="h-4 w-4" style="color:#0025cc;"></i>
-            <input type="search" id="rfPickerSearch" placeholder="Search" autocomplete="off">
+        <div class="rf-picker-body">
+            <div class="rf-picker-search">
+                <i data-lucide="search" class="h-4 w-4" style="color:#0025cc;"></i>
+                <input type="search" id="rfPickerSearch" placeholder="Search" autocomplete="off">
+            </div>
+            <div class="rf-picker-categories" id="rfPickerCategories" hidden></div>
+            <div class="rf-picker-list" id="rfPickerList"></div>
         </div>
-        <div class="rf-picker-list" id="rfPickerList"></div>
         <button type="button" class="rf-picker-close" id="rfPickerClose">Done</button>
     </div>
+</div>
+
+<div id="rfPhotoSourceOverlay" class="rf-photo-source-overlay" hidden>
+    <div class="rf-photo-source-sheet" role="dialog" aria-modal="true" aria-label="Upload proof image">
+        <div class="rf-photo-source-handle" aria-hidden="true"></div>
+        {{-- Labels keep the user gesture so the native picker is allowed --}}
+        <label class="rf-photo-source-tile" id="rfPhotoSourceCamera" for="proofImageCameraInput">
+            <span class="rf-photo-source-icon" aria-hidden="true">
+                <i data-lucide="camera" class="h-5 w-5"></i>
+            </span>
+            <span class="rf-photo-source-copy">
+                <span class="rf-photo-source-title">Take photo</span>
+                <span class="rf-photo-source-sub">Use your camera</span>
+            </span>
+            <i data-lucide="chevron-right" class="rf-photo-source-chevron h-5 w-5" aria-hidden="true"></i>
+        </label>
+        <label class="rf-photo-source-tile" id="rfPhotoSourceGallery" for="proofImageGalleryInput">
+            <span class="rf-photo-source-icon" aria-hidden="true">
+                <i data-lucide="image" class="h-5 w-5"></i>
+            </span>
+            <span class="rf-photo-source-copy">
+                <span class="rf-photo-source-title">Choose from gallery</span>
+                <span class="rf-photo-source-sub">Pick an existing image</span>
+            </span>
+            <i data-lucide="chevron-right" class="rf-photo-source-chevron h-5 w-5" aria-hidden="true"></i>
+        </label>
+    </div>
+</div>
+
+{{-- Outside overlay + not display:none so camera/gallery pickers work on mobile --}}
+<input
+    type="file"
+    id="proofImageCameraInput"
+    class="rf-file-input-native"
+    accept="image/*"
+    capture="environment"
+    tabindex="-1"
+    aria-hidden="true"
+/>
+<input
+    type="file"
+    id="proofImageGalleryInput"
+    class="rf-file-input-native"
+    accept="image/*"
+    tabindex="-1"
+    aria-hidden="true"
+/>
+
+<div id="rfProofFullscreen" class="rf-proof-fs" hidden>
+    <button type="button" class="rf-proof-fs-close" id="rfProofFsClose" aria-label="Close preview">
+        <i data-lucide="x" class="h-5 w-5"></i>
+    </button>
+    <div class="rf-proof-fs-stage" id="rfProofFsStage">
+        <img id="rfProofFsImg" alt="Proof image" />
+    </div>
+    <div class="rf-proof-fs-hint">Pinch to zoom</div>
 </div>
 
 <div id="rfDropdownMenu" class="rf-dropdown-menu" hidden>
@@ -2657,9 +3615,8 @@
 
         if (preferredInput) {
             preferredInput.disabled = !isNonUrgent;
-            if (!isNonUrgent) {
-                preferredInput.value = "";
-            }
+            // Keep the chosen date while switching Urgent ↔ Non-Urgent;
+            // only hide/disable the field for Urgent so it is not submitted.
         }
     }
 
@@ -2891,111 +3848,597 @@ descriptionTextarea.addEventListener(
     });
 
     /* ─────────────────────────────────────────────────────────
-   FILE UPLOAD PREVIEW
+   FILE UPLOAD — mirrors PRISM_MOBILE report_screen.pickImage()
+   takePhoto() / chooseFromGallery() → pickImageFromSource()
 ───────────────────────────────────────────────────────── */
-    function handleFileSelect(input) {
-        const file = input.files[0];
+    function isMobileReportViewport() {
+        return window.matchMedia("(max-width: 767px)").matches;
+    }
 
-        const label = document.getElementById("uploadLabel");
+    let proofPreviewObjectUrl = null;
 
+    function revokeProofPreviewUrl() {
+        if (proofPreviewObjectUrl) {
+            URL.revokeObjectURL(proofPreviewObjectUrl);
+            proofPreviewObjectUrl = null;
+        }
+    }
+
+    function applyProofFileToUi(file) {
         const zone = document.getElementById("uploadZone");
+        const preview = document.getElementById("proofPreview");
+        const previewImg = document.getElementById("proofPreviewImg");
+        if (!zone || !preview || !previewImg || !file) return;
 
-        if (!file) return;
+        revokeProofPreviewUrl();
+        proofPreviewObjectUrl = URL.createObjectURL(file);
+        previewImg.src = proofPreviewObjectUrl;
 
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        zone.hidden = true;
+        zone.classList.add("uploaded");
+        preview.hidden = false;
 
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function clearProofFileUi() {
+        const label = document.getElementById("uploadLabel");
+        const zone = document.getElementById("uploadZone");
+        const preview = document.getElementById("proofPreview");
+        const previewImg = document.getElementById("proofPreviewImg");
+
+        revokeProofPreviewUrl();
+        closeProofFullscreen();
+
+        if (previewImg) previewImg.removeAttribute("src");
+        if (preview) preview.hidden = true;
+
+        if (zone) {
+            zone.hidden = false;
+            zone.classList.remove("uploaded");
+        }
+
+        if (label) {
+            label.innerHTML = "Click to upload photo <br /> (Optional)";
+            label.style.color = "#a7aab9";
+        }
+
+        const icon = zone
+            ? zone.querySelector('[data-lucide="image-plus"]')
+            : null;
+        if (icon) icon.style.color = "#2947f0";
+    }
+
+    function showProofImageFullscreen() {
+        const fs = document.getElementById("rfProofFullscreen");
+        const fsImg = document.getElementById("rfProofFsImg");
+        if (!fs || !fsImg || !proofPreviewObjectUrl) return;
+
+        fsImg.src = proofPreviewObjectUrl;
+        fs.hidden = false;
+        fs.classList.add("is-open");
+        document.body.style.overflow = "hidden";
+        resetProofFsTransform();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function closeProofFullscreen() {
+        const fs = document.getElementById("rfProofFullscreen");
+        const fsImg = document.getElementById("rfProofFsImg");
+        if (fs) {
+            fs.hidden = true;
+            fs.classList.remove("is-open");
+        }
+        if (fsImg) fsImg.removeAttribute("src");
+        document.body.style.overflow = "";
+        resetProofFsTransform();
+    }
+
+    let proofFsScale = 1;
+    let proofFsX = 0;
+    let proofFsY = 0;
+
+    function applyProofFsTransform() {
+        const fsImg = document.getElementById("rfProofFsImg");
+        if (!fsImg) return;
+        fsImg.style.transform =
+            "translate(" +
+            proofFsX +
+            "px, " +
+            proofFsY +
+            "px) scale(" +
+            proofFsScale +
+            ")";
+    }
+
+    function resetProofFsTransform() {
+        proofFsScale = 1;
+        proofFsX = 0;
+        proofFsY = 0;
+        applyProofFsTransform();
+    }
+
+    function initProofFullscreenGestures() {
+        const stage = document.getElementById("rfProofFsStage");
+        const fs = document.getElementById("rfProofFullscreen");
+        const closeBtn = document.getElementById("rfProofFsClose");
+        if (!stage || !fs) return;
+
+        let pointers = new Map();
+        let pinchStartDist = 0;
+        let pinchStartScale = 1;
+        let panStartX = 0;
+        let panStartY = 0;
+        let originX = 0;
+        let originY = 0;
+
+        function pointerDistance() {
+            const pts = Array.from(pointers.values());
+            if (pts.length < 2) return 0;
+            const dx = pts[0].x - pts[1].x;
+            const dy = pts[0].y - pts[1].y;
+            return Math.hypot(dx, dy);
+        }
+
+        stage.addEventListener("pointerdown", function (e) {
+            stage.setPointerCapture(e.pointerId);
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pointers.size === 1) {
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                originX = proofFsX;
+                originY = proofFsY;
+            } else if (pointers.size === 2) {
+                pinchStartDist = pointerDistance();
+                pinchStartScale = proofFsScale;
+            }
+        });
+
+        stage.addEventListener("pointermove", function (e) {
+            if (!pointers.has(e.pointerId)) return;
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            if (pointers.size === 2 && pinchStartDist > 0) {
+                const dist = pointerDistance();
+                proofFsScale = Math.min(
+                    4,
+                    Math.max(1, pinchStartScale * (dist / pinchStartDist)),
+                );
+                if (proofFsScale <= 1.01) {
+                    proofFsScale = 1;
+                    proofFsX = 0;
+                    proofFsY = 0;
+                }
+                applyProofFsTransform();
+            } else if (pointers.size === 1 && proofFsScale > 1) {
+                proofFsX = originX + (e.clientX - panStartX);
+                proofFsY = originY + (e.clientY - panStartY);
+                applyProofFsTransform();
+            }
+        });
+
+        function endPointer(e) {
+            pointers.delete(e.pointerId);
+            if (pointers.size < 2) pinchStartDist = 0;
+            if (pointers.size === 1) {
+                const remaining = pointers.values().next().value;
+                panStartX = remaining.x;
+                panStartY = remaining.y;
+                originX = proofFsX;
+                originY = proofFsY;
+            }
+            if (proofFsScale <= 1) {
+                proofFsScale = 1;
+                proofFsX = 0;
+                proofFsY = 0;
+                applyProofFsTransform();
+            }
+        }
+
+        stage.addEventListener("pointerup", endPointer);
+        stage.addEventListener("pointercancel", endPointer);
+        stage.addEventListener("pointerleave", endPointer);
+
+        stage.addEventListener(
+            "wheel",
+            function (e) {
+                if (!fs.classList.contains("is-open")) return;
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.12 : 0.12;
+                proofFsScale = Math.min(4, Math.max(1, proofFsScale + delta));
+                if (proofFsScale === 1) {
+                    proofFsX = 0;
+                    proofFsY = 0;
+                }
+                applyProofFsTransform();
+            },
+            { passive: false },
+        );
+
+        if (closeBtn) {
+            closeBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                closeProofFullscreen();
+            });
+        }
+
+        document.addEventListener("keydown", function (e) {
+            if (
+                e.key === "Escape" &&
+                fs.classList.contains("is-open")
+            ) {
+                closeProofFullscreen();
+            }
+        });
+    }
+
+    function validateProofFile(file) {
         const maxSize = 10 * 1024 * 1024;
 
-        /*
-    |--------------------------------------------------------------------------
-    | INVALID FILE TYPE
-    |--------------------------------------------------------------------------
-    */
+        if (!file) return false;
 
-        if (!allowedTypes.includes(file.type)) {
+        const type = String(file.type || "").toLowerCase();
+        const name = String(file.name || "").toLowerCase();
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+        const allowedExt = /\.(jpe?g|png|webp)$/i.test(name);
+        const looksLikeImage =
+            allowedTypes.includes(type) ||
+            type.startsWith("image/") ||
+            (!type && allowedExt);
+
+        if (!looksLikeImage) {
             alert(
                 "Unsupported file format. Please upload a PNG, JPG, JPEG, or WEBP image.",
             );
-
-            input.value = "";
-
-            label.innerText = "Click to upload photo";
-
-            label.style.color = "#8892a4";
-
-            zone.classList.remove("uploaded");
-
-            return;
+            return false;
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | FILE TOO LARGE
-    |--------------------------------------------------------------------------
-    */
 
         if (file.size > maxSize) {
             alert(
                 "File size exceeds the 10MB limit. Please upload a smaller image.",
             );
+            return false;
+        }
+
+        return true;
+    }
+
+    function assignFileToProofInput(file) {
+        const input = document.getElementById("proofImageInput");
+        if (!input || !file) return false;
+
+        try {
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+            input.files = transfer.files;
+            return true;
+        } catch (err) {
+            console.warn("Unable to assign proof image to form input.", err);
+            return false;
+        }
+    }
+
+    /**
+     * Match Flutter ImagePicker: imageQuality 55, maxWidth/maxHeight 1280.
+     */
+    function compressProofImage(file) {
+        return new Promise(function (resolve) {
+            if (!file) {
+                resolve(file);
+                return;
+            }
+
+            const maxWidth = 1280;
+            const maxHeight = 1280;
+            const quality = 0.55;
+            const objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+
+            img.onload = function () {
+                URL.revokeObjectURL(objectUrl);
+
+                let width = img.naturalWidth || img.width;
+                let height = img.naturalHeight || img.height;
+
+                if (!width || !height) {
+                    resolve(file);
+                    return;
+                }
+
+                const scale = Math.min(1, maxWidth / width, maxHeight / height);
+                width = Math.max(1, Math.round(width * scale));
+                height = Math.max(1, Math.round(height * scale));
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    resolve(file);
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const type = String(file.type || "").toLowerCase();
+                const outputType =
+                    type === "image/png" || type === "image/webp"
+                        ? type
+                        : "image/jpeg";
+
+                canvas.toBlob(
+                    function (blob) {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+
+                        let name = file.name || "proof-image.jpg";
+                        if (outputType === "image/jpeg" && !/\.jpe?g$/i.test(name)) {
+                            name = name.replace(/\.[^.]+$/, "") + ".jpg";
+                            if (name === ".jpg") name = "proof-image.jpg";
+                        }
+
+                        resolve(
+                            new File([blob], name, {
+                                type: outputType,
+                                lastModified: Date.now(),
+                            }),
+                        );
+                    },
+                    outputType,
+                    quality,
+                );
+            };
+
+            img.onerror = function () {
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+            };
+
+            img.src = objectUrl;
+        });
+    }
+
+    /**
+     * Open native camera or gallery picker (ImageSource.camera / gallery).
+     */
+    function openNativeImagePicker(source) {
+        return new Promise(function (resolve) {
+            const cameraInput = document.getElementById("proofImageCameraInput");
+            const galleryInput = document.getElementById("proofImageGalleryInput");
+            const input = source === "camera" ? cameraInput : galleryInput;
+
+            if (!input) {
+                resolve(null);
+                return;
+            }
+
+            let settled = false;
+
+            function finish(file) {
+                if (settled) return;
+                settled = true;
+                input.removeEventListener("change", onChange);
+                input.value = "";
+                resolve(file || null);
+            }
+
+            function onChange() {
+                const file =
+                    input.files && input.files[0] ? input.files[0] : null;
+                finish(file);
+            }
 
             input.value = "";
+            input.addEventListener("change", onChange, { once: true });
 
-            label.innerText = "Click to upload photo";
+            try {
+                input.click();
+            } catch (err) {
+                finish(null);
+            }
+        });
+    }
 
-            label.style.color = "#8892a4";
+    /**
+     * Mirror: picker.pickImage(source:, imageQuality: 55, maxWidth: 1280, maxHeight: 1280)
+     */
+    async function pickImageFromSource(source) {
+        const raw = await openNativeImagePicker(source);
+        if (!raw) return null;
 
-            zone.classList.remove("uploaded");
+        if (!validateProofFile(raw)) return null;
 
+        const compressed = await compressProofImage(raw);
+        if (!assignFileToProofInput(compressed)) return null;
+
+        applyProofFileToUi(compressed);
+        return compressed;
+    }
+
+    /** Mirror PRISM_MOBILE ImageSource.camera */
+    function takePhoto() {
+        return pickImageFromSource("camera");
+    }
+
+    /** Mirror PRISM_MOBILE ImageSource.gallery */
+    function chooseFromGallery() {
+        return pickImageFromSource("gallery");
+    }
+
+    function handleFileSelect(input) {
+        const file = input && input.files ? input.files[0] : null;
+        if (!file) return;
+        if (!validateProofFile(file)) {
+            if (input) input.value = "";
+            clearProofFileUi();
             return;
         }
+        compressProofImage(file).then(function (compressed) {
+            assignFileToProofInput(compressed);
+            applyProofFileToUi(compressed);
+        });
+    }
 
-        /*
-    |--------------------------------------------------------------------------
-    | VALID FILE
-    |--------------------------------------------------------------------------
-    */
-
-        label.textContent = "🔵✓ " + file.name;
-
-        label.style.color = "#34d399";
-
-        zone.classList.add("uploaded");
-
-        document.getElementById("removeFileBtn").classList.remove("hidden");
-
-        const icon = zone.querySelector("i");
-
-        if (icon) {
-            icon.style.color = "#34d399";
-        }
+    async function applyPickedProofFile(rawFile) {
+        if (!rawFile) return null;
+        if (!validateProofFile(rawFile)) return null;
+        const compressed = await compressProofImage(rawFile);
+        if (!assignFileToProofInput(compressed)) return null;
+        applyProofFileToUi(compressed);
+        return compressed;
     }
 
     function removeSelectedFile() {
         const input = document.getElementById("proofImageInput");
+        const cameraInput = document.getElementById("proofImageCameraInput");
+        const galleryInput = document.getElementById("proofImageGalleryInput");
 
-        const label = document.getElementById("uploadLabel");
+        if (input) input.value = "";
+        if (cameraInput) cameraInput.value = "";
+        if (galleryInput) galleryInput.value = "";
 
-        const zone = document.getElementById("uploadZone");
-
-        const removeBtn = document.getElementById("removeFileBtn");
-
-        input.value = "";
-
-        label.textContent = "Click to upload photo";
-
-        label.style.color = "#8892a4";
-
-        zone.classList.remove("uploaded");
-
-        removeBtn.classList.add("hidden");
-
-        const icon = zone.querySelector("i");
-
-        if (icon) {
-            icon.style.color = "#8892a4";
-        }
+        clearProofFileUi();
     }
+
+    (function initProofImagePicker() {
+        const zone = document.getElementById("uploadZone");
+        const input = document.getElementById("proofImageInput");
+        const cameraInput = document.getElementById("proofImageCameraInput");
+        const galleryInput = document.getElementById("proofImageGalleryInput");
+        const removeBtn = document.getElementById("removeProofImageBtn");
+        const overlay = document.getElementById("rfPhotoSourceOverlay");
+
+        if (!zone || !input) return;
+
+        function closePhotoSourceSheet() {
+            if (!overlay) return;
+            overlay.hidden = true;
+            overlay.classList.remove("is-open");
+        }
+
+        function openPhotoSourceSheet() {
+            if (!overlay) {
+                chooseFromGallery();
+                return;
+            }
+            overlay.hidden = false;
+            overlay.classList.add("is-open");
+            if (window.lucide) lucide.createIcons();
+        }
+
+        /** Mirror PRISM_MOBILE report_screen.pickImage() */
+        function pickImage() {
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+
+            if (isMobileReportViewport()) {
+                openPhotoSourceSheet();
+                return;
+            }
+
+            chooseFromGallery();
+        }
+
+        function onNativeSourcePicked(rawFile) {
+            closePhotoSourceSheet();
+            applyPickedProofFile(rawFile);
+        }
+
+        function onUploadZoneActivate(e) {
+            if (zone.style.pointerEvents === "none") return;
+            if (zone.hidden) return;
+            e.preventDefault();
+            e.stopPropagation();
+            pickImage();
+        }
+
+        zone.addEventListener("click", onUploadZoneActivate);
+        zone.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+                onUploadZoneActivate(e);
+            }
+        });
+
+        const previewOpen = document.getElementById("proofPreviewOpen");
+        if (previewOpen) {
+            previewOpen.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showProofImageFullscreen();
+            });
+        }
+
+        if (removeBtn) {
+            removeBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                removeSelectedFile();
+            });
+        }
+
+        initProofFullscreenGestures();
+
+        // Labels use for="…" so the browser opens the picker from the same tap.
+        // Do not hide the sheet in this click handler — that can cancel the picker.
+        if (cameraInput) {
+            cameraInput.addEventListener("change", function () {
+                const file =
+                    cameraInput.files && cameraInput.files[0]
+                        ? cameraInput.files[0]
+                        : null;
+                cameraInput.value = "";
+                onNativeSourcePicked(file);
+            });
+        }
+
+        if (galleryInput) {
+            galleryInput.addEventListener("change", function () {
+                const file =
+                    galleryInput.files && galleryInput.files[0]
+                        ? galleryInput.files[0]
+                        : null;
+                galleryInput.value = "";
+                onNativeSourcePicked(file);
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener("click", function (e) {
+                if (e.target === overlay) closePhotoSourceSheet();
+            });
+        }
+
+        document.addEventListener("keydown", function (e) {
+            if (
+                e.key === "Escape" &&
+                overlay &&
+                overlay.classList.contains("is-open")
+            ) {
+                closePhotoSourceSheet();
+            }
+        });
+
+        const reportModal = document.getElementById("reportModal");
+        if (reportModal) {
+            const hideObserver = new MutationObserver(function () {
+                if (reportModal.classList.contains("hidden")) {
+                    closePhotoSourceSheet();
+                    closeProofFullscreen();
+                }
+            });
+            hideObserver.observe(reportModal, {
+                attributes: true,
+                attributeFilter: ["class"],
+            });
+        }
+
+        window.rfPickImage = pickImage;
+        window.rfTakePhoto = takePhoto;
+        window.rfChooseFromGallery = chooseFromGallery;
+    })();
 
     /* ─────────────────────────────────────────────────────────
    ROOM INPUT TOGGLE
@@ -3023,6 +4466,9 @@ toggleRoomBtn.addEventListener('click', function () {
 ───────────────────────────────────────────────────────── */
 
     const toggleEquipmentBtn = document.getElementById("toggleEquipmentInput");
+    const toggleEquipmentBtnDesktop = document.getElementById(
+        "toggleEquipmentInputDesktop",
+    );
 
     const equipmentDropdown = document.getElementById(
         "equipmentDropdownContainer",
@@ -3051,7 +4497,6 @@ toggleRoomBtn.addEventListener('click', function () {
     );
 
     let equipmentManualMode = false;
-
     let lastSelectedEquipment = "";
 
     /** @type {{type: 'id'|'manual', id?: string, name: string, issue: string}[]} */
@@ -3059,6 +4504,91 @@ toggleRoomBtn.addEventListener('click', function () {
 
     /** @type {Record<string, unknown>[]} */
     let roomEquipmentCache = [];
+
+    function syncEquipmentModeUi() {
+        if (addEquipmentBtn) {
+            addEquipmentBtn.classList.toggle("hidden", equipmentManualMode);
+        }
+        if (addManualEquipmentBtn) {
+            addManualEquipmentBtn.classList.toggle("hidden", !equipmentManualMode);
+        }
+        if (toggleEquipmentBtn) {
+            toggleEquipmentBtn.classList.toggle("is-on", equipmentManualMode);
+            toggleEquipmentBtn.setAttribute(
+                "aria-pressed",
+                equipmentManualMode ? "true" : "false",
+            );
+            const label = toggleEquipmentBtn.querySelector("span:not(.rf-unlisted-switch)");
+            if (label) {
+                label.textContent = equipmentManualMode
+                    ? "Using manual equipment"
+                    : "Equipment not listed";
+            }
+        }
+        if (toggleEquipmentBtnDesktop) {
+            toggleEquipmentBtnDesktop.textContent = equipmentManualMode
+                ? "Back to equipment list"
+                : "Equipment not listed?";
+        }
+    }
+
+    function setEquipmentManualMode(nextManual) {
+        document.getElementById("equipmentError")?.classList.add("hidden");
+        setSelectTriggerBorder(equipmentSelect, "");
+        if (equipmentManualInput) {
+            equipmentManualInput.style.borderColor = "";
+        }
+
+        equipmentManualMode = !!nextManual;
+
+        if (equipmentManualMode) {
+            if (equipmentSelect?.value) {
+                lastSelectedEquipment = equipmentSelect.value;
+            }
+            if (equipmentSelect) {
+                equipmentSelect.value = "";
+            }
+            equipmentDropdown?.classList.add("hidden");
+            equipmentManual?.classList.remove("hidden");
+            document
+                .querySelectorAll(".issue-btn")
+                .forEach((btn) => btn.classList.remove("active"));
+            loadGenericSuggestions();
+        } else {
+            equipmentDropdown?.classList.remove("hidden");
+            equipmentManual?.classList.add("hidden");
+            if (equipmentManualInput) {
+                equipmentManualInput.value = "";
+            }
+            document
+                .querySelectorAll(".issue-btn")
+                .forEach((btn) => btn.classList.remove("active"));
+
+            if (lastSelectedEquipment) {
+                equipmentSelect.value = lastSelectedEquipment;
+                fetch(`/get-suggestions/${lastSelectedEquipment}`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        issueCarousel.innerHTML = "";
+                        data.forEach((issue) => {
+                            issueCarousel.innerHTML += `
+                            <button
+                                type="button"
+                                class="issue-btn">
+                                ${issue}
+                            </button>
+                        `;
+                        });
+                        bindIssueButtons();
+                        updateIssueCount();
+                    });
+            } else if (selectedEquipmentItems.length === 0) {
+                showIssuePlaceholder();
+            }
+        }
+
+        syncEquipmentModeUi();
+    }
 
     function getAddedEquipmentIds() {
         return new Set(
@@ -3099,6 +4629,12 @@ toggleRoomBtn.addEventListener('click', function () {
                 equipment.open_report_ticket_code || "",
             );
             option.dataset.searchText = formatEquipmentSearchText(equipment);
+            option.dataset.categoryId = String(
+                equipment.equipment_category_id || "",
+            );
+            option.dataset.categoryName = String(
+                equipment.equipment_category_name || "",
+            );
             equipmentSelect.appendChild(option);
         });
 
@@ -3442,91 +4978,38 @@ toggleRoomBtn.addEventListener('click', function () {
         });
     }
 
-    toggleEquipmentBtn.addEventListener("click", function () {
-        document.getElementById("equipmentError").classList.add("hidden");
-
-        setSelectTriggerBorder(equipmentSelect, "");
-
-        equipmentManualInput.style.borderColor = "";
-
-        equipmentManualMode = !equipmentManualMode;
-
-        if (equipmentManualMode) {
-            if (equipmentSelect.value) {
-                lastSelectedEquipment = equipmentSelect.value;
-            }
-
-            equipmentSelect.value = "";
-
-            equipmentDropdown.classList.add("hidden");
-
-            equipmentManual.classList.remove("hidden");
-
-            this.innerText = "Back to equipment list";
-
-            document
-                .querySelectorAll(".issue-btn")
-                .forEach((btn) => btn.classList.remove("active"));
-
-            loadGenericSuggestions();
-        } else {
-            equipmentDropdown.classList.remove("hidden");
-
-            equipmentManual.classList.add("hidden");
-
-            equipmentManualInput.value = "";
-
-            this.innerText = "Equipment not listed?";
-
-            document
-                .querySelectorAll(".issue-btn")
-                .forEach((btn) => btn.classList.remove("active"));
-
-            if (lastSelectedEquipment) {
-                equipmentSelect.value = lastSelectedEquipment;
-
-                fetch(`/get-suggestions/${lastSelectedEquipment}`)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        issueCarousel.innerHTML = "";
-
-                        data.forEach((issue) => {
-                            issueCarousel.innerHTML += `
-                            <button
-                                type="button"
-                                class="issue-btn">
-                                ${issue}
-                            </button>
-                        `;
-                        });
-
-                        bindIssueButtons();
-
-                        updateIssueCount();
-                    });
-            } else if (selectedEquipmentItems.length === 0) {
-                issueCarousel.innerHTML = `
-                    <div id="issuePlaceholder" class="issue-placeholder">
-                        Select equipment, choose a suggested issue, then click Add
-                    </div>
-                `;
-
-                updateIssueCount();
-
-                toggleIssueControls();
-            }
-        }
+    toggleEquipmentBtn?.addEventListener("click", function () {
+        setEquipmentManualMode(!equipmentManualMode);
     });
+    toggleEquipmentBtnDesktop?.addEventListener("click", function () {
+        setEquipmentManualMode(!equipmentManualMode);
+    });
+    syncEquipmentModeUi();
 
-    function showIssuePlaceholder() {
-        issueCarousel.innerHTML = `
-        <div id="issuePlaceholder" class="issue-placeholder">
-            Select equipment, choose a suggested issue, then click Add
-        </div>
-    `;
+    function issuePlaceholderHtml(message) {
+        const text =
+            message ||
+            "Select equipment first to see suggested issues.";
+        return `
+            <div id="issuePlaceholder" class="issue-placeholder">
+                <span class="issue-placeholder-icon" aria-hidden="true">
+                    <i data-lucide="info" class="h-4 w-4"></i>
+                </span>
+                <span class="issue-placeholder-text">${text}</span>
+            </div>
+        `;
+    }
 
+    function refreshIssuePlaceholderIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+            window.lucide.createIcons();
+        }
+    }
+
+    function showIssuePlaceholder(message) {
+        issueCarousel.innerHTML = issuePlaceholderHtml(message);
+        refreshIssuePlaceholderIcons();
         updateIssueCount();
-
         toggleIssueControls();
     }
 
@@ -3666,6 +5149,9 @@ toggleRoomBtn.addEventListener('click', function () {
 
     function updateIssuePlaceholder() {
         const placeholder = document.getElementById("issuePlaceholder");
+        if (!placeholder) {
+            return;
+        }
 
         const issueButtons = document.querySelectorAll(".issue-btn");
 
@@ -3772,8 +5258,11 @@ toggleRoomBtn.addEventListener('click', function () {
         const uploadZone =
             document.getElementById("uploadZone");
 
-        const removeFileBtn =
-            document.getElementById("removeFileBtn");
+        const proofPreview =
+            document.getElementById("proofPreview");
+
+        const removeProofImageBtn =
+            document.getElementById("removeProofImageBtn");
 
 
         // =====================================================
@@ -3806,12 +5295,20 @@ toggleRoomBtn.addEventListener('click', function () {
         equipmentManualInput.disabled = locked;
 
         toggleEquipmentBtn.disabled = locked;
+        if (toggleEquipmentBtnDesktop) {
+            toggleEquipmentBtnDesktop.disabled = locked;
+        }
 
         problemDescription.disabled = locked;
 
         clearDescriptionBtn.disabled = locked;
 
         proofImageInput.disabled = locked;
+
+        const proofCameraInput = document.getElementById("proofImageCameraInput");
+        const proofGalleryInput = document.getElementById("proofImageGalleryInput");
+        if (proofCameraInput) proofCameraInput.disabled = locked;
+        if (proofGalleryInput) proofGalleryInput.disabled = locked;
 
         submitReportBtn.disabled = locked;
 
@@ -3871,13 +5368,20 @@ toggleRoomBtn.addEventListener('click', function () {
         uploadZone.style.opacity =
             locked ? "0.45" : "1";
 
+        if (proofPreview) {
+            proofPreview.style.pointerEvents = locked ? "none" : "";
+            proofPreview.style.opacity = locked ? "0.45" : "1";
+        }
 
         // =====================================================
         // LOCK REMOVE FILE BUTTON HERE
         // =====================================================
 
-        removeFileBtn.style.pointerEvents =
-            locked ? "none" : "";
+        if (removeProofImageBtn) {
+            removeProofImageBtn.disabled = locked;
+            removeProofImageBtn.style.pointerEvents =
+                locked ? "none" : "";
+        }
 
 
         // =====================================================
@@ -3893,6 +5397,8 @@ toggleRoomBtn.addEventListener('click', function () {
             equipmentManualInput,
 
             toggleEquipmentBtn,
+
+            toggleEquipmentBtnDesktop,
 
             problemDescription,
 
@@ -3973,7 +5479,9 @@ toggleRoomBtn.addEventListener('click', function () {
     function enhanceModernSelects() {
         const overlay = document.getElementById("rfPickerOverlay");
         const titleEl = document.getElementById("rfPickerTitle");
+        const hintEl = document.getElementById("rfPickerHint");
         const searchEl = document.getElementById("rfPickerSearch");
+        const categoriesEl = document.getElementById("rfPickerCategories");
         const listEl = document.getElementById("rfPickerList");
         const closeEl = document.getElementById("rfPickerClose");
         const dismissEl = document.getElementById("rfPickerDismiss");
@@ -3982,6 +5490,7 @@ toggleRoomBtn.addEventListener('click', function () {
         const dropdownSearchWrap = document.getElementById("rfDropdownSearchWrap");
         const dropdownSearchEl = document.getElementById("rfDropdownSearch");
         const optionTip = document.getElementById("rfOptionTip");
+        let activeCategoryFilter = "";
         if (!overlay || !dropdownMenu || !dropdownList) return;
 
         // Mount outside #reportModal so overflow:hidden and transforms don't clip fixed pickers.
@@ -4104,6 +5613,11 @@ toggleRoomBtn.addEventListener('click', function () {
             overlay.classList.remove("is-open");
             overlay.hidden = true;
             if (searchEl) searchEl.value = "";
+            activeCategoryFilter = "";
+            if (categoriesEl) {
+                categoriesEl.innerHTML = "";
+                categoriesEl.hidden = true;
+            }
         }
 
         function closePicker() {
@@ -4113,10 +5627,89 @@ toggleRoomBtn.addEventListener('click', function () {
             activeSelect = null;
         }
 
+        function equipmentCategoryShortLabel(name) {
+            const n = String(name || "").trim().toLowerCase();
+            if (!n) return "Other";
+            if (n.includes("audio") || n === "ave") return "AVE";
+            if (n.includes("computer") || n === "ce") return "CE";
+            if (n.includes("furniture")) return "Furniture";
+            return String(name).trim();
+        }
+
+        function collectEquipmentCategories(select) {
+            const map = new Map();
+            Array.from(select.options).forEach(function (option) {
+                if (!option.value) return;
+                const id = String(option.dataset.categoryId || "").trim();
+                const name = String(option.dataset.categoryName || "").trim();
+                if (!id && !name) return;
+                const key = id || name;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        id: id,
+                        name: name || "Other",
+                        label: equipmentCategoryShortLabel(name),
+                    });
+                }
+            });
+            return Array.from(map.values()).sort(function (a, b) {
+                return a.label.localeCompare(b.label);
+            });
+        }
+
+        function renderCategoryChips(select) {
+            if (!categoriesEl) return;
+            categoriesEl.innerHTML = "";
+            activeCategoryFilter = "";
+
+            if (!selectIsEquipment(select)) {
+                categoriesEl.hidden = true;
+                return;
+            }
+
+            const categories = collectEquipmentCategories(select);
+            if (categories.length < 2) {
+                categoriesEl.hidden = true;
+                return;
+            }
+
+            categoriesEl.hidden = false;
+
+            function makeChip(label, value) {
+                const chip = document.createElement("button");
+                chip.type = "button";
+                chip.className = "rf-picker-chip" + (activeCategoryFilter === value ? " is-active" : "");
+                chip.textContent = label;
+                chip.dataset.category = value;
+                chip.addEventListener("click", function () {
+                    activeCategoryFilter = value;
+                    categoriesEl.querySelectorAll(".rf-picker-chip").forEach(function (btn) {
+                        btn.classList.toggle("is-active", btn.dataset.category === value);
+                    });
+                    renderSheetList(select, searchEl ? searchEl.value : "");
+                });
+                return chip;
+            }
+
+            categoriesEl.appendChild(makeChip("All", ""));
+            categories.forEach(function (cat) {
+                categoriesEl.appendChild(makeChip(cat.label, cat.id || cat.name));
+            });
+            const allChip = categoriesEl.querySelector('.rf-picker-chip[data-category=""]');
+            if (allChip) allChip.classList.add("is-active");
+        }
+
         function optionList(select, query) {
             const q = (query || "").trim().toLowerCase();
             return Array.from(select.options).filter(function (option) {
                 if (option.value === "") return false;
+                if (selectIsEquipment(select) && activeCategoryFilter) {
+                    const catId = String(option.dataset.categoryId || "").trim();
+                    const catName = String(option.dataset.categoryName || "").trim();
+                    if (catId !== activeCategoryFilter && catName !== activeCategoryFilter) {
+                        return false;
+                    }
+                }
                 const text = (
                     option.dataset.searchText || option.textContent
                 ).trim();
@@ -4174,7 +5767,11 @@ toggleRoomBtn.addEventListener('click', function () {
             });
 
             if (options.length === 0) {
-                listEl.innerHTML = '<div class="rf-picker-empty">No matches. Try another search.</div>';
+                let emptyMsg = "No matches. Try another search.";
+                if (selectIsEquipment(select) && activeCategoryFilter && !(query || "").trim()) {
+                    emptyMsg = "No equipment in this category.";
+                }
+                listEl.innerHTML = '<div class="rf-picker-empty">' + emptyMsg + "</div>";
             }
 
             if (window.lucide) lucide.createIcons();
@@ -4245,12 +5842,23 @@ toggleRoomBtn.addEventListener('click', function () {
         function openSheet(select) {
             activeSelect = select;
             titleEl.textContent = select.dataset.pickerTitle || placeholderText(select);
+            if (hintEl) {
+                if (selectIsEquipment(select)) {
+                    hintEl.textContent = "Hold an item to see full details";
+                    hintEl.hidden = false;
+                } else {
+                    hintEl.textContent = "";
+                    hintEl.hidden = true;
+                }
+            }
             searchEl.placeholder = select.dataset.pickerSearch || "Search";
             searchEl.value = "";
             overlay.hidden = false;
             overlay.classList.add("is-open");
             setTriggerOpen(select, true);
+            renderCategoryChips(select);
             renderSheetList(select, "");
+            if (listEl) listEl.scrollTop = 0;
             if (window.lucide) lucide.createIcons();
             // Avoid auto-focus on mobile — keyboard resize was instantly closing the sheet.
             if (!isMobilePicker()) {
@@ -4452,7 +6060,7 @@ toggleRoomBtn.addEventListener('click', function () {
     */
         employeeInput.addEventListener("input", function () {
             employeeError.style.display = "none";
-
+            employeeInput.classList.remove("is-error");
             this.style.borderColor = "";
         });
 
@@ -4524,9 +6132,33 @@ toggleRoomBtn.addEventListener('click', function () {
         // ONLY INACTIVE REPORTERS LOCK THE FORM
         // =====================================================
 
+        let employeeIdCapsTimer = null;
+        let employeeIdSkipCapsSchedule = false;
+
         employeeInput.addEventListener("input", function () {
 
             const id = this.value.trim();
+
+            // After 3s idle, normalize to uppercase (OMC0129F) without fighting typing.
+            if (!employeeIdSkipCapsSchedule) {
+                clearTimeout(employeeIdCapsTimer);
+                employeeIdCapsTimer = setTimeout(() => {
+                    const current = this.value;
+                    const upper = current.toUpperCase();
+                    if (current === upper) {
+                        return;
+                    }
+                    const pos = this.selectionStart;
+                    employeeIdSkipCapsSchedule = true;
+                    this.value = upper;
+                    try {
+                        const next = Math.min(pos ?? upper.length, upper.length);
+                        this.setSelectionRange(next, next);
+                    } catch (_) {}
+                    this.dispatchEvent(new Event("input", { bubbles: true }));
+                    employeeIdSkipCapsSchedule = false;
+                }, 3000);
+            }
 
 
             // =====================================================
@@ -4901,6 +6533,7 @@ toggleRoomBtn.addEventListener('click', function () {
             if (equipmentManualInput) {
                 equipmentManualInput.style.borderColor = "";
             }
+            employeeInput.classList.remove("is-error");
             employeeInput.style.borderColor = "";
 
             if (!roomId) {
@@ -4963,7 +6596,8 @@ toggleRoomBtn.addEventListener('click', function () {
 
                 employeeError.innerText = "Employee ID not recognized.";
                 employeeError.style.display = "block";
-                employeeInput.style.borderColor = "#dc2626";
+                employeeInput.classList.add("is-error");
+                employeeInput.style.borderColor = "";
                 employeeInput.focus();
                 return;
             }

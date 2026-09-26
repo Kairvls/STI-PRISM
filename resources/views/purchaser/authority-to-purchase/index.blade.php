@@ -572,7 +572,10 @@
                             </div>
                         @else
                             <div class="mb-4">
-                                <label class="text-xs font-medium text-gray-500">Approved RIS <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <label class="text-xs font-medium text-gray-500">
+                                    Approved RIS
+                                    <span class="font-normal text-gray-400">(required to submit · optional for draft)</span>
+                                </label>
                                 <select
                                     name="authority_purchase_ris_id"
                                     x-on:change="applyRisPrefill($event.target.value)"

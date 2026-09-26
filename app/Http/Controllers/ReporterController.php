@@ -612,13 +612,28 @@ class ReporterController extends Controller
 
     public function getEquipmentByRoom($roomId)
     {
+        $query = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->where('equipment_table.equipment_room_id', $roomId)
+        );
+
+        if (Schema::hasTable('equipment_categories_table')) {
+            $query->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            );
+        }
+
+        $select = ['equipment_table.*'];
+
+        if (Schema::hasTable('equipment_categories_table')) {
+            $select[] = 'equipment_categories_table.equipment_category_name';
+        }
+
         $equipment = ReportGrouping::enrichEquipmentWithOpenReports(
-            ReportGrouping::applyReporterEquipmentFilters(
-                DB::table('equipment_table')
-                    ->where('equipment_room_id', $roomId)
-            )
-                ->orderBy('equipment_name')
-                ->get(),
+            $query->select($select)->orderBy('equipment_table.equipment_name')->get(),
             (int) $roomId
         );
 

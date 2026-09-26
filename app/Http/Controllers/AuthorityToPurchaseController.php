@@ -306,11 +306,8 @@ class AuthorityToPurchaseController extends Controller
                 ? null
                 : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
-            $formNumber = $isDraft
-                ? null
-                : (filled($validated['authority_purchase_form_number'] ?? null)
-                    ? (string) $validated['authority_purchase_form_number']
-                    : AtpFormNumber::next());
+            // System-assigned on submit only — ignore client-posted No. (multi-purchaser safe).
+            $formNumber = $isDraft ? null : AtpFormNumber::next();
 
             $payload = [
                 'authority_purchase_ris_id' => $risId,
@@ -497,11 +494,10 @@ class AuthorityToPurchaseController extends Controller
                 ? null
                 : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
 
+            // System-assigned on submit only — drafts stay null; keep existing if already assigned.
             $formNumber = $isDraft
                 ? null
-                : (filled($validated['authority_purchase_form_number'] ?? null)
-                    ? (string) $validated['authority_purchase_form_number']
-                    : AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null));
+                : AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null);
 
             $payload = [
                 'authority_purchase_form_number' => $formNumber,
@@ -584,7 +580,9 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
-            $formNumber = AtpFormNumber::allocateOnSubmit($atp->authority_purchase_form_number ?? null);
+            $formNumber = AtpFormNumber::isValid($atp->authority_purchase_form_number ?? null)
+                ? trim((string) $atp->authority_purchase_form_number)
+                : AtpFormNumber::next();
 
             if (blank($atp->authority_purchase_received_by_name)) {
                 return back()->with('error', 'Received By is required before submitting.');

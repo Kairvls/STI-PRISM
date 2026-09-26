@@ -1,4 +1,4 @@
-{{-- Shared RIS No. label helper: RIS-YYYYMM-0000001 --}}
+{{-- Shared RIS No. label helper: RIS-YYYYMM-0000000 --}}
 <script>
     window.risFormNumberLabel = window.risFormNumberLabel || function (risId, formNumber) {
         if (formNumber) return String(formNumber);

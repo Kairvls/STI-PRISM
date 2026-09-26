@@ -1208,7 +1208,7 @@
         x-cloak
         x-transition.opacity
         style="display: none;"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0025cc]/50 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0b1220]/70 p-4"
     >
 
         <div

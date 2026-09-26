@@ -79,6 +79,10 @@ Web Running:
 - php artisan reverb:start to make it live viewing (no refresh needed for some parts)
 - php artisan serve --host=0.0.0.0 --port=8000 (to connect to mobile)
 
+Mobile vs staff login (local):
+- Staff / Office 365: open http://localhost:8000 on the PC. MICROSOFT_REDIRECT_URI must stay http://localhost:8000/auth/microsoft/callback (Azure only allows HTTPS or http://localhost for Web redirects).
+- Phone on same Wi-Fi: use http://YOUR_LAN_IP:8000 for reporter only (Make Report, registration, chatbot). Do not use Staff Sign In on the phone over a LAN IP — Azure will not accept http://192.168.x.x as a redirect URI. For real mobile staff login later, use an HTTPS tunnel (ngrok) or a deployed HTTPS host.
+
 
 Web to Email form for registering as reporter:
 - php artisan serve --host=0.0.0.0 --port=8000

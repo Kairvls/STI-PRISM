@@ -142,13 +142,13 @@
         }
 
         .btn-dark {
-            background: #111827;
+            background: #0025cc;
             color: #fff;
             font-weight: 600;
             border-radius: 10px;
             transition: background .2s;
         }
-        .btn-dark:hover { background: #000; }
+        .btn-dark:hover { background: blue; }
 
         /* Large soft light-blue organic wave (mockup left background) */
         .pixel-overlay {
@@ -1759,7 +1759,7 @@
         #navbar {
             width: 100%;
             max-width: 100vw;
-            overflow: hidden;
+            overflow: visible;
         }
 
         #navbar .nav-inner {
@@ -1851,7 +1851,7 @@
             right: 0;
             top: 72px;
             bottom: 0;
-            z-index: 45;
+            z-index: 55;
             width: 100%;
             max-width: 100vw;
             background: rgba(255, 255, 255, .98);
@@ -1864,12 +1864,14 @@
             transform: translateY(-8px);
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
             transition: opacity .22s ease, transform .22s ease, visibility .22s;
         }
         .mobile-nav-panel.is-open {
             transform: translateY(0);
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
         }
         .mobile-nav-link {
             display: block;
@@ -1882,6 +1884,33 @@
         }
         .mobile-nav-link:last-child { border-bottom: 0; }
         .mobile-nav-link.active { color: var(--blue); }
+        .mobile-nav-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px 0 4px;
+        }
+        .mobile-nav-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 13px 16px;
+            border-radius: 12px;
+            border: 0;
+            font-size: .95rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .mobile-nav-cta--primary {
+            background: var(--blue);
+            color: #fff;
+        }
+        .mobile-nav-cta--ghost {
+            background: #fff;
+            color: var(--blue);
+            border: 1px solid #d7def8;
+        }
 
         /* ── Hero collage (mobile/tablet) ── */
         @media (max-width: 1023px) {
@@ -2055,19 +2084,52 @@
             }
         }
 
-        @media (max-width: 480px) {
-            .hero-section h1 {
-                font-size: clamp(1.85rem, 8vw, 2.35rem) !important;
-            }
-
+        @media (max-width: 640px) {
             .hero-cta-row {
                 flex-direction: column;
+                width: 100%;
             }
 
             .hero-cta-row .btn-report,
             .hero-cta-row .btn-blue {
                 width: 100%;
                 justify-content: center;
+            }
+
+            /* Reporter-first on phones: Make Report is the strong CTA; staff login hidden (Azure localhost-only for HTTP) */
+            .hero-cta-row .btn-report.hero-cta-primary {
+                background: var(--blue);
+                color: #fff;
+                box-shadow: 0 10px 24px rgba(0, 37, 204, .22);
+            }
+            .hero-cta-row .btn-report.hero-cta-primary:hover {
+                background: var(--blue-dark);
+            }
+            .hero-cta-row .btn-report.hero-cta-primary .btn-report-icon {
+                background: rgba(255,255,255,.16);
+                color: #fff;
+            }
+        }
+
+        .hero-staff-login-note {
+            display: none;
+            width: 100%;
+            max-width: 480px;
+            margin: -0.35rem auto 1.25rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 1023px) {
+            .hero-staff-login-note {
+                display: block;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-section h1 {
+                font-size: clamp(1.85rem, 8vw, 2.35rem) !important;
             }
 
             .analysis-rings-stack {
@@ -2135,7 +2197,7 @@
                         Make Report
                     </button>
                     <button type="button" onclick="openLoginModal()"
-                            class="btn-blue nav-signin border-0 cursor-pointer">
+                            class="btn-blue nav-signin border-0 cursor-pointer hidden lg:inline-flex items-center">
                         Sign In
                     </button>
                 @else
@@ -2154,20 +2216,25 @@
                 </button>
             </div>
         </div>
+    </nav>
 
-        <div id="mobileNavPanel" class="mobile-nav-panel lg:hidden" aria-hidden="true">
-            <a href="#top" class="mobile-nav-link active" data-mobile-nav>Home</a>
-            <a href="#process" class="mobile-nav-link" data-mobile-nav>Process</a>
-            <a href="#features" class="mobile-nav-link" data-mobile-nav>Features</a>
-            <a href="#product" class="mobile-nav-link" data-mobile-nav>System</a>
-            @guest
+    <div id="mobileNavPanel" class="mobile-nav-panel lg:hidden" aria-hidden="true">
+        <a href="#top" class="mobile-nav-link active" data-mobile-nav>Home</a>
+        <a href="#process" class="mobile-nav-link" data-mobile-nav>Process</a>
+        <a href="#features" class="mobile-nav-link" data-mobile-nav>Features</a>
+        <a href="#product" class="mobile-nav-link" data-mobile-nav>System</a>
+        @guest
+            <div class="mobile-nav-actions">
                 <button type="button" onclick="closeMobileNav(); openReportModal();"
-                        class="mobile-nav-link w-full text-left bg-transparent border-0 cursor-pointer">
+                        class="mobile-nav-cta mobile-nav-cta--primary">
                     Make Report
                 </button>
-            @endguest
-        </div>
-    </nav>
+                <p class="m-0 text-center text-xs leading-relaxed" style="color:var(--muted);">
+                    Staff sign-in is available on desktop.
+                </p>
+            </div>
+        @endguest
+    </div>
 
     <!-- HERO -->
     <section id="top" class="hero-section relative pt-28 md:pt-36 pb-20 md:pb-28 overflow-hidden min-h-[90vh] flex items-center">
@@ -2234,6 +2301,7 @@
                                 <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".25"></circle>
                                 <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
                             </svg>
+                            <i data-lucide="send" id="reporterRegisterSubmitIcon" class="h-4 w-4" aria-hidden="true"></i>
                             <span id="reporterRegisterSubmitLabel">Submit</span>
                         </button>
                     </form>
@@ -2243,18 +2311,17 @@
                     </p>
 
                     <div class="hero-cta-row flex flex-wrap gap-3 mb-6">
-                        
-                        <button type="button" onclick="openLoginModal()"
-                                    class="btn-blue magnetic inline-flex items-center gap-2 px-7 py-3.5 text-sm border-0 cursor-pointer">
-                                System Login
-                            </button>
                         @guest
                         <button type="button" onclick="openReportModal()"
-                                class="btn-report text-sm cursor-pointer">
+                                class="btn-report hero-cta-primary text-sm cursor-pointer">
                             <span class="btn-report-icon">
                                 <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
                             </span>
                             Make Report
+                        </button>
+                        <button type="button" onclick="openLoginModal()"
+                                class="btn-blue magnetic hero-cta-staff hidden lg:inline-flex items-center gap-2 px-7 py-3.5 text-sm border-0 cursor-pointer">
+                            System Login
                         </button>
                         @else
                             <a href="{{ route('dashboard') }}"
@@ -2263,6 +2330,9 @@
                             </a>
                         @endguest
                     </div>
+                    @guest
+                        <p class="hero-staff-login-note">Staff sign-in is available on desktop.</p>
+                    @endguest
 
                     <div class="hero-trust flex flex-wrap gap-6 text-sm font-medium justify-center lg:justify-start" style="color:var(--ink);">
                         <span class="inline-flex items-center gap-2">
@@ -2517,13 +2587,6 @@
                         </button>
                     </article>
                 @endforeach
-            </div>
-
-            <div class="text-center reveal">
-                <button type="button" onclick="openFaqChat()" class="btn-platform inline-flex text-sm items-center gap-2 cursor-pointer">
-                    <i data-lucide="message-circle-more" class="w-4 h-4"></i>
-                    Ask PaAyo
-                </button>
             </div>
         </div>
     </section>
@@ -3022,32 +3085,74 @@
 
         function closeAllModals() {
             if (loginChooserModal) loginChooserModal.classList.add('hidden');
-            if (reportModal) reportModal.classList.add('hidden');
+            if (reportModal) {
+                reportModal.classList.add('hidden');
+                reportModal.classList.remove('is-expanded');
+                syncReportModalExpandUi();
+            }
         }
 
         function showModal(modal) {
             if (!modal) return;
             closeAllModals();
             if (typeof closeMobileNav === 'function') closeMobileNav();
+            if (typeof closeFaqChat === 'function') closeFaqChat();
             modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
+            document.body.classList.add('overflow-hidden', 'modal-open');
             document.documentElement.classList.add('overflow-hidden');
         }
 
         function hideModal(modal) {
             if (!modal) return;
             modal.classList.add('hidden');
-            if (!document.querySelector('.fixed.inset-0:not(.hidden)')) {
-                document.body.classList.remove('overflow-hidden');
+            const otherOpen = [loginChooserModal, reportModal].some(function (el) {
+                return el && el !== modal && !el.classList.contains('hidden');
+            });
+            if (!otherOpen) {
+                document.body.classList.remove('overflow-hidden', 'modal-open');
                 document.documentElement.classList.remove('overflow-hidden');
             }
         }
 
+        function syncReportModalExpandUi() {
+            if (!reportModal) return;
+            const expanded = reportModal.classList.contains('is-expanded');
+            const icon = document.getElementById('reportModalExpandIcon');
+            const btn = document.getElementById('reportModalExpandBtn');
+            if (icon) {
+                icon.setAttribute('data-lucide', expanded ? 'minimize-2' : 'maximize-2');
+            }
+            if (btn) {
+                const label = expanded ? 'Exit full screen' : 'Full screen';
+                btn.setAttribute('title', label);
+                btn.setAttribute('aria-label', label);
+                btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+            }
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        window.toggleReportModalExpand = function () {
+            if (!reportModal) return;
+            if (window.matchMedia('(max-width: 767px)').matches) return;
+            reportModal.classList.toggle('is-expanded');
+            syncReportModalExpandUi();
+        };
+
         function openLoginModal() { showModal(loginChooserModal); }
         function openLoginChooser() { showModal(loginChooserModal); }
         function closeLoginChooser() { hideModal(loginChooserModal); }
-        function openReportModal() { showModal(reportModal); }
-        function closeReportModal() { hideModal(reportModal); }
+        function openReportModal() {
+            if (reportModal) reportModal.classList.remove('is-expanded');
+            showModal(reportModal);
+            syncReportModalExpandUi();
+        }
+        function closeReportModal() {
+            if (reportModal) reportModal.classList.remove('is-expanded');
+            hideModal(reportModal);
+            syncReportModalExpandUi();
+        }
 
         if (reportModal) {
             reportModal.addEventListener('click', (e) => {
@@ -3064,7 +3169,8 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeAllModals();
-                document.body.classList.remove('overflow-hidden');
+                document.body.classList.remove('overflow-hidden', 'modal-open');
+                document.documentElement.classList.remove('overflow-hidden');
             }
         });
 
@@ -3140,6 +3246,8 @@
             const setLoading = (loading) => {
                 submitBtn.disabled = loading;
                 spinner.classList.toggle('hidden', !loading);
+                const submitIcon = document.getElementById('reporterRegisterSubmitIcon');
+                if (submitIcon) submitIcon.classList.toggle('hidden', loading);
                 submitLabel.textContent = loading ? 'Sending' : 'Submit';
             };
 
@@ -3333,7 +3441,7 @@
     @endif
 
 
-    @include('landing.partials.faq-chatbot', ['showChatFab' => false])
+    @include('landing.partials.faq-chatbot', ['showChatFab' => true])
 
 </body>
 </html>

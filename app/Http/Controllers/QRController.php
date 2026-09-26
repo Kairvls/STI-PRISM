@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Support\EquipmentQrCodes;
+use App\Support\GdQrPng;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -1018,21 +1019,17 @@ class QRController extends Controller
 
 
         // =====================================
-        // GENERATE QR CODE AS PNG
+        // GENERATE QR CODE AS PNG (GD — no Imagick)
         // =====================================
 
-        $qrPng = QrCode::format('png')
-
-            ->size(430)
-
-            ->margin(1)
-
-            ->generate(
-                url(
-                    '/equipment/qr/' .
-                    $equipment->equipment_qr_code
-                )
-            );
+        $qrPng = GdQrPng::generate(
+            url(
+                '/equipment/qr/' .
+                $equipment->equipment_qr_code
+            ),
+            430,
+            1
+        );
 
 
         // =====================================

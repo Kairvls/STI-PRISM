@@ -577,7 +577,10 @@ class RisController extends Controller
                 'RIS number is required before submitting.',
 
             'ris_form_number.regex' =>
-                'RIS number must follow the format RIS-YYYYMM-0000001.',
+                'RIS number must follow the format RIS-YYYYMM-0000000.',
+
+            'ris_form_number.unique' =>
+                'This RIS number is already in use. Choose another or leave blank to assign on submit.',
 
             'ris_urgency.required' =>
                 'Please choose whether this procurement is Urgent or Non-Urgent.',
@@ -782,6 +785,7 @@ class RisController extends Controller
                 $manualTitle = null;
             }
 
+            // System-assigned on submit only — ignore any client-posted No. (multi-purchaser safe).
             $formNumber = $isDraft ? null : RisWorkflow::allocateFormNumberOnSubmit();
             $copiedFromRisId = $this->resolveOwnedDraftCopiedFromId(
                 isset($validated['copied_from_ris_id']) ? (int) $validated['copied_from_ris_id'] : null
@@ -1191,7 +1195,10 @@ public function update(Request $request, $risId)
             'RIS number is required before submitting.',
 
         'ris_form_number.regex' =>
-            'RIS number must follow the format RIS-YYYYMM-0000001.',
+            'RIS number must follow the format RIS-YYYYMM-0000000.',
+
+        'ris_form_number.unique' =>
+            'This RIS number is already in use. Choose another or leave blank to assign on submit.',
 
         'ris_urgency.required' =>
             'Please choose whether this procurement is Urgent or Non-Urgent.',
@@ -1364,13 +1371,14 @@ public function update(Request $request, $risId)
         //
         // Existing values stay untouched.
         // =================================================
+        // System-assigned on submit only — drafts stay null; resubmit keeps existing No.
         $formNumber = $ris->ris_form_number;
-        if ($saveAction === 'save' && $ris->ris_status === 'Draft') {
+        if ($saveAction === 'save' && in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
             $formNumber = null;
         } elseif ($saveAction === 'submit') {
             $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
         } elseif ($saveAction === 'resubmit') {
-            $formNumber = $ris->ris_form_number;
+            $formNumber = $ris->ris_form_number ?: RisWorkflow::allocateFormNumberOnSubmit();
         }
 
         $updateData = [
@@ -1721,7 +1729,7 @@ public function submit($risId)
 
         // =================================================
         // EVERYTHING IS VALID
-        // SEND RIS TO ADMIN (always allocate a fresh No.)
+        // SEND RIS TO ADMIN (system-assigned No. only)
         // =================================================
         $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
 
