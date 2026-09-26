@@ -22,6 +22,66 @@
             background: #fff !important;
         }
 
+        #createUserModal .admin-employee-id-field {
+            display: flex;
+            align-items: stretch;
+            height: 2.75rem;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        #createUserModal .admin-employee-id-field:focus-within {
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.25);
+        }
+
+        #createUserModal .admin-employee-id-field.is-disabled {
+            background: #f8fafc;
+            opacity: 0.85;
+        }
+
+        #createUserModal .admin-employee-id-prefix,
+        #createUserModal .admin-employee-id-suffix {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #64748b;
+            background: #f8fafc;
+            user-select: none;
+        }
+
+        #createUserModal .admin-employee-id-prefix {
+            padding: 0 0 0 0.875rem;
+        }
+
+        #createUserModal .admin-employee-id-suffix {
+            padding: 0 0.875rem 0 0;
+        }
+
+        #createUserModal .admin-employee-id-suffix.is-empty {
+            color: #94a3b8;
+        }
+
+        #createUserModal .admin-employee-id-field input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: 0;
+            background: transparent;
+            padding: 0 0.5rem;
+            font-size: 0.875rem;
+            color: #0f172a;
+            outline: none;
+        }
+
+        #createUserModal .admin-employee-id-field.is-disabled input {
+            cursor: not-allowed;
+        }
+
         #viewUserModal .view-user-shell {
             overflow: hidden;
             border: 1px solid #e8eaed;
@@ -378,6 +438,11 @@
     @if(session('error'))
         <div class="pur-alert-error">{{ session('error') }}</div>
     @endif
+    @if ($errors->any())
+        <div class="pur-alert-error">
+            {{ $errors->first() }}
+        </div>
+    @endif
 
     @include('layouts.partials.maintenance-stat-cards', [
         'cards' => [
@@ -733,7 +798,7 @@
 
 <div id="createUserModal" class="fixed inset-0 z-[12000] hidden">
     <div class="pur-modal !z-[12000]" onclick="closeCreateUserModal()">
-        <div class="pur-modal-panel max-w-lg" onclick="event.stopPropagation()">
+        <div class="pur-modal-panel max-w-xl" onclick="event.stopPropagation()">
             <div class="pur-modal-header">
                 <div class="flex items-start justify-between gap-4">
                     <div>
@@ -750,59 +815,146 @@
             <form method="POST" action="/admin/users/store">
                 @csrf
                 <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
-                    <div>
-                        <label class="pur-label">Employee ID</label>
-                        <input type="text" name="employee_id" class="pur-input mt-1.5" placeholder="e.g. OMC0126F" required />
-                    </div>
-                    <div>
-                        <label class="pur-label">Full Name</label>
-                        <input type="text" name="full_name" class="pur-input mt-1.5" placeholder="e.g. Juan Dela Cruz" required />
-                    </div>
-                    <div>
-                        <label class="pur-label">Username</label>
-                        <input type="text" name="username" class="pur-input mt-1.5" required />
-                    </div>
-                    <div>
-                        <label class="pur-label">Email</label>
-                        <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
-                    </div>
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div class="min-w-0">
-                            <label class="pur-label" for="createUserPassword">Password</label>
-                            <div class="relative mt-1.5">
+                    <div class="flex flex-col gap-4 sm:flex-row">
+                        <div class="min-w-0 flex-1">
+                            <label class="pur-label" for="createUserType">Type <span class="text-red-500">*</span></label>
+                            <select
+                                name="user_type"
+                                id="createUserType"
+                                class="pur-select mt-1.5"
+                                required
+                            >
+                                <option value="">Select type...</option>
+                                <option value="Faculty" @selected(old('user_type') === 'Faculty')>Faculty</option>
+                                <option value="Staff" @selected(old('user_type') === 'Staff')>Staff</option>
+                            </select>
+                            <p class="mt-1.5 text-xs text-gray-500">Faculty ends with F, Staff ends with S.</p>
+                        </div>
+                        @php
+                            $oldCreateEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('employee_id', '')));
+                            $oldCreateDigits = '';
+                            $oldCreateSuffix = old('user_type') === 'Staff' ? 'S' : (old('user_type') === 'Faculty' ? 'F' : '');
+                            if (preg_match('/^OMC(\d{1,5})([FS])$/i', $oldCreateEmployeeId, $m)) {
+                                $oldCreateDigits = $m[1];
+                                $oldCreateSuffix = strtoupper($m[2]);
+                            } elseif (preg_match('/^\d{1,5}$/', $oldCreateEmployeeId)) {
+                                $oldCreateDigits = $oldCreateEmployeeId;
+                            }
+                        @endphp
+                        <div class="min-w-0 flex-1">
+                            <label class="pur-label" for="createUserEmployeeIdDigits">Employee ID <span class="text-red-500">*</span></label>
+                            <div
+                                id="createUserEmployeeIdField"
+                                class="admin-employee-id-field mt-1.5 {{ $oldCreateSuffix ? '' : 'is-disabled' }}"
+                            >
+                                <span class="admin-employee-id-prefix">OMC</span>
                                 <input
-                                    type="password"
-                                    name="password"
-                                    id="createUserPassword"
-                                    class="pur-input w-full pr-11"
-                                    required
-                                    autocomplete="new-password"
+                                    type="text"
+                                    id="createUserEmployeeIdDigits"
+                                    inputmode="numeric"
+                                    maxlength="5"
+                                    placeholder="00127"
+                                    value="{{ $oldCreateDigits }}"
+                                    autocomplete="off"
+                                    {{ $oldCreateSuffix ? '' : 'readonly' }}
                                 />
-                                <button
-                                    type="button"
-                                    id="createUserPasswordToggle"
-                                    class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-gray-400 transition hover:text-gray-700"
-                                    aria-label="Show password"
-                                    aria-pressed="false"
-                                    onclick="toggleCreateUserPassword()"
-                                >
-                                    <i data-lucide="eye" class="create-password-icon-show h-4 w-4 pointer-events-none"></i>
-                                    <i data-lucide="eye-off" class="create-password-icon-hide hidden h-4 w-4 pointer-events-none"></i>
-                                </button>
+                                <span
+                                    id="createUserEmployeeIdSuffix"
+                                    class="admin-employee-id-suffix {{ $oldCreateSuffix ? '' : 'is-empty' }}"
+                                >{{ $oldCreateSuffix ?: '?' }}</span>
+                            </div>
+                            <input
+                                type="hidden"
+                                name="employee_id"
+                                id="createUserEmployeeId"
+                                value="{{ old('employee_id') }}"
+                                required
+                            />
+                            <p id="createUserEmployeeIdHint" class="mt-1.5 text-xs text-gray-500">
+                                {{ $oldCreateSuffix
+                                    ? 'Enter the 5-digit number only. OMC and '.$oldCreateSuffix.' are fixed.'
+                                    : 'Select type first, then enter the 5-digit number.' }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex flex-col gap-4 sm:flex-row">
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">First Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="first_name" class="pur-input mt-1.5" placeholder="e.g. Juan" value="{{ old('first_name') }}" required />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">Middle Name <span class="font-normal text-gray-400">(optional)</span></label>
+                                <input type="text" name="middle_name" class="pur-input mt-1.5" placeholder="e.g. Santos" value="{{ old('middle_name') }}" />
                             </div>
                         </div>
-                        <div class="min-w-0">
-                            <label class="pur-label">Contact Number</label>
-                            @include('partials.phone-input', [
-                                'name' => 'contact_number',
-                                'value' => old('contact_number'),
-                                'id' => 'admin-index-user-contact-number',
-                                'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
-                            ])
+                        <div class="flex flex-col gap-4 sm:flex-row">
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">Last Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="last_name" class="pur-input mt-1.5" placeholder="e.g. Dela Cruz" value="{{ old('last_name') }}" required />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">Contact Number</label>
+                                @include('partials.phone-input', [
+                                    'name' => 'contact_number',
+                                    'value' => old('contact_number'),
+                                    'id' => 'admin-index-user-contact-number',
+                                    'inputClass' => 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100',
+                                ])
+                            </div>
+                        </div>
+                        <div>
+                            <label class="pur-label">Email <span class="text-red-500">*</span></label>
+                            <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
+                        </div>
+                        <div class="flex flex-col gap-4 sm:flex-row">
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">Username <span class="text-red-500">*</span></label>
+                                <input type="text" name="username" class="pur-input mt-1.5" required />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="pur-label" for="createUserPassword">Password <span class="text-red-500">*</span></label>
+                                    <button
+                                        type="button"
+                                        id="createUserPasswordGenerate"
+                                        class="shrink-0 text-xs font-semibold text-[#0025cc] transition hover:text-[#001fa8]"
+                                        onclick="regenerateCreateUserPassword()"
+                                    >
+                                        Generate new
+                                    </button>
+                                </div>
+                                <div class="relative mt-1.5">
+                                    <input
+                                        type="text"
+                                        name="password"
+                                        id="createUserPassword"
+                                        class="pur-input w-full pr-11"
+                                        value="{{ old('password') }}"
+                                        required
+                                        autocomplete="new-password"
+                                        spellcheck="false"
+                                    />
+                                    <button
+                                        type="button"
+                                        id="createUserPasswordToggle"
+                                        class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-gray-400 transition hover:text-gray-700"
+                                        aria-label="Hide password"
+                                        aria-pressed="true"
+                                        onclick="toggleCreateUserPassword()"
+                                    >
+                                        <i data-lucide="eye" class="create-password-icon-show hidden h-4 w-4 pointer-events-none"></i>
+                                        <i data-lucide="eye-off" class="create-password-icon-hide h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                </div>
+                                <p class="mt-1.5 text-xs leading-relaxed text-gray-500">
+                                    Auto-generated temporary password — edit anytime, then share it with the user so they can change it after signing in.
+                                </p>
+                            </div>
                         </div>
                     </div>
                     <div>
-                        <label class="pur-label">Primary role <span class="font-normal text-gray-400">(used for Office 365 login)</span></label>
+                        <label class="pur-label">Primary role <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(used for Office 365 login)</span></label>
                         <select name="primary_role" id="createUserRole" class="pur-select mt-1.5" required>
                             <option value="">Select primary role...</option>
                             @foreach($roles as $role)
@@ -863,7 +1015,7 @@
                 @csrf
                 <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
                     <div>
-                        <label class="pur-label">Primary role</label>
+                        <label class="pur-label">Primary role <span class="text-red-500">*</span></label>
                         <select name="primary_role" id="editPrimaryRole" class="pur-select mt-1.5" required>
                             @foreach($roles as $role)
                                 <option value="{{ $role->role_id }}" class="edit-primary-role-option" data-role-id="{{ $role->role_id }}">{{ $role->role_name }}</option>
@@ -923,7 +1075,7 @@
                 @csrf
                 <div class="pur-modal-body space-y-4">
                     <div>
-                        <label class="pur-label" for="editUserEmail">Email</label>
+                        <label class="pur-label" for="editUserEmail">Email <span class="text-red-500">*</span></label>
                         <input
                             type="email"
                             name="email"
@@ -1185,11 +1337,90 @@
         if (modal) modal.classList.remove('hidden');
     };
 
+    window.generateCreateUserPassword = function () {
+        var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        var lower = 'abcdefghijkmnopqrstuvwxyz';
+        var digits = '23456789';
+        var symbols = '@#$%&*!';
+        var all = upper + lower + digits + symbols;
+        var pick = function (chars) {
+            return chars.charAt(Math.floor(Math.random() * chars.length));
+        };
+        var chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+        for (var i = chars.length; i < 10; i += 1) {
+            chars.push(pick(all));
+        }
+        for (var j = chars.length - 1; j > 0; j -= 1) {
+            var k = Math.floor(Math.random() * (j + 1));
+            var tmp = chars[j];
+            chars[j] = chars[k];
+            chars[k] = tmp;
+        }
+        return chars.join('');
+    };
+
+    window.regenerateCreateUserPassword = function () {
+        var input = document.getElementById('createUserPassword');
+        if (!input) return;
+        input.value = window.generateCreateUserPassword();
+        input.type = 'text';
+        var toggle = document.getElementById('createUserPasswordToggle');
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', 'true');
+            toggle.setAttribute('aria-label', 'Hide password');
+            var showIcon = toggle.querySelector('.create-password-icon-show');
+            var hideIcon = toggle.querySelector('.create-password-icon-hide');
+            if (showIcon) showIcon.classList.add('hidden');
+            if (hideIcon) hideIcon.classList.remove('hidden');
+        }
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    };
+
+    window.syncCreateUserTypeHint = function () {
+        var typeSelect = document.getElementById('createUserType');
+        var digitsInput = document.getElementById('createUserEmployeeIdDigits');
+        var fullInput = document.getElementById('createUserEmployeeId');
+        var suffixEl = document.getElementById('createUserEmployeeIdSuffix');
+        var fieldEl = document.getElementById('createUserEmployeeIdField');
+        var hint = document.getElementById('createUserEmployeeIdHint');
+        if (!typeSelect || !digitsInput || !fullInput || !suffixEl || !fieldEl) return;
+
+        var type = String(typeSelect.value || '');
+        var suffix = type === 'Staff' ? 'S' : (type === 'Faculty' ? 'F' : '');
+        var digits = String(digitsInput.value || '').replace(/\D/g, '').slice(0, 5);
+        digitsInput.value = digits;
+        suffixEl.textContent = suffix || '?';
+        suffixEl.classList.toggle('is-empty', !suffix);
+
+        if (type) {
+            fieldEl.classList.remove('is-disabled');
+            digitsInput.removeAttribute('readonly');
+            if (hint) {
+                hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+            }
+        } else {
+            fieldEl.classList.add('is-disabled');
+            digitsInput.setAttribute('readonly', 'readonly');
+            if (hint) {
+                hint.textContent = 'Select type first, then enter the 5-digit number.';
+            }
+        }
+
+        fullInput.value = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
+    };
+
     window.openCreateUserModal = function() {
         var modal = mountUserModal(document.getElementById('createUserModal'));
         if (modal) modal.classList.remove('hidden');
         syncCreateAdditionalRolesVisibility();
         syncCreateProcurementAccess();
+        syncCreateUserTypeHint();
+        var passwordInput = document.getElementById('createUserPassword');
+        if (!passwordInput || !String(passwordInput.value || '').trim()) {
+            regenerateCreateUserPassword();
+        }
         // Phone widget must init while visible so the country dropdown positions correctly.
         var phone = modal && modal.querySelector('[data-phone-input]');
         if (phone && typeof window.refreshPrismPhoneInput === 'function') {
@@ -1210,14 +1441,17 @@
         if (modal) modal.classList.add('hidden');
         var input = document.getElementById('createUserPassword');
         var toggle = document.getElementById('createUserPasswordToggle');
-        if (input) input.type = 'password';
+        if (input) {
+            input.type = 'text';
+            input.value = '';
+        }
         if (toggle) {
-            toggle.setAttribute('aria-pressed', 'false');
-            toggle.setAttribute('aria-label', 'Show password');
+            toggle.setAttribute('aria-pressed', 'true');
+            toggle.setAttribute('aria-label', 'Hide password');
             var showIcon = toggle.querySelector('.create-password-icon-show');
             var hideIcon = toggle.querySelector('.create-password-icon-hide');
-            if (showIcon) showIcon.classList.remove('hidden');
-            if (hideIcon) hideIcon.classList.add('hidden');
+            if (showIcon) showIcon.classList.add('hidden');
+            if (hideIcon) hideIcon.classList.remove('hidden');
         }
     };
 
@@ -1530,6 +1764,20 @@
                 syncCreateProcurementAccess();
             });
         }
+
+        var typeSelect = document.getElementById('createUserType');
+        var employeeDigitsInput = document.getElementById('createUserEmployeeIdDigits');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', function () {
+                syncCreateUserTypeHint();
+            });
+        }
+        if (employeeDigitsInput) {
+            employeeDigitsInput.addEventListener('input', function () {
+                syncCreateUserTypeHint();
+            });
+        }
+        syncCreateUserTypeHint();
         document.querySelectorAll('.create-additional-role').forEach(function (cb) {
             cb.addEventListener('change', syncCreateProcurementAccess);
         });
@@ -1569,6 +1817,12 @@
             var modal = mountUserModal(document.getElementById('editEmailModal'));
             if (modal) modal.classList.remove('hidden');
         })();
+        @endif
+
+        @if ($errors->any() && (old('first_name') !== null || old('last_name') !== null || old('employee_id') !== null))
+        if (typeof window.openCreateUserModal === 'function') {
+            window.openCreateUserModal();
+        }
         @endif
     });
 </script>

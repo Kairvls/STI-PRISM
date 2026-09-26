@@ -2262,6 +2262,36 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
+        $request->validate([
+            'user_type' => 'required|in:Faculty,Staff',
+            'employee_id' => ['required', 'string', 'max:50', 'regex:/^OMC[0-9]{5}[FS]$/i'],
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'username' => 'required|string|max:100',
+            'email' => 'required|email|max:255',
+            'password' => 'required|string|min:6',
+            'contact_number' => 'nullable|string|max:50',
+            'primary_role' => 'nullable|integer',
+            'role' => 'nullable|integer',
+        ], [
+            'user_type.required' => 'Please select Faculty or Staff.',
+            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
+        ]);
+
+        $employeeId = strtoupper(preg_replace('/\s+/', '', (string) $request->employee_id));
+        $expectedSuffix = $request->user_type === 'Staff' ? 'S' : 'F';
+
+        if (! str_ends_with($employeeId, $expectedSuffix)) {
+            return redirect('/admin/users')
+                ->withErrors([
+                    'employee_id' => $request->user_type === 'Staff'
+                        ? 'Staff employee IDs must end with S (example: OMC00127S).'
+                        : 'Faculty employee IDs must end with F (example: OMC00127F).',
+                ])
+                ->withInput();
+        }
+
         $primaryRoleId = (int) $request->input('primary_role', $request->input('role'));
         $additionalRoles = collect($request->input('additional_roles', []))
             ->map(fn ($id) => (int) $id)
@@ -2292,11 +2322,16 @@ class AdminController extends Controller
             $hasPurchaser = true;
         }
 
+        $first = trim((string) $request->first_name);
+        $middle = trim((string) $request->middle_name);
+        $last = trim((string) $request->last_name);
+        $fullName = trim(preg_replace('/\s+/', ' ', $first.' '.$middle.' '.$last));
+
         $payload = [
             'user_role_id' => $primaryRoleId,
-            'user_employee_id' => $request->employee_id,
+            'user_employee_id' => $employeeId,
             'user_username' => $request->username,
-            'user_full_name' => $request->full_name,
+            'user_full_name' => $fullName,
             'user_email_address' => $request->email,
             'user_contact_number' => $request->contact_number,
             'user_password' => Hash::make($request->password),
@@ -2459,6 +2494,257 @@ class AdminController extends Controller
     | Reports
     |--------------------------------------------------------------------------
     */
+
+    public function makeReport(Request $request): View
+    {
+        $user = Auth::user();
+        $employeeId = strtoupper(preg_replace('/\s+/', '', (string) ($user->user_employee_id ?? '')));
+
+        if ($employeeId !== '' && preg_match('/^OMC\d{5}[FS]$/', $employeeId)) {
+            $this->ensureStaffReporterAccount($user, $employeeId);
+        }
+
+        $walkInReports = collect();
+        if (\App\Support\ReportGrouping::hasLoggedByColumn()) {
+            $walkInReports = $this->adminLoggedReportsQuery((int) $user->user_id)
+                ->paginate(10)
+                ->withQueryString();
+            \App\Support\ReportItems::attachToReports($walkInReports->getCollection());
+        }
+
+        return view('maintenance-personnel.reports.log-report', [
+            'rooms' => $this->roomsForCampusReport(),
+            'walkInReports' => $walkInReports,
+            'prefillEmployeeId' => $employeeId,
+            'reportLayout' => 'layouts.admin-layout',
+            'reportPageTitle' => 'Make Report',
+            'reportBackUrl' => route('admin.operations.reports'),
+            'reportBackLabel' => 'Back to Equipment Reports',
+            'reportCancelUrl' => route('admin.operations.reports'),
+            'reportStoreUrl' => route('admin.reports.make.store'),
+            'reportSubmitLabel' => 'Submit report',
+            'reportIntro' => 'File a campus maintenance report while staying signed in as administrator. Use your employee ID or log one for another registered faculty/staff reporter.',
+            'reportBanner' => 'this form records you as the administrator who logged the report, while keeping the selected person as the reporter.',
+            'reportLogTitle' => 'Reports you logged',
+            'reportLogIntro' => 'Maintenance reports submitted from this admin Make Report page.',
+            'reportDetailsBase' => '/maintenance/reports/details/',
+        ]);
+    }
+
+    public function storeMakeReport(Request $request, \App\Services\ReportSubmissionService $reports)
+    {
+        $result = $reports->submit($request, (int) Auth::id());
+
+        if (! ($result['success'] ?? false)) {
+            return back()
+                ->withErrors($result['errors'] ?? ['general' => $result['message'] ?? 'Unable to submit report.'])
+                ->withInput();
+        }
+
+        $reportId = (int) ($result['report_id'] ?? 0);
+        $isUrgent = $request->report_urgency_level === 'Urgent';
+        $merged = (bool) ($result['merged'] ?? false);
+
+        if ($reportId > 0 && ! $merged && Schema::hasTable('notifications_table')) {
+            DB::table('notifications_table')
+                ->insertOrIgnore([
+                    'notification_user_id' => null,
+                    'notification_target_role' => 'Maintenance Personnel',
+                    'notification_title' => $isUrgent
+                        ? 'Urgent Report Requires Attention'
+                        : 'New Report Submitted',
+                    'notification_message' => $isUrgent
+                        ? 'Admin-logged urgent Report #'.$reportId.' requires immediate attention.'
+                        : 'Admin-logged maintenance Report #'.$reportId.' was submitted.',
+                    'notification_type' => $isUrgent ? 'urgent_report' : 'new_report',
+                    'notification_category' => 'Reports',
+                    'notification_reference_type' => 'report',
+                    'notification_reference_id' => $reportId,
+                    'notification_url' => '/maintenance/reports/details/'.$reportId,
+                    'notification_event_key' => 'report_submitted_'.$reportId,
+                    'notification_created_at' => now(),
+                ]);
+        }
+
+        return redirect()
+            ->route('admin.reports.make')
+            ->with('success', (string) ($result['message'] ?? 'Report submitted successfully.'));
+    }
+
+    private function adminLoggedReportsQuery(int $userId)
+    {
+        return DB::table('reports_table')
+            ->where('reports_table.report_logged_by', $userId)
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'reporters_table',
+                'reports_table.report_reporter_employee_id',
+                '=',
+                'reporters_table.reporter_employee_id'
+            )
+            ->leftJoin(
+                'users_table as logged_by_user',
+                'reports_table.report_logged_by',
+                '=',
+                'logged_by_user.user_id'
+            )
+            ->select(
+                'reports_table.*',
+                'rooms_table.room_name',
+                'floors_table.floor_level',
+                'equipment_table.equipment_name',
+                'reporters_table.reporter_full_name',
+                'logged_by_user.user_full_name as report_logged_by_name'
+            )
+            ->orderByDesc('reports_table.report_submitted_at');
+    }
+
+    /**
+     * Ensure the signed-in staff account can submit campus reports without
+     * registering separately as a reporter.
+     */
+    private function ensureStaffReporterAccount($user, string $employeeId): void
+    {
+        if (! Schema::hasTable('reporters_table')) {
+            return;
+        }
+
+        $existing = DB::table('reporters_table')
+            ->whereRaw('UPPER(TRIM(reporter_employee_id)) = ?', [$employeeId])
+            ->first();
+
+        $suffix = substr($employeeId, -1);
+        $type = $suffix === 'S' ? 'Staff' : 'Faculty';
+        $fullName = trim((string) ($user->user_full_name ?? 'Administrator'));
+        $parts = preg_split('/\s+/', $fullName) ?: [];
+        $first = $parts[0] ?? 'Administrator';
+        $last = count($parts) > 1 ? (string) end($parts) : $first;
+        $middle = count($parts) > 2
+            ? trim(implode(' ', array_slice($parts, 1, -1)))
+            : '';
+
+        $payload = [
+            'reporter_employee_id' => $employeeId,
+            'reporter_full_name' => $fullName !== '' ? $fullName : 'Administrator',
+            'reporter_email_address' => $user->user_email_address ?: null,
+            'reporter_contact_number' => $user->user_contact_number ?: null,
+            'reporter_status' => 'Active',
+        ];
+
+        if (\App\Support\ReporterImport::hasNameColumns()) {
+            $payload['reporter_first_name'] = $first;
+            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+            $payload['reporter_last_name'] = $last;
+        }
+
+        if (\App\Support\ReporterImport::hasTypeColumn()) {
+            $payload['reporter_employment_type'] = $type;
+        }
+
+        if ($existing) {
+            $update = [
+                'reporter_status' => 'Active',
+                'reporter_full_name' => $payload['reporter_full_name'],
+            ];
+            if (! empty($payload['reporter_email_address'])) {
+                $update['reporter_email_address'] = $payload['reporter_email_address'];
+            }
+            if (! empty($payload['reporter_contact_number'])) {
+                $update['reporter_contact_number'] = $payload['reporter_contact_number'];
+            }
+            if (\App\Support\ReporterImport::hasNameColumns()) {
+                $update['reporter_first_name'] = $payload['reporter_first_name'];
+                $update['reporter_middle_name'] = $payload['reporter_middle_name'];
+                $update['reporter_last_name'] = $payload['reporter_last_name'];
+            }
+            if (\App\Support\ReporterImport::hasTypeColumn()) {
+                $update['reporter_employment_type'] = $type;
+            }
+
+            DB::table('reporters_table')
+                ->where('reporter_id', $existing->reporter_id)
+                ->update($update);
+
+            return;
+        }
+
+        if (Schema::hasColumn('reporters_table', 'reporter_created_at')) {
+            $payload['reporter_created_at'] = now();
+        }
+
+        DB::table('reporters_table')->insert($payload);
+    }
+
+    private function roomsForCampusReport()
+    {
+        $equipmentCountSub = \App\Support\ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
+                ->whereNotNull('equipment_room_id')
+                ->groupBy('equipment_room_id')
+        );
+
+        return DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('rooms_table.room_is_archived', false)
+            )
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+            ->leftJoinSub(
+                $equipmentCountSub,
+                'room_equipment_counts',
+                'rooms_table.room_id',
+                '=',
+                'room_equipment_counts.equipment_room_id'
+            )
+            ->select(
+                'rooms_table.*',
+                'floors_table.floor_level',
+                'buildings_table.building_name',
+                DB::raw('COALESCE(room_equipment_counts.equipment_count, 0) as equipment_count')
+            )
+            ->orderByRaw("
+                CASE
+                    WHEN floors_table.floor_level LIKE '2nd%' THEN 1
+                    WHEN floors_table.floor_level LIKE '3rd%' THEN 2
+                    ELSE 99
+                END ASC
+            ")
+            ->orderByRaw(
+                "CASE WHEN floors_table.floor_level LIKE '3rd%' AND rooms_table.room_type = ? THEN 0 ELSE 1 END ASC",
+                ['Lecture Room']
+            )
+            ->orderBy('rooms_table.room_name')
+            ->get();
+    }
 
     public function systemReports()
     {

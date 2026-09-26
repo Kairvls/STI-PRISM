@@ -1018,7 +1018,7 @@
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label for="borrowerName" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrower name <span class="text-rose-500">*</span>
+                                    Borrower name <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="borrowerName"
@@ -1064,7 +1064,7 @@
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrow date <span class="text-rose-500">*</span>
+                                    Borrow date <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="borrowDate"
@@ -1076,7 +1076,7 @@
                             </div>
                             <div>
                                 <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
-                                    Expected return <span class="text-rose-500">*</span>
+                                    Expected return <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="borrowExpectedReturn"
@@ -1427,7 +1427,7 @@
                             for="returnCondition"
                             class="mb-2 block text-sm font-medium text-slate-700"
                         >
-                            Condition upon return
+                            Condition upon return <span class="text-red-500">*</span>
                         </label>
 
                         <select

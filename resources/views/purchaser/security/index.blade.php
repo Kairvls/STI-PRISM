@@ -28,7 +28,7 @@
             <div class="space-y-5">
                 <div>
                     <label for="current_password" class="mb-2 block text-sm font-semibold text-slate-700">
-                        Current password
+                        Current password <span class="text-red-500">*</span>
                     </label>
                     <input
                         id="current_password"
@@ -45,7 +45,7 @@
 
                 <div>
                     <label for="password" class="mb-2 block text-sm font-semibold text-slate-700">
-                        New password
+                        New password <span class="text-red-500">*</span>
                     </label>
                     <input
                         id="password"
@@ -62,7 +62,7 @@
 
                 <div>
                     <label for="password_confirmation" class="mb-2 block text-sm font-semibold text-slate-700">
-                        Confirm new password
+                        Confirm new password <span class="text-red-500">*</span>
                     </label>
                     <input
                         id="password_confirmation"

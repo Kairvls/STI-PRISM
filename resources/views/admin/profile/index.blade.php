@@ -126,7 +126,7 @@
         <div class="grid grid-cols-1 gap-4 px-6 py-6 sm:grid-cols-2">
             <div class="sm:col-span-2">
                 <label for="user_full_name" class="mb-1.5 block text-xs font-semibold text-slate-600">
-                    Full name
+                    Full name <span class="text-red-500">*</span>
                 </label>
                 <input
                     id="user_full_name"
@@ -144,7 +144,7 @@
 
             <div>
                 <label for="user_username" class="mb-1.5 block text-xs font-semibold text-slate-600">
-                    Username
+                    Username <span class="text-red-500">*</span>
                 </label>
                 <input
                     id="user_username"

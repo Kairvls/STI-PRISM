@@ -128,7 +128,7 @@
 
                 <div class="mb-6">
                     <label class="mb-3 block font-semibold text-white">
-                        Change Status
+                        Change Status <span class="text-red-500">*</span>
                     </label>
 
                     <select

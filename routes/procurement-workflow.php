@@ -69,6 +69,7 @@ Route::get('/ris/export-blank-docx', [RisController::class, 'exportBlankWord'])-
 Route::put('/ris/{risId}', [RisController::class, 'update'])->name('ris.update');
 Route::delete('/ris/{risId}', [RisController::class, 'destroy'])->name('ris.destroy');
 Route::post('/ris/{risId}/submit', [RisController::class, 'submit'])->name('ris.submit');
+Route::post('/ris/{risId}/resubmit', [RisController::class, 'resubmit'])->name('ris.resubmit');
 Route::post('/ris/{risId}/archive', [RisController::class, 'archive'])->name('ris.archive');
 Route::post('/ris/{risId}/restore', [RisController::class, 'restore'])->name('ris.restore');
 Route::get('/ris/{risId}/print', [RisController::class, 'print'])->name('ris.print');

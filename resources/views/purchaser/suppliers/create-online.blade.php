@@ -10,12 +10,12 @@
         <input type="hidden" name="supplier_store_type" value="Online Store">
 
         <div>
-            <label class="text-xs font-medium text-gray-500">App Used</label>
+            <label class="text-xs font-medium text-gray-500">App Used <span class="text-red-500">*</span></label>
             <input type="text" name="app_used" class="pur-input mt-1" required>
         </div>
 
         <div>
-            <label class="text-xs font-medium text-gray-500">Shop Name</label>
+            <label class="text-xs font-medium text-gray-500">Shop Name <span class="text-red-500">*</span></label>
             <input type="text" name="shop_name" class="pur-input mt-1" required>
         </div>
 

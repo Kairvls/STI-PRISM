@@ -274,7 +274,7 @@
                 <form :action="'/maintenance/semester-inspections/{{ $campaign->campaign_id }}/inspect/' + current.itemId" method="POST" enctype="multipart/form-data" class="space-y-4 px-6 py-5">
                     @csrf
                     <div>
-                        <label class="mb-1.5 block text-sm text-slate-600">Condition</label>
+                        <label class="mb-1.5 block text-sm text-slate-600">Condition <span class="text-red-500">*</span></label>
                         <div class="grid grid-cols-2 gap-2">
                             @foreach ($conditions as $c)
                                 <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm has-[:checked]:border-[#0025cc]/40 has-[:checked]:bg-[#0025cc]/5">
@@ -285,7 +285,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm text-slate-600">Findings</label>
+                        <label class="mb-1.5 block text-sm text-slate-600">Findings <span class="text-red-500">*</span></label>
                         <textarea name="item_findings" rows="3" required x-model="current.findings"
                             placeholder="What did you observe?"
                             class="w-full resize-none rounded-xl border-0 bg-slate-50 px-3.5 py-2.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"></textarea>

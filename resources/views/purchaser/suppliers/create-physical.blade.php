@@ -10,7 +10,7 @@
         <input type="hidden" name="supplier_store_type" value="Physical Store">
 
         <div>
-            <label class="text-xs font-medium text-gray-500">Company Name</label>
+            <label class="text-xs font-medium text-gray-500">Company Name <span class="text-red-500">*</span></label>
             <input type="text" name="company_name" class="pur-input mt-1" required>
         </div>
 

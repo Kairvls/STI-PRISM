@@ -1990,6 +1990,17 @@
             padding: 12px 14px;
         }
 
+        #reportModal .rf-equip-field-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #reportModal .rf-equip-field-control {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
         #reportModal .rf-loc-equip-row {
             display: flex;
             align-items: center;
@@ -2388,6 +2399,12 @@
             padding: 0;
         }
 
+        #reportModal .rf-equip-field-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0.5rem;
+        }
+
         #reportModal .rf-loc-equip-row {
             display: block;
         }
@@ -2398,10 +2415,7 @@
         }
 
         #reportModal .rf-loc-equip-actions {
-            grid-column: 2;
-            grid-row: 2;
-            justify-content: flex-end;
-            margin-bottom: 0 !important;
+            display: none !important;
         }
 
         #reportModal .rf-unlisted-toggle {
@@ -2806,7 +2820,7 @@
 
                     {{-- EMPLOYEE ID --}}
                     <div class="mb-5">
-                        <label class="rf-label rf-mobile-section-title" for="employeeIdInput">Employee ID</label>
+                        <label class="rf-label rf-mobile-section-title" for="employeeIdInput">Employee ID <span class="text-red-500">*</span></label>
 
                         <div class="rf-employee-id-wrap">
                             <span class="rf-employee-id-icon" aria-hidden="true">
@@ -2947,7 +2961,7 @@
                             {{-- LOCATION --}}
                             <div class="rf-loc-block min-w-0">
                                 <div class="mb-2 hidden items-center justify-between md:flex">
-                                    <label class="rf-label" style="margin-bottom: 0">Location</label>
+                                    <label class="rf-label" style="margin-bottom: 0">Location <span class="text-red-500">*</span></label>
                                 </div>
 
                                 <div class="rf-loc-equip-row">
@@ -2976,7 +2990,7 @@
                                                 <option value="">Select Location</option>
                                                 @foreach ($rooms as $room)
                                                     <option value="{{ $room->room_id }}">
-                                                        {{ $room->floor_level }} - {{ $room->room_name }} - Eq. {{ (int) ($room->equipment_count ?? 0) }}
+                                                        {{ $room->floor_level }} - {{ $room->room_name }} - Eq.{{ (int) ($room->equipment_count ?? 0) }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -2990,7 +3004,7 @@
                             {{-- EQUIPMENT --}}
                             <div class="rf-equip-block min-w-0">
                                 <div class="mb-2 hidden items-center justify-between md:flex">
-                                    <label class="rf-label" style="margin-bottom: 0">Equipment</label>
+                                    <label class="rf-label" style="margin-bottom: 0">Equipment <span class="text-red-500">*</span></label>
                                     <button
                                         type="button"
                                         id="toggleEquipmentInputDesktop"
@@ -3000,80 +3014,84 @@
                                     </button>
                                 </div>
 
-                                <div id="equipmentDropdownContainer">
-                                    <div class="rf-loc-equip-row">
-                                        <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
-                                            <i data-lucide="monitor" class="h-4 w-4"></i>
-                                        </span>
-                                        <div class="rf-loc-equip-control min-w-0 flex-1">
-                                            <span class="rf-loc-equip-hint md:hidden">Tap to choose</span>
-                                            <div class="rf-select-wrap" style="width: 100%">
-                                                <select
-                                                    id="equipmentSelect"
-                                                    class="rf-input details-textarea rf-native-select"
-                                                    data-picker-title="Select equipment"
-                                                    data-picker-search="Search equipment"
-                                                    style="
-                                                        height: 48px;
-                                                        padding-right: 36px;
-                                                        cursor: pointer;
-                                                        width: 100%;
-                                                    "
-                                                >
-                                                    <option value="">Select Equipment</option>
-                                                </select>
+                                <div class="rf-equip-field-row flex items-stretch gap-2">
+                                    <div class="rf-equip-field-control min-w-0 flex-1">
+                                        <div id="equipmentDropdownContainer">
+                                            <div class="rf-loc-equip-row">
+                                                <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
+                                                    <i data-lucide="monitor" class="h-4 w-4"></i>
+                                                </span>
+                                                <div class="rf-loc-equip-control min-w-0 flex-1">
+                                                    <span class="rf-loc-equip-hint md:hidden">Tap to choose</span>
+                                                    <div class="rf-select-wrap" style="width: 100%">
+                                                        <select
+                                                            id="equipmentSelect"
+                                                            class="rf-input details-textarea rf-native-select"
+                                                            data-picker-title="Select equipment"
+                                                            data-picker-search="Search equipment"
+                                                            style="
+                                                                height: 48px;
+                                                                padding-right: 36px;
+                                                                cursor: pointer;
+                                                                width: 100%;
+                                                            "
+                                                        >
+                                                            <option value="">Select Equipment</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div id="equipmentManualContainer" class="hidden">
+                                            <div class="rf-loc-equip-row">
+                                                <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
+                                                    <i data-lucide="keyboard" class="h-4 w-4"></i>
+                                                </span>
+                                                <div class="rf-loc-equip-control min-w-0 flex-1">
+                                                    <span class="rf-loc-equip-hint md:hidden">Type equipment name</span>
+                                                    <input
+                                                        type="text"
+                                                        id="equipmentManualInput"
+                                                        placeholder="Enter equipment name manually..."
+                                                        class="rf-input details-textarea"
+                                                        style="height: 48px; width: 100%"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div id="equipmentManualContainer" class="hidden">
-                                    <div class="rf-loc-equip-row">
-                                        <span class="rf-loc-equip-icon md:hidden" aria-hidden="true">
-                                            <i data-lucide="keyboard" class="h-4 w-4"></i>
-                                        </span>
-                                        <div class="rf-loc-equip-control min-w-0 flex-1">
-                                            <span class="rf-loc-equip-hint md:hidden">Type equipment name</span>
-                                            <input
-                                                type="text"
-                                                id="equipmentManualInput"
-                                                placeholder="Enter equipment name manually..."
-                                                class="rf-input details-textarea"
-                                                style="height: 48px; width: 100%"
-                                            />
-                                        </div>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        id="addEquipmentBtn"
+                                        class="rf-add-equip-btn shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                        style="height: 48px; min-width: 72px"
+                                    >
+                                        <span class="rf-add-equip-label">Add</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="addManualEquipmentBtn"
+                                        class="rf-add-equip-btn hidden shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
+                                        style="height: 48px; min-width: 72px"
+                                    >
+                                        <span class="rf-add-equip-label">Add</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- Actions: unlisted + Add (Flutter row on mobile; desktop Add beside fields via CSS) --}}
-                        <div class="rf-loc-equip-actions mb-3 flex items-stretch gap-2">
+                        {{-- Mobile: Equipment not listed toggle --}}
+                        <div class="rf-loc-equip-actions mb-3 flex items-stretch gap-2 md:hidden">
                             <button
                                 type="button"
                                 id="toggleEquipmentInput"
-                                class="rf-unlisted-toggle md:hidden"
+                                class="rf-unlisted-toggle"
                                 aria-pressed="false"
                             >
                                 <span>Equipment not listed</span>
                                 <span class="rf-unlisted-switch" aria-hidden="true"></span>
-                            </button>
-
-                            <button
-                                type="button"
-                                id="addEquipmentBtn"
-                                class="rf-add-equip-btn shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                style="height: 48px; min-width: 72px"
-                            >
-                                <span class="rf-add-equip-label">Add</span>
-                            </button>
-                            <button
-                                type="button"
-                                id="addManualEquipmentBtn"
-                                class="rf-add-equip-btn hidden shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                style="height: 48px; min-width: 72px"
-                            >
-                                <span class="rf-add-equip-label">Add</span>
                             </button>
                         </div>
 
@@ -3084,7 +3102,7 @@
                         <div id="selectedEquipmentInputs"></div>
 
                         <div class="rf-equip-instruction mb-1 text-[11px] leading-relaxed text-slate-400">
-                            Select equipment, then choose a suggested issue or fill Additional Details, then click Add. Labels include asset tag/serial so identical names stay distinguishable.
+                            Select equipment, then choose a suggested issue or fill Additional Details, then click Add. You can switch location to add equipment from other rooms — your list is kept. Labels include asset tag/serial so identical names stay distinguishable.
                         </div>
 
                         <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
@@ -4499,11 +4517,23 @@ toggleRoomBtn.addEventListener('click', function () {
     let equipmentManualMode = false;
     let lastSelectedEquipment = "";
 
-    /** @type {{type: 'id'|'manual', id?: string, name: string, issue: string}[]} */
+    /** @type {{type: 'id'|'manual', id?: string, name: string, issue: string, roomId?: string, roomLabel?: string, openReportTicket?: string}[]} */
     let selectedEquipmentItems = [];
 
     /** @type {Record<string, unknown>[]} */
     let roomEquipmentCache = [];
+
+    function getCurrentRoomMeta() {
+        const roomSelect = document.getElementById("roomSelect");
+        if (!roomSelect || !roomSelect.value) {
+            return { roomId: "", roomLabel: "" };
+        }
+        const option = roomSelect.options[roomSelect.selectedIndex];
+        return {
+            roomId: String(roomSelect.value),
+            roomLabel: option ? option.textContent.trim() : "",
+        };
+    }
 
     function syncEquipmentModeUi() {
         if (addEquipmentBtn) {
@@ -4760,14 +4790,28 @@ toggleRoomBtn.addEventListener('click', function () {
         selectedEquipmentList.innerHTML = "";
         selectedEquipmentInputs.innerHTML = "";
 
+        const multiRoom =
+            new Set(
+                selectedEquipmentItems
+                    .map(function (item) {
+                        return String(item.roomId || "");
+                    })
+                    .filter(Boolean),
+            ).size > 1;
+
         selectedEquipmentItems.forEach((item, index) => {
             const uniqueness =
                 item.type === "id"
                     ? item.name + (item.id ? " · ID #" + item.id : "")
                     : item.name + " (manual entry)";
-            const tipText = item.issue
-                ? uniqueness + "\nIssue: " + item.issue
-                : uniqueness;
+            const tipLines = [uniqueness];
+            if (item.roomLabel) {
+                tipLines.push("Location: " + item.roomLabel);
+            }
+            if (item.issue) {
+                tipLines.push("Issue: " + item.issue);
+            }
+            const tipText = tipLines.join("\n");
 
             const row = document.createElement("div");
             row.className =
@@ -4802,6 +4846,13 @@ toggleRoomBtn.addEventListener('click', function () {
             row.querySelector("[data-eq-issue]").textContent = item.issue
                 ? "Issue: " + item.issue
                 : "No suggested issue";
+            if (multiRoom && item.roomLabel) {
+                const roomNote = document.createElement("p");
+                roomNote.className = "mt-0.5 truncate text-[11px] text-slate-400";
+                roomNote.textContent = item.roomLabel;
+                roomNote.setAttribute("title", item.roomLabel);
+                row.querySelector(".min-w-0").appendChild(roomNote);
+            }
             if (item.openReportTicket) {
                 const openNote = document.createElement("p");
                 openNote.className = "mt-0.5 truncate text-xs font-medium text-amber-700";
@@ -4858,10 +4909,20 @@ toggleRoomBtn.addEventListener('click', function () {
         const option = equipmentSelect.options[equipmentSelect.selectedIndex];
         const equipmentName = option ? option.textContent.trim() : "";
         const selectedIssue = getIssueForAdd();
+        const roomMeta = getCurrentRoomMeta();
+        const roomSelect = document.getElementById("roomSelect");
 
         document.getElementById("equipmentError").classList.add("hidden");
         setSelectTriggerBorder(equipmentSelect, "");
         hideIssueOrDetailsErrors();
+
+        if (!roomMeta.roomId) {
+            document.getElementById("locationError")?.classList.remove("hidden");
+            if (roomSelect) {
+                setSelectTriggerBorder(roomSelect, "#dc2626");
+            }
+            return;
+        }
 
         if (!equipmentId) {
             const err = document.getElementById("equipmentError");
@@ -4901,6 +4962,8 @@ toggleRoomBtn.addEventListener('click', function () {
             name: equipmentName || `Equipment #${equipmentId}`,
             issue: selectedIssue,
             openReportTicket: openReportTicket,
+            roomId: roomMeta.roomId,
+            roomLabel: roomMeta.roomLabel,
         });
 
         renderSelectedEquipment();
@@ -4915,10 +4978,20 @@ toggleRoomBtn.addEventListener('click', function () {
     function addManualEquipment() {
         const name = equipmentManualInput.value.trim();
         const selectedIssue = getIssueForAdd();
+        const roomMeta = getCurrentRoomMeta();
+        const roomSelect = document.getElementById("roomSelect");
 
         document.getElementById("equipmentError").classList.add("hidden");
         equipmentManualInput.style.borderColor = "";
         hideIssueOrDetailsErrors();
+
+        if (!roomMeta.roomId) {
+            document.getElementById("locationError")?.classList.remove("hidden");
+            if (roomSelect) {
+                setSelectTriggerBorder(roomSelect, "#dc2626");
+            }
+            return;
+        }
 
         if (!name) {
             const err = document.getElementById("equipmentError");
@@ -4953,6 +5026,8 @@ toggleRoomBtn.addEventListener('click', function () {
             type: "manual",
             name,
             issue: selectedIssue,
+            roomId: roomMeta.roomId,
+            roomLabel: roomMeta.roomLabel,
         });
 
         renderSelectedEquipment();
@@ -6139,7 +6214,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
             const id = this.value.trim();
 
-            // After 3s idle, normalize to uppercase (OMC0129F) without fighting typing.
+            // After 3s idle, normalize to uppercase (OMC00129F) without fighting typing.
             if (!employeeIdSkipCapsSchedule) {
                 clearTimeout(employeeIdCapsTimer);
                 employeeIdCapsTimer = setTimeout(() => {
@@ -6369,7 +6444,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
         });
 
-        /* ROOM → EQUIPMENT FILTER */
+        /* ROOM → EQUIPMENT FILTER (keep already-added items across locations) */
         roomSelect.addEventListener("change", function () {
             document.getElementById("locationError").classList.add("hidden");
 
@@ -6378,8 +6453,6 @@ toggleRoomBtn.addEventListener('click', function () {
             hideIssueOrDetailsErrors();
 
             lastSelectedEquipment = "";
-            selectedEquipmentItems = [];
-            renderSelectedEquipment();
             roomEquipmentCache = [];
 
             const roomId = this.value;
@@ -6400,6 +6473,7 @@ toggleRoomBtn.addEventListener('click', function () {
                 lastSelectedEquipment = "";
 
                 equipSelect.value = "";
+                syncEquipmentSelectTrigger();
 
                 clearSuggestedIssue();
 
@@ -6536,15 +6610,6 @@ toggleRoomBtn.addEventListener('click', function () {
             employeeInput.classList.remove("is-error");
             employeeInput.style.borderColor = "";
 
-            if (!roomId) {
-                document
-                    .getElementById("locationError")
-                    .classList.remove("hidden");
-                setSelectTriggerBorder(roomSelect, "#dc2626");
-                roomSelect.focus();
-                return;
-            }
-
             if (!selectedEquipmentItems.length) {
                 document
                     .getElementById("equipmentError")
@@ -6558,6 +6623,28 @@ toggleRoomBtn.addEventListener('click', function () {
                     setSelectTriggerBorder(equipmentSelect, "#dc2626");
                     equipmentSelect.focus();
                 }
+                return;
+            }
+
+            // Backfill room for any legacy items, then require every item to have a location.
+            selectedEquipmentItems.forEach(function (item) {
+                if (!item.roomId && roomId) {
+                    item.roomId = String(roomId);
+                    const option = roomSelect.options[roomSelect.selectedIndex];
+                    item.roomLabel = option ? option.textContent.trim() : item.roomLabel || "";
+                }
+            });
+
+            const itemsMissingRoom = selectedEquipmentItems.filter(
+                (item) => !String(item.roomId || "").trim(),
+            );
+
+            if (itemsMissingRoom.length > 0) {
+                document
+                    .getElementById("locationError")
+                    .classList.remove("hidden");
+                setSelectTriggerBorder(roomSelect, "#dc2626");
+                roomSelect.focus();
                 return;
             }
 
@@ -6602,6 +6689,17 @@ toggleRoomBtn.addEventListener('click', function () {
                 return;
             }
 
+            const roomGroups = [];
+            const roomGroupMap = new Map();
+            selectedEquipmentItems.forEach(function (item) {
+                const groupRoomId = String(item.roomId || roomId);
+                if (!roomGroupMap.has(groupRoomId)) {
+                    roomGroupMap.set(groupRoomId, []);
+                    roomGroups.push(groupRoomId);
+                }
+                roomGroupMap.get(groupRoomId).push(item);
+            });
+
             Swal.fire({
                 title: "Submitting report",
                 html: `
@@ -6628,61 +6726,120 @@ toggleRoomBtn.addEventListener('click', function () {
                 },
             });
 
+            const originalItems = selectedEquipmentItems.slice();
+            const originalRoomId = roomSelect.value;
+
             try {
                 const csrfToken = form.querySelector('input[name="_token"]')?.value;
-                const response = await fetch(form.action, {
-                    method: "POST",
-                    body: new FormData(form),
-                    headers: {
-                        Accept: "application/json",
-                        "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRF-TOKEN": csrfToken || "",
-                    },
-                    credentials: "same-origin",
-                });
+                const successPayloads = [];
 
-                const contentType = response.headers.get("content-type") || "";
-                const data = contentType.includes("application/json")
-                    ? await response.json().catch(() => ({}))
-                    : {};
+                for (let groupIndex = 0; groupIndex < roomGroups.length; groupIndex += 1) {
+                    const groupRoomId = roomGroups[groupIndex];
+                    const groupItems = roomGroupMap.get(groupRoomId) || [];
 
-                // Only trust an explicit success payload from the API.
-                if (!response.ok || data.success !== true) {
-                    const validationMessage =
-                        data.message ||
-                        (data.errors
-                            ? Object.values(data.errors).flat()[0]
-                            : null) ||
-                        (!contentType.includes("application/json")
-                            ? "Server did not return a JSON save result (HTTP " +
-                              response.status +
-                              "). The report was probably not saved."
-                            : null) ||
-                        "Could not submit the report. Please try again.";
+                    selectedEquipmentItems = groupItems;
+                    renderSelectedEquipment();
+                    roomSelect.value = groupRoomId;
 
-                    await paayoSwal({
-                        tone: "error",
-                        title: "Submit failed",
-                        text: String(validationMessage),
-                        confirmText: "Try again",
+                    if (suggestedIssueInput && groupItems.length > 0) {
+                        suggestedIssueInput.value = groupItems[0].issue || "";
+                    }
+
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        body: new FormData(form),
+                        headers: {
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": csrfToken || "",
+                        },
+                        credentials: "same-origin",
                     });
-                    return;
+
+                    const contentType = response.headers.get("content-type") || "";
+                    const data = contentType.includes("application/json")
+                        ? await response.json().catch(() => ({}))
+                        : {};
+
+                    if (!response.ok || data.success !== true) {
+                        const submittedSet = new Set();
+                        successPayloads.forEach(function (payload) {
+                            (payload._groupItems || []).forEach(function (item) {
+                                submittedSet.add(item);
+                            });
+                        });
+                        selectedEquipmentItems = originalItems.filter(function (item) {
+                            return !submittedSet.has(item);
+                        });
+                        renderSelectedEquipment();
+                        roomSelect.value = originalRoomId;
+
+                        const validationMessage =
+                            data.message ||
+                            (data.errors
+                                ? Object.values(data.errors).flat()[0]
+                                : null) ||
+                            (!contentType.includes("application/json")
+                                ? "Server did not return a JSON save result (HTTP " +
+                                  response.status +
+                                  "). The report was probably not saved."
+                                : null) ||
+                            "Could not submit the report. Please try again.";
+
+                        const partialNote =
+                            successPayloads.length > 0
+                                ? " Some locations were saved already. Remaining items are still in your list."
+                                : "";
+
+                        await paayoSwal({
+                            tone: "error",
+                            title: "Submit failed",
+                            text: String(validationMessage) + partialNote,
+                            confirmText: "Try again",
+                        });
+                        return;
+                    }
+
+                    data._groupItems = groupItems;
+                    successPayloads.push(data);
+                }
+
+                selectedEquipmentItems = [];
+                renderSelectedEquipment();
+
+                const anyMerged = successPayloads.some(function (payload) {
+                    return payload.merged;
+                });
+                const ticketCodes = successPayloads
+                    .map(function (payload) {
+                        return payload.ticket_code;
+                    })
+                    .filter(Boolean);
+                let successText =
+                    successPayloads[successPayloads.length - 1]?.message ||
+                    "Report submitted successfully.";
+                if (roomGroups.length > 1) {
+                    successText =
+                        "Submitted " +
+                        roomGroups.length +
+                        " location reports" +
+                        (ticketCodes.length
+                            ? " (" + ticketCodes.join(", ") + ")"
+                            : "") +
+                        ".";
+                } else if (ticketCodes.length === 1 && !successPayloads[0]?.message) {
+                    successText =
+                        "Maintenance report " + ticketCodes[0] + " submitted successfully.";
                 }
 
                 await paayoSwal({
                     tone: "success",
-                    title: data.merged ? "Update added" : "Report submitted",
-                    text:
-                        data.message ||
-                        (data.ticket_code
-                            ? "Maintenance report " + data.ticket_code + " submitted successfully."
-                            : "Report submitted successfully."),
+                    title: anyMerged && roomGroups.length === 1 ? "Update added" : "Report submitted",
+                    text: successText,
                     confirmText: "OK",
                     timer: 4000,
                 });
 
-                selectedEquipmentItems = [];
-                renderSelectedEquipment();
                 form.reset();
                 roomEquipmentCache = [];
                 rebuildEquipmentSelect();
@@ -6693,6 +6850,9 @@ toggleRoomBtn.addEventListener('click', function () {
                     closeReportModal();
                 }
             } catch (error) {
+                selectedEquipmentItems = originalItems;
+                renderSelectedEquipment();
+                roomSelect.value = originalRoomId;
                 await paayoSwal({
                     tone: "error",
                     title: "Submit failed",

@@ -23,7 +23,12 @@
 
         </select>
 
+        <label for="room_name" class="mb-1 block text-sm font-medium text-slate-700">
+            Room name <span class="text-red-500">*</span>
+        </label>
+
         <input
+            id="room_name"
             type="text"
             name="room_name"
             placeholder="Room Name"

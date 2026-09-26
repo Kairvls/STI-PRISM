@@ -1968,7 +1968,7 @@
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
                     <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Add reporter</h2>
-                    <p class="mt-1 text-sm text-slate-500">Fill in the employee details. Choose type first so the employee ID uses OMC + 4 digits + F/S. Middle name, email, and contact are optional.</p>
+                    <p class="mt-1 text-sm text-slate-500">Fill in the employee details. Choose type first so the employee ID uses OMC + 5 digits + F/S. Middle name, email, and contact are optional.</p>
                 </div>
                 <button type="button" onclick="closeCreateModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -1977,7 +1977,7 @@
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
                 <div>
-                    <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-rose-500">*</span></label>
+                    <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-red-500">*</span></label>
                     <select id="type" name="type" required class="{{ $reporterFieldClass }}">
                         <option value="">Select type</option>
                         <option value="Faculty">Faculty</option>
@@ -1986,26 +1986,26 @@
                     <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
                 </div>
                 <div>
-                    <label for="employee_id_digits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-rose-500">*</span></label>
+                    <label for="employee_id_digits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-red-500">*</span></label>
                     <div id="createEmployeeIdField" class="reporter-employee-id-field is-disabled">
                         <span class="reporter-employee-id-prefix">OMC</span>
                         <input
                             id="employee_id_digits"
                             type="text"
                             inputmode="numeric"
-                            maxlength="4"
-                            placeholder="0123"
+                            maxlength="5"
+                            placeholder="00127"
                             autocomplete="off"
                             readonly
                         >
                         <span id="createEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                     </div>
                     <input type="hidden" id="employee_id" name="employee_id" value="" required>
-                    <p id="createEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 4-digit number.</p>
+                    <p id="createEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="first_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">First name <span class="text-rose-500">*</span></label>
+                        <label for="first_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">First name <span class="text-red-500">*</span></label>
                         <input id="first_name" name="first_name" type="text" placeholder="John" required class="{{ $reporterFieldClass }}" />
                     </div>
                     <div>
@@ -2014,7 +2014,7 @@
                     </div>
                 </div>
                 <div>
-                    <label for="last_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name <span class="text-rose-500">*</span></label>
+                    <label for="last_name" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name <span class="text-red-500">*</span></label>
                     <input id="last_name" name="last_name" type="text" placeholder="Smith" required class="{{ $reporterFieldClass }}" />
                 </div>
                 <div>
@@ -2082,7 +2082,7 @@
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
                 <div>
-                    <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-rose-500">*</span></label>
+                    <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-red-500">*</span></label>
                     <select name="type" id="editType" required class="{{ $reporterFieldClass }}">
                         <option value="">Select type</option>
                         <option value="Faculty">Faculty</option>
@@ -2091,26 +2091,26 @@
                     <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
                 </div>
                 <div>
-                    <label for="editEmployeeIdDigits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-rose-500">*</span></label>
+                    <label for="editEmployeeIdDigits" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Employee ID <span class="text-red-500">*</span></label>
                     <div id="editEmployeeIdField" class="reporter-employee-id-field is-disabled">
                         <span class="reporter-employee-id-prefix">OMC</span>
                         <input
                             id="editEmployeeIdDigits"
                             type="text"
                             inputmode="numeric"
-                            maxlength="4"
-                            placeholder="0123"
+                            maxlength="5"
+                            placeholder="00127"
                             autocomplete="off"
                             readonly
                         >
                         <span id="editEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                     </div>
                     <input type="hidden" name="employee_id" id="editEmployeeId" value="" required>
-                    <p id="editEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 4-digit number.</p>
+                    <p id="editEmployeeIdHint" class="mt-1.5 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="editFirstName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">First name</label>
+                        <label for="editFirstName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">First name <span class="text-red-500">*</span></label>
                         <input type="text" name="first_name" id="editFirstName" required class="{{ $reporterFieldClass }}" />
                     </div>
                     <div>
@@ -2119,7 +2119,7 @@
                     </div>
                 </div>
                 <div>
-                    <label for="editLastName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name</label>
+                    <label for="editLastName" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Last name <span class="text-red-500">*</span></label>
                     <input type="text" name="last_name" id="editLastName" required class="{{ $reporterFieldClass }}" />
                 </div>
                 <div>
@@ -2473,7 +2473,7 @@
 
             const type = typeEl.value || '';
             const suffix = suffixForReporterType(type);
-            const digits = String(digitsEl.value || '').replace(/\D/g, '').slice(0, 4);
+            const digits = String(digitsEl.value || '').replace(/\D/g, '').slice(0, 5);
             digitsEl.value = digits;
             suffixEl.textContent = suffix || '?';
             suffixEl.classList.toggle('is-empty', !suffix);
@@ -2481,21 +2481,21 @@
             if (type) {
                 fieldEl.classList.remove('is-disabled');
                 digitsEl.removeAttribute('readonly');
-                if (hintEl) hintEl.textContent = 'Enter the 4-digit number only. OMC and ' + suffix + ' are fixed.';
+                if (hintEl) hintEl.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
             } else {
                 fieldEl.classList.add('is-disabled');
                 digitsEl.setAttribute('readonly', 'readonly');
-                if (hintEl) hintEl.textContent = 'Select type first, then enter the 4-digit number.';
+                if (hintEl) hintEl.textContent = 'Select type first, then enter the 5-digit number.';
             }
 
-            const fullId = (type && digits.length === 4 && suffix) ? ('OMC' + digits + suffix) : '';
+            const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
             fullEl.value = fullId;
             return fullId;
         }
 
         function parseReporterEmployeeId(employeeId) {
             const raw = String(employeeId || '').toUpperCase().replace(/\s+/g, '');
-            const match = raw.match(/^OMC(\d{1,4})([FS])$/);
+            const match = raw.match(/^OMC(\d{1,5})([FS])$/);
             if (!match) {
                 return { digits: '', type: '', suffix: '' };
             }
@@ -3083,11 +3083,11 @@
             syncReporterEmployeeId(form.id === 'editReporterForm' ? 'edit' : 'create');
             data.employeeId = form.querySelector('[name="employee_id"]')?.value.trim() || '';
 
-            if (!data.employeeId || !/^OMC\d{4}[FS]$/.test(data.employeeId)) {
+            if (!data.employeeId || !/^OMC\d{5}[FS]$/.test(data.employeeId)) {
                 reporterAlert(
                     'warning',
                     'Employee ID required',
-                    'Enter the 4-digit employee number. Format must be OMC0123F or OMC0123S.'
+                    'Enter the 5-digit employee number. Format must be OMC00127F or OMC00127S.'
                 );
                 return false;
             }

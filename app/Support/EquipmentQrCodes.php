@@ -53,9 +53,14 @@ class EquipmentQrCodes
 
         $qrCode = self::nextCode($typeCode);
 
+        $update = ['equipment_qr_code' => $qrCode];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('equipment_table', 'equipment_qr_issued_at')) {
+            $update['equipment_qr_issued_at'] = now();
+        }
+
         DB::table('equipment_table')
             ->where('equipment_id', $equipmentId)
-            ->update(['equipment_qr_code' => $qrCode]);
+            ->update($update);
 
         return $qrCode;
     }

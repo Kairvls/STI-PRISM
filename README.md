@@ -142,3 +142,9 @@ Same email on each person; primary + extra roles in PaAyo
 Azure App Registration
 Usually leave as-is (client ID / redirect) — that’s the app, not the user emails
 Short answer: change sign-in emails in Azure/Entra Users, then mirror those emails in PaAyo user records.
+
+
+for the maintenance system about the inventory of equipments how to solve this that earlier during the interview our proof said that the inventory of equipments need to connect it with the procurement like theres a basis of the equipments been added on the system not just creating or adding equipments randomly just like rr where the equipments being purchase happens to be delivered or backorder so only equipments that been purchased to a basis when adding equipment but help me think cause the real equipment being purchase happens in rr but our proof said it should be basis on the purchase order where for example 1 purchase order has many different equipment like 10 mouse 10 keyboard etc but for me it should be basis or rr right since rr records what was actually delivered and received that theres a basis or guide at the top of modal when adding equipment so the monitoring and managing are connected from equipment replacement to procurement then from procurement to adding equipment and also for the details of equipment proof said we need to add also the time and date indicator when we add it in inventory, when we deploy it in every department or room then when we disposed it then when its been bought then whos the supplier of that corresponding or specific equipment then other many ideas not just on equipment details but think out of the box for better monitoring and managing of equipment like also when it been delivered when its been fix or replacement like more ideas 
+
+Simple rule to defend in audit
+RR second count confirms delivery. Inventory stocking is a system import from that RR, not a second manual purchase entry.

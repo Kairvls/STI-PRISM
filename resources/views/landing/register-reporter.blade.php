@@ -253,16 +253,16 @@
                     $oldType = (string) old('type', '');
                     $oldEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('employee_id', '')));
                     $oldIdDigits = '';
-                    if (preg_match('/^OMC(\d{1,4})[FS]?$/i', $oldEmployeeId, $m)) {
+                    if (preg_match('/^OMC(\d{1,5})[FS]?$/i', $oldEmployeeId, $m)) {
                         $oldIdDigits = $m[1];
-                    } elseif (preg_match('/^\d{1,4}$/', $oldEmployeeId)) {
+                    } elseif (preg_match('/^\d{1,5}$/', $oldEmployeeId)) {
                         $oldIdDigits = $oldEmployeeId;
                     }
                     $oldSuffix = $oldType === 'Staff' ? 'S' : ($oldType === 'Faculty' ? 'F' : '');
                 @endphp
 
                 <div>
-                    <label for="type" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Type <span style="color:#e11d48;">*</span></label>
+                    <label for="type" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Type <span class="text-red-500">*</span></label>
                     <div class="relative">
                         <select id="type" name="type" required class="sr-only">
                             <option value="">Select type</option>
@@ -280,15 +280,15 @@
                 </div>
 
                 <div>
-                    <label for="employee_id_digits" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Employee ID <span style="color:#e11d48;">*</span></label>
+                    <label for="employee_id_digits" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Employee ID <span class="text-red-500">*</span></label>
                     <div id="employeeIdField" class="employee-id-field {{ $oldType ? '' : 'is-disabled' }}">
                         <span class="employee-id-prefix">OMC</span>
                         <input
                             id="employee_id_digits"
                             type="text"
                             inputmode="numeric"
-                            maxlength="4"
-                            placeholder="0123"
+                            maxlength="5"
+                            placeholder="00127"
                             value="{{ $oldIdDigits }}"
                             autocomplete="off"
                             {{ $oldType ? '' : 'readonly' }}
@@ -297,12 +297,12 @@
                         <span id="employeeIdSuffix" class="employee-id-suffix {{ $oldSuffix ? '' : 'is-empty' }}">{{ $oldSuffix ?: '?' }}</span>
                     </div>
                     <input type="hidden" id="employee_id" name="employee_id" value="{{ old('employee_id') }}">
-                    <p id="employeeIdHint" class="text-[12px] mt-1.5" style="color:var(--muted);">Select type first, then enter your 4-digit number only.</p>
+                    <p id="employeeIdHint" class="text-[12px] mt-1.5" style="color:var(--muted);">Select type first, then enter your 5-digit number only.</p>
                 </div>
 
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="first_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">First name <span style="color:#e11d48;">*</span></label>
+                        <label for="first_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">First name <span class="text-red-500">*</span></label>
                         <input id="first_name" name="first_name" type="text" value="{{ old('first_name') }}" required maxlength="100" class="field">
                     </div>
                     <div>
@@ -312,12 +312,12 @@
                 </div>
 
                 <div>
-                    <label for="last_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Last name <span style="color:#e11d48;">*</span></label>
+                    <label for="last_name" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Last name <span class="text-red-500">*</span></label>
                     <input id="last_name" name="last_name" type="text" value="{{ old('last_name') }}" required maxlength="100" class="field">
                 </div>
 
                 <div>
-                    <label for="contact_rest" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Contact number <span style="color:#e11d48;">*</span></label>
+                    <label for="contact_rest" class="block text-xs font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted);">Contact number <span class="text-red-500">*</span></label>
                     @php
                         $oldContact = preg_replace('/\D+/', '', (string) old('contact', ''));
                         $oldRestDigits = str_starts_with($oldContact, '09') ? substr($oldContact, 2) : $oldContact;
@@ -394,7 +394,7 @@
                 if (!digitsInput || !fullInput || !suffixEl || !fieldWrap) return;
                 const type = select.value || '';
                 const suffix = suffixForType(type);
-                const digits = String(digitsInput.value || '').replace(/\D/g, '').slice(0, 4);
+                const digits = String(digitsInput.value || '').replace(/\D/g, '').slice(0, 5);
                 digitsInput.value = digits;
                 suffixEl.textContent = suffix || '?';
                 suffixEl.classList.toggle('is-empty', !suffix);
@@ -402,14 +402,14 @@
                 if (type) {
                     fieldWrap.classList.remove('is-disabled');
                     digitsInput.removeAttribute('readonly');
-                    if (hint) hint.textContent = 'Enter your 4-digit number only. Prefix OMC and suffix ' + suffix + ' are fixed.';
+                    if (hint) hint.textContent = 'Enter your 5-digit number only. Prefix OMC and suffix ' + suffix + ' are fixed.';
                 } else {
                     fieldWrap.classList.add('is-disabled');
                     digitsInput.setAttribute('readonly', 'readonly');
-                    if (hint) hint.textContent = 'Select type first, then enter your 4-digit number only.';
+                    if (hint) hint.textContent = 'Select type first, then enter your 5-digit number only.';
                 }
 
-                fullInput.value = (type && digits.length === 4 && suffix)
+                fullInput.value = (type && digits.length === 5 && suffix)
                     ? ('OMC' + digits + suffix)
                     : '';
             };
@@ -484,9 +484,9 @@
                         digitsInput.reportValidity();
                         return;
                     }
-                    if (digits.length !== 4 || !suffix) {
+                    if (digits.length !== 5 || !suffix) {
                         e.preventDefault();
-                        digitsInput.setCustomValidity('Enter your 4-digit employee number.');
+                        digitsInput.setCustomValidity('Enter your 5-digit employee number.');
                         digitsInput.reportValidity();
                         return;
                     }

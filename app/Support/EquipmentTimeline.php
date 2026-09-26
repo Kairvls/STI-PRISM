@@ -18,6 +18,9 @@ class EquipmentTimeline
             'report' => 'Report',
             'disposal' => 'Disposal',
             'created' => 'Record Created',
+            'qr' => 'QR / Tag',
+            'borrow' => 'Borrowing',
+            'condition' => 'Condition',
         ];
     }
 
@@ -47,8 +50,20 @@ class EquipmentTimeline
             $events = $events->merge(self::acquisitionEvents($equipment));
         }
 
+        if (self::typeEnabled($types, 'qr')) {
+            $events = $events->merge(self::qrEvents($equipment));
+        }
+
         if (self::typeEnabled($types, 'transfer')) {
             $events = $events->merge(self::transferEvents($equipmentId));
+        }
+
+        if (self::typeEnabled($types, 'borrow')) {
+            $events = $events->merge(self::borrowEvents($equipmentId));
+        }
+
+        if (self::typeEnabled($types, 'condition')) {
+            $events = $events->merge(self::conditionEvents($equipmentId));
         }
 
         if (self::typeEnabled($types, 'maintenance')) {
@@ -215,25 +230,127 @@ class EquipmentTimeline
         }
 
         $receivingReport = null;
-        if (
-            Schema::hasTable('receiving_report_items_table')
-            && Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
-        ) {
-            $receivingReport = DB::table('receiving_report_items_table')
+        $purchaseOrderNumber = null;
+        $atpNumber = null;
+        $risNumber = null;
+        $poDate = null;
+        $receivedBy = null;
+        $rrCondition = null;
+        $rrItemId = (int) ($row->equipment_receiving_report_item_id ?? 0);
+
+        if (Schema::hasTable('receiving_report_items_table') && Schema::hasTable('receiving_reports_table')) {
+            $rrSelect = [
+                'receiving_report_items_table.receiving_report_item_id',
+                'receiving_reports_table.receiving_report_id',
+                'receiving_reports_table.receiving_report_form_number',
+                'receiving_reports_table.receiving_report_created_at',
+                'receiving_reports_table.receiving_report_date',
+                'receiving_reports_table.receiving_report_delivery_date',
+            ];
+            foreach ([
+                'receiving_report_atp_id',
+                'receiving_report_request_check_id',
+                'receiving_report_second_count_by',
+                'receiving_report_ris_id',
+            ] as $col) {
+                if (Schema::hasColumn('receiving_reports_table', $col)) {
+                    $rrSelect[] = 'receiving_reports_table.'.$col;
+                }
+            }
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_condition')) {
+                $rrSelect[] = 'receiving_report_items_table.receiving_report_item_condition';
+            }
+
+            $rrQuery = DB::table('receiving_report_items_table')
                 ->join(
                     'receiving_reports_table',
                     'receiving_report_items_table.receiving_report_id',
                     '=',
                     'receiving_reports_table.receiving_report_id'
-                )
-                ->where('receiving_report_items_table.receiving_report_item_equipment_id', $equipmentId)
-                ->orderByDesc('receiving_reports_table.receiving_report_created_at')
-                ->select(
-                    'receiving_reports_table.receiving_report_id',
-                    'receiving_reports_table.receiving_report_form_number',
-                    'receiving_reports_table.receiving_report_created_at'
-                )
-                ->first();
+                );
+
+            if ($rrItemId > 0) {
+                $rrQuery->where('receiving_report_items_table.receiving_report_item_id', $rrItemId);
+            } elseif (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')) {
+                $rrQuery->where('receiving_report_items_table.receiving_report_item_equipment_id', $equipmentId);
+            } else {
+                $rrQuery = null;
+            }
+
+            $receivingReport = $rrQuery
+                ? $rrQuery->orderByDesc('receiving_reports_table.receiving_report_created_at')
+                    ->select($rrSelect)
+                    ->first()
+                : null;
+
+            if ($receivingReport) {
+                $rrCondition = $receivingReport->receiving_report_item_condition ?? null;
+                $receivedBy = $receivingReport->receiving_report_second_count_by ?? null;
+                $atpId = (int) ($receivingReport->receiving_report_atp_id ?? 0);
+                if (
+                    $atpId < 1
+                    && ! empty($receivingReport->receiving_report_request_check_id)
+                    && Schema::hasTable('request_check_table')
+                    && Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id')
+                ) {
+                    $atpId = (int) DB::table('request_check_table')
+                        ->where('request_check_id', $receivingReport->receiving_report_request_check_id)
+                        ->value('request_check_authority_purchase_id');
+                }
+                if ($atpId > 0 && Schema::hasTable('authority_to_purchase_table')) {
+                    $atp = DB::table('authority_to_purchase_table')
+                        ->where('authority_purchase_id', $atpId)
+                        ->first();
+                    if ($atp) {
+                        $atpNumber = $atp->authority_purchase_form_number ?? null;
+                        $poDate = self::dateString($atp->authority_purchase_date ?? null);
+                        if (
+                            Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_ris_id')
+                            && ! empty($atp->authority_purchase_ris_id)
+                            && Schema::hasTable('requisition_issue_slip_table')
+                        ) {
+                            $risNumber = DB::table('requisition_issue_slip_table')
+                                ->where('ris_id', $atp->authority_purchase_ris_id)
+                                ->value('ris_form_number');
+                        }
+                    }
+                }
+                if (
+                    $atpId > 0
+                    && Schema::hasTable('purchase_order_atps_table')
+                    && Schema::hasTable('purchase_orders_table')
+                ) {
+                    $poSelect = ['po.purchase_order_number'];
+                    if (Schema::hasColumn('purchase_orders_table', 'purchase_order_date')) {
+                        $poSelect[] = 'po.purchase_order_date';
+                    }
+                    if (Schema::hasColumn('purchase_orders_table', 'purchase_order_created_at')) {
+                        $poSelect[] = 'po.purchase_order_created_at';
+                    } elseif (Schema::hasColumn('purchase_orders_table', 'created_at')) {
+                        $poSelect[] = 'po.created_at';
+                    }
+                    $po = DB::table('purchase_order_atps_table as poa')
+                        ->join('purchase_orders_table as po', 'po.purchase_order_id', '=', 'poa.purchase_order_id')
+                        ->where('poa.authority_purchase_id', $atpId)
+                        ->first($poSelect);
+                    if ($po) {
+                        $purchaseOrderNumber = $po->purchase_order_number ?? null;
+                        $poDate = self::dateString(
+                            $po->purchase_order_date
+                                ?? $po->purchase_order_created_at
+                                ?? $po->created_at
+                                ?? $poDate
+                        );
+                    }
+                }
+            }
+        }
+
+        $stockedByName = null;
+        if (! empty($row->equipment_stocked_by) && Schema::hasTable('users_table')) {
+            $stockedByName = DB::table('users_table')
+                ->where('user_id', $row->equipment_stocked_by)
+                ->value('user_full_name');
         }
 
         return [
@@ -244,10 +361,14 @@ class EquipmentTimeline
             'room_type' => $row->room_type,
             'inventory_status' => $row->equipment_inventory_status,
             'condition_status' => $row->equipment_condition_status,
+            'tracking_mode' => $row->equipment_tracking_mode ?? null,
+            'quantity' => (int) ($row->equipment_quantity ?? 1),
             'asset_tag' => $row->equipment_asset_tag,
             'serial_number' => $row->equipment_serial_number,
             'brand' => $row->equipment_brand_name,
             'model' => $row->equipment_model,
+            'qr_code' => $row->equipment_qr_code ?? null,
+            'qr_issued_at' => self::dateString($row->equipment_qr_issued_at ?? null),
             'location' => $row->equipment_current_location,
             'placement_zone' => $row->equipment_placement_zone,
             'purchase_date' => self::dateString($row->equipment_purchase_date),
@@ -255,13 +376,31 @@ class EquipmentTimeline
                 ? (float) $row->equipment_purchase_cost
                 : null,
             'acquired_date' => self::dateString($row->equipment_acquired_date),
+            'stocked_by' => $row->equipment_stocked_by ?? null,
+            'stocked_by_name' => $stockedByName,
+            'stock_lot_code' => $row->equipment_stock_lot_code ?? null,
             'warranty_expiration' => self::dateString($row->equipment_warranty_expiration),
+            'useful_life_years' => $row->equipment_useful_life_years ?? null,
             'created_at' => self::dateString($row->equipment_created_at),
             'supplier_name' => $supplierName,
             'supplier_store_type' => $row->supplier_store_type,
             'receiving_report_id' => $receivingReport->receiving_report_id ?? null,
+            'receiving_report_item_id' => $receivingReport->receiving_report_item_id ?? ($rrItemId ?: null),
             'receiving_report_number' => $receivingReport->receiving_report_form_number ?? null,
-            'receiving_report_date' => self::dateString($receivingReport->receiving_report_created_at ?? null),
+            'receiving_report_date' => self::dateString(
+                $receivingReport->receiving_report_date
+                    ?? $receivingReport->receiving_report_delivery_date
+                    ?? $receivingReport->receiving_report_created_at
+                    ?? null
+            ),
+            'receiving_condition' => $rrCondition,
+            'received_by' => $receivedBy,
+            'purchase_order_number' => $purchaseOrderNumber ? (string) $purchaseOrderNumber : null,
+            'purchase_order_date' => $poDate,
+            'atp_number' => $atpNumber ? (string) $atpNumber : null,
+            'ris_number' => $risNumber ? (string) $risNumber : null,
+            'replaces_id' => ! empty($row->equipment_replaces_id) ? (int) $row->equipment_replaces_id : null,
+            'replaced_by_id' => ! empty($row->equipment_replaced_by_id) ? (int) $row->equipment_replaced_by_id : null,
             'view_url' => EquipmentViewReturn::viewUrl($equipmentId),
         ];
     }
@@ -289,7 +428,26 @@ class EquipmentTimeline
     {
         $events = collect();
 
-        if (! empty($equipment['purchase_date'])) {
+        if (! empty($equipment['purchase_order_number']) || ! empty($equipment['atp_number']) || ! empty($equipment['ris_number'])) {
+            $parts = array_filter([
+                $equipment['purchase_order_number'] ? 'PO '.$equipment['purchase_order_number'] : null,
+                $equipment['atp_number'] ? 'ATP '.$equipment['atp_number'] : null,
+                $equipment['ris_number'] ? 'RIS '.$equipment['ris_number'] : null,
+            ]);
+            $events->push(self::makeEvent(
+                'acquisition',
+                $equipment['purchase_order_date'] ?: $equipment['purchase_date'] ?: $equipment['receiving_report_date'] ?: $equipment['created_at'],
+                'Ordered',
+                implode(' · ', $parts) ?: 'Purchase commitment recorded.',
+                [
+                    'purchase_order_number' => $equipment['purchase_order_number'],
+                    'atp_number' => $equipment['atp_number'],
+                    'ris_number' => $equipment['ris_number'],
+                ]
+            ));
+        }
+
+        if (! empty($equipment['purchase_date']) || $equipment['purchase_cost'] !== null || ! empty($equipment['supplier_name'])) {
             $details = [];
             if ($equipment['purchase_cost'] !== null) {
                 $details[] = 'Cost: ₱'.number_format($equipment['purchase_cost'], 2);
@@ -297,46 +455,177 @@ class EquipmentTimeline
             if ($equipment['supplier_name']) {
                 $details[] = 'Supplier: '.$equipment['supplier_name'];
             }
+            if ($equipment['purchase_order_number']) {
+                $details[] = 'PO '.$equipment['purchase_order_number'];
+            }
 
             $events->push(self::makeEvent(
                 'acquisition',
-                $equipment['purchase_date'],
-                'Purchased',
-                $details ? implode(' · ', $details) : 'Equipment purchase recorded.',
+                $equipment['purchase_date'] ?: $equipment['purchase_order_date'] ?: $equipment['created_at'],
+                'Bought / committed',
+                $details ? implode(' · ', $details) : 'Purchase recorded.',
                 [
                     'purchase_cost' => $equipment['purchase_cost'],
                     'supplier_name' => $equipment['supplier_name'],
+                    'purchase_order_number' => $equipment['purchase_order_number'],
                 ]
             ));
         }
 
-        if (
-            ! empty($equipment['acquired_date'])
-            && $equipment['acquired_date'] !== ($equipment['purchase_date'] ?? null)
-        ) {
-            $events->push(self::makeEvent(
-                'acquisition',
-                $equipment['acquired_date'],
-                'Acquired / deployed',
-                'Equipment marked as acquired or deployed.',
-                []
-            ));
-        }
-
         if (! empty($equipment['receiving_report_id'])) {
+            $details = [
+                'RR '.($equipment['receiving_report_number'] ?: '#'.$equipment['receiving_report_id']),
+            ];
+            if (! empty($equipment['receiving_condition'])) {
+                $details[] = 'Condition: '.$equipment['receiving_condition'];
+            }
+            if (! empty($equipment['received_by'])) {
+                $details[] = 'Received by: '.$equipment['received_by'];
+            }
+
             $events->push(self::makeEvent(
                 'acquisition',
                 $equipment['receiving_report_date'] ?: $equipment['purchase_date'] ?: $equipment['created_at'],
-                'Received via receiving report',
-                'Linked to receiving report #'.($equipment['receiving_report_number'] ?: $equipment['receiving_report_id']).'.',
+                'Delivered / received',
+                implode(' · ', $details),
                 [
                     'receiving_report_id' => $equipment['receiving_report_id'],
                     'receiving_report_number' => $equipment['receiving_report_number'],
+                    'received_by' => $equipment['received_by'],
+                    'condition' => $equipment['receiving_condition'],
+                ]
+            ));
+        }
+
+        if (! empty($equipment['acquired_date']) || ! empty($equipment['created_at'])) {
+            $stockParts = array_filter([
+                $equipment['room_name'] ? 'Room: '.$equipment['room_name'] : null,
+                $equipment['tracking_mode'] ? 'Mode: '.$equipment['tracking_mode'] : null,
+                $equipment['stocked_by_name'] ? 'By: '.$equipment['stocked_by_name'] : null,
+                $equipment['stock_lot_code'] ? 'Lot: '.$equipment['stock_lot_code'] : null,
+            ]);
+            $events->push(self::makeEvent(
+                'acquisition',
+                $equipment['acquired_date'] ?: $equipment['created_at'],
+                'Added to inventory',
+                $stockParts ? implode(' · ', $stockParts) : 'Stocked into campus inventory.',
+                [
+                    'stocked_by' => $equipment['stocked_by_name'],
+                    'tracking_mode' => $equipment['tracking_mode'],
+                    'room' => $equipment['room_name'],
                 ]
             ));
         }
 
         return $events;
+    }
+
+    private static function qrEvents(array $equipment): Collection
+    {
+        if (empty($equipment['qr_code']) && empty($equipment['qr_issued_at'])) {
+            return collect();
+        }
+
+        return collect([
+            self::makeEvent(
+                'qr',
+                $equipment['qr_issued_at'] ?: $equipment['created_at'],
+                'QR / tag issued',
+                $equipment['qr_code']
+                    ? 'Code: '.$equipment['qr_code']
+                    : 'QR code assigned to this asset.',
+                [
+                    'qr_code' => $equipment['qr_code'],
+                    'asset_tag' => $equipment['asset_tag'],
+                ]
+            ),
+        ]);
+    }
+
+    private static function borrowEvents(int $equipmentId): Collection
+    {
+        if (! Schema::hasTable('borrowing_records_table')) {
+            return collect();
+        }
+
+        return DB::table('borrowing_records_table')
+            ->where('borrowing_equipment_id', $equipmentId)
+            ->orderByDesc('borrowing_created_at')
+            ->get()
+            ->flatMap(function ($row) {
+                $events = collect();
+                $borrower = trim((string) ($row->borrowing_borrower_name ?? 'Borrower'));
+                $dept = trim((string) ($row->borrowing_borrower_department ?? ''));
+                $events->push(self::makeEvent(
+                    'borrow',
+                    $row->borrowing_date ?: $row->borrowing_created_at,
+                    'Borrowed',
+                    implode(' · ', array_filter([
+                        $borrower,
+                        $dept !== '' ? $dept : null,
+                        $row->borrowing_expected_return_date ? 'Due '.$row->borrowing_expected_return_date : null,
+                        $row->borrowing_destination_location ? 'To '.$row->borrowing_destination_location : null,
+                    ])),
+                    [
+                        'borrower' => $borrower,
+                        'expected_return' => $row->borrowing_expected_return_date,
+                        'status' => $row->borrowing_status,
+                    ]
+                ));
+
+                if (! empty($row->borrowing_actual_return_date)) {
+                    $events->push(self::makeEvent(
+                        'borrow',
+                        $row->borrowing_actual_return_date,
+                        'Returned from borrow',
+                        implode(' · ', array_filter([
+                            $borrower,
+                            $row->borrowing_equipment_condition ? 'Condition: '.$row->borrowing_equipment_condition : null,
+                        ])),
+                        [
+                            'borrower' => $borrower,
+                            'condition' => $row->borrowing_equipment_condition,
+                        ]
+                    ));
+                }
+
+                return $events;
+            });
+    }
+
+    private static function conditionEvents(int $equipmentId): Collection
+    {
+        if (! Schema::hasTable('equipment_condition_history_table')) {
+            return collect();
+        }
+
+        return DB::table('equipment_condition_history_table as h')
+            ->leftJoin('users_table as u', 'u.user_id', '=', 'h.changed_by')
+            ->where('h.equipment_id', $equipmentId)
+            ->orderByDesc('h.created_at')
+            ->get([
+                'h.*',
+                'u.user_full_name as changed_by_name',
+            ])
+            ->map(function ($row) {
+                $from = $row->condition_from ?: '—';
+                $to = $row->condition_to ?: '—';
+
+                return self::makeEvent(
+                    'condition',
+                    $row->created_at,
+                    'Condition changed',
+                    $from.' → '.$to
+                        .($row->changed_by_name ? ' · By: '.$row->changed_by_name : '')
+                        .($row->change_source ? ' · '.$row->change_source : ''),
+                    [
+                        'from' => $row->condition_from,
+                        'to' => $row->condition_to,
+                        'by' => $row->changed_by_name,
+                        'source' => $row->change_source,
+                    ]
+                );
+            });
     }
 
     private static function transferEvents(int $equipmentId): Collection
@@ -345,7 +634,7 @@ class EquipmentTimeline
             return collect();
         }
 
-        return DB::table('equipment_transfer_history_table')
+        $query = DB::table('equipment_transfer_history_table')
             ->leftJoin(
                 'rooms_table as from_room',
                 'equipment_transfer_history_table.from_room_id',
@@ -357,30 +646,56 @@ class EquipmentTimeline
                 'equipment_transfer_history_table.to_room_id',
                 '=',
                 'to_room.room_id'
-            )
+            );
+
+        $select = [
+            'equipment_transfer_history_table.transfer_id',
+            'equipment_transfer_history_table.remarks',
+            'equipment_transfer_history_table.created_at',
+            'from_room.room_name as from_room_name',
+            'to_room.room_name as to_room_name',
+        ];
+
+        if (
+            Schema::hasColumn('equipment_transfer_history_table', 'transferred_by')
+            && Schema::hasTable('users_table')
+        ) {
+            $query->leftJoin(
+                'users_table as transfer_user',
+                'equipment_transfer_history_table.transferred_by',
+                '=',
+                'transfer_user.user_id'
+            );
+            $select[] = 'transfer_user.user_full_name as transferred_by_name';
+        }
+
+        return $query
             ->where('equipment_transfer_history_table.equipment_id', $equipmentId)
             ->orderByDesc('equipment_transfer_history_table.created_at')
-            ->select(
-                'equipment_transfer_history_table.transfer_id',
-                'equipment_transfer_history_table.remarks',
-                'equipment_transfer_history_table.created_at',
-                'from_room.room_name as from_room_name',
-                'to_room.room_name as to_room_name'
-            )
+            ->select($select)
             ->get()
             ->map(function ($row) {
                 $from = $row->from_room_name ?: 'Unassigned';
                 $to = $row->to_room_name ?: 'Unassigned';
+                $by = trim((string) ($row->transferred_by_name ?? ''));
+                $detail = $from.' → '.$to;
+                if ($by !== '') {
+                    $detail .= ' · By: '.$by;
+                }
+                if (! empty($row->remarks)) {
+                    $detail .= ' · '.$row->remarks;
+                }
 
                 return self::makeEvent(
                     'transfer',
                     $row->created_at,
-                    'Transferred',
-                    $from.' → '.$to.($row->remarks ? ' · '.$row->remarks : ''),
+                    'Deployed / moved',
+                    $detail,
                     [
                         'transfer_id' => (int) $row->transfer_id,
                         'from_room' => $from,
                         'to_room' => $to,
+                        'transferred_by' => $by !== '' ? $by : null,
                         'remarks' => $row->remarks,
                     ]
                 );
@@ -412,6 +727,13 @@ class EquipmentTimeline
                 $parts = array_filter([
                     $row->equipment_maintenance_findings ? 'Findings: '.$row->equipment_maintenance_findings : null,
                     $row->equipment_maintenance_repair_action ? 'Action: '.$row->equipment_maintenance_repair_action : null,
+                    ! empty($row->equipment_maintenance_parts_used) ? 'Parts: '.$row->equipment_maintenance_parts_used : null,
+                    isset($row->equipment_maintenance_repair_cost) && $row->equipment_maintenance_repair_cost !== null
+                        ? 'Cost: ₱'.number_format((float) $row->equipment_maintenance_repair_cost, 2)
+                        : null,
+                    isset($row->equipment_maintenance_downtime_hours) && $row->equipment_maintenance_downtime_hours !== null
+                        ? 'Downtime: '.$row->equipment_maintenance_downtime_hours.'h'
+                        : null,
                     $row->personnel_name ? 'By: '.$row->personnel_name : null,
                 ]);
 
@@ -424,6 +746,9 @@ class EquipmentTimeline
                         'status' => $row->equipment_maintenance_status,
                         'findings' => $row->equipment_maintenance_findings,
                         'repair_action' => $row->equipment_maintenance_repair_action,
+                        'parts_used' => $row->equipment_maintenance_parts_used ?? null,
+                        'repair_cost' => $row->equipment_maintenance_repair_cost ?? null,
+                        'downtime_hours' => $row->equipment_maintenance_downtime_hours ?? null,
                         'personnel_name' => $row->personnel_name,
                     ]
                 );
@@ -497,6 +822,7 @@ class EquipmentTimeline
             ->map(function ($row) {
                 $parts = array_filter([
                     $row->disposal_reason ? 'Reason: '.$row->disposal_reason : null,
+                    ! empty($row->disposal_method) ? 'Method: '.$row->disposal_method : null,
                     $row->disposal_area_location ? 'Area: '.$row->disposal_area_location : null,
                     $row->approved_by_name ? 'Approved by: '.$row->approved_by_name : null,
                 ]);
@@ -508,6 +834,7 @@ class EquipmentTimeline
                     $parts ? implode(' · ', $parts) : 'Equipment disposal recorded.',
                     [
                         'reason' => $row->disposal_reason,
+                        'method' => $row->disposal_method ?? null,
                         'area' => $row->disposal_area_location,
                         'approved_by' => $row->approved_by_name,
                     ]

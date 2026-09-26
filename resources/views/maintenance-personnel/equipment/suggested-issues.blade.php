@@ -286,7 +286,7 @@
 
                 <div class="space-y-4 px-6 py-6">
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category <span class="text-red-500">*</span></label>
                         <select
                             name="issue_template_category_id"
                             required
@@ -315,7 +315,7 @@
                     </div>
 
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Issue name</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Issue name <span class="text-red-500">*</span></label>
                         <input
                             name="issue_template_name"
                             required
@@ -391,7 +391,7 @@
 
                 <div class="space-y-4 px-6 py-6">
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category <span class="text-red-500">*</span></label>
                         <select
                             name="issue_template_category_id"
                             x-model="editCategory"
@@ -421,7 +421,7 @@
                     </div>
 
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Issue name</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Issue name <span class="text-red-500">*</span></label>
                         <input
                             name="issue_template_name"
                             x-model="editName"

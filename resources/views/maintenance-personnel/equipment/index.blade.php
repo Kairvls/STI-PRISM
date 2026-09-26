@@ -48,6 +48,19 @@
                 </button>
                 <button
                     type="button"
+                    id="stockPendingBtn"
+                    onclick="openStockPendingModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-[#0025cc]/30 bg-[#0025cc]/5 px-4 py-2.5 text-[13px] font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    @if (!($defaultStorageRoomId ?? null) || ($pendingReceivableCount ?? 0) < 1) disabled @endif
+                >
+                    <i data-lucide="package-plus" class="h-4 w-4"></i>
+                    Stock all pending
+                    @if (($pendingReceivableCount ?? 0) > 0)
+                        <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white">{{ (int) $pendingReceivableCount }}</span>
+                    @endif
+                </button>
+                <button
+                    type="button"
                     onclick="openAddEquipmentModal()"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                     @if (!($defaultStorageRoomId ?? null)) disabled @endif
@@ -61,6 +74,206 @@
                 <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     Create a room with type <span class="font-semibold">Storage / Stockroom</span> before adding inventory stock.
                 </div>
+            @endif
+            @if (($pendingReceivableCount ?? 0) > 0)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+                    <p>
+                        <span class="font-semibold">{{ number_format($pendingReceivableCount) }}</span>
+                        received RR line{{ $pendingReceivableCount === 1 ? '' : 's' }} ready to stock.
+                        Import them in one click, or use <span class="font-semibold">Add to stock</span> for a single line.
+                    </p>
+                    <button
+                        type="button"
+                        onclick="openStockPendingModal()"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800"
+                        @if (!($defaultStorageRoomId ?? null)) disabled @endif
+                    >
+                        <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
+                        Stock all pending
+                    </button>
+                </div>
+            @endif
+            @php
+                $obTotals = $openBalance['totals'] ?? [];
+                $obLines = $openBalance['lines'] ?? [];
+            @endphp
+            @if (!empty($obLines))
+                <div class="rounded-2xl border border-slate-200/80 bg-white">
+                    <div class="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Open balance</p>
+                            <p class="mt-1 text-sm text-slate-500">RR delivery vs inventory stock</p>
+                        </div>
+                        <p class="text-xs text-slate-400">Ordered → Received → Stocked → Pending</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-4 sm:divide-x sm:divide-slate-100">
+                        @foreach ([
+                            'ordered' => 'Ordered',
+                            'received' => 'Received',
+                            'stocked' => 'Stocked',
+                            'pending_stock' => 'Pending',
+                        ] as $key => $label)
+                            <div class="px-5 py-4 {{ $loop->index >= 2 ? 'border-t border-slate-100 sm:border-t-0' : '' }}">
+                                <p class="text-xs text-slate-400">{{ $label }}</p>
+                                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
+                                    {{ number_format((int) ($obTotals[$key] ?? 0)) }}
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="monitoring-scroll max-h-56 overflow-y-auto border-t border-slate-100">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="sticky top-0 z-10 bg-white text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                <tr class="border-b border-slate-100">
+                                    <th class="px-5 py-2.5 font-medium">Item</th>
+                                    <th class="px-3 py-2.5 text-right font-medium">Recv</th>
+                                    <th class="px-3 py-2.5 text-right font-medium">Stock</th>
+                                    <th class="px-3 py-2.5 text-right font-medium">Store</th>
+                                    <th class="px-5 py-2.5 pr-6 text-right font-medium">Pending</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-700">
+                                @foreach ($obLines as $line)
+                                    @php
+                                        $pending = (int) ($line['pending_stock'] ?? 0);
+                                        $lineId = (int) ($line['receiving_report_item_id'] ?? 0);
+                                    @endphp
+                                    <tr class="transition hover:bg-slate-50/80">
+                                        <td class="px-5 py-3">
+                                            <p class="font-medium text-slate-900">{{ $line['article'] }}</p>
+                                            <p class="mt-0.5 font-mono text-[11px] text-slate-400">
+                                                {{ $line['rr_number'] }}
+                                                @if ($lineId > 0)
+                                                    <span class="text-slate-300">·</span> L{{ $lineId }}
+                                                @endif
+                                                <span class="font-sans text-slate-300"> · </span>
+                                                <span class="font-sans">{{ !empty($line['po_number']) ? 'PO '.$line['po_number'] : 'No PO' }}</span>
+                                            </p>
+                                        </td>
+                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['received'] }}</td>
+                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['stocked'] }}</td>
+                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['in_storage'] }}</td>
+                                        <td class="px-5 py-3 pr-6 text-right tabular-nums font-semibold {{ $pending > 0 ? 'text-amber-700' : 'text-slate-400' }}">
+                                            {{ $pending }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+            @if (!empty($monitoring))
+                @php
+                    $ghostCount = (int) ($monitoring['ghost_count'] ?? count($monitoring['ghost'] ?? []));
+                    $warrantyCount = (int) ($monitoring['warranty_count'] ?? count($monitoring['warranty'] ?? []));
+                    $assetIdentity = function ($row) {
+                        $tag = trim((string) ($row->equipment_asset_tag ?? ''));
+                        if ($tag !== '') {
+                            return $tag;
+                        }
+                        $serial = trim((string) ($row->equipment_serial_number ?? ''));
+                        if ($serial !== '') {
+                            return 'S/N '.$serial;
+                        }
+
+                        return '#'.(int) ($row->equipment_id ?? 0);
+                    };
+                @endphp
+                <details class="group rounded-2xl border border-slate-200/80 bg-white">
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Monitoring</p>
+                            <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+                                <span>
+                                    <span class="text-slate-400">Unlinked</span>
+                                    <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($ghostCount) }}</span>
+                                </span>
+                                <span class="h-1 w-1 rounded-full bg-slate-300"></span>
+                                <span>
+                                    <span class="text-slate-400">Warranty</span>
+                                    <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($warrantyCount) }}</span>
+                                </span>
+                            </p>
+                        </div>
+                        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition group-open:rotate-180 group-open:bg-slate-50">
+                            <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                        </span>
+                    </summary>
+
+                    <div class="grid gap-0 border-t border-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
+                        <div class="px-5 py-4">
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">Unlinked assets</p>
+                                    <p class="mt-0.5 text-xs text-slate-400">No RR / PO link</p>
+                                </div>
+                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($ghostCount) }}</p>
+                            </div>
+                            <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
+                                @forelse (($monitoring['ghost'] ?? []) as $g)
+                                    <li>
+                                        <a href="{{ $g->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-900">{{ $g->equipment_name }}</p>
+                                                <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+                                                    {{ $assetIdentity($g) }}
+                                                    @if (!empty($g->room_name))
+                                                        <span class="font-sans text-slate-300"> · </span>{{ $g->room_name }}
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            <span class="mt-0.5 shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400">#{{ (int) $g->equipment_id }}</span>
+                                        </a>
+                                    </li>
+                                @empty
+                                    <li class="py-6 text-center text-sm text-slate-400">No unlinked assets</li>
+                                @endforelse
+                            </ul>
+                        </div>
+
+                        <div class="border-t border-slate-100 px-5 py-4 sm:border-t-0">
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">Warranty</p>
+                                    <p class="mt-0.5 text-xs text-slate-400">Within 90 days or expired</p>
+                                </div>
+                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($warrantyCount) }}</p>
+                            </div>
+                            <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
+                                @forelse (($monitoring['warranty'] ?? []) as $w)
+                                    @php
+                                        $expired = (bool) ($w->is_expired ?? ((int) ($w->days_remaining ?? 0) < 0));
+                                        $expiryLabel = ! empty($w->equipment_warranty_expiration)
+                                            ? \Illuminate\Support\Carbon::parse($w->equipment_warranty_expiration)->format('M j, Y')
+                                            : null;
+                                    @endphp
+                                    <li>
+                                        <a href="{{ $w->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-900">{{ $w->equipment_name }}</p>
+                                                <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+                                                    {{ $assetIdentity($w) }}
+                                                    @if ($expiryLabel)
+                                                        <span class="font-sans text-slate-300"> · </span>
+                                                        <span class="font-sans">{{ $expiryLabel }}</span>
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            <span class="mt-0.5 shrink-0 text-[11px] font-medium {{ $expired ? 'text-rose-600' : 'text-amber-700' }}">
+                                                {{ $w->suggest_action }}
+                                            </span>
+                                        </a>
+                                    </li>
+                                @empty
+                                    <li class="py-6 text-center text-sm text-slate-400">No warranty alerts</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                    </div>
+                </details>
             @endif
         @endif
 
@@ -1187,13 +1400,20 @@
             @csrf
             <input type="hidden" name="equipment_tracking_mode" :value="tracking">
             <input type="hidden" name="equipment_quantity" :value="quantity">
+            @if ($isStockPage)
+                <input type="hidden" name="require_receiving_basis" value="1">
+                <input type="hidden" name="intake_basis" :value="intakeBasis">
+                <input type="hidden" name="receiving_report_item_id" :value="rrItemId || ''">
+                <input type="hidden" name="equipment_purchase_date" :value="purchaseDate || ''">
+                <input type="hidden" name="equipment_purchase_cost" :value="purchaseCost || ''">
+            @endif
 
             <div class="flex items-start justify-between px-6 pt-6">
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : {{ $isStockPage ? "'Add to stock'" : "'Add equipment'" }}"></h2>
                     <p class="mt-1 text-sm text-slate-500" x-text="step === 2
                         ? 'Edit unique identity per unit. Shared name, category, and room apply to all.'
-                        : {{ $isStockPage ? "'Receive equipment into a storage room. Deploy later with Transfers.'" : "'Identity on the left, status on the right.'" }}"></p>
+                        : {{ $isStockPage ? "'Stock from a completed Receiving Report. PO is shown as the purchase basis; RR is what was actually delivered.'" : "'Identity on the left, status on the right.'" }}"></p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                     <button
@@ -1226,6 +1446,134 @@
             </div>
 
             <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
+                @if ($isStockPage)
+                <div class="mb-5 space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
+                            <p class="mt-1 text-xs text-slate-500">Delivered RR lines (with PO when linked). Click a ready line to prefill this form.</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="text-xs font-semibold text-[#0025cc] hover:underline"
+                            @click="intakeBasis = intakeBasis === 'non_procurement' ? 'receiving' : 'non_procurement'; clearError('rr'); clearError('intake_reason')"
+                            x-text="intakeBasis === 'non_procurement' ? 'Use received RR instead' : 'Non-procurement intake…'"
+                        ></button>
+                    </div>
+
+                    <div x-show="intakeBasis !== 'non_procurement'" x-cloak class="space-y-3">
+                        <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                            <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Delivered lines (RR / PO)</p>
+                                <button
+                                    type="button"
+                                    class="text-[11px] font-semibold text-[#0025cc] hover:underline"
+                                    @click="loadRrLines()"
+                                    :disabled="rrLoading"
+                                >Refresh</button>
+                            </div>
+                            <div class="max-h-52 overflow-y-auto">
+                                <template x-if="rrLoading">
+                                    <p class="px-3 py-4 text-xs text-slate-400">Loading delivered lines…</p>
+                                </template>
+                                <template x-if="!rrLoading && rrGuide.length === 0">
+                                    <p class="px-3 py-4 text-xs text-amber-700">No completed receiving lines yet. Finish second count on an RR first.</p>
+                                </template>
+                                <ul class="divide-y divide-slate-100" x-show="!rrLoading && rrGuide.length > 0">
+                                    <template x-for="line in rrGuide" :key="line.id">
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
+                                                :class="String(rrItemId) === String(line.id)
+                                                    ? 'bg-[#0025cc]/5 ring-inset ring-1 ring-[#0025cc]/20'
+                                                    : (line.is_selectable ? 'hover:bg-slate-50' : 'opacity-70')"
+                                                :disabled="!line.is_selectable"
+                                                @click="selectRrLine(line)"
+                                            >
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="truncate text-sm font-semibold text-slate-900" x-text="line.article"></p>
+                                                    <p class="mt-0.5 truncate text-[11px] text-slate-500">
+                                                        <span x-text="line.rr_number || 'RR'"></span>
+                                                        <span class="mx-1 text-slate-300">·</span>
+                                                        <span x-text="line.po_number ? ('PO ' + line.po_number) : 'No PO'"></span>
+                                                        <span class="mx-1 text-slate-300">·</span>
+                                                        <span x-text="(line.supplier_name || 'No supplier')"></span>
+                                                    </p>
+                                                    <p class="mt-0.5 text-[11px] text-slate-400">
+                                                        Ordered <span x-text="line.ordered_qty || 0"></span>
+                                                        · Received <span x-text="line.received_qty || 0"></span>
+                                                        · Stocked <span x-text="line.stocked_qty || 0"></span>
+                                                        · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-500'" x-text="line.remaining_qty || 0"></span>
+                                                    </p>
+                                                </div>
+                                                <span
+                                                    class="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                                    :class="line.is_selectable ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                                                    x-text="line.status_label || (line.is_selectable ? 'Ready' : 'Done')"
+                                                ></span>
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="add_rr_line" class="{{ $eqLabel }}">Selected received line (RR) <span class="text-red-500">*</span></label>
+                            <select
+                                id="add_rr_line"
+                                class="{{ $eqField }}"
+                                :class="errors.rr ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                x-model="rrItemId"
+                                @change="onRrLineChange(); clearError('rr')"
+                            >
+                                <option value="">Select from list above…</option>
+                                <template x-for="line in rrLines" :key="'opt-' + line.id">
+                                    <option :value="String(line.id)" x-text="line.label"></option>
+                                </template>
+                            </select>
+                            <p x-show="!rrLoading && rrLines.length === 0 && rrGuide.length > 0" class="mt-1.5 text-xs text-emerald-700">All delivered lines are already fully stocked. Use non-procurement intake only for assets without an RR.</p>
+                            <p x-show="!rrLoading && rrGuide.length === 0" class="mt-1.5 text-xs text-amber-700">No unstocked RR lines yet. Complete receiving second count first, or use non-procurement intake.</p>
+                            <p x-show="errors.rr" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.rr"></p>
+                        </div>
+
+                        <div
+                            x-show="selectedRrLine"
+                            x-cloak
+                            class="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/80"
+                        >
+                            <p><span class="font-semibold text-slate-800">RR</span> <span x-text="selectedRrLine?.rr_number || '—'"></span>
+                                <span class="mx-1 text-slate-300">·</span>
+                                <span class="font-semibold text-slate-800">PO</span> <span x-text="selectedRrLine?.po_number || 'Not linked'"></span>
+                            </p>
+                            <p class="mt-1">
+                                <span class="font-semibold text-slate-800">Supplier</span> <span x-text="selectedRrLine?.supplier_name || '—'"></span>
+                                <span class="mx-1 text-slate-300">·</span>
+                                <span class="font-semibold text-slate-800">To stock</span> <span x-text="selectedRrLine?.quantity || 0"></span>
+                                <span x-show="selectedRrLine?.received_qty"> / received <span x-text="selectedRrLine?.received_qty"></span></span>
+                                <span class="mx-1 text-slate-300">·</span>
+                                <span class="font-semibold text-slate-800">Bought</span> <span x-text="selectedRrLine?.purchase_date || '—'"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div x-show="intakeBasis === 'non_procurement'" x-cloak>
+                        <label for="add_intake_reason" class="{{ $eqLabel }}">Reason <span class="text-red-500">*</span></label>
+                        <input
+                            id="add_intake_reason"
+                            type="text"
+                            name="intake_reason"
+                            x-model="intakeReason"
+                            @input="clearError('intake_reason')"
+                            placeholder="e.g. Donation, legacy migration, found on campus"
+                            class="{{ $eqField }}"
+                            :class="errors.intake_reason ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                        />
+                        <p x-show="errors.intake_reason" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.intake_reason"></p>
+                    </div>
+                </div>
+                @endif
                 <div
                     class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
                     x-show="!needsItemStep()"
@@ -2012,6 +2360,39 @@
             contentEl?.classList.remove('hidden');
 
             renderEquipmentActivity(data);
+            renderEquipmentModalProcurement(data?.procurement || null);
+        }
+
+        function renderEquipmentModalProcurement(profile) {
+            if (!profile || typeof profile !== 'object') return;
+
+            setEquipmentModalText('eqAssetModal_supplier', profile.supplier_name || '');
+            setEquipmentModalText('eqAssetModal_po', profile.purchase_order_number || '');
+            setEquipmentModalText('eqAssetModal_rr', profile.receiving_report_number || '');
+
+            const atp = String(profile.atp_number || '').trim();
+            const ris = String(profile.ris_number || '').trim();
+            const atpRis = [atp || null, ris || null].filter(Boolean).join(' / ');
+            setEquipmentModalText('eqAssetModal_atp_ris', atpRis);
+
+            if (profile.purchase_date || profile.purchase_order_date) {
+                const purchaseEl = document.getElementById('eqAssetModal_purchase_date');
+                if (purchaseEl && (!purchaseEl.textContent || purchaseEl.textContent.trim() === '—' || purchaseEl.textContent.trim() === '-')) {
+                    setEquipmentModalText(
+                        'eqAssetModal_purchase_date',
+                        formatEquipmentAssetDate(profile.purchase_order_date || profile.purchase_date)
+                    );
+                }
+            }
+            if (profile.acquired_date || profile.receiving_report_date) {
+                const acquiredEl = document.getElementById('eqAssetModal_acquired_date');
+                if (acquiredEl && (!acquiredEl.textContent || acquiredEl.textContent.trim() === '—' || acquiredEl.textContent.trim() === '-')) {
+                    setEquipmentModalText(
+                        'eqAssetModal_acquired_date',
+                        formatEquipmentAssetDate(profile.acquired_date || profile.receiving_report_date)
+                    );
+                }
+            }
         }
 
         async function loadEquipmentModalLifecycle(equipmentId) {
@@ -2079,15 +2460,34 @@
             setEquipmentModalText('eqAssetModal_meta_room', asset.room_name);
             setEquipmentModalText('eqAssetModal_brand', asset.brand);
             setEquipmentModalText('eqAssetModal_model', asset.model);
+            setEquipmentModalText('eqAssetModal_serial', asset.serial_number);
             setEquipmentModalText('eqAssetModal_category', asset.category_name);
             setEquipmentModalText('eqAssetModal_quantity', String(asset.quantity ?? 1));
             setEquipmentModalText('eqAssetModal_tracking_mode', asset.tracking_mode || 'Individual');
             setEquipmentModalText('eqAssetModal_condition', asset.condition);
             setEquipmentModalText('eqAssetModal_status', asset.inventory_status);
+            setEquipmentModalText('eqAssetModal_borrowable', asset.is_borrowable ? 'Yes' : 'No');
+            setEquipmentModalText('eqAssetModal_purchase_date', formatEquipmentAssetDate(asset.purchase_date));
+            setEquipmentModalText(
+                'eqAssetModal_purchase_cost',
+                asset.purchase_cost != null && asset.purchase_cost !== ''
+                    ? ('₱' + Number(asset.purchase_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+                    : ''
+            );
+            setEquipmentModalText(
+                'eqAssetModal_useful_life',
+                asset.useful_life_years != null && asset.useful_life_years !== ''
+                    ? (String(asset.useful_life_years) + (Number(asset.useful_life_years) === 1 ? ' year' : ' years'))
+                    : ''
+            );
             setEquipmentModalText('eqAssetModal_warranty', formatEquipmentAssetDate(asset.warranty_expiration));
-            setEquipmentModalText('eqAssetModal_acquired_date', formatEquipmentAssetDate(asset.acquired_date));
+            setEquipmentModalText('eqAssetModal_acquired_date', formatEquipmentAssetDate(asset.acquired_date || asset.purchase_date));
             setEquipmentModalText('eqAssetModal_room', asset.room_name);
             setEquipmentModalText('eqAssetModal_zone', asset.placement_zone || asset.location);
+            setEquipmentModalText('eqAssetModal_supplier', '');
+            setEquipmentModalText('eqAssetModal_po', '');
+            setEquipmentModalText('eqAssetModal_rr', '');
+            setEquipmentModalText('eqAssetModal_atp_ris', '');
 
             const categoryBadge = document.getElementById('eqAssetModal_category_badge');
             if (categoryBadge) {
@@ -2173,6 +2573,7 @@
 
     <script>
         function inventoryAddEquipment() {
+            const isStockPage = @json((bool) $isStockPage);
             return {
                 open: false,
                 step: 1,
@@ -2195,6 +2596,64 @@
                 errors: {},
                 formError: '',
                 imagePreview: null,
+                intakeBasis: 'receiving',
+                intakeReason: '',
+                rrItemId: '',
+                rrLines: [],
+                rrGuide: [],
+                rrLoading: false,
+                purchaseDate: '',
+                purchaseCost: '',
+                get selectedRrLine() {
+                    const id = String(this.rrItemId || '');
+                    if (!id) return null;
+                    return (this.rrLines || []).find((line) => String(line.id) === id)
+                        || (this.rrGuide || []).find((line) => String(line.id) === id)
+                        || null;
+                },
+                async loadRrLines() {
+                    if (!isStockPage) return;
+                    this.rrLoading = true;
+                    try {
+                        const res = await fetch('/maintenance/equipment/receivable-lines', {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+                        const data = await res.json();
+                        this.rrGuide = Array.isArray(data.guide) ? data.guide : (Array.isArray(data.lines) ? data.lines : []);
+                        this.rrLines = Array.isArray(data.lines) ? data.lines : this.rrGuide.filter((line) => line.is_selectable);
+                    } catch (e) {
+                        this.rrLines = [];
+                        this.rrGuide = [];
+                    } finally {
+                        this.rrLoading = false;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    }
+                },
+                selectRrLine(line) {
+                    if (!line || !line.is_selectable) return;
+                    this.rrItemId = String(line.id);
+                    this.clearError('rr');
+                    this.onRrLineChange();
+                },
+                onRrLineChange() {
+                    const line = this.selectedRrLine;
+                    if (!line) {
+                        this.purchaseDate = '';
+                        this.purchaseCost = '';
+                        return;
+                    }
+                    if (!String(this.name || '').trim()) {
+                        this.name = line.article || '';
+                        this.onNameInput();
+                    }
+                    const qty = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
+                    this.quantity = Math.min(200, Math.max(1, qty));
+                    this.purchaseDate = line.purchase_date || '';
+                    this.purchaseCost = line.unit_cost != null ? String(line.unit_cost) : '';
+                    this.clearError('quantity');
+                    this.syncAssetTag();
+                },
                 onImageChange(event) {
                     const file = event.target.files?.[0];
                     if (this.imagePreview) {
@@ -2284,6 +2743,21 @@
                 },
                 validateStep1() {
                     const next = {};
+                    if (isStockPage) {
+                        if (this.intakeBasis === 'non_procurement') {
+                            if (!String(this.intakeReason || '').trim()) {
+                                next.intake_reason = 'Enter a reason for non-procurement intake.';
+                            }
+                        } else if (!String(this.rrItemId || '').trim()) {
+                            next.rr = 'Select a received RR line as the basis for this stock.';
+                        } else if (this.selectedRrLine) {
+                            const maxQty = Number(this.selectedRrLine.quantity) || 0;
+                            const qty = Number(this.quantity);
+                            if (Number.isFinite(qty) && maxQty > 0 && qty > maxQty) {
+                                next.quantity = 'Quantity cannot exceed received qty (' + maxQty + ').';
+                            }
+                        }
+                    }
                     if (!String(this.name || '').trim()) {
                         next.name = 'Equipment name is required.';
                     }
@@ -2374,6 +2848,11 @@
                     this.assetTag = '';
                     this.assetTagManual = false;
                     this.serial = '';
+                    this.intakeBasis = 'receiving';
+                    this.intakeReason = '';
+                    this.rrItemId = '';
+                    this.purchaseDate = '';
+                    this.purchaseCost = '';
                     this.clearAllItemImages();
                     this.items = [];
                     this.clearImage();
@@ -2387,6 +2866,7 @@
                         this.room = @json((string) old('equipment_room_id'));
                     @endif
                     this.open = true;
+                    this.loadRrLines();
                     this.$nextTick(() => {
                         document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
                         if (window.lucide) window.lucide.createIcons();
@@ -2748,6 +3228,141 @@
             modal.classList.remove("flex");
         }
 
+        let stockPendingLinesCache = [];
+
+        function openStockPendingModal() {
+            const modal = document.getElementById('stockPendingModal');
+            const loading = document.getElementById('stockPendingLoading');
+            const empty = document.getElementById('stockPendingEmpty');
+            const list = document.getElementById('stockPendingList');
+            const meta = document.getElementById('stockPendingMeta');
+            const errorEl = document.getElementById('stockPendingError');
+            const confirmBtn = document.getElementById('stockPendingConfirmBtn');
+
+            if (!modal) return;
+
+            stockPendingLinesCache = [];
+            loading?.classList.remove('hidden');
+            empty?.classList.add('hidden');
+            list?.classList.add('hidden');
+            meta?.classList.add('hidden');
+            errorEl?.classList.add('hidden');
+            if (errorEl) errorEl.textContent = '';
+            if (confirmBtn) confirmBtn.disabled = true;
+            if (list) list.innerHTML = '';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) window.lucide.createIcons();
+
+            fetch('/maintenance/equipment/receivable-lines', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    loading?.classList.add('hidden');
+                    const lines = Array.isArray(data.lines) ? data.lines : [];
+                    stockPendingLinesCache = lines;
+                    if (!lines.length) {
+                        empty?.classList.remove('hidden');
+                        return;
+                    }
+                    if (list) {
+                        list.innerHTML = lines.map((line) => {
+                            const qty = line.remaining_qty != null ? line.remaining_qty : line.quantity;
+                            return `
+                                <li class="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+                                    <p class="text-sm font-semibold text-slate-900">${escapeStockPendingHtml(line.article || 'Item')}</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">
+                                        ${escapeStockPendingHtml(line.rr_number || 'RR')}
+                                        · ${line.po_number ? ('PO ' + escapeStockPendingHtml(line.po_number)) : 'No PO'}
+                                        · Left <span class="font-semibold text-amber-700">${Number(qty) || 0}</span>
+                                    </p>
+                                </li>
+                            `;
+                        }).join('');
+                        list.classList.remove('hidden');
+                    }
+                    meta?.classList.remove('hidden');
+                    if (confirmBtn) confirmBtn.disabled = false;
+                    if (window.lucide) window.lucide.createIcons();
+                })
+                .catch(() => {
+                    loading?.classList.add('hidden');
+                    if (errorEl) {
+                        errorEl.textContent = 'Could not load pending RR lines.';
+                        errorEl.classList.remove('hidden');
+                    }
+                });
+        }
+
+        function closeStockPendingModal() {
+            const modal = document.getElementById('stockPendingModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function escapeStockPendingHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        async function confirmStockPending() {
+            const confirmBtn = document.getElementById('stockPendingConfirmBtn');
+            const errorEl = document.getElementById('stockPendingError');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Stocking…';
+            }
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.textContent = '';
+            }
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                || document.querySelector('input[name="_token"]')?.value
+                || '';
+
+            const body = {
+                equipment_room_id: {{ (int) ($defaultStorageRoomId ?? 0) }},
+                receiving_report_item_ids: stockPendingLinesCache.map((line) => line.id || line.receiving_report_item_id).filter(Boolean),
+            };
+
+            try {
+                const res = await fetch('/maintenance/equipment/stock-pending', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': token,
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.ok === false) {
+                    throw new Error(data.message || 'Stocking failed.');
+                }
+                window.location.href = data.redirect || '/maintenance/equipment/inventory';
+            } catch (err) {
+                if (errorEl) {
+                    errorEl.textContent = err.message || 'Stocking failed.';
+                    errorEl.classList.remove('hidden');
+                }
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4"></i> Confirm stock';
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }
+        }
+
         function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag) {
             document.getElementById("inventoryTransferEquipmentId").value = equipmentId;
             document.getElementById("inventoryTransferEquipmentName").textContent = equipmentName || "Equipment";
@@ -2894,7 +3509,7 @@
 
                 <div class="border-y border-slate-100 px-6 py-5 space-y-5">
                     <div>
-                        <label for="inventoryTransferSelectedRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <label for="inventoryTransferSelectedRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
                         <select id="inventoryTransferSelectedRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
                             <option value="">Select classroom / lab</option>
                             @foreach (($deployRooms ?? collect()) as $room)
@@ -2958,7 +3573,7 @@
                     </div>
 
                     <div>
-                        <label for="inventoryTransferRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <label for="inventoryTransferRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
                         <select id="inventoryTransferRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
                             <option value="">Select classroom / lab</option>
                             @foreach (($deployRooms ?? collect()) as $room)
@@ -3015,7 +3630,7 @@
 
                 <div class="border-y border-slate-100 px-6 py-5 space-y-5">
                     <div>
-                        <label for="inventoryTransferAllRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room</label>
+                        <label for="inventoryTransferAllRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
                         <select id="inventoryTransferAllRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
                             <option value="">Select classroom / lab</option>
                             @foreach (($deployRooms ?? collect()) as $room)
@@ -3038,6 +3653,65 @@
         </div>
     </div>
     @endif
+
+    <div
+        id="stockPendingModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeStockPendingModal()"
+    >
+        <div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex shrink-0 items-start justify-between gap-6 px-6 pb-4 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#0025cc]/10 text-[#0025cc]">
+                        <i data-lucide="package-plus" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Stock all pending</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        Import every completed RR line that still needs inventory into the stockroom as Bulk stock (linked to RR / PO).
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeStockPendingModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-4">
+                <p id="stockPendingLoading" class="py-6 text-center text-sm text-slate-400">Loading pending lines…</p>
+                <p id="stockPendingEmpty" class="hidden py-6 text-center text-sm text-slate-400">No pending RR lines to stock.</p>
+                <p id="stockPendingError" class="mb-3 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
+                <ul id="stockPendingList" class="hidden max-h-64 space-y-2 overflow-y-auto"></ul>
+                <div id="stockPendingMeta" class="mt-3 hidden text-xs text-slate-500">
+                    Destination: <span class="font-semibold text-slate-700">{{ optional(($storageRooms ?? collect())->first())->room_name ?? 'Stock room' }}</span>
+                    · Tracking: <span class="font-semibold text-slate-700">Bulk</span>
+                </div>
+            </div>
+
+            <div class="flex shrink-0 items-center justify-end gap-2 px-6 py-4">
+                <button
+                    type="button"
+                    onclick="closeStockPendingModal()"
+                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    id="stockPendingConfirmBtn"
+                    onclick="confirmStockPending()"
+                    class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled
+                >
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                    Confirm stock
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div
         id="inventoryDisposeModal"
@@ -3079,7 +3753,7 @@
 
                         <div>
                             <label for="inventoryDisposeReason" class="mb-2 block text-sm font-medium text-slate-700">
-                                Reason
+                                Reason <span class="text-red-500">*</span>
                             </label>
                             <textarea
                                 id="inventoryDisposeReason"
@@ -3089,6 +3763,39 @@
                                 placeholder="Why is this equipment being disposed?"
                                 class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                             ></textarea>
+                        </div>
+
+                        <div>
+                            <label for="inventoryDisposeMethod" class="mb-2 block text-sm font-medium text-slate-700">
+                                Method
+                            </label>
+                            <select
+                                id="inventoryDisposeMethod"
+                                name="method"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                                <option value="">Select method (optional)</option>
+                                <option value="Scrap">Scrap</option>
+                                <option value="Donate">Donate</option>
+                                <option value="Sell / Auction">Sell / Auction</option>
+                                <option value="Return to supplier">Return to supplier</option>
+                                <option value="Destroy">Destroy</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="inventoryDisposeResidual" class="mb-2 block text-sm font-medium text-slate-700">
+                                Residual value (₱)
+                            </label>
+                            <input
+                                id="inventoryDisposeResidual"
+                                name="residual_value"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Optional salvage / residual amount"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            />
                         </div>
 
                         <div>
@@ -3152,6 +3859,27 @@
 
         .eq-modal-scroll::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
+        }
+
+        .monitoring-scroll {
+            scrollbar-gutter: stable;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .monitoring-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .monitoring-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .monitoring-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
         }
     </style>
 

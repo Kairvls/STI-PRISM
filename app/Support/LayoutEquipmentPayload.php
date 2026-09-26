@@ -24,8 +24,21 @@ class LayoutEquipmentPayload
             'model' => $row->equipment_model ?? null,
             'location' => $row->equipment_current_location ?? null,
             'placement_zone' => $row->equipment_placement_zone ?? null,
+            'purchase_date' => self::dateString($row->equipment_purchase_date ?? null),
             'acquired_date' => self::dateString($row->equipment_acquired_date ?? null),
             'warranty_expiration' => self::dateString($row->equipment_warranty_expiration ?? null),
+            'purchase_cost' => isset($row->equipment_purchase_cost)
+                && $row->equipment_purchase_cost !== null
+                && $row->equipment_purchase_cost !== ''
+                    ? (float) $row->equipment_purchase_cost
+                    : null,
+            'useful_life_years' => isset($row->equipment_useful_life_years)
+                && $row->equipment_useful_life_years !== null
+                && $row->equipment_useful_life_years !== ''
+                    ? (int) $row->equipment_useful_life_years
+                    : null,
+            'is_borrowable' => (bool) ($row->equipment_is_borrowable ?? false),
+            'qr_code' => $row->equipment_qr_code ?? null,
             'room_name' => $row->room_name ?? null,
             'room_type' => $row->room_type ?? null,
             'view_url' => isset($row->equipment_id)

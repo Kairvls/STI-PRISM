@@ -20,16 +20,16 @@
             @csrf
             @if ($setting && $setting->campus_setup_pin_hash)
                 <label class="block text-sm font-semibold text-slate-700">
-                    Current PIN
+                    Current PIN <span class="text-red-500">*</span>
                     <input type="password" name="current_campus_setup_pin" required minlength="4" maxlength="20" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300" placeholder="Enter current PIN" autocomplete="current-password">
                 </label>
             @endif
             <label class="block text-sm font-semibold text-slate-700">
-                New PIN
+                New PIN <span class="text-red-500">*</span>
                 <input type="password" name="campus_setup_pin" required minlength="4" maxlength="20" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300" placeholder="Enter a new shared PIN" autocomplete="new-password">
             </label>
             <label class="block text-sm font-semibold text-slate-700">
-                Confirm New PIN
+                Confirm New PIN <span class="text-red-500">*</span>
                 <input type="password" name="campus_setup_pin_confirmation" required minlength="4" maxlength="20" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:ring-slate-300" placeholder="Re-enter the new PIN" autocomplete="new-password">
             </label>
             <div class="flex justify-end">

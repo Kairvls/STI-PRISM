@@ -121,7 +121,7 @@
                 </div>
 
                 <div>
-                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title</label>
+                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title <span class="text-red-500">*</span></label>
                     <input
                         id="scheduleTitle"
                         type="text"
@@ -457,7 +457,7 @@
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
                 <div>
-                    <label for="completeFindings" class="mb-1.5 block text-sm text-slate-600">Findings</label>
+                    <label for="completeFindings" class="mb-1.5 block text-sm text-slate-600">Findings <span class="text-red-500">*</span></label>
                     <textarea
                         id="completeFindings"
                         name="findings"
@@ -469,7 +469,7 @@
                 </div>
 
                 <div>
-                    <label for="completeRepairAction" class="mb-1.5 block text-sm text-slate-600">Repair action</label>
+                    <label for="completeRepairAction" class="mb-1.5 block text-sm text-slate-600">Repair action <span class="text-red-500">*</span></label>
                     <textarea
                         id="completeRepairAction"
                         name="repair_action"
@@ -481,7 +481,46 @@
                 </div>
 
                 <div>
-                    <label for="completeMaintenanceStatus" class="mb-1.5 block text-sm text-slate-600">Status</label>
+                    <label for="completePartsUsed" class="mb-1.5 block text-sm text-slate-600">Parts used</label>
+                    <input
+                        id="completePartsUsed"
+                        type="text"
+                        name="parts_used"
+                        maxlength="500"
+                        placeholder="e.g. PSU, fan, cable"
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="completeRepairCost" class="mb-1.5 block text-sm text-slate-600">Repair cost (₱)</label>
+                        <input
+                            id="completeRepairCost"
+                            type="number"
+                            name="repair_cost"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        />
+                    </div>
+                    <div>
+                        <label for="completeDowntimeHours" class="mb-1.5 block text-sm text-slate-600">Downtime (hours)</label>
+                        <input
+                            id="completeDowntimeHours"
+                            type="number"
+                            name="downtime_hours"
+                            min="0"
+                            step="0.25"
+                            placeholder="0"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="completeMaintenanceStatus" class="mb-1.5 block text-sm text-slate-600">Status <span class="text-red-500">*</span></label>
                     <select
                         id="completeMaintenanceStatus"
                         name="maintenance_status"
@@ -603,7 +642,7 @@
 
             <div class="space-y-4 px-6 py-6">
                 <div>
-                    <label for="rescheduleNewDate" class="mb-1.5 block text-sm text-slate-600">New date</label>
+                    <label for="rescheduleNewDate" class="mb-1.5 block text-sm text-slate-600">New date <span class="text-red-500">*</span></label>
                     <input
                         id="rescheduleNewDate"
                         type="date"
@@ -613,7 +652,7 @@
                     />
                 </div>
                 <div>
-                    <label for="rescheduleReason" class="mb-1.5 block text-sm text-slate-600">Reason</label>
+                    <label for="rescheduleReason" class="mb-1.5 block text-sm text-slate-600">Reason <span class="text-red-500">*</span></label>
                     <textarea
                         id="rescheduleReason"
                         name="reason"

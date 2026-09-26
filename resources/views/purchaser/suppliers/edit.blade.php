@@ -13,7 +13,7 @@
 
         @if($supplier->supplier_store_type === 'Physical Store')
             <div>
-                <label class="text-xs font-medium text-gray-500">Company Name</label>
+                <label class="text-xs font-medium text-gray-500">Company Name <span class="text-red-500">*</span></label>
                 <input type="text" name="company_name" value="{{ $physical->company_name ?? '' }}" class="pur-input mt-1" required>
             </div>
 
@@ -62,12 +62,12 @@
             </div>
         @else
             <div>
-                <label class="text-xs font-medium text-gray-500">App Used</label>
+                <label class="text-xs font-medium text-gray-500">App Used <span class="text-red-500">*</span></label>
                 <input type="text" name="app_used" value="{{ $online->app_used ?? '' }}" class="pur-input mt-1" required>
             </div>
 
             <div>
-                <label class="text-xs font-medium text-gray-500">Shop Name</label>
+                <label class="text-xs font-medium text-gray-500">Shop Name <span class="text-red-500">*</span></label>
                 <input type="text" name="shop_name" value="{{ $online->shop_name ?? '' }}" class="pur-input mt-1" required>
             </div>
 

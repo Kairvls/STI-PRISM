@@ -275,7 +275,7 @@
                         (<span id="approveEmployee" class="font-mono text-slate-700"></span>) is faculty or staff. They will then be added to the reporters list.
                     </p>
                     <p id="approveEmail" class="mt-2 text-xs text-slate-400"></p>
-                    <label class="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Confirmed type</label>
+                    <label class="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Confirmed type <span class="text-red-500">*</span></label>
                     <select
                         id="approveType"
                         name="type"

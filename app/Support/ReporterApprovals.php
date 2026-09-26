@@ -63,14 +63,15 @@ class ReporterApprovals
     }
 
     /**
-     * Four-digit core from OMC0123F / OMC0123S (same person, different type letter).
+     * Five-digit core from OMC00127F / OMC00127S (same person, different type letter).
+     * Legacy 4-digit IDs are left-padded to 5 for matching.
      */
     public static function employeeNumber(string $employeeId): ?string
     {
         $id = strtoupper(preg_replace('/\s+/', '', trim($employeeId)));
 
-        if (preg_match('/^OMC(\d{4})[FS]$/', $id, $match)) {
-            return $match[1];
+        if (preg_match('/^OMC(\d{4,5})[FS]$/', $id, $match)) {
+            return str_pad($match[1], 5, '0', STR_PAD_LEFT);
         }
 
         return null;
@@ -86,7 +87,16 @@ class ReporterApprovals
             return $trimmed === '' ? [] : [$trimmed];
         }
 
-        return ['OMC'.$number.'F', 'OMC'.$number.'S'];
+        $variants = ['OMC'.$number.'F', 'OMC'.$number.'S'];
+
+        // Keep legacy 4-digit forms discoverable while migrating to 5 digits.
+        if (strlen($number) === 5 && str_starts_with($number, '0')) {
+            $legacy = substr($number, 1);
+            $variants[] = 'OMC'.$legacy.'F';
+            $variants[] = 'OMC'.$legacy.'S';
+        }
+
+        return array_values(array_unique($variants));
     }
 
     public static function registeredByEmployeeNumber(string $employeeId)

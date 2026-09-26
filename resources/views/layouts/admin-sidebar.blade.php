@@ -264,6 +264,14 @@
         </a>
 
         <a
+            href="{{ route('admin.reports.make') }}"
+            class="menu-item {{ request()->is('admin/reports/make*') ? 'active' : '' }}"
+        >
+            <i data-lucide="clipboard-pen"></i>
+            <span>Make Report</span>
+        </a>
+
+        <a
             href="{{ route('admin.operations.procurement') }}"
             class="menu-item {{ request()->is('admin/operations/procurement*') || request()->is('admin/operations/documents*') ? 'active' : '' }}"
         >

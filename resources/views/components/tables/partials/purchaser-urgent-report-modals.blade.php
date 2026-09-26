@@ -26,7 +26,7 @@
                     <form method="POST" action="{{ route('purchaser.reports.urgent.reject', $report->report_id) }}" class="mt-5 space-y-4">
                         @csrf
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Rejection Notes</label>
+                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Rejection Notes <span class="text-red-500">*</span></label>
                             <textarea name="rejection_notes" rows="4" required placeholder="Describe why this report is being rejected." class="w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"></textarea>
                         </div>
                         <div class="flex justify-end gap-2 pt-2">
@@ -154,7 +154,7 @@
                                 </div>
                             @endif
                             <div>
-                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Replacement Reason</label>
+                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Replacement Reason <span class="text-red-500">*</span></label>
                                 <textarea name="replacement_notes" rows="4" required placeholder="Describe why replacement is needed." class="w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"></textarea>
                             </div>
                             <div>

@@ -16,6 +16,12 @@ use App\Support\SuggestedIssues;
 use App\Support\EquipmentQrCodes;
 use App\Support\EquipmentViewReturn;
 use App\Support\EquipmentLifecycle;
+use App\Support\EquipmentAuditPack;
+use App\Support\EquipmentConditionHistory;
+use App\Support\EquipmentMonitoring;
+use App\Support\EquipmentOpenBalance;
+use App\Support\ReceivableStockLines;
+use App\Support\ReceivableStockImporter;
 use App\Support\SemesterInspections;
 use App\Models\RoomActivityLog;
 use Illuminate\Http\Request;
@@ -2416,6 +2422,7 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $lifecycleAlerts = EquipmentLifecycle::agingAlerts(5);
+        $warrantyAlerts = EquipmentMonitoring::warrantyAlerts(5);
         $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
         $metricsDashboard = $this->dashboardMetricsBundle();
 
@@ -2546,6 +2553,7 @@ class MaintenanceController extends Controller
                 'usedAssetTags',
 
                 'lifecycleAlerts',
+                'warrantyAlerts',
 
                 'semesterInspectionDue',
 
@@ -5413,6 +5421,23 @@ class MaintenanceController extends Controller
             ->whereNotIn('equipment_inventory_status', ['Disposed'])
             ->pluck('equipment_asset_tag');
 
+        $pendingReceivableCount = $isStockPage
+            ? ReceivableStockLines::pending()->count()
+            : 0;
+
+        $openBalance = $isStockPage
+            ? EquipmentOpenBalance::summary(50)
+            : ['lines' => [], 'totals' => []];
+
+        $monitoring = $isStockPage
+            ? [
+                'ghost' => EquipmentMonitoring::ghostStock(8),
+                'warranty' => EquipmentMonitoring::warrantyAlerts(8),
+                'ghost_count' => EquipmentMonitoring::ghostStockCount(),
+                'warranty_count' => EquipmentMonitoring::warrantyAlertCount(),
+            ]
+            : null;
+
         /*
         |--------------------------------------------------------------------------
         | RETURN VIEW
@@ -5430,6 +5455,9 @@ class MaintenanceController extends Controller
                 'deployRooms',
                 'stockTransferIds',
                 'usedAssetTags',
+                'pendingReceivableCount',
+                'openBalance',
+                'monitoring',
                 'scope',
                 'isStockPage',
                 'defaultStorageRoomId',
@@ -7642,10 +7670,30 @@ class MaintenanceController extends Controller
         }
 
         $equipmentBack = EquipmentViewReturn::resolve(request());
+        $lifecycle = EquipmentTimeline::forEquipment((int) $id);
+        $lifecycleProfile = $lifecycle['equipment'] ?? null;
+        $lifecycleEvents = collect($lifecycle['events'] ?? []);
+        $lifecycleCounts = $lifecycle['counts'] ?? [];
+        $conditionHistory = EquipmentConditionHistory::forEquipment((int) $id, 20);
+        $repairCostTotal = 0.0;
+        if (Schema::hasTable('equipment_maintenance_history_table')
+            && Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_repair_cost')) {
+            $repairCostTotal = (float) DB::table('equipment_maintenance_history_table')
+                ->where('equipment_maintenance_equipment_id', $id)
+                ->sum('equipment_maintenance_repair_cost');
+        }
 
         return view(
             'maintenance-personnel.equipment.view',
-            compact('equipment', 'equipmentBack')
+            compact(
+                'equipment',
+                'equipmentBack',
+                'lifecycleProfile',
+                'lifecycleEvents',
+                'lifecycleCounts',
+                'conditionHistory',
+                'repairCostTotal'
+            )
         );
     }
 
@@ -7685,6 +7733,129 @@ class MaintenanceController extends Controller
     | STORE EQUIPMENT
     |--------------------------------------------------------------------------
     */
+    public function receivableStockLines()
+    {
+        $mapLine = static fn ($line) => [
+            'id' => $line->receiving_report_item_id,
+            'receiving_report_item_id' => $line->receiving_report_item_id,
+            'receiving_report_id' => $line->receiving_report_id,
+            'rr_number' => $line->rr_number,
+            'po_number' => $line->po_number,
+            'atp_number' => $line->atp_number,
+            'article' => $line->article,
+            'quantity' => $line->quantity,
+            'received_qty' => (int) ($line->received_qty ?? $line->quantity),
+            'ordered_qty' => $line->ordered_qty,
+            'stocked_qty' => (int) ($line->stocked_qty ?? 0),
+            'remaining_qty' => (int) ($line->remaining_qty ?? 0),
+            'is_selectable' => (bool) ($line->is_selectable ?? false),
+            'status_label' => $line->status_label ?? null,
+            'unit' => $line->unit,
+            'unit_cost' => $line->unit_cost,
+            'amount' => $line->amount,
+            'supplier_id' => $line->supplier_id,
+            'supplier_name' => $line->supplier_name,
+            'purchase_date' => $line->purchase_date,
+            'label' => $line->label,
+        ];
+
+        $guide = ReceivableStockLines::guideLines()->map($mapLine)->values();
+        $pending = $guide->filter(fn ($line) => ! empty($line['is_selectable']))->values();
+
+        return response()->json([
+            'ok' => true,
+            'lines' => $pending,
+            'guide' => $guide,
+            'count' => $pending->count(),
+            'guide_count' => $guide->count(),
+        ]);
+    }
+
+    public function stockPendingReceivables(Request $request)
+    {
+        $validated = $request->validate([
+            'equipment_room_id' => 'nullable|integer|min:1',
+            'equipment_category_id' => 'nullable|integer|min:1',
+            'receiving_report_item_ids' => 'nullable|array',
+            'receiving_report_item_ids.*' => 'integer|min:1',
+        ]);
+
+        $storageRoomId = (int) ($validated['equipment_room_id'] ?? 0);
+        if ($storageRoomId < 1) {
+            $storageRoomId = (int) DB::table('rooms_table')
+                ->where('room_type', RoomCategories::STORAGE_TYPE)
+                ->where(function ($q) {
+                    if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+                        $q->where('room_is_archived', 0)->orWhereNull('room_is_archived');
+                    }
+                })
+                ->orderBy('room_id')
+                ->value('room_id');
+        }
+
+        $result = ReceivableStockImporter::stockPending(
+            $storageRoomId,
+            isset($validated['equipment_category_id']) ? (int) $validated['equipment_category_id'] : null,
+            $validated['receiving_report_item_ids'] ?? null,
+            Auth::id()
+        );
+
+        if (! empty($result['errors']) && (int) $result['stocked_lines'] === 0) {
+            $message = $result['errors'][0] ?? 'Unable to stock pending RR lines.';
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message, 'result' => $result], 422);
+            }
+
+            return redirect('/maintenance/equipment/inventory')
+                ->with('error', $message);
+        }
+
+        $message = 'Stocked '.$result['stocked_lines'].' RR line'
+            .($result['stocked_lines'] === 1 ? '' : 's')
+            .' ('.$result['stocked_qty'].' qty) into inventory.';
+        if (! empty($result['skipped'])) {
+            $message .= ' Skipped '.count($result['skipped']).'.';
+        }
+
+        if (! empty($result['created_ids'])) {
+            $this->logActivity(
+                'Stocked from RR',
+                'Equipment',
+                'equipment_table',
+                (int) $result['created_ids'][0],
+                $message
+            );
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'result' => $result,
+                'redirect' => url('/maintenance/equipment/inventory'),
+            ]);
+        }
+
+        return redirect('/maintenance/equipment/inventory')
+            ->with('success', $message);
+    }
+
+    public function equipmentOpenBalance()
+    {
+        $summary = EquipmentOpenBalance::summary(100);
+
+        return response()->json([
+            'ok' => true,
+            'lines' => $summary['lines'],
+            'totals' => $summary['totals'],
+        ]);
+    }
+
+    public function equipmentAuditPack($id)
+    {
+        return EquipmentAuditPack::download((int) $id);
+    }
+
     public function storeEquipment(Request $request)
     {
         // =====================================================
@@ -7725,6 +7896,12 @@ class MaintenanceController extends Controller
 
             'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
 
+            'receiving_report_item_id' => 'nullable|integer|min:1',
+
+            'intake_basis' => 'nullable|in:receiving,non_procurement',
+
+            'intake_reason' => 'nullable|string|max:500',
+
             'items' => 'nullable|array|max:200',
 
             'items.*.equipment_asset_tag' => 'nullable|string|max:255',
@@ -7748,6 +7925,58 @@ class MaintenanceController extends Controller
         $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
         $items = array_values($validated['items'] ?? []);
         $quantity = (int) $validated['equipment_quantity'];
+        $intakeBasis = $validated['intake_basis'] ?? null;
+        $rrItemId = (int) ($validated['receiving_report_item_id'] ?? 0);
+        $rrLine = null;
+        $supplierId = null;
+
+        // Inventory stocking should come from a completed RR line (what was delivered).
+        // Non-procurement intake remains available with a required reason (donation/legacy).
+        $isInventoryRedirect = str_contains((string) $request->headers->get('referer', ''), '/maintenance/equipment/inventory')
+            || $request->boolean('require_receiving_basis');
+
+        if ($isInventoryRedirect || $intakeBasis === 'receiving' || $rrItemId > 0) {
+            if ($intakeBasis === 'non_procurement') {
+                $reason = trim((string) ($validated['intake_reason'] ?? ''));
+                if ($reason === '') {
+                    return back()
+                        ->withErrors(['intake_reason' => 'Enter a reason for non-procurement intake (donation, legacy, found, etc.).'])
+                        ->withInput();
+                }
+            } else {
+                if ($rrItemId < 1) {
+                    return back()
+                        ->withErrors(['receiving_report_item_id' => 'Select a received RR line as the basis for this stock.'])
+                        ->withInput();
+                }
+
+                $rrLine = ReceivableStockLines::findPendingItem($rrItemId);
+                if (! $rrLine) {
+                    return back()
+                        ->withErrors(['receiving_report_item_id' => 'That RR line is unavailable or already stocked.'])
+                        ->withInput();
+                }
+
+                if ($quantity > (int) $rrLine->quantity) {
+                    return back()
+                        ->withErrors([
+                            'equipment_quantity' => 'Quantity cannot exceed the remaining qty to stock ('.$rrLine->quantity.') on '.$rrLine->rr_number.'.',
+                        ])
+                        ->withInput();
+                }
+
+                $supplierId = $rrLine->supplier_id ? (int) $rrLine->supplier_id : null;
+                if (empty($validated['equipment_purchase_date']) && ! empty($rrLine->purchase_date)) {
+                    $validated['equipment_purchase_date'] = $rrLine->purchase_date;
+                }
+                if (
+                    (! array_key_exists('equipment_purchase_cost', $validated) || $validated['equipment_purchase_cost'] === null)
+                    && $rrLine->unit_cost !== null
+                ) {
+                    $validated['equipment_purchase_cost'] = $rrLine->unit_cost;
+                }
+            }
+        }
 
         $roomId = (int) ($validated['equipment_room_id'] ?? 0);
         $room = $roomId > 0
@@ -7870,13 +8099,50 @@ class MaintenanceController extends Controller
             $acquiredDate,
             $purchaseDate,
             $purchaseCost,
+            $usefulLifeYears,
+            $rrLine,
+            $supplierId,
             &$createdIds
         ) {
 
             $borrowable = $request->has('equipment_is_borrowable');
+            $hasSupplierColumn = Schema::hasColumn('equipment_table', 'equipment_supplier_id');
+            $hasStockedBy = Schema::hasColumn('equipment_table', 'equipment_stocked_by');
+            $hasRrItemFk = Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id');
+            $hasLotCode = Schema::hasColumn('equipment_table', 'equipment_stock_lot_code');
+            $stockedBy = Auth::id();
+            $lotCode = $rrLine
+                ? ('RR'.$rrLine->receiving_report_id.'-L'.$rrLine->receiving_report_item_id)
+                : null;
+
+            $applyLifecycleMeta = function (array $payload) use (
+                $hasSupplierColumn,
+                $supplierId,
+                $hasStockedBy,
+                $stockedBy,
+                $hasRrItemFk,
+                $rrLine,
+                $hasLotCode,
+                $lotCode
+            ): array {
+                if ($hasSupplierColumn && $supplierId) {
+                    $payload['equipment_supplier_id'] = $supplierId;
+                }
+                if ($hasStockedBy && $stockedBy) {
+                    $payload['equipment_stocked_by'] = $stockedBy;
+                }
+                if ($hasRrItemFk && $rrLine) {
+                    $payload['equipment_receiving_report_item_id'] = (int) $rrLine->receiving_report_item_id;
+                }
+                if ($hasLotCode && $lotCode) {
+                    $payload['equipment_stock_lot_code'] = $lotCode;
+                }
+
+                return $payload;
+            };
 
             if ($trackingMode === 'Bulk') {
-                $equipmentId = DB::table('equipment_table')->insertGetId([
+                $payload = $applyLifecycleMeta([
                     'equipment_category_id' => $validated['equipment_category_id'],
                     'equipment_room_id' => $validated['equipment_room_id'],
                     'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
@@ -7902,6 +8168,8 @@ class MaintenanceController extends Controller
                     'equipment_created_at' => now(),
                 ]);
 
+                $equipmentId = DB::table('equipment_table')->insertGetId($payload);
+
                 EquipmentQrCodes::assignIfEligible((int) $equipmentId);
                 $createdIds[] = (int) $equipmentId;
             } else {
@@ -7916,7 +8184,7 @@ class MaintenanceController extends Controller
                             $request->file("items.{$index}.equipment_image")
                         );
 
-                    $equipmentId = DB::table('equipment_table')->insertGetId([
+                    $payload = $applyLifecycleMeta([
                         'equipment_category_id' => $validated['equipment_category_id'],
                         'equipment_room_id' => $validated['equipment_room_id'],
                         'equipment_asset_tag' => $item['equipment_asset_tag']
@@ -7948,22 +8216,70 @@ class MaintenanceController extends Controller
                         'equipment_created_at' => now(),
                     ]);
 
+                    $equipmentId = DB::table('equipment_table')->insertGetId($payload);
+
                     EquipmentQrCodes::assignIfEligible((int) $equipmentId);
                     $createdIds[] = (int) $equipmentId;
+                }
+            }
+
+            if (
+                $rrLine
+                && ! empty($createdIds)
+                && Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
+            ) {
+                DB::table('receiving_report_items_table')
+                    ->where('receiving_report_item_id', $rrLine->receiving_report_item_id)
+                    ->where(function ($q) {
+                        $q->whereNull('receiving_report_item_equipment_id')
+                            ->orWhere('receiving_report_item_equipment_id', 0);
+                    })
+                    ->update([
+                        'receiving_report_item_equipment_id' => (int) $createdIds[0],
+                    ]);
+            }
+
+            $replacesId = (int) $request->input('replaces_equipment_id', 0);
+            if ($replacesId < 1 && $rrLine) {
+                $replacesId = $this->resolveReplacedEquipmentIdFromRr((int) $rrLine->receiving_report_id);
+            }
+            if (
+                $replacesId > 0
+                && ! empty($createdIds)
+                && Schema::hasColumn('equipment_table', 'equipment_replaces_id')
+            ) {
+                foreach ($createdIds as $newId) {
+                    DB::table('equipment_table')
+                        ->where('equipment_id', $newId)
+                        ->update(['equipment_replaces_id' => $replacesId]);
+                }
+                if (Schema::hasColumn('equipment_table', 'equipment_replaced_by_id')) {
+                    DB::table('equipment_table')
+                        ->where('equipment_id', $replacesId)
+                        ->update(['equipment_replaced_by_id' => (int) $createdIds[0]]);
                 }
             }
 
             $count = count($createdIds);
             $lastId = (int) end($createdIds);
 
+            $basisNote = '';
+            if ($rrLine) {
+                $basisNote = ' Basis: '.$rrLine->rr_number
+                    .($rrLine->po_number ? ' / PO '.$rrLine->po_number : '')
+                    .($rrLine->supplier_name ? ' / '.$rrLine->supplier_name : '')
+                    .'.';
+            }
+
             $this->logActivity(
                 'Added equipment',
                 'Equipment',
                 'equipment_table',
                 $lastId,
-                $count > 1
+                ($count > 1
                     ? 'Added '.$count.' × '.$validated['equipment_name'].' to the equipment inventory.'
-                    : 'Added '.$validated['equipment_name'].' to the equipment inventory.'
+                    : 'Added '.$validated['equipment_name'].' to the equipment inventory.')
+                .$basisNote
             );
 
         });
@@ -8120,10 +8436,22 @@ class MaintenanceController extends Controller
             $equipment,
             $imagePath
         ) {
+            $oldRoomId = (int) ($equipment->equipment_room_id ?? 0);
+            $newRoomId = (int) ($request->equipment_room_id ?? 0);
+            $oldCondition = $equipment->equipment_condition_status ?? null;
+            $newCondition = $request->equipment_condition_status;
 
-            // =================================================
-            // UPDATE EQUIPMENT
-            // =================================================
+            // Room changes must go through transfer history (immutability).
+            if ($newRoomId > 0 && $oldRoomId !== $newRoomId && Schema::hasTable('equipment_transfer_history_table')) {
+                DB::table('equipment_transfer_history_table')->insert([
+                    'equipment_id' => $id,
+                    'from_room_id' => $oldRoomId ?: null,
+                    'to_room_id' => $newRoomId,
+                    'transferred_by' => Auth::id(),
+                    'remarks' => trim((string) $request->input('transfer_remarks', '')) ?: 'Room change via equipment edit',
+                    'created_at' => now(),
+                ]);
+            }
 
             DB::table('equipment_table')
 
@@ -8195,6 +8523,13 @@ class MaintenanceController extends Controller
 
                 ]);
 
+            EquipmentConditionHistory::record(
+                (int) $id,
+                $oldCondition,
+                $newCondition,
+                'equipment_edit',
+                'Condition updated via edit form'
+            );
 
             // =================================================
             // RECENT ACTIVITY
@@ -8232,6 +8567,43 @@ class MaintenanceController extends Controller
             'success',
             'Equipment updated successfully.'
         );
+    }
+
+    private function resolveReplacedEquipmentIdFromRr(int $receivingReportId): int
+    {
+        if (
+            $receivingReportId < 1
+            || ! Schema::hasTable('receiving_reports_table')
+            || ! Schema::hasTable('procurement_request_items_table')
+        ) {
+            return 0;
+        }
+
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $receivingReportId)->first();
+        if (! $rr) {
+            return 0;
+        }
+
+        $procurementRequestId = (int) ($rr->receiving_report_procurement_request_id ?? 0);
+        if ($procurementRequestId < 1 && Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')) {
+            $risId = (int) ($rr->receiving_report_ris_id ?? 0);
+            if ($risId > 0 && Schema::hasTable('requisition_issue_slip_table')) {
+                $procurementRequestId = (int) DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->value('ris_procurement_request_id');
+            }
+        }
+
+        if ($procurementRequestId < 1) {
+            return 0;
+        }
+
+        return (int) DB::table('procurement_request_items_table')
+            ->where('procurement_request_id', $procurementRequestId)
+            ->whereNotNull('equipment_id')
+            ->where('equipment_id', '>', 0)
+            ->orderBy('procurement_request_item_id')
+            ->value('equipment_id');
     }
 
     private function storeOptionalEquipmentImage(Request $request): ?string
@@ -8884,6 +9256,9 @@ class MaintenanceController extends Controller
                 'to_room_id'
                     => $request->room_id,
 
+                'transferred_by'
+                    => Auth::id(),
+
                 'remarks'
                     => $request->remarks,
 
@@ -9086,6 +9461,7 @@ class MaintenanceController extends Controller
                     'equipment_id' => $equipment->equipment_id,
                     'from_room_id' => $equipment->equipment_room_id,
                     'to_room_id' => $validated['room_id'],
+                    'transferred_by' => Auth::id(),
                     'remarks' => $validated['remarks'] ?? 'Batch transfer from Inventory',
                     'created_at' => now(),
                 ]);
@@ -9159,7 +9535,7 @@ class MaintenanceController extends Controller
         DB::table(
             'equipment_maintenance_history_table'
         )
-        ->insert([
+        ->insert(array_filter([
 
             'equipment_maintenance_equipment_id'
                 => $request->equipment_id,
@@ -9173,13 +9549,52 @@ class MaintenanceController extends Controller
             'equipment_maintenance_repair_action'
                 => $request->repair_action,
 
+            'equipment_maintenance_parts_used'
+                => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_parts_used')
+                    ? $request->input('parts_used')
+                    : null,
+
+            'equipment_maintenance_repair_cost'
+                => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_repair_cost')
+                    ? $request->input('repair_cost')
+                    : null,
+
+            'equipment_maintenance_downtime_hours'
+                => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_downtime_hours')
+                    ? $request->input('downtime_hours')
+                    : null,
+
+            'equipment_maintenance_personnel_id'
+                => Auth::id(),
+
+            'equipment_maintenance_completed_at'
+                => in_array($request->status, ['Completed', 'Done', 'Fixed'], true) ? now() : null,
+
             'equipment_maintenance_proof_image'
                 => $imagePath,
 
             'equipment_maintenance_created_at'
                 => now()
 
-        ]);
+        ], fn ($value) => $value !== null));
+
+        if ($request->filled('condition_status') && Schema::hasTable('equipment_table')) {
+            $equipment = DB::table('equipment_table')->where('equipment_id', $request->equipment_id)->first();
+            if ($equipment) {
+                $from = $equipment->equipment_condition_status ?? null;
+                $to = $request->input('condition_status');
+                DB::table('equipment_table')
+                    ->where('equipment_id', $request->equipment_id)
+                    ->update(['equipment_condition_status' => $to]);
+                EquipmentConditionHistory::record(
+                    (int) $request->equipment_id,
+                    $from,
+                    $to,
+                    'maintenance',
+                    $request->input('findings')
+                );
+            }
+        }
 
         return back();
     }
@@ -9344,6 +9759,8 @@ class MaintenanceController extends Controller
             $deployedAt = $equipment->equipment_acquired_date;
         }
 
+        $timeline = EquipmentTimeline::forEquipment((int) $id);
+
         return response()->json([
             'equipment_id' => (int) $equipment->equipment_id,
             'deployed_at' => $deployedAt,
@@ -9354,6 +9771,7 @@ class MaintenanceController extends Controller
             'last_maintenance_at' => data_get($maintenance->first(), 'at'),
             'transfers' => $transfers->values(),
             'maintenance' => $maintenance->values(),
+            'procurement' => $timeline['equipment'] ?? null,
         ]);
     }
 
@@ -10284,6 +10702,13 @@ class MaintenanceController extends Controller
                     'equipment_condition_status' => $request->return_condition,
                 ]);
 
+            EquipmentConditionHistory::record(
+                (int) $record->borrowing_equipment_id,
+                $equipment->equipment_condition_status ?? null,
+                $request->return_condition,
+                'borrow_return',
+                'Condition on return from borrow'
+            );
 
             // =================================================
             // CREATE NOTIFICATION
@@ -11521,6 +11946,10 @@ class MaintenanceController extends Controller
                 'max:4096'
             ],
 
+            'parts_used' => ['nullable', 'string', 'max:500'],
+            'repair_cost' => ['nullable', 'numeric', 'min:0'],
+            'downtime_hours' => ['nullable', 'numeric', 'min:0'],
+
         ]);
 
 
@@ -11605,7 +12034,7 @@ class MaintenanceController extends Controller
                 'equipment_maintenance_history_table'
             )
 
-            ->insertGetId([
+            ->insertGetId(array_filter([
 
                 'equipment_maintenance_equipment_id'
                     => $schedule->maintenance_schedule_equipment_id,
@@ -11624,6 +12053,21 @@ class MaintenanceController extends Controller
                 'equipment_maintenance_status'
                     => $request->maintenance_status,
 
+                'equipment_maintenance_parts_used'
+                    => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_parts_used')
+                        ? $request->input('parts_used')
+                        : null,
+
+                'equipment_maintenance_repair_cost'
+                    => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_repair_cost')
+                        ? $request->input('repair_cost')
+                        : null,
+
+                'equipment_maintenance_downtime_hours'
+                    => Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_downtime_hours')
+                        ? $request->input('downtime_hours')
+                        : null,
+
                 'equipment_maintenance_completed_at'
                     => now(),
 
@@ -11633,7 +12077,7 @@ class MaintenanceController extends Controller
                 'equipment_maintenance_proof_image'
                     => $proofImage,
 
-            ]);
+            ], fn ($value) => $value !== null));
 
 
             // =================================================
@@ -12300,6 +12744,8 @@ class MaintenanceController extends Controller
             'equipment_id' => 'required|integer',
             'reason' => 'required|string|max:1000',
             'location' => 'nullable|string|max:255',
+            'method' => 'nullable|string|max:80',
+            'residual_value' => 'nullable|numeric|min:0',
         ]);
 
         // =====================================================
@@ -12358,37 +12804,38 @@ class MaintenanceController extends Controller
             if ($existingDisposal) {
                 $disposalId = (int) $existingDisposal->disposal_record_id;
 
+                $update = [
+                    'disposal_reason' => $request->reason,
+                    'disposal_area_location' => $request->location,
+                    'disposal_approved_by' => Auth::id(),
+                    'disposal_disposed_at' => now(),
+                ];
+                if (Schema::hasColumn('disposal_records_table', 'disposal_method')) {
+                    $update['disposal_method'] = $request->input('method') ?: null;
+                }
+                if (Schema::hasColumn('disposal_records_table', 'disposal_residual_value')) {
+                    $update['disposal_residual_value'] = $request->input('residual_value');
+                }
+
                 DB::table('disposal_records_table')
                     ->where('disposal_record_id', $disposalId)
-                    ->update([
-                        'disposal_reason' => $request->reason,
-                        'disposal_area_location' => $request->location,
-                        'disposal_approved_by' => Auth::id(),
-                        'disposal_disposed_at' => now(),
-                    ]);
+                    ->update($update);
             } else {
-                $disposalId = DB::table(
-                    'disposal_records_table'
-                )
+                $insert = [
+                    'disposal_equipment_id' => $request->equipment_id,
+                    'disposal_reason' => $request->reason,
+                    'disposal_area_location' => $request->location,
+                    'disposal_approved_by' => Auth::id(),
+                    'disposal_disposed_at' => now(),
+                ];
+                if (Schema::hasColumn('disposal_records_table', 'disposal_method')) {
+                    $insert['disposal_method'] = $request->input('method') ?: null;
+                }
+                if (Schema::hasColumn('disposal_records_table', 'disposal_residual_value')) {
+                    $insert['disposal_residual_value'] = $request->input('residual_value');
+                }
 
-                ->insertGetId([
-
-                    'disposal_equipment_id'
-                        => $request->equipment_id,
-
-                    'disposal_reason'
-                        => $request->reason,
-
-                    'disposal_area_location'
-                        => $request->location,
-
-                    'disposal_approved_by'
-                        => Auth::id(),
-
-                    'disposal_disposed_at'
-                        => now(),
-
-                ]);
+                $disposalId = DB::table('disposal_records_table')->insertGetId($insert);
             }
 
 
@@ -13515,7 +13962,7 @@ class MaintenanceController extends Controller
     {
         $request->validate([
             'reporter_id' => 'required',
-            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{4}[FS]$/'],
+            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{5}[FS]$/'],
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
@@ -13523,7 +13970,7 @@ class MaintenanceController extends Controller
             'email' => 'nullable|email|max:255',
             'contact' => 'nullable|string|max:50',
         ], [
-            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
+            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
         ]);
 
         $employeeId = strtoupper(trim($request->employee_id));
@@ -13532,8 +13979,8 @@ class MaintenanceController extends Controller
         if (! str_ends_with($employeeId, $expectedSuffix)) {
             return back()->withErrors([
                 'employee_id' => $request->type === 'Staff'
-                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
-                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+                    ? 'Staff employee IDs must end with S (example: OMC00127S).'
+                    : 'Faculty employee IDs must end with F (example: OMC00127F).',
             ])->withInput();
         }
 
@@ -15502,11 +15949,11 @@ class MaintenanceController extends Controller
     {
         $request->validate([
             // Employee ID
-            // Required: OMC + 4 digits + F/S; unique by 4-digit number (F/S variants share one number)
+            // Required: OMC + 5 digits + F/S; unique by 5-digit number (F/S variants share one number)
             'employee_id' => [
                 'required',
                 'string',
-                'regex:/^OMC[0-9]{4}[FS]$/',
+                'regex:/^OMC[0-9]{5}[FS]$/',
             ],
 
             // First Name
@@ -15555,7 +16002,7 @@ class MaintenanceController extends Controller
                 'digits:11',
             ],
         ], [
-            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
+            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
         ]);
 
         $employeeId = strtoupper(trim($request->employee_id));
@@ -15564,8 +16011,8 @@ class MaintenanceController extends Controller
         if (! str_ends_with($employeeId, $expectedSuffix)) {
             return back()->withErrors([
                 'employee_id' => $request->type === 'Staff'
-                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
-                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+                    ? 'Staff employee IDs must end with S (example: OMC00127S).'
+                    : 'Faculty employee IDs must end with F (example: OMC00127F).',
             ])->withInput();
         }
 
@@ -15623,7 +16070,7 @@ class MaintenanceController extends Controller
         $callback = function () {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_values(ReporterImport::FIELDS));
-            fputcsv($handle, ['Faculty', 'OMC0130F', 'John', 'Michael', 'Smith', 'john@company.com', "\t09171234567"]);
+            fputcsv($handle, ['Faculty', 'OMC00130F', 'John', 'Michael', 'Smith', 'john@company.com', "\t09171234567"]);
             fputcsv($handle, ['Staff', '', 'Sarah', '', 'Connor', 'sarah@company.com', "\t09179876543"]);
             fclose($handle);
         };

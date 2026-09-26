@@ -139,9 +139,15 @@
                 this.openModal = 'ris-' + risId;
             }
         },
-        openSubmitRis(id, number, action, hasAttachments = false) {
+        openSubmitRis(id, number, action, hasAttachments = false, kind = 'submit') {
             this.submitRisSending = false;
-            this.submitRisConfirm = { id, number, action, hasAttachments: !!hasAttachments };
+            this.submitRisConfirm = {
+                id,
+                number,
+                action,
+                hasAttachments: !!hasAttachments,
+                kind: kind === 'resubmit' ? 'resubmit' : 'submit',
+            };
             this.$nextTick(() => {
                 if (window.lucide) {
                     window.lucide.createIcons();
@@ -2714,6 +2720,8 @@
                                 @php
                                     $canEditRis = empty($archiveView) && in_array($ris->ris_status, ['Draft', 'Minor Revision'], true);
                                     $isDraftRis = empty($archiveView) && $ris->ris_status === 'Draft';
+                                    $isMinorRevisionRis = empty($archiveView) && $ris->ris_status === 'Minor Revision';
+                                    $showRisActionsMenu = $isDraftRis || $isMinorRevisionRis;
                                     $canCreateAtp = empty($archiveView) && !empty($ris->can_create_atp);
                                     $canArchiveRis = empty($archiveView)
                                         && empty($ris->ris_is_archived)
@@ -2770,7 +2778,7 @@
                                         @endif
                                     @endif
 
-                                    @if($isDraftRis)
+                                    @if($showRisActionsMenu)
                                         <div
                                             class="relative"
                                             x-data="{ openActions: false }"
@@ -2792,42 +2800,55 @@
                                                 x-cloak
                                                 x-transition
                                                 @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                             >
-                                                <a
-                                                    href="{{ route(($pp ?? 'purchaser').'.ris.index', ['copy_from' => $ris->ris_id]) }}"
-                                                    class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                                >
-                                                    <i data-lucide="copy" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                    Copy draft
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }})"
-                                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                >
-                                                    <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                    Submit to Administrator
-                                                </button>
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
-                                                    data-pur-confirm="Delete this draft RIS? This cannot be undone."
-                                                    data-pur-confirm-title="Delete draft"
-                                                    data-pur-confirm-ok="Delete"
-                                                    data-pur-confirm-danger="1"
-                                                    data-pur-confirm-kind="danger"
-                                                >
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button
-                                                        type="submit"
-                                                        class="flex w-full items-center gap-2.5 border border-slate-200 bg-white px-3 py-2 text-left text-sm text-red-700 transition hover:bg-slate-50"
+                                                @if($isDraftRis)
+                                                    <a
+                                                        href="{{ route(($pp ?? 'purchaser').'.ris.index', ['copy_from' => $ris->ris_id]) }}"
+                                                        class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
-                                                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                                        Delete draft
+                                                        <i data-lucide="copy" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Copy draft
+                                                    </a>
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit')"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Submit to Administrator
                                                     </button>
-                                                </form>
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
+                                                        data-pur-confirm="Delete this draft RIS? This cannot be undone."
+                                                        data-pur-confirm-title="Delete draft"
+                                                        data-pur-confirm-ok="Delete"
+                                                        data-pur-confirm-danger="1"
+                                                        data-pur-confirm-kind="danger"
+                                                    >
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button
+                                                            type="submit"
+                                                            class="flex w-full items-center gap-2.5 border-t border-slate-100 px-3 py-2 text-left text-sm text-red-700 transition hover:bg-slate-50"
+                                                        >
+                                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                                            Delete draft
+                                                        </button>
+                                                    </form>
+                                                @endif
+
+                                                @if($isMinorRevisionRis)
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), @js(route(($pp ?? 'purchaser').'.ris.resubmit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit')"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Resubmit to Administrator
+                                                    </button>
+                                                @endif
                                             </div>
                                         </div>
                                     @endif
@@ -3625,7 +3646,7 @@
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
                                             <p class="text-sm font-semibold text-orange-900">Changes Requested by Administrator</p>
-                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below before resubmitting this RIS.</p>
+                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below, save your changes, then use <strong>⋮ → Resubmit to Administrator</strong> in the list.</p>
                                         </div>
                                         <span class="shrink-0 rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
                                             Minor Revision
@@ -4062,7 +4083,7 @@
                             </div>
                         </div>
 
-                        {{-- EDIT ACTION BUTTONS --}}
+                        {{-- EDIT ACTION BUTTONS (submit/resubmit via row ⋮ menu) --}}
                         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                             <p
                                 x-show="risHasOverflow(editItems)"
@@ -4070,6 +4091,13 @@
                                 class="mr-auto text-sm text-red-700"
                             >
                                 Issued quantity for a split item is higher than requested.
+                            </p>
+                            <p class="mr-auto max-w-md text-xs text-gray-500 sm:mr-0 sm:flex-1 sm:text-right">
+                                @if($ris->ris_status === 'Draft')
+                                    Save your changes here, then use <strong>⋮ → Submit to Administrator</strong>
+                                @elseif($ris->ris_status === 'Minor Revision')
+                                    Save your corrections here, then use <strong>⋮ → Resubmit to Administrator</strong> 
+                                @endif
                             </p>
                             <button
                                 type="button"
@@ -4084,26 +4112,6 @@
                             >
                                 Save Changes
                             </button>
-                            @if($ris->ris_status === 'Draft')
-                                <button
-                                    type="submit"
-                                    x-bind:disabled="risHasOverflow(editItems)"
-                                    onclick="this.form.querySelector('input[name=save_action]').value='submit'"
-                                    class="px-4 py-2 bg-[#0025cc] rounded-lg text-white text-[13px] font-medium hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Save & Submit
-                                </button>
-                            @endif
-                            @if($ris->ris_status === 'Minor Revision')
-                                <button
-                                    type="submit"
-                                    x-bind:disabled="risHasOverflow(editItems)"
-                                    onclick="this.form.querySelector('input[name=save_action]').value='resubmit'"
-                                    class="pur-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Save & Resubmit
-                                </button>
-                            @endif
                         </div>
                     </form>
                 </div>
@@ -4139,8 +4147,15 @@
                                 <i data-lucide="send" class="h-5 w-5"></i>
                             </div>
                             <div>
-                                <h3 id="ris-submit-title" class="text-lg font-semibold tracking-tight text-gray-950">Submit to Administrator</h3>
-                                <p class="mt-0.5 text-sm text-gray-500">This will send the RIS for review.</p>
+                                <h3
+                                    id="ris-submit-title"
+                                    class="text-lg font-semibold tracking-tight text-gray-950"
+                                    x-text="submitRisConfirm?.kind === 'resubmit' ? 'Resubmit to Administrator' : 'Submit to Administrator'"
+                                ></h3>
+                                <p
+                                    class="mt-0.5 text-sm text-gray-500"
+                                    x-text="submitRisConfirm?.kind === 'resubmit' ? 'This will send your corrected RIS back for review.' : 'This will send the RIS for review.'"
+                                ></p>
                             </div>
                         </div>
                         <button
@@ -4154,7 +4169,9 @@
                     </div>
                     <div class="space-y-4 px-5 py-5 text-sm leading-6 text-gray-600">
                         <p>
-                            Submit <span class="font-semibold text-gray-900" x-text="submitRisConfirm?.number"></span> to Administrator?
+                            <span x-text="submitRisConfirm?.kind === 'resubmit' ? 'Resubmit' : 'Submit'"></span>
+                            <span class="font-semibold text-gray-900" x-text="submitRisConfirm?.number"></span>
+                            to Administrator?
                         </p>
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to Administrator <span class="text-red-500">*</span></label>
@@ -4183,9 +4200,8 @@
                             type="submit"
                             x-bind:disabled="submitRisSending"
                             class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#001db3] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            Yes, submit
-                        </button>
+                            x-text="submitRisConfirm?.kind === 'resubmit' ? 'Yes, resubmit' : 'Yes, submit'"
+                        ></button>
                     </div>
                 </form>
             </div>

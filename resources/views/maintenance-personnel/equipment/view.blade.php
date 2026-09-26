@@ -112,13 +112,22 @@
                     </div>
                 </div>
 
-                <a
-                    href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
-                    class="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                >
-                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                    Back to {{ $equipmentBack['label'] ?? 'All Equipment' }}
-                </a>
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    <a
+                        href="{{ url('/maintenance/equipment/audit-pack/'.$equipment->equipment_id) }}"
+                        class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                    >
+                        <i data-lucide="file-down" class="h-4 w-4"></i>
+                        Audit pack
+                    </a>
+                    <a
+                        href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
+                        class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                    >
+                        <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                        Back to {{ $equipmentBack['label'] ?? 'All Equipment' }}
+                    </a>
+                </div>
             </div>
         </header>
 
@@ -237,6 +246,177 @@
                                 @endif
                             </p>
                         </div>
+                    </div>
+                </section>
+
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                        <div>
+                            <h2 class="text-base font-semibold text-slate-900">Procurement & lifecycle</h2>
+                            <p class="mt-1 text-sm text-slate-500">Bought, delivered, stocked, deployed, and disposed — with dates and actors.</p>
+                        </div>
+                        <i data-lucide="git-branch" class="h-5 w-5 text-slate-400"></i>
+                    </div>
+                    @php $lp = $lifecycleProfile ?? null; @endphp
+                    <div class="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Supplier</p>
+                            <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['supplier_name'] ?? null) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase order</p>
+                            <p class="mt-1 font-semibold text-slate-900">
+                                {{ $na($lp['purchase_order_number'] ?? null) }}
+                                @if (!empty($lp['purchase_order_date']))
+                                    <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
+                                @endif
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">ATP / RIS</p>
+                            <p class="mt-1 font-semibold text-slate-900">
+                                {{ $lp['atp_number'] ?? '—' }}
+                                <span class="text-slate-300">/</span>
+                                {{ $lp['ris_number'] ?? '—' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received (RR)</p>
+                            <p class="mt-1 font-semibold text-slate-900">
+                                {{ $na($lp['receiving_report_number'] ?? null) }}
+                                @if (!empty($lp['receiving_report_date']))
+                                    <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['receiving_report_date']) }}</span>
+                                @endif
+                            </p>
+                            @if (!empty($lp['received_by']))
+                                <p class="mt-0.5 text-xs text-slate-500">By {{ $lp['received_by'] }}</p>
+                            @endif
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Stocked</p>
+                            <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? $equipment->equipment_acquired_date ?? null) }}</p>
+                            <p class="mt-0.5 text-xs text-slate-500">
+                                {{ $lp['stocked_by_name'] ?? '—' }}
+                                @if (!empty($lp['tracking_mode'])) · {{ $lp['tracking_mode'] }} @endif
+                                @if (!empty($lp['stock_lot_code'])) · Lot {{ $lp['stock_lot_code'] }} @endif
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">QR issued</p>
+                            <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['qr_issued_at'] ?? null) }}</p>
+                            <p class="mt-0.5 text-xs text-slate-500">{{ $na($lp['qr_code'] ?? $equipment->equipment_qr_code ?? null) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Replacement link</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-900">
+                                @if (!empty($lp['replaces_id']))
+                                    Replaces <a class="text-[#0025cc] hover:underline" href="{{ url('/maintenance/equipment/view/'.$lp['replaces_id']) }}">#{{ $lp['replaces_id'] }}</a>
+                                @elseif (!empty($lp['replaced_by_id']))
+                                    Replaced by <a class="text-[#0025cc] hover:underline" href="{{ url('/maintenance/equipment/view/'.$lp['replaced_by_id']) }}">#{{ $lp['replaced_by_id'] }}</a>
+                                @else
+                                    —
+                                @endif
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Repair cost (total)</p>
+                            <p class="mt-1 font-semibold text-slate-900">₱{{ number_format((float) ($repairCostTotal ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+                    @if (($conditionHistory ?? collect())->isNotEmpty())
+                        <div class="border-t border-slate-100 px-6 py-4">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Condition history</p>
+                            <ul class="mt-2 space-y-1.5 text-sm text-slate-700">
+                                @foreach ($conditionHistory as $ch)
+                                    <li>
+                                        <span class="font-medium">{{ $ch->condition_from ?: '—' }} → {{ $ch->condition_to }}</span>
+                                        <span class="text-slate-400">· {{ \Illuminate\Support\Carbon::parse($ch->created_at)->format('Y-m-d H:i') }}</span>
+                                        @if (!empty($ch->changed_by_name))
+                                            <span class="text-slate-400">· {{ $ch->changed_by_name }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                </section>
+
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                        <div>
+                            <h2 class="text-base font-semibold text-slate-900">Lifecycle timeline</h2>
+                            <p class="mt-1 text-sm text-slate-500">Order → receive → stock → deploy → borrow → repair → dispose.</p>
+                        </div>
+                        <i data-lucide="history" class="h-5 w-5 text-slate-400"></i>
+                    </div>
+                    @php
+                        $events = $lifecycleEvents ?? collect();
+                        $counts = $lifecycleCounts ?? [];
+                        $typeColors = [
+                            'acquisition' => 'bg-indigo-500',
+                            'created' => 'bg-slate-400',
+                            'qr' => 'bg-sky-500',
+                            'transfer' => 'bg-violet-500',
+                            'borrow' => 'bg-cyan-500',
+                            'condition' => 'bg-amber-500',
+                            'maintenance' => 'bg-orange-500',
+                            'report' => 'bg-rose-500',
+                            'disposal' => 'bg-rose-700',
+                        ];
+                    @endphp
+                    @if (!empty($counts))
+                        <div class="flex flex-wrap gap-2 border-b border-slate-100 px-6 py-3">
+                            @foreach ($counts as $type => $count)
+                                <span class="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">
+                                    {{ \App\Support\EquipmentTimeline::eventTypes()[$type] ?? ucfirst($type) }}
+                                    · {{ $count }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+                    <div class="px-6 py-5">
+                        @forelse ($events as $event)
+                            <div class="relative flex gap-4 {{ ! $loop->last ? 'pb-5' : '' }}">
+                                @if (! $loop->last)
+                                    <span class="absolute left-[7px] top-4 bottom-0 w-px bg-slate-200"></span>
+                                @endif
+                                <span class="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ring-white {{ $typeColors[$event['type'] ?? ''] ?? 'bg-slate-400' }}"></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $event['title'] ?? 'Event' }}</p>
+                                        <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+                                            {{ $event['type_label'] ?? ($event['type'] ?? '') }}
+                                        </span>
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-slate-400">
+                                        {{ !empty($event['occurred_at']) ? $formatDate($event['occurred_at']) : '—' }}
+                                        @if (!empty($event['meta']['actor']))
+                                            · {{ $event['meta']['actor'] }}
+                                        @elseif (!empty($event['meta']['transferred_by']))
+                                            · {{ $event['meta']['transferred_by'] }}
+                                        @elseif (!empty($event['meta']['borrower']))
+                                            · {{ $event['meta']['borrower'] }}
+                                        @endif
+                                    </p>
+                                    @if (!empty($event['description']))
+                                        <p class="mt-1 text-sm text-slate-600">{{ $event['description'] }}</p>
+                                    @endif
+                                    @if (!empty($event['meta']['parts_used']) || isset($event['meta']['repair_cost']) || isset($event['meta']['downtime_hours']))
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            @if (!empty($event['meta']['parts_used'])) Parts: {{ $event['meta']['parts_used'] }} @endif
+                                            @if (isset($event['meta']['repair_cost']) && $event['meta']['repair_cost'] !== null)
+                                                · Cost: ₱{{ number_format((float) $event['meta']['repair_cost'], 2) }}
+                                            @endif
+                                            @if (isset($event['meta']['downtime_hours']) && $event['meta']['downtime_hours'] !== null)
+                                                · Downtime: {{ $event['meta']['downtime_hours'] }}h
+                                            @endif
+                                        </p>
+                                    @endif
+                                </div>
+                            </div>
+                        @empty
+                            <p class="py-6 text-center text-sm text-slate-400">No lifecycle events recorded yet.</p>
+                        @endforelse
                     </div>
                 </section>
             </main>

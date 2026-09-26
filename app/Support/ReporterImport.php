@@ -199,7 +199,7 @@ class ReporterImport
         $ids = [];
 
         for ($i = 1; $i <= $count; $i++) {
-            $ids[] = 'OMC'.str_pad((string) ($max + $i), 4, '0', STR_PAD_LEFT).'F';
+            $ids[] = 'OMC'.str_pad((string) ($max + $i), 5, '0', STR_PAD_LEFT).'F';
         }
 
         return $ids;

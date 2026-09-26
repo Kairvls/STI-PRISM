@@ -605,7 +605,7 @@
                         for="equipment_category_name"
                         class="mb-2 block text-sm font-semibold text-slate-700"
                     >
-                        Category Name
+                        Category Name <span class="text-red-500">*</span>
                     </label>
 
 
@@ -802,7 +802,7 @@
                         for="edit_equipment_category_name"
                         class="mb-2 block text-sm font-semibold text-slate-700"
                     >
-                        Category Name
+                        Category Name <span class="text-red-500">*</span>
                     </label>
 
 

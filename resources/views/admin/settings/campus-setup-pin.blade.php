@@ -34,7 +34,7 @@
 
             @if ($setting && $setting->campus_setup_pin_hash)
                 <label class="block text-sm font-semibold text-slate-700">
-                    Current PIN
+                    Current PIN <span class="text-red-500">*</span>
                     <input
                         type="password"
                         name="current_campus_setup_pin"
@@ -52,7 +52,7 @@
             @endif
 
             <label class="block text-sm font-semibold text-slate-700">
-                New PIN
+                New PIN <span class="text-red-500">*</span>
                 <input
                     type="password"
                     name="campus_setup_pin"
@@ -70,7 +70,7 @@
             </label>
 
             <label class="block text-sm font-semibold text-slate-700">
-                Confirm New PIN
+                Confirm New PIN <span class="text-red-500">*</span>
                 <input
                     type="password"
                     name="campus_setup_pin_confirmation"

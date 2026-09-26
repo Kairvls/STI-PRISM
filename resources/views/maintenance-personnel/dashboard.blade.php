@@ -8491,7 +8491,7 @@
                 </div>
 
                 <div>
-                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title</label>
+                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title <span class="text-red-500">*</span></label>
                     <input
                         id="scheduleTitle"
                         type="text"

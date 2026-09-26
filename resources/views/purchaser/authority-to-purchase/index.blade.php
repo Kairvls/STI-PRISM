@@ -371,32 +371,57 @@
                                         >
                                             <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
-                                        @if(!empty($atp->purchase_order_id))
-                                            <a
-                                                href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
-                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                                                title="Submit via Purchase Order"
-                                            >PO</a>
-                                        @else
-                                            <form
-                                                method="POST"
-                                                action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                            data-pur-confirm="Submit this Authority to Purchase for review?"
-                                            data-pur-confirm-title="Submit ATP"
-                                            data-pur-confirm-ok="Submit"
-                                            data-pur-confirm-reviewer-role="Accounting"
+                                        <div
+                                            class="relative"
+                                            x-data="{ openActions: false }"
+                                            @keydown.escape.window="openActions = false"
+                                        >
+                                            <button
+                                                type="button"
+                                                x-on:click="openActions = !openActions"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="More actions"
+                                                aria-label="More actions"
+                                                :aria-expanded="openActions.toString()"
                                             >
-                                                @csrf
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                    title="Submit"
-                                                    aria-label="Submit"
-                                                >
-                                                    <i data-lucide="send" class="h-4 w-4"></i>
-                                                </button>
-                                            </form>
-                                        @endif
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+                                            <div
+                                                x-show="openActions"
+                                                x-cloak
+                                                x-transition
+                                                @click.outside="openActions = false"
+                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                            >
+                                                @if(!empty($atp->purchase_order_id))
+                                                    <a
+                                                        href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="file-text" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Submit via Purchase Order
+                                                    </a>
+                                                @else
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                                        data-pur-confirm="Submit this Authority to Purchase for review?"
+                                                        data-pur-confirm-title="Submit ATP"
+                                                        data-pur-confirm-ok="Submit"
+                                                        data-pur-confirm-reviewer-role="Accounting"
+                                                    >
+                                                        @csrf
+                                                        <button
+                                                            type="submit"
+                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                        >
+                                                            <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                            Submit to Accounting
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                        </div>
                                     @endif
 
                                     @if(
@@ -976,7 +1001,11 @@
                             </div>
                         </div>
 
-                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}">
+                        <form
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}"
+                            x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                        >
 
                             @csrf
                             @method('PUT')
@@ -994,6 +1023,9 @@
                             </div>
 
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <p class="mr-auto max-w-md text-xs text-gray-500">
+                                    Save your changes here (including signature), then use <strong>⋮ → Submit to Accounting</strong> in the list.
+                                </p>
                                 <button
                                     type="button"
                                     @click="editOpen = false"
@@ -1007,46 +1039,6 @@
                                     class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                 >
                                     Save Changes
-                                </button>
-                                <button
-                                    type="button"
-                                    onclick="
-                                        (async function (btn) {
-                                            var form = btn.form;
-                                            if (!form) return;
-                                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                                else alert('Draw or upload your signature before submitting.');
-                                                return;
-                                            }
-                                            form.querySelector('input[name=save_action]').value = 'submit';
-                                            var result = true;
-                                            if (typeof window.purConfirm === 'function') {
-                                                result = await window.purConfirm({
-                                                    title: 'Submit ATP',
-                                                    text: 'Submit this Authority to Purchase for review?',
-                                                    confirmText: 'Submit',
-                                                    reviewerRole: 'Accounting'
-                                                });
-                                            }
-                                            if (!result) return;
-                                            if (result && result.reviewerId) {
-                                                var input = form.querySelector('input[name=assigned_reviewer_id]');
-                                                if (!input) {
-                                                    input = document.createElement('input');
-                                                    input.type = 'hidden';
-                                                    input.name = 'assigned_reviewer_id';
-                                                    form.appendChild(input);
-                                                }
-                                                input.value = result.reviewerId;
-                                            }
-                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
-                                            else form.submit();
-                                        })(this);
-                                    "
-                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
-                                >
-                                    Save & Submit
                                 </button>
                             </div>
 

@@ -944,7 +944,7 @@
 
                     <div>
                         <label for="reject-remarks-input" class="mb-1.5 block text-xs font-medium text-gray-600">
-                            Reason for rejection
+                            Reason for rejection <span class="text-red-500">*</span>
                         </label>
                         <textarea
                             id="reject-remarks-input"

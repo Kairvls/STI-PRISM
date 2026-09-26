@@ -492,11 +492,36 @@
                 panel.classList.remove('hidden');
             }
             var existing = sigHidden ? String(sigHidden.value || '') : '';
-            applySignature(existing.indexOf('data:image/') === 0 ? existing : '');
+            if (existing.indexOf('data:image/') === 0) {
+                applySignature(existing);
+            } else if (existing) {
+                // Keep stored path/URL in the hidden field; only clear when empty.
+                syncLinePreview(existing);
+                if (previewImg) {
+                    previewImg.src = existing;
+                    previewImg.style.display = '';
+                }
+                if (signBadge) signBadge.classList.remove('hidden');
+                if (clearSignBtn) clearSignBtn.classList.remove('hidden');
+                if (saveCurrentBtn) saveCurrentBtn.classList.add('hidden');
+                if (openPadLabel) openPadLabel.textContent = 'Redraw signature';
+            } else {
+                applySignature('');
+            }
         },
         hasSignature: function () {
-            var v = sigHidden ? String(sigHidden.value || '') : '';
-            return v.indexOf('data:image/') === 0;
+            var v = sigHidden ? String(sigHidden.value || '').trim() : '';
+            return v !== '' && (v.indexOf('data:image/') === 0 || v.indexOf('/') === 0 || v.indexOf('http') === 0);
+        },
+        flush: function () {
+            // If the sign pad is still open with ink, commit it into the bound hidden field.
+            if (padModal && !padModal.classList.contains('hidden')) {
+                var canvas = document.getElementById('purDocSignatureCanvas');
+                if (canvasHasDrawing(canvas)) {
+                    applyPadDrawing();
+                }
+            }
+            return !!(sigHidden && String(sigHidden.value || '').trim() !== '');
         },
         clear: clearSignature,
         reset: function () {

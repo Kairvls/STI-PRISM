@@ -9,14 +9,22 @@
 
 <div
     x-data="{
-        createOpen: {{ ($errors->any() && old('request_check_authority_purchase_id')) || !empty($selectedAtpId) || !empty($openCreate) ? 'true' : 'false' }},
+        createOpen: {{ (($errors->any() && old('request_check_authority_purchase_id') && !session('edit_rfc_id')) || !empty($selectedAtpId) || !empty($openCreate)) ? 'true' : 'false' }},
         viewOpen: {{ !empty($viewRfcId) ? 'true' : 'false' }},
-        editOpen: false,
+        editOpen: {{ session('edit_rfc_id') ? 'true' : 'false' }},
         emptyOpen: false,
         modalFullscreen: false,
-        selectedRfc: {{ !empty($viewRfcId) ? (int) $viewRfcId : 'null' }},
+        selectedRfc: {{ session('edit_rfc_id') ? (int) session('edit_rfc_id') : (!empty($viewRfcId) ? (int) $viewRfcId : 'null') }},
         atpPrefill: JSON.parse(document.getElementById('rfc-atp-prefill').textContent || '{}'),
         today: '{{ now()->toDateString() }}',
+
+        init() {
+            if (this.editOpen && this.selectedRfc) {
+                this.bindDocSig('rfc-' + this.selectedRfc, 'Requested by signature');
+            } else if (this.createOpen) {
+                this.bindDocSig('rfc-create', 'Requested by signature');
+            }
+        },
 
         openView(id) {
             this.selectedRfc = id;
@@ -379,17 +387,47 @@
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
-                                            data-pur-confirm="Submit this Request for Check to Accounting?"
-                                            data-pur-confirm-title="Submit RFC"
-                                            data-pur-confirm-ok="Submit"
-                                            data-pur-confirm-reviewer-role="Accounting"
+                                        <div
+                                            class="relative"
+                                            x-data="{ openActions: false }"
+                                            @keydown.escape.window="openActions = false"
                                         >
-                                            @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
-                                        </form>
+                                            <button
+                                                type="button"
+                                                x-on:click="openActions = !openActions"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="More actions"
+                                                aria-label="More actions"
+                                                :aria-expanded="openActions.toString()"
+                                            >
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+                                            <div
+                                                x-show="openActions"
+                                                x-cloak
+                                                x-transition
+                                                @click.outside="openActions = false"
+                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                            >
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
+                                                    data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to Accounting?' : 'Submit this Request for Check to Accounting?' }}"
+                                                    data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
+                                                    data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                                    data-pur-confirm-reviewer-role="Accounting"
+                                                >
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        {{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
                                     @endif
                                     @if(
                                         !$archiveView
@@ -753,13 +791,43 @@
                                 </button>
                             </div>
                         </div>
-                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.update', $rfc->request_check_id) }}" enctype="multipart/form-data">
+                        <form
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.rfc.update', $rfc->request_check_id) }}"
+                            enctype="multipart/form-data"
+                            x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                        >
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
-                            <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
+                            <input type="hidden" name="request_check_funding_type" value="{{ $rfc->request_check_funding_type ?? ($selectedFundingType ?? 'request_for_check') }}">
                             <div class="bg-slate-100 p-3 md:p-5">
-                                <p class="mb-3 text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
+                                @if($rfc->request_check_authority_purchase_id)
+                                    <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
+                                    <p class="mb-3 text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
+                                @elseif(($eligibleAtps ?? collect())->isNotEmpty())
+                                    <div class="mb-4">
+                                        <label class="text-xs font-medium text-gray-500">Approved ATP <span class="font-normal text-gray-400">(required before submit)</span></label>
+                                        <select
+                                            name="request_check_authority_purchase_id"
+                                            x-on:change="applyAtpPrefill($event.target.value)"
+                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
+                                        >
+                                            <option value="">Select approved ATP</option>
+                                            @foreach($eligibleAtps as $atp)
+                                                <option value="{{ $atp->authority_purchase_id }}" {{ (string) old('request_check_authority_purchase_id') === (string) $atp->authority_purchase_id ? 'selected' : '' }}>
+                                                    {{ $atp->authority_purchase_form_number ?: '—' }}
+                                                    @if($atp->ris_form_number) · {{ $atp->ris_form_number }} @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @else
+                                    <input type="hidden" name="request_check_authority_purchase_id" value="">
+                                    <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        No approved ATP with a matching payment path is available. Link one before submitting to Accounting.
+                                    </div>
+                                @endif
                                 @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc, 'signKey' => 'rfc-'.$rfc->request_check_id])
                                 <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mt-4 w-full"></div>
                                 <div class="mt-4 rounded-lg bg-white p-4 text-sm">
@@ -772,16 +840,28 @@
                                     <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-3 block w-full">
                                 </div>
                             </div>
-                            <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-                                <button type="submit" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">Update Draft</button>
-                                <button type="submit" onclick="
-                                    this.form.save_action.value='submit';
-                                    if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                        event.preventDefault();
-                                        if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                        else alert('Draw or upload your signature before submitting.');
-                                    }
-                                " class="pur-btn-primary">Save & Submit</button>
+                            <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <p class="mr-auto max-w-md text-xs text-gray-500">
+                                    @if($rfc->request_check_status === 'Minor Revision')
+                                        Save your corrections here, then use <strong>⋮ → Resubmit to Accounting</strong> in the list.
+                                    @else
+                                        Save your changes here (including signature), then use <strong>⋮ → Submit to Accounting</strong> in the list.
+                                    @endif
+                                </p>
+                                <button
+                                    type="button"
+                                    @click="editOpen = false; modalFullscreen = false"
+                                    class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    onclick="this.form.querySelector('input[name=save_action]').value='draft'"
+                                    class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Save Changes
+                                </button>
                             </div>
                         </form>
                     </div>

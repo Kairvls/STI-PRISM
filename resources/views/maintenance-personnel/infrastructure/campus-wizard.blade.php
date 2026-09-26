@@ -148,7 +148,7 @@
                 </div>
                 <label
                     class="mx-auto block max-w-xl text-xs font-bold text-slate-700"
-                    >Campus Name<input
+                    >Campus Name <span class="text-red-500">*</span><input
                         name="building_name"
                         x-model="form.building_name"
                         required

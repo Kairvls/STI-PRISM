@@ -413,19 +413,28 @@ class ReceivingController extends Controller
 
             $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first() ?? $rr;
             $this->fillRisReceivedBy($rr, $name);
-            $this->stockFromReceivingReport($rr, now(), Auth::id());
+            // Stock is created by Maintenance from completed RR lines (Add to stock),
+            // so inventory stays tied to what was actually received — not free-form adds.
+            $pendingLines = $this->queueReceivingLinesForMaintenanceStock($rr, Auth::id());
             $this->writeLog(
                 (int) $rr->receiving_report_id,
                 !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Second count completed',
-                'Items delivered. Inventory updated.',
+                $pendingLines > 0
+                    ? 'Items delivered. '.$pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for Maintenance inventory.'
+                    : 'Items delivered. No new inventory lines to stock.',
                 Auth::id(),
                 'Delivered'
             );
 
             $this->notifyPurchaserRr($rr, 'Receiving completed', 'Items were accepted. You may create a Liquidation Report.', 'rr_completed');
 
-            return back()->with('success', 'Successfully sent to Purchaser for Liquidation.');
+            return back()->with(
+                'success',
+                $pendingLines > 0
+                    ? 'Successfully sent to Purchaser for Liquidation. Maintenance can now Add to stock from this RR.'
+                    : 'Successfully sent to Purchaser for Liquidation.'
+            );
         });
     }
 
@@ -1147,70 +1156,54 @@ class ReceivingController extends Controller
             ->get();
     }
 
-    private function stockFromReceivingReport(object $rr, $now, $officerId): void
+    /**
+     * Queue accepted RR lines for Maintenance "Add to stock" (no auto-insert).
+     * Returns how many lines still need inventory.
+     */
+    private function queueReceivingLinesForMaintenanceStock(object $rr, $officerId): int
     {
-        if (!Schema::hasTable('receiving_report_items_table')) {
-            return;
+        if (! Schema::hasTable('receiving_report_items_table')) {
+            return 0;
         }
 
-        $items = DB::table('receiving_report_items_table')
+        $pendingQuery = DB::table('receiving_report_items_table')
             ->where('receiving_report_id', $rr->receiving_report_id)
-            ->orderBy('receiving_report_item_id')
-            ->get();
+            ->where(function ($q) {
+                $q->whereNull('receiving_report_item_equipment_id')
+                    ->orWhere('receiving_report_item_equipment_id', 0);
+            })
+            ->where('receiving_report_item_quantity', '>', 0);
 
-        if ($items->isEmpty()) {
-            return;
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_condition')) {
+            $pendingQuery->where(function ($q) {
+                $q->whereNull('receiving_report_item_condition')
+                    ->orWhereNotIn('receiving_report_item_condition', ['bad_order', 'bad']);
+            });
         }
 
-        $atp = null;
-        if (!empty($rr->receiving_report_atp_id) && Schema::hasTable('authority_to_purchase_table')) {
-            $atp = DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_id', $rr->receiving_report_atp_id)
-                ->first();
-        }
+        $pending = (int) $pendingQuery->count();
 
-        $source = (object) [
-            'receiving_report_supplier_id' => $rr->receiving_report_supplier_id ?? null,
-            'receiving_report_date' => $rr->receiving_report_date ?? $rr->receiving_report_delivery_date ?? null,
-            'authority_purchase_supplier_id' => $atp->authority_purchase_supplier_id ?? $rr->receiving_report_supplier_id ?? null,
-            'authority_purchase_date' => $atp->authority_purchase_date ?? $rr->receiving_report_date ?? null,
-            'equipment_room_id' => $this->replacementRoomId($rr, $atp),
-        ];
-
-        $created = 0;
-        foreach ($items as $item) {
-            if (
-                Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
-                && !empty($item->receiving_report_item_equipment_id)
-            ) {
-                continue;
-            }
-
-            $equipmentId = $this->insertEquipment($source, $item, $now);
-            if (!$equipmentId) {
-                continue;
-            }
-
-            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')) {
-                DB::table('receiving_report_items_table')
-                    ->where('receiving_report_item_id', $item->receiving_report_item_id)
-                    ->update(['receiving_report_item_equipment_id' => $equipmentId]);
-            }
-
-            $created++;
-        }
-
-        if ($created > 0) {
+        if ($pending > 0) {
             $this->writeLog(
                 (int) $rr->receiving_report_id,
-                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
-                'Inventory updated',
-                'Stock records created from second count.',
+                ! empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                'Inventory queued',
+                $pending.' received line'.($pending === 1 ? '' : 's').' ready for Maintenance Add to stock.',
                 $officerId,
                 'Delivered'
             );
-            $this->notifyMaintenanceUntaggedStock($rr, $created);
+            $this->notifyMaintenancePendingStock($rr, $pending);
         }
+
+        return $pending;
+    }
+
+    /**
+     * @deprecated Inventory is stocked by Maintenance from RR; kept for older call sites.
+     */
+    private function stockFromReceivingReport(object $rr, $now, $officerId): void
+    {
+        $this->queueReceivingLinesForMaintenanceStock($rr, $officerId);
     }
 
     private function insertEquipment($source, $item, $now): ?int
@@ -1590,18 +1583,24 @@ class ReceivingController extends Controller
         return (int) $roomId;
     }
 
-    private function notifyMaintenanceUntaggedStock(object $rr, int $created): void
+    private function notifyMaintenancePendingStock(object $rr, int $pendingLines): void
     {
-        $ref = $rr->receiving_report_form_number ?? ('RR #' . $rr->receiving_report_id);
+        $ref = $rr->receiving_report_form_number ?? ('RR #'.$rr->receiving_report_id);
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_MAINTENANCE,
-            'New stock ready to place and tag',
-            $ref . ' added ' . $created . ' inventory ' . ($created === 1 ? 'item' : 'items') . '. Assign a room if needed, then generate QR codes and asset tags.',
-            'rr_stock_created',
+            'Received items ready to Add to stock',
+            $ref.' has '.$pendingLines.' accepted line'.($pendingLines === 1 ? '' : 's')
+                .'. Open Inventory → Add to stock, select the RR line (PO shown as purchase basis), then tag/QR as needed.',
+            'rr_stock_pending',
             'RR',
             (int) $rr->receiving_report_id,
-            '/maintenance/equipment/qr-tools'
+            '/maintenance/equipment/inventory'
         );
+    }
+
+    private function notifyMaintenanceUntaggedStock(object $rr, int $created): void
+    {
+        $this->notifyMaintenancePendingStock($rr, $created);
     }
 
     public function storeSavedSignature(Request $request)

@@ -931,7 +931,7 @@
                         for="reportStatus"
                         class="mb-2 block text-sm font-semibold text-gray-700"
                     >
-                        Change Status
+                        Change Status <span class="text-red-500">*</span>
                     </label>
 
                     <select

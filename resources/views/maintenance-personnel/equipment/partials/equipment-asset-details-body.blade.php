@@ -117,6 +117,10 @@
                         <span id="eqAssetModal_model" class="text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Serial</span>
+                        <span id="eqAssetModal_serial" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
                         <span class="text-sm text-slate-500">Category</span>
                         <span id="eqAssetModal_category" class="text-right text-sm font-medium text-slate-800">—</span>
                     </div>
@@ -137,18 +141,59 @@
                         <span id="eqAssetModal_status" class="text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Warranty</span>
+                        <span class="text-sm text-slate-500">Borrowable</span>
+                        <span id="eqAssetModal_borrowable" class="text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Purchased</span>
                         <span class="inline-flex items-center gap-1.5 text-right text-sm font-medium text-slate-800">
                             <i data-lucide="calendar" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span id="eqAssetModal_purchase_date">—</span>
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Purchase cost</span>
+                        <span id="eqAssetModal_purchase_cost" class="text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Useful life</span>
+                        <span id="eqAssetModal_useful_life" class="text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Warranty</span>
+                        <span class="inline-flex max-w-[60%] items-center gap-1.5 text-right text-sm font-medium text-slate-800">
+                            <i data-lucide="shield" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
                             <span id="eqAssetModal_warranty">—</span>
                         </span>
                     </div>
                     <div class="flex items-center justify-between gap-4 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Received</span>
+                        <span class="text-sm text-slate-500">Stocked / received</span>
                         <span class="inline-flex items-center gap-1.5 text-right text-sm font-medium text-slate-800">
                             <i data-lucide="calendar-clock" class="h-3.5 w-3.5 text-slate-400"></i>
                             <span id="eqAssetModal_acquired_date">—</span>
                         </span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-slate-900">Procurement</h4>
+                <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Supplier</span>
+                        <span id="eqAssetModal_supplier" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Purchase order</span>
+                        <span id="eqAssetModal_po" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">Receiving report</span>
+                        <span id="eqAssetModal_rr" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 px-4 py-3.5">
+                        <span class="text-sm text-slate-500">ATP / RIS</span>
+                        <span id="eqAssetModal_atp_ris" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                 </div>
             </div>

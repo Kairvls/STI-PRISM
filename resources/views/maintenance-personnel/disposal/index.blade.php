@@ -778,6 +778,10 @@
                                                 'category' => (string) ($record->equipment_category_name ?? ''),
                                                 'condition' => (string) ($record->equipment_condition_status ?? ''),
                                                 'reason' => (string) ($record->disposal_reason ?? ''),
+                                                'method' => (string) ($record->disposal_method ?? ''),
+                                                'residual' => isset($record->disposal_residual_value) && $record->disposal_residual_value !== null
+                                                    ? number_format((float) $record->disposal_residual_value, 2)
+                                                    : '',
                                                 'location' => (string) ($record->disposal_area_location ?? ''),
                                                 'date' => (string) ($record->disposal_disposed_at ?? ''),
                                                 'inventoryStatus' => (string) ($record->equipment_inventory_status ?? ''),
@@ -1118,7 +1122,7 @@
                             for="disposeEquipment"
                             class="mb-2 block text-sm font-medium text-slate-700"
                         >
-                            Equipment
+                            Equipment <span class="text-red-500">*</span>
                         </label>
 
                         <select
@@ -1147,7 +1151,7 @@
                             for="disposeReason"
                             class="mb-2 block text-sm font-medium text-slate-700"
                         >
-                            Disposal reason
+                            Disposal reason <span class="text-red-500">*</span>
                         </label>
 
                         <select
@@ -1176,6 +1180,45 @@
                                 Lost
                             </option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label
+                            for="disposeMethod"
+                            class="mb-2 block text-sm font-medium text-slate-700"
+                        >
+                            Disposal method
+                        </label>
+                        <select
+                            id="disposeMethod"
+                            name="method"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            <option value="">Select method (optional)</option>
+                            <option value="Scrap">Scrap</option>
+                            <option value="Donate">Donate</option>
+                            <option value="Sell / Auction">Sell / Auction</option>
+                            <option value="Return to supplier">Return to supplier</option>
+                            <option value="Destroy">Destroy</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label
+                            for="disposeResidualValue"
+                            class="mb-2 block text-sm font-medium text-slate-700"
+                        >
+                            Residual value (₱)
+                        </label>
+                        <input
+                            id="disposeResidualValue"
+                            type="number"
+                            name="residual_value"
+                            min="0"
+                            step="0.01"
+                            placeholder="Optional salvage / residual amount"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        />
                     </div>
 
                     <!-- ===================================== -->
@@ -1622,6 +1665,20 @@
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposal area</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.location) + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="recycle" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Method</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.method) + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="banknote" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Residual value</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + (data.residual ? ("₱" + displayDisposalValue(data.residual)) : "—") + "</p>" +
                     "</div>" +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:col-span-2">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +

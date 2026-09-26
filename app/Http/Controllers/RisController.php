@@ -1554,13 +1554,24 @@ public function update(Request $request, $risId)
 }
 
 // =====================================================
-// RIS MODULE: SUBMIT DRAFT RIS TO ADMIN
+// RIS MODULE: SUBMIT DRAFT / RESUBMIT MINOR REVISION TO ADMIN
 // =====================================================
 public function submit($risId)
 {
+    return $this->submitOrResubmit($risId, 'submit');
+}
+
+public function resubmit($risId)
+{
+    return $this->submitOrResubmit($risId, 'resubmit');
+}
+
+protected function submitOrResubmit($risId, string $mode = 'submit')
+{
+    $isResubmit = $mode === 'resubmit';
     $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ADMIN);
 
-    return DB::transaction(function () use ($risId, $reviewerId) {
+    return DB::transaction(function () use ($risId, $reviewerId, $isResubmit) {
 
         // =================================================
         // GET AND LOCK RIS
@@ -1575,10 +1586,16 @@ public function submit($risId)
 
 
         // =================================================
-        // ONLY DRAFT RIS CAN BE SUBMITTED
+        // STATUS GATE
         // =================================================
-        if ($ris->ris_status !== 'Draft') {
-
+        if ($isResubmit) {
+            if ($ris->ris_status !== 'Minor Revision') {
+                return back()->with(
+                    'error',
+                    'Only an RIS under Minor Revision can be resubmitted.'
+                );
+            }
+        } elseif ($ris->ris_status !== 'Draft') {
             return back()->with(
                 'error',
                 'Only Draft RIS records can be submitted.'
@@ -1592,7 +1609,7 @@ public function submit($risId)
         if (blank($ris->ris_purpose_description)) {
             return $this->backWithEditRisError(
                 $risId,
-                'RIS purpose is required before submitting.'
+                'RIS purpose is required before ' . ($isResubmit ? 'resubmitting.' : 'submitting.')
             );
         }
 
@@ -1604,14 +1621,14 @@ public function submit($risId)
         if ($requestedByName === '' || str_starts_with($requestedByName, 'data:image')) {
             return $this->backWithEditRisError(
                 $risId,
-                'Requested By is required before submitting.'
+                'Requested By is required before ' . ($isResubmit ? 'resubmitting.' : 'submitting.')
             );
         }
 
         if (! $this->risHasRequestedBySignature($ris)) {
             return $this->backWithEditRisError(
                 $risId,
-                'Please sign the RIS before submitting to Administrator.'
+                'Please sign the RIS before ' . ($isResubmit ? 'resubmitting to Administrator.' : 'submitting to Administrator.')
             );
         }
 
@@ -1622,7 +1639,7 @@ public function submit($risId)
         if (blank($ris->ris_requested_by_date)) {
             return $this->backWithEditRisError(
                 $risId,
-                'Requested By date is required before submitting.'
+                'Requested By date is required before ' . ($isResubmit ? 'resubmitting.' : 'submitting.')
             );
         }
 
@@ -1644,7 +1661,7 @@ public function submit($risId)
         if ($items->isEmpty()) {
             return $this->backWithEditRisError(
                 $risId,
-                'Please add at least one RIS item before submitting.'
+                'Please add at least one RIS item before ' . ($isResubmit ? 'resubmitting.' : 'submitting.')
             );
         }
 
@@ -1656,7 +1673,7 @@ public function submit($risId)
         if (! $this->risHasSupportingDocument((int) $risId)) {
             return $this->backWithEditRisError(
                 $risId,
-                'Please attach a supporting document (Word or Excel) before submitting to Administrator.'
+                'Please attach a supporting document (Word or Excel) before ' . ($isResubmit ? 'resubmitting to Administrator.' : 'submitting to Administrator.')
             );
         }
 
@@ -1728,13 +1745,24 @@ public function submit($risId)
 
 
         // =================================================
-        // EVERYTHING IS VALID
-        // SEND RIS TO ADMIN (system-assigned No. only)
+        // EVERYTHING IS VALID — SEND TO ADMIN
         // =================================================
-        $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
+        if ($isResubmit) {
+            $formNumber = $ris->ris_form_number ?: RisWorkflow::allocateFormNumberOnSubmit();
+            $newStatus = 'Resubmitted';
+            $notifyTitle = 'RIS resubmitted';
+            $notifyBody = RisWorkflow::formNumber($formNumber) . ' was resubmitted for Administrator review.';
+            $successMessage = 'RIS corrections resubmitted to Administrator successfully.';
+        } else {
+            $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
+            $newStatus = 'Submitted';
+            $notifyTitle = 'New RIS submitted';
+            $notifyBody = RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.';
+            $successMessage = 'RIS submitted to Administrator successfully.';
+        }
 
         $risSubmitUpdate = [
-            'ris_status' => 'Submitted',
+            'ris_status' => $newStatus,
             'ris_form_number' => $formNumber,
             'ris_submitted_by' => Auth::id(),
             'ris_submitted_at' => now(),
@@ -1749,13 +1777,15 @@ public function submit($risId)
             ->update($risSubmitUpdate);
 
         $ris->ris_form_number = $formNumber;
-        $this->deleteCopiedSourceDraftIfNeeded($ris);
+        if (! $isResubmit) {
+            $this->deleteCopiedSourceDraftIfNeeded($ris);
+        }
 
         DocumentWorkflowService::notifySubmitted(
             WorkflowNotifier::ROLE_ADMIN,
-            'New RIS submitted',
-            RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.',
-            'ris_submitted',
+            $notifyTitle,
+            $notifyBody,
+            $isResubmit ? 'ris_resubmitted' : 'ris_submitted',
             'RIS',
             (int) $risId,
             '/admin/procurement-review',
@@ -1766,7 +1796,7 @@ public function submit($risId)
             ->route(ProcurementPortal::routeName('ris.index'))
             ->with(
                 'success',
-                'RIS submitted to Administrator successfully.'
+                $successMessage
             );
     });
 }

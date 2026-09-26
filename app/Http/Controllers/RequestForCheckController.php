@@ -218,7 +218,21 @@ class RequestForCheckController extends Controller
 
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
-        $validated = $this->validateRfc($request, $isDraft);
+        // Edit forms may omit funding type; keep the stored value so draft saves (incl. signature) don't fail validation.
+        if (!$request->filled('request_check_funding_type') && !empty($rfc->request_check_funding_type)) {
+            $request->merge(['request_check_funding_type' => $rfc->request_check_funding_type]);
+        }
+        if (!$request->filled('request_check_authority_purchase_id') && !empty($rfc->request_check_authority_purchase_id)) {
+            $request->merge(['request_check_authority_purchase_id' => $rfc->request_check_authority_purchase_id]);
+        }
+        try {
+            $validated = $this->validateRfc($request, $isDraft);
+        } catch (ValidationException $e) {
+            return back()
+                ->withInput()
+                ->withErrors($e->errors())
+                ->with('edit_rfc_id', (int) $id);
+        }
         $fundingType = $validated['request_check_funding_type']
             ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
         $requestedSig = RisWorkflow::normalizeDrawnSignature($validated['request_check_requested_by_signature'] ?? null);
@@ -230,7 +244,7 @@ class RequestForCheckController extends Controller
 
         $atpId = $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id;
         if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft, $fundingType)) {
-            return back()->withInput()->with('error', $error);
+            return back()->withInput()->with('error', $error)->with('edit_rfc_id', (int) $id);
         }
 
         return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig) {
@@ -301,21 +315,33 @@ class RequestForCheckController extends Controller
             if (!$this->isEditable($rfc)) {
                 return back()->with('error', 'This Request for Check cannot be submitted.');
             }
-            if (
-                !$rfc->request_check_authority_purchase_id
-                || blank($rfc->request_check_payee)
-                || (float) $rfc->request_check_amount_figures <= 0
-                || blank($rfc->request_check_particulars_purpose)
-            ) {
-                return back()->with('error', 'Complete payee, amount, purpose, and ATP before submitting.');
+            $missing = [];
+            if (!$rfc->request_check_authority_purchase_id) {
+                $missing[] = 'link an approved ATP';
+            }
+            if (blank($rfc->request_check_payee)) {
+                $missing[] = 'payee';
+            }
+            if ((float) $rfc->request_check_amount_figures <= 0) {
+                $missing[] = 'amount';
+            }
+            if (blank($rfc->request_check_particulars_purpose)) {
+                $missing[] = 'purpose';
             }
             if (
                 $this->rfcHas('request_check_requested_by_signature')
                 && !RisWorkflow::isDrawnSignature((string) ($rfc->request_check_requested_by_signature ?? ''))
             ) {
-                return back()->with('error', 'Draw or upload your signature before submitting.');
+                $missing[] = 'signature (open Edit → add signature → Save Changes)';
             }
-            if ($error = $this->atpEligibilityError($rfc->request_check_authority_purchase_id, $id, true)) {
+            if ($missing !== []) {
+                return back()->with(
+                    'error',
+                    'Cannot submit yet. Please complete: ' . implode(', ', $missing) . '.'
+                );
+            }
+            $fundingType = $rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
+            if ($error = $this->atpEligibilityError($rfc->request_check_authority_purchase_id, $id, true, $fundingType)) {
                 return back()->with('error', $error);
             }
 

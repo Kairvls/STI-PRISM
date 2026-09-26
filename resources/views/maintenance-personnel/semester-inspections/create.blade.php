@@ -30,7 +30,7 @@
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="sm:col-span-2">
-                <label class="mb-1.5 block text-sm text-slate-600">Campaign title</label>
+                <label class="mb-1.5 block text-sm text-slate-600">Campaign title <span class="text-red-500">*</span></label>
                 <input
                     type="text"
                     name="campaign_title"
@@ -43,7 +43,7 @@
             </div>
 
             <div>
-                <label class="mb-1.5 block text-sm text-slate-600">Semester</label>
+                <label class="mb-1.5 block text-sm text-slate-600">Semester <span class="text-red-500">*</span></label>
                 <select
                     name="campaign_semester"
                     required
@@ -77,7 +77,7 @@
             </div>
 
             <div>
-                <label class="mb-1.5 block text-sm text-slate-600">Due date</label>
+                <label class="mb-1.5 block text-sm text-slate-600">Due date <span class="text-red-500">*</span></label>
                 <input
                     type="date"
                     name="campaign_due_date"

@@ -362,6 +362,16 @@ Route::middleware(['auth', 'admin'])
         // ==========================================
 
         Route::get(
+            '/reports/make',
+            [AdminController::class, 'makeReport']
+        )->name('reports.make');
+
+        Route::post(
+            '/reports/make',
+            [AdminController::class, 'storeMakeReport']
+        )->name('reports.make.store');
+
+        Route::get(
             '/reports',
             [AdminController::class, 'systemReports']
         )->name('reports.index');
@@ -1002,6 +1012,26 @@ Route::get(
 Route::get(
     '/maintenance/equipment/create',
     [MaintenanceController::class, 'createEquipment']
+);
+
+Route::get(
+    '/maintenance/equipment/receivable-lines',
+    [MaintenanceController::class, 'receivableStockLines']
+);
+
+Route::post(
+    '/maintenance/equipment/stock-pending',
+    [MaintenanceController::class, 'stockPendingReceivables']
+);
+
+Route::get(
+    '/maintenance/equipment/open-balance',
+    [MaintenanceController::class, 'equipmentOpenBalance']
+);
+
+Route::get(
+    '/maintenance/equipment/audit-pack/{id}',
+    [MaintenanceController::class, 'equipmentAuditPack']
 );
 
 Route::post(

@@ -538,7 +538,7 @@ class SeedPurchasingWorkflowDemo extends Command
             : null;
         $reporterId = Schema::hasTable('reporters_table')
             ? (
-                DB::table('reporters_table')->where('reporter_employee_id', 'OMC0129F')->value('reporter_employee_id')
+                DB::table('reporters_table')->where('reporter_employee_id', 'OMC00129F')->value('reporter_employee_id')
                 ?: DB::table('reporters_table')->value('reporter_employee_id')
             )
             : null;

@@ -3,17 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin sign in — PaAyo</title>
+    <title>sign in — PaAyo</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100">
-    <div class="flex min-h-screen items-center justify-center px-4">
+    <div class="flex min-h-screen items-start justify-center px-4 pt-10">
         <div class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">PaAyo</p>
-            <h1 class="mb-2 text-2xl font-bold text-slate-900">Admin sign in</h1>
+            <img
+                src="{{ asset('image/paayo_logo_original.png') }}"
+                alt="PaAyo"
+                class="mx-auto mb-3 h-16 w-16 object-contain"
+            >
+            <p class="mb-1 text-xl font-semibold tracking-wide text-slate-400">PaAyo</p>
+            <!--<h1 class="mb-2 text-2xl font-bold text-slate-900">Admin sign in</h1>
             <p class="mb-6 text-sm text-slate-600">
                 Office 365 only (email, password, and MFA). Only Administrator accounts can continue.
-            </p>
+            </p>-->
 
             @if (session('error'))
                 <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-sm text-red-700">
@@ -35,9 +40,9 @@
                 Log in with Office 365
             </a>
 
-            <p class="mt-5 text-[11px] leading-relaxed text-slate-400">
+            <!--<p class="mt-5 text-[11px] leading-relaxed text-slate-400">
                 This page is for system administrators. Staff should use the main sign-in on the home page.
-            </p>
+            </p>-->
         </div>
     </div>
 </body>

@@ -292,17 +292,47 @@
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}"
-                                            data-pur-confirm="Submit this Receiving Report for review?"
-                                            data-pur-confirm-title="Submit RR"
-                                            data-pur-confirm-ok="Submit"
-                                            data-pur-confirm-reviewer-role="Receiving Officer"
+                                        <div
+                                            class="relative"
+                                            x-data="{ openActions: false }"
+                                            @keydown.escape.window="openActions = false"
                                         >
-                                            @csrf
-                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Submit" aria-label="Submit"><i data-lucide="send" class="h-4 w-4"></i></button>
-                                        </form>
+                                            <button
+                                                type="button"
+                                                x-on:click="openActions = !openActions"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="More actions"
+                                                aria-label="More actions"
+                                                :aria-expanded="openActions.toString()"
+                                            >
+                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                            </button>
+                                            <div
+                                                x-show="openActions"
+                                                x-cloak
+                                                x-transition
+                                                @click.outside="openActions = false"
+                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                            >
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}"
+                                                    data-pur-confirm="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit this Receiving Report for review?' : 'Submit this Receiving Report for review?' }}"
+                                                    data-pur-confirm-title="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit RR' : 'Submit RR' }}"
+                                                    data-pur-confirm-ok="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                                    data-pur-confirm-reviewer-role="Receiving Officer"
+                                                >
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        {{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit to Receiving Officer' : 'Submit to Receiving Officer' }}
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
                                     @endif
                                     @if(
                                         !$archiveView
@@ -603,7 +633,11 @@
                                 </button>
                             </div>
                         </div>
-                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}">
+                        <form
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}"
+                            x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                        >
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
@@ -613,6 +647,13 @@
                                 <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <p class="mr-auto max-w-md text-xs text-gray-500">
+                                    @if($rr->receiving_report_status === 'Minor Revision')
+                                        Save your corrections here, then use <strong>⋮ → Resubmit to Receiving Officer</strong> in the list.
+                                    @else
+                                        Save your changes here (including signature), then use <strong>⋮ → Submit to Receiving Officer</strong> in the list.
+                                    @endif
+                                </p>
                                 <button
                                     type="button"
                                     @click="editOpen = false; modalFullscreen = false"
@@ -626,46 +667,6 @@
                                     class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                 >
                                     Save Changes
-                                </button>
-                                <button
-                                    type="button"
-                                    onclick="
-                                        (async function (btn) {
-                                            var form = btn.form;
-                                            if (!form) return;
-                                            if (window.purchaserDocumentSignature && !window.purchaserDocumentSignature.hasSignature()) {
-                                                if (typeof window.showMpToast === 'function') showMpToast('Draw or upload your signature before submitting.', { title: 'Signature required', type: 'warning' });
-                                                else alert('Draw or upload your signature before submitting.');
-                                                return;
-                                            }
-                                            form.querySelector('input[name=save_action]').value = 'submit';
-                                            var result = true;
-                                            if (typeof window.purConfirm === 'function') {
-                                                result = await window.purConfirm({
-                                                    title: 'Submit RR',
-                                                    text: 'Submit this Receiving Report for review?',
-                                                    confirmText: 'Submit',
-                                                    reviewerRole: 'Receiving Officer'
-                                                });
-                                            }
-                                            if (!result) return;
-                                            if (result && result.reviewerId) {
-                                                var input = form.querySelector('input[name=assigned_reviewer_id]');
-                                                if (!input) {
-                                                    input = document.createElement('input');
-                                                    input.type = 'hidden';
-                                                    input.name = 'assigned_reviewer_id';
-                                                    form.appendChild(input);
-                                                }
-                                                input.value = result.reviewerId;
-                                            }
-                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
-                                            else form.submit();
-                                        })(this);
-                                    "
-                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-800"
-                                >
-                                    Save & Submit
                                 </button>
                             </div>
                         </form>

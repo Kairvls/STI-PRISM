@@ -888,14 +888,14 @@ class ReporterController extends Controller
         }
 
         $request->validate([
-            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{4}[FS]$/'],
+            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{5}[FS]$/'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:Faculty,Staff'],
             'contact' => ['required', 'regex:/^09[0-9]{9}$/'],
         ], [
-            'employee_id.regex' => 'Employee ID must look like OMC0123F (Faculty) or OMC0123S (Staff).',
+            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
         ]);
 
         $employeeId = strtoupper(trim($request->employee_id));
@@ -904,8 +904,8 @@ class ReporterController extends Controller
         if (! str_ends_with($employeeId, $expectedSuffix)) {
             return back()->withErrors([
                 'employee_id' => $request->type === 'Staff'
-                    ? 'Staff employee IDs must end with S (example: OMC0123S).'
-                    : 'Faculty employee IDs must end with F (example: OMC0123F).',
+                    ? 'Staff employee IDs must end with S (example: OMC00127S).'
+                    : 'Faculty employee IDs must end with F (example: OMC00127F).',
             ])->withInput();
         }
 

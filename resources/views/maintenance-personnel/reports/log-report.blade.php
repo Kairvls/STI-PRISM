@@ -1,6 +1,22 @@
-@extends('layouts.maintenance-layout')
+@extends($reportLayout ?? 'layouts.maintenance-layout')
 
-@section('title', 'Log Walk-in Report')
+@section('title', $reportPageTitle ?? 'Log Walk-in Report')
+
+@php
+    $reportPageTitle = $reportPageTitle ?? 'Log Walk-in Report';
+    $reportBackUrl = $reportBackUrl ?? '/maintenance/reports';
+    $reportBackLabel = $reportBackLabel ?? 'Back to Reports';
+    $reportStoreUrl = $reportStoreUrl ?? route('maintenance.reports.log.store');
+    $reportCancelUrl = $reportCancelUrl ?? '/maintenance/reports';
+    $reportSubmitLabel = $reportSubmitLabel ?? 'Log report';
+    $reportIntro = $reportIntro ?? 'Enter a concern on behalf of a faculty or staff reporter who walked in or cannot use the online form. The reporter must already be registered and active.';
+    $reportBanner = $reportBanner ?? 'this form records you as the staff member who logged the report, while keeping the walk-in person as the reporter.';
+    $reportLogTitle = $reportLogTitle ?? 'Walk-in report log';
+    $reportLogIntro = $reportLogIntro ?? 'Reports entered through this page, with who logged them and who reported the concern.';
+    $reportDetailsBase = $reportDetailsBase ?? '/maintenance/reports/details/';
+    $seedEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('report_reporter_employee_id', $prefillEmployeeId ?? '')));
+    $walkInReports = $walkInReports ?? collect();
+@endphp
 
 @push('scripts')
 <style>
@@ -204,6 +220,32 @@
         text-align: center;
         font-size: 0.8125rem;
         color: #64748b;
+    }
+
+    .lr-picker-search {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 4px 4px 8px;
+        background: #fff;
+    }
+
+    .lr-picker-search input {
+        width: 100%;
+        height: 38px;
+        border-radius: 0.65rem;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        padding: 0 12px;
+        font-size: 0.8125rem;
+        color: #0f172a;
+        outline: none;
+    }
+
+    .lr-picker-search input:focus {
+        border-color: #93c5fd;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
 
     .lr-issue-section {
@@ -500,25 +542,35 @@
 
 @section('content')
     <div class="mx-auto max-w-3xl space-y-6">
+        @if (session('success'))
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                {{ session('success') }}
+            </div>
+        @endif
+        @if ($errors->any())
+            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                {{ $errors->first() }}
+            </div>
+        @endif
+
         <div>
-            <a href="/maintenance/reports" class="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-slate-800">
+            <a href="{{ $reportBackUrl }}" class="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-slate-800">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                Back to Reports
+                {{ $reportBackLabel }}
             </a>
-            <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Log Walk-in Report</h1>
+            <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{{ $reportPageTitle }}</h1>
             <p class="mt-1 text-sm text-slate-500">
-                Enter a concern on behalf of a faculty or staff reporter who walked in or cannot use the online form.
-                The reporter must already be registered and active.
+                {{ $reportIntro }}
             </p>
         </div>
 
         <div class="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
-            <strong>Audit trail:</strong> this form records you as the staff member who logged the report, while keeping the walk-in person as the reporter.
+            <strong>Audit trail:</strong> {{ $reportBanner }}
         </div>
 
         <form
             method="POST"
-            action="{{ route('maintenance.reports.log.store') }}"
+            action="{{ $reportStoreUrl }}"
             enctype="multipart/form-data"
             id="walkInReportForm"
             class="space-y-5"
@@ -528,20 +580,20 @@
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Reporter</h2>
                 @php
-                    $oldEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('report_reporter_employee_id', '')));
+                    $oldEmployeeId = $seedEmployeeId;
                     $oldType = '';
                     $oldIdDigits = '';
-                    if (preg_match('/^OMC(\d{1,4})([FS])$/i', $oldEmployeeId, $m)) {
+                    if (preg_match('/^OMC(\d{1,5})([FS])$/i', $oldEmployeeId, $m)) {
                         $oldIdDigits = $m[1];
                         $oldType = strtoupper($m[2]) === 'S' ? 'Staff' : 'Faculty';
-                    } elseif (preg_match('/^\d{1,4}$/', $oldEmployeeId)) {
+                    } elseif (preg_match('/^\d{1,5}$/', $oldEmployeeId)) {
                         $oldIdDigits = $oldEmployeeId;
                     }
                     $oldSuffix = $oldType === 'Staff' ? 'S' : ($oldType === 'Faculty' ? 'F' : '');
                 @endphp
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="reporterTypeSelect" class="mb-1.5 block text-sm font-medium text-slate-700">Type</label>
+                        <label for="reporterTypeSelect" class="mb-1.5 block text-sm font-medium text-slate-700">Type <span class="text-red-500">*</span></label>
                         <select
                             id="reporterTypeSelect"
                             class="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none ring-blue-500/30 focus:border-blue-500 focus:ring-2"
@@ -553,15 +605,15 @@
                         <p class="mt-1.5 text-xs text-slate-400">Faculty ends with F, Staff ends with S.</p>
                     </div>
                     <div>
-                        <label for="employeeIdDigits" class="mb-1.5 block text-sm font-medium text-slate-700">Employee ID</label>
+                        <label for="employeeIdDigits" class="mb-1.5 block text-sm font-medium text-slate-700">Employee ID <span class="text-red-500">*</span></label>
                         <div id="employeeIdField" class="lr-employee-id-field {{ $oldType ? '' : 'is-disabled' }}">
                             <span class="lr-employee-id-prefix">OMC</span>
                             <input
                                 id="employeeIdDigits"
                                 type="text"
                                 inputmode="numeric"
-                                maxlength="4"
-                                placeholder="0123"
+                                maxlength="5"
+                                placeholder="00127"
                                 value="{{ $oldIdDigits }}"
                                 autocomplete="off"
                                 {{ $oldType ? '' : 'readonly' }}
@@ -572,11 +624,11 @@
                             type="hidden"
                             name="report_reporter_employee_id"
                             id="employeeIdInput"
-                            value="{{ old('report_reporter_employee_id') }}"
+                            value="{{ $oldEmployeeId }}"
                             required
                         >
                         <p class="mt-1.5 text-xs text-slate-400" id="employeeIdHint">
-                            {{ $oldType ? 'Enter the 4-digit number only. OMC and '.$oldSuffix.' are fixed.' : 'Select type first, then enter the 4-digit number.' }}
+                            {{ $oldType ? 'Enter the 5-digit number only. OMC and '.$oldSuffix.' are fixed.' : 'Select type first, then enter the 5-digit number.' }}
                         </p>
                     </div>
                     <p id="employeeError" class="hidden sm:col-span-2 text-sm text-red-500"></p>
@@ -595,20 +647,74 @@
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Location & Equipment</h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label for="roomSelect" class="mb-1.5 block text-sm font-medium text-slate-700">Location</label>
-                        <select
-                            name="report_room_id"
-                            id="roomSelect"
-                            required
-                            class="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none ring-blue-500/30 focus:border-blue-500 focus:ring-2"
-                        >
-                            <option value="">Select location</option>
-                            @foreach ($rooms as $room)
-                                <option value="{{ $room->room_id }}" @selected((string) old('report_room_id') === (string) $room->room_id)>
-                                    {{ $room->floor_level }} - {{ $room->room_name }} - {{ (int) ($room->equipment_count ?? 0) }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label for="roomPickerTrigger" class="mb-1.5 block text-sm font-medium text-slate-700">Location <span class="text-red-500">*</span></label>
+                        <div class="lr-equipment-picker" id="locationPicker">
+                            <select
+                                name="report_room_id"
+                                id="roomSelect"
+                                required
+                                class="lr-equipment-native"
+                                tabindex="-1"
+                                aria-hidden="true"
+                            >
+                                <option value="">Select location</option>
+                                @foreach ($rooms as $room)
+                                    @php
+                                        $roomLabel = trim(collect([
+                                            $room->floor_level ?? null,
+                                            $room->room_name ?? null,
+                                            'Eq.'.(int) ($room->equipment_count ?? 0),
+                                        ])->filter()->implode(' - '));
+                                    @endphp
+                                    <option
+                                        value="{{ $room->room_id }}"
+                                        data-label="{{ $roomLabel }}"
+                                        data-search="{{ strtolower($roomLabel) }}"
+                                        @selected((string) old('report_room_id') === (string) $room->room_id)
+                                    >
+                                        {{ $roomLabel }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <button
+                                type="button"
+                                id="roomPickerTrigger"
+                                class="lr-equipment-trigger {{ old('report_room_id') ? '' : 'is-placeholder' }}"
+                                aria-haspopup="listbox"
+                                aria-expanded="false"
+                            >
+                                <span id="roomPickerLabel" class="lr-equipment-trigger-label">
+                                    @php
+                                        $selectedRoomLabel = 'Select location';
+                                        if (old('report_room_id')) {
+                                            foreach ($rooms as $room) {
+                                                if ((string) $room->room_id === (string) old('report_room_id')) {
+                                                    $selectedRoomLabel = trim(collect([
+                                                        $room->floor_level ?? null,
+                                                        $room->room_name ?? null,
+                                                        'Eq.'.(int) ($room->equipment_count ?? 0),
+                                                    ])->filter()->implode(' - '));
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    @endphp
+                                    {{ $selectedRoomLabel }}
+                                </span>
+                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-500"></i>
+                            </button>
+                            <div id="roomPickerMenu" class="lr-equipment-menu is-hidden" role="listbox" aria-label="Location options">
+                                <div class="lr-picker-search">
+                                    <input
+                                        type="search"
+                                        id="roomPickerSearch"
+                                        placeholder="Search location..."
+                                        autocomplete="off"
+                                    >
+                                </div>
+                                <div id="roomPickerList" class="lr-equipment-list"></div>
+                            </div>
+                        </div>
                         <p id="locationError" class="mt-1 hidden text-sm text-red-500">Please select a location.</p>
                     </div>
 
@@ -756,11 +862,11 @@
             </section>
 
             <div class="flex flex-wrap items-center justify-end gap-3">
-                <a href="/maintenance/reports" class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <a href="{{ $reportCancelUrl }}" class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     Cancel
                 </a>
                 <button type="submit" class="inline-flex h-11 items-center rounded-xl bg-[#0025cc] px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#001fa8]">
-                    Log report
+                    {{ $reportSubmitLabel }}
                 </button>
             </div>
         </form>
@@ -769,9 +875,9 @@
         <section class="mt-10 pb-8">
             <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h2 class="text-lg font-bold tracking-tight text-slate-900">Walk-in report log</h2>
+                    <h2 class="text-lg font-bold tracking-tight text-slate-900">{{ $reportLogTitle }}</h2>
                     <p class="mt-1 text-sm text-slate-500">
-                        Reports entered through this page, with who logged them and who reported the concern.
+                        {{ $reportLogIntro }}
                     </p>
                 </div>
                 @if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
@@ -851,7 +957,7 @@
                                         </td>
                                         <td class="whitespace-nowrap px-4 py-3 text-right">
                                             <x-view-action-button
-                                                :href="url('/maintenance/reports/details/' . $report->report_id)"
+                                                :href="url(rtrim($reportDetailsBase, '/').'/'.$report->report_id)"
                                                 label="View"
                                             />
                                         </td>
@@ -891,6 +997,12 @@
             const reporterName = document.getElementById('reporterName');
             const reporterMeta = document.getElementById('reporterMeta');
             const roomSelect = document.getElementById('roomSelect');
+            const roomPickerTrigger = document.getElementById('roomPickerTrigger');
+            const roomPickerMenu = document.getElementById('roomPickerMenu');
+            const roomPickerList = document.getElementById('roomPickerList');
+            const roomPickerLabel = document.getElementById('roomPickerLabel');
+            const roomPickerSearch = document.getElementById('roomPickerSearch');
+            const locationPicker = document.getElementById('locationPicker');
             const equipmentSelect = document.getElementById('equipmentSelect');
             const equipmentPickerTrigger = document.getElementById('equipmentPickerTrigger');
             const equipmentPickerLabel = document.getElementById('equipmentPickerLabel');
@@ -940,7 +1052,7 @@
 
                 const type = reporterTypeSelect ? reporterTypeSelect.value : '';
                 const suffix = suffixForType(type);
-                const digits = String(employeeDigitsInput.value || '').replace(/\D/g, '').slice(0, 4);
+                const digits = String(employeeDigitsInput.value || '').replace(/\D/g, '').slice(0, 5);
                 employeeDigitsInput.value = digits;
                 employeeIdSuffix.textContent = suffix || '?';
                 employeeIdSuffix.classList.toggle('is-empty', !suffix);
@@ -949,17 +1061,17 @@
                     employeeIdField.classList.remove('is-disabled');
                     employeeDigitsInput.removeAttribute('readonly');
                     if (employeeIdHint) {
-                        employeeIdHint.textContent = 'Enter the 4-digit number only. OMC and ' + suffix + ' are fixed.';
+                        employeeIdHint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
                     }
                 } else {
                     employeeIdField.classList.add('is-disabled');
                     employeeDigitsInput.setAttribute('readonly', 'readonly');
                     if (employeeIdHint) {
-                        employeeIdHint.textContent = 'Select type first, then enter the 4-digit number.';
+                        employeeIdHint.textContent = 'Select type first, then enter the 5-digit number.';
                     }
                 }
 
-                const fullId = (type && digits.length === 4 && suffix)
+                const fullId = (type && digits.length === 5 && suffix)
                     ? ('OMC' + digits + suffix)
                     : '';
                 employeeInput.value = fullId;
@@ -1115,6 +1227,72 @@
                 const name = String(equipment.equipment_name || 'Equipment').trim();
                 const tag = String(equipment.equipment_asset_tag || '').trim();
                 return tag ? name + ' · #' + tag : name + ' · #' + equipment.equipment_id;
+            }
+
+            function syncLocationPickerLabel() {
+                if (!roomPickerLabel || !roomPickerTrigger || !roomSelect) return;
+                const option = roomSelect.options[roomSelect.selectedIndex];
+                const label = option && option.value
+                    ? (option.getAttribute('data-label') || option.textContent.trim())
+                    : 'Select location';
+                roomPickerLabel.textContent = label;
+                roomPickerTrigger.classList.toggle('is-placeholder', !roomSelect.value);
+                if (roomPickerTrigger) {
+                    roomPickerTrigger.style.borderColor = '';
+                }
+            }
+
+            function closeLocationPicker() {
+                if (!roomPickerMenu || !roomPickerTrigger) return;
+                roomPickerMenu.classList.add('is-hidden');
+                roomPickerTrigger.classList.remove('is-open');
+                roomPickerTrigger.setAttribute('aria-expanded', 'false');
+            }
+
+            function openLocationPicker() {
+                if (!roomPickerMenu || !roomPickerTrigger) return;
+                if (roomPickerSearch) roomPickerSearch.value = '';
+                renderLocationPickerList();
+                roomPickerMenu.classList.remove('is-hidden');
+                roomPickerTrigger.classList.add('is-open');
+                roomPickerTrigger.setAttribute('aria-expanded', 'true');
+                if (roomPickerSearch) {
+                    requestAnimationFrame(function () { roomPickerSearch.focus(); });
+                }
+            }
+
+            function renderLocationPickerList() {
+                if (!roomPickerList || !roomSelect) return;
+                const query = String(roomPickerSearch && roomPickerSearch.value || '')
+                    .toLowerCase()
+                    .trim();
+                roomPickerList.innerHTML = '';
+                let visibleCount = 0;
+
+                Array.from(roomSelect.options).forEach(function (option) {
+                    if (!option.value) return;
+                    const label = option.getAttribute('data-label') || option.textContent.trim();
+                    const search = option.getAttribute('data-search') || label.toLowerCase();
+                    if (query && search.indexOf(query) === -1) return;
+
+                    visibleCount += 1;
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'lr-equipment-item' + (roomSelect.value === option.value ? ' is-active' : '');
+                    item.innerHTML = '<span class="lr-equipment-item-main"></span>';
+                    item.querySelector('.lr-equipment-item-main').textContent = label;
+                    item.addEventListener('click', function () {
+                        roomSelect.value = option.value;
+                        roomSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        syncLocationPickerLabel();
+                        closeLocationPicker();
+                    });
+                    roomPickerList.appendChild(item);
+                });
+
+                if (visibleCount === 0) {
+                    roomPickerList.innerHTML = '<div class="lr-equipment-empty">No locations match your search.</div>';
+                }
             }
 
             function syncEquipmentPickerLabel() {
@@ -1305,9 +1483,9 @@
             roomSelect.addEventListener('change', function () {
                 locationError.classList.add('hidden');
                 roomSelect.style.borderColor = '';
+                if (roomPickerTrigger) roomPickerTrigger.style.borderColor = '';
+                syncLocationPickerLabel();
                 const roomId = this.value;
-                selectedItems = [];
-                renderSelectedItems();
                 roomEquipmentCache = [];
                 closeEquipmentPicker();
                 equipmentSelect.innerHTML = '<option value="">Select equipment</option>';
@@ -1323,6 +1501,27 @@
                     });
             });
 
+            if (roomPickerTrigger) {
+                roomPickerTrigger.addEventListener('click', function () {
+                    if (roomPickerMenu.classList.contains('is-hidden')) {
+                        closeEquipmentPicker();
+                        openLocationPicker();
+                    } else {
+                        closeLocationPicker();
+                    }
+                });
+            }
+
+            if (roomPickerSearch) {
+                roomPickerSearch.addEventListener('input', renderLocationPickerList);
+                roomPickerSearch.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape') {
+                        closeLocationPicker();
+                        roomPickerTrigger && roomPickerTrigger.focus();
+                    }
+                });
+            }
+
             equipmentSelect.addEventListener('change', function () {
                 loadSuggestions(this.value);
                 syncEquipmentPickerLabel();
@@ -1331,6 +1530,7 @@
             if (equipmentPickerTrigger) {
                 equipmentPickerTrigger.addEventListener('click', function () {
                     if (equipmentPickerMenu.classList.contains('is-hidden')) {
+                        closeLocationPicker();
                         openEquipmentPicker();
                     } else {
                         closeEquipmentPicker();
@@ -1339,9 +1539,16 @@
             }
 
             document.addEventListener('click', function (event) {
-                if (!equipmentPickerMenu || equipmentPickerMenu.classList.contains('is-hidden')) return;
-                if (event.target.closest('.lr-equipment-picker')) return;
-                closeEquipmentPicker();
+                if (roomPickerMenu && !roomPickerMenu.classList.contains('is-hidden')) {
+                    if (!event.target.closest('#locationPicker')) {
+                        closeLocationPicker();
+                    }
+                }
+                if (equipmentPickerMenu && !equipmentPickerMenu.classList.contains('is-hidden')) {
+                    if (!event.target.closest('#equipmentDropdownWrap .lr-equipment-picker')) {
+                        closeEquipmentPicker();
+                    }
+                }
             });
 
             toggleManualEquipment.addEventListener('click', function () {
@@ -1371,6 +1578,11 @@
             addEquipmentBtn.addEventListener('click', function () {
                 const equipmentId = equipmentSelect.value;
                 const issue = getIssueForAdd();
+                const currentRoomId = roomSelect.value;
+                const roomOption = roomSelect.options[roomSelect.selectedIndex];
+                const roomLabel = roomOption
+                    ? (roomOption.getAttribute('data-label') || roomOption.textContent.trim())
+                    : '';
 
                 equipmentError.classList.add('hidden');
                 equipmentSelect.style.borderColor = '';
@@ -1378,6 +1590,18 @@
                     equipmentPickerTrigger.style.borderColor = '';
                 }
                 issueError.classList.add('hidden');
+
+                if (!currentRoomId) {
+                    locationError.classList.remove('hidden');
+                    if (roomPickerTrigger) {
+                        roomPickerTrigger.style.borderColor = '#dc2626';
+                        roomPickerTrigger.focus();
+                    } else {
+                        roomSelect.style.borderColor = '#dc2626';
+                        roomSelect.focus();
+                    }
+                    return;
+                }
 
                 if (!equipmentId) {
                     equipmentError.textContent = 'Please select equipment, then a suggested issue or additional details, then Add.';
@@ -1414,6 +1638,8 @@
                     name: label,
                     issue: issue,
                     openReportTicket: equipmentFromCache?.open_report_ticket_code || '',
+                    roomId: String(currentRoomId),
+                    roomLabel: roomLabel,
                 });
                 renderSelectedItems();
                 rebuildEquipmentSelect();
@@ -1424,10 +1650,27 @@
             addManualEquipmentBtn.addEventListener('click', function () {
                 const name = equipmentManualInput.value.trim();
                 const issue = getIssueForAdd();
+                const currentRoomId = roomSelect.value;
+                const roomOption = roomSelect.options[roomSelect.selectedIndex];
+                const roomLabel = roomOption
+                    ? (roomOption.getAttribute('data-label') || roomOption.textContent.trim())
+                    : '';
 
                 equipmentError.classList.add('hidden');
                 equipmentManualInput.style.borderColor = '';
                 issueError.classList.add('hidden');
+
+                if (!currentRoomId) {
+                    locationError.classList.remove('hidden');
+                    if (roomPickerTrigger) {
+                        roomPickerTrigger.style.borderColor = '#dc2626';
+                        roomPickerTrigger.focus();
+                    } else {
+                        roomSelect.style.borderColor = '#dc2626';
+                        roomSelect.focus();
+                    }
+                    return;
+                }
 
                 if (!name) {
                     equipmentError.textContent = 'Please enter an equipment name.';
@@ -1451,7 +1694,13 @@
                     return;
                 }
 
-                selectedItems.push({ type: 'manual', name: name, issue: issue });
+                selectedItems.push({
+                    type: 'manual',
+                    name: name,
+                    issue: issue,
+                    roomId: String(currentRoomId),
+                    roomLabel: roomLabel,
+                });
                 renderSelectedItems();
                 equipmentManualInput.value = '';
                 clearSuggestedIssues();
@@ -1508,9 +1757,9 @@
                     return;
                 }
 
-                if (digits.length !== 4) {
+                if (digits.length !== 5) {
                     e.preventDefault();
-                    employeeError.textContent = 'Enter the 4-digit employee number.';
+                    employeeError.textContent = 'Enter the 5-digit employee number.';
                     employeeError.classList.remove('hidden');
                     if (employeeIdField) employeeIdField.style.borderColor = '#dc2626';
                     if (employeeDigitsInput) employeeDigitsInput.focus();
@@ -1518,11 +1767,39 @@
                 }
 
                 const roomId = roomSelect.value;
-                if (!roomId) {
+                selectedItems.forEach(function (item) {
+                    if (!item.roomId && roomId) {
+                        item.roomId = String(roomId);
+                    }
+                });
+
+                const roomIds = Array.from(new Set(
+                    selectedItems
+                        .map(function (item) { return String(item.roomId || ''); })
+                        .filter(Boolean)
+                ));
+
+                if (roomIds.length > 1) {
+                    e.preventDefault();
+                    equipmentError.textContent = 'Added equipment spans multiple locations. Remove items from other locations, or submit the campus report form which supports multiple locations.';
+                    equipmentError.classList.remove('hidden');
+                    return;
+                }
+
+                if (roomIds.length === 1) {
+                    roomSelect.value = roomIds[0];
+                }
+
+                if (!roomSelect.value) {
                     e.preventDefault();
                     locationError.classList.remove('hidden');
-                    roomSelect.style.borderColor = '#dc2626';
-                    roomSelect.focus();
+                    if (roomPickerTrigger) {
+                        roomPickerTrigger.style.borderColor = '#dc2626';
+                        roomPickerTrigger.focus();
+                    } else {
+                        roomSelect.style.borderColor = '#dc2626';
+                        roomSelect.focus();
+                    }
                     return;
                 }
 
@@ -1576,6 +1853,7 @@
             if (window.lucide) lucide.createIcons();
 
             syncEmployeeIdField();
+            syncLocationPickerLabel();
             if (employeeInput && employeeInput.value.trim().length >= 8) {
                 verifyReporterById(employeeInput.value.trim());
             }

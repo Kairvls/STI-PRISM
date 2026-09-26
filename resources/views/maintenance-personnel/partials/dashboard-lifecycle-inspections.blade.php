@@ -1,10 +1,11 @@
 @php
     $lifecycleAlerts = $lifecycleAlerts ?? collect();
     $semesterInspectionDue = $semesterInspectionDue ?? collect();
+    $warrantyAlerts = $warrantyAlerts ?? collect();
 @endphp
 
-@if ($lifecycleAlerts->isNotEmpty() || $semesterInspectionDue->isNotEmpty())
-    <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+@if ($lifecycleAlerts->isNotEmpty() || $semesterInspectionDue->isNotEmpty() || $warrantyAlerts->isNotEmpty())
+    <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <section class="rounded-2xl border border-slate-200 bg-white p-5">
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -71,6 +72,41 @@
                     </li>
                 @empty
                     <li class="px-2 py-6 text-center text-sm text-slate-400">No aging equipment needing attention.</li>
+                @endforelse
+            </ul>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-5">
+            <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-semibold text-slate-950">Warranty alerts</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Expiring soon or already expired</p>
+                </div>
+                <a href="{{ url('/maintenance/equipment-inventory') }}" class="text-xs font-semibold text-[#0025cc] hover:underline">Inventory</a>
+            </div>
+            <ul class="space-y-3">
+                @forelse (($warrantyAlerts ?? collect()) as $alert)
+                    @php
+                        $days = (int) ($alert->days_remaining ?? 0);
+                        $expired = $days < 0;
+                        $expiry = $alert->equipment_warranty_expiration ?? null;
+                    @endphp
+                    <li class="flex items-center justify-between gap-3 rounded-xl px-2 py-1.5">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-medium text-slate-900">{{ $alert->equipment_name }}</p>
+                            <p class="truncate text-xs text-slate-500">
+                                {{ $alert->equipment_asset_tag ?: 'No asset tag' }}
+                                @if ($expiry)
+                                    · Ends {{ \Illuminate\Support\Carbon::parse($expiry)->format('M d, Y') }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold {{ $expired ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700' }}">
+                            {{ $expired ? 'Expired' : ($days.'d left') }}
+                        </span>
+                    </li>
+                @empty
+                    <li class="px-2 py-6 text-center text-sm text-slate-400">No warranty alerts.</li>
                 @endforelse
             </ul>
         </section>
