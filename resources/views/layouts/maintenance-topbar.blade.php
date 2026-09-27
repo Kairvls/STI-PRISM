@@ -14,6 +14,7 @@
                 request()->is('maintenance/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
                 request()->is('maintenance/reporters/approvals*') => ['Reporters Approval', 'Confirm faculty and staff applications before they can report.'],
                 request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
+                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Official faculty and staff list used to verify reporter applications.'],
                 request()->is('maintenance/infrastructure*') => ['Building Layout', 'Campus buildings and floor layouts.'],
                 request()->is('maintenance/rooms*') => ['Rooms', 'Rooms and assigned equipment.'],
                 request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', 'Generate and manage equipment QR codes.'],
@@ -25,6 +26,8 @@
                 request()->is('maintenance/equipment/transfer*') => ['Transfer', 'Move equipment between rooms.'],
                 request()->is('maintenance/equipment/history*') => ['Equipment History', 'Past activity for equipment records.'],
                 request()->is('maintenance/borrowing*') => ['Borrowing', 'Borrowed equipment and return status.'],
+                request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
+                request()->is('maintenance/property-assignments') => ['Property Assignment', 'Who is accountable for each item, by person or office.'],
                 request()->is('maintenance/schedules*') => ['Schedules', 'Planned maintenance work.'],
                 request()->is('maintenance/disposal*') => ['Disposal', 'Items marked for disposal.'],
                 request()->is('maintenance/semester-inspections/create') => ['New Campaign', 'Check equipment at STI College Ormoc.'],
@@ -48,6 +51,8 @@
     </div>
 
     <div class="flex items-center gap-2">
+        @include('partials.handover-inbox-chip')
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"

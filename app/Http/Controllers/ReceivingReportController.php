@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
+use App\Support\RfcAtpLinks;
 use App\Support\RisWorkflow;
 use App\Support\RrFormNumber;
 use App\Support\UserSignatureLibrary;
@@ -79,8 +80,13 @@ class ReceivingReportController extends Controller
 
         $summary = $this->rrStatusSummary();
 
-        $eligibleRfcs = $this->eligibleRfcQuery()->get();
+        $eligibleRfcs = $this->eligibleFundingTargets();
         $rfcPrefill = $this->buildRfcPrefill($eligibleRfcs);
+        $selectedRfcId = (int) $request->query('selected_rfc', 0);
+        $selectedFundingKey = trim((string) $request->query('selected_key', ''));
+        if ($selectedFundingKey === '' && $selectedRfcId > 0) {
+            $selectedFundingKey = (string) ($eligibleRfcs->firstWhere('request_check_id', $selectedRfcId)->funding_key ?? '');
+        }
         $suppliers = $this->activeSuppliersForRr();
         $rrIds = $reports->getCollection()->pluck('receiving_report_id');
         $items = $this->itemsFor($rrIds);
@@ -114,7 +120,8 @@ class ReceivingReportController extends Controller
             'rfcPrefill' => $rfcPrefill,
             'suppliers' => $suppliers,
             'items' => $items,
-            'selectedRfcId' => $request->query('selected_rfc'),
+            'selectedRfcId' => $selectedRfcId ?: null,
+            'selectedFundingKey' => $selectedFundingKey !== '' ? $selectedFundingKey : null,
             'viewRrId' => $viewRrId ?: null,
             'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
             'suggestedRrFormNumber' => RrFormNumber::next(),
@@ -133,15 +140,17 @@ class ReceivingReportController extends Controller
             ]);
         }
 
-        if ($error = $this->rrEligibilityError($validated['receiving_report_request_check_id'] ?? null, null, !$isDraft)) {
+        [$rfcId, $atpId] = $this->resolveRrTarget($validated);
+
+        if ($error = $this->rrEligibilityError($rfcId, $atpId, null, !$isDraft)) {
             return back()->withInput()->with('error', $error);
         }
 
-        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($validated['receiving_report_request_check_id'] ?? null, $validated['items'] ?? []))) {
+        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $atpId, $validated['items'] ?? []))) {
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig) {
+        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId) {
             $now = now();
             $user = auth()->user();
             $reviewerId = $isDraft
@@ -154,7 +163,7 @@ class ReceivingReportController extends Controller
                     : RrFormNumber::next());
 
             $payload = [
-                'receiving_report_request_check_id' => $validated['receiving_report_request_check_id'] ?? null,
+                'receiving_report_request_check_id' => $rfcId,
                 'receiving_report_form_number' => $formNumber,
                 'receiving_report_date' => $validated['receiving_report_date'] ?? null,
                 'receiving_report_received_from' => $validated['receiving_report_received_from'] ?? null,
@@ -186,8 +195,8 @@ class ReceivingReportController extends Controller
                     'items' => 'Add at least one item with quantity of 1 or more before submitting.',
                 ]);
             }
-            $this->linkRfc($validated['receiving_report_request_check_id'] ?? null, $id);
-            $this->attachRelatedDocuments($id, $validated['receiving_report_request_check_id'] ?? null);
+            $this->linkRfc($rfcId, $id);
+            $this->attachRelatedDocuments($id, $rfcId, $atpId);
 
             if (!$isDraft) {
                 $this->notifyReceiving($id, $reviewerId);
@@ -209,7 +218,7 @@ class ReceivingReportController extends Controller
 
         $isDraft = $request->input('save_action', 'draft') === 'draft';
         $validated = $this->validateRr($request, $isDraft, $id);
-        $rfcId = $validated['receiving_report_request_check_id'] ?? $rr->receiving_report_request_check_id;
+        [$rfcId, $atpId] = $this->resolveRrTarget($validated, $rr);
         $receivedName = trim((string) ($validated['receiving_report_received_by_name'] ?? ($rr->receiving_report_received_by_name ?? '')));
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['receiving_report_received_by_signature'] ?? null)
             ?? (RisWorkflow::isDrawnSignature((string) ($rr->receiving_report_received_by_signature ?? ''))
@@ -221,15 +230,15 @@ class ReceivingReportController extends Controller
             ]);
         }
 
-        if ($error = $this->rrEligibilityError($rfcId, $id, !$isDraft)) {
+        if ($error = $this->rrEligibilityError($rfcId, $atpId, $id, !$isDraft)) {
             return back()->withInput()->with('error', $error);
         }
 
-        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $validated['items'] ?? []))) {
+        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $atpId, $validated['items'] ?? []))) {
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $receivedName, $receivedSig) {
+        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -276,7 +285,7 @@ class ReceivingReportController extends Controller
                 ]);
             }
             $this->linkRfc($rfcId, $id);
-            $this->attachRelatedDocuments($id, $rfcId);
+            $this->attachRelatedDocuments($id, $rfcId, $atpId);
 
             if (!$isDraft) {
                 $this->notifyReceiving($id, $reviewerId);
@@ -300,7 +309,8 @@ class ReceivingReportController extends Controller
             }
             PurchaserDocumentAccess::assertOwns($rr, 'rr');
 
-            if ($error = $this->rrEligibilityError($rr->receiving_report_request_check_id, $id, true)) {
+            [$rfcId, $atpId] = $this->resolveRrTarget([], $rr);
+            if ($error = $this->rrEligibilityError($rfcId, $atpId, $id, true)) {
                 return back()->with('error', $error);
             }
 
@@ -332,8 +342,8 @@ class ReceivingReportController extends Controller
                 $update['receiving_report_assigned_reviewer_id'] = $reviewerId;
             }
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($update);
-            $this->linkRfc($rr->receiving_report_request_check_id, $id);
-            $this->attachRelatedDocuments($id, $rr->receiving_report_request_check_id);
+            $this->linkRfc($rfcId, $id);
+            $this->attachRelatedDocuments($id, $rfcId, $atpId);
             $this->notifyReceiving($id, $reviewerId);
 
             return back()->with('success', 'Receiving Report submitted to Receiving.');
@@ -399,10 +409,11 @@ class ReceivingReportController extends Controller
         return $request->validate([
             'save_action' => ['required', 'in:draft,submit'],
             'receiving_report_request_check_id' => [
-                $isDraft ? 'nullable' : 'required',
+                'nullable',
                 'integer',
                 'exists:request_check_table,request_check_id',
             ],
+            'receiving_report_funding_key' => ['nullable', 'string', 'regex:/^\d+:\d+$/'],
             'receiving_report_form_number' => $this->rrFormNumberRules(false, $ignoreRrId),
             'receiving_report_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'receiving_report_received_from' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
@@ -505,36 +516,27 @@ class ReceivingReportController extends Controller
         }
     }
 
-    private function validateRrItemsForFunding($rfcId, array $items): ?string
+    private function validateRrItemsForFunding($rfcId, $atpId, array $items): ?string
     {
         if (!$rfcId) {
             return null;
         }
 
-        $rfc = DB::table('request_check_table')
-            ->leftJoin(
-                'authority_to_purchase_table',
-                'request_check_table.request_check_authority_purchase_id',
-                '=',
-                'authority_to_purchase_table.authority_purchase_id'
-            )
-            ->where('request_check_table.request_check_id', $rfcId)
-            ->select(
-                'request_check_table.*',
-                'authority_to_purchase_table.authority_purchase_payment_path',
-                'authority_to_purchase_table.authority_purchase_supplier_id'
-            )
-            ->first();
-
+        $rfc = DB::table('request_check_table')->where('request_check_id', $rfcId)->first();
         if (!$rfc) {
             return 'Selected funding request was not found.';
         }
+
+        $atpId = (int) ($atpId ?: $rfc->request_check_authority_purchase_id);
+        $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first();
+        $rfc->authority_purchase_payment_path = $atp->authority_purchase_payment_path ?? null;
+        $rfc->authority_purchase_supplier_id = $atp->authority_purchase_supplier_id ?? null;
 
         $path = $rfc->authority_purchase_payment_path
             ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
 
         $atpItems = DB::table('authority_to_purchase_items_table')
-            ->where('authority_purchase_id', $rfc->request_check_authority_purchase_id)
+            ->where('authority_purchase_id', $atpId)
             ->orderBy('atp_item_id')
             ->get();
 
@@ -599,55 +601,53 @@ class ReceivingReportController extends Controller
 
     private function rrBaseQuery()
     {
-        return DB::table('receiving_reports_table')
+        $query = DB::table('receiving_reports_table')
             ->leftJoin(
                 'request_check_table',
                 'receiving_reports_table.receiving_report_request_check_id',
                 '=',
                 'request_check_table.request_check_id'
-            )
-            ->leftJoin(
+            );
+
+        if ($this->rrHasAtpColumn()) {
+            $query->leftJoin('authority_to_purchase_table', function ($join) {
+                $join->on(
+                    'authority_to_purchase_table.authority_purchase_id',
+                    '=',
+                    DB::raw('COALESCE(receiving_reports_table.receiving_report_atp_id, request_check_table.request_check_authority_purchase_id)')
+                );
+            });
+        } else {
+            $query->leftJoin(
                 'authority_to_purchase_table',
                 'request_check_table.request_check_authority_purchase_id',
                 '=',
                 'authority_to_purchase_table.authority_purchase_id'
-            )
-            ->select(
-                'receiving_reports_table.*',
-                'request_check_table.request_check_form_number',
-                'request_check_table.request_check_payee',
-                'request_check_table.request_check_funding_type',
-                'authority_to_purchase_table.authority_purchase_payment_path'
             );
+        }
+
+        return $query->select(
+            'receiving_reports_table.*',
+            'request_check_table.request_check_form_number',
+            'request_check_table.request_check_payee',
+            'request_check_table.request_check_funding_type',
+            'authority_to_purchase_table.authority_purchase_form_number',
+            'authority_to_purchase_table.authority_purchase_payment_path'
+        );
     }
 
-    private function eligibleRfcQuery()
+    private function rrHasAtpColumn(): bool
+    {
+        return Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id');
+    }
+
+    /**
+     * One row per (funding request, ATP) pair that still needs a Receiving Report.
+     * A funding request covering several ATPs (Purchase Order) yields one row per ATP.
+     */
+    private function eligibleFundingTargets()
     {
         $query = DB::table('request_check_table')
-            ->leftJoin(
-                'authority_to_purchase_table',
-                'request_check_table.request_check_authority_purchase_id',
-                '=',
-                'authority_to_purchase_table.authority_purchase_id'
-            )
-            ->leftJoin(
-                'suppliers_table',
-                'authority_to_purchase_table.authority_purchase_supplier_id',
-                '=',
-                'suppliers_table.supplier_id'
-            )
-            ->leftJoin(
-                'physical_suppliers_table',
-                'suppliers_table.supplier_id',
-                '=',
-                'physical_suppliers_table.supplier_id'
-            )
-            ->leftJoin(
-                'online_suppliers_table',
-                'suppliers_table.supplier_id',
-                '=',
-                'online_suppliers_table.supplier_id'
-            )
             ->where('request_check_table.request_check_status', 'Approved')
             ->where(function ($q) {
                 $q->whereNull('request_check_table.request_check_is_archived')
@@ -658,25 +658,37 @@ class ReceivingReportController extends Controller
             $query->whereNotNull('request_check_table.request_check_funds_released_at');
         }
 
-        return $query
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
-                    ->from('receiving_reports_table')
-                    ->whereColumn(
-                        'receiving_reports_table.receiving_report_request_check_id',
-                        'request_check_table.request_check_id'
-                    )
-                    ->where(function ($inner) {
-                        $inner->whereNull('receiving_report_is_archived')
-                            ->orWhere('receiving_report_is_archived', 0);
-                    })
-                    ->whereIn('receiving_report_status', self::ACTIVE_STATUSES);
-            })
+        $rfcs = $query
             ->select(
                 'request_check_table.request_check_id',
                 'request_check_table.request_check_form_number',
                 'request_check_table.request_check_payee',
                 'request_check_table.request_check_funding_type',
+                'request_check_table.request_check_authority_purchase_id'
+            )
+            ->orderByDesc('request_check_table.request_check_id')
+            ->limit(50)
+            ->get();
+
+        if ($rfcs->isEmpty()) {
+            return collect();
+        }
+
+        $primaryByRfc = $rfcs->mapWithKeys(fn ($rfc) => [
+            (int) $rfc->request_check_id => (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null,
+        ])->all();
+        $linkMap = RfcAtpLinks::atpIdsForMany($primaryByRfc);
+        $atpIds = collect($linkMap)->flatten()->unique()->values();
+        if ($atpIds->isEmpty()) {
+            return collect();
+        }
+
+        $atps = DB::table('authority_to_purchase_table')
+            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->whereIn('authority_to_purchase_table.authority_purchase_id', $atpIds)
+            ->select(
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
                 'authority_to_purchase_table.authority_purchase_payment_path',
@@ -686,8 +698,72 @@ class ReceivingReportController extends Controller
                 'online_suppliers_table.shop_name',
                 'suppliers_table.supplier_store_type'
             )
-            ->orderByDesc('request_check_table.request_check_id')
-            ->limit(50);
+            ->get()
+            ->keyBy('authority_purchase_id');
+
+        $taken = [];
+        $activeRrs = DB::table('receiving_reports_table')
+            ->whereIn('receiving_report_request_check_id', $rfcs->pluck('request_check_id'))
+            ->where(function ($inner) {
+                $inner->whereNull('receiving_report_is_archived')
+                    ->orWhere('receiving_report_is_archived', 0);
+            })
+            ->whereIn('receiving_report_status', self::ACTIVE_STATUSES)
+            ->get($this->rrHasAtpColumn()
+                ? ['receiving_report_request_check_id', 'receiving_report_atp_id']
+                : ['receiving_report_request_check_id']);
+        foreach ($activeRrs as $row) {
+            $rfcId = (int) $row->receiving_report_request_check_id;
+            $atpId = (int) ($row->receiving_report_atp_id ?? 0) ?: (int) ($primaryByRfc[$rfcId] ?? 0);
+            $taken[$rfcId.':'.$atpId] = true;
+        }
+
+        $targets = collect();
+        foreach ($rfcs as $rfc) {
+            $rfcAtpIds = $linkMap[(int) $rfc->request_check_id] ?? [];
+            foreach ($rfcAtpIds as $atpId) {
+                $key = $rfc->request_check_id.':'.$atpId;
+                $atp = $atps->get($atpId);
+                if (isset($taken[$key]) || !$atp) {
+                    continue;
+                }
+                $targets->push((object) array_merge((array) $atp, [
+                    'funding_key' => $key,
+                    'request_check_id' => (int) $rfc->request_check_id,
+                    'request_check_form_number' => $rfc->request_check_form_number,
+                    'request_check_payee' => $rfc->request_check_payee,
+                    'request_check_funding_type' => $rfc->request_check_funding_type,
+                    'is_multi_atp' => count($rfcAtpIds) > 1,
+                ]));
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @return array{0: ?int, 1: ?int} [rfcId, atpId]
+     */
+    private function resolveRrTarget(array $validated, ?object $rr = null): array
+    {
+        $key = trim((string) ($validated['receiving_report_funding_key'] ?? ''));
+        if (preg_match('/^(\d+):(\d+)$/', $key, $m)) {
+            return [(int) $m[1], (int) $m[2]];
+        }
+
+        $rfcId = (int) ($validated['receiving_report_request_check_id'] ?? ($rr->receiving_report_request_check_id ?? 0));
+        if ($rfcId < 1) {
+            return [null, null];
+        }
+
+        if ($rr && (int) $rr->receiving_report_request_check_id === $rfcId && !empty($rr->receiving_report_atp_id)) {
+            return [$rfcId, (int) $rr->receiving_report_atp_id];
+        }
+
+        $primary = DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_authority_purchase_id');
+        $atpIds = RfcAtpLinks::atpIdsFor($rfcId, $primary ? (int) $primary : null);
+
+        return [$rfcId, count($atpIds) === 1 ? $atpIds[0] : null];
     }
 
     private function buildRfcPrefill($eligibleRfcs): array
@@ -721,7 +797,7 @@ class ReceivingReportController extends Controller
                     'supplier_name' => $path === ProcurementPaymentPath::CASH_ADVANCE ? '' : $from,
                 ];
             }
-            $prefill[(string) $rfc->request_check_id] = [
+            $prefill[(string) $rfc->funding_key] = [
                 'received_from' => $from,
                 'address' => $rfc->company_address ?? '',
                 'payment_path' => $path,
@@ -770,14 +846,29 @@ class ReceivingReportController extends Controller
         return $summary;
     }
 
-    private function rrEligibilityError($rfcId, $ignoreId, bool $required): ?string
+    private function rrEligibilityError($rfcId, $atpId, $ignoreId, bool $required): ?string
     {
         if (!$rfcId) {
             return $required ? 'Select an approved Request for Check with released funds before submitting.' : null;
         }
 
-        if ($this->hasBlockingRr($rfcId, $ignoreId)) {
-            return 'A Receiving Report already exists for the selected Request for Check.';
+        $primary = DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_authority_purchase_id');
+        $coveredAtpIds = RfcAtpLinks::atpIdsFor((int) $rfcId, $primary ? (int) $primary : null);
+
+        if (!$atpId) {
+            return $required && count($coveredAtpIds) > 1
+                ? 'This funding request covers several ATPs. Choose which ATP this Receiving Report is for.'
+                : null;
+        }
+
+        if ($coveredAtpIds !== [] && !in_array((int) $atpId, $coveredAtpIds, true)) {
+            return 'That ATP is not covered by the selected funding request.';
+        }
+
+        if ($this->hasBlockingRr($rfcId, $atpId, $ignoreId)) {
+            return count($coveredAtpIds) > 1
+                ? 'A Receiving Report already exists for this ATP on the selected funding request.'
+                : 'A Receiving Report already exists for the selected Request for Check.';
         }
 
         if (!$this->rfcReadyForReceivingReport($rfcId)) {
@@ -795,7 +886,7 @@ class ReceivingReportController extends Controller
             ->exists();
     }
 
-    private function hasBlockingRr($rfcId, $ignoreId = null): bool
+    private function hasBlockingRr($rfcId, $atpId = null, $ignoreId = null): bool
     {
         if (!$rfcId) {
             return false;
@@ -808,6 +899,16 @@ class ReceivingReportController extends Controller
                 $q->whereNull('receiving_report_is_archived')
                     ->orWhere('receiving_report_is_archived', 0);
             });
+
+        if ($atpId && $this->rrHasAtpColumn()) {
+            $primary = (int) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_authority_purchase_id');
+            $query->where(function ($q) use ($atpId, $primary) {
+                $q->where('receiving_report_atp_id', $atpId);
+                if ($primary === (int) $atpId) {
+                    $q->orWhereNull('receiving_report_atp_id');
+                }
+            });
+        }
 
         if ($ignoreId) {
             $query->where('receiving_report_id', '!=', $ignoreId);
@@ -919,42 +1020,29 @@ class ReceivingReportController extends Controller
         );
     }
 
-    private function attachRelatedDocuments($rrId, $rfcId): void
+    private function attachRelatedDocuments($rrId, $rfcId, $atpId = null): void
     {
         if (!$rfcId) {
             return;
         }
 
-        $rfc = DB::table('request_check_table')
-            ->leftJoin(
-                'authority_to_purchase_table',
-                'request_check_table.request_check_authority_purchase_id',
-                '=',
-                'authority_to_purchase_table.authority_purchase_id'
-            )
-            ->where('request_check_table.request_check_id', $rfcId)
-            ->select(
-                'request_check_table.request_check_authority_purchase_id',
-                'authority_to_purchase_table.authority_purchase_ris_id'
-            )
-            ->first();
-
-        if (!$rfc) {
+        $atpId = (int) ($atpId ?: DB::table('request_check_table')
+            ->where('request_check_id', $rfcId)
+            ->value('request_check_authority_purchase_id'));
+        if ($atpId < 1) {
             return;
         }
 
+        $risId = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $atpId)
+            ->value('authority_purchase_ris_id');
+
         $payload = [];
-        if (
-            Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')
-            && !empty($rfc->request_check_authority_purchase_id)
-        ) {
-            $payload['receiving_report_atp_id'] = $rfc->request_check_authority_purchase_id;
+        if ($this->rrHasAtpColumn()) {
+            $payload['receiving_report_atp_id'] = $atpId;
         }
-        if (
-            Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')
-            && !empty($rfc->authority_purchase_ris_id)
-        ) {
-            $payload['receiving_report_ris_id'] = $rfc->authority_purchase_ris_id;
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id') && !empty($risId)) {
+            $payload['receiving_report_ris_id'] = $risId;
         }
 
         if ($payload !== []) {

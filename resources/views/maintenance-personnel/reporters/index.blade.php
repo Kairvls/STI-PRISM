@@ -1976,6 +1976,7 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
+                <div data-duplicate-slot class="empty:hidden"></div>
                 <div>
                     <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-red-500">*</span></label>
                     <select id="type" name="type" required class="{{ $reporterFieldClass }}">
@@ -2081,6 +2082,7 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
+                <div data-duplicate-slot class="empty:hidden"></div>
                 <div>
                     <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type <span class="text-red-500">*</span></label>
                     <select name="type" id="editType" required class="{{ $reporterFieldClass }}">
@@ -2427,7 +2429,12 @@
             importModal.classList.remove("flex");
         }
 
+        function clearDuplicateWarnings() {
+            document.querySelectorAll('[data-duplicate-slot]').forEach((slot) => { slot.innerHTML = ''; });
+        }
+
         function openCreateModal() {
+            clearDuplicateWarnings();
             const form = document.getElementById('createReporterForm');
             if (form) form.reset();
             syncReporterEmployeeId('create');
@@ -2602,6 +2609,7 @@
         }
 
         function editReporter(id, employee, first, middle, last, type, email, contact) {
+            clearDuplicateWarnings();
             document.getElementById("editReporterId").value = id;
             document.getElementById("editFirstName").value = first || "";
             document.getElementById("editMiddleName").value = middle || "";
@@ -3136,6 +3144,23 @@
                 return false;
             }
 
+            const namePattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'’.\-]*$/u;
+            const badName = [
+                ['First name', data.firstName],
+                ['Middle name', data.middleName],
+                ['Last name', data.lastName],
+            ].find(([, value]) => value && !namePattern.test(value.replace(/\s+/g, ' ')));
+
+            if (badName) {
+                reporterAlert(
+                    'warning',
+                    badName[0] + ' not valid',
+                    badName[0] + ' can only use letters, spaces, hyphens (-), apostrophes (\') and periods (.), and must start with a letter.'
+                );
+
+                return false;
+            }
+
 
             // =================================================
             // EMAIL
@@ -3234,6 +3259,51 @@
             });
 
     </script>
+
+    @if (session('reporter_duplicates'))
+        <template id="reporterDuplicateWarning">
+            @include('partials.duplicate-name-warning', ['matches' => session('reporter_duplicates'), 'noun' => 'reporter', 'wrapperClass' => ''])
+        </template>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const mode = @js(session('reporter_duplicate_mode', 'create'));
+                const old = @js([
+                    'reporter_id' => old('reporter_id'),
+                    'employee_id' => old('employee_id'),
+                    'first_name' => old('first_name'),
+                    'middle_name' => old('middle_name'),
+                    'last_name' => old('last_name'),
+                    'type' => old('type'),
+                    'email' => old('email'),
+                    'contact' => old('contact'),
+                ]);
+                let form;
+
+                if (mode === 'edit') {
+                    editReporter(old.reporter_id, old.employee_id, old.first_name, old.middle_name, old.last_name, old.type, old.email, old.contact);
+                    form = document.getElementById('editReporterForm');
+                } else {
+                    openCreateModal();
+                    form = document.getElementById('createReporterForm');
+                    const parsed = parseReporterEmployeeId(old.employee_id);
+                    document.getElementById('type').value = old.type || parsed.type || '';
+                    document.getElementById('employee_id_digits').value = parsed.digits || '';
+                    ['first_name', 'middle_name', 'last_name', 'email', 'contact'].forEach((name) => {
+                        const input = form.querySelector(`[name="${name}"]`);
+                        if (input) input.value = old[name] || '';
+                    });
+                    syncReporterEmployeeId('create');
+                }
+
+                const slot = form?.querySelector('[data-duplicate-slot]');
+                const template = document.getElementById('reporterDuplicateWarning');
+                if (slot && template) {
+                    slot.appendChild(template.content.cloneNode(true));
+                    if (window.lucide) lucide.createIcons();
+                }
+            });
+        </script>
+    @endif
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 

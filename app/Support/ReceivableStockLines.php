@@ -120,6 +120,8 @@ class ReceivableStockLines
                 'receiving_report_form_number' => 'rr.receiving_report_form_number',
                 'receiving_report_date' => 'rr.receiving_report_date',
                 'receiving_report_delivery_date' => 'rr.receiving_report_delivery_date',
+                'receiving_report_invoice_no' => 'rr.receiving_report_invoice_no',
+                'receiving_report_dr_no' => 'rr.receiving_report_dr_no',
                 'receiving_report_supplier_id' => 'rr.receiving_report_supplier_id',
                 'receiving_report_atp_id' => 'rr.receiving_report_atp_id',
                 'receiving_report_request_check_id' => 'rr.receiving_report_request_check_id',
@@ -230,6 +232,7 @@ class ReceivableStockLines
             $poByAtp = DB::table('purchase_order_atps_table as poa')
                 ->join('purchase_orders_table as po', 'po.purchase_order_id', '=', 'poa.purchase_order_id')
                 ->whereIn('poa.authority_purchase_id', $atpIds->all())
+                ->where('po.purchase_order_status', '!=', PurchaseOrderBasket::STATUS_CANCELLED)
                 ->get([
                     'poa.authority_purchase_id',
                     'po.purchase_order_id',
@@ -253,7 +256,9 @@ class ReceivableStockLines
             }
 
             $qty = (int) ($row->receiving_report_item_quantity ?? 0);
-            $ordered = (int) ($row->receiving_report_item_ordered_qty ?? $qty);
+            $ordered = isset($row->receiving_report_item_ordered_qty) && $row->receiving_report_item_ordered_qty !== null
+                ? (int) $row->receiving_report_item_ordered_qty
+                : null;
             $unitPrice = isset($row->receiving_report_item_unit_price) && $row->receiving_report_item_unit_price !== null
                 ? (float) $row->receiving_report_item_unit_price
                 : null;
@@ -276,6 +281,9 @@ class ReceivableStockLines
             }
             $poNumber = trim((string) ($po->purchase_order_number ?? ''));
             $atpNumber = trim((string) ($atp->authority_purchase_form_number ?? ''));
+            $invoiceNo = trim((string) ($row->receiving_report_invoice_no ?? ''));
+            $drNo = trim((string) ($row->receiving_report_dr_no ?? ''));
+            $rrDate = $row->receiving_report_date ?? $row->receiving_report_delivery_date ?? null;
 
             return (object) [
                 'receiving_report_item_id' => (int) $row->receiving_report_item_id,
@@ -295,6 +303,9 @@ class ReceivableStockLines
                 'supplier_id' => $supplierId > 0 ? $supplierId : null,
                 'supplier_name' => $supplierName !== '' ? $supplierName : null,
                 'purchase_date' => $purchaseDate ? (string) $purchaseDate : null,
+                'rr_date' => $rrDate ? (string) $rrDate : null,
+                'invoice_no' => $invoiceNo !== '' ? $invoiceNo : null,
+                'dr_no' => $drNo !== '' ? $drNo : null,
                 'label' => '',
             ];
         })->values();

@@ -55,7 +55,10 @@
                 </p>
                 <p class="mt-1 text-xs text-slate-500">
                     Payee: {{ $rfc->request_check_payee ?: '—' }}
-                    @if (!empty($rfc->authority_purchase_form_number))
+                    @if (!empty($purchaseOrderLabel))
+                        · {{ $purchaseOrderLabel }}
+                        · ATPs {{ ($linkedAtps ?? collect())->map(fn ($atp) => \App\Support\PurchaseOrderBasket::atpListLabel($atp))->implode(', ') }}
+                    @elseif (!empty($rfc->authority_purchase_form_number))
                         · ATP {{ $rfc->authority_purchase_form_number }}
                     @endif
                 </p>
@@ -76,7 +79,12 @@
                             <tbody>
                                 @foreach ($atpItems as $item)
                                     <tr>
-                                        <td>{{ $item->atp_description ?: '—' }}</td>
+                                        <td>
+                                            {{ $item->atp_description ?: '—' }}
+                                            @if (($linkedAtps ?? collect())->count() > 1 && !empty($item->atp_label))
+                                                <span class="block text-[11px] text-slate-400">{{ $item->atp_label }}</span>
+                                            @endif
+                                        </td>
                                         <td class="text-right whitespace-nowrap">{{ $item->atp_quantity ?? '—' }}{{ !empty($item->atp_unit) ? ' '.$item->atp_unit : '' }}</td>
                                         <td class="acc-money whitespace-nowrap">{{ $item->atp_amount !== null ? '₱'.number_format((float) $item->atp_amount, 2) : '—' }}</td>
                                     </tr>

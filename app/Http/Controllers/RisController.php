@@ -151,7 +151,7 @@ class RisController extends Controller
 
         // Paginated RIS list
         $spotlightQuery = clone $risQuery;
-        $risRecords = $risQuery
+        $risRecords = RisWorkflow::orderUrgentFirst($risQuery)
             ->orderByDesc('requisition_issue_slip_table.ris_created_at')
             ->paginate(10)
             ->withQueryString();
@@ -1625,9 +1625,20 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             );
         }
 
+        $incomingSignature = RisWorkflow::normalizeDrawnSignature((string) request()->input('signature_data', ''));
+        if ($incomingSignature) {
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update(['ris_requested_by_signature_image' => $incomingSignature]);
+                $ris->ris_requested_by_signature_image = $incomingSignature;
+            }
+            RisWorkflow::storeRequestedBySignature((int) $risId, $incomingSignature);
+        }
+
         if (! $this->risHasRequestedBySignature($ris)) {
-            return $this->backWithEditRisError(
-                $risId,
+            return back()->with(
+                'error',
                 'Please sign the RIS before ' . ($isResubmit ? 'resubmitting to Administrator.' : 'submitting to Administrator.')
             );
         }
@@ -2230,6 +2241,8 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 'ris_status',
                 DB::raw('COUNT(*) as aggregate')
             );
+
+        PurchaserDocumentAccess::scopeOwned($query, 'ris', 'requisition_issue_slip_table');
 
         if ($hasArchived) {
             $query->addSelect('ris_is_archived')

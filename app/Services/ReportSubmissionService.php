@@ -198,99 +198,16 @@ class ReportSubmissionService
             )
             : null;
 
-        $totalSelected = $equipmentIds->count() + $manualNames->count();
-        $isMultiItemSubmit = $totalSelected > 1;
-
-        $newEquipmentIds = collect();
-        $mergedReports = [];
-
-        if (! $isMultiItemSubmit && $equipmentIds->count() === 1 && $manualNames->isEmpty()) {
-            $equipmentId = (int) $equipmentIds->first();
-            $openReport = ReportGrouping::findOpenReport(
-                $equipmentId,
+        [$alreadyReportedIds, $freshIds] = $equipmentIds->partition(
+            fn ($equipmentId) => (bool) ReportGrouping::findOpenReport(
+                (int) $equipmentId,
                 (int) $request->report_room_id
-            );
+            )
+        );
 
-            $itemIssue = trim((string) ($equipmentIssuesById[$equipmentId] ?? ''));
-            if ($itemIssue === '') {
-                $itemIssue = trim((string) $request->report_suggested_issue);
-            }
-            if ($itemIssue === '') {
-                $itemIssue = trim((string) $request->report_problem_description);
-            }
-
-            if ($openReport) {
-                ReportGrouping::mergeIntoOpenReport($openReport, [
-                    'reporter_id' => $request->report_reporter_employee_id,
-                    'urgency' => $request->report_urgency_level,
-                    'preferred_action_date' => $preferredDate,
-                    'issue' => $itemIssue,
-                ]);
-
-                return [
-                    'success' => true,
-                    'merged' => true,
-                    'report_id' => (int) $openReport->report_id,
-                    'ticket_code' => ReportGrouping::ticketCode($openReport),
-                    'message' => 'This equipment already has an open report ('.ReportGrouping::ticketCode($openReport).'). Your update was added to it instead of creating a duplicate.',
-                ];
-            }
-
-            $newEquipmentIds->push($equipmentId);
-        } else {
-            foreach ($equipmentIds as $equipmentId) {
-                $equipmentId = (int) $equipmentId;
-                $openReport = ReportGrouping::findOpenReport(
-                    $equipmentId,
-                    (int) $request->report_room_id
-                );
-
-                if ($openReport) {
-                    $itemIssue = trim((string) ($equipmentIssuesById[$equipmentId] ?? ''));
-                    if ($itemIssue === '') {
-                        $itemIssue = trim((string) $request->report_suggested_issue);
-                    }
-                    if ($itemIssue === '') {
-                        $itemIssue = trim((string) $request->report_problem_description);
-                    }
-
-                    ReportGrouping::mergeIntoOpenReport($openReport, [
-                        'reporter_id' => $request->report_reporter_employee_id,
-                        'urgency' => $request->report_urgency_level,
-                        'preferred_action_date' => $preferredDate,
-                        'issue' => $itemIssue,
-                    ]);
-
-                    $mergedReports[(int) $openReport->report_id] = $openReport;
-
-                    continue;
-                }
-
-                $newEquipmentIds->push($equipmentId);
-            }
-        }
-
-        if ($newEquipmentIds->isEmpty() && $manualNames->isEmpty()) {
-            $mergedCount = count($mergedReports);
-
-            if ($mergedCount === 1) {
-                $openReport = reset($mergedReports);
-
-                return [
-                    'success' => true,
-                    'merged' => true,
-                    'report_id' => (int) $openReport->report_id,
-                    'ticket_code' => ReportGrouping::ticketCode($openReport),
-                    'message' => 'Your update was added to the existing open report ('.ReportGrouping::ticketCode($openReport).').',
-                ];
-            }
-
-            return [
-                'success' => true,
-                'merged' => true,
-                'message' => 'Your updates were added to '.$mergedCount.' existing open reports instead of creating duplicates.',
-            ];
-        }
+        // Not-yet-reported equipment leads, so a mixed ticket gets its own list row
+        // instead of stacking under an older open ticket.
+        $newEquipmentIds = $freshIds->merge($alreadyReportedIds)->values();
 
         $primaryEquipmentId = $newEquipmentIds->first();
         $primaryManual = $primaryEquipmentId ? null : $manualNames->first();
@@ -317,6 +234,10 @@ class ReportSubmissionService
 
         if (Schema::hasColumn('reports_table', 'report_related_count')) {
             $insertData['report_related_count'] = 1;
+        }
+
+        if (ReportGrouping::hasLastReportedColumn()) {
+            $insertData['report_last_reported_at'] = $insertData['report_submitted_at'];
         }
 
         if (ReportGrouping::hasPreferredActionDateColumn()) {
@@ -368,11 +289,19 @@ class ReportSubmissionService
             ? 'Maintenance report '.$ticketCode.' submitted successfully with '.$itemCount.' equipment items. It is now in Pending reports.'
             : 'Maintenance report '.$ticketCode.' submitted successfully. It is now in Pending reports.';
 
+        $repeatCount = $alreadyReportedIds->count();
+        if ($repeatCount > 0) {
+            $message .= ' '.($repeatCount === 1 ? '1 equipment was' : $repeatCount.' equipment were')
+                .' already reported and still waiting, so maintenance will see '
+                .($repeatCount === 1 ? 'it' : 'them').' flagged as priority.';
+        }
+
         return [
             'success' => true,
             'report_id' => $reportId,
             'ticket_code' => $ticketCode,
             'item_count' => $itemCount,
+            'repeat_count' => $repeatCount,
             'message' => $message,
         ];
     }

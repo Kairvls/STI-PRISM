@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\EquipmentLifecycle;
+use App\Support\PropertyAssignments;
 use App\Support\SemesterInspections;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -266,6 +267,7 @@ class SemesterInspectionController extends Controller
         $search = trim((string) $request->get('search', ''));
         $roomId = $request->get('room_id');
         $assetTag = trim((string) $request->get('asset_tag', ''));
+        $custodian = trim((string) $request->get('custodian', ''));
 
         $itemsQuery = DB::table('semester_inspection_items_table')
             ->join(
@@ -307,6 +309,9 @@ class SemesterInspectionController extends Controller
             ->orderBy('rooms_table.room_name')
             ->orderBy('equipment_table.equipment_name');
 
+        PropertyAssignments::joinInspectionCustodian($itemsQuery);
+        PropertyAssignments::applyInspectionCustodianFilter($itemsQuery, $custodian);
+
         if ($filter === 'pending') {
             $itemsQuery->where('item_status', 'Pending');
         } elseif ($filter === 'inspected') {
@@ -341,6 +346,9 @@ class SemesterInspectionController extends Controller
                     ->orWhere('equipment_table.equipment_tracking_mode', 'like', "%{$search}%")
                     ->orWhere('equipment_categories_table.equipment_category_name', 'like', "%{$search}%")
                     ->orWhere('rooms_table.room_name', 'like', "%{$search}%");
+                if (PropertyAssignments::inspectionColumnsReady()) {
+                    $q->orWhere('custodian.custodian_full_name', 'like', "%{$search}%");
+                }
             });
         }
 
@@ -375,6 +383,9 @@ class SemesterInspectionController extends Controller
             'search' => $search,
             'roomId' => $roomId,
             'assetTag' => $assetTag,
+            'custodian' => $custodian,
+            'custodianOptions' => PropertyAssignments::inspectionCustodianOptions($id),
+            'custodianTracking' => PropertyAssignments::inspectionColumnsReady(),
             'conditions' => SemesterInspections::CONDITIONS,
             'scopeLabel' => SemesterInspections::scopeLabel($campaign),
         ]);
@@ -401,6 +412,7 @@ class SemesterInspectionController extends Controller
             'item_action_taken' => ['nullable', 'string', 'max:5000'],
             'apply_status' => ['nullable', 'boolean'],
             'proof_image' => ['nullable', 'image', 'max:4096'],
+            'custodian_verified' => ['nullable', 'in:0,1'],
         ]);
 
         $item = DB::table('semester_inspection_items_table')
@@ -411,6 +423,10 @@ class SemesterInspectionController extends Controller
         if (! $item) {
             abort(404);
         }
+
+        $custodianVerified = $request->filled('custodian_verified')
+            ? $request->boolean('custodian_verified')
+            : null;
 
         $proofPath = $item->item_proof_image;
         if ($request->hasFile('proof_image')) {
@@ -431,6 +447,7 @@ class SemesterInspectionController extends Controller
             $proofPath,
             $mapping,
             $applyStatus,
+            $custodianVerified,
             &$appliedInventory,
             &$appliedCondition
         ) {
@@ -455,6 +472,8 @@ class SemesterInspectionController extends Controller
                 }
             }
 
+            $custodianCheck = PropertyAssignments::recordInspectionCheck((int) $item->item_equipment_id, $custodianVerified);
+
             DB::table('semester_inspection_items_table')
                 ->where('item_id', $itemId)
                 ->update([
@@ -468,7 +487,7 @@ class SemesterInspectionController extends Controller
                     'item_inspected_by' => Auth::id(),
                     'item_inspected_at' => now(),
                     'item_updated_at' => now(),
-                ]);
+                ] + $custodianCheck);
 
             if (in_array($campaign->campaign_status, ['Draft', 'Active'], true)) {
                 DB::table('semester_inspection_campaigns_table')
@@ -491,7 +510,8 @@ class SemesterInspectionController extends Controller
                 'audit_log_reference_id' => $itemId,
                 'audit_log_description' => 'Marked '.($equipment->equipment_name ?? 'equipment')
                     .' as '.$validated['item_condition']
-                    .' on campaign "'.$campaign->campaign_title.'".',
+                    .' on campaign "'.$campaign->campaign_title.'"'
+                    .PropertyAssignments::inspectionCheckNote($custodianCheck).'.',
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);

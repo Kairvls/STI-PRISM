@@ -9,7 +9,7 @@
 
 <div
     x-data="{
-        createOpen: {{ ($errors->any() && old('receiving_report_request_check_id')) || !empty($selectedRfcId) ? 'true' : 'false' }},
+        createOpen: {{ ($errors->any() && old('receiving_report_funding_key')) || !empty($selectedFundingKey) || !empty($selectedRfcId) ? 'true' : 'false' }},
         viewOpen: {{ !empty($viewRrId) ? 'true' : 'false' }},
         editOpen: false,
         emptyOpen: false,
@@ -18,8 +18,8 @@
         rfcPrefill: JSON.parse(document.getElementById('rr-rfc-prefill').textContent || '{}'),
         cashAdvancePath: 'cash_advance',
 
-        isCashAdvance(rfcId) {
-            const data = this.rfcPrefill[String(rfcId)];
+        isCashAdvance(fundingKey) {
+            const data = this.rfcPrefill[String(fundingKey)];
             return data && data.payment_path === this.cashAdvancePath;
         },
 
@@ -54,8 +54,8 @@
         },
         closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedRr = null; },
 
-        applyRfcPrefill(rfcId) {
-            const data = this.rfcPrefill[String(rfcId)];
+        applyRfcPrefill(fundingKey) {
+            const data = this.rfcPrefill[String(fundingKey)];
             const form = this.$refs.createForm;
             if (!form || !data) return;
             const from = form.querySelector('[name=receiving_report_received_from]');
@@ -98,7 +98,7 @@
         if (createOpen) {
             $nextTick(() => {
                 bindDocSig('rr-create', 'Received by signature');
-                if ('{{ $selectedRfcId ?? '' }}') applyRfcPrefill('{{ $selectedRfcId ?? '' }}');
+                if (@js((string) ($selectedFundingKey ?? ''))) applyRfcPrefill(@js((string) ($selectedFundingKey ?? '')));
             });
         }
     "
@@ -442,12 +442,14 @@
                         <input type="hidden" name="save_action" value="draft">
                         <div class="bg-slate-100 p-3 md:p-5">
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <label class="text-xs font-medium text-gray-500">Approved Request for Check</label>
-                                <select name="receiving_report_request_check_id" x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
-                                    <option value="">Select RFC</option>
+                                <label class="text-xs font-medium text-gray-500">Approved funding request · ATP</label>
+                                @php $createFundingKey = (string) old('receiving_report_funding_key', $selectedFundingKey ?? ''); @endphp
+                                <select name="receiving_report_funding_key" x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
+                                    <option value="">Select funding request and ATP</option>
                                     @foreach($eligibleRfcs as $rfc)
-                                        <option value="{{ $rfc->request_check_id }}" {{ old('receiving_report_request_check_id', $selectedRfcId ?? '') == $rfc->request_check_id ? 'selected' : '' }}>
+                                        <option value="{{ $rfc->funding_key }}" {{ $createFundingKey === $rfc->funding_key ? 'selected' : '' }}>
                                             {{ $rfc->request_check_form_number }} @if($rfc->authority_purchase_form_number)· {{ $rfc->authority_purchase_form_number }}@endif
+                                            @if(!empty($rfc->is_multi_atp)) (one RR per ATP) @endif
                                         </option>
                                     @endforeach
                                 </select>

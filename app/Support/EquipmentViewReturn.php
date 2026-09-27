@@ -61,6 +61,7 @@ class EquipmentViewReturn
             str_contains($path, '/equipment/history') => 'Equipment History',
             str_contains($path, '/infrastructure/monitor') => 'Building Layout',
             str_contains($path, '/infrastructure/campus-wizard') => 'Building Layout',
+            str_contains($path, '/property-assignments') => 'Property Assignment',
             str_contains($path, '/rooms') => 'Rooms',
             str_contains($path, '/reports') => 'Reports',
             str_contains($path, '/dashboard') => 'Dashboard',

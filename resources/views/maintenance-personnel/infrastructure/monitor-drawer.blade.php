@@ -290,13 +290,27 @@
 
                     assetTag:'',
 
-                    serial:''
+                    serial:'',
+
+                    acqSource:'',
+                    acqSupplier:'',
+                    acqSupplierName:'',
+                    acqReference:'',
+                    acqNotes:'',
+                    purchaseDate:'',
+                    purchaseCost:'',
+                    receivedDate:'',
+                    usefulLifeYears:'',
+                    custodianId:'',
+                    replacesId:''
 
                 },
 
                 categoryManual:false,
 
                 blankAddForm(){
+                    const now = new Date();
+                    const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
                     return {
                         room_id: {{ $room->room_id }},
                         name:'',
@@ -309,8 +323,25 @@
                         model:'',
                         warranty:'',
                         assetTag:'',
-                        serial:''
+                        serial:'',
+                        acqSource:'',
+                        acqSupplier:'',
+                        acqSupplierName:'',
+                        acqReference:'',
+                        acqNotes:'',
+                        purchaseDate:'',
+                        purchaseCost:'',
+                        receivedDate:today,
+                        usefulLifeYears:'',
+                        custodianId:'',
+                        replacesId:''
                     };
+                },
+
+                canAssignAddPerson(){
+                    return @js(! \App\Support\RoomCategories::isStorageType($room->room_type ?? null))
+                        && this.addForm.tracking === 'Individual'
+                        && this.addForm.condition !== 'Disposed';
                 },
 
                 resetAddEquipment(){
@@ -623,7 +654,31 @@
 
                                     equipment_position_x:position.x,
 
-                                    equipment_position_y:position.y
+                                    equipment_position_y:position.y,
+
+                                    equipment_acquisition_source: this.addForm.acqSource || null,
+
+                                    acquisition_supplier: this.addForm.acqSupplier || null,
+
+                                    equipment_supplier_name: this.addForm.acqSupplier === @js(\App\Support\EquipmentAcquisition::OTHER_SUPPLIER)
+                                        ? (this.addForm.acqSupplierName || null)
+                                        : null,
+
+                                    equipment_reference_number: this.addForm.acqReference || null,
+
+                                    equipment_acquisition_notes: this.addForm.acqNotes || null,
+
+                                    equipment_purchase_date: this.addForm.purchaseDate || null,
+
+                                    equipment_purchase_cost: this.addForm.purchaseCost !== '' ? this.addForm.purchaseCost : null,
+
+                                    equipment_acquired_date: this.addForm.receivedDate || null,
+
+                                    equipment_useful_life_years: this.addForm.usefulLifeYears || null,
+
+                                    custodian_id: this.canAssignAddPerson() ? (this.addForm.custodianId || null) : null,
+
+                                    replaces_equipment_id: this.addForm.replacesId || null
 
                                 };
 
@@ -683,6 +738,7 @@
                                         else if (key.includes('equipment_category')) fieldErrors.category = msg;
                                         else if (key.includes('location') || key.includes('current_location')) fieldErrors.location = msg;
                                         else if (key.includes('quantity')) fieldErrors.quantity = msg;
+                                        else if (key.includes('custodian')) fieldErrors.custodian = msg;
                                     });
                                     message = Object.values(err.errors).flat().join(' ');
                                 } else if (err?.message) {
@@ -1524,6 +1580,118 @@
                                         <div>
                                             <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Warranty expiration</label>
                                             <input type="date" x-model="addForm.warranty" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
+                                        </div>
+                                    </div>
+                                </details>
+
+                                @php
+                                    $drawerField = 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+                                    $drawerLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
+                                    $drawerRoomIsStorage = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
+                                    $drawerLists = once(fn () => [
+                                        'ready' => \App\Support\EquipmentAcquisition::ready(),
+                                        'suppliers' => \App\Support\EquipmentAcquisition::supplierOptions(),
+                                        'people' => \App\Support\Custodians::assignable(),
+                                        'replacements' => \App\Support\EquipmentAcquisition::replacementCandidates(),
+                                    ]);
+                                    $drawerAcquisitionReady = $drawerLists['ready'];
+                                    $drawerSuppliers = $drawerLists['suppliers'];
+                                    $drawerPeople = $drawerRoomIsStorage ? collect() : $drawerLists['people'];
+                                    $drawerReplacements = $drawerLists['replacements'];
+                                    $drawerOtherSupplier = \App\Support\EquipmentAcquisition::OTHER_SUPPLIER;
+                                @endphp
+                                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
+                                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Acquisition &amp; accountability (optional)</summary>
+                                    <p class="mt-2 text-xs text-slate-400">Where it came from, what it cost, and who is accountable. These fill the Procurement &amp; lifecycle section of the equipment page.</p>
+                                    @if ($drawerAcquisitionReady)
+                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                            <div>
+                                                <label class="{{ $drawerLabel }}">How was it acquired?</label>
+                                                <select x-model="addForm.acqSource" class="{{ $drawerField }}">
+                                                    <option value="">Not recorded</option>
+                                                    @foreach (\App\Support\EquipmentAcquisition::SOURCES as $sourceKey => $sourceLabel)
+                                                        <option value="{{ $sourceKey }}">{{ $sourceLabel }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donor' : 'Supplier / source'"></label>
+                                                <select x-model="addForm.acqSupplier" data-searchable="1" data-search-placeholder="Search suppliers…" class="{{ $drawerField }}">
+                                                    <option value="">Not recorded</option>
+                                                    <option value="{{ $drawerOtherSupplier }}">Other — type the name</option>
+                                                    @foreach ($drawerSuppliers as $supplierOption)
+                                                        <option value="{{ $supplierOption->supplier_id }}">{{ $supplierOption->supplier_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div x-show="addForm.acqSupplier === '{{ $drawerOtherSupplier }}'" x-cloak>
+                                                <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donor name' : 'Supplier / source name'"></label>
+                                                <input type="text" x-model="addForm.acqSupplierName" maxlength="255" placeholder="e.g. Alumni Association, PC Express" class="{{ $drawerField }}" />
+                                            </div>
+                                            <div>
+                                                <label class="{{ $drawerLabel }}">Reference no.</label>
+                                                <input type="text" x-model="addForm.acqReference" maxlength="120" placeholder="OR / invoice / DR / deed no." class="{{ $drawerField }}" />
+                                            </div>
+                                        </div>
+                                    @endif
+                                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div>
+                                            <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donation date' : 'Purchase date'"></label>
+                                            <input type="date" x-model="addForm.purchaseDate" class="{{ $drawerField }}" />
+                                        </div>
+                                        <div>
+                                            <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Est. value / unit (₱)' : 'Cost / unit (₱)'"></label>
+                                            <input type="number" min="0" step="0.01" placeholder="0.00" x-model="addForm.purchaseCost" class="{{ $drawerField }}" />
+                                        </div>
+                                        <div>
+                                            <label class="{{ $drawerLabel }}">Received on</label>
+                                            <input type="date" x-model="addForm.receivedDate" class="{{ $drawerField }}" />
+                                        </div>
+                                        <div>
+                                            <label class="{{ $drawerLabel }}">Useful lifespan (yrs)</label>
+                                            <input type="number" min="1" max="50" step="1" placeholder="Default 5" x-model="addForm.usefulLifeYears" class="{{ $drawerField }}" />
+                                        </div>
+                                    </div>
+                                    @if ($drawerAcquisitionReady)
+                                        <div class="mt-3">
+                                            <label class="{{ $drawerLabel }}">Notes</label>
+                                            <input type="text" x-model="addForm.acqNotes" maxlength="500" placeholder="e.g. Donated by Batch 2019 alumni" class="{{ $drawerField }}" />
+                                        </div>
+                                    @endif
+                                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label class="{{ $drawerLabel }}">Accountable person</label>
+                                            @if ($drawerRoomIsStorage)
+                                                <p class="flex h-11 items-center rounded-xl bg-white px-3.5 text-xs text-slate-400 ring-1 ring-slate-200/80">Storage rooms can’t be assigned. Transfer it to a room first.</p>
+                                            @else
+                                                <select
+                                                    x-model="addForm.custodianId"
+                                                    @change="clearAddError('custodian')"
+                                                    :disabled="!canAssignAddPerson()"
+                                                    data-searchable="1"
+                                                    data-search-placeholder="Search people…"
+                                                    class="{{ $drawerField }}"
+                                                    :class="addErrors.custodian ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                                >
+                                                    <option value="">No one yet</option>
+                                                    @foreach ($drawerPeople as $person)
+                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <p x-show="addErrors.custodian" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.custodian"></p>
+                                                <p x-show="!addErrors.custodian" class="mt-1.5 text-xs text-slate-400" x-text="canAssignAddPerson()
+                                                    ? 'Issues every unit to this person with a property assignment document.'
+                                                    : 'Only Individual tracking can be assigned to a person.'"></p>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <label class="{{ $drawerLabel }}">Replaces equipment</label>
+                                            <select x-model="addForm.replacesId" data-searchable="1" data-search-placeholder="Search equipment…" class="{{ $drawerField }}">
+                                                <option value="">Not a replacement</option>
+                                                @foreach ($drawerReplacements as $candidate)
+                                                    <option value="{{ $candidate->equipment_id }}">{{ $candidate->equipment_name }}{{ $candidate->equipment_asset_tag ? ' · '.$candidate->equipment_asset_tag : '' }}{{ $candidate->room_name ? ' · '.$candidate->room_name : '' }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                     </div>
                                 </details>

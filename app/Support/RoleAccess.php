@@ -25,6 +25,8 @@ class RoleAccess
 
     public const RECEIVING = 6;
 
+    public const PORTAL_SESSION_KEY = 'portal_context';
+
     public static function user(?object $user = null): ?object
     {
         return $user ?? Auth::user();
@@ -217,6 +219,47 @@ class RoleAccess
     }
 
     public static function currentPortalKey(): ?string
+    {
+        return self::adminShell() ? 'admin' : self::pathPortalKey();
+    }
+
+    /**
+     * Remembers which portal the user last entered, so shared pages know which shell to show.
+     */
+    public static function enterPortal(string $key): void
+    {
+        if (request()->hasSession()) {
+            request()->session()->put(self::PORTAL_SESSION_KEY, $key);
+        }
+    }
+
+    /**
+     * An administrator using a Maintenance or Purchaser page (reporters, inventory, RIS…)
+     * sees it inside the admin sidebar and topbar. Admins who also hold that role get the
+     * admin shell only while they are working from the admin portal.
+     */
+    public static function adminShell(?object $user = null): bool
+    {
+        $user = self::user($user);
+        if (! $user || ! self::isAdmin($user)) {
+            return false;
+        }
+
+        $portal = self::pathPortalKey();
+        if ($portal === 'admin') {
+            return true;
+        }
+
+        $roleId = ['maintenance' => self::MAINTENANCE, 'purchaser' => self::PURCHASER][$portal] ?? null;
+        if ($roleId === null) {
+            return false;
+        }
+
+        return ! self::hasRole($roleId, $user)
+            || (request()->hasSession() && request()->session()->get(self::PORTAL_SESSION_KEY) === 'admin');
+    }
+
+    private static function pathPortalKey(): ?string
     {
         foreach (self::portalMeta() as $portal) {
             $match = $portal['match'];

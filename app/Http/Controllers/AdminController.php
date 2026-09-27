@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
+use App\Support\PersonNames;
 use App\Support\RisWorkflow;
 use App\Support\ReviewerAssignment;
 use App\Support\UserSignatureLibrary;
@@ -1270,10 +1271,10 @@ class AdminController extends Controller
 
 
     // =====================================================
-    // SORTING — latest activity / date first (LIFO)
+    // SORTING — urgent first, then latest activity / date first (LIFO)
     // =====================================================
 
-    $risRecords = $this->applyRisLatestActivityOrder($query)
+    $risRecords = $this->applyRisLatestActivityOrder(RisWorkflow::orderUrgentFirst($query))
 
         // Exactly 10 RIS requests per page.
         ->paginate(10)
@@ -2262,12 +2263,14 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
+        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
+
         $request->validate([
             'user_type' => 'required|in:Faculty,Staff',
             'employee_id' => ['required', 'string', 'max:50', 'regex:/^OMC[0-9]{5}[FS]$/i'],
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => PersonNames::rules(),
+            'middle_name' => PersonNames::rules(false),
+            'last_name' => PersonNames::rules(),
             'username' => 'required|string|max:100',
             'email' => 'required|email|max:255',
             'password' => 'required|string|min:6',

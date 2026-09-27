@@ -3,6 +3,9 @@
 @section('title', 'Replacement Suggestions')
 
 @section('content')
+@php
+    $canManage = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+@endphp
 <div class="space-y-6">
     <div class="flex justify-end">
         <a
@@ -10,7 +13,7 @@
             class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
             <i data-lucide="package" class="h-4 w-4"></i>
-            Manage equipment
+            {{ $canManage ? 'Manage equipment' : 'View equipment' }}
         </a>
     </div>
 
@@ -53,7 +56,7 @@
                         >
                             View
                         </a>
-                        @unless ($already)
+                        @unless ($already || ! $canManage)
                             <form action="{{ url('/maintenance/replacement-suggestions/'.$alert->equipment_id) }}" method="POST"
                                 onsubmit="return confirm('Mark this equipment for replacement?')">
                                 @csrf

@@ -170,6 +170,37 @@
             }
         };
 
+        (function () {
+            function previousPageUrl() {
+                if (!document.referrer || window.history.length < 2) return null;
+                let ref;
+                try {
+                    ref = new URL(document.referrer);
+                } catch (e) {
+                    return null;
+                }
+                if (ref.origin !== window.location.origin) return null;
+                if (ref.pathname === window.location.pathname) return null;
+                return ref;
+            }
+
+            document.addEventListener('click', function (event) {
+                const back = event.target.closest('a.acc-back');
+                if (!back || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+                if (!previousPageUrl()) return;
+                event.preventDefault();
+                window.history.back();
+            });
+
+            document.addEventListener('DOMContentLoaded', function () {
+                if (!previousPageUrl()) return;
+                document.querySelectorAll('a.acc-back').forEach(function (back) {
+                    back.setAttribute('data-tip', 'Back');
+                    back.setAttribute('aria-label', 'Back to previous page');
+                });
+            });
+        })();
+
         document.addEventListener('DOMContentLoaded', function () {
             if (window.lucide) window.lucide.createIcons();
             document.querySelectorAll('.pm-seg[data-active], .pm-filter-group[data-active]').forEach(function (track) {

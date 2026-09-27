@@ -5,6 +5,7 @@
 @section("page-subtitle", "Manage Requisition and Issue Slips")
 
 @section("content")
+@include('partials.floating-menu-script')
 
 @php
     $oldRisItems = old('ris_items', []);
@@ -139,16 +140,28 @@
                 this.openModal = 'ris-' + risId;
             }
         },
-        openSubmitRis(id, number, action, hasAttachments = false, kind = 'submit') {
+        openSubmitRis(id, number, action, hasAttachments = false, kind = 'submit', existingSignature = '') {
             this.submitRisSending = false;
+            const onFile = (existingSignature && String(existingSignature).indexOf('data:image/') === 0)
+                ? String(existingSignature)
+                : '';
             this.submitRisConfirm = {
                 id,
                 number,
                 action,
                 hasAttachments: !!hasAttachments,
                 kind: kind === 'resubmit' ? 'resubmit' : 'submit',
+                existingSignature: onFile,
+                replaceSignature: !onFile,
+                signature: '',
+                signatureSource: '',
+                savedSignatureId: null,
+                uploadName: '',
+                signatureError: '',
             };
             this.$nextTick(() => {
+                this.resetSubmitRisPad();
+                if (this.$refs.submitRisSigUpload) this.$refs.submitRisSigUpload.value = '';
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
@@ -157,6 +170,102 @@
         closeSubmitRis() {
             if (this.submitRisSending) return;
             this.submitRisConfirm = null;
+        },
+        resetSubmitRisPad() {
+            if (window.initSignaturePad) window.initSignaturePad('purchaserRisSubmitSignatureCanvas');
+            if (window.clearSignaturePad) window.clearSignaturePad('purchaserRisSubmitSignatureCanvas', '');
+        },
+        submitRisSignatureReady() {
+            const c = this.submitRisConfirm;
+            if (!c) return false;
+            if (!c.replaceSignature && c.existingSignature) return true;
+            return String(c.signature || '').indexOf('data:image/') === 0;
+        },
+        setSubmitRisSignature(dataUrl, source, savedId = null) {
+            const c = this.submitRisConfirm;
+            if (!c) return;
+            const raw = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? String(dataUrl) : '';
+            c.signatureError = '';
+            c.signatureSource = raw ? source : '';
+            c.savedSignatureId = raw ? savedId : null;
+            if (raw && source !== 'pad' && typeof window.trimSignatureDataUrl === 'function') {
+                window.trimSignatureDataUrl(raw).then((url) => {
+                    if (this.submitRisConfirm === c) c.signature = url || '';
+                });
+                return;
+            }
+            c.signature = raw;
+        },
+        pickSubmitRisSavedSignature(sig) {
+            this.resetSubmitRisPad();
+            this.clearSubmitRisUpload();
+            this.setSubmitRisSignature(sig.preview_url, 'saved', sig.id);
+        },
+        syncSubmitRisPad() {
+            const c = this.submitRisConfirm;
+            const canvas = document.getElementById('purchaserRisSubmitSignatureCanvas');
+            if (!c || !canvas) return;
+            if (!this.canvasHasDrawing('purchaserRisSubmitSignatureCanvas')) {
+                if (c.signatureSource === 'pad') this.setSubmitRisSignature('', '');
+                return;
+            }
+            const dataUrl = (window.exportTrimmedSignatureDataUrl
+                ? window.exportTrimmedSignatureDataUrl(canvas)
+                : '') || canvas.toDataURL('image/png');
+            this.clearSubmitRisUpload();
+            this.setSubmitRisSignature(dataUrl, 'pad');
+        },
+        undoSubmitRisPad() {
+            if (window.undoSignaturePad) window.undoSignaturePad('purchaserRisSubmitSignatureCanvas');
+            this.syncSubmitRisPad();
+        },
+        clearSubmitRisUpload() {
+            if (this.submitRisConfirm) this.submitRisConfirm.uploadName = '';
+            if (this.$refs.submitRisSigUpload) this.$refs.submitRisSigUpload.value = '';
+        },
+        clearSubmitRisSignature() {
+            this.resetSubmitRisPad();
+            this.clearSubmitRisUpload();
+            this.setSubmitRisSignature('', '');
+        },
+        async onSubmitRisSigUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file || !this.submitRisConfirm) return;
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                this.resetSubmitRisPad();
+                this.setSubmitRisSignature(dataUrl || '', 'upload');
+                this.submitRisConfirm.uploadName = file.name || 'Uploaded signature';
+            } catch (err) {
+                this.submitRisConfirm.signatureError = 'Could not read that signature file.';
+            }
+        },
+        replaceSubmitRisSignature() {
+            if (!this.submitRisConfirm) return;
+            this.submitRisConfirm.replaceSignature = true;
+            this.$nextTick(() => this.resetSubmitRisPad());
+        },
+        keepSubmitRisSignature() {
+            if (!this.submitRisConfirm || !this.submitRisConfirm.existingSignature) return;
+            this.clearSubmitRisSignature();
+            this.submitRisConfirm.replaceSignature = false;
+        },
+        beforeSubmitRis(event) {
+            const c = this.submitRisConfirm;
+            if (c && c.replaceSignature && c.signatureSource !== 'saved' && c.signatureSource !== 'upload') {
+                this.syncSubmitRisPad();
+            }
+            if (!this.submitRisSignatureReady()) {
+                event.preventDefault();
+                if (c) c.signatureError = 'Please sign the RIS before ' + (c.kind === 'resubmit' ? 'resubmitting' : 'submitting') + ' to Administrator.';
+                return;
+            }
+            this.submitRisSending = true;
         },
         createRisFullscreen: false,
         editRisFullscreen: false,
@@ -783,6 +892,14 @@
             </div>
         @endunless
     </div>
+
+    @unless(!empty($archiveView))
+        @include('partials.draft-handover', ['type' => 'ris'])
+    @endunless
+    @php
+        $handoverOutgoing = \App\Support\DraftHandover::outgoing('ris');
+        $handoverDeclined = \App\Support\DraftHandover::declinedForSender('ris');
+    @endphp
 
     <div class="mb-6">
         @include('layouts.partials.maintenance-stat-cards', [
@@ -2509,7 +2626,7 @@
                             'Resubmitted' => 'Resubmitted',
                             'Approved' => 'Approved',
                             'Directly Approved' => 'Directly Approved',
-                            'Forwarded to President' => 'Forwarded to President',
+                            'Forwarded to President' => 'Forwarded to the President by the Administrator',
                             'Approved by the President' => 'Approved by the President',
                             'Rejected' => 'Rejected',
                             'Rejected by the President' => 'Rejected by the President',
@@ -2612,54 +2729,54 @@
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS No.</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="py-3 pl-5 pr-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS No.</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
+                        <th class="py-3 pl-3 pr-5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse($risRecords as $ris)
                         <tr class="transition hover:bg-gray-50/70">
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                            <td class="py-3.5 pl-5 pr-3">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
                                         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6M9 8h2m-4 13h10a2 2 0 0 0 2-2V5l-4-4H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2Z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
+                                        <p class="whitespace-nowrap font-semibold text-gray-900">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $ris->ris_id }}</p>
                                     </div>
                                 </div>
                             </td>
 
-                            <td class="px-5 py-4">
+                            <td class="px-3 py-3.5">
                                 @php $urgency = \App\Support\RisWorkflow::urgencyLabel($ris); @endphp
                                 @if($urgency === 'Urgent')
-                                    <span class="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                                    <span class="inline-flex items-center whitespace-nowrap rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
                                 @else
-                                    <span class="inline-flex items-center rounded-md bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
+                                    <span class="inline-flex items-center whitespace-nowrap rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
                                 @endif
                             </td>
 
-                            <td class="px-5 py-4 text-gray-600">
+                            <td class="px-3 py-3.5 text-gray-600">
                                 {{ $ris->ris_requested_by_signature ?: 'Not specified' }}
                             </td>
 
-                            <td class="px-5 py-4">
+                            <td class="px-3 py-3.5">
                                 @if($ris->risAttachments->count() === 1)
                                     @php $attachment = $ris->risAttachments->first(); @endphp
                                     <a
                                         href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                        class="inline-flex max-w-[220px] items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
+                                        class="inline-flex max-w-[7.5rem] items-center gap-1.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         title="Download {{ $attachment->ris_attachment_original_name }}"
                                     >
-                                        <svg class="h-4 w-4 shrink-0 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="h-3.5 w-3.5 shrink-0 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
                                         </svg>
                                         <span class="truncate">{{ $attachment->ris_attachment_original_name }}</span>
@@ -2673,9 +2790,9 @@
                                         <button
                                             type="button"
                                             @click="openFiles = !openFiles"
-                                            class="inline-flex items-center gap-2 text-sm font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         >
-                                            <svg class="h-4 w-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="h-3.5 w-3.5 shrink-0 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
                                             </svg>
                                             <span>{{ $ris->risAttachments->count() }} files</span>
@@ -2699,15 +2816,26 @@
                                         </div>
                                     </div>
                                 @else
-                                    <span class="text-sm text-gray-400">No files</span>
+                                    <span class="whitespace-nowrap text-xs text-gray-400">No files</span>
                                 @endif
                             </td>
 
-                            <td class="px-5 py-4">
-                                @include('admin.partials.ris-status-badge', ['ris' => $ris])
+                            <td class="max-w-[11rem] px-3 py-3.5">
+                                @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
+                                @if($pendingHandover = $handoverOutgoing->get((int) $ris->ris_id))
+                                    <p class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                                        <i data-lucide="hourglass" class="h-3 w-3"></i>
+                                        Waiting for {{ $pendingHandover->to_name ?: 'co-worker' }} to accept
+                                    </p>
+                                @elseif($declinedHandover = $handoverDeclined->get((int) $ris->ris_id))
+                                    <p class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-rose-700" title="{{ $declinedHandover->handover_response_note ? 'Reason: '.$declinedHandover->handover_response_note : '' }}">
+                                        <i data-lucide="user-x" class="h-3 w-3"></i>
+                                        Declined by {{ $declinedHandover->to_name ?: 'co-worker' }}
+                                    </p>
+                                @endif
                             </td>
 
-                            <td class="whitespace-nowrap px-5 py-4">
+                            <td class="whitespace-nowrap px-3 py-3.5">
                                 @if(!empty($ris->ris_submitted_at))
                                     <p class="text-sm text-gray-700">{{ \Carbon\Carbon::parse($ris->ris_submitted_at)->format('M d, Y') }}</p>
                                     <p class="mt-1 text-xs text-gray-400">{{ \Carbon\Carbon::parse($ris->ris_submitted_at)->format('h:i A') }}</p>
@@ -2716,12 +2844,15 @@
                                 @endif
                             </td>
 
-                            <td class="px-5 py-4 text-right">
+                            <td class="py-3.5 pl-3 pr-5 text-right">
                                 @php
                                     $canEditRis = empty($archiveView) && in_array($ris->ris_status, ['Draft', 'Minor Revision'], true);
                                     $isDraftRis = empty($archiveView) && $ris->ris_status === 'Draft';
                                     $isMinorRevisionRis = empty($archiveView) && $ris->ris_status === 'Minor Revision';
                                     $showRisActionsMenu = $isDraftRis || $isMinorRevisionRis;
+                                    $risSubmitSignature = $showRisActionsMenu
+                                        ? \App\Support\RisWorkflow::requestedByDrawnSignature($ris)
+                                        : '';
                                     $canCreateAtp = empty($archiveView) && !empty($ris->can_create_atp);
                                     $canArchiveRis = empty($archiveView)
                                         && empty($ris->ris_is_archived)
@@ -2734,7 +2865,7 @@
                                             'Rejected by the President',
                                         ], true);
                                 @endphp
-                                <div class="inline-flex items-center justify-end gap-1.5">
+                                <div class="inline-flex items-center justify-end gap-1">
                                     <button
                                         type="button"
                                         x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
@@ -2781,12 +2912,14 @@
                                     @if($showRisActionsMenu)
                                         <div
                                             class="relative"
-                                            x-data="{ openActions: false }"
+                                            x-data="{ openActions: false, actionsTrigger: null }"
                                             @keydown.escape.window="openActions = false"
+                                            x-on:scroll.window.capture="openActions = false"
+                                            x-on:resize.window="openActions = false"
                                         >
                                             <button
                                                 type="button"
-                                                x-on:click="openActions = !openActions"
+                                                x-on:click="actionsTrigger = $el; openActions = !openActions"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                                                 title="More actions"
                                                 aria-label="More actions"
@@ -2795,12 +2928,14 @@
                                                 <i data-lucide="ellipsis" class="h-4 w-4"></i>
                                             </button>
 
+                                            <template x-teleport="body">
                                             <div
                                                 x-show="openActions"
                                                 x-cloak
-                                                x-transition
-                                                @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                                x-transition.opacity
+                                                x-effect="openActions && $nextTick(() => { window.lucide && window.lucide.createIcons(); window.purPlaceMenu(actionsTrigger, $el); })"
+                                                @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
+                                                class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                             >
                                                 @if($isDraftRis)
                                                     <a
@@ -2812,12 +2947,30 @@
                                                     </a>
                                                     <button
                                                         type="button"
-                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit')"
+                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($risSubmitSignature))"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
                                                         Submit to Administrator
                                                     </button>
+                                                    @if($risHandover = $handoverOutgoing->get((int) $ris->ris_id))
+                                                        <form method="POST" action="{{ route('purchaser.handovers.cancel', $risHandover->handover_id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                                                                <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                                Take back from {{ \Illuminate\Support\Str::before($risHandover->to_name ?: 'co-worker', ' ') }}
+                                                            </button>
+                                                        </form>
+                                                    @else
+                                                        <button
+                                                            type="button"
+                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: 'Draft RIS').' · Record #'.$ris->ris_id) } }))"
+                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                        >
+                                                            <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                            Pass to co-worker
+                                                        </button>
+                                                    @endif
                                                     <form
                                                         method="POST"
                                                         action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
@@ -2842,7 +2995,7 @@
                                                 @if($isMinorRevisionRis)
                                                     <button
                                                         type="button"
-                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), @js(route(($pp ?? 'purchaser').'.ris.resubmit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit')"
+                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), @js(route(($pp ?? 'purchaser').'.ris.resubmit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit', @js($risSubmitSignature))"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
@@ -2850,6 +3003,7 @@
                                                     </button>
                                                 @endif
                                             </div>
+                                            </template>
                                         </div>
                                     @endif
 
@@ -4134,13 +4288,18 @@
         @keydown.escape.window="closeSubmitRis()"
     >
         <div @click.self="closeSubmitRis()" class="flex min-h-full w-full justify-center">
-            <div class="my-auto w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="ris-submit-title">
+            <div class="my-auto w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="ris-submit-title">
                 <form
                     method="POST"
                     x-bind:action="submitRisConfirm?.action || '#'"
-                    x-on:submit="submitRisSending = true"
+                    x-on:submit="beforeSubmitRis($event)"
                 >
                     @csrf
+                    <input
+                        type="hidden"
+                        name="signature_data"
+                        x-bind:value="submitRisConfirm && submitRisConfirm.replaceSignature ? (submitRisConfirm.signature || '') : ''"
+                    >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                         <div class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0f172a]">
@@ -4173,6 +4332,117 @@
                             <span class="font-semibold text-gray-900" x-text="submitRisConfirm?.number"></span>
                             to Administrator?
                         </p>
+
+                        <div class="rounded-xl border border-slate-200 bg-white p-3.5">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-900">Requested by signature <span class="text-red-500">*</span></p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">Required before this RIS can be sent to the Administrator.</p>
+                                </div>
+                                <span
+                                    x-show="submitRisSignatureReady()"
+                                    x-cloak
+                                    class="inline-flex shrink-0 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"
+                                >Signed</span>
+                            </div>
+
+                            <div x-show="submitRisConfirm && !submitRisConfirm.replaceSignature" x-cloak class="mt-3">
+                                <div class="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                                    <img x-bind:src="submitRisConfirm?.existingSignature || ''" alt="Signature on file" class="max-h-14 w-auto max-w-full object-contain">
+                                </div>
+                                <div class="mt-2 flex items-center justify-between gap-2">
+                                    <span class="text-[11px] text-slate-500">Using the signature already on this RIS.</span>
+                                    <button
+                                        type="button"
+                                        class="text-[11px] font-semibold text-[#0025cc] hover:underline"
+                                        x-on:click="replaceSubmitRisSignature()"
+                                    >Use a different signature</button>
+                                </div>
+                            </div>
+
+                            <div x-show="submitRisConfirm && submitRisConfirm.replaceSignature" x-cloak class="mt-3 space-y-3">
+                                <div x-show="savedSignatures.length">
+                                    <p class="text-[11px] font-medium text-slate-600">My saved signatures</p>
+                                    <div class="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                        <template x-for="sig in savedSignatures" :key="'submit-sig-' + sig.id">
+                                            <button
+                                                type="button"
+                                                class="flex h-12 items-center justify-center rounded-lg border bg-white px-1.5 transition hover:border-slate-300"
+                                                x-bind:class="submitRisConfirm && submitRisConfirm.signatureSource === 'saved' && submitRisConfirm.savedSignatureId === sig.id ? 'border-[#0025cc] ring-2 ring-blue-100' : 'border-slate-200'"
+                                                x-bind:title="sig.label || 'Signature'"
+                                                x-on:click="pickSubmitRisSavedSignature(sig)"
+                                            >
+                                                <img x-bind:src="sig.preview_url" alt="" class="max-h-9 w-auto max-w-full object-contain">
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div
+                                    x-show="submitRisConfirm && submitRisConfirm.signatureSource === 'upload' && submitRisConfirm.signature"
+                                    x-cloak
+                                    class="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
+                                >
+                                    <img x-bind:src="submitRisConfirm?.signature || ''" alt="Uploaded signature" class="max-h-14 w-auto max-w-full object-contain">
+                                </div>
+
+                                <div>
+                                    <p class="text-[11px] font-medium text-slate-600" x-text="savedSignatures.length ? 'Or draw your signature' : 'Draw your signature'"></p>
+                                    <canvas
+                                        id="purchaserRisSubmitSignatureCanvas"
+                                        class="signature-pad-canvas mt-1.5 w-full rounded-lg border border-slate-200 bg-white"
+                                        width="520"
+                                        height="160"
+                                        tabindex="0"
+                                        aria-label="Signature drawing area"
+                                        x-on:mouseup="syncSubmitRisPad()"
+                                        x-on:mouseleave="syncSubmitRisPad()"
+                                        x-on:touchend="syncSubmitRisPad()"
+                                        x-on:keyup="syncSubmitRisPad()"
+                                    ></canvas>
+                                    <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            id="purchaserRisSubmitSignatureCanvasUndoBtn"
+                                            class="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                            x-on:click="undoSubmitRisPad()"
+                                            disabled
+                                        >Undo</button>
+                                        <button
+                                            type="button"
+                                            class="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-700"
+                                            x-on:click="clearSubmitRisSignature()"
+                                        >Clear</button>
+                                        <label class="relative ml-auto inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+                                            <span x-text="submitRisConfirm?.uploadName ? submitRisConfirm.uploadName : 'Upload image'" class="max-w-[10rem] truncate"></span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                                x-ref="submitRisSigUpload"
+                                                x-on:change="onSubmitRisSigUpload($event)"
+                                            >
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    x-show="submitRisConfirm && submitRisConfirm.existingSignature"
+                                    x-cloak
+                                    class="text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
+                                    x-on:click="keepSubmitRisSignature()"
+                                >Keep the signature on file</button>
+                            </div>
+
+                            <p
+                                x-show="submitRisConfirm?.signatureError"
+                                x-cloak
+                                class="mt-2 text-xs font-medium text-red-600"
+                                x-text="submitRisConfirm?.signatureError"
+                            ></p>
+                        </div>
+
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to Administrator <span class="text-red-500">*</span></label>
                             <select
@@ -4198,7 +4468,8 @@
                         </button>
                         <button
                             type="submit"
-                            x-bind:disabled="submitRisSending"
+                            x-bind:disabled="submitRisSending || !submitRisSignatureReady()"
+                            x-bind:title="submitRisSignatureReady() ? '' : 'Sign the RIS first'"
                             class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#001db3] disabled:cursor-not-allowed disabled:opacity-50"
                             x-text="submitRisConfirm?.kind === 'resubmit' ? 'Yes, resubmit' : 'Yes, submit'"
                         ></button>

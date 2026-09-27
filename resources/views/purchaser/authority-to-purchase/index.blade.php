@@ -4,6 +4,7 @@
 @section('page-subtitle', 'Create, manage, print, and archive Authority to Purchase records.')
 
 @section('content')
+@include('partials.floating-menu-script')
 
 <script type="application/json" id="atp-ris-prefill">{!! json_encode($risPrefill ?? []) !!}</script>
 
@@ -11,6 +12,14 @@
     x-data="{
         createOpen: {{ ($errors->any() && old('authority_purchase_ris_id')) || !empty($selectedRisId) ? 'true' : 'false' }},
         viewOpen: {{ !empty($viewAtpId) ? 'true' : 'false' }},
+        canGoBack: {{ !empty($viewAtpId) ? 'true' : 'false' }} && (() => {
+            try {
+                const ref = new URL(document.referrer);
+                return window.history.length > 1 && ref.origin === window.location.origin && ref.pathname !== window.location.pathname;
+            } catch (e) {
+                return false;
+            }
+        })(),
         editOpen: {{ !empty($editAtpId) ? 'true' : 'false' }},
         emptyOpen: false,
         modalFullscreen: false,
@@ -87,7 +96,10 @@
                 const amount = form.querySelector('[name=\'items[' + i + '][amount_display]\']');
 
                 if (qty) qty.value = item.quantity ?? '';
-                if (unit) unit.value = item.unit ?? '';
+                if (unit) {
+                    unit.value = item.unit ?? '';
+                    unit.dispatchEvent(new Event('input'));
+                }
                 if (desc) desc.value = item.description ?? '';
                 if (price) price.value = item.unit_price ?? '';
                 if (amount) {
@@ -172,6 +184,14 @@
             </div>
         @endunless
     </div>
+
+    @unless($archiveView)
+        @include('partials.draft-handover', ['type' => 'atp'])
+    @endunless
+    @php
+        $handoverOutgoing = \App\Support\DraftHandover::outgoing('atp');
+        $handoverDeclined = \App\Support\DraftHandover::declinedForSender('atp');
+    @endphp
 
     {{-- SUMMARY CARDS --}}
     <div class="mb-6">
@@ -335,6 +355,17 @@
                                         class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
                                     >In {{ $atp->purchase_order_label }}</a>
                                 @endif
+                                @if($pendingHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
+                                    <p class="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                                        <i data-lucide="hourglass" class="h-3 w-3"></i>
+                                        Waiting for {{ $pendingHandover->to_name ?: 'co-worker' }} to accept
+                                    </p>
+                                @elseif($declinedHandover = $handoverDeclined->get((int) $atp->authority_purchase_id))
+                                    <p class="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700" title="{{ $declinedHandover->handover_response_note ? 'Reason: '.$declinedHandover->handover_response_note : '' }}">
+                                        <i data-lucide="user-x" class="h-3 w-3"></i>
+                                        Declined by {{ $declinedHandover->to_name ?: 'co-worker' }}
+                                    </p>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
@@ -373,12 +404,14 @@
                                         </button>
                                         <div
                                             class="relative"
-                                            x-data="{ openActions: false }"
+                                            x-data="{ openActions: false, actionsTrigger: null }"
                                             @keydown.escape.window="openActions = false"
+                                            x-on:scroll.window.capture="openActions = false"
+                                            x-on:resize.window="openActions = false"
                                         >
                                             <button
                                                 type="button"
-                                                x-on:click="openActions = !openActions"
+                                                x-on:click="actionsTrigger = $el; openActions = !openActions"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                                                 title="More actions"
                                                 aria-label="More actions"
@@ -386,14 +419,16 @@
                                             >
                                                 <i data-lucide="ellipsis" class="h-4 w-4"></i>
                                             </button>
+                                            <template x-teleport="body">
                                             <div
                                                 x-show="openActions"
                                                 x-cloak
-                                                x-transition
-                                                @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                                x-transition.opacity
+                                                x-effect="openActions && $nextTick(() => { window.lucide && window.lucide.createIcons(); window.purPlaceMenu(actionsTrigger, $el); })"
+                                                @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
+                                                class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                             >
-                                                @if(!empty($atp->purchase_order_id))
+                                                @if(!empty($atp->submits_via_po))
                                                     <a
                                                         href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
@@ -420,7 +455,28 @@
                                                         </button>
                                                     </form>
                                                 @endif
+                                                @if(empty($atp->purchase_order_id))
+                                                    @if($atpHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
+                                                        <form method="POST" action="{{ route('purchaser.handovers.cancel', $atpHandover->handover_id) }}">
+                                                            @csrf
+                                                            <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                                                                <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                                Take back from {{ \Illuminate\Support\Str::before($atpHandover->to_name ?: 'co-worker', ' ') }}
+                                                            </button>
+                                                        </form>
+                                                    @else
+                                                        <button
+                                                            type="button"
+                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: 'Draft ATP').' · Record #'.$atp->authority_purchase_id) } }))"
+                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                        >
+                                                            <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                            Pass to co-worker
+                                                        </button>
+                                                    @endif
+                                                @endif
                                             </div>
+                                            </template>
                                         </div>
                                     @endif
 
@@ -438,7 +494,16 @@
                                     @endif
 
                                     @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
-                                        @if(!$atp->has_rfc)
+                                        @if(!empty($atp->funds_via_po) && !$atp->has_rfc)
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['view_po' => $atp->purchase_order_id]) }}"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                                title="Fund via {{ $atp->purchase_order_label ?? 'Purchase Order' }}"
+                                                aria-label="Fund via Purchase Order"
+                                            >
+                                                <i data-lucide="shopping-bag" class="h-4 w-4"></i>
+                                            </a>
+                                        @elseif(!$atp->has_rfc)
                                             @if(empty($atp->authority_purchase_payment_path))
                                                 <div class="flex flex-wrap gap-1.5">
                                                     <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
@@ -690,6 +755,17 @@
 
                         <div>
                             <div class="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    x-show="canGoBack"
+                                    x-cloak
+                                    @click="window.history.back()"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-slate-300 hover:bg-gray-50"
+                                    data-tooltip="Back"
+                                    aria-label="Back to previous page"
+                                >
+                                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                                </button>
                                 <h3 id="atp-view-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">
                                     {{ $atp->authority_purchase_form_number ?: '—' }}
                                 </h3>
@@ -794,7 +870,7 @@
                             !$archiveView
                             && !$atp->authority_purchase_submitted_at
                             && $atp->authority_purchase_status === 'Pending'
-                            && empty($atp->purchase_order_id)
+                            && empty($atp->submits_via_po)
                         )
                             <form
                                 method="POST"
@@ -812,7 +888,14 @@
                         @endif
 
                         @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
-                            @if(!$atp->has_rfc)
+                            @if(!empty($atp->funds_via_po) && !$atp->has_rfc)
+                                <a
+                                    href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['view_po' => $atp->purchase_order_id]) }}"
+                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                >
+                                    Fund via {{ $atp->purchase_order_label ?? 'Purchase Order' }}
+                                </a>
+                            @elseif(!$atp->has_rfc)
                                 @if(empty($atp->authority_purchase_payment_path))
                                     <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
                                         @csrf

@@ -20,7 +20,7 @@
         $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';
         $risStatusTitle = 'Directly approved by the Administrator and returned to Purchaser';
     } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && ($presidentSig === '' || !$presidentImage))) {
-        $risStatusLabel = 'Forwarded to President';
+        $risStatusLabel = 'Forwarded to the President by the Administrator';
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';
         $risStatusTitle = 'Sent to the President for a decision';
     } elseif ($presidentApproved && $issuedBy === '') {
@@ -47,7 +47,7 @@
 @endphp
 
 <span
-    class="inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $risStatusClass }}"
+    class="inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ !empty($wrap) ? 'whitespace-normal leading-snug' : 'truncate' }} {{ $risStatusClass }}"
     title="{{ $risStatusTitle }}"
 >
     {{ $risStatusLabel }}

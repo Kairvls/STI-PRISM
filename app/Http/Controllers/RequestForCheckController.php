@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Support\ProcurementPaymentPath;
+use App\Support\PurchaseOrderBasket;
+use App\Support\PurchaseOrderFunding;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\RfcAtpLinks;
 use App\Support\ReviewerAssignment;
 use App\Support\RfcFormNumber;
 use App\Support\RisWorkflow;
@@ -83,11 +86,22 @@ class RequestForCheckController extends Controller
 
         $rfcSummary = $this->rfcStatusSummary();
         $eligibleAtps = collect();
+        $fundingGroups = [];
         $atpPrefill = [];
         if (!$request->ajax()) {
             $fundingType = $this->resolveFundingType($request);
             $eligibleAtps = $this->eligibleAtpQuery($fundingType)->get();
-            $atpPrefill = $this->buildAtpPrefill($eligibleAtps);
+            foreach ($this->buildAtpPrefill($eligibleAtps) as $atpId => $row) {
+                $atpPrefill['atp:'.$atpId] = $row;
+            }
+            $fundingGroups = PurchaseOrderFunding::fundingGroups($fundingType);
+            foreach ($fundingGroups as $group) {
+                $atpPrefill[$group['key']] = [
+                    'payee' => $group['payee'],
+                    'amount' => $group['amount'],
+                    'purpose' => $group['purpose'],
+                ];
+            }
         }
         $rfcIds = $rfcs->getCollection()->pluck('request_check_id');
         $attachments = $this->attachmentsFor($rfcIds);
@@ -109,15 +123,29 @@ class RequestForCheckController extends Controller
                 });
             }
 
+            $hasRrAtpColumn = Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id');
             $rfcHasRr = $rrQuery
-                ->pluck('receiving_report_request_check_id')
-                ->map(fn ($id) => (int) $id)
+                ->get($hasRrAtpColumn
+                    ? ['receiving_report_request_check_id', 'receiving_report_atp_id']
+                    : ['receiving_report_request_check_id'])
+                ->groupBy('receiving_report_request_check_id')
+                ->map(fn ($rows) => $rows->pluck('receiving_report_atp_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all())
                 ->all();
         }
 
+        $this->attachLinkedAtps($rfcs->getCollection());
+
         foreach ($rfcs as $rfc) {
-            $rfc->has_rr = in_array((int) $rfc->request_check_id, $rfcHasRr, true);
+            $rrAtps = $rfcHasRr[(int) $rfc->request_check_id] ?? null;
+            $linked = $rfc->linked_atp_ids ?? [];
+            $rfc->has_rr = $rrAtps !== null
+                && (count($linked) < 2 || array_diff($linked, $rrAtps) === []);
             $rfc->funds_released = !empty($rfc->request_check_funds_released_at ?? null);
+        }
+
+        $selectedSource = trim((string) $request->query('selected_source', ''));
+        if ($selectedSource === '' && $request->filled('selected_atp')) {
+            $selectedSource = 'atp:'.(int) $request->query('selected_atp');
         }
 
         return view('purchaser.request-check.index', [
@@ -125,11 +153,12 @@ class RequestForCheckController extends Controller
             'archiveView' => $archiveView,
             'rfcSummary' => $rfcSummary,
             'eligibleAtps' => $eligibleAtps,
+            'fundingGroups' => $fundingGroups,
             'atpPrefill' => $atpPrefill,
             'attachments' => $attachments,
-            'selectedAtpId' => $request->query('selected_atp'),
+            'selectedSource' => $selectedSource !== '' ? $selectedSource : null,
             'selectedFundingType' => $this->resolveFundingType($request),
-            'openCreate' => $request->boolean('create') || $request->filled('selected_atp'),
+            'openCreate' => $request->boolean('create') || $selectedSource !== '',
             'viewRfcId' => $viewRfcId ?: null,
             'fundingTypeLabels' => ProcurementPaymentPath::labels(),
             'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
@@ -149,11 +178,12 @@ class RequestForCheckController extends Controller
             ]);
         }
 
-        if ($error = $this->atpEligibilityError($validated['request_check_authority_purchase_id'] ?? null, null, !$isDraft, $fundingType)) {
+        [$error, $atpIds, $poId] = $this->resolveFundingSelection($validated, $fundingType, null, !$isDraft);
+        if ($error) {
             return back()->withInput()->with('error', $error);
         }
 
-        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig) {
+        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig, $atpIds, $poId) {
             $now = now();
             $user = auth()->user();
             $reviewerId = $isDraft
@@ -161,7 +191,8 @@ class RequestForCheckController extends Controller
                 : ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
 
             $payload = [
-                'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? null,
+                'request_check_authority_purchase_id' => $atpIds[0] ?? null,
+                'request_check_purchase_order_id' => $poId,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
@@ -184,6 +215,7 @@ class RequestForCheckController extends Controller
             }
 
             $id = DB::table('request_check_table')->insertGetId($this->rfcPayload($payload));
+            RfcAtpLinks::sync((int) $id, $atpIds);
             if ($this->rfcHas('request_check_form_number')) {
                 DB::table('request_check_table')->where('request_check_id', $id)->update([
                     'request_check_form_number' => $isDraft ? null : RfcFormNumber::next(),
@@ -242,12 +274,12 @@ class RequestForCheckController extends Controller
             ]);
         }
 
-        $atpId = $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id;
-        if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft, $fundingType)) {
+        [$error, $atpIds, $poId] = $this->resolveFundingSelection($validated, $fundingType, $rfc, !$isDraft);
+        if ($error) {
             return back()->withInput()->with('error', $error)->with('edit_rfc_id', (int) $id);
         }
 
-        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig) {
+        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig, $atpIds, $poId) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -260,7 +292,8 @@ class RequestForCheckController extends Controller
                 : $this->rfcPersistStatus($wasRevision ? 'Resubmitted' : 'Submitted');
 
             $payload = [
-                'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id,
+                'request_check_authority_purchase_id' => $atpIds[0] ?? null,
+                'request_check_purchase_order_id' => $poId,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
@@ -285,6 +318,7 @@ class RequestForCheckController extends Controller
             }
 
             DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload($payload));
+            RfcAtpLinks::sync((int) $id, $atpIds);
 
             $this->deleteRequestedAttachments($request, $id);
             $this->storeAttachments($request, $id);
@@ -341,7 +375,8 @@ class RequestForCheckController extends Controller
                 );
             }
             $fundingType = $rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
-            if ($error = $this->atpEligibilityError($rfc->request_check_authority_purchase_id, $id, true, $fundingType)) {
+            $atpIds = RfcAtpLinks::atpIdsFor((int) $id, (int) $rfc->request_check_authority_purchase_id ?: null);
+            if ($error = $this->atpSetEligibilityError($atpIds, (int) $id, true, $fundingType)) {
                 return back()->with('error', $error);
             }
 
@@ -446,10 +481,11 @@ class RequestForCheckController extends Controller
                 Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE]),
             ],
             'request_check_authority_purchase_id' => [
-                $isDraft ? 'nullable' : 'required',
+                'nullable',
                 'integer',
                 'exists:authority_to_purchase_table,authority_purchase_id',
             ],
+            'request_check_funding_source' => ['nullable', 'string', 'max:60'],
             'request_check_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'request_check_payee' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', $isDraft ? 'min:0' : 'gt:0', 'max:999999999.99'],
@@ -628,6 +664,31 @@ class RequestForCheckController extends Controller
                     ->where('request_check_status', '!=', 'Rejected');
                 $this->applyUnarchivedRfcConstraint($q);
             })
+            ->when(RfcAtpLinks::tableExists(), function ($query) {
+                $query->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('request_check_atps_table')
+                        ->join('request_check_table', 'request_check_table.request_check_id', '=', 'request_check_atps_table.request_check_id')
+                        ->whereColumn(
+                            'request_check_atps_table.authority_purchase_id',
+                            'authority_to_purchase_table.authority_purchase_id'
+                        )
+                        ->where('request_check_table.request_check_status', '!=', 'Rejected');
+                    $this->applyUnarchivedRfcConstraint($q);
+                });
+            })
+            ->when(PurchaseOrderBasket::tablesExist(), function ($query) {
+                $query->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('purchase_order_atps_table')
+                        ->join('purchase_orders_table', 'purchase_orders_table.purchase_order_id', '=', 'purchase_order_atps_table.purchase_order_id')
+                        ->whereColumn(
+                            'purchase_order_atps_table.authority_purchase_id',
+                            'authority_to_purchase_table.authority_purchase_id'
+                        )
+                        ->where('purchase_orders_table.purchase_order_status', PurchaseOrderBasket::STATUS_APPROVED);
+                });
+            })
             ->select(
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
@@ -674,6 +735,40 @@ class RequestForCheckController extends Controller
         }
 
         return $prefill;
+    }
+
+    private function attachLinkedAtps($rfcs): void
+    {
+        $rfcs = collect($rfcs);
+        if ($rfcs->isEmpty()) {
+            return;
+        }
+
+        $linkMap = RfcAtpLinks::atpIdsForMany(
+            $rfcs->mapWithKeys(fn ($rfc) => [(int) $rfc->request_check_id => (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null])->all()
+        );
+        $allAtpIds = collect($linkMap)->flatten()->unique()->values();
+        $atpNumbers = $allAtpIds->isEmpty()
+            ? collect()
+            : DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_id', $allAtpIds)
+                ->pluck('authority_purchase_form_number', 'authority_purchase_id');
+
+        $poIds = $rfcs->pluck('request_check_purchase_order_id')->filter()->unique()->values();
+        $orders = $poIds->isEmpty() || !PurchaseOrderBasket::tablesExist()
+            ? collect()
+            : DB::table('purchase_orders_table')->whereIn('purchase_order_id', $poIds)->get()->keyBy('purchase_order_id');
+
+        foreach ($rfcs as $rfc) {
+            $ids = $linkMap[(int) $rfc->request_check_id] ?? [];
+            $rfc->linked_atp_ids = $ids;
+            $rfc->linked_atp_labels = array_map(
+                fn ($atpId) => filled($atpNumbers[$atpId] ?? null) ? (string) $atpNumbers[$atpId] : 'ATP —',
+                $ids
+            );
+            $order = $orders->get((int) ($rfc->request_check_purchase_order_id ?? 0));
+            $rfc->purchase_order_label = $order ? PurchaseOrderBasket::displayNumber($order) : null;
+        }
     }
 
     private function resolveFundingType(Request $request): string
@@ -777,16 +872,88 @@ class RequestForCheckController extends Controller
             return false;
         }
 
-        $query = DB::table('request_check_table')
-            ->where('request_check_authority_purchase_id', $atpId)
-            ->where('request_check_status', '!=', 'Rejected');
-        $this->applyUnarchivedRfcConstraint($query);
+        return RfcAtpLinks::fundedAtpIds([(int) $atpId], $ignoreId ? (int) $ignoreId : null) !== [];
+    }
 
-        if ($ignoreId) {
-            $query->where('request_check_id', '!=', $ignoreId);
+    /**
+     * Resolve which ATPs a funding request covers.
+     * Source is "atp:{id}" for a standalone ATP or a Purchase Order group key ("po:{id}" / "po:{id}:s:{supplierId}").
+     *
+     * @return array{0: ?string, 1: array<int, int>, 2: ?int} [error, atpIds, purchaseOrderId]
+     */
+    private function resolveFundingSelection(array $validated, string $fundingType, ?object $rfc, bool $required): array
+    {
+        $ignoreId = $rfc ? (int) $rfc->request_check_id : null;
+        $source = trim((string) ($validated['request_check_funding_source'] ?? ''));
+        $postedAtpId = (int) ($validated['request_check_authority_purchase_id'] ?? 0);
+
+        if (
+            $source === ''
+            && $rfc
+            && ($postedAtpId === 0 || $postedAtpId === (int) $rfc->request_check_authority_purchase_id)
+        ) {
+            $atpIds = RfcAtpLinks::atpIdsFor((int) $rfc->request_check_id, (int) $rfc->request_check_authority_purchase_id ?: null);
+            $poId = isset($rfc->request_check_purchase_order_id) ? ((int) $rfc->request_check_purchase_order_id ?: null) : null;
+
+            return [$this->atpSetEligibilityError($atpIds, $ignoreId, $required, $fundingType), $atpIds, $poId];
         }
 
-        return $query->exists();
+        if ($source === '' && $postedAtpId > 0) {
+            $source = 'atp:'.$postedAtpId;
+        }
+
+        if ($source === '') {
+            return [$required ? 'Complete payee, amount, purpose, and ATP before submitting.' : null, [], null];
+        }
+
+        if (PurchaseOrderFunding::isGroupKey($source)) {
+            $group = PurchaseOrderFunding::resolveGroup($source, $fundingType, $ignoreId);
+            if (!$group) {
+                return [
+                    'That Purchase Order group is no longer available for a '.ProcurementPaymentPath::label($fundingType).'. Refresh and choose again.',
+                    [],
+                    null,
+                ];
+            }
+
+            return [
+                $this->atpSetEligibilityError($group['atp_ids'], $ignoreId, $required, $fundingType),
+                $group['atp_ids'],
+                $group['purchase_order_id'],
+            ];
+        }
+
+        if (preg_match('/^atp:(\d+)$/', $source, $m)) {
+            $atpId = (int) $m[1];
+            $unchanged = $rfc && (int) $rfc->request_check_authority_purchase_id === $atpId;
+            if (!$unchanged && PurchaseOrderFunding::approvedPoIdForAtp($atpId)) {
+                return ['This ATP was approved through a Purchase Order. Choose its Purchase Order group instead.', [], null];
+            }
+
+            return [$this->atpEligibilityError($atpId, $ignoreId, $required, $fundingType), [$atpId], null];
+        }
+
+        return ['Choose a valid ATP or Purchase Order to fund.', [], null];
+    }
+
+    /**
+     * @param  array<int, int>  $atpIds
+     */
+    private function atpSetEligibilityError(array $atpIds, $ignoreRfcId, bool $required, string $fundingType): ?string
+    {
+        if ($atpIds === []) {
+            return $required ? 'Complete payee, amount, purpose, and ATP before submitting.' : null;
+        }
+
+        foreach ($atpIds as $atpId) {
+            if ($error = $this->atpEligibilityError($atpId, $ignoreRfcId, true, $fundingType)) {
+                return count($atpIds) > 1
+                    ? PurchaseOrderBasket::atpListLabel(DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first()).': '.$error
+                    : $error;
+            }
+        }
+
+        return PurchaseOrderFunding::groupConsistencyError($atpIds, $fundingType);
     }
 
     private function applyStatusFilter($query, string $status): void

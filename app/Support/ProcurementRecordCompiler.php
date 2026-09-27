@@ -134,8 +134,8 @@ class ProcurementRecordCompiler
     private static function activeRfcsForAtp(int $atpId)
     {
         $query = DB::table('request_check_table')
-            ->where('request_check_authority_purchase_id', $atpId)
             ->where('request_check_status', '!=', 'Rejected');
+        RfcAtpLinks::whereCoversAtp($query, $atpId);
 
         if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
             $query->where(function ($inner) {
@@ -169,9 +169,23 @@ class ProcurementRecordCompiler
         }
 
         $rfcIds = $rfcs->pluck('request_check_id')->map(fn ($id) => (int) $id)->all();
+        $hasRrAtpColumn = Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id');
+
+        if ($hasRrAtpColumn) {
+            $rr = self::receivingReportQuery()
+                ->where('receiving_report_atp_id', $atpId)
+                ->orderByDesc('receiving_report_id')
+                ->get()
+                ->first(fn ($row) => self::isRrComplete($row));
+
+            if ($rr) {
+                return $rr;
+            }
+        }
 
         $rr = self::receivingReportQuery()
             ->whereIn('receiving_report_request_check_id', $rfcIds)
+            ->when($hasRrAtpColumn, fn ($q) => $q->whereNull('receiving_report_atp_id'))
             ->orderByDesc('receiving_report_id')
             ->get()
             ->first(fn ($row) => self::isRrComplete($row));
@@ -192,6 +206,9 @@ class ProcurementRecordCompiler
             if ($rrIds !== []) {
                 $rr = self::receivingReportQuery()
                     ->whereIn('receiving_report_id', $rrIds)
+                    ->when($hasRrAtpColumn, fn ($q) => $q->where(function ($own) use ($atpId) {
+                        $own->whereNull('receiving_report_atp_id')->orWhere('receiving_report_atp_id', $atpId);
+                    }))
                     ->orderByDesc('receiving_report_id')
                     ->get()
                     ->first(fn ($row) => self::isRrComplete($row));
@@ -202,20 +219,11 @@ class ProcurementRecordCompiler
             }
         }
 
-        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
-            $rr = self::receivingReportQuery()
-                ->where('receiving_report_atp_id', $atpId)
-                ->orderByDesc('receiving_report_id')
-                ->get()
-                ->first(fn ($row) => self::isRrComplete($row));
-
-            if ($rr) {
-                return $rr;
-            }
-        }
-
         return self::receivingReportQuery()
             ->whereIn('receiving_report_request_check_id', $rfcIds)
+            ->when($hasRrAtpColumn, fn ($q) => $q->where(function ($own) use ($atpId) {
+                $own->whereNull('receiving_report_atp_id')->orWhere('receiving_report_atp_id', $atpId);
+            }))
             ->orderByDesc('receiving_report_id')
             ->first();
     }

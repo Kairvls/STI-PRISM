@@ -40,7 +40,7 @@
                 @php $isCurrent = $currentPortalKey === $portal['key']; @endphp
                 <a
                     href="{{ url($portal['path']) }}"
-                    class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition {{ $isCurrent ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' }}"
+                    class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition {{ $isCurrent ? 'bg-[#0025cc] text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' }}"
                 >
                     <i data-lucide="{{ $isCurrent ? 'check' : 'arrow-up-right' }}" class="h-4 w-4 shrink-0 {{ $isCurrent ? 'text-white' : 'text-slate-400' }}"></i>
                     <span class="min-w-0">

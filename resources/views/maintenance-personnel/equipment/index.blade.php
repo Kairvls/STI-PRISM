@@ -5,6 +5,12 @@
 @section ("content")
     @php
         $isStockPage = $isStockPage ?? (($scope ?? 'stock') === 'stock');
+        $canMaintain = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+        $selectable = $isStockPage && $canMaintain;
+        $acquisitionReady = \App\Support\EquipmentAcquisition::ready();
+        $acquisitionSuppliers = \App\Support\EquipmentAcquisition::supplierOptions();
+        $acquisitionPeople = $isStockPage ? \App\Support\Custodians::assignable() : collect();
+        $replacementCandidates = $isStockPage ? \App\Support\EquipmentAcquisition::replacementCandidates() : collect();
         $eqImageUrl = function ($path) {
             if (!filled($path)) {
                 return '';
@@ -26,6 +32,7 @@
         <!-- PAGE HEADER -->
         @if ($isStockPage)
             <div class="flex flex-wrap items-center justify-end gap-2">
+                @if ($canMaintain)
                 <button
                     type="button"
                     id="inventoryTransferSelectedBtn"
@@ -46,6 +53,7 @@
                     <i data-lucide="move" class="h-4 w-4"></i>
                     Transfer all
                 </button>
+                @endif
                 <button
                     type="button"
                     id="stockPendingBtn"
@@ -58,6 +66,15 @@
                     @if (($pendingReceivableCount ?? 0) > 0)
                         <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white">{{ (int) $pendingReceivableCount }}</span>
                     @endif
+                </button>
+                <button
+                    type="button"
+                    onclick="openBatchAddEquipmentModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    @if (!($defaultStorageRoomId ?? null)) disabled @endif
+                >
+                    <i data-lucide="layers" class="h-4 w-4"></i>
+                    Batch add
                 </button>
                 <button
                     type="button"
@@ -95,9 +112,12 @@
             @endif
             @php
                 $obTotals = $openBalance['totals'] ?? [];
-                $obLines = $openBalance['lines'] ?? [];
+                $obReports = $openBalance['reports'] ?? [];
+                $obOpen = collect($obReports)
+                    ->mapWithKeys(fn ($r) => [(string) $r['receiving_report_id'] => (int) ($r['totals']['pending_stock'] ?? 0) > 0])
+                    ->all();
             @endphp
-            @if (!empty($obLines))
+            @if (!empty($obReports))
                 <div class="rounded-2xl border border-slate-200/80 bg-white">
                     <div class="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
                         <div class="min-w-0">
@@ -123,45 +143,174 @@
                         @endforeach
                     </div>
 
-                    <div class="monitoring-scroll max-h-56 overflow-y-auto border-t border-slate-100">
-                        <table class="min-w-full text-left text-sm">
-                            <thead class="sticky top-0 z-10 bg-white text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                <tr class="border-b border-slate-100">
-                                    <th class="px-5 py-2.5 font-medium">Item</th>
-                                    <th class="px-3 py-2.5 text-right font-medium">Recv</th>
-                                    <th class="px-3 py-2.5 text-right font-medium">Stock</th>
-                                    <th class="px-3 py-2.5 text-right font-medium">Store</th>
-                                    <th class="px-5 py-2.5 pr-6 text-right font-medium">Pending</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-700">
-                                @foreach ($obLines as $line)
-                                    @php
-                                        $pending = (int) ($line['pending_stock'] ?? 0);
-                                        $lineId = (int) ($line['receiving_report_item_id'] ?? 0);
-                                    @endphp
-                                    <tr class="transition hover:bg-slate-50/80">
-                                        <td class="px-5 py-3">
-                                            <p class="font-medium text-slate-900">{{ $line['article'] }}</p>
-                                            <p class="mt-0.5 font-mono text-[11px] text-slate-400">
-                                                {{ $line['rr_number'] }}
-                                                @if ($lineId > 0)
-                                                    <span class="text-slate-300">·</span> L{{ $lineId }}
+                    <div
+                        class="monitoring-scroll max-h-[28rem] overflow-y-auto border-t border-slate-100"
+                        x-data="{
+                            openRr: @js((object) $obOpen),
+                            openLine: {},
+                            toggleRr(id) { this.openRr = { ...this.openRr, [id]: !this.openRr[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
+                            toggleLine(id) { this.openLine = { ...this.openLine, [id]: !this.openLine[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
+                        }"
+                    >
+                        <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 border-b border-slate-100 bg-white px-5 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                            <span>Receiving report</span>
+                            <span class="text-right">Recv</span>
+                            <span class="text-right">Stock</span>
+                            <span class="text-right">Pending</span>
+                        </div>
+
+                        <div class="divide-y divide-slate-100 text-sm text-slate-700">
+                            @foreach ($obReports as $report)
+                                @php
+                                    $rrKey = (string) $report['receiving_report_id'];
+                                    $rrTotals = $report['totals'];
+                                    $rrPending = (int) ($rrTotals['pending_stock'] ?? 0);
+                                    $rrLineCount = count($report['lines']);
+                                    $rrPaperwork = implode(' · ', array_filter([
+                                        $report['atp_number'] ?? null,
+                                        !empty($report['dr_no']) ? 'DR '.$report['dr_no'] : null,
+                                        !empty($report['invoice_no']) ? 'Invoice '.$report['invoice_no'] : null,
+                                    ]));
+                                    $rrDate = null;
+                                    if (!empty($report['date'])) {
+                                        try {
+                                            $rrDate = \Illuminate\Support\Carbon::parse($report['date'])->format('M j, Y');
+                                        } catch (\Throwable $e) {
+                                            $rrDate = null;
+                                        }
+                                    }
+                                @endphp
+                                <div>
+                                    <button
+                                        type="button"
+                                        class="grid w-full grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 px-5 py-3 text-left transition hover:bg-slate-50/80"
+                                        :aria-expanded="openRr['{{ $rrKey }}'] ? 'true' : 'false'"
+                                        @click="toggleRr('{{ $rrKey }}')"
+                                    >
+                                        <span class="flex min-w-0 items-start gap-2.5">
+                                            <span class="mt-0.5 inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="openRr['{{ $rrKey }}'] ? 'rotate-90' : ''">
+                                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                                            </span>
+                                            <span class="min-w-0">
+                                                <span class="flex flex-wrap items-center gap-2">
+                                                    <span class="font-mono text-[13px] font-semibold text-slate-900">{{ $report['rr_number'] }}</span>
+                                                    @if ($rrPending > 0)
+                                                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{{ $rrPending }} pending</span>
+                                                    @else
+                                                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Fully stocked</span>
+                                                    @endif
+                                                </span>
+                                                <span class="mt-0.5 block truncate text-[11px] text-slate-400">
+                                                    {{ $report['supplier_name'] ?: 'No supplier' }}
+                                                    <span class="text-slate-300">·</span>
+                                                    {{ !empty($report['po_number']) ? 'PO '.$report['po_number'] : 'No PO' }}
+                                                    @if ($rrDate)
+                                                        <span class="text-slate-300">·</span> {{ $rrDate }}
+                                                    @endif
+                                                    <span class="text-slate-300">·</span>
+                                                    {{ $rrLineCount }} {{ \Illuminate\Support\Str::plural('line', $rrLineCount) }}
+                                                    @if ((float) ($report['amount'] ?? 0) > 0)
+                                                        <span class="text-slate-300">·</span> ₱{{ number_format((float) $report['amount'], 2) }}
+                                                    @endif
+                                                </span>
+                                                @if ($rrPaperwork !== '')
+                                                    <span class="mt-0.5 block truncate text-[11px] text-slate-400">{{ $rrPaperwork }}</span>
                                                 @endif
-                                                <span class="font-sans text-slate-300"> · </span>
-                                                <span class="font-sans">{{ !empty($line['po_number']) ? 'PO '.$line['po_number'] : 'No PO' }}</span>
-                                            </p>
-                                        </td>
-                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['received'] }}</td>
-                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['stocked'] }}</td>
-                                        <td class="px-3 py-3 text-right tabular-nums">{{ (int) $line['in_storage'] }}</td>
-                                        <td class="px-5 py-3 pr-6 text-right tabular-nums font-semibold {{ $pending > 0 ? 'text-amber-700' : 'text-slate-400' }}">
-                                            {{ $pending }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                                            </span>
+                                        </span>
+                                        <span class="text-right tabular-nums">{{ (int) $rrTotals['received'] }}</span>
+                                        <span class="text-right tabular-nums">{{ (int) $rrTotals['stocked'] }}</span>
+                                        <span class="text-right font-semibold tabular-nums {{ $rrPending > 0 ? 'text-amber-700' : 'text-slate-400' }}">{{ $rrPending }}</span>
+                                    </button>
+
+                                    <div x-show="openRr['{{ $rrKey }}']" x-cloak class="border-t border-slate-100 bg-slate-50/60">
+                                        @foreach ($report['lines'] as $line)
+                                            @php
+                                                $lineId = (int) $line['receiving_report_item_id'];
+                                                $pending = (int) $line['pending_stock'];
+                                                $units = $line['units'] ?? [];
+                                            @endphp
+                                            <div class="border-b border-slate-100 last:border-b-0">
+                                                <div class="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 py-2.5 pl-12 pr-5">
+                                                    <div class="min-w-0">
+                                                        <p class="truncate font-medium text-slate-900">{{ $line['article'] }}</p>
+                                                        @php
+                                                            $lineCost = implode(' · ', array_filter([
+                                                                !empty($line['unit']) ? (int) $line['received'].' '.$line['unit'] : null,
+                                                                $line['unit_cost'] !== null ? '₱'.number_format((float) $line['unit_cost'], 2).' each' : null,
+                                                                $line['amount'] !== null && (int) $line['received'] > 1 ? '₱'.number_format((float) $line['amount'], 2).' total' : null,
+                                                            ]));
+                                                        @endphp
+                                                        @if ($lineCost !== '')
+                                                            <p class="mt-0.5 truncate text-[11px] text-slate-500">{{ $lineCost }}</p>
+                                                        @endif
+                                                        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                                                            <span class="font-mono">L{{ $lineId }}</span>
+                                                            <span>{{ (int) $line['in_storage'] }} in storage · {{ (int) $line['deployed'] }} deployed{{ (int) $line['disposed'] > 0 ? ' · '.(int) $line['disposed'].' disposed' : '' }}</span>
+                                                            @if (!empty($units))
+                                                                <button type="button" class="inline-flex items-center gap-1 font-semibold text-[#0025cc] hover:underline" @click="toggleLine('{{ $lineId }}')">
+                                                                    <span x-text="openLine['{{ $lineId }}'] ? 'Hide equipment' : 'View {{ count($units) }} {{ \Illuminate\Support\Str::plural('record', count($units)) }}'"></span>
+                                                                </button>
+                                                            @endif
+                                                            @if ($pending > 0)
+                                                                <button type="button" class="inline-flex items-center gap-1 font-semibold text-amber-700 hover:underline" onclick="openAddEquipmentModal({{ $lineId }})">
+                                                                    <i data-lucide="package-plus" class="h-3 w-3"></i>
+                                                                    Stock {{ $pending }}
+                                                                </button>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                    <span class="text-right tabular-nums">{{ (int) $line['received'] }}</span>
+                                                    <span class="text-right tabular-nums">{{ (int) $line['stocked'] }}</span>
+                                                    <span class="text-right font-semibold tabular-nums {{ $pending > 0 ? 'text-amber-700' : 'text-slate-400' }}">{{ $pending }}</span>
+                                                </div>
+
+                                                @if (!empty($units))
+                                                    <ul x-show="openLine['{{ $lineId }}']" x-cloak class="mb-2.5 ml-12 mr-5 divide-y divide-slate-100 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                                                        @foreach ($units as $unit)
+                                                            @php
+                                                                $placementClass = match ($unit['placement']) {
+                                                                    'deployed' => 'bg-[#0025cc]/5 text-[#0025cc]',
+                                                                    'disposed' => 'bg-rose-50 text-rose-700',
+                                                                    'unplaced' => 'bg-amber-50 text-amber-700',
+                                                                    default => 'bg-slate-100 text-slate-600',
+                                                                };
+                                                            @endphp
+                                                            <li>
+                                                                <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $unit['equipment_id']) }}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 transition hover:bg-slate-50">
+                                                                    <span class="min-w-0">
+                                                                        <span class="block truncate text-[13px] font-medium text-slate-900">
+                                                                            {{ $unit['name'] }}
+                                                                            @if ((int) $unit['quantity'] > 1)
+                                                                                <span class="font-normal text-slate-400">× {{ (int) $unit['quantity'] }}</span>
+                                                                            @endif
+                                                                        </span>
+                                                                        <span class="mt-0.5 block truncate text-[11px] text-slate-400">
+                                                                            <span class="font-mono">{{ $unit['asset_tag'] ?: 'No asset tag' }}</span>
+                                                                            @if (!empty($unit['serial']))
+                                                                                <span class="text-slate-300">·</span> SN {{ $unit['serial'] }}
+                                                                            @endif
+                                                                            @if (!empty($unit['condition']))
+                                                                                <span class="text-slate-300">·</span> {{ $unit['condition'] }}
+                                                                            @endif
+                                                                        </span>
+                                                                    </span>
+                                                                    <span class="flex shrink-0 items-center gap-2">
+                                                                        <span class="hidden max-w-[10rem] truncate text-[11px] text-slate-500 sm:inline">{{ $unit['room_name'] ?: 'No room' }}</span>
+                                                                        <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize {{ $placementClass }}">{{ $unit['placement'] }}</span>
+                                                                        <i data-lucide="chevron-right" class="h-3.5 w-3.5 text-slate-300"></i>
+                                                                    </span>
+                                                                </a>
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             @endif
@@ -468,7 +617,11 @@
 
                     <div class="min-w-0 flex-1">
 
-                        @if ($isStockPage)
+                        @if ($isStockPage && ! $canMaintain)
+                            <p class="text-sm text-slate-500">
+                                Storage stock only. Transfers, edits and disposal are handled by Maintenance.
+                            </p>
+                        @elseif ($isStockPage)
                             <p class="text-sm text-slate-500">
                                 Storage stock only. Check items to <span class="font-medium text-slate-800">Transfer selected</span>, use row <span class="font-medium text-slate-800">Transfer to</span>, or <span class="font-medium text-slate-800">Transfer all</span>.
                             </p>
@@ -843,7 +996,7 @@
                 <table class="w-full" @if ($isStockPage) id="inventoryStockTable" @endif>
                     <thead class="border-b border-slate-200 bg-slate-50/80">
                         <tr>
-                            @if ($isStockPage)
+                            @if ($selectable)
                                 <th class="w-12 px-4 py-3 text-center">
                                     <input
                                         type="checkbox"
@@ -920,7 +1073,7 @@
                                     : 'bg-sky-50 text-sky-700 ring-sky-200';
                             @endphp
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
-                                @if ($isStockPage)
+                                @if ($selectable)
                                     <td class="px-4 py-4 text-center">
                                         <input
                                             type="checkbox"
@@ -1031,7 +1184,7 @@
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
 
-                                        @if ($isStockPage)
+                                        @if ($isStockPage && $canMaintain)
                                             <button
                                                 type="button"
                                                 onclick="openInventoryTransferToModal(
@@ -1048,6 +1201,7 @@
                                             </button>
                                         @endif
 
+                                        @if ($canMaintain)
                                         <button
                                             type="button"
                                             onclick="openEditEquipmentModal(
@@ -1086,7 +1240,9 @@
 
                                                 '{{ $item->equipment_is_borrowable }}',
 
-                                                {{ json_encode($eqImageUrl($item->equipment_image)) }}
+                                                {{ json_encode($eqImageUrl($item->equipment_image)) }},
+
+                                                {{ json_encode(\App\Support\EquipmentAcquisition::formPayload($item)) }}
 
                                             )"
                                             class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
@@ -1112,6 +1268,7 @@
                                                 
                                             </button>
                                         @endif
+                                        @endif
 
                                     </div>
                                 </td>
@@ -1122,7 +1279,7 @@
                             <tr>
 
                                 <td
-                                    colspan="{{ $isStockPage ? 9 : 8 }}"
+                                    colspan="{{ $selectable ? 9 : 8 }}"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1358,606 +1515,10 @@
                 background: #cbd5e1;
             }
         </style>
-    <div
-        id="addEquipmentModal"
-        x-data="inventoryAddEquipment()"
-        x-show="open"
-        x-cloak
-        x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
-        @if ($errors->any())
-        x-init="
-            open = true;
-            formError = {{ json_encode($errors->first()) }};
-            errors = {
-                @if ($errors->has('equipment_name')) name: {{ json_encode($errors->first('equipment_name')) }}, @endif
-                @if ($errors->has('equipment_category_id')) category: {{ json_encode($errors->first('equipment_category_id')) }}, @endif
-                @if ($errors->has('equipment_room_id')) room: {{ json_encode($errors->first('equipment_room_id')) }}, @endif
-                @if ($errors->has('equipment_quantity')) quantity: {{ json_encode($errors->first('equipment_quantity')) }}, @endif
-                @if ($errors->has('equipment_image')) image: {{ json_encode($errors->first('equipment_image')) }}, @endif
-            };
-            $nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        "
-        @endif
-        class="fixed inset-0 z-50 hidden items-center justify-center overflow-hidden bg-[#0b1220]/70"
-        :class="[
-            open ? '!flex' : 'hidden',
-            fullscreen && step === 2 ? 'p-0' : 'p-4'
-        ]"
-    >
-        <form
-            action="/maintenance/equipment/store"
-            method="POST"
-            enctype="multipart/form-data"
-            @submit="prepareSubmit($event)"
-            class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
-            :class="fullscreen && step === 2
-                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
-                : (step === 2
-                    ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
-                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
-        >
-            @csrf
-            <input type="hidden" name="equipment_tracking_mode" :value="tracking">
-            <input type="hidden" name="equipment_quantity" :value="quantity">
-            @if ($isStockPage)
-                <input type="hidden" name="require_receiving_basis" value="1">
-                <input type="hidden" name="intake_basis" :value="intakeBasis">
-                <input type="hidden" name="receiving_report_item_id" :value="rrItemId || ''">
-                <input type="hidden" name="equipment_purchase_date" :value="purchaseDate || ''">
-                <input type="hidden" name="equipment_purchase_cost" :value="purchaseCost || ''">
-            @endif
-
-            <div class="flex items-start justify-between px-6 pt-6">
-                <div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : {{ $isStockPage ? "'Add to stock'" : "'Add equipment'" }}"></h2>
-                    <p class="mt-1 text-sm text-slate-500" x-text="step === 2
-                        ? 'Edit unique identity per unit. Shared name, category, and room apply to all.'
-                        : {{ $isStockPage ? "'Stock from a completed Receiving Report. PO is shown as the purchase basis; RR is what was actually delivered.'" : "'Identity on the left, status on the right.'" }}"></p>
-                </div>
-                <div class="flex shrink-0 items-center gap-1">
-                    <button
-                        type="button"
-                        x-show="step === 2"
-                        x-cloak
-                        @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
-                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                        :title="fullscreen ? 'Exit full screen' : 'Full screen'"
-                        :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
-                    >
-                        <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
-                    </button>
-                    <button type="button" @click="close()" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div
-                x-show="formError"
-                x-cloak
-                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
-            >
-                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
-                <button type="button" @click="formError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
-                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
-                </button>
-            </div>
-
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
-                @if ($isStockPage)
-                <div class="mb-5 space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                    <div class="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
-                            <p class="mt-1 text-xs text-slate-500">Delivered RR lines (with PO when linked). Click a ready line to prefill this form.</p>
-                        </div>
-                        <button
-                            type="button"
-                            class="text-xs font-semibold text-[#0025cc] hover:underline"
-                            @click="intakeBasis = intakeBasis === 'non_procurement' ? 'receiving' : 'non_procurement'; clearError('rr'); clearError('intake_reason')"
-                            x-text="intakeBasis === 'non_procurement' ? 'Use received RR instead' : 'Non-procurement intake…'"
-                        ></button>
-                    </div>
-
-                    <div x-show="intakeBasis !== 'non_procurement'" x-cloak class="space-y-3">
-                        <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                            <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Delivered lines (RR / PO)</p>
-                                <button
-                                    type="button"
-                                    class="text-[11px] font-semibold text-[#0025cc] hover:underline"
-                                    @click="loadRrLines()"
-                                    :disabled="rrLoading"
-                                >Refresh</button>
-                            </div>
-                            <div class="max-h-52 overflow-y-auto">
-                                <template x-if="rrLoading">
-                                    <p class="px-3 py-4 text-xs text-slate-400">Loading delivered lines…</p>
-                                </template>
-                                <template x-if="!rrLoading && rrGuide.length === 0">
-                                    <p class="px-3 py-4 text-xs text-amber-700">No completed receiving lines yet. Finish second count on an RR first.</p>
-                                </template>
-                                <ul class="divide-y divide-slate-100" x-show="!rrLoading && rrGuide.length > 0">
-                                    <template x-for="line in rrGuide" :key="line.id">
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
-                                                :class="String(rrItemId) === String(line.id)
-                                                    ? 'bg-[#0025cc]/5 ring-inset ring-1 ring-[#0025cc]/20'
-                                                    : (line.is_selectable ? 'hover:bg-slate-50' : 'opacity-70')"
-                                                :disabled="!line.is_selectable"
-                                                @click="selectRrLine(line)"
-                                            >
-                                                <div class="min-w-0 flex-1">
-                                                    <p class="truncate text-sm font-semibold text-slate-900" x-text="line.article"></p>
-                                                    <p class="mt-0.5 truncate text-[11px] text-slate-500">
-                                                        <span x-text="line.rr_number || 'RR'"></span>
-                                                        <span class="mx-1 text-slate-300">·</span>
-                                                        <span x-text="line.po_number ? ('PO ' + line.po_number) : 'No PO'"></span>
-                                                        <span class="mx-1 text-slate-300">·</span>
-                                                        <span x-text="(line.supplier_name || 'No supplier')"></span>
-                                                    </p>
-                                                    <p class="mt-0.5 text-[11px] text-slate-400">
-                                                        Ordered <span x-text="line.ordered_qty || 0"></span>
-                                                        · Received <span x-text="line.received_qty || 0"></span>
-                                                        · Stocked <span x-text="line.stocked_qty || 0"></span>
-                                                        · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-500'" x-text="line.remaining_qty || 0"></span>
-                                                    </p>
-                                                </div>
-                                                <span
-                                                    class="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                                                    :class="line.is_selectable ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
-                                                    x-text="line.status_label || (line.is_selectable ? 'Ready' : 'Done')"
-                                                ></span>
-                                            </button>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="add_rr_line" class="{{ $eqLabel }}">Selected received line (RR) <span class="text-red-500">*</span></label>
-                            <select
-                                id="add_rr_line"
-                                class="{{ $eqField }}"
-                                :class="errors.rr ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                x-model="rrItemId"
-                                @change="onRrLineChange(); clearError('rr')"
-                            >
-                                <option value="">Select from list above…</option>
-                                <template x-for="line in rrLines" :key="'opt-' + line.id">
-                                    <option :value="String(line.id)" x-text="line.label"></option>
-                                </template>
-                            </select>
-                            <p x-show="!rrLoading && rrLines.length === 0 && rrGuide.length > 0" class="mt-1.5 text-xs text-emerald-700">All delivered lines are already fully stocked. Use non-procurement intake only for assets without an RR.</p>
-                            <p x-show="!rrLoading && rrGuide.length === 0" class="mt-1.5 text-xs text-amber-700">No unstocked RR lines yet. Complete receiving second count first, or use non-procurement intake.</p>
-                            <p x-show="errors.rr" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.rr"></p>
-                        </div>
-
-                        <div
-                            x-show="selectedRrLine"
-                            x-cloak
-                            class="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/80"
-                        >
-                            <p><span class="font-semibold text-slate-800">RR</span> <span x-text="selectedRrLine?.rr_number || '—'"></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">PO</span> <span x-text="selectedRrLine?.po_number || 'Not linked'"></span>
-                            </p>
-                            <p class="mt-1">
-                                <span class="font-semibold text-slate-800">Supplier</span> <span x-text="selectedRrLine?.supplier_name || '—'"></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">To stock</span> <span x-text="selectedRrLine?.quantity || 0"></span>
-                                <span x-show="selectedRrLine?.received_qty"> / received <span x-text="selectedRrLine?.received_qty"></span></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">Bought</span> <span x-text="selectedRrLine?.purchase_date || '—'"></span>
-                            </p>
-                        </div>
-                    </div>
-
-                    <div x-show="intakeBasis === 'non_procurement'" x-cloak>
-                        <label for="add_intake_reason" class="{{ $eqLabel }}">Reason <span class="text-red-500">*</span></label>
-                        <input
-                            id="add_intake_reason"
-                            type="text"
-                            name="intake_reason"
-                            x-model="intakeReason"
-                            @input="clearError('intake_reason')"
-                            placeholder="e.g. Donation, legacy migration, found on campus"
-                            class="{{ $eqField }}"
-                            :class="errors.intake_reason ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                        />
-                        <p x-show="errors.intake_reason" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.intake_reason"></p>
-                    </div>
-                </div>
-                @endif
-                <div
-                    class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
-                    x-show="!needsItemStep()"
-                    x-cloak
-                >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
-                    <div class="mt-3 flex items-center gap-4">
-                        <button
-                            type="button"
-                            x-show="imagePreview"
-                            x-cloak
-                            @click="openEquipmentPhotoViewer(imagePreview, name || 'Equipment photo')"
-                            class="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
-                            aria-label="View equipment photo fullscreen"
-                        >
-                            <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
-                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
-                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
-                            </span>
-                        </button>
-                        <div
-                            x-show="!imagePreview"
-                            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
-                        >
-                            <span
-                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                                x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
-                            ></span>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-900">Add equipment photo</p>
-                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB.</p>
-                            <p x-show="imagePreview" x-cloak class="mt-0.5 text-xs text-slate-500">Click the photo to view it full screen.</p>
-                            <div class="mt-2 flex flex-wrap items-center gap-2">
-                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
-                                    Choose image
-                                    <input
-                                        type="file"
-                                        :name="needsItemStep() ? null : 'equipment_image'"
-                                        accept="image/jpeg,image/png,image/webp,image/gif"
-                                        class="sr-only"
-                                        x-ref="imageInput"
-                                        :disabled="needsItemStep()"
-                                        @change="onImageChange($event)"
-                                    >
-                                </label>
-                                <button
-                                    type="button"
-                                    x-show="imagePreview"
-                                    x-cloak
-                                    @click="clearImage()"
-                                    class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                            <p x-show="errors.image" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="errors.image"></p>
-                        </div>
-                    </div>
-                </div>
-                <div
-                    class="mb-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
-                    x-show="needsItemStep()"
-                    x-cloak
-                >
-                    Photos are optional per unit on the next step — one shared photo isn’t used when creating multiple individually tracked assets.
-                </div>
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
-                        <div>
-                            <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
-                            <input
-                                id="add_equipment_name"
-                                type="text"
-                                name="equipment_name"
-                                x-model="name"
-                                @input="clearError('name'); onNameInput(); syncAssetTag()"
-                                placeholder="e.g. Mouse"
-                                class="{{ $eqField }}"
-                                :class="errors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            />
-                            <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
-                        </div>
-                        <div>
-                            <label for="add_equipment_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
-                            <select
-                                id="add_equipment_category"
-                                name="equipment_category_id"
-                                x-model="category"
-                                @change="clearError('category'); onCategoryChange()"
-                                class="{{ $eqField }}"
-                                :class="errors.category ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            >
-                                <option value="">Select category</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
-                                @endforeach
-                            </select>
-                            <p x-show="errors.category" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.category"></p>
-                            <p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
-                        </div>
-                        <div>
-                            <label for="add_equipment_room" class="{{ $eqLabel }}">{{ $isStockPage ? 'Storage room' : 'Room' }} <span class="text-rose-500">*</span></label>
-                            <select
-                                id="add_equipment_room"
-                                name="equipment_room_id"
-                                x-model="room"
-                                @change="clearError('room'); syncAssetTag()"
-                                class="{{ $eqField }}"
-                                :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            >
-                                <option value="">{{ $isStockPage ? 'Select storage room' : 'Select room' }}</option>
-                                @foreach (($isStockPage ? ($storageRooms ?? $rooms) : $rooms) as $room)
-                                    @php
-                                        $isStorageRoom = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
-                                        $roomLabel = $isStockPage
-                                            ? $room->room_name
-                                            : ($isStorageRoom ? 'Storage · '.$room->room_name : $room->room_name);
-                                    @endphp
-                                    <option value="{{ $room->room_id }}">{{ $roomLabel }}</option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1.5 text-xs text-slate-400">
-                                @if ($isStockPage)
-                                    Stock stays in storage until you transfer it to a classroom or lab.
-                                @else
-                                    Prefer a Storage room to keep items in inventory stock. Use Transfers to deploy to classrooms.
-                                @endif
-                            </p>
-                            <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
-                        </div>
-                    </div>
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty</label>
-                                <input
-                                    id="add_equipment_quantity"
-                                    type="number"
-                                    min="1"
-                                    max="200"
-                                    x-model.number="quantity"
-                                    @input="clearError('quantity'); syncAssetTag(); onSharedPhotoModeChange()"
-                                    class="{{ $eqField }}"
-                                    :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                />
-                                <p x-show="errors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.quantity"></p>
-                            </div>
-                            <div>
-                                <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
-                                <select id="add_equipment_condition" name="equipment_condition_status" x-model="condition" class="{{ $eqField }}">
-                                    <option value="Good">Good</option>
-                                    <option value="Damaged">Damaged</option>
-                                    <option value="Under Maintenance">Under maintenance</option>
-                                    <option value="Disposed">Disposed</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="{{ $eqLabel }}">Tracking mode</label>
-                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
-                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
-                            </div>
-                            <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
-                                ? 'One stock record with combined quantity.'
-                                : 'Creates separate trackable assets (asset tag, serial, QR per unit).'"></p>
-                        </div>
-                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
-                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
-                            <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
-                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
-                        </label>
-                    </div>
-                </div>
-                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
-                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Shared defaults / single-item details</summary>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                        <div x-show="tracking === 'Bulk' || quantity === 1">
-                            <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
-                            <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" @input="assetTagManual = true" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
-                            <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
-                            <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" class="{{ $eqField }}" />
-                        </div>
-                        <div x-show="tracking === 'Bulk' || quantity === 1">
-                            <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
-                            <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_warranty_expiration" class="{{ $eqLabel }}">Warranty expiration</label>
-                            <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_useful_life_years" class="{{ $eqLabel }}">Useful lifespan (years)</label>
-                            <input
-                                id="add_useful_life_years"
-                                type="number"
-                                name="equipment_useful_life_years"
-                                min="1"
-                                max="50"
-                                step="1"
-                                x-model="usefulLifeYears"
-                                placeholder="Default 5"
-                                class="{{ $eqField }}"
-                            />
-                        </div>
-                    </div>
-                </details>
-            </div>
-
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 2" x-cloak>
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
-                    <div class="text-sm text-slate-600">
-                        <span class="font-medium text-slate-900" x-text="name"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span x-text="items.length + ' individually tracked units'"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span class="text-slate-500">Optional photo per unit</span>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
-                        <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
-                    </div>
-                </div>
-                <div class="rounded-xl ring-1 ring-slate-200">
-                    <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
-                        <colgroup>
-                            <col class="w-[3%]">
-                            <col class="w-[14%]">
-                            <col class="w-[22%]">
-                            <col class="w-[14%]">
-                            <col class="w-[12%]">
-                            <col class="w-[12%]">
-                            <col class="w-[13%]">
-                            <col class="w-[10%]">
-                        </colgroup>
-                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th class="px-2 py-2.5">#</th>
-                                <th class="px-2 py-2.5">Photo</th>
-                                <th class="px-2 py-2.5">Asset tag</th>
-                                <th class="px-2 py-2.5">Serial</th>
-                                <th class="px-2 py-2.5">Brand</th>
-                                <th class="px-2 py-2.5">Model</th>
-                                <th class="px-2 py-2.5">Condition</th>
-                                <th class="px-2 py-2.5">Warranty</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <template x-for="(item, index) in items" :key="index">
-                                <tr>
-                                    <td class="px-2 py-2 text-slate-400" x-text="index + 1"></td>
-                                    <td class="px-2 py-2">
-                                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                x-show="item._imagePreview"
-                                                x-cloak
-                                                @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
-                                                class="group relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
-                                                aria-label="View unit photo"
-                                            >
-                                                <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
-                                            </button>
-                                            <div
-                                                x-show="!item._imagePreview"
-                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
-                                            >
-                                                <span
-                                                    class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                                                    x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
-                                                ></span>
-                                            </div>
-                                            <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
-                                                <span x-text="item._imagePreview ? 'Change' : 'Add'"></span>
-                                                <input
-                                                    type="file"
-                                                    :name="'items[' + index + '][equipment_image]'"
-                                                    :data-item-image-index="index"
-                                                    accept="image/jpeg,image/png,image/webp,image/gif"
-                                                    class="sr-only"
-                                                    @change="onItemImageChange(index, $event)"
-                                                >
-                                            </label>
-                                            <button
-                                                type="button"
-                                                x-show="item._imagePreview"
-                                                x-cloak
-                                                @click="clearItemImage(index)"
-                                                class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_asset_tag || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_asset_tag"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_serial_number || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_serial_number"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_brand_name || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_brand_name"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_model || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_model"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm">
-                                            <option value="Good">Good</option>
-                                            <option value="Damaged">Damaged</option>
-                                            <option value="Under Maintenance">Under Maintenance</option>
-                                            <option value="Disposed">Disposed</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm" />
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
-                <button type="button" @click="step === 2 ? (step = 1, fullscreen = false) : close()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="step === 2 ? 'Back' : 'Cancel'"></button>
-                <button
-                    type="button"
-                    x-show="step === 1 && needsItemStep()"
-                    @click="goToItems()"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                >
-                    Continue
-                </button>
-                <button
-                    type="submit"
-                    x-show="step === 2 || !needsItemStep()"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                    x-text="step === 2 ? ('Create ' + items.length + ' assets') : {{ $isStockPage ? "'Add to stock'" : "'Add equipment'" }}"
-                ></button>
-            </div>
-        </form>
-    </div>
+    @if ($isStockPage)
+        @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add to stock'])
+        @include('maintenance-personnel.equipment.partials.batch-add-wizard')
+    @endif
 
     <div
         id="editEquipmentModal"
@@ -2082,7 +1643,7 @@
                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
                             <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
                             <input id="edit_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
-                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
                         </label>
                     </div>
                 </div>
@@ -2147,6 +1708,54 @@
                             <p class="mt-1 text-[11px] text-slate-500">Used for replacement broadcasts when equipment nears end of life.</p>
                         </div>
                     </div>
+                    @if ($acquisitionReady)
+                        <div class="mt-5 border-t border-slate-200/80 pt-4">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Acquisition</p>
+                            <p id="edit_acquisition_linked" class="mt-2 hidden rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/80">
+                                Linked to a Receiving Report. Supplier, PO, ATP / RIS and RR come from the procurement documents and cannot be edited here.
+                            </p>
+                            <div id="edit_acquisition_fields" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                <div>
+                                    <label for="edit_acquisition_source" class="{{ $eqLabel }}">How was it acquired?</label>
+                                    <select id="edit_acquisition_source" name="equipment_acquisition_source" class="{{ $eqField }}">
+                                        <option value="">Not recorded</option>
+                                        @foreach (\App\Support\EquipmentAcquisition::SOURCES as $sourceKey => $sourceLabel)
+                                            <option value="{{ $sourceKey }}">{{ $sourceLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="edit_acquisition_supplier" class="{{ $eqLabel }}">Supplier / donor</label>
+                                    <select
+                                        id="edit_acquisition_supplier"
+                                        name="acquisition_supplier"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search suppliers…"
+                                        onchange="syncEditSupplierName()"
+                                        class="{{ $eqField }}"
+                                    >
+                                        <option value="">Not recorded</option>
+                                        <option value="{{ \App\Support\EquipmentAcquisition::OTHER_SUPPLIER }}">Other — type the name</option>
+                                        @foreach ($acquisitionSuppliers as $supplierOption)
+                                            <option value="{{ $supplierOption->supplier_id }}">{{ $supplierOption->supplier_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div id="edit_supplier_name_wrap" class="hidden">
+                                    <label for="edit_supplier_name" class="{{ $eqLabel }}">Supplier / donor name</label>
+                                    <input id="edit_supplier_name" type="text" name="equipment_supplier_name" maxlength="255" class="{{ $eqField }}" />
+                                </div>
+                                <div>
+                                    <label for="edit_reference_number" class="{{ $eqLabel }}">Reference no.</label>
+                                    <input id="edit_reference_number" type="text" name="equipment_reference_number" maxlength="120" placeholder="OR / invoice / DR no." class="{{ $eqField }}" />
+                                </div>
+                                <div class="sm:col-span-2 lg:col-span-4">
+                                    <label for="edit_acquisition_notes" class="{{ $eqLabel }}">Notes</label>
+                                    <input id="edit_acquisition_notes" type="text" name="equipment_acquisition_notes" maxlength="500" placeholder="e.g. Donated by Batch 2019 alumni" class="{{ $eqField }}" />
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                 </details>
             </div>
 
@@ -2571,462 +2180,6 @@
         });
     </script>
 
-    <script>
-        function inventoryAddEquipment() {
-            const isStockPage = @json((bool) $isStockPage);
-            return {
-                open: false,
-                step: 1,
-                fullscreen: false,
-                tracking: 'Individual',
-                name: '',
-                category: '',
-                categoryManual: false,
-                room: @json((string) (old('equipment_room_id', $defaultStorageRoomId ?? ''))),
-                quantity: 1,
-                condition: 'Good',
-                brand: '',
-                model: '',
-                warranty: '',
-                usefulLifeYears: '',
-                assetTag: '',
-                assetTagManual: false,
-                serial: '',
-                items: [],
-                errors: {},
-                formError: '',
-                imagePreview: null,
-                intakeBasis: 'receiving',
-                intakeReason: '',
-                rrItemId: '',
-                rrLines: [],
-                rrGuide: [],
-                rrLoading: false,
-                purchaseDate: '',
-                purchaseCost: '',
-                get selectedRrLine() {
-                    const id = String(this.rrItemId || '');
-                    if (!id) return null;
-                    return (this.rrLines || []).find((line) => String(line.id) === id)
-                        || (this.rrGuide || []).find((line) => String(line.id) === id)
-                        || null;
-                },
-                async loadRrLines() {
-                    if (!isStockPage) return;
-                    this.rrLoading = true;
-                    try {
-                        const res = await fetch('/maintenance/equipment/receivable-lines', {
-                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                            credentials: 'same-origin',
-                        });
-                        const data = await res.json();
-                        this.rrGuide = Array.isArray(data.guide) ? data.guide : (Array.isArray(data.lines) ? data.lines : []);
-                        this.rrLines = Array.isArray(data.lines) ? data.lines : this.rrGuide.filter((line) => line.is_selectable);
-                    } catch (e) {
-                        this.rrLines = [];
-                        this.rrGuide = [];
-                    } finally {
-                        this.rrLoading = false;
-                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                    }
-                },
-                selectRrLine(line) {
-                    if (!line || !line.is_selectable) return;
-                    this.rrItemId = String(line.id);
-                    this.clearError('rr');
-                    this.onRrLineChange();
-                },
-                onRrLineChange() {
-                    const line = this.selectedRrLine;
-                    if (!line) {
-                        this.purchaseDate = '';
-                        this.purchaseCost = '';
-                        return;
-                    }
-                    if (!String(this.name || '').trim()) {
-                        this.name = line.article || '';
-                        this.onNameInput();
-                    }
-                    const qty = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
-                    this.quantity = Math.min(200, Math.max(1, qty));
-                    this.purchaseDate = line.purchase_date || '';
-                    this.purchaseCost = line.unit_cost != null ? String(line.unit_cost) : '';
-                    this.clearError('quantity');
-                    this.syncAssetTag();
-                },
-                onImageChange(event) {
-                    const file = event.target.files?.[0];
-                    if (this.imagePreview) {
-                        URL.revokeObjectURL(this.imagePreview);
-                    }
-                    this.imagePreview = file ? URL.createObjectURL(file) : null;
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                },
-                clearImage() {
-                    if (this.imagePreview) {
-                        URL.revokeObjectURL(this.imagePreview);
-                    }
-                    this.imagePreview = null;
-                    if (this.$refs.imageInput) {
-                        this.$refs.imageInput.value = '';
-                    }
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                },
-                onSharedPhotoModeChange() {
-                    if (this.needsItemStep()) {
-                        this.clearImage();
-                    }
-                },
-                onItemImageChange(index, event) {
-                    const item = this.items[index];
-                    if (!item) return;
-                    const file = event.target.files?.[0] || null;
-                    if (item._imagePreview) {
-                        URL.revokeObjectURL(item._imagePreview);
-                    }
-                    item._imageFile = file;
-                    item._imagePreview = file ? URL.createObjectURL(file) : null;
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                },
-                clearItemImage(index) {
-                    const item = this.items[index];
-                    if (!item) return;
-                    if (item._imagePreview) {
-                        URL.revokeObjectURL(item._imagePreview);
-                    }
-                    item._imagePreview = null;
-                    item._imageFile = null;
-                    const input = document.querySelector(`[data-item-image-index="${index}"]`);
-                    if (input) input.value = '';
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                },
-                clearAllItemImages() {
-                    (this.items || []).forEach((item, index) => {
-                        if (item?._imagePreview) {
-                            URL.revokeObjectURL(item._imagePreview);
-                        }
-                        if (item) {
-                            item._imagePreview = null;
-                            item._imageFile = null;
-                        }
-                        const input = document.querySelector(`[data-item-image-index="${index}"]`);
-                        if (input) input.value = '';
-                    });
-                },
-                restoreItemImageInputs() {
-                    (this.items || []).forEach((item, index) => {
-                        if (!item?._imageFile) return;
-                        const input = document.querySelector(`[data-item-image-index="${index}"]`);
-                        if (!input) return;
-                        try {
-                            const transfer = new DataTransfer();
-                            transfer.items.add(item._imageFile);
-                            input.files = transfer.files;
-                        } catch (e) {
-                            // Browser may reject DataTransfer assignment; native input value still used when unchanged.
-                        }
-                    });
-                },
-                needsItemStep() {
-                    return this.tracking === 'Individual' && Number(this.quantity) > 1;
-                },
-                clearError(field) {
-                    if (!this.errors[field]) return;
-                    const next = { ...this.errors };
-                    delete next[field];
-                    this.errors = next;
-                    this.formError = '';
-                },
-                clearErrors() {
-                    this.errors = {};
-                    this.formError = '';
-                },
-                validateStep1() {
-                    const next = {};
-                    if (isStockPage) {
-                        if (this.intakeBasis === 'non_procurement') {
-                            if (!String(this.intakeReason || '').trim()) {
-                                next.intake_reason = 'Enter a reason for non-procurement intake.';
-                            }
-                        } else if (!String(this.rrItemId || '').trim()) {
-                            next.rr = 'Select a received RR line as the basis for this stock.';
-                        } else if (this.selectedRrLine) {
-                            const maxQty = Number(this.selectedRrLine.quantity) || 0;
-                            const qty = Number(this.quantity);
-                            if (Number.isFinite(qty) && maxQty > 0 && qty > maxQty) {
-                                next.quantity = 'Quantity cannot exceed received qty (' + maxQty + ').';
-                            }
-                        }
-                    }
-                    if (!String(this.name || '').trim()) {
-                        next.name = 'Equipment name is required.';
-                    }
-                    if (!String(this.category || '').trim()) {
-                        next.category = 'Please select a category.';
-                    }
-                    if (!String(this.room || '').trim()) {
-                        next.room = 'Please select a room.';
-                    }
-                    const qty = Number(this.quantity);
-                    if (!Number.isFinite(qty) || qty < 1) {
-                        next.quantity = 'Quantity must be at least 1.';
-                    } else if (qty > 200) {
-                        next.quantity = 'Quantity cannot exceed 200.';
-                    }
-                    this.errors = next;
-                    this.formError = Object.keys(next).length
-                        ? 'Please fix the highlighted fields before continuing.'
-                        : '';
-                    if (Object.keys(next).length) {
-                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                    }
-                    return Object.keys(next).length === 0;
-                },
-                validateItems() {
-                    const tags = {};
-                    const serials = {};
-                    for (let i = 0; i < this.items.length; i++) {
-                        const tag = String(this.items[i].equipment_asset_tag || '').trim().toLowerCase();
-                        const serial = String(this.items[i].equipment_serial_number || '').trim().toLowerCase();
-                        if (tag) {
-                            if (tags[tag] !== undefined) {
-                                this.formError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
-                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                                return false;
-                            }
-                            tags[tag] = i;
-                        }
-                        if (serial) {
-                            if (serials[serial] !== undefined) {
-                                this.formError = `Duplicate serial number on rows ${serials[serial] + 1} and ${i + 1}.`;
-                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                                return false;
-                            }
-                            serials[serial] = i;
-                        }
-                    }
-                    this.formError = '';
-                    return true;
-                },
-                onNameInput() {
-                    if (!String(this.name || '').trim()) {
-                        this.categoryManual = false;
-                        this.category = '';
-                        return;
-                    }
-                    if (this.categoryManual) {
-                        return;
-                    }
-                    if (typeof detectEquipmentCategoryId === 'function') {
-                        this.category = detectEquipmentCategoryId(this.name) || '';
-                        if (this.category) this.clearError('category');
-                    }
-                },
-                onCategoryChange() {
-                    if (
-                        typeof detectEquipmentCategoryId === 'function'
-                        && String(this.category) === String(detectEquipmentCategoryId(this.name) || '')
-                    ) {
-                        return;
-                    }
-                    this.categoryManual = true;
-                },
-                reset() {
-                    this.step = 1;
-                    this.fullscreen = false;
-                    this.tracking = 'Individual';
-                    this.name = '';
-                    this.category = '';
-                    this.categoryManual = false;
-                    this.room = @json((string) ($defaultStorageRoomId ?? ''));
-                    this.quantity = 1;
-                    this.condition = 'Good';
-                    this.brand = '';
-                    this.model = '';
-                    this.warranty = '';
-                    this.usefulLifeYears = '';
-                    this.assetTag = '';
-                    this.assetTagManual = false;
-                    this.serial = '';
-                    this.intakeBasis = 'receiving';
-                    this.intakeReason = '';
-                    this.rrItemId = '';
-                    this.purchaseDate = '';
-                    this.purchaseCost = '';
-                    this.clearAllItemImages();
-                    this.items = [];
-                    this.clearImage();
-                    this.clearErrors();
-                    const borrowable = document.getElementById('add_equipment_borrowable');
-                    if (borrowable) borrowable.checked = false;
-                },
-                show() {
-                    this.reset();
-                    @if (old('equipment_room_id'))
-                        this.room = @json((string) old('equipment_room_id'));
-                    @endif
-                    this.open = true;
-                    this.loadRrLines();
-                    this.$nextTick(() => {
-                        document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
-                        if (window.lucide) window.lucide.createIcons();
-                    });
-                },
-                close() {
-                    this.open = false;
-                    this.reset();
-                    document.body.style.overflow = '';
-                },
-                slug() {
-                    return this.assetTagPart(this.name, 'EQ');
-                },
-                assetTagPart(value, fallback) {
-                    return String(value || '')
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]+/g, '')
-                        || fallback;
-                },
-                selectedRoomName() {
-                    const select = document.getElementById('add_equipment_room');
-                    const option = select?.selectedOptions?.[0];
-                    return option?.text?.trim() || '';
-                },
-                shouldAutoAssetTag() {
-                    return this.tracking === 'Bulk' || Number(this.quantity) === 1;
-                },
-                syncAssetTag() {
-                    if (this.assetTagManual || !this.shouldAutoAssetTag()) {
-                        return;
-                    }
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-                    if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
-                        this.assetTag = '';
-                        return;
-                    }
-                    window.equipmentAssetTags.resetReserved();
-                    const tags = window.equipmentAssetTags.generate(roomName, equipmentName, 1);
-                    this.assetTag = tags[0] || '';
-                },
-                buildAssetTag(index) {
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-                    if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
-                        return '';
-                    }
-                    window.equipmentAssetTags.resetReserved();
-                    const tags = window.equipmentAssetTags.generate(roomName, equipmentName, index + 1);
-                    return tags[index] || tags[tags.length - 1] || '';
-                },
-                buildItems() {
-                    const qty = Math.min(200, Math.max(1, Number(this.quantity) || 1));
-                    this.quantity = qty;
-                    const previous = this.items || [];
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-
-                    window.equipmentAssetTags?.resetReserved?.();
-
-                    let generated = [];
-                    if (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function') {
-                        generated = window.equipmentAssetTags.generate(roomName, equipmentName, qty);
-                    }
-
-                    this.items = Array.from({ length: qty }, (_, i) => ({
-                        equipment_asset_tag: previous[i]?._tagManual
-                            ? previous[i].equipment_asset_tag
-                            : (generated[i] || this.buildAssetTag(i)),
-                        equipment_serial_number: previous[i]?.equipment_serial_number ?? '',
-                        equipment_brand_name: this.brand || '',
-                        equipment_model: this.model || '',
-                        equipment_condition_status: this.condition,
-                        equipment_warranty_expiration: this.warranty || '',
-                        _tagManual: previous[i]?._tagManual || false,
-                        _imagePreview: previous[i]?._imagePreview || null,
-                        _imageFile: previous[i]?._imageFile || null,
-                    }));
-                },
-                regenerateAssetTags() {
-                    window.equipmentAssetTags?.resetReserved?.();
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-                    const generated = (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function')
-                        ? window.equipmentAssetTags.generate(roomName, equipmentName, this.items.length)
-                        : [];
-
-                    this.items = this.items.map((item, i) => ({
-                        ...item,
-                        equipment_asset_tag: generated[i] || this.buildAssetTag(i),
-                        _tagManual: false,
-                    }));
-                    this.$nextTick(() => this.restoreItemImageInputs());
-                },
-                applyDefaults() {
-                    this.items = this.items.map((item) => ({
-                        ...item,
-                        equipment_brand_name: this.brand || '',
-                        equipment_model: this.model || '',
-                        equipment_condition_status: this.condition,
-                        equipment_warranty_expiration: this.warranty || '',
-                    }));
-                },
-                goToItems() {
-                    if (!this.validateStep1()) {
-                        return;
-                    }
-                    this.clearImage();
-                    this.buildItems();
-                    this.step = 2;
-                    this.clearErrors();
-                    this.$nextTick(() => {
-                        this.restoreItemImageInputs();
-                        if (window.lucide) window.lucide.createIcons();
-                    });
-                },
-                prepareSubmit(event) {
-                    if (this.needsItemStep() && this.step !== 2) {
-                        event.preventDefault();
-                        this.goToItems();
-                        return;
-                    }
-                    if (!this.validateStep1()) {
-                        event.preventDefault();
-                        return;
-                    }
-                    if (!this.needsItemStep()) {
-                        this.syncAssetTag();
-                    }
-                    if (this.step === 2 && !this.validateItems()) {
-                        event.preventDefault();
-                        return;
-                    }
-                    if (this.step === 2) {
-                        this.restoreItemImageInputs();
-                    }
-                },
-            };
-        }
-
-        function openAddEquipmentModal() {
-            const modal = document.getElementById('addEquipmentModal');
-            if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
-                modal._x_dataStack[0].show();
-                return;
-            }
-            modal?.classList.remove('hidden');
-            modal?.classList.add('flex');
-        }
-
-        function closeAddEquipmentModal() {
-            const modal = document.getElementById('addEquipmentModal');
-            if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
-                modal._x_dataStack[0].close();
-                return;
-            }
-            modal?.classList.add('hidden');
-            modal?.classList.remove('flex');
-        }
-    </script>
 
     <script>
         function openEditEquipmentModal(
@@ -3047,7 +2200,8 @@
             warranty,
             usefulLifeYears,
             borrowable,
-            imageUrl
+            imageUrl,
+            acquisition
         ) {
             document.getElementById("editEquipmentForm").action =
                 "/maintenance/equipment/update/" + id;
@@ -3090,6 +2244,8 @@
 
             setEditEquipmentImage(imageUrl, name);
 
+            setEditAcquisition(acquisition || {});
+
             document
                 .getElementById("editEquipmentModal")
                 .classList.remove("hidden");
@@ -3099,6 +2255,38 @@
             if (window.lucide) {
                 window.lucide.createIcons();
             }
+        }
+
+        function setEditAcquisition(acquisition) {
+            const fields = document.getElementById("edit_acquisition_fields");
+            if (!fields) {
+                return;
+            }
+            const linked = !!acquisition.linked_rr;
+            document.getElementById("edit_acquisition_linked")?.classList.toggle("hidden", !linked);
+            fields.classList.toggle("hidden", linked);
+            fields.querySelectorAll("input, select").forEach((el) => {
+                el.disabled = linked;
+            });
+
+            setEqSelectValue("edit_acquisition_source", acquisition.source || "");
+            setEqSelectValue("edit_acquisition_supplier", acquisition.supplier || "");
+            document.getElementById("edit_supplier_name").value = acquisition.supplier_name || "";
+            document.getElementById("edit_reference_number").value = acquisition.reference || "";
+            document.getElementById("edit_acquisition_notes").value = acquisition.notes || "";
+            syncEditSupplierName();
+        }
+
+        function syncEditSupplierName() {
+            const select = document.getElementById("edit_acquisition_supplier");
+            const wrap = document.getElementById("edit_supplier_name_wrap");
+            const input = document.getElementById("edit_supplier_name");
+            if (!select || !wrap || !input) {
+                return;
+            }
+            const isOther = select.value === @json(\App\Support\EquipmentAcquisition::OTHER_SUPPLIER);
+            wrap.classList.toggle("hidden", !isOther);
+            input.disabled = select.disabled || !isOther;
         }
 
         function setEditEquipmentImage(imageUrl, name) {

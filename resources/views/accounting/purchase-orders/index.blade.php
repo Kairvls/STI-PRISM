@@ -103,25 +103,44 @@
                                 </div>
                             </td>
                             <td class="px-5 py-4">
-                                @php $atpNumbers = collect($order->atp_numbers ?? [])->filter()->values(); @endphp
-                                <div class="group relative z-0 inline-block max-w-full hover:z-50">
-                                    <span class="cursor-default text-sm text-gray-700 {{ $atpNumbers->isNotEmpty() ? 'underline decoration-gray-300 decoration-dotted underline-offset-2' : '' }}">
-                                        {{ $order->atp_display ?? '—' }}
-                                    </span>
-                                    @if($atpNumbers->isNotEmpty())
-                                        <div
-                                            class="pointer-events-none absolute left-0 bottom-full z-50 mb-2 hidden min-w-[11rem] max-w-xs rounded-xl border border-gray-200/80 bg-white px-3 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.12)] group-hover:block"
-                                            role="tooltip"
+                                @php $linkedAtps = collect($order->linked_atps ?? [])->values(); @endphp
+                                @if($linkedAtps->isNotEmpty())
+                                    <div data-atp-pop>
+                                        <button
+                                            type="button"
+                                            data-atp-pop-trigger
+                                            aria-expanded="false"
+                                            aria-haspopup="true"
+                                            class="text-left text-sm text-gray-700 underline decoration-gray-300 decoration-dotted underline-offset-2 transition hover:text-[#0025cc] hover:decoration-[#0025cc]"
                                         >
-                                            <p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">ATPs on this PO</p>
-                                            <ul class="space-y-1">
-                                                @foreach($atpNumbers as $atpNo)
-                                                    <li class="font-mono text-[12px] leading-5 text-gray-700">{{ $atpNo }}</li>
+                                            {{ $order->atp_display }}
+                                        </button>
+                                        <div
+                                            data-atp-pop-panel
+                                            hidden
+                                            role="menu"
+                                            class="fixed z-[300] min-w-[15rem] max-w-xs rounded-xl border border-gray-200/80 bg-white px-2 py-2 shadow-[0_8px_24px_rgba(15,23,42,0.14)]"
+                                        >
+                                            <p class="mb-1 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Open an ATP form</p>
+                                            <ul>
+                                                @foreach($linkedAtps as $linkedAtp)
+                                                    <li>
+                                                        <a
+                                                            href="/accounting/authority-to-purchase/{{ $linkedAtp->authority_purchase_id }}?from_po={{ $order->purchase_order_id }}"
+                                                            role="menuitem"
+                                                            class="flex items-center justify-between gap-3 rounded-lg px-1.5 py-1.5 text-[12px] leading-5 text-gray-700 transition hover:bg-gray-50 hover:text-[#0025cc]"
+                                                        >
+                                                            <span class="font-mono font-medium">{{ \App\Support\PurchaseOrderBasket::atpListLabel($linkedAtp) }}</span>
+                                                            <span class="truncate text-[11px] text-gray-400">{{ $linkedAtp->supplier_display ?? '' }}</span>
+                                                        </a>
+                                                    </li>
                                                 @endforeach
                                             </ul>
                                         </div>
-                                    @endif
-                                </div>
+                                    </div>
+                                @else
+                                    <span class="text-sm text-gray-700">{{ $order->atp_display ?? '—' }}</span>
+                                @endif
                                 <p class="mt-1 text-xs text-gray-400">{{ (int) ($order->atp_count ?? 0) }} ATP(s)</p>
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
@@ -163,3 +182,7 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+    @include('partials.atp-popover-script')
+@endpush

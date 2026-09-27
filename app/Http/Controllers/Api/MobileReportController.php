@@ -485,82 +485,16 @@ class MobileReportController extends Controller
             return $itemIssue !== '' ? $itemIssue : $sharedFallback;
         };
 
-        $totalSelected = $equipmentIds->count() + $manualNames->count();
-        $isMultiItemSubmit = $totalSelected > 1;
-        $newEquipmentIds = collect();
-        $mergedReports = [];
-
-        if (! $isMultiItemSubmit && $equipmentIds->count() === 1 && $manualNames->isEmpty()) {
-            $equipmentId = (int) $equipmentIds->first();
-            $openReport = ReportGrouping::findOpenReport(
-                $equipmentId,
+        [$alreadyReportedIds, $freshIds] = $equipmentIds->partition(
+            fn ($equipmentId) => (bool) ReportGrouping::findOpenReport(
+                (int) $equipmentId,
                 (int) $request->room_id
-            );
+            )
+        );
 
-            $itemIssue = $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '');
-
-            if ($openReport) {
-                ReportGrouping::mergeIntoOpenReport($openReport, [
-                    'reporter_id' => $request->employee_id,
-                    'urgency' => $request->priority,
-                    'preferred_action_date' => $preferredDate,
-                    'issue' => $itemIssue,
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'merged' => true,
-                    'message' => 'This equipment already has an open report ('.ReportGrouping::ticketCode($openReport).'). Your update was added to it instead of creating a duplicate.',
-                ]);
-            }
-
-            $newEquipmentIds->push($equipmentId);
-        } else {
-            foreach ($equipmentIds as $equipmentId) {
-                $equipmentId = (int) $equipmentId;
-                $openReport = ReportGrouping::findOpenReport(
-                    $equipmentId,
-                    (int) $request->room_id
-                );
-
-                if ($openReport) {
-                    $itemIssue = $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '');
-
-                    ReportGrouping::mergeIntoOpenReport($openReport, [
-                        'reporter_id' => $request->employee_id,
-                        'urgency' => $request->priority,
-                        'preferred_action_date' => $preferredDate,
-                        'issue' => $itemIssue,
-                    ]);
-
-                    $mergedReports[(int) $openReport->report_id] = $openReport;
-
-                    continue;
-                }
-
-                $newEquipmentIds->push($equipmentId);
-            }
-        }
-
-        if ($newEquipmentIds->isEmpty() && $manualNames->isEmpty()) {
-            $mergedCount = count($mergedReports);
-
-            if ($mergedCount === 1) {
-                $openReport = reset($mergedReports);
-
-                return response()->json([
-                    'success' => true,
-                    'merged' => true,
-                    'message' => 'Your update was added to the existing open report ('.ReportGrouping::ticketCode($openReport).').',
-                ]);
-            }
-
-            return response()->json([
-                'success' => true,
-                'merged' => true,
-                'message' => 'Your updates were added to '.$mergedCount.' existing open reports instead of creating duplicates.',
-            ]);
-        }
+        // Not-yet-reported equipment leads, so a mixed ticket gets its own list row
+        // instead of stacking under an older open ticket.
+        $newEquipmentIds = $freshIds->merge($alreadyReportedIds)->values();
 
         /*
         |--------------------------------------------------------------------------
@@ -604,6 +538,10 @@ class MobileReportController extends Controller
 
         if (Schema::hasColumn('reports_table', 'report_related_count')) {
             $reportPayload['report_related_count'] = 1;
+        }
+
+        if (ReportGrouping::hasLastReportedColumn()) {
+            $reportPayload['report_last_reported_at'] = $reportPayload['report_submitted_at'];
         }
 
         if (ReportGrouping::hasPreferredActionDateColumn()) {
@@ -665,6 +603,13 @@ class MobileReportController extends Controller
             ? 'Report #'.$reportId.' submitted successfully with '.count($itemPayloads).' equipment items.'
             : 'Report #'.$reportId.' submitted successfully.';
 
+        $repeatCount = $alreadyReportedIds->count();
+        if ($repeatCount > 0) {
+            $message .= ' '.($repeatCount === 1 ? '1 equipment was' : $repeatCount.' equipment were')
+                .' already reported and still waiting, so maintenance will see '
+                .($repeatCount === 1 ? 'it' : 'them').' flagged as priority.';
+        }
+
         return response()->json([
 
             'success' => true,
@@ -672,6 +617,7 @@ class MobileReportController extends Controller
             'message' => $message,
             'report_id' => $reportId,
             'item_count' => count($itemPayloads),
+            'repeat_count' => $repeatCount,
 
         ]);
 

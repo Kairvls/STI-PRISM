@@ -288,6 +288,11 @@
             PROCUREMENT WORKFLOW
         </div>
 
+        @php
+            $handoverInbox = \App\Support\DraftHandover::incomingCounts();
+            $handoverBadge = 'ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
+        @endphp
+
         {{-- ===================================================== --}}
         {{-- RIS --}}
         {{-- ===================================================== --}}
@@ -314,6 +319,10 @@
                 RIS
             </span>
 
+            @if($handoverInbox['ris'] > 0)
+                <span class="{{ $handoverBadge }}" title="{{ $handoverInbox['ris'] }} RIS draft(s) passed to you">{{ $handoverInbox['ris'] }}</span>
+            @endif
+
         </a>
 
         {{-- ===================================================== --}}
@@ -334,7 +343,11 @@
             >
                 <i data-lucide="file-check-2" class="h-5 w-5"></i>
                 <span>ATP</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+                @php $atpGroupInbox = $handoverInbox['atp'] + $handoverInbox['po']; @endphp
+                @if($atpGroupInbox > 0)
+                    <span class="{{ str_replace('mr-2', 'mr-1.5', $handoverBadge) }}" title="{{ $atpGroupInbox }} draft(s) passed to you">{{ $atpGroupInbox }}</span>
+                @endif
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4 {{ $atpGroupInbox > 0 ? '!ml-0' : '' }}"></i>
             </button>
             <div class="menu-sub" @if(! $atpGroupActive) hidden @endif>
                 <a
@@ -343,6 +356,9 @@
                 >
                     <i data-lucide="file-check-2" class="h-4 w-4"></i>
                     <span>Authority to Purchase</span>
+                    @if($handoverInbox['atp'] > 0)
+                        <span class="{{ str_replace('mr-2', 'mr-0', $handoverBadge) }}" title="{{ $handoverInbox['atp'] }} ATP draft(s) passed to you">{{ $handoverInbox['atp'] }}</span>
+                    @endif
                 </a>
                 <a
                     href="{{ route('purchaser.purchase-orders.index') }}"
@@ -350,6 +366,9 @@
                 >
                     <i data-lucide="shopping-bag" class="h-4 w-4"></i>
                     <span>Purchase Orders</span>
+                    @if($handoverInbox['po'] > 0)
+                        <span class="{{ str_replace('mr-2', 'mr-0', $handoverBadge) }}" title="{{ $handoverInbox['po'] }} Purchase Order draft(s) passed to you">{{ $handoverInbox['po'] }}</span>
+                    @endif
                 </a>
             </div>
         </div>

@@ -21,7 +21,7 @@ class ReportGrouping
 
         return DB::table('reports_table')
             ->where('report_is_archived', false)
-            ->whereBetween('report_submitted_at', [
+            ->whereRaw(self::lastReportedSql().' BETWEEN ? AND ?', [
                 now()->startOfDay(),
                 now()->endOfDay(),
             ])
@@ -41,6 +41,15 @@ class ReportGrouping
             WHEN {$table}.report_current_status = 'For Replacement' THEN 'replacement'
             ELSE {$table}.report_current_status
         END";
+    }
+
+    /**
+     * Tickets with several equipment always keep their own list row; only
+     * single-equipment tickets stack under the newest ticket for that equipment.
+     */
+    public static function multiItemReportSql(string $table = 'reports_table'): string
+    {
+        return "(SELECT COUNT(*) FROM report_items_table AS stack_items WHERE stack_items.report_id = {$table}.report_id) > 1";
     }
 
     public static function findOpenReport(int $equipmentId, int $roomId)
@@ -265,6 +274,10 @@ class ReportGrouping
             'report_updated_at' => now(),
         ];
 
+        if (self::hasLastReportedColumn()) {
+            $updates['report_last_reported_at'] = now();
+        }
+
         if (
             ($incoming['urgency'] ?? 'Non-Urgent') === 'Urgent'
             && $openReport->report_urgency_level !== 'Urgent'
@@ -344,6 +357,28 @@ class ReportGrouping
     public static function hasPreferredActionDateColumn(): bool
     {
         return Schema::hasColumn('reports_table', self::preferredActionDateColumn());
+    }
+
+    public static function hasLastReportedColumn(): bool
+    {
+        static $has = null;
+
+        return $has ??= Schema::hasColumn('reports_table', 'report_last_reported_at');
+    }
+
+    /**
+     * Latest time anyone reported this ticket (new submit or a merged re-report).
+     */
+    public static function lastReportedSql(string $table = 'reports_table'): string
+    {
+        return self::hasLastReportedColumn()
+            ? "COALESCE({$table}.report_last_reported_at, {$table}.report_submitted_at)"
+            : "{$table}.report_submitted_at";
+    }
+
+    public static function lastReportedAt(object $report): ?string
+    {
+        return $report->report_last_reported_at ?? $report->report_submitted_at ?? null;
     }
 
     public static function hasLoggedByColumn(): bool

@@ -50,7 +50,7 @@ class LayoutEquipmentPayload
         return $payload;
     }
 
-    public static function fromModel($equipment): array
+    public static function fromModel($equipment, ?array $custodian = null): array
     {
         $warranty = $equipment->equipment_warranty_expiration ?? null;
         $purchaseDate = $equipment->equipment_purchase_date ?? null;
@@ -88,6 +88,7 @@ class LayoutEquipmentPayload
             'width' => (int) ($equipment->equipment_width ?? 120),
             'height' => (int) ($equipment->equipment_height ?? 96),
             'rotation' => (int) ($equipment->equipment_rotation ?? 0),
+            'custodian' => $custodian,
         ];
     }
 

@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\SemesterInspectionController;
+use App\Http\Controllers\PropertyAssignmentController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\PersonnelDirectoryController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
@@ -637,7 +640,7 @@ Route::post('/logout',
 // PUT HERE THE MAINTENANCE PERSONNEL ROUTES BELOW
 // =====================================================
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'maintenance'])->group(function () {
 
     Route::get('/maintenance/dashboard', function () {
 
@@ -663,7 +666,7 @@ Route::get(
 
 // MAINTENANCE PERSONNEL
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'maintenance'])->group(function () {
 
     Route::get(
         '/maintenance/dashboard',
@@ -744,7 +747,7 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'maintenance'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
@@ -835,25 +838,29 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
-//Report Details
-Route::get(
-    '/maintenance/reports/details/{id}',
-    [MaintenanceController::class, 'reportDetails']
-);
+Route::middleware(['auth', 'maintenance'])->group(function () {
 
-// =====================================================
-// TODAY'S REPORTS
-// =====================================================
+    //Report Details
+    Route::get(
+        '/maintenance/reports/details/{id}',
+        [MaintenanceController::class, 'reportDetails']
+    );
 
-Route::get(
-    '/maintenance/reports/today',
-    [MaintenanceController::class, 'todayReports']
-);
+    // =====================================================
+    // TODAY'S REPORTS
+    // =====================================================
 
-Route::get(
-    '/maintenance/activities',
-    [MaintenanceController::class, 'activities']
-)->name('maintenance.activities.index');
+    Route::get(
+        '/maintenance/reports/today',
+        [MaintenanceController::class, 'todayReports']
+    );
+
+    Route::get(
+        '/maintenance/activities',
+        [MaintenanceController::class, 'activities']
+    )->name('maintenance.activities.index');
+
+});
 
 
 /*
@@ -910,29 +917,10 @@ Route::get(
 );
 
 
-// =====================================================
-// REPORTER STATUS MANAGEMENT
-// =====================================================
-
-Route::patch(
-    '/maintenance/reporters/{id}/deactivate',
-    [MaintenanceController::class, 'deactivateReporter']
-)->name('maintenance.reporters.deactivate');
-
-
-Route::patch(
-    '/maintenance/reporters/{id}/reactivate',
-    [MaintenanceController::class, 'reactivateReporter']
-)->name('maintenance.reporters.reactivate');
-
-// =====================================================
-// REPORTER HISTORY PAGE
-// =====================================================
-
 Route::get(
-    '/maintenance/reporters/{id}/history',
-    [MaintenanceController::class, 'reporterHistory']
-)->name('maintenance.reporters.history');
+    '/equipment/{qrCode}',
+    [MaintenanceController::class, 'equipmentByQr']
+);
 
 
 /*
@@ -949,6 +937,11 @@ Route::get(
 
 );
 
+Route::get(
+    '/get-reporter/{employeeId}/assigned-equipment',
+    [ReporterController::class, 'getAssignedEquipment']
+)->middleware('throttle:30,1');
+
 
 
 /*
@@ -963,6 +956,207 @@ Route::get(
     [ReporterController::class, 'getSuggestions']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| SHARED WITH THE ADMIN PORTAL (Maintenance role or Administrator)
+| Reporters, inventory (view + add), disposal list, inspection monitor.
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'maintenance:admin'])->group(function () {
+
+    // Reporters
+    Route::get(
+        '/maintenance/reporters',
+        [MaintenanceController::class, 'reporters']
+    );
+
+    Route::get(
+        '/maintenance/reporters/approvals',
+        [MaintenanceController::class, 'reporterApprovals']
+    )->name('maintenance.reporters.approvals');
+
+    Route::post(
+        '/maintenance/reporters/approvals/{id}/approve',
+        [MaintenanceController::class, 'approveReporterApplication']
+    )->name('maintenance.reporters.approvals.approve');
+
+    Route::post(
+        '/maintenance/reporters/approvals/{id}/reject',
+        [MaintenanceController::class, 'rejectReporterApplication']
+    )->name('maintenance.reporters.approvals.reject');
+
+    Route::post(
+        '/maintenance/reporters/store',
+        [MaintenanceController::class, 'storeReporter']
+    );
+
+    Route::get(
+        '/maintenance/reporters/import/template',
+        [MaintenanceController::class, 'downloadReporterTemplate']
+    );
+
+    Route::post(
+        '/maintenance/reporters/import/preview',
+        [MaintenanceController::class, 'previewReporterImport']
+    );
+
+    Route::post(
+        '/maintenance/reporters/import',
+        [MaintenanceController::class, 'importReporters']
+    );
+
+    Route::post(
+        '/maintenance/reporters/update',
+        [MaintenanceController::class, 'updateReporter']
+    );
+
+    Route::post(
+        '/maintenance/reporters/delete',
+        [MaintenanceController::class, 'deleteReporter']
+    );
+
+    Route::patch(
+        '/maintenance/reporters/{id}/deactivate',
+        [MaintenanceController::class, 'deactivateReporter']
+    )->name('maintenance.reporters.deactivate');
+
+    Route::patch(
+        '/maintenance/reporters/{id}/reactivate',
+        [MaintenanceController::class, 'reactivateReporter']
+    )->name('maintenance.reporters.reactivate');
+
+    Route::get(
+        '/maintenance/reporters/{id}/history',
+        [MaintenanceController::class, 'reporterHistory']
+    )->name('maintenance.reporters.history');
+
+    // Equipment inventory (storage stock) + all equipment register + deployed
+    Route::get(
+        '/maintenance/equipment/inventory',
+        [MaintenanceController::class, 'equipmentInventory']
+    );
+
+    Route::get(
+        '/maintenance/equipment/all',
+        [MaintenanceController::class, 'equipmentInventory']
+    );
+
+    Route::get(
+        '/maintenance/equipment/deployed',
+        [MaintenanceController::class, 'deployedStocks']
+    );
+
+    // Adding equipment (single + batch) and the lookups the add wizards use
+    Route::get(
+        '/maintenance/equipment/create',
+        [MaintenanceController::class, 'createEquipment']
+    );
+
+    Route::get(
+        '/maintenance/equipment/receivable-lines',
+        [MaintenanceController::class, 'receivableStockLines']
+    );
+
+    Route::post(
+        '/maintenance/equipment/stock-pending',
+        [MaintenanceController::class, 'stockPendingReceivables']
+    );
+
+    Route::get(
+        '/maintenance/equipment/open-balance',
+        [MaintenanceController::class, 'equipmentOpenBalance']
+    );
+
+    Route::get(
+        '/maintenance/equipment/audit-pack/{id}',
+        [MaintenanceController::class, 'equipmentAuditPack']
+    );
+
+    Route::post(
+        '/maintenance/equipment/store',
+        [MaintenanceController::class, 'storeEquipment']
+    );
+
+    Route::post(
+        '/maintenance/equipment/batch-store',
+        [MaintenanceController::class, 'storeEquipmentBatch']
+    );
+
+    // Disposed equipment list
+    Route::get(
+        '/maintenance/disposal',
+        [MaintenanceController::class, 'disposal']
+    );
+
+    // Semester inspections: monitor only (running a campaign stays with Maintenance)
+    Route::get(
+        '/maintenance/semester-inspections',
+        [SemesterInspectionController::class, 'index']
+    )->name('maintenance.semester-inspections.index');
+
+    Route::get(
+        '/maintenance/semester-inspections/{id}',
+        [SemesterInspectionController::class, 'show']
+    )->whereNumber('id')->name('maintenance.semester-inspections.show');
+
+    Route::get(
+        '/maintenance/replacement-suggestions',
+        [SemesterInspectionController::class, 'replacementSuggestions']
+    )->name('maintenance.replacement-suggestions');
+
+});
+
+/*
+|--------------------------------------------------------------------------
+| EQUIPMENT DETAILS FOR ANY SIGNED-IN STAFF
+| Report cards in the Purchaser and Admin portals open these.
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/maintenance/equipment/view/{id}',
+        [MaintenanceController::class, 'viewEquipment']
+    );
+
+    Route::get(
+        '/maintenance/equipment/history/{id}',
+        [MaintenanceController::class, 'getEquipmentHistory']
+    );
+
+    Route::get(
+        '/maintenance/equipment/transfers/{id}',
+        [MaintenanceController::class, 'getTransferHistory']
+    );
+
+    Route::get(
+        '/maintenance/equipment/lifecycle/{id}',
+        [MaintenanceController::class, 'equipmentLifecycle']
+    );
+
+    Route::get(
+        '/maintenance/equipment/timeline/{id}',
+        [MaintenanceController::class, 'equipmentTimeline']
+    );
+
+    Route::get(
+        '/maintenance/equipment/qr-image/{code}',
+        [QRController::class, 'qrImage']
+    );
+
+});
+
+/*
+|--------------------------------------------------------------------------
+| MAINTENANCE ONLY
+| Everything below until the prefixed maintenance group needs the Maintenance role.
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'maintenance'])->group(function () {
 
 Route::get(
     '/maintenance/reports',
@@ -988,57 +1182,6 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 
-// Equipment Inventory (storage stock) + All Equipment register
-Route::get(
-    '/maintenance/equipment/inventory',
-    [MaintenanceController::class, 'equipmentInventory']
-);
-
-Route::get(
-    '/maintenance/equipment/all',
-    [MaintenanceController::class, 'equipmentInventory']
-);
-
-Route::get(
-    '/maintenance/equipment/deployed',
-    [MaintenanceController::class, 'deployedStocks']
-);
-
-Route::get(
-    '/maintenance/equipment/view/{id}',
-    [MaintenanceController::class, 'viewEquipment']
-);
-
-Route::get(
-    '/maintenance/equipment/create',
-    [MaintenanceController::class, 'createEquipment']
-);
-
-Route::get(
-    '/maintenance/equipment/receivable-lines',
-    [MaintenanceController::class, 'receivableStockLines']
-);
-
-Route::post(
-    '/maintenance/equipment/stock-pending',
-    [MaintenanceController::class, 'stockPendingReceivables']
-);
-
-Route::get(
-    '/maintenance/equipment/open-balance',
-    [MaintenanceController::class, 'equipmentOpenBalance']
-);
-
-Route::get(
-    '/maintenance/equipment/audit-pack/{id}',
-    [MaintenanceController::class, 'equipmentAuditPack']
-);
-
-Route::post(
-    '/maintenance/equipment/store',
-    [MaintenanceController::class, 'storeEquipment']
-);
-
 Route::post(
     '/maintenance/equipment/update/{id}',
     [MaintenanceController::class, 'updateEquipment']
@@ -1059,36 +1202,9 @@ Route::post(
     [MaintenanceController::class, 'transferEquipmentBatch']
 );
 
-Route::get(
-    '/maintenance/equipment/history/{id}',
-    [MaintenanceController::class, 'getEquipmentHistory']
-);
-
 Route::post(
     '/maintenance/equipment/history/store',
     [MaintenanceController::class, 'storeMaintenanceHistory']
-);
-
-Route::get(
-    '/maintenance/equipment/transfers/{id}',
-    [MaintenanceController::class, 'getTransferHistory']
-);
-
-Route::get(
-    '/maintenance/equipment/lifecycle/{id}',
-    [MaintenanceController::class, 'equipmentLifecycle']
-);
-
-Route::get(
-    '/maintenance/equipment/timeline/{id}',
-    [MaintenanceController::class, 'equipmentTimeline']
-);
-
-
-
-Route::get(
-    '/equipment/{qrCode}',
-    [MaintenanceController::class, 'equipmentByQr']
 );
 
 
@@ -1105,11 +1221,6 @@ Route::get(
 Route::post(
     '/maintenance/equipment/qr/generate/{id}',
     [QRController::class, 'generateQr']
-);
-
-Route::get(
-    '/maintenance/equipment/qr-image/{code}',
-    [QRController::class, 'qrImage']
 );
 
 Route::get(
@@ -1441,11 +1552,6 @@ Route::post(
 */
 
 Route::get(
-    '/maintenance/semester-inspections',
-    [SemesterInspectionController::class, 'index']
-)->name('maintenance.semester-inspections.index');
-
-Route::get(
     '/maintenance/semester-inspections/create',
     [SemesterInspectionController::class, 'create']
 )->name('maintenance.semester-inspections.create');
@@ -1454,11 +1560,6 @@ Route::post(
     '/maintenance/semester-inspections',
     [SemesterInspectionController::class, 'store']
 )->name('maintenance.semester-inspections.store');
-
-Route::get(
-    '/maintenance/semester-inspections/{id}',
-    [SemesterInspectionController::class, 'show']
-)->whereNumber('id')->name('maintenance.semester-inspections.show');
 
 Route::post(
     '/maintenance/semester-inspections/{id}/inspect/{itemId}',
@@ -1479,11 +1580,6 @@ Route::post(
     '/maintenance/semester-inspections/{id}/activate',
     [SemesterInspectionController::class, 'activate']
 )->whereNumber('id')->name('maintenance.semester-inspections.activate');
-
-Route::get(
-    '/maintenance/replacement-suggestions',
-    [SemesterInspectionController::class, 'replacementSuggestions']
-)->name('maintenance.replacement-suggestions');
 
 Route::post(
     '/maintenance/replacement-suggestions/{equipmentId}',
@@ -1530,11 +1626,6 @@ Route::delete(
 |--------------------------------------------------------------------------
 */
 
-Route::get(
-    '/maintenance/disposal',
-    [MaintenanceController::class, 'disposal']
-);
-
 Route::post(
     '/maintenance/disposal/store',
     [MaintenanceController::class, 'storeDisposal']
@@ -1561,61 +1652,6 @@ Route::post(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| REPORTERS MODULE
-|--------------------------------------------------------------------------
-*/
-
-Route::get(
-    '/maintenance/reporters',
-    [MaintenanceController::class, 'reporters']
-);
-
-Route::get(
-    '/maintenance/reporters/approvals',
-    [MaintenanceController::class, 'reporterApprovals']
-)->name('maintenance.reporters.approvals');
-
-Route::post(
-    '/maintenance/reporters/approvals/{id}/approve',
-    [MaintenanceController::class, 'approveReporterApplication']
-)->name('maintenance.reporters.approvals.approve');
-
-Route::post(
-    '/maintenance/reporters/approvals/{id}/reject',
-    [MaintenanceController::class, 'rejectReporterApplication']
-)->name('maintenance.reporters.approvals.reject');
-
-Route::post(
-    '/maintenance/reporters/store',
-    [MaintenanceController::class, 'storeReporter']
-);
-
-Route::get(
-    '/maintenance/reporters/import/template',
-    [MaintenanceController::class, 'downloadReporterTemplate']
-);
-
-Route::post(
-    '/maintenance/reporters/import/preview',
-    [MaintenanceController::class, 'previewReporterImport']
-);
-
-Route::post(
-    '/maintenance/reporters/import',
-    [MaintenanceController::class, 'importReporters']
-);
-
-Route::post(
-    '/maintenance/reporters/update',
-    [MaintenanceController::class, 'updateReporter']
-);
-
-Route::post(
-    '/maintenance/reporters/delete',
-    [MaintenanceController::class, 'deleteReporter']
-);
 
 
 
@@ -1650,6 +1686,8 @@ Route::get(
     '/maintenance/notifications/{id}/open',
     [MaintenanceController::class, 'openNotification']
 );
+
+});
 
 Route::middleware([
     'auth',
@@ -1703,6 +1741,95 @@ Route::middleware([
             'openNotification'
         ]
     )->name('notifications.open');
+
+});
+
+// Shared with the admin portal: people, departments and property accountability.
+Route::middleware([
+    'auth',
+    'maintenance:admin',
+])
+    ->prefix('maintenance')
+    ->name('maintenance.')
+    ->group(function () {
+
+    // =====================================================
+    // PROPERTY ASSIGNMENT (accountable person per item)
+    // =====================================================
+
+    Route::get(
+        '/property-assignments',
+        [PropertyAssignmentController::class, 'index']
+    )->name('property-assignments.index');
+
+    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+    Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+    Route::put('/departments/{department}', [DepartmentController::class, 'update'])->whereNumber('department')->name('departments.update');
+    Route::post('/departments/{department}/archive', [DepartmentController::class, 'archive'])->whereNumber('department')->name('departments.archive');
+    Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore'])->whereNumber('department')->name('departments.restore');
+    Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->whereNumber('department')->name('departments.destroy');
+
+    Route::get('/personnel-directory', [PersonnelDirectoryController::class, 'index'])->name('personnel-directory.index');
+    Route::post('/personnel-directory', [PersonnelDirectoryController::class, 'store'])->name('personnel-directory.store');
+    Route::get('/personnel-directory/template', [PersonnelDirectoryController::class, 'template'])->name('personnel-directory.template');
+    Route::post('/personnel-directory/import', [PersonnelDirectoryController::class, 'import'])->name('personnel-directory.import');
+    Route::put('/personnel-directory/{personnel}', [PersonnelDirectoryController::class, 'update'])->whereNumber('personnel')->name('personnel-directory.update');
+    Route::delete('/personnel-directory/{personnel}', [PersonnelDirectoryController::class, 'destroy'])->whereNumber('personnel')->name('personnel-directory.destroy');
+
+    Route::get(
+        '/property-assignments/people/create',
+        [PropertyAssignmentController::class, 'createPerson']
+    )->name('property-assignments.people.create');
+
+    Route::post(
+        '/property-assignments/people',
+        [PropertyAssignmentController::class, 'storePerson']
+    )->name('property-assignments.people.store');
+
+    Route::post(
+        '/property-assignments/people/import-reporters',
+        [PropertyAssignmentController::class, 'importReporters']
+    )->name('property-assignments.people.import');
+
+    Route::get(
+        '/property-assignments/people/{custodian}',
+        [PropertyAssignmentController::class, 'person']
+    )->whereNumber('custodian')->name('property-assignments.person');
+
+    Route::get(
+        '/property-assignments/people/{custodian}/edit',
+        [PropertyAssignmentController::class, 'editPerson']
+    )->whereNumber('custodian')->name('property-assignments.people.edit');
+
+    Route::put(
+        '/property-assignments/people/{custodian}',
+        [PropertyAssignmentController::class, 'updatePerson']
+    )->whereNumber('custodian')->name('property-assignments.people.update');
+
+    Route::get(
+        '/property-assignments/people/{custodian}/form',
+        [PropertyAssignmentController::class, 'personForm']
+    )->whereNumber('custodian')->name('property-assignments.person.form');
+
+    Route::get(
+        '/property-assignments/rooms/{room}',
+        [PropertyAssignmentController::class, 'room']
+    )->whereNumber('room')->name('property-assignments.room');
+
+    Route::post(
+        '/equipment/{equipment}/assignments',
+        [PropertyAssignmentController::class, 'store']
+    )->whereNumber('equipment')->name('property-assignments.store');
+
+    Route::post(
+        '/property-assignments/batch',
+        [PropertyAssignmentController::class, 'storeBatch']
+    )->name('property-assignments.batch');
+
+    Route::post(
+        '/property-assignments/{assignment}/return',
+        [PropertyAssignmentController::class, 'returnAssignment']
+    )->whereNumber('assignment')->name('property-assignments.return');
 
 
     // =====================================================

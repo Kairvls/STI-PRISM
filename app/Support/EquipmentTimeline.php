@@ -21,6 +21,7 @@ class EquipmentTimeline
             'qr' => 'QR / Tag',
             'borrow' => 'Borrowing',
             'condition' => 'Condition',
+            'assignment' => 'Property Assignment',
         ];
     }
 
@@ -66,6 +67,10 @@ class EquipmentTimeline
             $events = $events->merge(self::conditionEvents($equipmentId));
         }
 
+        if (self::typeEnabled($types, 'assignment')) {
+            $events = $events->merge(self::assignmentEvents($equipmentId));
+        }
+
         if (self::typeEnabled($types, 'maintenance')) {
             $events = $events->merge(self::maintenanceEvents($equipmentId));
         }
@@ -91,6 +96,7 @@ class EquipmentTimeline
             'equipment' => $equipment,
             'events' => $events->all(),
             'counts' => $counts,
+            'report_summary' => self::reportSummary($equipmentId),
         ];
     }
 
@@ -123,6 +129,16 @@ class EquipmentTimeline
 
             self::applyDateBounds($query, 'report_submitted_at', $fromDate, $toDate);
             $ids = $ids->merge($query->pluck('equipment_id'));
+
+            if (ReportItems::tableExists()) {
+                $itemQuery = DB::table('report_items_table')
+                    ->join('reports_table', 'reports_table.report_id', '=', 'report_items_table.report_id')
+                    ->whereNotNull('report_items_table.report_item_equipment_id')
+                    ->select('report_items_table.report_item_equipment_id as equipment_id');
+
+                self::applyDateBounds($itemQuery, 'reports_table.report_submitted_at', $fromDate, $toDate);
+                $ids = $ids->merge($itemQuery->pluck('equipment_id'));
+            }
         }
 
         if (self::typeEnabled($types, 'transfer') && Schema::hasTable('equipment_transfer_history_table')) {
@@ -155,6 +171,21 @@ class EquipmentTimeline
 
             self::applyDateBounds($query, 'disposal_disposed_at', $fromDate, $toDate);
             $ids = $ids->merge($query->pluck('equipment_id'));
+        }
+
+        if (self::typeEnabled($types, 'assignment') && PropertyAssignments::tableReady()) {
+            $query = DB::table('property_assignments_table')
+                ->select('assignment_equipment_id as equipment_id');
+
+            self::applyDateBounds($query, 'assignment_issued_at', $fromDate, $toDate);
+            $ids = $ids->merge($query->pluck('equipment_id'));
+
+            $returned = DB::table('property_assignments_table')
+                ->whereNotNull('assignment_returned_at')
+                ->select('assignment_equipment_id as equipment_id');
+
+            self::applyDateBounds($returned, 'assignment_returned_at', $fromDate, $toDate);
+            $ids = $ids->merge($returned->pluck('equipment_id'));
         }
 
         if (self::typeEnabled($types, 'acquisition') || self::typeEnabled($types, 'created')) {
@@ -227,6 +258,9 @@ class EquipmentTimeline
                 ->value('shop_name');
 
             $supplierName = $physical ?: $online;
+        }
+        if (! filled($supplierName) && filled($row->equipment_supplier_name ?? null)) {
+            $supplierName = $row->equipment_supplier_name;
         }
 
         $receivingReport = null;
@@ -332,6 +366,7 @@ class EquipmentTimeline
                     $po = DB::table('purchase_order_atps_table as poa')
                         ->join('purchase_orders_table as po', 'po.purchase_order_id', '=', 'poa.purchase_order_id')
                         ->where('poa.authority_purchase_id', $atpId)
+                        ->where('po.purchase_order_status', '!=', PurchaseOrderBasket::STATUS_CANCELLED)
                         ->first($poSelect);
                     if ($po) {
                         $purchaseOrderNumber = $po->purchase_order_number ?? null;
@@ -351,6 +386,12 @@ class EquipmentTimeline
             $stockedByName = DB::table('users_table')
                 ->where('user_id', $row->equipment_stocked_by)
                 ->value('user_full_name');
+        }
+
+        [$deployedAt, $deployedRoom] = self::firstDeployment($row);
+        $acquisitionSource = $row->equipment_acquisition_source ?? null;
+        if (! filled($acquisitionSource) && $receivingReport) {
+            $acquisitionSource = EquipmentAcquisition::PROCUREMENT;
         }
 
         return [
@@ -401,8 +442,47 @@ class EquipmentTimeline
             'ris_number' => $risNumber ? (string) $risNumber : null,
             'replaces_id' => ! empty($row->equipment_replaces_id) ? (int) $row->equipment_replaces_id : null,
             'replaced_by_id' => ! empty($row->equipment_replaced_by_id) ? (int) $row->equipment_replaced_by_id : null,
+            'acquisition_source' => $acquisitionSource,
+            'acquisition_source_label' => EquipmentAcquisition::sourceLabel($acquisitionSource),
+            'reference_number' => $row->equipment_reference_number ?? null,
+            'acquisition_notes' => $row->equipment_acquisition_notes ?? null,
+            'deployed_at' => $deployedAt,
+            'deployed_room' => $deployedRoom,
             'view_url' => EquipmentViewReturn::viewUrl($equipmentId),
         ];
+    }
+
+    /**
+     * First move out of storage into a working room.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private static function firstDeployment(object $row): array
+    {
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            $move = DB::table('equipment_transfer_history_table as th')
+                ->leftJoin('rooms_table as to_room', 'to_room.room_id', '=', 'th.to_room_id')
+                ->where('th.equipment_id', $row->equipment_id)
+                ->where(function ($q) {
+                    $q->whereNull('to_room.room_type')
+                        ->orWhere('to_room.room_type', '!=', RoomCategories::STORAGE_TYPE);
+                })
+                ->orderBy('th.created_at')
+                ->first(['th.created_at', 'to_room.room_name']);
+
+            if ($move) {
+                return [self::dateString($move->created_at), $move->room_name];
+            }
+        }
+
+        if (filled($row->room_type ?? null) && ! RoomCategories::isStorageType($row->room_type)) {
+            return [
+                self::dateString($row->equipment_acquired_date ?? $row->equipment_created_at ?? null),
+                $row->room_name ?? null,
+            ];
+        }
+
+        return [null, null];
     }
 
     private static function createdEvents(array $equipment): Collection
@@ -447,7 +527,9 @@ class EquipmentTimeline
             ));
         }
 
-        if (! empty($equipment['purchase_date']) || $equipment['purchase_cost'] !== null || ! empty($equipment['supplier_name'])) {
+        $hasManualSource = ! empty($equipment['acquisition_source'])
+            && $equipment['acquisition_source'] !== EquipmentAcquisition::PROCUREMENT;
+        if (! empty($equipment['purchase_date']) || $equipment['purchase_cost'] !== null || ! empty($equipment['supplier_name']) || $hasManualSource) {
             $details = [];
             if ($equipment['purchase_cost'] !== null) {
                 $details[] = 'Cost: ₱'.number_format($equipment['purchase_cost'], 2);
@@ -457,12 +539,18 @@ class EquipmentTimeline
             }
             if ($equipment['purchase_order_number']) {
                 $details[] = 'PO '.$equipment['purchase_order_number'];
+            } elseif (! empty($equipment['reference_number'])) {
+                $details[] = 'Ref '.$equipment['reference_number'];
+            }
+            $isManualSource = $hasManualSource;
+            if ($isManualSource) {
+                array_unshift($details, $equipment['acquisition_source_label']);
             }
 
             $events->push(self::makeEvent(
                 'acquisition',
                 $equipment['purchase_date'] ?: $equipment['purchase_order_date'] ?: $equipment['created_at'],
-                'Bought / committed',
+                $isManualSource && $equipment['acquisition_source'] !== 'direct_purchase' ? 'Acquired' : 'Bought / committed',
                 $details ? implode(' · ', $details) : 'Purchase recorded.',
                 [
                     'purchase_cost' => $equipment['purchase_cost'],
@@ -628,6 +716,56 @@ class EquipmentTimeline
             });
     }
 
+    private static function assignmentEvents(int $equipmentId): Collection
+    {
+        return PropertyAssignments::history($equipmentId, 200)
+            ->flatMap(function ($row) {
+                $person = trim((string) ($row->custodian_full_name ?? '')) ?: 'Unknown person';
+                $events = collect([
+                    self::makeEvent(
+                        'assignment',
+                        $row->assignment_issued_at,
+                        'Assigned to '.$person,
+                        implode(' · ', array_filter([
+                            $row->custodian_position ?? null,
+                            $row->custodian_employee_id ?? null,
+                            $row->assignment_document_no ? 'Doc '.$row->assignment_document_no : null,
+                            $row->room_name ? 'Room: '.$row->room_name : null,
+                            $row->workstation_slot_label ? 'Desk: '.$row->workstation_slot_label : null,
+                            $row->assignment_notes,
+                        ])),
+                        [
+                            'assignment_id' => (int) $row->assignment_id,
+                            'actor' => $row->issued_by_name,
+                            'custodian' => $person,
+                            'dot' => 'bg-teal-500',
+                        ]
+                    ),
+                ]);
+
+                if (! empty($row->assignment_returned_at)) {
+                    $transferred = $row->assignment_status === 'Transferred';
+                    $events->push(self::makeEvent(
+                        'assignment',
+                        $row->assignment_returned_at,
+                        ($transferred ? 'Reassigned from ' : 'Returned by ').$person,
+                        implode(' · ', array_filter([
+                            $row->assignment_return_condition ? 'Condition: '.$row->assignment_return_condition : null,
+                            $row->assignment_return_notes,
+                        ])) ?: ($transferred ? 'Custody moved to another person.' : 'Custody closed.'),
+                        [
+                            'assignment_id' => (int) $row->assignment_id,
+                            'actor' => $row->returned_by_name,
+                            'custodian' => $person,
+                            'dot' => 'bg-slate-400',
+                        ]
+                    ));
+                }
+
+                return $events;
+            });
+    }
+
     private static function transferEvents(int $equipmentId): Collection
     {
         if (! Schema::hasTable('equipment_transfer_history_table')) {
@@ -755,48 +893,181 @@ class EquipmentTimeline
             });
     }
 
-    private static function reportEvents(int $equipmentId): Collection
+    /**
+     * One row per ticket that included this equipment, oldest first, with the
+     * equipment's own line status (falls back to the ticket for legacy reports).
+     */
+    public static function reportHistory(int $equipmentId): Collection
     {
         if (! Schema::hasTable('reports_table')) {
             return collect();
         }
 
-        return DB::table('reports_table')
-            ->leftJoin(
-                'reporters_table',
-                'reports_table.report_reporter_employee_id',
-                '=',
-                'reporters_table.reporter_employee_id'
-            )
+        $rows = collect();
+
+        if (ReportItems::tableExists()) {
+            $rows = DB::table('report_items_table')
+                ->join('reports_table', 'reports_table.report_id', '=', 'report_items_table.report_id')
+                ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
+                ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+                ->where('report_items_table.report_item_equipment_id', $equipmentId)
+                ->get([
+                    'reports_table.report_id',
+                    'reports_table.report_submitted_at',
+                    'reports_table.report_urgency_level',
+                    'reports_table.report_current_status',
+                    'reports_table.report_is_archived',
+                    'reporters_table.reporter_full_name',
+                    'rooms_table.room_name',
+                    'report_items_table.report_item_status as status',
+                    'report_items_table.report_item_suggested_issue as issue',
+                    'report_items_table.report_item_updated_at as status_at',
+                    'report_items_table.report_item_resolution_notes as resolution_notes',
+                    'report_items_table.report_item_replacement_notes as replacement_notes',
+                    'report_items_table.report_item_rejection_notes as rejection_notes',
+                ]);
+        }
+
+        $legacy = DB::table('reports_table')
+            ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
             ->where('reports_table.report_equipment_id', $equipmentId)
-            ->orderByDesc('reports_table.report_submitted_at')
-            ->select(
+            ->whereNotIn('reports_table.report_id', $rows->pluck('report_id')->all() ?: [0])
+            ->get([
                 'reports_table.report_id',
-                'reports_table.report_current_status',
-                'reports_table.report_urgency_level',
-                'reports_table.report_suggested_issue',
                 'reports_table.report_submitted_at',
-                'reporters_table.reporter_full_name'
-            )
-            ->get()
-            ->map(function ($row) {
-                return self::makeEvent(
+                'reports_table.report_urgency_level',
+                'reports_table.report_current_status',
+                'reports_table.report_is_archived',
+                'reporters_table.reporter_full_name',
+                'rooms_table.room_name',
+                'reports_table.report_current_status as status',
+                'reports_table.report_suggested_issue as issue',
+                'reports_table.report_updated_at as status_at',
+                'reports_table.report_resolution_notes as resolution_notes',
+                'reports_table.report_replacement_notes as replacement_notes',
+                'reports_table.report_rejection_notes as rejection_notes',
+            ]);
+
+        return $rows->merge($legacy)
+            ->unique('report_id')
+            ->sortBy(fn ($row) => [(string) $row->report_submitted_at, (int) $row->report_id])
+            ->values();
+    }
+
+    /**
+     * @return array{times_reported: int, times_fixed: int, open_count: int, replacement: bool,
+     *     last_reported_at: ?string, last_fixed_at: ?string, state: string}
+     */
+    public static function reportSummary(int $equipmentId, ?Collection $history = null): array
+    {
+        $history = $history ?? self::reportHistory($equipmentId);
+        $fixed = $history->where('status', 'Resolved')->reject(fn ($row) => self::closedWithOtherTicket($row));
+        $open = $history->filter(fn ($row) => in_array($row->status, ['Pending', 'Processing'], true));
+        $replacement = $history->contains('status', 'For Replacement');
+
+        $state = match (true) {
+            $replacement => 'Needs replacement',
+            $open->contains('status', 'Processing') => 'Under repair',
+            $open->isNotEmpty() => 'Malfunction reported',
+            default => 'Working',
+        };
+
+        return [
+            'times_reported' => $history->count(),
+            'times_fixed' => $fixed->count(),
+            'open_count' => $open->count(),
+            'replacement' => $replacement,
+            'last_reported_at' => self::dateString($history->last()->report_submitted_at ?? null),
+            'last_fixed_at' => self::dateString($fixed->max('status_at')),
+            'state' => $state,
+        ];
+    }
+
+    private static function reportEvents(int $equipmentId): Collection
+    {
+        $events = collect();
+        $openSince = [];
+
+        foreach (self::reportHistory($equipmentId)->values() as $index => $row) {
+            $ticket = ReportGrouping::ticketCode($row);
+            $nth = $index + 1;
+
+            $stillOpenBefore = collect($openSince)
+                ->filter(fn ($closedAt) => $closedAt === null || $closedAt > $row->report_submitted_at)
+                ->keys()
+                ->first();
+
+            $events->push(self::makeEvent(
+                'report',
+                $row->report_submitted_at,
+                'Malfunction reported'.($nth > 1 ? ' · '.self::ordinal($nth).' time' : ''),
+                ($row->issue ?: 'No issue named')
+                    .' · '.$ticket
+                    .' · '.$row->report_urgency_level
+                    .($row->room_name ? ' · '.$row->room_name : '')
+                    .($stillOpenBefore ? ' · Re-reported while '.$stillOpenBefore.' was still not fixed' : ''),
+                [
+                    'report_id' => (int) $row->report_id,
+                    'status' => $row->status,
+                    'urgency' => $row->report_urgency_level,
+                    'issue' => $row->issue,
+                    'actor' => $row->reporter_full_name,
+                    'reporter' => $row->reporter_full_name,
+                    'times_reported' => $nth,
+                    'dot' => 'bg-rose-500',
+                ]
+            ));
+
+            $closedAt = in_array($row->status, ['Resolved', 'For Replacement', 'Rejected'], true)
+                ? (string) $row->status_at
+                : null;
+            $openSince[$ticket] = $closedAt;
+
+            $outcome = match ($row->status) {
+                'Processing' => ['Repair in progress', 'bg-sky-500', null],
+                'Resolved' => ['Fixed · back to working', 'bg-emerald-500', $row->resolution_notes],
+                'For Replacement' => ['Needs replacement', 'bg-orange-500', $row->replacement_notes],
+                'Rejected' => ['Report not accepted', 'bg-slate-400', $row->rejection_notes],
+                default => null,
+            };
+
+            if ($outcome && ! empty($row->status_at) && ! self::closedWithOtherTicket($row)) {
+                $events->push(self::makeEvent(
                     'report',
-                    $row->report_submitted_at,
-                    'Report #'.$row->report_id,
-                    ($row->report_suggested_issue ?: 'No issue named')
-                        .' · '.$row->report_current_status
-                        .' · '.$row->report_urgency_level
-                        .($row->reporter_full_name ? ' · '.$row->reporter_full_name : ''),
+                    $row->status_at,
+                    $outcome[0],
+                    $ticket.(! empty($outcome[2]) ? ' · '.$outcome[2] : ''),
                     [
                         'report_id' => (int) $row->report_id,
-                        'status' => $row->report_current_status,
-                        'urgency' => $row->report_urgency_level,
-                        'issue' => $row->report_suggested_issue,
-                        'reporter' => $row->reporter_full_name,
+                        'status' => $row->status,
+                        'dot' => $outcome[1],
                     ]
-                );
-            });
+                ));
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * Line closed automatically because the same repair was done on another ticket
+     * (see ReportItems::syncRepeatEquipment) — not a separate fix.
+     */
+    private static function closedWithOtherTicket(object $row): bool
+    {
+        $notes = (string) ($row->status === 'For Replacement' ? $row->replacement_notes : $row->resolution_notes);
+
+        return (bool) preg_match('/^(Fixed|Sent for replacement) under RPT-/', $notes);
+    }
+
+    private static function ordinal(int $number): string
+    {
+        $suffix = in_array($number % 100, [11, 12, 13], true)
+            ? 'th'
+            : (['th', 'st', 'nd', 'rd'][$number % 10] ?? 'th');
+
+        return $number.$suffix;
     }
 
     private static function disposalEvents(int $equipmentId): Collection

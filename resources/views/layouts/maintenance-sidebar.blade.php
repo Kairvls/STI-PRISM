@@ -212,6 +212,13 @@
                 @endforeach
             </div>
         </div>
+        <a
+            href="/maintenance/personnel-directory"
+            class="menu-item {{ request()->is('maintenance/personnel-directory*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="book-user"></i>
+            <span>Personnel Directory</span>
+        </a>
 
         <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
         <a
@@ -250,6 +257,20 @@
         >
             <i class="h-5 w-5" data-lucide="boxes"></i>
             <span>Deployed Stocks</span>
+        </a>
+        <a
+            href="/maintenance/property-assignments"
+            class="menu-item {{ request()->is('maintenance/property-assignments*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="user-round-check"></i>
+            <span>Property Assignment</span>
+        </a>
+        <a
+            href="/maintenance/departments"
+            class="menu-item {{ request()->is('maintenance/departments*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="building-2"></i>
+            <span>Departments</span>
         </a>
         @php
             $equipmentToolsActive = request()->is('maintenance/equipment/transfer*')

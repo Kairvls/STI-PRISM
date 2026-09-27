@@ -1,7 +1,11 @@
 @extends ("layouts.maintenance-layout")
 
 @section ("content")
+    @php
+        $canMaintain = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+    @endphp
 
+    @if ($canMaintain)
     <div
         class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end"
     >
@@ -15,6 +19,7 @@
             Dispose Equipment
         </button>
     </div>
+    @endif
 
     @php
         $disposalMonthlyHint = $disposalMonthlyPercentage === null
@@ -742,7 +747,7 @@
                                                 ($record->equipment_condition_status ?? '') === 'Disposed';
                                         @endphp
 
-                                        @if (empty($showArchive) && ! $isFinallyDisposed)
+                                        @if ($canMaintain && empty($showArchive) && ! $isFinallyDisposed)
                                             <button
                                                 type="button"
                                                 class="js-restore-disposal flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
@@ -807,7 +812,7 @@
                                         {{-- ARCHIVE / UNARCHIVE (finalized only) --}}
                                         {{-- ================================= --}}
 
-                                        @if (!empty($showArchive))
+                                        @if ($canMaintain && !empty($showArchive))
                                             <form method="POST" action="/maintenance/disposal/unarchive" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="disposal_id" value="{{ (int) $record->disposal_record_id }}" />
@@ -820,7 +825,7 @@
                                                     <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                                 </button>
                                             </form>
-                                        @elseif ($isFinallyDisposed)
+                                        @elseif ($canMaintain && $isFinallyDisposed)
                                             <button
                                                 type="button"
                                                 onclick='openArchiveModal(@js($record->disposal_record_id))'
@@ -955,7 +960,7 @@
 
                                             </a>
 
-                                        @else
+                                        @elseif ($canMaintain)
 
                                             <button
                                                 type="button"

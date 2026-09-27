@@ -14,7 +14,7 @@
                 alt="PaAyo"
                 class="mx-auto mb-3 h-16 w-16 object-contain"
             >
-            <p class="mb-1 text-xl font-semibold tracking-wide text-slate-400">PaAyo</p>
+            <!--<p class="mb-1 text-xl font-semibold tracking-wide text-slate-400">PaAyo</p>-->
             <!--<h1 class="mb-2 text-2xl font-bold text-slate-900">Admin sign in</h1>
             <p class="mb-6 text-sm text-slate-600">
                 Office 365 only (email, password, and MFA). Only Administrator accounts can continue.

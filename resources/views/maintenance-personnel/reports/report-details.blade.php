@@ -316,6 +316,7 @@
                                                         · Inventory: {{ $item->equipment_inventory_status }}
                                                     @endif
                                                 </p>
+                                                @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
                                                 @include('components.tables.partials.report-item-equipment-details', [
                                                     'item' => $item,
                                                     'compact' => false,
@@ -323,6 +324,8 @@
                                             </li>
                                         @endforeach
                                     </ul>
+                                @elseif ($detailItems->count() === 1 && ($detailItems->first()->repeat_state ?? null))
+                                    @include('components.tables.partials.report-item-repeat-badge', ['item' => $detailItems->first()])
                                 @elseif ($report->equipment_inventory_status)
 
                                     <p

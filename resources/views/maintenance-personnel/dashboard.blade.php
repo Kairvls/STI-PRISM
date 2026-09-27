@@ -5525,6 +5525,147 @@
             opacity: 0.5;
         }
 
+        .building-room-tooltip-property {
+            color: #5eead4;
+        }
+
+        .building-room-tooltip-property[hidden],
+        #buildingRoomDetailsPropertyRow[hidden],
+        .building-custodian-finder[hidden],
+        .building-custodian-finder-panel[hidden] {
+            display: none !important;
+        }
+
+        .building-room-details-property-link {
+            color: #5eead4;
+            font-weight: 700;
+            text-decoration: none;
+            text-align: right;
+        }
+
+        .building-room-details-property-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Find a person's assigned property */
+        .building-custodian-finder {
+            position: absolute;
+            left: 16px;
+            bottom: 16px;
+            z-index: 25;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: flex-start;
+            gap: 8px;
+            max-width: calc(100% - 32px);
+        }
+
+        .building-custodian-finder-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 36px;
+            padding: 0 14px;
+            border: 1px solid rgba(94, 234, 212, 0.28);
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.78);
+            color: #ccfbf1;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            transition: 0.2s ease;
+        }
+
+        .building-custodian-finder-toggle:hover,
+        .building-custodian-finder-toggle[aria-expanded="true"] {
+            background: rgba(20, 184, 166, 0.22);
+            color: white;
+        }
+
+        .building-custodian-finder-toggle svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .building-custodian-finder-panel {
+            width: 290px;
+            max-width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(94, 234, 212, 0.22);
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.94);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(18px);
+        }
+
+        .building-custodian-finder-search {
+            width: 100%;
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .building-custodian-finder-search:focus {
+            border-color: rgba(94, 234, 212, 0.55);
+        }
+
+        .building-custodian-finder-results {
+            max-height: 220px;
+            margin-top: 8px;
+            overflow-y: auto;
+        }
+
+        .building-custodian-finder-person,
+        .building-custodian-finder-room {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #e2e8f0;
+            font-size: 12px;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .building-custodian-finder-person:hover,
+        .building-custodian-finder-room:hover {
+            background: rgba(20, 184, 166, 0.16);
+        }
+
+        .building-custodian-finder-person strong {
+            display: block;
+            font-weight: 600;
+            color: white;
+        }
+
+        .building-custodian-finder-person small,
+        .building-custodian-finder-room small,
+        .building-custodian-finder-count {
+            color: #94a3b8;
+            font-size: 11px;
+        }
+
+        .building-custodian-finder-room {
+            padding-left: 22px;
+        }
+
+        .building-custodian-finder-empty {
+            padding: 10px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
         /* ===================================================== */
         /* PHASE 7.8: COMPACT ROOM DETAILS PANEL */
         /* ===================================================== */
@@ -6848,6 +6989,30 @@
                             <!--<span class="text-xs">Enter Building</span>-->
                         </button>
 
+                        {{-- FIND A PERSON'S ASSIGNED PROPERTY --}}
+                        <div id="buildingCustodianFinder" class="building-custodian-finder" hidden>
+                            <button
+                                type="button"
+                                id="buildingCustodianFinderToggle"
+                                class="building-custodian-finder-toggle"
+                                aria-expanded="false"
+                            >
+                                <i data-lucide="user-round-search"></i>
+                                <span>Find person</span>
+                            </button>
+
+                            <div id="buildingCustodianFinderPanel" class="building-custodian-finder-panel" hidden>
+                                <input
+                                    type="search"
+                                    id="buildingCustodianFinderSearch"
+                                    class="building-custodian-finder-search"
+                                    placeholder="Search name or employee ID"
+                                    autocomplete="off"
+                                >
+                                <div id="buildingCustodianFinderResults" class="building-custodian-finder-results"></div>
+                            </div>
+                        </div>
+
                         {{-- ===================================================== --}}
                         {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
                         {{-- ===================================================== --}}
@@ -6892,6 +7057,20 @@
                                     <strong id="buildingRoomDetailsStatus">
                                         No Active Reports
                                     </strong>
+                                </div>
+
+                                <div
+                                    id="buildingRoomDetailsPropertyRow"
+                                    class="building-room-details-row"
+                                    hidden
+                                >
+                                    <span>Property</span>
+
+                                    <a
+                                        id="buildingRoomDetailsProperty"
+                                        class="building-room-details-property-link"
+                                        href="#"
+                                    ></a>
                                 </div>
                             </div>
 
@@ -6977,6 +7156,12 @@
                                     Available
                                 </span>
                             </div>
+
+                            <div
+                                id="buildingRoomTooltipProperty"
+                                class="building-room-tooltip-details building-room-tooltip-property"
+                                hidden
+                            ></div>
                         </div>
 
                         {{-- FLOATING LABEL --}}
@@ -7095,6 +7280,18 @@
                         </span>
 
                         <span>Equipment</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="dashboard-quick-action"
+                        onclick="openBatchAddEquipmentModal()"
+                    >
+                        <span class="dashboard-quick-action-icon">
+                            <i data-lucide="layers" class="h-4 w-4"></i>
+                        </span>
+
+                        <span>Batch add</span>
                     </button>
 
                     {{-- ===================================================== --}}
@@ -7910,462 +8107,8 @@
         </div>
     </div>
 
-    <!-- ========================================================= -->
-    <!-- ADD EQUIPMENT MODAL (matches inventory module) -->
-    <!-- ========================================================= -->
-    @php
-        $eqField = 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
-        $eqLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
-    @endphp
-
-    <div
-        id="addEquipmentModal"
-        x-data="inventoryAddEquipment()"
-        x-show="open"
-        x-cloak
-        x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
-        @if (
-            $errors->has('equipment_name')
-            || $errors->has('equipment_category_id')
-            || $errors->has('equipment_room_id')
-            || $errors->has('equipment_quantity')
-            || $errors->has('equipment_image')
-            || $errors->has('equipment_tracking_mode')
-            || $errors->has('items')
-            || $errors->has('equipment_asset_tag')
-            || $errors->has('equipment_serial_number')
-        )
-        x-init="
-            open = true;
-            formError = {{ json_encode($errors->first()) }};
-            errors = {
-                @if ($errors->has('equipment_name')) name: {{ json_encode($errors->first('equipment_name')) }}, @endif
-                @if ($errors->has('equipment_category_id')) category: {{ json_encode($errors->first('equipment_category_id')) }}, @endif
-                @if ($errors->has('equipment_room_id')) room: {{ json_encode($errors->first('equipment_room_id')) }}, @endif
-                @if ($errors->has('equipment_quantity')) quantity: {{ json_encode($errors->first('equipment_quantity')) }}, @endif
-                @if ($errors->has('equipment_image')) image: {{ json_encode($errors->first('equipment_image')) }}, @endif
-            };
-            $nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        "
-        @endif
-        class="fixed inset-0 z-50 hidden items-center justify-center overflow-hidden bg-[#0b1220]/70"
-        :class="[
-            open ? '!flex' : 'hidden',
-            fullscreen && step === 2 ? 'p-0' : 'p-4'
-        ]"
-    >
-        <form
-            action="/maintenance/equipment/store"
-            method="POST"
-            enctype="multipart/form-data"
-            @submit="prepareSubmit($event)"
-            class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
-            :class="fullscreen && step === 2
-                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
-                : (step === 2
-                    ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
-                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
-        >
-            @csrf
-            <input type="hidden" name="equipment_tracking_mode" :value="tracking">
-            <input type="hidden" name="equipment_quantity" :value="quantity">
-
-            <div class="flex items-start justify-between px-6 pt-6">
-                <div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : 'Add equipment'"></h2>
-                    <p class="mt-1 text-sm text-slate-500" x-text="step === 2
-                        ? 'Edit unique identity per unit. Shared name, category, and room apply to all.'
-                        : 'Identity on the left, status on the right.'"></p>
-                </div>
-                <div class="flex shrink-0 items-center gap-1">
-                    <button
-                        type="button"
-                        x-show="step === 2"
-                        x-cloak
-                        @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
-                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                        :title="fullscreen ? 'Exit full screen' : 'Full screen'"
-                        :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
-                    >
-                        <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
-                    </button>
-                    <button type="button" @click="close()" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div
-                x-show="formError"
-                x-cloak
-                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
-            >
-                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
-                <button type="button" @click="formError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
-                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
-                </button>
-            </div>
-
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
-                <div
-                    class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
-                    x-show="!needsItemStep()"
-                    x-cloak
-                >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
-                    <div class="mt-3 flex items-center gap-4">
-                        <button
-                            type="button"
-                            x-show="imagePreview"
-                            x-cloak
-                            @click="openEquipmentPhotoViewer(imagePreview, name || 'Equipment photo')"
-                            class="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
-                            aria-label="View equipment photo fullscreen"
-                        >
-                            <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
-                            <span class="absolute inset-0 flex items-center justify-center bg-[#0025cc]/0 transition group-hover:bg-[#0025cc]/40">
-                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
-                            </span>
-                        </button>
-                        <div
-                            x-show="!imagePreview"
-                            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
-                        >
-                            <span
-                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                                x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
-                            ></span>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-900">Add equipment photo</p>
-                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB.</p>
-                            <p x-show="imagePreview" x-cloak class="mt-0.5 text-xs text-slate-500">Click the photo to view it full screen.</p>
-                            <div class="mt-2 flex flex-wrap items-center gap-2">
-                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
-                                    Choose image
-                                    <input
-                                        type="file"
-                                        :name="needsItemStep() ? null : 'equipment_image'"
-                                        accept="image/jpeg,image/png,image/webp,image/gif"
-                                        class="sr-only"
-                                        x-ref="imageInput"
-                                        :disabled="needsItemStep()"
-                                        @change="onImageChange($event)"
-                                    >
-                                </label>
-                                <button
-                                    type="button"
-                                    x-show="imagePreview"
-                                    x-cloak
-                                    @click="clearImage()"
-                                    class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                            <p x-show="errors.image" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="errors.image"></p>
-                        </div>
-                    </div>
-                </div>
-                <div
-                    class="mb-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
-                    x-show="needsItemStep()"
-                    x-cloak
-                >
-                    Photos are optional per unit on the next step — one shared photo isn’t used when creating multiple individually tracked assets.
-                </div>
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
-                        <div>
-                            <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
-                            <input
-                                id="add_equipment_name"
-                                type="text"
-                                name="equipment_name"
-                                x-model="name"
-                                @input="clearError('name'); onNameInput(); syncAssetTag()"
-                                placeholder="e.g. Mouse"
-                                class="{{ $eqField }}"
-                                :class="errors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            />
-                            <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
-                        </div>
-                        <div>
-                            <label for="add_equipment_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
-                            <select
-                                id="add_equipment_category"
-                                name="equipment_category_id"
-                                x-model="category"
-                                @change="clearError('category'); onCategoryChange()"
-                                class="{{ $eqField }}"
-                                :class="errors.category ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            >
-                                <option value="">Select category</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
-                                @endforeach
-                            </select>
-                            <p x-show="errors.category" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.category"></p>
-                            <p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
-                        </div>
-                        <div>
-                            <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
-                            <select
-                                id="add_equipment_room"
-                                name="equipment_room_id"
-                                x-model="room"
-                                @change="clearError('room'); syncAssetTag()"
-                                class="{{ $eqField }}"
-                                :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            >
-                                <option value="">Select room</option>
-                                @foreach ($rooms as $room)
-                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
-                                @endforeach
-                            </select>
-                            <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
-                        </div>
-                    </div>
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty</label>
-                                <input
-                                    id="add_equipment_quantity"
-                                    type="number"
-                                    min="1"
-                                    max="200"
-                                    x-model.number="quantity"
-                                    @input="clearError('quantity'); syncAssetTag(); onSharedPhotoModeChange()"
-                                    class="{{ $eqField }}"
-                                    :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                />
-                                <p x-show="errors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.quantity"></p>
-                            </div>
-                            <div>
-                                <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
-                                <select id="add_equipment_condition" name="equipment_condition_status" x-model="condition" class="{{ $eqField }}">
-                                    <option value="Good">Good</option>
-                                    <option value="Damaged">Damaged</option>
-                                    <option value="Under Maintenance">Under maintenance</option>
-                                    <option value="Disposed">Disposed</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="{{ $eqLabel }}">Tracking mode</label>
-                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
-                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
-                            </div>
-                            <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
-                                ? 'One stock record with combined quantity.'
-                                : 'Creates separate trackable assets (asset tag, serial, QR per unit).'"></p>
-                        </div>
-                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
-                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
-                            <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
-                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
-                        </label>
-                    </div>
-                </div>
-                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
-                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Shared defaults / single-item details</summary>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                        <div x-show="tracking === 'Bulk' || quantity === 1">
-                            <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
-                            <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" @input="assetTagManual = true" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
-                            <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
-                            <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" class="{{ $eqField }}" />
-                        </div>
-                        <div x-show="tracking === 'Bulk' || quantity === 1">
-                            <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
-                            <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" class="{{ $eqField }}" />
-                        </div>
-                        <div>
-                            <label for="add_warranty_expiration" class="{{ $eqLabel }}">Warranty expiration</label>
-                            <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
-                        </div>
-                    </div>
-                </details>
-            </div>
-
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 2" x-cloak>
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
-                    <div class="text-sm text-slate-600">
-                        <span class="font-medium text-slate-900" x-text="name"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span x-text="items.length + ' individually tracked units'"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span class="text-slate-500">Optional photo per unit</span>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
-                        <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
-                    </div>
-                </div>
-                <div class="rounded-xl ring-1 ring-slate-200">
-                    <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
-                        <colgroup>
-                            <col class="w-[3%]">
-                            <col class="w-[14%]">
-                            <col class="w-[22%]">
-                            <col class="w-[14%]">
-                            <col class="w-[12%]">
-                            <col class="w-[12%]">
-                            <col class="w-[13%]">
-                            <col class="w-[10%]">
-                        </colgroup>
-                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th class="px-2 py-2.5">#</th>
-                                <th class="px-2 py-2.5">Photo</th>
-                                <th class="px-2 py-2.5">Asset tag</th>
-                                <th class="px-2 py-2.5">Serial</th>
-                                <th class="px-2 py-2.5">Brand</th>
-                                <th class="px-2 py-2.5">Model</th>
-                                <th class="px-2 py-2.5">Condition</th>
-                                <th class="px-2 py-2.5">Warranty</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <template x-for="(item, index) in items" :key="index">
-                                <tr>
-                                    <td class="px-2 py-2 text-slate-400" x-text="index + 1"></td>
-                                    <td class="px-2 py-2">
-                                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                x-show="item._imagePreview"
-                                                x-cloak
-                                                @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
-                                                class="group relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
-                                                aria-label="View unit photo"
-                                            >
-                                                <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
-                                            </button>
-                                            <div
-                                                x-show="!item._imagePreview"
-                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
-                                            >
-                                                <span
-                                                    class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                                                    x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
-                                                ></span>
-                                            </div>
-                                            <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
-                                                <span x-text="item._imagePreview ? 'Change' : 'Add'"></span>
-                                                <input
-                                                    type="file"
-                                                    :name="'items[' + index + '][equipment_image]'"
-                                                    :data-item-image-index="index"
-                                                    accept="image/jpeg,image/png,image/webp,image/gif"
-                                                    class="sr-only"
-                                                    @change="onItemImageChange(index, $event)"
-                                                >
-                                            </label>
-                                            <button
-                                                type="button"
-                                                x-show="item._imagePreview"
-                                                x-cloak
-                                                @click="clearItemImage(index)"
-                                                class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_asset_tag || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_asset_tag"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_serial_number || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_serial_number"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_brand_name || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_brand_name"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_model || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_model"
-                                            ></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm">
-                                            <option value="Good">Good</option>
-                                            <option value="Damaged">Damaged</option>
-                                            <option value="Under Maintenance">Under Maintenance</option>
-                                            <option value="Disposed">Disposed</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm" />
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
-                <button type="button" @click="step === 2 ? (step = 1, fullscreen = false) : close()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="step === 2 ? 'Back' : 'Cancel'"></button>
-                <button
-                    type="button"
-                    x-show="step === 1 && needsItemStep()"
-                    @click="goToItems()"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                >
-                    Continue
-                </button>
-                <button
-                    type="submit"
-                    x-show="step === 2 || !needsItemStep()"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                    x-text="step === 2 ? ('Create ' + items.length + ' assets') : 'Add equipment'"
-                ></button>
-            </div>
-        </form>
-    </div>
+    @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add equipment'])
+    @include('maintenance-personnel.equipment.partials.batch-add-wizard')
 
 
 <div
@@ -11131,387 +10874,6 @@ document.addEventListener(
 // =====================================================
 
 
-// =====================================================
-// ADD EQUIPMENT MODAL (inventory-matched Alpine flow)
-// =====================================================
-
-function inventoryAddEquipment() {
-    return {
-        open: false,
-        step: 1,
-        fullscreen: false,
-        tracking: 'Individual',
-        name: '',
-        category: '',
-        categoryManual: false,
-        room: '',
-        quantity: 1,
-        condition: 'Good',
-        brand: '',
-        model: '',
-        warranty: '',
-        assetTag: '',
-        assetTagManual: false,
-        serial: '',
-        items: [],
-        errors: {},
-        formError: '',
-        imagePreview: null,
-        onImageChange(event) {
-            const file = event.target.files?.[0];
-            if (this.imagePreview) {
-                URL.revokeObjectURL(this.imagePreview);
-            }
-            this.imagePreview = file ? URL.createObjectURL(file) : null;
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        clearImage() {
-            if (this.imagePreview) {
-                URL.revokeObjectURL(this.imagePreview);
-            }
-            this.imagePreview = null;
-            if (this.$refs.imageInput) {
-                this.$refs.imageInput.value = '';
-            }
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        onSharedPhotoModeChange() {
-            if (this.needsItemStep()) {
-                this.clearImage();
-            }
-        },
-        onItemImageChange(index, event) {
-            const item = this.items[index];
-            if (!item) return;
-            const file = event.target.files?.[0] || null;
-            if (item._imagePreview) {
-                URL.revokeObjectURL(item._imagePreview);
-            }
-            item._imageFile = file;
-            item._imagePreview = file ? URL.createObjectURL(file) : null;
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        clearItemImage(index) {
-            const item = this.items[index];
-            if (!item) return;
-            if (item._imagePreview) {
-                URL.revokeObjectURL(item._imagePreview);
-            }
-            item._imagePreview = null;
-            item._imageFile = null;
-            const input = document.querySelector(`[data-item-image-index="${index}"]`);
-            if (input) input.value = '';
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        clearAllItemImages() {
-            (this.items || []).forEach((item, index) => {
-                if (item?._imagePreview) {
-                    URL.revokeObjectURL(item._imagePreview);
-                }
-                if (item) {
-                    item._imagePreview = null;
-                    item._imageFile = null;
-                }
-                const input = document.querySelector(`[data-item-image-index="${index}"]`);
-                if (input) input.value = '';
-            });
-        },
-        restoreItemImageInputs() {
-            (this.items || []).forEach((item, index) => {
-                if (!item?._imageFile) return;
-                const input = document.querySelector(`[data-item-image-index="${index}"]`);
-                if (!input) return;
-                try {
-                    const transfer = new DataTransfer();
-                    transfer.items.add(item._imageFile);
-                    input.files = transfer.files;
-                } catch (e) {
-                    // Browser may reject DataTransfer assignment; native input value still used when unchanged.
-                }
-            });
-        },
-        needsItemStep() {
-            return this.tracking === 'Individual' && Number(this.quantity) > 1;
-        },
-        clearError(field) {
-            if (!this.errors[field]) return;
-            const next = { ...this.errors };
-            delete next[field];
-            this.errors = next;
-            this.formError = '';
-        },
-        clearErrors() {
-            this.errors = {};
-            this.formError = '';
-        },
-        validateStep1() {
-            const next = {};
-            if (!String(this.name || '').trim()) {
-                next.name = 'Equipment name is required.';
-            }
-            if (!String(this.category || '').trim()) {
-                next.category = 'Please select a category.';
-            }
-            if (!String(this.room || '').trim()) {
-                next.room = 'Please select a room.';
-            }
-            const qty = Number(this.quantity);
-            if (!Number.isFinite(qty) || qty < 1) {
-                next.quantity = 'Quantity must be at least 1.';
-            } else if (qty > 200) {
-                next.quantity = 'Quantity cannot exceed 200.';
-            }
-            this.errors = next;
-            this.formError = Object.keys(next).length
-                ? 'Please fix the highlighted fields before continuing.'
-                : '';
-            if (Object.keys(next).length) {
-                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-            }
-            return Object.keys(next).length === 0;
-        },
-        validateItems() {
-            const tags = {};
-            const serials = {};
-            for (let i = 0; i < this.items.length; i++) {
-                const tag = String(this.items[i].equipment_asset_tag || '').trim().toLowerCase();
-                const serial = String(this.items[i].equipment_serial_number || '').trim().toLowerCase();
-                if (tag) {
-                    if (tags[tag] !== undefined) {
-                        this.formError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
-                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                        return false;
-                    }
-                    tags[tag] = i;
-                }
-                if (serial) {
-                    if (serials[serial] !== undefined) {
-                        this.formError = `Duplicate serial number on rows ${serials[serial] + 1} and ${i + 1}.`;
-                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                        return false;
-                    }
-                    serials[serial] = i;
-                }
-            }
-            this.formError = '';
-            return true;
-        },
-        onNameInput() {
-            if (!String(this.name || '').trim()) {
-                this.categoryManual = false;
-                this.category = '';
-                return;
-            }
-            if (this.categoryManual) {
-                return;
-            }
-            if (typeof detectEquipmentCategoryId === 'function') {
-                this.category = detectEquipmentCategoryId(this.name) || '';
-                if (this.category) this.clearError('category');
-            }
-        },
-        onCategoryChange() {
-            if (
-                typeof detectEquipmentCategoryId === 'function'
-                && String(this.category) === String(detectEquipmentCategoryId(this.name) || '')
-            ) {
-                return;
-            }
-            this.categoryManual = true;
-        },
-        reset() {
-            this.step = 1;
-            this.fullscreen = false;
-            this.tracking = 'Individual';
-            this.name = '';
-            this.category = '';
-            this.categoryManual = false;
-            this.room = '';
-            this.quantity = 1;
-            this.condition = 'Good';
-            this.brand = '';
-            this.model = '';
-            this.warranty = '';
-            this.assetTag = '';
-            this.assetTagManual = false;
-            this.serial = '';
-            this.clearAllItemImages();
-            this.items = [];
-            this.clearImage();
-            this.clearErrors();
-            const borrowable = document.getElementById('add_equipment_borrowable');
-            if (borrowable) borrowable.checked = false;
-        },
-        show() {
-            this.reset();
-            this.open = true;
-            this.$nextTick(() => {
-                document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
-                if (window.lucide) window.lucide.createIcons();
-            });
-        },
-        close() {
-            this.open = false;
-            this.reset();
-            document.body.style.overflow = '';
-        },
-        slug() {
-            return this.assetTagPart(this.name, 'EQ');
-        },
-        assetTagPart(value, fallback) {
-            return String(value || '')
-                .toUpperCase()
-                .replace(/[^A-Z0-9]+/g, '')
-                || fallback;
-        },
-        selectedRoomName() {
-            const select = document.getElementById('add_equipment_room');
-            const option = select?.selectedOptions?.[0];
-            return option?.text?.trim() || '';
-        },
-        shouldAutoAssetTag() {
-            return this.tracking === 'Bulk' || Number(this.quantity) === 1;
-        },
-        syncAssetTag() {
-            if (this.assetTagManual || !this.shouldAutoAssetTag()) {
-                return;
-            }
-            const roomName = this.selectedRoomName();
-            const equipmentName = String(this.name || '').trim();
-            if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
-                this.assetTag = '';
-                return;
-            }
-            window.equipmentAssetTags.resetReserved();
-            const tags = window.equipmentAssetTags.generate(roomName, equipmentName, 1);
-            this.assetTag = tags[0] || '';
-        },
-        buildAssetTag(index) {
-            const roomName = this.selectedRoomName();
-            const equipmentName = String(this.name || '').trim();
-            if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
-                return '';
-            }
-            window.equipmentAssetTags.resetReserved();
-            const tags = window.equipmentAssetTags.generate(roomName, equipmentName, index + 1);
-            return tags[index] || tags[tags.length - 1] || '';
-        },
-        buildItems() {
-            const qty = Math.min(200, Math.max(1, Number(this.quantity) || 1));
-            this.quantity = qty;
-            const previous = this.items || [];
-            const roomName = this.selectedRoomName();
-            const equipmentName = String(this.name || '').trim();
-
-            window.equipmentAssetTags?.resetReserved?.();
-
-            let generated = [];
-            if (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function') {
-                generated = window.equipmentAssetTags.generate(roomName, equipmentName, qty);
-            }
-
-            this.items = Array.from({ length: qty }, (_, i) => ({
-                equipment_asset_tag: previous[i]?._tagManual
-                    ? previous[i].equipment_asset_tag
-                    : (generated[i] || this.buildAssetTag(i)),
-                equipment_serial_number: previous[i]?.equipment_serial_number ?? '',
-                equipment_brand_name: this.brand || '',
-                equipment_model: this.model || '',
-                equipment_condition_status: this.condition,
-                equipment_warranty_expiration: this.warranty || '',
-                _tagManual: previous[i]?._tagManual || false,
-                _imagePreview: previous[i]?._imagePreview || null,
-                _imageFile: previous[i]?._imageFile || null,
-            }));
-        },
-        regenerateAssetTags() {
-            window.equipmentAssetTags?.resetReserved?.();
-            const roomName = this.selectedRoomName();
-            const equipmentName = String(this.name || '').trim();
-            const generated = (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function')
-                ? window.equipmentAssetTags.generate(roomName, equipmentName, this.items.length)
-                : [];
-
-            this.items = this.items.map((item, i) => ({
-                ...item,
-                equipment_asset_tag: generated[i] || this.buildAssetTag(i),
-                _tagManual: false,
-            }));
-            this.$nextTick(() => this.restoreItemImageInputs());
-        },
-        applyDefaults() {
-            this.items = this.items.map((item) => ({
-                ...item,
-                equipment_brand_name: this.brand || '',
-                equipment_model: this.model || '',
-                equipment_condition_status: this.condition,
-                equipment_warranty_expiration: this.warranty || '',
-            }));
-        },
-        goToItems() {
-            if (!this.validateStep1()) {
-                return;
-            }
-            this.clearImage();
-            this.buildItems();
-            this.step = 2;
-            this.clearErrors();
-            this.$nextTick(() => {
-                this.restoreItemImageInputs();
-                if (window.lucide) window.lucide.createIcons();
-            });
-        },
-        prepareSubmit(event) {
-            if (this.needsItemStep() && this.step !== 2) {
-                event.preventDefault();
-                this.goToItems();
-                return;
-            }
-            if (!this.validateStep1()) {
-                event.preventDefault();
-                return;
-            }
-            if (!this.needsItemStep()) {
-                this.syncAssetTag();
-            }
-            if (this.step === 2 && !this.validateItems()) {
-                event.preventDefault();
-                return;
-            }
-            if (this.step === 2) {
-                this.restoreItemImageInputs();
-            }
-        },
-    };
-}
-
-function openAddEquipmentModal() {
-    const modal = document.getElementById('addEquipmentModal');
-    if (!modal) {
-        console.error('Add Equipment modal not found.');
-        return;
-    }
-    if (modal._x_dataStack && modal._x_dataStack[0]) {
-        modal._x_dataStack[0].show();
-        return;
-    }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeAddEquipmentModal() {
-    const modal = document.getElementById('addEquipmentModal');
-    if (!modal) {
-        return;
-    }
-    if (modal._x_dataStack && modal._x_dataStack[0]) {
-        modal._x_dataStack[0].close();
-        return;
-    }
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    document.body.style.overflow = '';
-}
 
 
 // =====================================================
@@ -12048,8 +11410,14 @@ document.addEventListener(
         // PREPARE PHASE 2.1 BUILDING DATA
         // =====================================================
 
+        $building3DRoomIds = collect($roomsByFloor)
+            ->flatMap(fn ($rooms) => collect($rooms)->pluck('room_id'))
+            ->all();
+        $building3DProperty = \App\Support\PropertyAssignments::roomSummaries($building3DRoomIds);
+        $building3DCustodians = \App\Support\PropertyAssignments::custodianDirectory($building3DRoomIds);
+
         $building3DData = $floors
-            ->map(function ($floor) use ($roomsByFloor) {
+            ->map(function ($floor) use ($roomsByFloor, $building3DProperty) {
                 return [
                     "id" => $floor->floor_id,
 
@@ -12059,12 +11427,14 @@ document.addEventListener(
                         ->filter(function ($room) {
                             return !$room->room_is_archived;
                         })
-                        ->map(function ($room) {
+                        ->map(function ($room) use ($building3DProperty) {
                             return [
                                 "id" => $room->room_id,
                                 "name" => $room->room_name,
                                 "type" => $room->room_type,
                                 "status" => $room->dashboard_status,
+
+                                "property" => $building3DProperty[(int) $room->room_id] ?? null,
 
                                 "activeReportCount" => $room->active_report_count,
 
@@ -12119,6 +11489,8 @@ document.addEventListener(
         // REAL FLOOR AND ROOM DATA FROM LARAVEL
         // =====================================================
         const building3DData = @json ($building3DData);
+
+        const building3DCustodians = @json ($building3DCustodians);
 
         console.log("REAL 3D BUILDING DATA:", building3DData);
 
@@ -13239,6 +12611,36 @@ document.addEventListener(
 
             const roomTooltipDot = document.getElementById("buildingRoomTooltipDot");
 
+            const roomTooltipProperty = document.getElementById("buildingRoomTooltipProperty");
+
+            const roomDetailsPropertyRow = document.getElementById("buildingRoomDetailsPropertyRow");
+
+            const roomDetailsProperty = document.getElementById("buildingRoomDetailsProperty");
+
+            function formatRoomProperty(data) {
+                const property = data?.property;
+                if (!property) {
+                    return "";
+                }
+
+                const assigned = Number(property.assigned || 0);
+                const custodians = Number(property.custodians || 0);
+                const unassigned = Number(property.unassigned || 0);
+
+                if (assigned > 0) {
+                    const parts = [
+                        `${assigned} assigned`,
+                        `${custodians} ${custodians === 1 ? "person" : "people"}`,
+                    ];
+                    if (unassigned > 0) {
+                        parts.push(`${unassigned} unassigned`);
+                    }
+                    return parts.join(" · ");
+                }
+
+                return unassigned > 0 ? `${unassigned} not yet assigned` : "";
+            }
+
             const buildingFloorGroups = new Map();
 
             let cameraTransition = null;
@@ -13299,6 +12701,12 @@ document.addEventListener(
                 roomTooltipFloor.textContent = room.userData.floorName || "Floor";
 
                 roomTooltipStatus.textContent = formatRoomStatus(room);
+
+                if (roomTooltipProperty) {
+                    const propertyText = formatRoomProperty(room.userData);
+                    roomTooltipProperty.textContent = propertyText;
+                    roomTooltipProperty.hidden = propertyText === "";
+                }
 
                 // =================================================
                 // STATUS DOT COLOR
@@ -13374,6 +12782,13 @@ document.addEventListener(
 
                 roomDetailsMaintenance.textContent =
                     room.maintenanceEquipmentCount || 0;
+
+                if (roomDetailsPropertyRow && roomDetailsProperty) {
+                    const propertyText = formatRoomProperty(room);
+                    roomDetailsProperty.textContent = propertyText;
+                    roomDetailsProperty.href = `/maintenance/property-assignments/rooms/${encodeURIComponent(room.roomId)}`;
+                    roomDetailsPropertyRow.hidden = propertyText === "";
+                }
 
                 // =============================================
                 // SAVE SELECTED ROOM ID
@@ -14369,6 +13784,8 @@ document.addEventListener(
 
                         maintenanceEquipmentCount:
                             roomData.maintenanceEquipmentCount || 0,
+
+                        property: roomData.property || null,
 
                         originalEmissive: roomMesh.material.emissive.getHex(),
 
@@ -17872,6 +17289,182 @@ document.addEventListener(
                     roomDetailsView.dataset.floorId,
                 );
             });
+
+            // =====================================================
+            // FIND A PERSON'S ASSIGNED PROPERTY
+            // =====================================================
+
+            function findRoomMesh(roomId) {
+                return clickableRooms.find(
+                    (room) => String(room.userData.roomId) === String(roomId),
+                );
+            }
+
+            function selectRoomFromFinder(roomId) {
+                const roomMesh = findRoomMesh(roomId);
+                if (!roomMesh) {
+                    return;
+                }
+
+                const select = () => {
+                    if (roomMesh.parent && !roomMesh.parent.visible) {
+                        document
+                            .querySelector(
+                                `.building-floor-filter[data-floor-filter="${roomMesh.userData.floorId}"]`,
+                            )
+                            ?.click();
+                    }
+
+                    if (selectedRoom && selectedRoom !== roomMesh) {
+                        restoreRoomVisual(selectedRoom);
+                    }
+
+                    selectedRoom = roomMesh;
+                    applyRoomSelectedVisual(selectedRoom);
+
+                    if (!cameraPositionBeforeRoomSelection) {
+                        cameraPositionBeforeRoomSelection = camera.position.clone();
+                        cameraTargetBeforeRoomSelection = controls.target.clone();
+                    }
+
+                    focusCameraOnObject(selectedRoom);
+                    openRoomDetailsPanel(selectedRoom.userData);
+                };
+
+                if (currentBuildingView === "interior" && !isBuildingViewTransitioning) {
+                    select();
+                    return;
+                }
+
+                enterInteriorMode();
+
+                const startedAt = performance.now();
+                const waitForInterior = () => {
+                    if (currentBuildingView === "interior" && !isBuildingViewTransitioning) {
+                        select();
+                    } else if (performance.now() - startedAt < 5000) {
+                        requestAnimationFrame(waitForInterior);
+                    }
+                };
+                requestAnimationFrame(waitForInterior);
+            }
+
+            (function initCustodianFinder() {
+                const finder = document.getElementById("buildingCustodianFinder");
+                const toggle = document.getElementById("buildingCustodianFinderToggle");
+                const panel = document.getElementById("buildingCustodianFinderPanel");
+                const search = document.getElementById("buildingCustodianFinderSearch");
+                const results = document.getElementById("buildingCustodianFinderResults");
+
+                if (!finder || !toggle || !panel || !search || !results) {
+                    return;
+                }
+
+                const people = (Array.isArray(building3DCustodians) ? building3DCustodians : [])
+                    .map((person) => ({
+                        ...person,
+                        rooms: (person.rooms || []).filter((room) => findRoomMesh(room.roomId)),
+                    }))
+                    .filter((person) => person.rooms.length > 0);
+
+                if (people.length === 0) {
+                    return;
+                }
+
+                finder.hidden = false;
+                let expandedPersonId = null;
+
+                const roomName = (roomId) => findRoomMesh(roomId)?.userData.roomName || "Room";
+                const itemLabel = (count) => `${count} ${count === 1 ? "item" : "items"}`;
+
+                function render() {
+                    const term = search.value.trim().toLowerCase();
+                    const matches = people.filter(
+                        (person) =>
+                            term === "" ||
+                            person.name.toLowerCase().includes(term) ||
+                            String(person.employeeId || "").toLowerCase().includes(term),
+                    );
+
+                    results.innerHTML = "";
+
+                    if (matches.length === 0) {
+                        const empty = document.createElement("p");
+                        empty.className = "building-custodian-finder-empty";
+                        empty.textContent = "No one in this building matches.";
+                        results.appendChild(empty);
+                        return;
+                    }
+
+                    matches.forEach((person) => {
+                        const row = document.createElement("button");
+                        row.type = "button";
+                        row.className = "building-custodian-finder-person";
+
+                        const text = document.createElement("span");
+                        const name = document.createElement("strong");
+                        name.textContent = person.name;
+                        const meta = document.createElement("small");
+                        meta.textContent = person.rooms.length === 1
+                            ? roomName(person.rooms[0].roomId)
+                            : `${person.rooms.length} rooms`;
+                        text.append(name, meta);
+
+                        const count = document.createElement("span");
+                        count.className = "building-custodian-finder-count";
+                        count.textContent = itemLabel(person.itemCount);
+
+                        row.append(text, count);
+                        row.addEventListener("click", () => {
+                            if (person.rooms.length === 1) {
+                                selectRoomFromFinder(person.rooms[0].roomId);
+                                return;
+                            }
+                            expandedPersonId = expandedPersonId === person.id ? null : person.id;
+                            render();
+                        });
+                        results.appendChild(row);
+
+                        if (expandedPersonId === person.id) {
+                            person.rooms.forEach((room) => {
+                                const roomRow = document.createElement("button");
+                                roomRow.type = "button";
+                                roomRow.className = "building-custodian-finder-room";
+
+                                const label = document.createElement("span");
+                                label.textContent = roomName(room.roomId);
+                                const roomCount = document.createElement("small");
+                                roomCount.textContent = itemLabel(room.count);
+
+                                roomRow.append(label, roomCount);
+                                roomRow.addEventListener("click", () => selectRoomFromFinder(room.roomId));
+                                results.appendChild(roomRow);
+                            });
+                        }
+                    });
+                }
+
+                function setOpen(open) {
+                    panel.hidden = !open;
+                    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+                    if (open) {
+                        render();
+                        search.focus();
+                    }
+                }
+
+                toggle.addEventListener("click", () => setOpen(panel.hidden));
+                search.addEventListener("input", () => {
+                    expandedPersonId = null;
+                    render();
+                });
+                search.addEventListener("keydown", (event) => {
+                    event.stopPropagation();
+                    if (event.key === "Escape") {
+                        setOpen(false);
+                    }
+                });
+            })();
 
             // =====================================================
             // PHASE 3

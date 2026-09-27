@@ -66,7 +66,14 @@
                         Operations
                     </div>
 
-                    
+                    <div class="dropdown-item" data-target="people-section">
+                        People & Property
+                    </div>
+
+                    <div class="dropdown-item" data-target="inventory-section">
+                        Inventory
+                    </div>
+
 
                     <div class="dropdown-item" data-target="users-section">
                         User Management
@@ -184,6 +191,50 @@
             <span>Procurement Requests</span>
 
         </a>
+
+        @php
+            $workflowLinks = [
+                ['route' => 'purchaser.procurement.replacement-requests', 'match' => 'purchaser/procurement/replacement-requests*', 'label' => 'Replacement Requests', 'icon' => 'refresh-ccw'],
+                ['route' => 'purchaser.ris.index', 'match' => 'purchaser/ris*', 'label' => 'RIS', 'icon' => 'file-plus-2'],
+                ['route' => 'purchaser.atp.index', 'match' => 'purchaser/authority-to-purchase*', 'label' => 'Authority to Purchase', 'icon' => 'badge-check'],
+                ['route' => 'purchaser.purchase-orders.index', 'match' => 'purchaser/purchase-orders*', 'label' => 'Purchase Orders', 'icon' => 'shopping-cart'],
+                ['route' => 'purchaser.rfc.index', 'match' => 'purchaser/request-check*', 'label' => 'Request for Check', 'icon' => 'banknote'],
+                ['route' => 'purchaser.rr.index', 'match' => 'purchaser/receiving-reports*', 'label' => 'Receiving Reports', 'icon' => 'package-check'],
+                ['route' => 'purchaser.liq.index', 'match' => 'purchaser/liquidation-reports*', 'label' => 'Liquidation', 'icon' => 'receipt'],
+                ['route' => 'purchaser.procurement-records.index', 'match' => 'purchaser/procurement-records*', 'label' => 'Procurement Records', 'icon' => 'folder-archive'],
+                ['route' => 'purchaser.suppliers.index', 'match' => 'purchaser/suppliers*', 'label' => 'Suppliers', 'icon' => 'store'],
+                ['route' => 'purchaser.file-maintenance.index', 'match' => ['purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*'], 'label' => 'File Maintenance', 'icon' => 'database'],
+            ];
+            foreach ($workflowLinks as &$workflowLink) {
+                $workflowLink['active'] = request()->is(...(array) $workflowLink['match']);
+            }
+            unset($workflowLink);
+            $workflowSectionActive = collect($workflowLinks)->contains('active', true);
+        @endphp
+
+        <div class="menu-group {{ $workflowSectionActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $workflowSectionActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $workflowSectionActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="workflow"></i>
+                <span>Procurement Workflow</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $workflowSectionActive) hidden @endif>
+                @foreach($workflowLinks as $workflowLink)
+                    <a
+                        href="{{ route($workflowLink['route']) }}"
+                        class="menu-sub-item {{ $workflowLink['active'] ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $workflowLink['icon'] }}"></i>
+                        <span>{{ $workflowLink['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         {{-- ====================================== --}}
         {{-- DIGITAL SIGNATURES --}}
@@ -328,7 +379,107 @@
             </div>
         </div>
 
-        
+        {{-- ====================================== --}}
+        {{-- PEOPLE & PROPERTY --}}
+        {{-- ====================================== --}}
+
+        @php
+            $pendingReporterApprovals = 0;
+            try {
+                $pendingReporterApprovals = \App\Support\ReporterApprovals::pendingCount();
+            } catch (\Throwable $e) {
+                // Keep zero if the approvals table is not ready.
+            }
+            $peopleLinks = [
+                ['url' => url('/maintenance/reporters'), 'active' => request()->is('maintenance/reporters') || request()->is('maintenance/reporters/*/history'), 'label' => 'Reporters', 'icon' => 'user-round-check'],
+                ['group' => 'reporter-approvals'],
+                ['url' => route('maintenance.personnel-directory.index'), 'active' => request()->is('maintenance/personnel-directory*'), 'label' => 'Personnel Directory', 'icon' => 'book-user'],
+                ['url' => route('maintenance.departments.index'), 'active' => request()->is('maintenance/departments*'), 'label' => 'Departments', 'icon' => 'building-2'],
+                ['url' => route('maintenance.property-assignments.index'), 'active' => request()->is('maintenance/property-assignments*'), 'label' => 'Property Assignment', 'icon' => 'clipboard-signature'],
+            ];
+            $inventoryLinks = [
+                ['url' => url('/maintenance/equipment/inventory'), 'active' => request()->is('maintenance/equipment/inventory*') || request()->is('maintenance/equipment/all*'), 'label' => 'Equipment in Stock', 'icon' => 'warehouse'],
+                ['url' => url('/maintenance/equipment/deployed'), 'active' => request()->is('maintenance/equipment/deployed*'), 'label' => 'Deployed Equipment', 'icon' => 'monitor-check'],
+                ['url' => url('/maintenance/disposal'), 'active' => request()->is('maintenance/disposal*'), 'label' => 'Disposed Equipment', 'icon' => 'trash-2'],
+                ['url' => route('maintenance.semester-inspections.index'), 'active' => request()->is('maintenance/semester-inspections*') || request()->is('maintenance/replacement-suggestions*'), 'label' => 'Semester Inspections', 'icon' => 'clipboard-check'],
+            ];
+
+            $reporterApprovalsActive = request()->is('maintenance/reporters/approvals*');
+            $reporterApprovalsStatus = $reporterApprovalsActive
+                ? (in_array(request('status'), ['pending', 'approved', 'rejected'], true) ? request('status') : 'pending')
+                : null;
+            $reporterApprovalLinks = [
+                ['status' => 'pending', 'label' => 'Waiting', 'icon' => 'clock'],
+                ['status' => 'approved', 'label' => 'Approved', 'icon' => 'check-circle'],
+                ['status' => 'rejected', 'label' => 'Declined', 'icon' => 'x-circle'],
+            ];
+        @endphp
+
+        <div class="menu-title" id="people-section">
+
+            PEOPLE & PROPERTY
+
+        </div>
+
+        @foreach($peopleLinks as $link)
+            @if(($link['group'] ?? null) === 'reporter-approvals')
+                <div class="menu-group {{ $reporterApprovalsActive ? 'is-open' : '' }}" data-menu-group>
+                    <button
+                        type="button"
+                        class="menu-item menu-group-toggle {{ $reporterApprovalsActive ? 'active-parent' : '' }}"
+                        data-menu-group-toggle
+                        aria-expanded="{{ $reporterApprovalsActive ? 'true' : 'false' }}"
+                    >
+                        <span class="menu-icon-wrap">
+                            <i data-lucide="user-check"></i>
+                            @if($pendingReporterApprovals > 0)
+                                <span class="menu-notif-dot" title="{{ $pendingReporterApprovals }} waiting for approval"></span>
+                            @endif
+                        </span>
+                        <span>Reporter Approvals</span>
+                        <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+                    </button>
+                    <div class="menu-sub" @if(! $reporterApprovalsActive) hidden @endif>
+                        @foreach($reporterApprovalLinks as $approvalLink)
+                            <a
+                                href="{{ url('/maintenance/reporters/approvals?status='.$approvalLink['status']) }}"
+                                class="menu-sub-item {{ $reporterApprovalsStatus === $approvalLink['status'] ? 'active' : '' }}"
+                            >
+                                <i data-lucide="{{ $approvalLink['icon'] }}"></i>
+                                <span>{{ $approvalLink['label'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+                @continue
+            @endif
+            <a href="{{ $link['url'] }}" class="menu-item {{ $link['active'] ? 'active' : '' }}">
+                <span class="menu-icon-wrap">
+                    <i data-lucide="{{ $link['icon'] }}"></i>
+                    @if(($link['count'] ?? 0) > 0)
+                        <span class="menu-notif-dot" title="{{ $link['count'] }} waiting for approval"></span>
+                    @endif
+                </span>
+                <span>{{ $link['label'] }}</span>
+            </a>
+        @endforeach
+
+        {{-- ====================================== --}}
+        {{-- INVENTORY --}}
+        {{-- ====================================== --}}
+
+        <div class="menu-title" id="inventory-section">
+
+            INVENTORY
+
+        </div>
+
+        @foreach($inventoryLinks as $link)
+            <a href="{{ $link['url'] }}" class="menu-item {{ $link['active'] ? 'active' : '' }}">
+                <i data-lucide="{{ $link['icon'] }}"></i>
+                <span>{{ $link['label'] }}</span>
+            </a>
+        @endforeach
 
         {{-- ====================================== --}}
         {{-- USER MANAGEMENT --}}

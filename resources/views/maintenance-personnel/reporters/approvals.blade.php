@@ -2,13 +2,39 @@
 
 @section ("content")
 
+    <span class="admin-keep-colors hidden" aria-hidden="true"></span>
+
     @php
         $pendingCount = $pendingCount ?? 0;
         $approvedThisMonth = $approvedThisMonth ?? 0;
         $rejectedThisMonth = $rejectedThisMonth ?? 0;
         $totalApplications = $totalApplications ?? 0;
         $status = $status ?? 'pending';
+        $directoryChecks = $directoryChecks ?? [];
+        $directoryReady = $directoryReady ?? false;
+        $directoryEmpty = $directoryEmpty ?? true;
+        $verdictStyles = [
+            \App\Support\PersonnelDirectory::VERDICT_VERIFIED => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'badge-check'],
+            \App\Support\PersonnelDirectory::VERDICT_REVIEW => ['bg-amber-50 text-amber-700 ring-amber-200', 'alert-triangle'],
+            \App\Support\PersonnelDirectory::VERDICT_INACTIVE => ['bg-rose-50 text-rose-700 ring-rose-200', 'user-x'],
+            \App\Support\PersonnelDirectory::VERDICT_NOT_FOUND => ['bg-rose-50 text-rose-700 ring-rose-200', 'search-x'],
+        ];
     @endphp
+
+    @if ($directoryReady && $directoryEmpty && $status === 'pending')
+        <div class="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-start gap-3">
+                <i data-lucide="book-user" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                <p>
+                    <span class="font-semibold">The personnel directory is empty.</span>
+                    Applications cannot be verified until the HR faculty and staff list is uploaded. Approving now requires a written reason.
+                </p>
+            </div>
+            <a href="{{ route('maintenance.personnel-directory.index') }}" class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
+                Set up directory
+            </a>
+        </div>
+    @endif
 
     <div class="mb-6">
         @include('layouts.partials.maintenance-stat-cards', [
@@ -83,12 +109,13 @@
             <table class="w-full table-fixed text-left">
                 <thead class="border-b border-slate-200 bg-slate-50/70">
                     <tr class="text-[11px] font-semibold uppercase tracking-[0.08em] text-black">
-                        <th class="w-[18%] px-3 py-2.5 sm:px-4">Employee ID</th>
-                        <th class="w-[28%] px-3 py-2.5 sm:px-4">Applicant</th>
-                        <th class="w-[12%] px-3 py-2.5 sm:px-4">Type</th>
-                        <th class="w-[14%] px-3 py-2.5 sm:px-4">Submitted</th>
-                        <th class="w-[12%] px-3 py-2.5 sm:px-4">Status</th>
-                        <th class="w-[16%] px-3 py-2.5 text-center sm:px-4">Actions</th>
+                        <th class="w-[15%] px-3 py-2.5 sm:px-4">Employee ID</th>
+                        <th class="w-[24%] px-3 py-2.5 sm:px-4">Applicant</th>
+                        <th class="w-[9%] px-3 py-2.5 sm:px-4">Type</th>
+                        <th class="w-[16%] px-3 py-2.5 sm:px-4">Directory</th>
+                        <th class="w-[12%] px-3 py-2.5 sm:px-4">Submitted</th>
+                        <th class="w-[11%] px-3 py-2.5 sm:px-4">Status</th>
+                        <th class="w-[13%] px-3 py-2.5 text-center sm:px-4">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -96,14 +123,9 @@
                         @php
                             $appStatus = strtolower((string) $application->status);
                             $statusClass = match ($appStatus) {
-                                'approved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-                                'rejected' => 'bg-rose-50 text-rose-700 ring-rose-200',
-                                default => 'bg-amber-50 text-amber-700 ring-amber-200',
-                            };
-                            $statusDot = match ($appStatus) {
-                                'approved' => 'bg-emerald-500',
-                                'rejected' => 'bg-rose-500',
-                                default => 'bg-amber-500',
+                                'approved' => 'bg-emerald-50 text-emerald-700',
+                                'rejected' => 'bg-rose-50 text-rose-700',
+                                default => 'bg-amber-50 text-amber-700',
                             };
                             $statusLabel = match ($appStatus) {
                                 'approved' => 'Approved',
@@ -111,6 +133,10 @@
                                 default => 'Waiting',
                             };
                             $submittedAt = \Carbon\Carbon::parse($application->created_at);
+                            $check = $directoryChecks[(int) $application->id] ?? null;
+                            $verdict = $check['verdict'] ?? null;
+                            $checkJson = $check ? json_encode($check) : '';
+                            $overrideReason = $application->override_reason ?? null;
                         @endphp
                         <tr class="transition-colors hover:bg-slate-50/70">
                             <td class="px-3 py-3 sm:px-4">
@@ -139,12 +165,25 @@
                                 </span>
                             </td>
                             <td class="px-3 py-3 sm:px-4">
+                                @if ($verdict)
+                                    @php [$verdictClass, $verdictIcon] = $verdictStyles[$verdict] ?? ['bg-slate-100 text-slate-600 ring-slate-200', 'help-circle']; @endphp
+                                    <span class="inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $verdictClass }}" data-tooltip="{{ $check['summary'] ?? '' }}">
+                                        <i data-lucide="{{ $verdictIcon }}" class="h-3 w-3 shrink-0"></i>
+                                        {{ \App\Support\PersonnelDirectory::verdictLabel($verdict) }}
+                                    </span>
+                                    @if ($overrideReason)
+                                        <p class="mt-1 truncate text-[11px] text-slate-400" title="{{ $overrideReason }}">Approved with override</p>
+                                    @endif
+                                @else
+                                    <span class="text-[11px] text-slate-400">Not checked</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-3 sm:px-4">
                                 <p class="text-xs text-slate-600">{{ $submittedAt->format('M j, Y') }}</p>
                                 <p class="mt-0.5 text-[11px] text-slate-400">{{ $submittedAt->format('g:i A') }}</p>
                             </td>
                             <td class="px-3 py-3 sm:px-4">
-                                <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $statusClass }}">
-                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $statusDot }}"></span>
+                                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
                                     {{ $statusLabel }}
                                 </span>
                             </td>
@@ -165,9 +204,12 @@
                                         data-email="{{ $application->email }}"
                                         data-contact="{{ $application->contact }}"
                                         data-status="{{ $statusLabel }}"
+                                        data-status-class="{{ $statusClass }}"
                                         data-submitted="{{ $submittedAt->format('M j, Y g:i A') }}"
                                         data-reviewed-by="{{ $application->reviewed_by_name }}"
                                         data-reason="{{ $application->rejection_reason }}"
+                                        data-override="{{ $overrideReason }}"
+                                        data-check="{{ $checkJson }}"
                                     >
                                         <i data-lucide="eye" class="h-3.5 w-3.5"></i>
                                     </button>
@@ -175,7 +217,7 @@
                                     @if ($appStatus === 'pending')
                                         <button
                                             type="button"
-                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700 active:scale-95"
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3] active:scale-95"
                                             data-tooltip="Confirm faculty or staff"
                                             aria-label="Confirm faculty or staff"
                                             onclick="openApproveModal(this)"
@@ -184,12 +226,13 @@
                                             data-employee="{{ $application->employee_id }}"
                                             data-email="{{ $application->email }}"
                                             data-type="{{ $application->employment_type }}"
+                                            data-check="{{ $checkJson }}"
                                         >
                                             <i data-lucide="check" class="h-3.5 w-3.5"></i>
                                         </button>
                                         <button
                                             type="button"
-                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95"
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50 active:scale-95"
                                             data-tooltip="Decline this application"
                                             aria-label="Decline this application"
                                             onclick="openRejectModal(this)"
@@ -204,7 +247,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-5 py-16">
+                            <td colspan="7" class="px-5 py-16">
                                 <div class="flex flex-col items-center text-center">
                                     <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                                         <i data-lucide="user-check" class="h-5 w-5"></i>
@@ -243,8 +286,8 @@
         @endif
     </section>
 
-    <div id="viewApplicationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4">
-        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+    <div id="viewApplicationModal" class="fixed inset-0 z-[70] hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4">
+        <div class="my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div class="flex items-start justify-between px-6 pb-4 pt-6">
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Application</p>
@@ -261,12 +304,12 @@
         </div>
     </div>
 
-    <div id="approveModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4">
-        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+    <div id="approveModal" class="fixed inset-0 z-[70] hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4">
+        <div class="my-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <form id="approveForm" method="POST">
                 @csrf
                 <div class="px-6 pb-4 pt-6">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0025cc]/5 text-[#0025cc]">
                         <i data-lucide="user-check" class="h-5 w-5"></i>
                     </div>
                     <h2 class="mt-4 text-lg font-semibold text-slate-900">Confirm this reporter</h2>
@@ -275,23 +318,38 @@
                         (<span id="approveEmployee" class="font-mono text-slate-700"></span>) is faculty or staff. They will then be added to the reporters list.
                     </p>
                     <p id="approveEmail" class="mt-2 text-xs text-slate-400"></p>
+                    <div id="approveDirectory" class="mt-4"></div>
                     <label class="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Confirmed type <span class="text-red-500">*</span></label>
                     <select
                         id="approveType"
                         name="type"
                         required
                         data-native-select="1"
+                        onchange="syncApproveOverride()"
                         class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-400"
                     >
                         <option value="Faculty">Faculty</option>
                         <option value="Staff">Staff</option>
                     </select>
+                    <div id="approveOverrideWrap" class="mt-4 hidden">
+                        <label for="approveOverride" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Reason for approving without a directory match <span class="text-red-500">*</span></label>
+                        <textarea
+                            id="approveOverride"
+                            name="override_reason"
+                            rows="3"
+                            minlength="10"
+                            maxlength="500"
+                            placeholder="e.g. New hire this week, confirmed with HR by phone; not yet in the uploaded list."
+                            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-slate-400"
+                        ></textarea>
+                        <p class="mt-1 text-[11px] text-slate-400">Saved with your name on this application.</p>
+                    </div>
                 </div>
                 <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4">
                     <button type="button" onclick="closeApproveModal()" class="h-10 rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-white">
                         Cancel
                     </button>
-                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+                    <button type="submit" id="approveSubmit" class="inline-flex h-10 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">
                         Confirm and add
                     </button>
                 </div>
@@ -342,6 +400,97 @@
                 .replace(/'/g, '&#39;');
         }
 
+        const DIRECTORY_URL = @js(route('maintenance.personnel-directory.index'));
+        const VERDICTS = {
+            verified: { label: 'Verified against directory', box: 'bg-emerald-50 ring-emerald-200 text-emerald-800', icon: 'badge-check' },
+            review: { label: 'Needs review', box: 'bg-amber-50 ring-amber-200 text-amber-900', icon: 'alert-triangle' },
+            inactive: { label: 'Not active in directory', box: 'bg-rose-50 ring-rose-200 text-rose-800', icon: 'user-x' },
+            not_found: { label: 'Not in directory', box: 'bg-rose-50 ring-rose-200 text-rose-800', icon: 'search-x' },
+        };
+        const CHECK_STATUS = {
+            match: { label: 'Match', cls: 'text-emerald-700', icon: 'check' },
+            warn: { label: 'Check', cls: 'text-amber-700', icon: 'alert-triangle' },
+            mismatch: { label: 'Different', cls: 'text-rose-700', icon: 'x' },
+            missing: { label: 'Not on file', cls: 'text-slate-400', icon: 'minus' },
+        };
+
+        function parseCheck(button) {
+            try {
+                return button.dataset.check ? JSON.parse(button.dataset.check) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function directoryPanel(check) {
+            if (!check) {
+                return `<div class="rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/70">Not checked against the personnel directory.</div>`;
+            }
+            const verdict = VERDICTS[check.verdict] || VERDICTS.review;
+            const rows = (check.checks || []).map((row) => {
+                const status = CHECK_STATUS[row.status] || CHECK_STATUS.missing;
+                return `
+                    <tr class="align-top">
+                        <td class="py-2 pr-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">${escapeHtml(row.label)}</td>
+                        <td class="py-2 pr-3 text-xs text-slate-800 break-words">${escapeHtml(row.applicant || '—')}</td>
+                        <td class="py-2 pr-3 text-xs text-slate-800 break-words">${escapeHtml(row.directory || '—')}${row.note ? `<span class="mt-0.5 block text-[11px] text-slate-400">${escapeHtml(row.note)}</span>` : ''}</td>
+                        <td class="py-2 text-right text-[11px] font-semibold whitespace-nowrap ${status.cls}">
+                            <i data-lucide="${status.icon}" class="inline h-3 w-3"></i> ${status.label}
+                        </td>
+                    </tr>`;
+            }).join('');
+            const setupLink = check.verdict === 'not_found'
+                ? `<a href="${DIRECTORY_URL}" class="mt-1 inline-block text-[11px] font-semibold text-[#0025cc] hover:underline">Open personnel directory</a>`
+                : '';
+
+            return `
+                <div class="overflow-hidden rounded-2xl ring-1 ring-slate-200/70">
+                    <div class="flex items-start gap-2 px-4 py-3 ring-1 ${verdict.box}">
+                        <i data-lucide="${verdict.icon}" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold">${verdict.label}</p>
+                            <p class="mt-0.5 text-xs opacity-90">${escapeHtml(check.summary || '')}</p>
+                            ${setupLink}
+                        </div>
+                    </div>
+                    ${rows ? `
+                    <div class="px-4 py-2">
+                        <table class="w-full table-fixed">
+                            <thead>
+                                <tr class="text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    <th class="w-[22%] py-1.5"></th>
+                                    <th class="w-[30%] py-1.5">Applicant</th>
+                                    <th class="w-[30%] py-1.5">Directory</th>
+                                    <th class="w-[18%] py-1.5"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">${rows}</tbody>
+                        </table>
+                    </div>` : ''}
+                </div>`;
+        }
+
+        let approveCheck = null;
+
+        function syncApproveOverride() {
+            const wrap = document.getElementById('approveOverrideWrap');
+            const input = document.getElementById('approveOverride');
+            const submit = document.getElementById('approveSubmit');
+            const type = document.getElementById('approveType').value;
+            const verified = approveCheck
+                && approveCheck.verdict === 'verified'
+                && approveCheck.person
+                && approveCheck.person.type === type;
+
+            wrap.classList.toggle('hidden', verified);
+            input.required = !verified;
+            submit.textContent = verified ? 'Confirm and add' : 'Approve with reason';
+            submit.classList.toggle('bg-[#0025cc]', verified);
+            submit.classList.toggle('hover:bg-[#001db3]', verified);
+            submit.classList.toggle('bg-amber-600', !verified);
+            submit.classList.toggle('hover:bg-amber-700', !verified);
+        }
+
         function viewApplication(button) {
             const modal = document.getElementById('viewApplicationModal');
             const details = document.getElementById('applicationDetails');
@@ -356,9 +505,12 @@
             const email = button.dataset.email || '—';
             const contact = button.dataset.contact || '—';
             const status = button.dataset.status || '—';
+            const statusClass = button.dataset.statusClass || 'bg-amber-50 text-amber-700';
             const submitted = button.dataset.submitted || '—';
             const reviewedBy = button.dataset.reviewedBy || '';
             const reason = button.dataset.reason || '';
+            const override = button.dataset.override || '';
+            const check = parseCheck(button);
 
             const initials = name
                 .split(/\s+/)
@@ -384,7 +536,7 @@
                     </div>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         ${typeChip}
-                        <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">${escapeHtml(status)}</span>
+                        <span class="inline-flex rounded-md px-2.5 py-1 text-xs font-medium ${escapeHtml(statusClass)}">${escapeHtml(status)}</span>
                     </div>
                 </div>
                 <dl class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200/70">
@@ -414,7 +566,14 @@
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Decline reason</dt>
                         <dd class="min-w-0 break-words text-right text-sm font-medium text-rose-600">${escapeHtml(reason)}</dd>
                     </div>` : ''}
+                    ${override ? `
+                    <div class="flex items-start justify-between gap-4 px-4 py-3">
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Override reason</dt>
+                        <dd class="min-w-0 break-words text-right text-sm font-medium text-amber-700">${escapeHtml(override)}</dd>
+                    </div>` : ''}
                 </dl>
+                <p class="mb-2 mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Personnel directory check</p>
+                ${directoryPanel(check)}
             `;
 
             modal.classList.remove('hidden');
@@ -435,7 +594,13 @@
             document.getElementById('approveName').textContent = button.dataset.name || '';
             document.getElementById('approveEmployee').textContent = button.dataset.employee || '';
             document.getElementById('approveEmail').textContent = button.dataset.email || '';
-            document.getElementById('approveType').value = button.dataset.type || 'Faculty';
+            approveCheck = parseCheck(button);
+            document.getElementById('approveDirectory').innerHTML = directoryPanel(approveCheck);
+            document.getElementById('approveType').value = (approveCheck && approveCheck.person && approveCheck.person.type)
+                || button.dataset.type
+                || 'Faculty';
+            document.getElementById('approveOverride').value = '';
+            syncApproveOverride();
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             if (typeof lucide !== 'undefined') lucide.createIcons();

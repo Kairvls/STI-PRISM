@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\PropertyAssignments;
 use App\Support\SemesterInspections;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,6 +114,7 @@ class MobileSemesterInspectionController extends Controller
                 'rooms_table.room_name',
                 'equipment_categories_table.equipment_category_name'
             )
+            ->tap(fn ($query) => PropertyAssignments::joinInspectionCustodian($query))
             ->orderByRaw("CASE item_status WHEN 'Pending' THEN 0 ELSE 1 END")
             ->orderBy('rooms_table.room_name')
             ->orderBy('equipment_table.equipment_name');
@@ -218,6 +220,7 @@ class MobileSemesterInspectionController extends Controller
                 'rooms_table.room_name',
                 'equipment_categories_table.equipment_category_name'
             )
+            ->tap(fn ($query) => PropertyAssignments::joinInspectionCustodian($query))
             ->first();
 
         if (! $item) {
@@ -263,7 +266,12 @@ class MobileSemesterInspectionController extends Controller
             'item_action_taken' => ['nullable', 'string', 'max:5000'],
             'apply_status' => ['nullable'],
             'proof_image' => ['nullable', 'image', 'max:4096'],
+            'custodian_verified' => ['nullable', 'in:0,1,true,false'],
         ]);
+
+        $custodianVerified = $request->filled('custodian_verified')
+            ? filter_var($request->input('custodian_verified'), FILTER_VALIDATE_BOOLEAN)
+            : null;
 
         $item = DB::table('semester_inspection_items_table')
             ->where('item_id', $itemId)
@@ -296,6 +304,7 @@ class MobileSemesterInspectionController extends Controller
             $proofPath,
             $mapping,
             $applyStatus,
+            $custodianVerified,
             &$appliedInventory,
             &$appliedCondition
         ) {
@@ -320,6 +329,8 @@ class MobileSemesterInspectionController extends Controller
                 }
             }
 
+            $custodianCheck = PropertyAssignments::recordInspectionCheck((int) $item->item_equipment_id, $custodianVerified);
+
             DB::table('semester_inspection_items_table')
                 ->where('item_id', $itemId)
                 ->update([
@@ -333,7 +344,7 @@ class MobileSemesterInspectionController extends Controller
                     'item_inspected_by' => Auth::id(),
                     'item_inspected_at' => now(),
                     'item_updated_at' => now(),
-                ]);
+                ] + $custodianCheck);
 
             if (in_array($campaign->campaign_status, ['Draft', 'Active'], true)) {
                 DB::table('semester_inspection_campaigns_table')
@@ -356,7 +367,8 @@ class MobileSemesterInspectionController extends Controller
                 'audit_log_reference_id' => $itemId,
                 'audit_log_description' => 'Marked '.($equipment->equipment_name ?? 'equipment')
                     .' as '.$validated['item_condition']
-                    .' on campaign "'.$campaign->campaign_title.'" (mobile).',
+                    .' on campaign "'.$campaign->campaign_title.'"'
+                    .PropertyAssignments::inspectionCheckNote($custodianCheck).' (mobile).',
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);
@@ -413,6 +425,7 @@ class MobileSemesterInspectionController extends Controller
                 'rooms_table.room_name',
                 'equipment_categories_table.equipment_category_name'
             )
+            ->tap(fn ($query) => PropertyAssignments::joinInspectionCustodian($query))
             ->first();
 
         $freshCampaign = $this->findCampaign($id);
@@ -487,6 +500,13 @@ class MobileSemesterInspectionController extends Controller
             'category' => (string) ($row->equipment_category_name ?? ''),
             'inventory_status' => $row->equipment_inventory_status,
             'condition_status' => $row->equipment_condition_status,
+            'custodian' => ! empty($row->custodian_id) ? [
+                'custodian_id' => (int) $row->custodian_id,
+                'name' => $row->custodian_name,
+                'employee_id' => $row->custodian_employee_id,
+                'last_verified_at' => $row->custodian_verified_at,
+            ] : null,
+            'custodian_verified' => isset($row->item_custodian_verified) ? (bool) $row->item_custodian_verified : null,
         ];
     }
 }

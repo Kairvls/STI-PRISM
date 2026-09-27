@@ -9,7 +9,7 @@
 
 <div
     x-data="{
-        createOpen: {{ (($errors->any() && old('request_check_authority_purchase_id') && !session('edit_rfc_id')) || !empty($selectedAtpId) || !empty($openCreate)) ? 'true' : 'false' }},
+        createOpen: {{ (($errors->any() && old('request_check_funding_source') && !session('edit_rfc_id')) || !empty($selectedSource) || !empty($openCreate)) ? 'true' : 'false' }},
         viewOpen: {{ !empty($viewRfcId) ? 'true' : 'false' }},
         editOpen: {{ session('edit_rfc_id') ? 'true' : 'false' }},
         emptyOpen: false,
@@ -170,7 +170,7 @@
         if (createOpen) {
             $nextTick(() => {
                 bindDocSig('rfc-create', 'Requested by signature');
-                if ('{{ $selectedAtpId ?? '' }}') applyAtpPrefill('{{ $selectedAtpId ?? '' }}');
+                if (@js((string) ($selectedSource ?? ''))) applyAtpPrefill(@js((string) ($selectedSource ?? '')));
             });
         }
     "
@@ -366,7 +366,14 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">
+                                @if(!empty($rfc->purchase_order_label))
+                                    <p class="font-medium text-gray-800">{{ $rfc->purchase_order_label }}</p>
+                                    <p class="mt-0.5 text-xs text-gray-500">{{ implode(', ', $rfc->linked_atp_labels ?? []) }}</p>
+                                @else
+                                    {{ $rfc->authority_purchase_form_number ?? '—' }}
+                                @endif
+                            </td>
                             <td class="px-5 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
                             <td class="px-5 py-4 font-medium text-gray-700">{{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rfc->request_check_date ? \Carbon\Carbon::parse($rfc->request_check_date)->format('M d, Y') : '—' }}</td>
@@ -543,22 +550,40 @@
                     <input type="hidden" name="save_action" value="draft">
                     <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
                     <div class="bg-slate-100 p-3 md:p-5">
-                        @if($eligibleAtps->isEmpty())
+                        @php
+                            $createSource = (string) old('request_check_funding_source', $selectedSource ?? '');
+                            $fundingGroups = $fundingGroups ?? [];
+                        @endphp
+                        @if($eligibleAtps->isEmpty() && empty($fundingGroups))
                             <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                No approved ATP is currently available. You can still fill out and save this {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }} as a draft, then link an approved ATP later before submitting.
+                                No approved ATP or Purchase Order is currently available. You can still fill out and save this {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }} as a draft, then link one later before submitting.
                             </div>
                         @else
                             <div class="mb-4">
-                                <label class="text-xs font-medium text-gray-500">Approved ATP <span class="font-normal text-gray-400">(optional for draft)</span></label>
-                                <select name="request_check_authority_purchase_id" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
-                                    <option value="">Select approved ATP</option>
-                                    @foreach($eligibleAtps as $atp)
-                                        <option value="{{ $atp->authority_purchase_id }}" {{ old('request_check_authority_purchase_id', $selectedAtpId ?? '') == $atp->authority_purchase_id ? 'selected' : '' }}>
-                                            {{ $atp->authority_purchase_form_number ?: '—' }}
-                                            @if($atp->ris_form_number) · {{ $atp->ris_form_number }} @endif
-                                        </option>
-                                    @endforeach
+                                <label class="text-xs font-medium text-gray-500">Fund <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <select name="request_check_funding_source" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
+                                    <option value="">Select an approved ATP or Purchase Order</option>
+                                    @if(!empty($fundingGroups))
+                                        <optgroup label="{{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Purchase Orders (one Cash Advance per PO)' : 'Purchase Orders (one Request for Check per supplier)' }}">
+                                            @foreach($fundingGroups as $group)
+                                                <option value="{{ $group['key'] }}" {{ $createSource === $group['key'] ? 'selected' : '' }}>
+                                                    {{ $group['label'] }} · {{ implode(', ', $group['atp_labels']) }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($eligibleAtps->isNotEmpty())
+                                        <optgroup label="Standalone ATPs">
+                                            @foreach($eligibleAtps as $atp)
+                                                <option value="atp:{{ $atp->authority_purchase_id }}" {{ $createSource === 'atp:'.$atp->authority_purchase_id ? 'selected' : '' }}>
+                                                    {{ $atp->authority_purchase_form_number ?: '—' }}
+                                                    @if($atp->ris_form_number) · {{ $atp->ris_form_number }} @endif
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
                                 </select>
+                                <p class="mt-1 text-[11px] text-gray-500">ATPs approved through a Purchase Order are funded together under their Purchase Order.</p>
                             </div>
                         @endif
                         @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
@@ -658,7 +683,12 @@
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
                             <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}
+                            <p class="mt-1 text-sm text-gray-500">
+                                @if(!empty($rfc->purchase_order_label))
+                                    {{ $rfc->purchase_order_label }} · ATPs: {{ implode(', ', $rfc->linked_atp_labels ?? []) }}
+                                @else
+                                    ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}
+                                @endif
                                 @if(!empty($rfc->receiving_report_form_number))
                                     · RR: {{ $rfc->receiving_report_form_number }} ({{ $rfc->receiving_report_status }})
                                 @endif
@@ -804,18 +834,26 @@
                             <div class="bg-slate-100 p-3 md:p-5">
                                 @if($rfc->request_check_authority_purchase_id)
                                     <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
-                                    <p class="mb-3 text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
-                                @elseif(($eligibleAtps ?? collect())->isNotEmpty())
+                                    @if(!empty($rfc->purchase_order_label))
+                                        <p class="mb-3 text-sm text-gray-600">{{ $rfc->purchase_order_label }} · ATPs: {{ implode(', ', $rfc->linked_atp_labels ?? []) }}</p>
+                                    @else
+                                        <p class="mb-3 text-sm text-gray-600">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
+                                    @endif
+                                @elseif(($eligibleAtps ?? collect())->isNotEmpty() || !empty($fundingGroups))
                                     <div class="mb-4">
-                                        <label class="text-xs font-medium text-gray-500">Approved ATP <span class="font-normal text-gray-400">(required before submit)</span></label>
+                                        <label class="text-xs font-medium text-gray-500">Fund <span class="font-normal text-gray-400">(required before submit)</span></label>
                                         <select
-                                            name="request_check_authority_purchase_id"
-                                            x-on:change="applyAtpPrefill($event.target.value)"
+                                            name="request_check_funding_source"
                                             class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
                                         >
-                                            <option value="">Select approved ATP</option>
+                                            <option value="">Select an approved ATP or Purchase Order</option>
+                                            @foreach(($fundingGroups ?? []) as $group)
+                                                <option value="{{ $group['key'] }}" {{ (string) old('request_check_funding_source') === $group['key'] ? 'selected' : '' }}>
+                                                    {{ $group['label'] }} · {{ implode(', ', $group['atp_labels']) }}
+                                                </option>
+                                            @endforeach
                                             @foreach($eligibleAtps as $atp)
-                                                <option value="{{ $atp->authority_purchase_id }}" {{ (string) old('request_check_authority_purchase_id') === (string) $atp->authority_purchase_id ? 'selected' : '' }}>
+                                                <option value="atp:{{ $atp->authority_purchase_id }}" {{ (string) old('request_check_funding_source') === 'atp:'.$atp->authority_purchase_id ? 'selected' : '' }}>
                                                     {{ $atp->authority_purchase_form_number ?: '—' }}
                                                     @if($atp->ris_form_number) · {{ $atp->ris_form_number }} @endif
                                                 </option>

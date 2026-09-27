@@ -1091,7 +1091,7 @@ class AdminOperationsController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function loadDocumentViewPayload(string $type, int $docId): array
+    public function loadDocumentViewPayload(string $type, int $docId): array
     {
         return match ($type) {
             'ris' => $this->loadRisViewPayload($docId),

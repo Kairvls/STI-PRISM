@@ -1,5 +1,9 @@
 @extends("layouts.app")
 
+@php
+    $adminShell = \App\Support\RoleAccess::adminShell();
+@endphp
+
 @section('body-class', 'pp-layout')
 
 @section('main-bg', 'bg-white')
@@ -29,7 +33,7 @@
         }
     </style>
 
-    @include("layouts.purchaser-sidebar")
+    @include($adminShell ? "layouts.admin-sidebar" : "layouts.purchaser-sidebar")
 
 @endsection
 
@@ -40,14 +44,14 @@
     {{-- PURCHASER TOPBAR HERE --}}
     {{-- ===================================================== --}}
 
-    @include("layouts.purchaser-topbar")
+    @include($adminShell ? "layouts.admin-topbar" : "layouts.purchaser-topbar")
 
 @endsection
 
 @push('scripts')
     @include('layouts.partials.page-carousel-script')
     @include('layouts.partials.prism-toast')
-    @include('layouts.partials.purchaser-daily-reminder')
+    @include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.purchaser-daily-reminder')
     @include('partials.purchaser-print-sheet-helper')
     @include('partials.purchaser-confirm-dialog')
 @endpush

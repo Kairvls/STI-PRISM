@@ -10,6 +10,9 @@ class PurchaseOrderBasket
 {
     public const MAX_ATPS = 8;
 
+    /** A single ATP goes straight to Accounting; a PO only makes sense for 2+. */
+    public const MIN_ATPS = 2;
+
     public const STATUS_DRAFT = 'Draft';
 
     public const STATUS_SUBMITTED = 'Submitted';
@@ -43,6 +46,77 @@ class PurchaseOrderBasket
         }
 
         return array_values($touched);
+    }
+
+    /**
+     * Place a newly saved draft ATP: join the open PO if one already holds ATPs,
+     * otherwise only start a PO once the purchaser has at least MIN_ATPS unlinked drafts.
+     *
+     * @return array<int, int> PO ids touched
+     */
+    public static function groupDraftAtp(int $atpId, int $createdBy): array
+    {
+        if (! self::tablesExist() || $atpId < 1 || $createdBy < 1) {
+            return [];
+        }
+
+        $openId = self::latestOpenDraftId($createdBy);
+        if ($openId && self::atpCount($openId) > 0) {
+            $poId = self::attachAtp($atpId, $createdBy);
+
+            return $poId > 0 ? [$poId] : [];
+        }
+
+        if (count(self::eligibleDraftAtpIds($createdBy)) < self::MIN_ATPS) {
+            return [];
+        }
+
+        return self::attachEligibleDraftAtps($createdBy);
+    }
+
+    /**
+     * When a draft PO drops below MIN_ATPS, free its remaining ATP so it can be
+     * submitted directly. A never-submitted PO left empty is deleted; a PO that
+     * already has a number (returned for revision) is kept on record.
+     *
+     * @return array<int, int> ATP ids released
+     */
+    public static function releaseIfUndersized(int $poId): array
+    {
+        if (! self::tablesExist() || $poId < 1) {
+            return [];
+        }
+
+        $order = DB::table('purchase_orders_table')
+            ->where('purchase_order_id', $poId)
+            ->first();
+
+        if (! $order || (string) ($order->purchase_order_status ?? '') !== self::STATUS_DRAFT) {
+            return [];
+        }
+
+        $atpIds = self::atpIdsForPo($poId);
+        if (count($atpIds) >= self::MIN_ATPS) {
+            return [];
+        }
+
+        if ($atpIds !== []) {
+            DB::table('purchase_order_atps_table')
+                ->where('purchase_order_id', $poId)
+                ->delete();
+        }
+
+        if (blank($order->purchase_order_number ?? null)) {
+            DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $poId)
+                ->delete();
+        } else {
+            DB::table('purchase_orders_table')
+                ->where('purchase_order_id', $poId)
+                ->update(['purchase_order_updated_at' => now()]);
+        }
+
+        return $atpIds;
     }
 
     public static function attachAtp(int $atpId, int $createdBy): int
@@ -173,9 +247,9 @@ class PurchaseOrderBasket
             return null;
         }
 
-        $id = DB::table('purchase_order_atps_table')
-            ->where('authority_purchase_id', $atpId)
-            ->value('purchase_order_id');
+        $id = self::activeLinksQuery()
+            ->where('purchase_order_atps_table.authority_purchase_id', $atpId)
+            ->value('purchase_order_atps_table.purchase_order_id');
 
         return $id ? (int) $id : null;
     }
@@ -384,7 +458,7 @@ class PurchaseOrderBasket
         }
 
         $linked = self::tablesExist()
-            ? DB::table('purchase_order_atps_table')->pluck('authority_purchase_id')->all()
+            ? self::activeLinksQuery()->pluck('purchase_order_atps_table.authority_purchase_id')->all()
             : [];
 
         $query = DB::table('authority_to_purchase_table')
@@ -410,6 +484,22 @@ class PurchaseOrderBasket
         return $query->pluck('authority_purchase_id')->map(fn ($id) => (int) $id)->all();
     }
 
+    /**
+     * ATP links that still hold the ATP. Links to legacy Cancelled POs are kept
+     * only as history and no longer block the ATP.
+     */
+    private static function activeLinksQuery()
+    {
+        return DB::table('purchase_order_atps_table')
+            ->join(
+                'purchase_orders_table',
+                'purchase_orders_table.purchase_order_id',
+                '=',
+                'purchase_order_atps_table.purchase_order_id'
+            )
+            ->where('purchase_orders_table.purchase_order_status', '!=', self::STATUS_CANCELLED);
+    }
+
     private static function latestOpenDraftId(int $createdBy): ?int
     {
         $rows = DB::table('purchase_orders_table')
@@ -431,7 +521,7 @@ class PurchaseOrderBasket
         return null;
     }
 
-    private static function supplierDisplay(object $atp): string
+    public static function supplierDisplay(object $atp): string
     {
         if (($atp->supplier_store_type ?? null) === 'Online Store') {
             return (string) ($atp->shop_name ?: 'Online supplier');

@@ -31,6 +31,35 @@
         };
     @endphp
 
+    @if ($isMainReportsPage && isset($pendingReports))
+        @php
+            $monthlyHint = fn ($percentage) => is_null($percentage)
+                ? 'New activity vs last month'
+                : (($percentage > 0 ? '+' : '') . number_format($percentage, 2) . '% vs last month');
+            $statusCard = function (string $label, string $status, $count, $percentage) use ($monthlyHint) {
+                $isActive = request('status') === $status;
+
+                return [
+                    'label' => $label,
+                    'hint' => $monthlyHint($percentage),
+                    'value' => number_format((int) $count),
+                    'href' => request()->fullUrlWithQuery(['status' => $isActive ? null : $status, 'page' => null]),
+                    'active' => $isActive,
+                    'title' => $isActive ? 'Show all statuses' : 'Show only '.$status.' reports',
+                ];
+            };
+        @endphp
+        <div class="mb-6">
+            @include('layouts.partials.maintenance-stat-cards', [
+                'cards' => [
+                    $statusCard('Pending', 'Pending', $pendingReports, $pendingMonthlyPercentage ?? 0),
+                    $statusCard('Processing', 'Processing', $processingReports, $processingMonthlyPercentage ?? 0),
+                    $statusCard('Resolved', 'Resolved', $resolvedReports, $resolvedMonthlyPercentage ?? 0),
+                ],
+            ])
+        </div>
+    @endif
+
     @if (!$isMainReportsPage)
         <div class="mb-5 flex items-baseline justify-end gap-2">
             <span class="text-4xl font-black tracking-tight text-slate-950">

@@ -5,17 +5,38 @@
 @section('content')
 @include('accounting.partials.flash')
 
+@php
+    $fromPoId = (int) request('from_po', 0);
+    $poLabel = !empty($purchaseOrder) ? \App\Support\PurchaseOrderBasket::displayNumber($purchaseOrder) : null;
+    $backToPo = !empty($purchaseOrder) && $fromPoId === (int) $purchaseOrder->purchase_order_id;
+@endphp
 <div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
-                <i data-lucide="arrow-left" class="h-4 w-4"></i>
-            </a>
+            @if ($backToPo)
+                <a href="/accounting/purchase-orders/{{ $purchaseOrder->purchase_order_id }}#po-atp-{{ $atp->authority_purchase_id }}" class="acc-back" data-tip="Back to {{ $poLabel }}" aria-label="Back to {{ $poLabel }}">
+                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                </a>
+            @else
+                <a href="/accounting/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
+                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                </a>
+            @endif
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $atp->authority_purchase_form_number }}</h1>
                 @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($atp), 'submitted' => $atp->authority_purchase_submitted_at, 'revision' => $atp->authority_purchase_rejection_reason])
             </div>
             <p class="acc-page-subtitle">Purchaser ATP form. Actions stay outside the document.</p>
+            @if ($poLabel)
+                <p class="mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-900">
+                    <i data-lucide="shopping-bag" class="h-3.5 w-3.5"></i>
+                    Part of
+                    <a href="/accounting/purchase-orders/{{ $purchaseOrder->purchase_order_id }}" class="font-semibold underline underline-offset-2">{{ $poLabel }}</a>
+                    @if (($purchaseOrder->purchase_order_status ?? '') === 'Submitted')
+                        · approve or send back the whole Purchase Order
+                    @endif
+                </p>
+            @endif
         </div>
         <div class="acc-actions">
             @if ($reviewable)

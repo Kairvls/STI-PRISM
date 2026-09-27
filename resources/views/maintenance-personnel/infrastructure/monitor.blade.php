@@ -9,6 +9,9 @@
 
         $initialFloor =
             $floors->firstWhere("floor_id", $requestedFloorId) ?? $floors->first();
+        $layoutCustodians = \App\Support\PropertyAssignments::activeByEquipment(
+            $rooms->flatMap(fn ($room) => $room->equipment->pluck('equipment_id'))->all()
+        );
         $roomCatalog = $rooms
             ->map(
                 fn($room) => [
@@ -28,7 +31,7 @@
                     "comlab_row_layouts" => data_get($room->room_metadata, 'comlab_row_layouts'),
                     "equipment" => $room->equipment
                         ->values()
-                        ->map(fn($equipment) => LayoutEquipmentPayload::fromModel($equipment))
+                        ->map(fn($equipment) => LayoutEquipmentPayload::fromModel($equipment, $layoutCustodians[$equipment->equipment_id] ?? null))
                         ->all(),
                 ],
             )
@@ -1216,7 +1219,9 @@
                                     'cursor-move':
                                         equipmentAction &&
                                         equipmentAction.type === 'drag' &&
-                                        selectedEquipmentId === group.primaryId
+                                        selectedEquipmentId === group.primaryId,
+
+                                    'opacity-25': groupDimmed(group)
                                 }"
                                 :data-equipment-id="group.primaryId"
                                 :data-group-ids="group.ids.join(',')"
@@ -1258,11 +1263,26 @@
                                         ></span>
 
                                         <span
+                                            x-show="!groupCustodyLabel(group)"
                                             class="equipment-meta truncate text-[10px] font-semibold text-slate-400"
                                             x-text="group.zone || 'No zone'"
                                         ></span>
+                                        <span
+                                            x-show="groupCustodyLabel(group)"
+                                            class="equipment-meta truncate text-[10px] font-semibold"
+                                            :style="`color:${group.custody?.holders.length === 1 ? custodianColor(group.custody.holders[0].custodian_id) : '#475569'}`"
+                                            x-text="groupCustodyLabel(group)"
+                                        ></span>
                                     </span>
                                 </span>
+
+                                <span
+                                    x-show="!roomLayout.edit && group.custody?.holders.length"
+                                    class="pointer-events-none absolute -right-2 -top-2 z-30 flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[9px] font-black text-white shadow ring-2 ring-white"
+                                    :style="`background:${group.custody?.holders.length === 1 ? custodianColor(group.custody.holders[0].custodian_id) : '#475569'}`"
+                                    :title="group.custody?.holders.map((holder) => holder.name).join(', ')"
+                                    x-text="group.custody?.holders.length === 1 ? custodianInitials(group.custody.holders[0].name) : group.custody?.holders.length"
+                                ></span>
 
                                 <!-- Resize Handles -->
                                 <template x-if="roomLayout.edit && selectedEquipmentId === group.primaryId">
@@ -1436,6 +1456,12 @@
                                             <div class="min-w-0">
                                                 <p class="truncate text-sm font-medium text-slate-800" x-text="asset.asset_tag || asset.name"></p>
                                                 <p class="truncate text-[11px] text-slate-400" x-text="asset.serial_number || 'No serial'"></p>
+                                                <p
+                                                    x-show="asset.custodian"
+                                                    class="truncate text-[11px] font-medium"
+                                                    :style="`color:${custodianColor(asset.custodian?.custodian_id)}`"
+                                                    x-text="asset.custodian?.name"
+                                                ></p>
                                             </div>
                                             <span
                                                 class="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold"
@@ -1485,6 +1511,42 @@
                                         />
                                     </div>
                                 </div>
+                                <div
+                                    x-show="roomCustodians().length || roomUnassignedCount()"
+                                    class="border-b border-slate-100 px-4 py-3"
+                                >
+                                    <div class="flex items-center justify-between gap-2">
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">People in this room</p>
+                                        <a
+                                            :href="`/maintenance/property-assignments/rooms/${roomLayout.id}`"
+                                            class="text-[11px] font-semibold text-[#0025cc] hover:underline"
+                                        >Manage</a>
+                                    </div>
+                                    <div class="mt-2 max-h-36 space-y-1 overflow-y-auto">
+                                        <template x-for="person in roomCustodians()" :key="'custodian-' + person.custodian_id">
+                                            <button
+                                                type="button"
+                                                @click="toggleCustodianHighlight(person.custodian_id)"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition"
+                                                :class="roomLayout.highlightCustodianId === person.custodian_id ? 'bg-slate-100 ring-1 ring-slate-200' : 'hover:bg-slate-50'"
+                                                :title="roomLayout.highlightCustodianId === person.custodian_id ? 'Show everyone' : 'Highlight this person\'s items'"
+                                            >
+                                                <span
+                                                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white"
+                                                    :style="`background:${person.color}`"
+                                                    x-text="custodianInitials(person.name)"
+                                                ></span>
+                                                <span class="min-w-0 flex-1 truncate font-semibold text-slate-800" x-text="person.name || 'Unknown person'"></span>
+                                                <span class="shrink-0 text-slate-400" x-text="person.count + (person.count === 1 ? ' item' : ' items')"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <p
+                                        x-show="roomUnassignedCount()"
+                                        class="mt-2 text-[11px] text-amber-700"
+                                        x-text="roomUnassignedCount() + (roomUnassignedCount() === 1 ? ' item has' : ' items have') + ' no accountable person'"
+                                    ></p>
+                                </div>
                                 <div class="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2">
                                     <template
                                         x-for="group in pagedLayoutGroups()"
@@ -1514,6 +1576,13 @@
                                                     <span class="inline-flex items-center gap-1">
                                                         <i data-lucide="map-pin" class="h-3 w-3 text-slate-400"></i>
                                                         <span x-text="group.zone || 'Not assigned'"></span>
+                                                    </span>
+                                                    <span
+                                                        x-show="groupCustodyLabel(group)"
+                                                        class="inline-flex items-center gap-1 font-medium text-slate-600"
+                                                    >
+                                                        <span class="h-1.5 w-1.5 rounded-full" :style="`background:${group.custody?.holders.length === 1 ? custodianColor(group.custody.holders[0].custodian_id) : '#475569'}`"></span>
+                                                        <span x-text="groupCustodyLabel(group)"></span>
                                                     </span>
                                                     <template x-if="group.quantity === 1">
                                                         <span
@@ -2671,6 +2740,7 @@
                         selectedComlabRowTable: null,
                         comlabSetCarouselIndex: 0,
                         comlabHoldingPage: 0,
+                        highlightCustodianId: null,
                         lifecycle: {
                             loading: false,
                             data: null,
@@ -8593,7 +8663,7 @@
                             const isBulk = String(item.tracking_mode || '') === 'Bulk' || qty > 1;
                             const key = isBulk
                                 ? `id:${item.id}`
-                                : `n:${String(item.name || '').toLowerCase()}|z:${zone}`;
+                                : `n:${String(item.name || '').toLowerCase()}|z:${zone}|c:${item.custodian?.custodian_id || ''}`;
 
                             if (!map.has(key)) {
                                 map.set(key, {
@@ -8621,6 +8691,8 @@
                             group.height = Math.max(group.height, Math.max(80, item.height || 96));
                         });
 
+                        const occupied = new Map();
+
                         return [...map.values()].map((group) => {
                             const count = group.members.length || 1;
                             group.x = Math.round(
@@ -8629,13 +8701,105 @@
                             group.y = Math.round(
                                 group.members.reduce((sum, member) => sum + Number(member.y || 50), 0) / count,
                             );
+                            // Same-name items split per custodian can share one saved spot; fan them out on screen.
+                            const spot = `${group.key.replace(/\|c:.*$/, '')}@${group.x}:${group.y}`;
+                            const stacked = occupied.get(spot) || 0;
+                            occupied.set(spot, stacked + 1);
+                            if (stacked > 0 && !group.isBulk) {
+                                group.x = Math.min(95, group.x + stacked * 4);
+                                group.y = Math.min(95, group.y + stacked * 4);
+                            }
                             group.rotation = group.members[0]?.rotation || 0;
                             group.primaryId = group.ids[0];
                             group.label = group.quantity > 1
                                 ? `${group.name} × ${group.quantity}`
                                 : group.name;
+                            group.custody = this.groupCustody(group);
                             return group;
                         });
+                    },
+
+                    custodianPalette: ['#0d9488', '#7c3aed', '#db2777', '#ea580c', '#2563eb', '#65a30d', '#0891b2', '#c026d3'],
+
+                    isLayoutAssignable(item) {
+                        const trackedIndividually = String(item?.tracking_mode || '') === 'Individual'
+                            || Number(item?.quantity || 1) === 1;
+                        return trackedIndividually
+                            && !['Disposed', 'Borrowed'].includes(item?.inventory_status)
+                            && item?.condition !== 'Disposed';
+                    },
+
+                    roomCustodians() {
+                        const people = new Map();
+                        (this.roomLayout.equipment || []).forEach((item) => {
+                            const custodian = item.custodian;
+                            if (!custodian?.custodian_id) return;
+                            if (!people.has(custodian.custodian_id)) {
+                                people.set(custodian.custodian_id, { ...custodian, count: 0 });
+                            }
+                            people.get(custodian.custodian_id).count += 1;
+                        });
+
+                        return [...people.values()]
+                            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+                            .map((person, index) => ({
+                                ...person,
+                                color: this.custodianPalette[index % this.custodianPalette.length],
+                            }));
+                    },
+
+                    custodianColor(custodianId) {
+                        return this.roomCustodians().find((person) => person.custodian_id === custodianId)?.color || '#64748b';
+                    },
+
+                    custodianInitials(name) {
+                        return String(name || '?')
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .map((part) => part[0])
+                            .slice(0, 2)
+                            .join('')
+                            .toUpperCase();
+                    },
+
+                    roomUnassignedCount() {
+                        return (this.roomLayout.equipment || [])
+                            .filter((item) => this.isLayoutAssignable(item) && !item.custodian)
+                            .length;
+                    },
+
+                    groupCustody(group) {
+                        const assignable = group.members.filter((member) => this.isLayoutAssignable(member));
+                        const holders = [...new Map(
+                            group.members
+                                .filter((member) => member.custodian?.custodian_id)
+                                .map((member) => [member.custodian.custodian_id, member.custodian]),
+                        ).values()];
+
+                        return {
+                            holders,
+                            assigned: group.members.filter((member) => member.custodian).length,
+                            assignable: assignable.length,
+                        };
+                    },
+
+                    groupCustodyLabel(group) {
+                        const custody = group.custody || this.groupCustody(group);
+                        if (custody.holders.length === 1) return custody.holders[0].name || 'Assigned';
+                        if (custody.holders.length > 1) return `${custody.holders.length} people`;
+                        return '';
+                    },
+
+                    toggleCustodianHighlight(custodianId) {
+                        this.roomLayout.highlightCustodianId = this.roomLayout.highlightCustodianId === custodianId
+                            ? null
+                            : custodianId;
+                    },
+
+                    groupDimmed(group) {
+                        const target = this.roomLayout.highlightCustodianId;
+                        if (!target) return false;
+                        return !group.members.some((member) => member.custodian?.custodian_id === target);
                     },
 
                     filteredLayoutGroups() {
@@ -8879,6 +9043,7 @@
                             selectedComlabRowTable: null,
                             comlabSetCarouselIndex: 0,
                             comlabHoldingPage: 0,
+                            highlightCustodianId: null,
                         };
                         this.selectedComlabRowTable = null;
 

@@ -12,6 +12,7 @@ use App\Support\LrFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
+use App\Support\RfcAtpLinks;
 use App\Support\WorkflowNotifier;
 use App\Support\ProcurementPortal;
 
@@ -538,21 +539,40 @@ class LiquidationReportController extends Controller
             );
     }
 
+    /**
+     * Join the ATP a Receiving Report belongs to: its own ATP (multi-ATP funding), else the funding request's ATP.
+     */
+    private function joinRrAtp($query)
+    {
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
+            return $query->leftJoin('authority_to_purchase_table', function ($join) {
+                $join->on(
+                    'authority_to_purchase_table.authority_purchase_id',
+                    '=',
+                    DB::raw('COALESCE(receiving_reports_table.receiving_report_atp_id, request_check_table.request_check_authority_purchase_id)')
+                );
+            });
+        }
+
+        return $query->leftJoin(
+            'authority_to_purchase_table',
+            'request_check_table.request_check_authority_purchase_id',
+            '=',
+            'authority_to_purchase_table.authority_purchase_id'
+        );
+    }
+
     private function eligibleRrQuery()
     {
-        return DB::table('receiving_reports_table')
+        $query = DB::table('receiving_reports_table')
             ->leftJoin(
                 'request_check_table',
                 'receiving_reports_table.receiving_report_request_check_id',
                 '=',
                 'request_check_table.request_check_id'
-            )
-            ->leftJoin(
-                'authority_to_purchase_table',
-                'request_check_table.request_check_authority_purchase_id',
-                '=',
-                'authority_to_purchase_table.authority_purchase_id'
-            )
+            );
+
+        return $this->joinRrAtp($query)
             ->where('receiving_reports_table.receiving_report_status', 'Completed')
             ->where(function ($q) {
                 $q->where('authority_to_purchase_table.authority_purchase_payment_path', ProcurementPaymentPath::CASH_ADVANCE)
@@ -581,7 +601,9 @@ class LiquidationReportController extends Controller
                 'request_check_table.request_check_form_number',
                 'request_check_table.request_check_particulars_purpose',
                 'request_check_table.request_check_amount_figures',
-                'authority_to_purchase_table.authority_purchase_id'
+                'request_check_table.request_check_authority_purchase_id',
+                'authority_to_purchase_table.authority_purchase_id',
+                'authority_to_purchase_table.authority_purchase_form_number'
             )
             ->orderByDesc('receiving_reports_table.receiving_report_id')
             ->limit(50);
@@ -605,7 +627,15 @@ class LiquidationReportController extends Controller
             ->get()
             ->groupBy('authority_purchase_id');
 
+        $rfcAtpCounts = collect(RfcAtpLinks::atpIdsForMany(
+            collect($eligibleRrs)
+                ->filter(fn ($rr) => !empty($rr->request_check_id))
+                ->mapWithKeys(fn ($rr) => [(int) $rr->request_check_id => (int) ($rr->request_check_authority_purchase_id ?? 0) ?: null])
+                ->all()
+        ))->map(fn ($ids) => count($ids));
+
         foreach ($eligibleRrs as $rr) {
+            $isShare = (int) ($rfcAtpCounts[(int) ($rr->request_check_id ?? 0)] ?? 0) > 1;
             $rows = [];
             $source = $rrItems[$rr->receiving_report_id] ?? collect();
             $atp = $atpItems[$rr->authority_purchase_id] ?? collect();
@@ -645,9 +675,20 @@ class LiquidationReportController extends Controller
                 ? 'Return unused cash ₱'.number_format($shortfall, 2).' (short/bad order)'
                 : '';
 
+            // One funding request can cover several ATPs; each RR liquidates only its ATP's budget share.
+            $amount = $isShare
+                ? round((float) $atp->sum(fn ($row) => (float) ($row->atp_amount ?? 0)), 2)
+                : ($rr->request_check_amount_figures ?? '');
+            $purpose = (string) ($rr->request_check_particulars_purpose ?? '');
+            if ($isShare && filled($rr->authority_purchase_form_number ?? null)) {
+                $purpose = $purpose !== ''
+                    ? $rr->authority_purchase_form_number.' — '.$purpose
+                    : (string) $rr->authority_purchase_form_number;
+            }
+
             $prefill[(string) $rr->receiving_report_id] = [
-                'purpose' => $rr->request_check_particulars_purpose ?? '',
-                'amount' => $rr->request_check_amount_figures ?? '',
+                'purpose' => $purpose,
+                'amount' => $amount,
                 'items' => $rows,
                 'shortfall_amount' => round($shortfall, 2),
                 'shortfall_notes' => $notes,
@@ -702,19 +743,14 @@ class LiquidationReportController extends Controller
             return $required ? 'Select a completed Receiving Report before submitting.' : null;
         }
 
-        $rr = DB::table('receiving_reports_table')
+        $rrQuery = DB::table('receiving_reports_table')
             ->leftJoin(
                 'request_check_table',
                 'receiving_reports_table.receiving_report_request_check_id',
                 '=',
                 'request_check_table.request_check_id'
-            )
-            ->leftJoin(
-                'authority_to_purchase_table',
-                'request_check_table.request_check_authority_purchase_id',
-                '=',
-                'authority_to_purchase_table.authority_purchase_id'
-            )
+            );
+        $rr = $this->joinRrAtp($rrQuery)
             ->where('receiving_reports_table.receiving_report_id', $rrId)
             ->select(
                 'receiving_reports_table.*',

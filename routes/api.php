@@ -109,6 +109,11 @@ Route::prefix('maintenance')->group(function () {
         );
 
         Route::get(
+            '/equipment/{id}/profile',
+            [MobileMaintenanceController::class, 'equipmentProfile']
+        )->whereNumber('id');
+
+        Route::get(
             '/equipment/{qr}',
             [MobileMaintenanceController::class, 'equipment']
         );

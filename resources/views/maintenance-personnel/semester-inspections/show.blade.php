@@ -8,6 +8,7 @@
     $today = now()->startOfDay();
     $days = (int) $today->diffInDays($due, false);
     $isOpen = ! in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true);
+    $canManage = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
     $conditionTone = [
         'OK' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
         'Malfunctioning' => 'bg-amber-50 text-amber-700 ring-amber-100',
@@ -58,13 +59,13 @@
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 Back
             </a>
-            @if ($campaign->campaign_status === 'Draft')
+            @if ($canManage && $campaign->campaign_status === 'Draft')
                 <form action="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id.'/activate') }}" method="POST">
                     @csrf
                     <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white">Activate</button>
                 </form>
             @endif
-            @if ($isOpen)
+            @if ($canManage && $isOpen)
                 <form action="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id.'/complete') }}" method="POST"
                     onsubmit="return confirm(@json($progress['pending'] > 0 ? 'Force-complete with '.$progress['pending'].' pending item(s)?' : 'Mark this campaign complete?'))">
                     @csrf
@@ -130,6 +131,19 @@
                         </option>
                     @endforeach
                 </select>
+                @if ($custodianTracking)
+                    <select name="custodian" class="h-10 min-w-[11rem] rounded-xl border-0 bg-slate-50 px-3 text-sm ring-1 ring-slate-200/80" onchange="this.form.submit()">
+                        <option value="">All custodians</option>
+                        <option value="assigned" @selected($custodian === 'assigned')>Assigned to a person</option>
+                        <option value="unassigned" @selected($custodian === 'unassigned')>No accountable person</option>
+                        <option value="unconfirmed" @selected($custodian === 'unconfirmed')>Custodian not confirmed</option>
+                        @foreach ($custodianOptions as $person)
+                            <option value="{{ $person->custodian_id }}" @selected($custodian === (string) $person->custodian_id)>
+                                {{ $person->custodian_full_name }} ({{ $person->item_count }})
+                            </option>
+                        @endforeach
+                    </select>
+                @endif
                 <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Apply</button>
             </form>
         </div>
@@ -185,6 +199,23 @@
                             @else
                                 <span class="inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">Pending</span>
                             @endif
+                            @if ($item->custodian_id)
+                                <a
+                                    href="{{ url('/maintenance/property-assignments/people/'.$item->custodian_id) }}"
+                                    class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-100 hover:bg-teal-100"
+                                    title="Accountable person"
+                                >
+                                    <i data-lucide="user-round-check" class="h-3 w-3"></i>
+                                    {{ $item->custodian_name }}
+                                </a>
+                                @if ($item->item_status === 'Inspected' && $item->item_custodian_verified !== null)
+                                    @if ($item->item_custodian_verified)
+                                        <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-100">Custodian confirmed</span>
+                                    @else
+                                        <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-100">Custodian not confirmed</span>
+                                    @endif
+                                @endif
+                            @endif
                         </div>
 
                         <div class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -222,7 +253,7 @@
                             @endif
                         </div>
                     </div>
-                    @if ($isOpen)
+                    @if ($canManage && $isOpen)
                         <button
                             type="button"
                             class="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -234,6 +265,8 @@
                                 'findings' => $item->item_findings,
                                 'action' => $item->item_action_taken,
                                 'status' => $item->item_status,
+                                'custodian' => $item->custodian_name,
+                                'custodianVerified' => isset($item->item_custodian_verified) ? (string) (int) $item->item_custodian_verified : '',
                             ]))"
                         >
                             <i data-lucide="{{ $item->item_status === 'Inspected' ? 'pencil' : 'scan-eye' }}" class="h-4 w-4"></i>
@@ -300,6 +333,28 @@
                         <label class="mb-1.5 block text-sm text-slate-600">Proof image <span class="text-slate-400">(optional)</span></label>
                         <input type="file" name="proof_image" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700">
                     </div>
+                    <template x-if="current.custodian">
+                        <div class="rounded-xl bg-teal-50/60 px-3 py-3 ring-1 ring-teal-100">
+                            <p class="flex items-center gap-2 text-sm text-slate-700">
+                                <i data-lucide="user-round-check" class="h-4 w-4 text-teal-600"></i>
+                                <span>Accountable person: <span class="font-semibold" x-text="current.custodian"></span></span>
+                            </p>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                                <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50">
+                                    <input type="radio" name="custodian_verified" value="1" x-model="current.custodianVerified" class="text-emerald-600">
+                                    <span>Confirmed with them</span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs has-[:checked]:border-amber-300 has-[:checked]:bg-amber-50">
+                                    <input type="radio" name="custodian_verified" value="0" x-model="current.custodianVerified" class="text-amber-600">
+                                    <span>Could not confirm</span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs has-[:checked]:border-slate-300 has-[:checked]:bg-slate-50">
+                                    <input type="radio" name="custodian_verified" value="" x-model="current.custodianVerified" class="text-slate-500">
+                                    <span>Not checked</span>
+                                </label>
+                            </div>
+                        </div>
+                    </template>
                     <label class="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-200/80">
                         <input type="hidden" name="apply_status" value="0">
                         <input type="checkbox" name="apply_status" value="1" checked class="mt-0.5 rounded border-slate-300 text-[#0025cc]">
@@ -322,7 +377,7 @@
 function semesterInspectPage() {
     return {
         open: false,
-        current: { itemId: null, name: '', meta: '', condition: 'OK', findings: '', action: '', status: 'Pending' },
+        current: { itemId: null, name: '', meta: '', condition: 'OK', findings: '', action: '', status: 'Pending', custodian: '', custodianVerified: '' },
         openInspect(payload) {
             this.current = {
                 itemId: payload.itemId,
@@ -332,6 +387,8 @@ function semesterInspectPage() {
                 findings: payload.findings || '',
                 action: payload.action || '',
                 status: payload.status || 'Pending',
+                custodian: payload.custodian || '',
+                custodianVerified: payload.custodianVerified ?? '',
             };
             this.open = true;
             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });

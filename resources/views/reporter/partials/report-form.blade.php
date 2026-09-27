@@ -2882,6 +2882,14 @@
                                 font-size: 1rem;
                             "
                         ></p>
+
+                        <div id="assignedEquipmentBox" class="mt-3 hidden border-t border-slate-200/70 pt-3">
+                            <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                Equipment assigned to you
+                                <span class="normal-case tracking-normal font-normal text-slate-400">· tap one to report it</span>
+                            </p>
+                            <div id="assignedEquipmentList" class="flex flex-wrap gap-2"></div>
+                        </div>
                     </div>
 
                     {{-- ===================================================== --}}
@@ -4857,9 +4865,9 @@ toggleRoomBtn.addEventListener('click', function () {
                 const openNote = document.createElement("p");
                 openNote.className = "mt-0.5 truncate text-xs font-medium text-amber-700";
                 openNote.textContent =
-                    "Open report " +
+                    "Already reported in " +
                     item.openReportTicket +
-                    " — submit will add your update there.";
+                    " — maintenance will see it flagged as priority.";
                 row.querySelector(".min-w-0").appendChild(openNote);
             }
             selectedEquipmentList.appendChild(row);
@@ -6252,6 +6260,8 @@ toggleRoomBtn.addEventListener('click', function () {
 
             employeeError.style.display = "none";
 
+            clearAssignedEquipment();
+
 
             // =====================================================
             // IMPORTANT
@@ -6413,6 +6423,8 @@ toggleRoomBtn.addEventListener('click', function () {
                     // KEEP FORM UNLOCKED
                     setReportFormLocked(false);
 
+                    loadAssignedEquipment(id);
+
                 })
 
 
@@ -6443,6 +6455,110 @@ toggleRoomBtn.addEventListener('click', function () {
                 });
 
         });
+
+        /* EQUIPMENT ASSIGNED TO THE VERIFIED REPORTER (read-only quick pick) */
+        function clearAssignedEquipment() {
+            const box = document.getElementById("assignedEquipmentBox");
+            const list = document.getElementById("assignedEquipmentList");
+            if (list) list.innerHTML = "";
+            if (box) box.classList.add("hidden");
+        }
+
+        function loadAssignedEquipment(employeeId) {
+            fetch(`/get-reporter/${encodeURIComponent(employeeId)}/assigned-equipment`, {
+                headers: { Accept: "application/json" },
+            })
+                .then((response) => (response.ok ? response.json() : []))
+                .then((items) => {
+                    if (employeeInput.value.trim() !== employeeId || !reporterVerified) return;
+                    renderAssignedEquipment(Array.isArray(items) ? items : []);
+                })
+                .catch(() => clearAssignedEquipment());
+        }
+
+        function renderAssignedEquipment(items) {
+            const box = document.getElementById("assignedEquipmentBox");
+            const list = document.getElementById("assignedEquipmentList");
+            if (!box || !list) return;
+
+            list.innerHTML = "";
+            const roomIds = new Set(Array.from(roomSelect.options).map((option) => option.value));
+            const pickable = items.filter((item) => roomIds.has(String(item.room_id)));
+
+            pickable.forEach((item) => {
+                const chip = document.createElement("button");
+                chip.type = "button";
+                chip.className =
+                    "inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs text-slate-700 transition hover:border-[#2947f0]/40 hover:bg-[#2947f0]/5";
+
+                const name = document.createElement("span");
+                name.className = "truncate font-semibold";
+                name.textContent = item.equipment_name || "Equipment";
+
+                const room = document.createElement("span");
+                room.className = "truncate text-slate-400";
+                room.textContent = item.room_name || "";
+
+                chip.append(name, room);
+                chip.addEventListener("click", () => pickAssignedEquipment(item));
+                list.appendChild(chip);
+            });
+
+            box.classList.toggle("hidden", pickable.length === 0);
+        }
+
+        function syncRoomSelectTrigger() {
+            const trigger = document.querySelector('.rf-picker-trigger[data-for="roomSelect"]');
+            const label = trigger?.querySelector(".rf-picker-label");
+            if (!trigger || !label) return;
+            const option = roomSelect.options[roomSelect.selectedIndex];
+            label.textContent = option ? option.textContent.trim() : "Select Location";
+            trigger.classList.toggle("is-placeholder", !roomSelect.value);
+        }
+
+        function pickAssignedEquipment(item) {
+            const roomId = String(item.room_id);
+            const equipmentId = String(item.equipment_id);
+
+            const alreadyAdded = selectedEquipmentItems.some(
+                (added) => added.type === "id" && String(added.id) === equipmentId,
+            );
+            if (alreadyAdded) {
+                const err = document.getElementById("equipmentError");
+                err.classList.remove("hidden");
+                err.innerText = "That equipment is already added.";
+                return;
+            }
+
+            if (equipmentManualMode) {
+                setEquipmentManualMode(false);
+            }
+
+            const selectEquipment = () => {
+                if (!Array.from(equipSelect.options).some((option) => option.value === equipmentId)) {
+                    return false;
+                }
+                equipSelect.value = equipmentId;
+                equipSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                syncEquipmentSelectTrigger();
+                equipSelect.closest(".rf-equip-block")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                return true;
+            };
+
+            if (roomSelect.value === roomId && selectEquipment()) return;
+
+            roomSelect.value = roomId;
+            roomSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            syncRoomSelectTrigger();
+
+            let attempts = 0;
+            const timer = setInterval(() => {
+                attempts += 1;
+                if (selectEquipment() || attempts >= 40 || roomSelect.value !== roomId) {
+                    clearInterval(timer);
+                }
+            }, 100);
+        }
 
         /* ROOM → EQUIPMENT FILTER (keep already-added items across locations) */
         roomSelect.addEventListener("change", function () {

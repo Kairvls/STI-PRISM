@@ -114,6 +114,7 @@
                                                 'compact' => true,
                                             ])
                                         </div>
+                                        @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
                                     </span>
                                 </label>
                             @endforeach

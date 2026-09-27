@@ -148,3 +148,11 @@ for the maintenance system about the inventory of equipments how to solve this t
 
 Simple rule to defend in audit
 RR second count confirms delivery. Inventory stocking is a system import from that RR, not a second manual purchase entry.
+
+for the report or equipment that has report already since it can be reported again then that equipment or report that has reported that equipment and a collab with equipment that has not yet report then in the maintenance make the new reports always at the top like stock even that report only shows or has equipment report that has already has report
+
+If you later want real desks in offices, a lighter option than the full desk editor is to add office zones like "Desk 1" and "Desk 2" to the zone list for Office-type rooms. The next step (4) connects this to semestral inspections and adds "My Equipment" to the reporter portal.
+
+in the admin system make the procurement shows in it sidebar to not go to frist to purchaser portal before can perform procurement workflow, and already include also in admin that the admin can monitor and manage the reporters, 
+
+in the admin system make the procurement shows in it sidebar to not go to first to purchaser portal before can perform procurement workflow, and already include also in admin that the admin can monitor and manage the reporters tab/list, reporters approvals, can add equipm

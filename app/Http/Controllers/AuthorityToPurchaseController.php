@@ -10,7 +10,9 @@ use Illuminate\Validation\ValidationException;
 use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
+use App\Support\PurchaseOrderFunding;
 use App\Support\PurchaserDocumentAccess;
+use App\Support\RfcAtpLinks;
 use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
@@ -146,6 +148,9 @@ class AuthorityToPurchaseController extends Controller
 
         $eligibleRis = $this->eligibleRisQuery()->limit(50)->get();
         $suppliers = $this->activeSuppliersQuery()->get();
+        $uomNames = Schema::hasTable('uom_table')
+            ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
+            : collect();
 
         $atpIds = $atps->getCollection()->pluck('authority_purchase_id');
 
@@ -155,27 +160,12 @@ class AuthorityToPurchaseController extends Controller
             ->get()
             ->groupBy('authority_purchase_id');
 
-        $atpHasRfc = [];
-        if ($atpIds->isNotEmpty() && Schema::hasTable('request_check_table')) {
-            $rfcLinkQuery = DB::table('request_check_table')
-                ->whereIn('request_check_authority_purchase_id', $atpIds)
-                ->where('request_check_status', '!=', 'Rejected');
-
-            if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
-                $rfcLinkQuery->where(function ($q) {
-                    $q->whereNull('request_check_is_archived')
-                        ->orWhere('request_check_is_archived', 0);
-                });
-            }
-
-            $atpHasRfc = $rfcLinkQuery
-                ->pluck('request_check_authority_purchase_id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-        }
+        $atpHasRfc = RfcAtpLinks::fundedAtpIds($atpIds->all());
+        $poFundedAtpIds = PurchaseOrderFunding::poFundedAtpIds($atpIds->all());
 
         foreach ($atps as $atp) {
             $atp->has_rfc = in_array((int) $atp->authority_purchase_id, $atpHasRfc, true);
+            $atp->funds_via_po = in_array((int) $atp->authority_purchase_id, $poFundedAtpIds, true);
             $atp->purchase_order_id = PurchaseOrderBasket::poIdForAtp((int) $atp->authority_purchase_id);
             if ($atp->purchase_order_id && PurchaseOrderBasket::tablesExist()) {
                 $po = DB::table('purchase_orders_table')
@@ -185,10 +175,17 @@ class AuthorityToPurchaseController extends Controller
                     ? PurchaseOrderBasket::displayNumber($po)
                     : null;
                 $atp->purchase_order_status = $po->purchase_order_status ?? null;
+                $atp->purchase_order_atp_count = PurchaseOrderBasket::atpCount((int) $atp->purchase_order_id);
             } else {
                 $atp->purchase_order_label = null;
                 $atp->purchase_order_status = null;
+                $atp->purchase_order_atp_count = 0;
             }
+            $atp->submits_via_po = $atp->purchase_order_id
+                && ! (
+                    $atp->purchase_order_status === PurchaseOrderBasket::STATUS_DRAFT
+                    && $atp->purchase_order_atp_count < PurchaseOrderBasket::MIN_ATPS
+                );
         }
 
         $risPrefill = $this->buildRisPrefill($eligibleRis);
@@ -203,6 +200,7 @@ class AuthorityToPurchaseController extends Controller
                 'atpSummary',
                 'eligibleRis',
                 'suppliers',
+                'uomNames',
                 'atpItems',
                 'selectedRisId',
                 'viewAtpId',
@@ -336,7 +334,7 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($authorityPurchaseId, $items);
 
             if ($isDraft) {
-                PurchaseOrderBasket::attachAtp((int) $authorityPurchaseId, (int) auth()->id());
+                PurchaseOrderBasket::groupDraftAtp((int) $authorityPurchaseId, (int) auth()->id());
             } else {
                 $this->notifyAccountingAtp($authorityPurchaseId, $formNumber, $reviewerId);
             }
@@ -394,13 +392,14 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Payment path can only be chosen after ATP is approved.');
         }
 
+        if ($poId = PurchaseOrderFunding::approvedPoIdForAtp((int) $id)) {
+            return redirect(ProcurementPortal::route('purchase-orders.index', ['view_po' => $poId]))
+                ->with('error', 'This ATP was approved through a Purchase Order. Choose the payment path for the whole Purchase Order.');
+        }
+
         if (
             filled($atp->authority_purchase_payment_path ?? null)
-            && Schema::hasTable('request_check_table')
-            && DB::table('request_check_table')
-                ->where('request_check_authority_purchase_id', $id)
-                ->where('request_check_status', '!=', 'Rejected')
-                ->exists()
+            && RfcAtpLinks::fundedAtpIds([(int) $id]) !== []
         ) {
             return back()->with('error', 'Payment path cannot be changed after a funding request has been created.');
         }
@@ -489,6 +488,12 @@ class AuthorityToPurchaseController extends Controller
         }
 
         return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp, $receivedSig) {
+            if (!$isDraft && $this->linkedPoIdAfterReleasingSolo((int) $id)) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'This ATP is on a Purchase Order. Submit it from Purchase Orders instead.');
+            }
+
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -529,9 +534,6 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($id, $items);
 
             if (!$isDraft) {
-                if (PurchaseOrderBasket::poIdForAtp((int) $id)) {
-                    return back()->with('error', 'This ATP is on a Purchase Order. Submit it from Purchase Orders instead.');
-                }
                 $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
             }
 
@@ -565,7 +567,7 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Only draft ATP records can be submitted.');
             }
 
-            $linkedPoId = PurchaseOrderBasket::poIdForAtp((int) $id);
+            $linkedPoId = $this->linkedPoIdAfterReleasingSolo((int) $id);
             if ($linkedPoId) {
                 return redirect()
                     ->route(ProcurementPortal::routeName('purchase-orders.index'), ['edit_po' => $linkedPoId])
@@ -720,6 +722,22 @@ class AuthorityToPurchaseController extends Controller
         );
     }
 
+    /**
+     * PO id that still blocks a direct submit, or null. An ATP that is alone in
+     * a draft PO is released from it first so it can go straight to Accounting.
+     */
+    private function linkedPoIdAfterReleasingSolo(int $atpId): ?int
+    {
+        $poId = PurchaseOrderBasket::poIdForAtp($atpId);
+        if (! $poId) {
+            return null;
+        }
+
+        PurchaseOrderBasket::releaseIfUndersized($poId);
+
+        return PurchaseOrderBasket::poIdForAtp($atpId);
+    }
+
     private function isSoftDraft(object $atp): bool
     {
         return DocumentWorkflowService::isSoftDraft(
@@ -830,13 +848,17 @@ class AuthorityToPurchaseController extends Controller
 
     private function atpStatusSummary(): array
     {
-        $rows = DB::table('authority_to_purchase_table')
+        $query = DB::table('authority_to_purchase_table')
             ->select(
                 'authority_purchase_status',
                 'authority_purchase_is_archived',
                 DB::raw('CASE WHEN authority_purchase_submitted_at IS NULL THEN 0 ELSE 1 END as is_submitted'),
                 DB::raw('COUNT(*) as aggregate')
-            )
+            );
+
+        PurchaserDocumentAccess::scopeOwned($query, 'atp', 'authority_to_purchase_table');
+
+        $rows = $query
             ->groupBy(
                 'authority_purchase_status',
                 'authority_purchase_is_archived',

@@ -60,6 +60,10 @@ class MaintenanceReportService
             $query->where(function ($groupQuery) {
                 $groupQuery
                     ->whereNull('reports_table.report_equipment_id')
+                    ->when(
+                        ReportItems::tableExists(),
+                        fn ($q) => $q->orWhereRaw(ReportGrouping::multiItemReportSql())
+                    )
                     ->orWhereNotIn(
                         'reports_table.report_current_status',
                         ReportGrouping::groupedStatuses()
@@ -84,8 +88,8 @@ class MaintenanceReportService
             ->orderByRaw(
                 "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END"
             )
+            ->orderByRaw(ReportGrouping::lastReportedSql().' DESC')
             ->orderByDesc('reports_table.report_updated_at')
-            ->orderByDesc('reports_table.report_submitted_at')
             ->orderByDesc('reports_table.report_id')
             ->select(
                 'reports_table.*',

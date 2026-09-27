@@ -288,8 +288,13 @@ class ReportItems
             ->groupBy('report_id');
 
         foreach ($reports as $report) {
-            $items = collect($grouped->get((int) $report->report_id, []));
-            $report->report_items = $items;
+            $report->report_items = collect($grouped->get((int) $report->report_id, []));
+        }
+
+        self::annotateRepeats($reports);
+
+        foreach ($reports as $report) {
+            $items = collect($report->report_items);
             $report->equipment_display = self::labelForReport($report, $items);
             $report->issue_display = self::issueLabelForReport($report, $items);
 
@@ -337,7 +342,206 @@ class ReportItems
                 'report_updated_at' => now(),
             ]);
 
+        self::syncRepeatEquipment($reportId);
+
         return $parentStatus;
+    }
+
+    /**
+     * Once equipment is fixed or sent for replacement on one ticket, close the
+     * same equipment on every other open ticket that re-reported it.
+     */
+    public static function syncRepeatEquipment(int $reportId): void
+    {
+        static $running = false;
+
+        if ($running || ! self::tableExists()) {
+            return;
+        }
+
+        $handled = DB::table('report_items_table')
+            ->where('report_id', $reportId)
+            ->whereNotNull('report_item_equipment_id')
+            ->whereIn('report_item_status', ['Resolved', 'For Replacement'])
+            ->get();
+
+        if ($handled->isEmpty()) {
+            return;
+        }
+
+        $running = true;
+
+        try {
+            $ticket = ReportGrouping::ticketCode(
+                DB::table('reports_table')->where('report_id', $reportId)->first() ?? $reportId
+            );
+            $touchedReports = [];
+
+            foreach ($handled as $item) {
+                $siblings = DB::table('report_items_table')
+                    ->join('reports_table', 'reports_table.report_id', '=', 'report_items_table.report_id')
+                    ->where('report_items_table.report_item_equipment_id', $item->report_item_equipment_id)
+                    ->where('report_items_table.report_id', '!=', $reportId)
+                    ->whereIn('report_items_table.report_item_status', self::openStatuses())
+                    ->where('reports_table.report_is_archived', false)
+                    ->where('reports_table.report_submitted_at', '<=', $item->report_item_updated_at ?? now())
+                    ->get(['report_items_table.report_item_id', 'report_items_table.report_id']);
+
+                if ($siblings->isEmpty()) {
+                    continue;
+                }
+
+                $isReplacement = $item->report_item_status === 'For Replacement';
+                $remarks = trim((string) ($isReplacement
+                    ? $item->report_item_replacement_notes
+                    : $item->report_item_resolution_notes));
+                $note = ($isReplacement ? 'Sent for replacement under ' : 'Fixed under ').$ticket
+                    .($remarks !== '' ? ': '.$remarks : '.');
+
+                DB::table('report_items_table')
+                    ->whereIn('report_item_id', $siblings->pluck('report_item_id')->all())
+                    ->update(array_merge(
+                        [
+                            'report_item_status' => $item->report_item_status,
+                            'report_item_updated_at' => now(),
+                        ],
+                        $isReplacement
+                            ? ['report_item_replacement_notes' => $note]
+                            : ['report_item_resolution_notes' => $note]
+                    ));
+
+                foreach ($siblings->pluck('report_id') as $siblingReportId) {
+                    $touchedReports[(int) $siblingReportId] = true;
+                }
+            }
+
+            foreach (array_keys($touchedReports) as $siblingReportId) {
+                self::refreshParentStatus($siblingReportId);
+            }
+        } finally {
+            $running = false;
+        }
+    }
+
+    /**
+     * Flag items whose equipment is also on another open ticket, and list
+     * "reported before, still not actioned" items first.
+     *
+     * Sets on each item: repeat_state (not_actioned | in_progress | reported_again | null),
+     * repeat_earlier (oldest other open ticket filed before this one), repeat_earlier_count,
+     * repeat_later_count, repeat_latest (newest later ticket), repeat_times_reported.
+     *
+     * @param  iterable<object>  $reports
+     */
+    public static function annotateRepeats(iterable $reports): void
+    {
+        $reports = collect($reports);
+
+        $equipmentIds = $reports
+            ->flatMap(fn ($report) => collect($report->report_items ?? [])->pluck('report_item_equipment_id'))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($equipmentIds->isEmpty() || ! self::tableExists()) {
+            return;
+        }
+
+        $openTickets = DB::table('report_items_table')
+            ->join('reports_table', 'reports_table.report_id', '=', 'report_items_table.report_id')
+            ->whereIn('report_items_table.report_item_equipment_id', $equipmentIds->all())
+            ->whereIn('report_items_table.report_item_status', self::openStatuses())
+            ->where('reports_table.report_is_archived', false)
+            ->orderBy('reports_table.report_submitted_at')
+            ->orderBy('reports_table.report_id')
+            ->get([
+                'report_items_table.report_item_equipment_id',
+                'report_items_table.report_item_status',
+                'reports_table.report_id',
+                'reports_table.report_current_status',
+                'reports_table.report_submitted_at',
+            ])
+            ->groupBy('report_item_equipment_id');
+
+        $timesReported = DB::table('report_items_table')
+            ->whereIn('report_item_equipment_id', $equipmentIds->all())
+            ->select('report_item_equipment_id as equipment_id', 'report_id')
+            ->union(
+                DB::table('reports_table')
+                    ->whereIn('report_equipment_id', $equipmentIds->all())
+                    ->select('report_equipment_id as equipment_id', 'report_id')
+            )
+            ->get()
+            ->groupBy('equipment_id')
+            ->map(fn ($rows) => $rows->pluck('report_id')->unique()->count());
+
+        $priority = ['not_actioned' => 0, 'in_progress' => 1, 'reported_again' => 2];
+
+        foreach ($reports as $report) {
+            $reportId = (int) ($report->report_id ?? 0);
+            $filedAt = (string) ($report->report_submitted_at ?? '');
+
+            $items = collect($report->report_items ?? [])->each(function ($item) use ($openTickets, $timesReported, $reportId, $filedAt) {
+                $item->repeat_state = null;
+                $item->repeat_earlier = null;
+                $item->repeat_earlier_count = 0;
+                $item->repeat_later_count = 0;
+                $item->repeat_latest = null;
+
+                $equipmentId = (int) ($item->report_item_equipment_id ?? 0);
+                $item->repeat_times_reported = (int) ($timesReported->get($equipmentId) ?? 0);
+
+                if ($equipmentId < 1 || ! in_array($item->report_item_status, self::openStatuses(), true)) {
+                    return;
+                }
+
+                $others = collect($openTickets->get($equipmentId, []))
+                    ->filter(fn ($row) => (int) $row->report_id !== $reportId)
+                    ->map(function ($row) {
+                        $status = $row->report_item_status === 'Pending' && $row->report_current_status === 'Processing'
+                            ? 'Processing'
+                            : $row->report_item_status;
+
+                        return (object) [
+                            'report_id' => (int) $row->report_id,
+                            'ticket_code' => ReportGrouping::ticketCode($row),
+                            'submitted_at' => $row->report_submitted_at,
+                            'status' => $status,
+                        ];
+                    })
+                    ->unique('report_id');
+
+                $isEarlier = fn ($other) => $other->submitted_at < $filedAt
+                    || ($other->submitted_at === $filedAt && $other->report_id < $reportId);
+
+                $earlier = $others->filter($isEarlier)->values();
+                $later = $others->reject($isEarlier)->values();
+
+                $item->repeat_earlier_count = $earlier->count();
+                $item->repeat_later_count = $later->count();
+                $item->repeat_latest = $later->last();
+
+                if ($earlier->isNotEmpty()) {
+                    $waiting = $earlier->firstWhere('status', 'Pending');
+                    $item->repeat_earlier = $waiting ?? $earlier->first();
+                    $item->repeat_state = $waiting ? 'not_actioned' : 'in_progress';
+                } elseif ($later->isNotEmpty()) {
+                    $item->repeat_state = 'reported_again';
+                }
+            });
+
+            $report->report_items = $items
+                ->sortBy(fn ($item) => [
+                    $priority[$item->repeat_state ?? ''] ?? 3,
+                    (int) ($item->report_item_id ?? 0),
+                ])
+                ->values();
+
+            $report->repeat_flagged_count = $report->report_items
+                ->filter(fn ($item) => in_array($item->repeat_state, ['not_actioned', 'in_progress'], true))
+                ->count();
+        }
     }
 
     /**
@@ -471,130 +675,18 @@ class ReportItems
             }
         }
 
-        $equipmentIds = $reports
-            ->flatMap(fn ($report) => collect($report->report_items ?? [])
-                ->pluck('report_item_equipment_id')
-                ->filter()
-                ->map(fn ($id) => (int) $id))
-            ->merge($reports->pluck('report_equipment_id')->filter()->map(fn ($id) => (int) $id))
-            ->unique()
-            ->values();
-
-        $pastByEquipment = collect();
-
-        if ($equipmentIds->isNotEmpty()) {
-            $linkedReportIds = collect();
-
-            if (self::tableExists()) {
-                $linkedReportIds = $linkedReportIds->merge(
-                    DB::table('report_items_table')
-                        ->whereIn('report_item_equipment_id', $equipmentIds->all())
-                        ->pluck('report_id')
-                );
-            }
-
-            $linkedReportIds = $linkedReportIds
-                ->merge(
-                    DB::table('reports_table')
-                        ->whereIn('report_equipment_id', $equipmentIds->all())
-                        ->pluck('report_id')
-                )
-                ->map(fn ($id) => (int) $id)
-                ->unique()
-                ->values();
-
-            $pastReports = $linkedReportIds->isEmpty()
-                ? collect()
-                : DB::table('reports_table')
-                    ->leftJoin(
-                        'reporters_table',
-                        'reports_table.report_reporter_employee_id',
-                        '=',
-                        'reporters_table.reporter_employee_id'
-                    )
-                    ->leftJoin(
-                        'rooms_table',
-                        'reports_table.report_room_id',
-                        '=',
-                        'rooms_table.room_id'
-                    )
-                    ->leftJoin(
-                        'equipment_table',
-                        'reports_table.report_equipment_id',
-                        '=',
-                        'equipment_table.equipment_id'
-                    )
-                    ->whereIn('reports_table.report_id', $linkedReportIds->all())
-                    ->orderByDesc('reports_table.report_submitted_at')
-                    ->select(
-                        'reports_table.report_id',
-                        'reports_table.report_equipment_id',
-                        'reports_table.report_unlisted_equipment_name',
-                        'reports_table.report_reporter_employee_id',
-                        'reports_table.report_urgency_level',
-                        'reports_table.report_current_status',
-                        'reports_table.report_suggested_issue',
-                        'reports_table.report_problem_description',
-                        'reports_table.report_submitted_at',
-                        'reporters_table.reporter_full_name',
-                        'rooms_table.room_name',
-                        'equipment_table.equipment_name'
-                    )
-                    ->get();
-
-            $itemsByPastReport = self::tableExists() && $pastReports->isNotEmpty()
-                ? DB::table('report_items_table')
-                    ->leftJoin(
-                        'equipment_table',
-                        'report_items_table.report_item_equipment_id',
-                        '=',
-                        'equipment_table.equipment_id'
-                    )
-                    ->whereIn('report_items_table.report_id', $pastReports->pluck('report_id')->all())
-                    ->select(
-                        'report_items_table.report_id',
-                        'report_items_table.report_item_equipment_id',
-                        'report_items_table.report_item_unlisted_equipment_name',
-                        'equipment_table.equipment_name'
-                    )
-                    ->get()
-                    ->groupBy('report_id')
-                : collect();
-
-            foreach ($pastReports as $past) {
-                $pastItems = collect($itemsByPastReport->get($past->report_id, []));
-                $eqIds = $pastItems
-                    ->pluck('report_item_equipment_id')
-                    ->filter()
-                    ->map(fn ($id) => (int) $id)
-                    ->values();
-
-                if ($eqIds->isEmpty() && ! empty($past->report_equipment_id)) {
-                    $eqIds = collect([(int) $past->report_equipment_id]);
-                }
-
-                foreach ($eqIds as $eqId) {
-                    $pastByEquipment->push((object) [
-                        'equipment_id' => $eqId,
-                        'report' => $past,
-                        'items' => $pastItems,
-                    ]);
-                }
-            }
-
-            $pastByEquipment = $pastByEquipment->groupBy('equipment_id');
-        }
-
         foreach ($reports as $report) {
-            $report->report_timeline = self::buildTimeline($report, $pastByEquipment);
+            $report->report_timeline = self::buildTimeline($report);
         }
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<string, \Illuminate\Support\Collection>  $pastByEquipment
+     * This ticket's events plus every other report on the same equipment
+     * (when it was reported, fixed, sent for replacement or not accepted).
+     *
      * @return \Illuminate\Support\Collection<int, object>
      */
-    public static function buildTimeline(object $report, $pastByEquipment = null): Collection
+    public static function buildTimeline(object $report): Collection
     {
         $events = collect();
         $items = collect($report->report_items ?? []);
@@ -683,53 +775,67 @@ class ReportItems
         $currentId = (int) $report->report_id;
         $seenPast = [];
 
-        foreach ($equipmentIds as $equipmentId) {
-            $bucket = collect($pastByEquipment?->get($equipmentId, []));
+        foreach ($equipmentIds->unique() as $equipmentId) {
+            $history = self::equipmentHistory($equipmentId);
+            $timesReported = $history->count();
 
-            foreach ($bucket as $entry) {
-                $past = $entry->report;
+            foreach ($history->values() as $index => $past) {
                 $pastId = (int) $past->report_id;
                 if ($pastId === $currentId || isset($seenPast[$pastId.'-'.$equipmentId])) {
                     continue;
                 }
                 $seenPast[$pastId.'-'.$equipmentId] = true;
 
-                $pastName = null;
-                foreach (collect($entry->items ?? []) as $pastItem) {
-                    if ((int) ($pastItem->report_item_equipment_id ?? 0) === $equipmentId) {
-                        $pastName = self::displayName($pastItem);
-                        break;
-                    }
-                }
-                $pastName = $pastName
-                    ?: ($past->equipment_name ?? $past->report_unlisted_equipment_name ?? 'Equipment');
+                $pastName = self::equipmentNameFor($items, $equipmentId) ?? 'Equipment';
+                $ticket = ReportGrouping::ticketCode($past);
+                $status = (string) $past->status;
 
-                $statusLabel = match ((string) $past->report_current_status) {
-                    'Pending' => 'Waiting for staff',
+                $statusLabel = match ($status) {
+                    'Pending' => 'Not actioned yet',
                     'Processing' => 'In progress',
                     'Resolved' => 'Fixed',
                     'Rejected' => 'Not accepted',
                     'For Replacement' => 'Needs replacement',
-                    default => (string) $past->report_current_status,
+                    default => $status,
                 };
 
                 $events->push((object) [
                     'type' => 'past_report',
                     'at' => $past->report_submitted_at,
                     'title' => $pastName,
-                    'subtitle' => ($past->report_suggested_issue ?: 'Earlier report')
+                    'subtitle' => 'Malfunction reported ('.($index + 1).' of '.$timesReported.')'
+                        .' · '.($past->issue ?: 'No issue named')
                         .(! empty($past->room_name) ? ' in '.$past->room_name : '')
-                        .' · '.ReportGrouping::ticketCode($past),
+                        .' · '.$ticket,
                     'urgency' => $past->report_urgency_level ?? null,
                     'status_label' => $statusLabel,
-                    'status_key' => $past->report_current_status,
-                    'meta' => trim(
-                        ($past->reporter_full_name ?? 'Unknown reporter')
-                        .(! empty($past->report_reporter_employee_id) ? ' · '.$past->report_reporter_employee_id : '')
-                    ),
-                    'notes' => $past->report_problem_description ?? null,
+                    'status_key' => $status,
+                    'meta' => $past->reporter_full_name ?? null,
+                    'notes' => null,
                     'is_current' => false,
                 ]);
+
+                $outcome = match ($status) {
+                    'Resolved' => ['Fixed · back to working', $past->resolution_notes],
+                    'For Replacement' => ['Marked for replacement', $past->replacement_notes],
+                    'Rejected' => ['Report not accepted', $past->rejection_notes],
+                    default => null,
+                };
+
+                if ($outcome && ! empty($past->status_at)) {
+                    $events->push((object) [
+                        'type' => 'past_outcome',
+                        'at' => $past->status_at,
+                        'title' => $pastName,
+                        'subtitle' => $outcome[0].' · '.$ticket,
+                        'urgency' => null,
+                        'status_label' => $statusLabel,
+                        'status_key' => $status,
+                        'meta' => null,
+                        'notes' => $outcome[1] ?: null,
+                        'is_current' => false,
+                    ]);
+                }
             }
         }
 
@@ -742,5 +848,23 @@ class ReportItems
                 }
             })
             ->values();
+    }
+
+    private static function equipmentHistory(int $equipmentId): Collection
+    {
+        static $cache = [];
+
+        return $cache[$equipmentId] ??= EquipmentTimeline::reportHistory($equipmentId);
+    }
+
+    private static function equipmentNameFor(Collection $items, int $equipmentId): ?string
+    {
+        foreach ($items as $item) {
+            if ((int) ($item->report_item_equipment_id ?? 0) === $equipmentId) {
+                return self::displayName($item);
+            }
+        }
+
+        return null;
     }
 }

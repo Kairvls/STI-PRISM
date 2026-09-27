@@ -13,6 +13,9 @@ use App\Models\CampusSetupSetting;
 use App\Support\RoomName;
 use App\Support\EquipmentQrCodes;
 use App\Support\LayoutEquipmentPayload;
+use App\Support\PropertyAssignments;
+use App\Support\EquipmentAcquisition;
+use App\Support\RoomCategories;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -264,11 +267,12 @@ class InfrastructureController extends Controller
 
     public function roomEquipment(Room $room): JsonResponse
     {
+        $equipment = $room->equipment()->with('category')->get();
+        $custodians = PropertyAssignments::activeByEquipment($equipment->pluck('equipment_id')->all());
+
         return response()->json(
-            $room->equipment()
-                ->with('category')
-                ->get()
-                ->map(fn ($equipment) => LayoutEquipmentPayload::fromModel($equipment))
+            $equipment
+                ->map(fn ($item) => LayoutEquipmentPayload::fromModel($item, $custodians[$item->equipment_id] ?? null))
                 ->values()
         );
     }
@@ -1298,9 +1302,38 @@ class InfrastructureController extends Controller
                 'max:255',
             ],
 
-        ]);
+            'equipment_purchase_date' => ['nullable', 'date'],
+
+            'equipment_acquired_date' => ['nullable', 'date'],
+
+            'equipment_purchase_cost' => ['nullable', 'numeric', 'min:0'],
+
+            'equipment_useful_life_years' => ['nullable', 'integer', 'min:1', 'max:50'],
+
+            'custodian_id' => ['nullable', 'integer', 'min:1'],
+
+            'replaces_equipment_id' => ['nullable', 'integer', 'min:1'],
+
+        ] + EquipmentAcquisition::validationRules());
 
         $items = array_values($validated['items'] ?? []);
+
+        $custodianId = (int) ($validated['custodian_id'] ?? 0);
+        if ($custodianId > 0) {
+            $targetRoomType = DB::table('rooms_table')
+                ->where('room_id', $validated['equipment_room_id'])
+                ->value('room_type');
+            if (RoomCategories::isStorageType($targetRoomType)) {
+                throw ValidationException::withMessages([
+                    'custodian_id' => 'Equipment in a storage room cannot be assigned to a person. Deploy it to a room first.',
+                ]);
+            }
+            if (($validated['equipment_tracking_mode'] ?? '') !== 'Individual') {
+                throw ValidationException::withMessages([
+                    'custodian_id' => 'Only individually tracked equipment can be assigned to a person.',
+                ]);
+            }
+        }
 
         if (
             ($validated['equipment_tracking_mode'] ?? '') === 'Individual'
@@ -1341,6 +1374,24 @@ class InfrastructureController extends Controller
 
         $created = collect();
 
+        $intakeMeta = ['equipment_acquired_date' => $validated['equipment_acquired_date'] ?? now()->toDateString()];
+        if (Schema::hasColumn('equipment_table', 'equipment_stocked_by') && Auth::id()) {
+            $intakeMeta['equipment_stocked_by'] = Auth::id();
+        }
+
+        $detailColumns = EquipmentAcquisition::manualColumns($validated);
+        foreach (['equipment_purchase_date', 'equipment_purchase_cost', 'equipment_useful_life_years'] as $column) {
+            if (
+                array_key_exists($column, $validated)
+                && $validated[$column] !== null
+                && $validated[$column] !== ''
+                && Schema::hasColumn('equipment_table', $column)
+            ) {
+                $detailColumns[$column] = $validated[$column];
+            }
+        }
+        $replacesId = (int) ($validated['replaces_equipment_id'] ?? 0);
+
         DB::transaction(function () use (
 
             $validated,
@@ -1355,13 +1406,21 @@ class InfrastructureController extends Controller
 
             $borrowable,
 
+            $intakeMeta,
+
+            $detailColumns,
+
+            $replacesId,
+
+            $custodianId,
+
             &$created
 
         ) {
 
             if ($validated['equipment_tracking_mode'] === 'Bulk') {
 
-                $created->push(Equipment::create([
+                $created->push(Equipment::create($intakeMeta + [
 
                     'equipment_room_id' => $validated['equipment_room_id'],
                     'equipment_name' => $validated['equipment_name'],
@@ -1382,6 +1441,8 @@ class InfrastructureController extends Controller
                     'equipment_placement_zone' => $defaultZone,
 
                 ]));
+
+                $this->applyIntakeDetails($created, $detailColumns, $replacesId, 0);
 
                 return;
             }
@@ -1406,7 +1467,7 @@ class InfrastructureController extends Controller
 
                 $itemPosition = $this->zonePosition((string) ($itemZone ?? ''));
 
-                $created->push(Equipment::create([
+                $created->push(Equipment::create($intakeMeta + [
                     'equipment_room_id' => $validated['equipment_room_id'],
                     'equipment_name' => $validated['equipment_name'],
                     'equipment_category_id' => $validated['equipment_category_id'] ?? null,
@@ -1431,6 +1492,8 @@ class InfrastructureController extends Controller
                     'equipment_placement_zone' => $itemZone,
                 ]));
             }
+
+            $this->applyIntakeDetails($created, $detailColumns, $replacesId, $custodianId);
 
         });
 
@@ -1480,6 +1543,43 @@ class InfrastructureController extends Controller
             'equipment'=>$equipment
 
         ]);
+    }
+
+    /**
+     * Acquisition / purchase columns, replacement link, and custodian issue for
+     * equipment created from the room layout.
+     */
+    private function applyIntakeDetails($created, array $detailColumns, int $replacesId, int $custodianId): void
+    {
+        $ids = $created->pluck('equipment_id')->map(fn ($id) => (int) $id)->filter()->values()->all();
+        if ($ids === []) {
+            return;
+        }
+
+        if ($detailColumns !== []) {
+            DB::table('equipment_table')->whereIn('equipment_id', $ids)->update($detailColumns);
+        }
+
+        if ($replacesId > 0 && Schema::hasColumn('equipment_table', 'equipment_replaces_id')) {
+            DB::table('equipment_table')
+                ->whereIn('equipment_id', $ids)
+                ->update(['equipment_replaces_id' => $replacesId]);
+            if (Schema::hasColumn('equipment_table', 'equipment_replaced_by_id')) {
+                DB::table('equipment_table')
+                    ->where('equipment_id', $replacesId)
+                    ->update(['equipment_replaced_by_id' => $ids[0]]);
+            }
+        }
+
+        if ($custodianId > 0) {
+            try {
+                PropertyAssignments::issueMany($ids, $custodianId, ['notes' => 'Issued on intake']);
+            } catch (\Illuminate\Database\QueryException $e) {
+                throw $e;
+            } catch (\RuntimeException $e) {
+                throw ValidationException::withMessages(['custodian_id' => $e->getMessage()]);
+            }
+        }
     }
 
     /**

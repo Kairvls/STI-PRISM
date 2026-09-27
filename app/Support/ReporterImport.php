@@ -250,18 +250,29 @@ class ReporterImport
             return ['first' => '', 'middle' => '', 'last' => ''];
         }
 
-        if (count($parts) === 1) {
-            return ['first' => $parts[0], 'middle' => '', 'last' => ''];
+        $suffix = '';
+        if (count($parts) > 2 && in_array(strtolower(rtrim(end($parts), '.,')), ['jr', 'sr', 'ii', 'iii', 'iv', 'v'], true)) {
+            $suffix = ' '.array_pop($parts);
         }
 
-        if (count($parts) === 2) {
-            return ['first' => $parts[0], 'middle' => '', 'last' => $parts[1]];
+        if (count($parts) === 1) {
+            return ['first' => $parts[0], 'middle' => '', 'last' => ltrim($suffix)];
+        }
+
+        // Compound surnames such as "Dela Cruz", "De los Santos", "San Juan".
+        $particles = ['de', 'del', 'dela', 'delos', 'della', 'di', 'da', 'dos', 'das', 'san', 'sta', 'santa', 'sto', 'santo', 'van', 'von', 'la', 'le', 'mac', 'mc'];
+        $lastStart = count($parts) - 1;
+        for ($i = 1; $i < count($parts) - 1; $i++) {
+            if (in_array(strtolower(rtrim($parts[$i], '.')), $particles, true)) {
+                $lastStart = $i;
+                break;
+            }
         }
 
         return [
-            'first' => array_shift($parts),
-            'last' => array_pop($parts),
-            'middle' => implode(' ', $parts),
+            'first' => $parts[0],
+            'middle' => implode(' ', array_slice($parts, 1, $lastStart - 1)),
+            'last' => implode(' ', array_slice($parts, $lastStart)).$suffix,
         ];
     }
 }

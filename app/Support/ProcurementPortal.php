@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Schema;
  * Resolves procurement portal context (prefix, layout, routes).
  * Workflow UI lives in the Purchaser portal.
  *
- * Decision A: Admin (or Maintenance) with Purchaser access uses multi-role
- * portal switching to create/drive RIS → ATP → RFC/CA → RR → Liquidation.
- * Admin portal itself remains RIS accept/sign + pipeline monitor (view-only).
+ * Administrators drive RIS → ATP → RFC/CA → RR → Liquidation straight from the admin
+ * sidebar: the Purchaser pages render inside the admin shell (RoleAccess::adminShell()).
+ * Maintenance with Purchaser access still uses multi-role portal switching.
  * Accounting still approves money docs; Receiving still reviews RR.
  */
 class ProcurementPortal
@@ -31,8 +31,8 @@ class ProcurementPortal
 
     /**
      * Whether the user may use procurement workflow routes/UI.
-     * Purchaser role (primary or additional): always.
-     * Admin or Maintenance with user_can_procurement: also granted (syncs Purchaser role).
+     * Purchaser role (primary or additional) and Administrators: always.
+     * Maintenance with user_can_procurement: also granted (syncs Purchaser role).
      */
     public static function userCanAccessProcurement(?object $user = null): bool
     {
@@ -41,19 +41,17 @@ class ProcurementPortal
             return false;
         }
 
-        if (\App\Support\RoleAccess::hasRole(self::PURCHASER_ROLE_ID, $user)) {
+        if (\App\Support\RoleAccess::hasRole(self::PURCHASER_ROLE_ID, $user)
+            || \App\Support\RoleAccess::isAdmin($user)) {
             return true;
         }
 
-        $isMaintenance = \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user);
-        $isAdmin = \App\Support\RoleAccess::isAdmin($user);
-
-        if (! $isMaintenance && ! $isAdmin) {
+        if (! \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)) {
             return false;
         }
 
         if (! Schema::hasColumn('users_table', 'user_can_procurement')) {
-            return $isMaintenance;
+            return true;
         }
 
         return (bool) ($user->user_can_procurement ?? false);

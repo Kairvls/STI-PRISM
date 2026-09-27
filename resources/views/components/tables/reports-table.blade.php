@@ -581,6 +581,17 @@
                                             {{ (int) $report->report_related_count }}
                                         </button>
                                     @endif
+                                    @if ((int) ($report->repeat_flagged_count ?? 0) > 0)
+                                        <button
+                                            type="button"
+                                            onclick="openReportItemsHighlight({{ $report->report_id }})"
+                                            data-tooltip="{{ (int) $report->repeat_flagged_count }} equipment on this ticket were reported before and are still waiting"
+                                            class="inline-flex shrink-0 items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-600 hover:text-white"
+                                        >
+                                            <i data-lucide="alert-triangle" class="h-3 w-3"></i>
+                                            Reported before
+                                        </button>
+                                    @endif
                                 </div>
                                 <p class="truncate text-xs text-slate-400" title="{{ $report->room_name }}">
                                     {{ $report->room_name }}
@@ -975,7 +986,7 @@
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="hash" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                <span>{{ $report->reporter_employee_id ?? "ÃÂ¯ÃÂ¿ÃÂ½" }} ÃÂ¯ÃÂ¿ÃÂ½ {{ \App\Support\ReportGrouping::ticketCode($report) }}</span>
+                                <span>{{ $report->reporter_employee_id ?? "—" }} · {{ \App\Support\ReportGrouping::ticketCode($report) }}</span>
                             </p>
                         </div>
                     </div>
@@ -996,7 +1007,7 @@
                         onclick="switchReportViewTab({{ $report->report_id }}, 'history')"
                         class="border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-slate-400 hover:text-slate-600"
                     >
-                        Timeline{{ $historyCount ? " ÃÂ¯ÃÂ¿ÃÂ½ ".$historyCount : "" }}
+                        Timeline{{ $historyCount ? " · ".$historyCount : "" }}
                     </button>
                 </div>
 
@@ -1008,7 +1019,7 @@
                                 class="rounded-2xl transition ring-0 ring-transparent"
                             >
                             <p class="mb-3 text-sm font-medium text-slate-600">
-                                Equipment items{{ $viewItems->count() > 1 ? " ÃÂ¯ÃÂ¿ÃÂ½ ".$viewItems->count() : "" }}
+                                Equipment items{{ $viewItems->count() > 1 ? " · ".$viewItems->count() : "" }}
                             </p>
                             <ul class="mb-5 space-y-3">
                                 @foreach ($viewItems as $item)
@@ -1016,7 +1027,7 @@
                                         $itemStatus = (string) ($item->report_item_status ?? "Pending");
                                         $itemStatusPill = $statusMap[$itemStatus] ?? "bg-slate-100 text-slate-600";
                                     @endphp
-                                    <li class="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                                    <li class="rounded-xl border px-4 py-3 {{ ($item->repeat_state ?? null) === 'not_actioned' ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-slate-50/80' }}">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0">
                                                 <p class="truncate text-sm font-semibold text-slate-900">
@@ -1030,6 +1041,7 @@
                                                 {{ $itemStatus }}
                                             </span>
                                         </div>
+                                        @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
                                         @include('components.tables.partials.report-item-equipment-details', [
                                             'item' => $item,
                                             'compact' => false,
@@ -1109,7 +1121,7 @@
                     <div id="report-panel-history-{{ $report->report_id }}" class="hidden">
                         <p class="mb-3 text-sm font-medium text-slate-600">Ticket timeline</p>
                         <p class="mb-4 text-xs leading-5 text-slate-500">
-                            Status updates for equipment on this ticket, plus earlier reports for those same assets.
+                            Status updates for equipment on this ticket, plus every other time those same assets were reported, fixed, or sent for replacement.
                         </p>
                         @include("components.tables.partials.equipment-report-history", ["report" => $report])
                     </div>
@@ -1222,13 +1234,14 @@
                                                 <span class="mt-0.5 block text-xs text-gray-500">
                                                     Current: {{ $item->report_item_status }}
                                                     @if (!empty($item->report_item_suggested_issue))
-                                                        ÃÂ¯ÃÂ¿ÃÂ½ {{ $item->report_item_suggested_issue }}
+                                                        · {{ $item->report_item_suggested_issue }}
                                                     @endif
                                                 </span>
                                                 @include('components.tables.partials.report-item-equipment-details', [
                                                     'item' => $item,
                                                     'compact' => true,
                                                 ])
+                                                @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
                                             </span>
                                         </label>
                                     @endforeach
@@ -1311,7 +1324,7 @@
                                 </div>
                                 <div id="upload-text-container-{{ $report->report_id }}" class="min-w-0 flex-1">
                                     <p class="text-sm text-slate-800">Upload image</p>
-                                    <p class="text-xs text-slate-400">PNG, JPG, JPEG or WEBP ÃÂ¯ÃÂ¿ÃÂ½ 10MB max</p>
+                                    <p class="text-xs text-slate-400">PNG, JPG, JPEG or WEBP · 10MB max</p>
                                 </div>
                                 <input
                                     type="file"
@@ -1398,7 +1411,7 @@
             >
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ \App\Support\ReportGrouping::ticketCode($report) }} ÃÂ¯ÃÂ¿ÃÂ½ {{ $report->report_current_status }}</p>
+                        <p class="text-xs text-slate-400">{{ \App\Support\ReportGrouping::ticketCode($report) }} · {{ $report->report_current_status }}</p>
                         <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
                             {{ $equipmentLabel }}
                         </h2>

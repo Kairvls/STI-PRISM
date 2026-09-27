@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Services\ReportSubmissionService;
 use App\Support\EquipmentTimeline;
+use App\Support\EquipmentAcquisition;
+use App\Support\EquipmentBatchIntake;
 use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReportItems;
+use App\Support\PersonnelDirectory;
+use App\Support\PersonNames;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
 use App\Support\RoomCategories;
@@ -20,6 +24,7 @@ use App\Support\EquipmentAuditPack;
 use App\Support\EquipmentConditionHistory;
 use App\Support\EquipmentMonitoring;
 use App\Support\EquipmentOpenBalance;
+use App\Support\PropertyAssignments;
 use App\Support\ReceivableStockLines;
 use App\Support\ReceivableStockImporter;
 use App\Support\SemesterInspections;
@@ -2876,9 +2881,10 @@ class MaintenanceController extends Controller
                 $request->filled('urgency'),
                 function ($query) use ($request) {
 
-                    $query->where(
-                        'reports_table.report_urgency_level',
-                        $request->urgency
+                    // Match the badge: a stack with any urgent report counts as Urgent.
+                    $query->whereRaw(
+                        "CASE WHEN COALESCE(open_report_group.has_urgent, 0) = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END = ?",
+                        [$request->urgency]
                     );
 
                 }
@@ -2904,6 +2910,10 @@ class MaintenanceController extends Controller
                     $query->where(function ($groupQuery) {
                         $groupQuery
                             ->whereNull('reports_table.report_equipment_id')
+                            ->when(
+                                ReportItems::tableExists(),
+                                fn ($q) => $q->orWhereRaw(ReportGrouping::multiItemReportSql())
+                            )
                             ->orWhereNotIn(
                                 'reports_table.report_current_status',
                                 ReportGrouping::groupedStatuses()
@@ -2937,7 +2947,8 @@ class MaintenanceController extends Controller
                             ELSE report_current_status
                         END AS report_group_bucket,
                         COUNT(*) AS open_count,
-                        MAX(CASE WHEN report_urgency_level = \'Urgent\' THEN 1 ELSE 0 END) AS has_urgent
+                        MAX(CASE WHEN report_urgency_level = \'Urgent\' THEN 1 ELSE 0 END) AS has_urgent,
+                        MAX('.ReportGrouping::lastReportedSql('reports_table').') AS group_last_reported_at
                     FROM reports_table
                     WHERE report_equipment_id IS NOT NULL
                       AND report_is_archived = 0
@@ -2975,7 +2986,7 @@ class MaintenanceController extends Controller
             | ORDERING
             | 1) Urgent open stacks, 2) Urgent closed stacks,
             | 3) Non-urgent open stacks, 4) Non-urgent closed stacks.
-            | Newest within each tier.
+            | Newest within each tier — a re-report onto an existing stack counts as new.
             |--------------------------------------------------------------------------
             */
 
@@ -2999,7 +3010,10 @@ class MaintenanceController extends Controller
                 END"
             )
 
-            ->orderByDesc('reports_table.report_submitted_at')
+            ->orderByRaw(
+                'COALESCE(open_report_group.group_last_reported_at, '.ReportGrouping::lastReportedSql().') DESC'
+            )
+            ->orderByDesc('reports_table.report_id')
 
             /*
             |--------------------------------------------------------------------------
@@ -3039,6 +3053,8 @@ class MaintenanceController extends Controller
                     : DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
 
                 DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency"),
+
+                DB::raw('COALESCE(open_report_group.group_last_reported_at, '.ReportGrouping::lastReportedSql().') as grouped_last_reported_at'),
 
             ])));
     }
@@ -3457,9 +3473,8 @@ class MaintenanceController extends Controller
     {
         $reports = $this->reportsQuery()
 
-            ->where(
-                'report_urgency_level',
-                'Urgent'
+            ->whereRaw(
+                "CASE WHEN COALESCE(open_report_group.has_urgent, 0) = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END = 'Urgent'"
             )
 
             ->paginate(10)
@@ -3481,9 +3496,9 @@ class MaintenanceController extends Controller
 
         $reports = $this->reportsQuery()
 
-            ->whereDate(
-                'reports_table.report_submitted_at',
-                today()
+            ->whereRaw(
+                'DATE('.ReportGrouping::lastReportedSql().') = ?',
+                [today()->toDateString()]
             )
 
             ->paginate(10)
@@ -3571,10 +3586,14 @@ class MaintenanceController extends Controller
                     return $aPriority <=> $bPriority;
                 }
 
-                $aTime = strtotime((string) ($a->report_submitted_at ?? '')) ?: 0;
-                $bTime = strtotime((string) ($b->report_submitted_at ?? '')) ?: 0;
+                $aTime = strtotime((string) ($a->grouped_last_reported_at ?? ReportGrouping::lastReportedAt($a) ?? '')) ?: 0;
+                $bTime = strtotime((string) ($b->grouped_last_reported_at ?? ReportGrouping::lastReportedAt($b) ?? '')) ?: 0;
 
-                return $bTime <=> $aTime;
+                if ($aTime !== $bTime) {
+                    return $bTime <=> $aTime;
+                }
+
+                return (int) ($b->report_id ?? 0) <=> (int) ($a->report_id ?? 0);
             })
             ->values();
     }
@@ -3927,8 +3946,9 @@ class MaintenanceController extends Controller
         $relatedReports = collect();
 
         ReportItems::ensureLegacyItem($report);
-        $reportItems = ReportItems::forReport((int) $report->report_id);
-        $report->report_items = $reportItems;
+        $report->report_items = ReportItems::forReport((int) $report->report_id);
+        ReportItems::annotateRepeats([$report]);
+        $reportItems = $report->report_items;
         $report->equipment_display = ReportItems::labelForReport($report, $reportItems);
         $report->issue_display = ReportItems::issueLabelForReport($report, $reportItems);
 
@@ -4229,8 +4249,9 @@ class MaintenanceController extends Controller
         }
 
         ReportItems::ensureLegacyItem($report);
-        $reportItems = ReportItems::forReport((int) $report->report_id);
-        $report->report_items = $reportItems;
+        $report->report_items = ReportItems::forReport((int) $report->report_id);
+        ReportItems::annotateRepeats([$report]);
+        $reportItems = $report->report_items;
         $report->equipment_display = ReportItems::labelForReport($report, $reportItems);
         $report->issue_display = ReportItems::issueLabelForReport($report, $reportItems);
 
@@ -7683,6 +7704,13 @@ class MaintenanceController extends Controller
                 ->sum('equipment_maintenance_repair_cost');
         }
 
+        $propertyAssignment = PropertyAssignments::current((int) $id);
+        $assignmentHistory = PropertyAssignments::history((int) $id);
+        $assignmentBlocker = PropertyAssignments::blocker($equipment);
+        $assignablePeople = $assignmentBlocker === null
+            ? \App\Support\Custodians::assignable()
+            : collect();
+
         return view(
             'maintenance-personnel.equipment.view',
             compact(
@@ -7692,8 +7720,12 @@ class MaintenanceController extends Controller
                 'lifecycleEvents',
                 'lifecycleCounts',
                 'conditionHistory',
-                'repairCostTotal'
-            )
+                'repairCostTotal',
+                'propertyAssignment',
+                'assignmentHistory',
+                'assignmentBlocker',
+                'assignablePeople'
+            ) + ['reportSummary' => $lifecycle['report_summary'] ?? null]
         );
     }
 
@@ -7756,6 +7788,9 @@ class MaintenanceController extends Controller
             'supplier_id' => $line->supplier_id,
             'supplier_name' => $line->supplier_name,
             'purchase_date' => $line->purchase_date,
+            'rr_date' => $line->rr_date,
+            'invoice_no' => $line->invoice_no,
+            'dr_no' => $line->dr_no,
             'label' => $line->label,
         ];
 
@@ -7920,7 +7955,13 @@ class MaintenanceController extends Controller
 
             'items.*.equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
 
-        ]);
+            'deploy_room_id' => 'nullable|integer|min:1',
+
+            'custodian_id' => 'nullable|integer|min:1',
+
+            'replaces_equipment_id' => 'nullable|integer|min:1',
+
+        ] + EquipmentAcquisition::validationRules());
 
         $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
         $items = array_values($validated['items'] ?? []);
@@ -7941,6 +7982,11 @@ class MaintenanceController extends Controller
                 if ($reason === '') {
                     return back()
                         ->withErrors(['intake_reason' => 'Enter a reason for non-procurement intake (donation, legacy, found, etc.).'])
+                        ->withInput();
+                }
+                if (EquipmentAcquisition::ready() && blank($validated['equipment_acquisition_source'] ?? null)) {
+                    return back()
+                        ->withErrors(['equipment_acquisition_source' => 'Select how this equipment was acquired.'])
                         ->withInput();
                 }
             } else {
@@ -8075,6 +8121,44 @@ class MaintenanceController extends Controller
                 ->withInput();
         }
 
+        $acquisitionColumns = [];
+        if (EquipmentAcquisition::ready()) {
+            $acquisitionColumns = $rrLine
+                ? ['equipment_acquisition_source' => EquipmentAcquisition::PROCUREMENT]
+                : EquipmentAcquisition::manualColumns($validated, $validated['intake_reason'] ?? null);
+        }
+
+        $deployRoom = null;
+        $deployRoomId = (int) ($validated['deploy_room_id'] ?? 0);
+        if ($deployRoomId > 0) {
+            $deployRoom = DB::table('rooms_table')
+                ->where('room_id', $deployRoomId)
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->first();
+            if (! $deployRoom || RoomCategories::isStorageType($deployRoom->room_type ?? null)) {
+                return back()
+                    ->withErrors(['deploy_room_id' => 'Choose a classroom, lab, or office to deploy to.'])
+                    ->withInput();
+            }
+        }
+
+        $custodianId = (int) ($validated['custodian_id'] ?? 0);
+        if ($custodianId > 0) {
+            if (! $deployRoom) {
+                return back()
+                    ->withErrors(['custodian_id' => 'Deploy the equipment to a room before assigning it to a person.'])
+                    ->withInput();
+            }
+            if ($trackingMode !== 'Individual') {
+                return back()
+                    ->withErrors(['custodian_id' => 'Only individually tracked equipment can be assigned to a person.'])
+                    ->withInput();
+            }
+        }
+
         $createdIds = [];
 
         // Shared photo applies to Bulk / single Individual units only.
@@ -8088,6 +8172,7 @@ class MaintenanceController extends Controller
         // START TRANSACTION
         // =====================================================
 
+        try {
         DB::transaction(function () use (
             $request,
             $validated,
@@ -8102,6 +8187,9 @@ class MaintenanceController extends Controller
             $usefulLifeYears,
             $rrLine,
             $supplierId,
+            $acquisitionColumns,
+            $deployRoom,
+            $custodianId,
             &$createdIds
         ) {
 
@@ -8123,8 +8211,10 @@ class MaintenanceController extends Controller
                 $hasRrItemFk,
                 $rrLine,
                 $hasLotCode,
-                $lotCode
+                $lotCode,
+                $acquisitionColumns
             ): array {
+                $payload = array_merge($payload, $acquisitionColumns);
                 if ($hasSupplierColumn && $supplierId) {
                     $payload['equipment_supplier_id'] = $supplierId;
                 }
@@ -8260,6 +8350,29 @@ class MaintenanceController extends Controller
                 }
             }
 
+            if ($deployRoom && ! empty($createdIds) && Schema::hasTable('equipment_transfer_history_table')) {
+                $storageRoomId = (int) $validated['equipment_room_id'];
+                foreach ($createdIds as $newId) {
+                    DB::table('equipment_transfer_history_table')->insert([
+                        'equipment_id' => $newId,
+                        'from_room_id' => $storageRoomId ?: null,
+                        'to_room_id' => (int) $deployRoom->room_id,
+                        'transferred_by' => Auth::id(),
+                        'remarks' => 'Deployed on intake',
+                        'created_at' => now(),
+                    ]);
+                }
+                DB::table('equipment_table')
+                    ->whereIn('equipment_id', $createdIds)
+                    ->update(['equipment_room_id' => (int) $deployRoom->room_id]);
+            }
+
+            if ($custodianId > 0 && ! empty($createdIds)) {
+                PropertyAssignments::issueMany($createdIds, $custodianId, [
+                    'notes' => 'Issued on intake',
+                ]);
+            }
+
             $count = count($createdIds);
             $lastId = (int) end($createdIds);
 
@@ -8269,6 +8382,11 @@ class MaintenanceController extends Controller
                     .($rrLine->po_number ? ' / PO '.$rrLine->po_number : '')
                     .($rrLine->supplier_name ? ' / '.$rrLine->supplier_name : '')
                     .'.';
+            } elseif (filled($acquisitionColumns['equipment_acquisition_source'] ?? null)) {
+                $basisNote = ' Source: '.EquipmentAcquisition::sourceLabel($acquisitionColumns['equipment_acquisition_source']).'.';
+            }
+            if ($deployRoom) {
+                $basisNote .= ' Deployed to '.$deployRoom->room_name.'.';
             }
 
             $this->logActivity(
@@ -8283,21 +8401,64 @@ class MaintenanceController extends Controller
             );
 
         });
+        } catch (\RuntimeException $e) {
+            return back()
+                ->withErrors(['custodian_id' => $e->getMessage()])
+                ->withInput();
+        }
 
         // =====================================================
         // SUCCESS
         // =====================================================
 
         $count = count($createdIds);
+        $message = $count > 1
+            ? "{$count} equipment records added successfully."
+            : 'Equipment added successfully.';
+        if ($deployRoom) {
+            $message .= ' Deployed to '.$deployRoom->room_name.'.';
+        }
+        if ($custodianId > 0) {
+            $message .= ' Issued to the accountable person.';
+        }
 
         return redirect(
             '/maintenance/equipment/inventory'
-        )->with(
-            'success',
-            $count > 1
-                ? "{$count} equipment records added successfully."
-                : 'Equipment added successfully.'
+        )->with('success', $message);
+    }
+
+    public function storeEquipmentBatch(Request $request)
+    {
+        $data = EquipmentBatchIntake::validate($request->all());
+        $result = EquipmentBatchIntake::store($data);
+
+        $roomSummary = collect($result['rooms'])
+            ->map(fn ($qty, $room) => $room.' ('.$qty.')')
+            ->implode(', ');
+
+        $this->logActivity(
+            'Added equipment',
+            'Equipment',
+            'equipment_table',
+            $result['last_id'],
+            'Batch intake: '.$result['created'].' record(s) from '.$result['lines'].' item line(s). '
+                .($roomSummary !== '' ? 'Placed in '.$roomSummary.'.' : '')
         );
+
+        $message = $result['created'].' equipment record'.($result['created'] === 1 ? '' : 's')
+            .' added from '.$result['lines'].' item'.($result['lines'] === 1 ? '' : 's').'.';
+        if ($result['assigned'] > 0) {
+            $message .= ' '.$result['assigned'].' issued under '.implode(', ', $result['documents']).'.';
+        }
+
+        session()->flash('success', $message);
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'redirect' => url('/maintenance/equipment/inventory'),
+            'result' => $result,
+        ]);
     }
 
     /**
@@ -8398,12 +8559,14 @@ class MaintenanceController extends Controller
             );
         }
 
-        $duplicateName = DB::table('equipment_table')
-            ->where('equipment_room_id', $request->equipment_room_id)
-            ->where('equipment_id', '!=', $id)
-            ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
-            ->whereNotIn('equipment_inventory_status', ['Disposed'])
-            ->exists();
+        // Bulk stock keeps unique name-per-room; Individual units may share a display name.
+        $duplicateName = ($equipment->equipment_tracking_mode ?? 'Individual') === 'Bulk'
+            && DB::table('equipment_table')
+                ->where('equipment_room_id', $request->equipment_room_id)
+                ->where('equipment_id', '!=', $id)
+                ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
+                ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                ->exists();
 
         if ($duplicateName) {
             return back()
@@ -8415,7 +8578,14 @@ class MaintenanceController extends Controller
             'equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
             'remove_equipment_image' => 'nullable',
             'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
-        ]);
+            'equipment_purchase_cost' => 'nullable|numeric|min:0',
+        ] + EquipmentAcquisition::validationRules());
+
+        $acquisitionColumns = EquipmentAcquisition::ready()
+            && (int) ($equipment->equipment_receiving_report_item_id ?? 0) < 1
+            && $request->has('equipment_acquisition_source')
+                ? EquipmentAcquisition::manualColumns($request->all())
+                : [];
 
         $previousImage = $equipment->equipment_image ?? null;
         $imagePath = $previousImage;
@@ -8434,7 +8604,8 @@ class MaintenanceController extends Controller
             $request,
             $id,
             $equipment,
-            $imagePath
+            $imagePath,
+            $acquisitionColumns
         ) {
             $oldRoomId = (int) ($equipment->equipment_room_id ?? 0);
             $newRoomId = (int) ($request->equipment_room_id ?? 0);
@@ -8521,7 +8692,7 @@ class MaintenanceController extends Controller
                     'equipment_image'
                         => $imagePath,
 
-                ]);
+                ] + $acquisitionColumns);
 
             EquipmentConditionHistory::record(
                 (int) $id,
@@ -13960,12 +14131,14 @@ class MaintenanceController extends Controller
 
     public function updateReporter(Request $request)
     {
+        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
+
         $request->validate([
             'reporter_id' => 'required',
             'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{5}[FS]$/'],
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => PersonNames::rules(),
+            'middle_name' => PersonNames::rules(false),
+            'last_name' => PersonNames::rules(),
             'type' => 'required|in:Faculty,Staff',
             'email' => 'nullable|email|max:255',
             'contact' => 'nullable|string|max:50',
@@ -13996,6 +14169,10 @@ class MaintenanceController extends Controller
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
+
+        if ($duplicate = $this->holdReporterForDuplicateName($request, $first, $last, (int) $request->reporter_id)) {
+            return $duplicate;
+        }
 
         $payload = [
             'reporter_employee_id' => $employeeId,
@@ -14123,8 +14300,27 @@ class MaintenanceController extends Controller
             );
         }
 
+        $directoryChecks = [];
+        $directoryReady = PersonnelDirectory::tableReady();
+        if ($directoryReady && $applications->count() > 0) {
+            $rows = $applications->getCollection();
+            $live = PersonnelDirectory::checkMany(
+                $rows->where('status', ReporterApprovals::STATUS_PENDING)
+            );
+            foreach ($rows as $row) {
+                if ($row->status === ReporterApprovals::STATUS_PENDING) {
+                    $directoryChecks[(int) $row->id] = $live[(int) $row->id] ?? null;
+                } elseif (! empty($row->directory_checks)) {
+                    $directoryChecks[(int) $row->id] = json_decode((string) $row->directory_checks, true);
+                }
+            }
+        }
+
         return view('maintenance-personnel.reporters.approvals', [
             'applications' => $applications,
+            'directoryChecks' => $directoryChecks,
+            'directoryReady' => $directoryReady,
+            'directoryEmpty' => PersonnelDirectory::isEmpty(),
             'status' => $status,
             'pendingCount' => $pendingCount,
             'approvedThisMonth' => $approvedThisMonth,
@@ -14137,6 +14333,7 @@ class MaintenanceController extends Controller
     {
         $request->validate([
             'type' => 'required|in:Faculty,Staff',
+            'override_reason' => 'nullable|string|max:500',
         ]);
 
         if (! ReporterApprovals::hasTable()) {
@@ -14172,6 +14369,20 @@ class MaintenanceController extends Controller
         }
 
         $type = trim($request->type);
+
+        $directoryCheck = $this->reporterDirectoryCheck($application);
+        $verified = $directoryCheck !== null
+            && $directoryCheck['verdict'] === PersonnelDirectory::VERDICT_VERIFIED
+            && ($directoryCheck['person']['type'] ?? null) === $type;
+        $overrideReason = trim((string) $request->override_reason);
+
+        if (! $verified && mb_strlen($overrideReason) < 10) {
+            return back()->with(
+                'error',
+                'This applicant is not verified against the personnel directory. Write a reason (at least 10 characters) to approve anyway.'
+            );
+        }
+
         $first = trim($application->first_name);
         $middle = trim((string) $application->middle_name);
         $last = trim($application->last_name);
@@ -14195,22 +14406,26 @@ class MaintenanceController extends Controller
             $payload['reporter_employment_type'] = $type;
         }
 
-        DB::transaction(function () use ($payload, $id, $type) {
+        $review = [
+            'employment_type' => $type,
+            'status' => ReporterApprovals::STATUS_APPROVED,
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+            'updated_at' => now(),
+        ] + $this->reporterDirectoryColumns($directoryCheck, $verified ? null : $overrideReason);
+
+        DB::transaction(function () use ($payload, $id, $review) {
             DB::table('reporters_table')->insert($payload);
 
             ReporterApprovals::query()
                 ->where('id', $id)
-                ->update([
-                    'employment_type' => $type,
-                    'status' => ReporterApprovals::STATUS_APPROVED,
-                    'reviewed_by' => Auth::id(),
-                    'reviewed_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                ->update($review);
         });
 
         return redirect('/maintenance/reporters/approvals')
-            ->with('success', $payload['reporter_full_name'].' was confirmed and added to the reporters list.');
+            ->with('success', $payload['reporter_full_name'].($verified
+                ? ' was verified against the personnel directory and added to the reporters list.'
+                : ' was added to the reporters list. Your override reason was recorded.'));
     }
 
     public function rejectReporterApplication(Request $request, $id)
@@ -14245,10 +14460,39 @@ class MaintenanceController extends Controller
                 'reviewed_by' => Auth::id(),
                 'reviewed_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ] + $this->reporterDirectoryColumns($this->reporterDirectoryCheck($application), null));
 
         return redirect('/maintenance/reporters/approvals?status=rejected')
             ->with('success', $application->full_name.' was declined and was not added to the reporters list.');
+    }
+
+    private function reporterDirectoryCheck(object $application): ?array
+    {
+        if (! PersonnelDirectory::tableReady()) {
+            return null;
+        }
+
+        return PersonnelDirectory::check(
+            $application,
+            PersonnelDirectory::findForEmployeeId((string) $application->employee_id)
+        );
+    }
+
+    /**
+     * Snapshot of the directory comparison stored on the application when it is reviewed.
+     */
+    private function reporterDirectoryColumns(?array $check, ?string $overrideReason): array
+    {
+        if (! Schema::hasColumn(ReporterApprovals::TABLE, 'directory_verdict')) {
+            return [];
+        }
+
+        return [
+            'directory_personnel_id' => $check['personnel_id'] ?? null,
+            'directory_verdict' => $check['verdict'] ?? null,
+            'directory_checks' => $check ? json_encode($check) : null,
+            'override_reason' => $overrideReason !== null && $overrideReason !== '' ? $overrideReason : null,
+        ];
     }
 
 
@@ -15945,8 +16189,43 @@ class MaintenanceController extends Controller
         }
     }
 
+    /**
+     * Same first + last name as another reporter: send the form back with the matches until confirmed.
+     */
+    private function holdReporterForDuplicateName(Request $request, string $first, string $last, ?int $reporterId = null)
+    {
+        if ($request->boolean('confirm_duplicate') || ! ReporterImport::hasNameColumns()) {
+            return null;
+        }
+
+        $key = fn ($f, $l) => PersonNames::matchKey($f).'|'.PersonNames::matchKey($l);
+        if ($reporterId) {
+            $current = DB::table('reporters_table')->where('reporter_id', $reporterId)->first(['reporter_first_name', 'reporter_last_name']);
+            if ($current && $key($current->reporter_first_name, $current->reporter_last_name) === $key($first, $last)) {
+                return null;
+            }
+        }
+
+        $matches = PersonNames::duplicates(
+            'reporters_table', 'reporter_first_name', 'reporter_last_name',
+            $first, $last, 'reporter_id', $reporterId ?: null
+        )->map(fn ($reporter) => [
+            'name' => $reporter->reporter_full_name,
+            'employee_id' => $reporter->reporter_employee_id,
+            'type' => $reporter->reporter_employment_type ?? null,
+            'status' => $reporter->reporter_status,
+            'url' => url('/maintenance/reporters').'?'.http_build_query(['search' => $reporter->reporter_employee_id]),
+        ])->all();
+
+        return $matches === []
+            ? null
+            : back()->withInput()->with('reporter_duplicates', $matches)->with('reporter_duplicate_mode', $reporterId ? 'edit' : 'create');
+    }
+
     public function storeReporter(Request $request)
     {
+        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
+
         $request->validate([
             // Employee ID
             // Required: OMC + 5 digits + F/S; unique by 5-digit number (F/S variants share one number)
@@ -15958,27 +16237,15 @@ class MaintenanceController extends Controller
 
             // First Name
             // Required
-            'first_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
+            'first_name' => PersonNames::rules(),
 
             // Middle Name
             // Optional
-            'middle_name' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
+            'middle_name' => PersonNames::rules(false),
 
             // Last Name
             // Required
-            'last_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
+            'last_name' => PersonNames::rules(),
 
             // Employment Type
             // Required
@@ -16033,6 +16300,11 @@ class MaintenanceController extends Controller
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
+
+        if ($duplicate = $this->holdReporterForDuplicateName($request, $first, $last)) {
+            return $duplicate;
+        }
+
         $fullName = ReporterImport::composeFullName($first, $middle, $last);
 
         $payload = [

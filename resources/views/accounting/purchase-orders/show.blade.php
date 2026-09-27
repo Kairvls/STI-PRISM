@@ -26,24 +26,71 @@
     @endif
 
     <div class="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">Linked ATPs</div>
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <p class="text-sm font-semibold text-slate-800">Linked ATPs</p>
+            <p class="text-xs text-slate-500">Expand an ATP to see its items, or open the full ATP form.</p>
+        </div>
         <div class="divide-y divide-slate-100">
             @forelse($linked as $atp)
-                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <div>
-                        <p class="font-semibold text-slate-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
-                        <p class="text-xs text-slate-500">
-                            {{ $atp->supplier_display ?? 'Supplier' }}
-                            @if(filled($atp->ris_form_number))
-                                · RIS {{ $atp->ris_form_number }}
-                            @endif
-                        </p>
+                @php $items = ($atpItems ?? collect())->get($atp->authority_purchase_id, collect()); @endphp
+                <details class="group" id="po-atp-{{ $atp->authority_purchase_id }}">
+                    <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50/70 [&::-webkit-details-marker]:hidden">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="chevron-right" class="h-4 w-4 text-slate-400 transition group-open:rotate-90"></i>
+                            <div>
+                                <p class="font-semibold text-slate-900">{{ \App\Support\PurchaseOrderBasket::atpListLabel($atp) }}</p>
+                                <p class="text-xs text-slate-500">
+                                    {{ $atp->supplier_display ?? 'Supplier' }}
+                                    @if(filled($atp->ris_form_number))
+                                        · RIS {{ $atp->ris_form_number }}
+                                    @endif
+                                    · {{ $items->count() }} item(s)
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-medium tabular-nums text-slate-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</span>
+                            <a
+                                href="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}?from_po={{ $order->purchase_order_id }}"
+                                onclick="event.stopPropagation()"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                                <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                Open ATP
+                            </a>
+                        </div>
+                    </summary>
+                    <div class="px-4 pb-4">
+                        @if($items->isNotEmpty())
+                            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-medium">Description</th>
+                                            <th class="px-3 py-2 text-right font-medium">Qty</th>
+                                            <th class="px-3 py-2 text-left font-medium">Unit</th>
+                                            <th class="px-3 py-2 text-right font-medium">Unit price</th>
+                                            <th class="px-3 py-2 text-right font-medium">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        @foreach($items as $item)
+                                            <tr>
+                                                <td class="px-3 py-2 text-slate-800">{{ $item->atp_description ?: '—' }}</td>
+                                                <td class="px-3 py-2 text-right tabular-nums text-slate-700">{{ $item->atp_quantity ?? '—' }}</td>
+                                                <td class="px-3 py-2 text-slate-700">{{ $item->atp_unit ?: '—' }}</td>
+                                                <td class="px-3 py-2 text-right tabular-nums text-slate-700">{{ $item->atp_unit_price !== null ? '₱'.number_format((float) $item->atp_unit_price, 2) : '—' }}</td>
+                                                <td class="px-3 py-2 text-right font-medium tabular-nums text-slate-900">{{ $item->atp_amount !== null ? '₱'.number_format((float) $item->atp_amount, 2) : '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-sm text-slate-500">No items on this ATP.</p>
+                        @endif
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-medium text-slate-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</span>
-                        <a href="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">View ATP</a>
-                    </div>
-                </div>
+                </details>
             @empty
                 <p class="px-4 py-6 text-sm text-slate-500">No ATPs linked.</p>
             @endforelse

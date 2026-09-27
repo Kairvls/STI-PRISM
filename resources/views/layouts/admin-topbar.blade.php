@@ -26,6 +26,30 @@
                 request()->is('admin/profile*') => ['Profile Settings', 'Update your Administrator account details.'],
                 request()->is('admin/security*') => ['Security Settings', 'Manage your password and account security.'],
                 request()->is('admin/settings*') => ['System Settings', 'Campus setup and system configuration.'],
+                request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', 'Review and process equipment replacement requests.'],
+                request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slip documents.'],
+                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare and track ATP documents.'],
+                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
+                request()->is('purchaser/request-check*') => ['Request for Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
+                request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
+                request()->is('purchaser/procurement-records*') => ['Procurement Records', 'Completed procurement packages and their documents.'],
+                request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
+                request()->is('purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*') => ['File Maintenance', 'Brands, units of measure and item categories.'],
+                request()->is('maintenance/reporters/approvals*') => ['Reporter Approvals', 'Confirm faculty and staff applications before they can report.'],
+                request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
+                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Official faculty and staff list used to verify reporter applications.'],
+                request()->is('maintenance/departments*') => ['Departments', 'Offices and units that people belong to.'],
+                request()->is('maintenance/property-assignments') => ['Property Assignment', 'Who is accountable for each item, by person or office.'],
+                request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
+                request()->is('maintenance/equipment/deployed*') => ['Deployed Equipment', 'Equipment currently placed in classrooms, labs and offices.'],
+                request()->is('maintenance/equipment/all*') => ['All Equipment', 'Full equipment register (storage + deployed).'],
+                request()->is('maintenance/equipment/inventory*') => ['Equipment in Stock', 'Equipment still in storage rooms.'],
+                request()->is('maintenance/equipment/view/*') => [View::yieldContent('title', 'Equipment'), 'Equipment details and history.'],
+                request()->is('maintenance/disposal*') => ['Disposed Equipment', 'Equipment marked for disposal or already disposed.'],
+                request()->is('maintenance/semester-inspections') => ['Semester Inspections', 'Monitor campus-wide equipment checks.'],
+                request()->is('maintenance/semester-inspections/*') => [View::yieldContent('title', 'Campaign'), 'Semester inspection progress.'],
+                request()->is('maintenance/replacement-suggestions*') => ['Replacement Suggestions', 'Assets near or past their useful lifespan.'],
                 default => [View::yieldContent('title', 'PaAyo'), 'Administrator'],
             };
 
@@ -69,6 +93,8 @@
     </div>
 
     <div class="flex items-center gap-2">
+        @include('partials.handover-inbox-chip')
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"

@@ -71,6 +71,8 @@
     </div>
 
     <div class="flex items-center gap-2">
+        @include('partials.handover-inbox-chip')
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"

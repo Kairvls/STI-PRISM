@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
 use App\Support\AtpFormNumber;
+use App\Support\ProcurementPaymentPath;
 use App\Support\ProcurementPortal;
 use App\Support\PurchaseOrderBasket;
+use App\Support\PurchaseOrderFunding;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
@@ -14,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class PurchaseOrderController extends Controller
 {
@@ -58,6 +61,7 @@ class PurchaseOrderController extends Controller
             ->withQueryString();
 
         PurchaseOrderBasket::attachToOrders($orders->getCollection());
+        PurchaseOrderFunding::attachFundingState($orders->getCollection());
 
         $viewPoId = (int) $request->query('view_po', 0);
         $editPoId = (int) $request->query('edit_po', 0);
@@ -72,6 +76,7 @@ class PurchaseOrderController extends Controller
             'editPoId' => $editPoId ?: null,
             'availableAtps' => $availableAtps,
             'maxAtps' => PurchaseOrderBasket::MAX_ATPS,
+            'minAtps' => PurchaseOrderBasket::MIN_ATPS,
             'pp' => ProcurementPortal::prefix(),
             'procurementLayout' => ProcurementPortal::layout(),
         ]);
@@ -163,9 +168,20 @@ class PurchaseOrderController extends Controller
                 ->with('error', 'Could not remove that ATP from the Purchase Order.');
         }
 
+        $released = PurchaseOrderBasket::releaseIfUndersized((int) $id);
+        $message = $released !== []
+            ? 'ATP removed. Only one ATP was left, so it was taken off the Purchase Order and can be submitted directly to Accounting.'
+            : 'ATP removed from Purchase Order.';
+
+        if (! DB::table('purchase_orders_table')->where('purchase_order_id', $id)->exists()) {
+            return redirect()
+                ->route(ProcurementPortal::routeName('atp.index'))
+                ->with('success', $message);
+        }
+
         return redirect()
             ->route(ProcurementPortal::routeName('purchase-orders.index'), ['edit_po' => $id])
-            ->with('success', 'ATP removed from Purchase Order.');
+            ->with('success', $message);
     }
 
     public function submit($id)
@@ -186,8 +202,11 @@ class PurchaseOrderController extends Controller
             }
 
             $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
-            if ($atpIds === []) {
-                return back()->with('error', 'Add at least one ATP before submitting the Purchase Order.');
+            if (count($atpIds) < PurchaseOrderBasket::MIN_ATPS) {
+                return back()->with(
+                    'error',
+                    'A Purchase Order needs at least '.PurchaseOrderBasket::MIN_ATPS.' ATPs. Submit a single ATP directly to Accounting from Authority to Purchase.'
+                );
             }
 
             if (count($atpIds) > PurchaseOrderBasket::MAX_ATPS) {
@@ -266,61 +285,32 @@ class PurchaseOrderController extends Controller
         });
     }
 
-    public function cancel(Request $request, $id)
+    public function paymentPath(Request $request, $id)
     {
+        $order = $this->findOwnedOrder($id);
+        abort_if(! $order, 404);
+
         $validated = $request->validate([
-            'cancel_reason' => ['required', 'string', 'max:2000'],
+            'payment_path' => ['required', Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE])],
         ]);
+        $path = $validated['payment_path'];
 
-        return DB::transaction(function () use ($id, $validated) {
-            $order = DB::table('purchase_orders_table')
-                ->where('purchase_order_id', $id)
-                ->lockForUpdate()
-                ->first();
+        if ($error = PurchaseOrderFunding::setPaymentPath((int) $id, $path)) {
+            return ProcurementPortal::redirect('purchase-orders.index', ['view_po' => $id])->with('error', $error);
+        }
 
-            abort_if(! $order, 404);
-            $this->assertOwnsOrder($order);
+        $groups = PurchaseOrderFunding::fundingGroups($path, (int) $id);
+        $label = ProcurementPaymentPath::label($path);
+        $message = $path === ProcurementPaymentPath::CASH_ADVANCE
+            ? "Payment path set to {$label}. Create one Cash Advance for the whole Purchase Order."
+            : "Payment path set to {$label}. Create one Request for Check per supplier (".count($groups).').';
 
-            $status = (string) ($order->purchase_order_status ?? '');
-            if (! in_array($status, [
-                PurchaseOrderBasket::STATUS_DRAFT,
-                PurchaseOrderBasket::STATUS_SUBMITTED,
-            ], true)) {
-                return back()->with('error', 'Only draft or submitted Purchase Orders can be cancelled.');
-            }
+        $params = ['funding_type' => $path];
+        if ($groups !== []) {
+            $params['selected_source'] = $groups[0]['key'];
+        }
 
-            $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
-            $now = now();
-            $reason = trim($validated['cancel_reason']);
-            $label = PurchaseOrderBasket::displayNumber($order);
-
-            DB::table('purchase_orders_table')
-                ->where('purchase_order_id', $id)
-                ->update([
-                    'purchase_order_status' => PurchaseOrderBasket::STATUS_CANCELLED,
-                    'purchase_order_submitted_at' => null,
-                    'purchase_order_revision_reason' => $reason,
-                    'purchase_order_updated_at' => $now,
-                ]);
-
-            // Keep ATP links for history, but return ATPs to editable drafts.
-            foreach ($atpIds as $atpId) {
-                DB::table('authority_to_purchase_table')
-                    ->where('authority_purchase_id', $atpId)
-                    ->update([
-                        'authority_purchase_status' => 'Pending',
-                        'authority_purchase_submitted_at' => null,
-                        'authority_purchase_rejection_reason' => 'PO cancelled: '.$reason,
-                        'authority_purchase_updated_at' => $now,
-                    ]);
-            }
-
-            $this->logPoHistory((int) $id, 'Cancelled', $reason);
-
-            return redirect()
-                ->route(ProcurementPortal::routeName('purchase-orders.index'), ['view_po' => $id])
-                ->with('success', $label.' cancelled and kept on record.');
-        });
+        return ProcurementPortal::redirect('rfc.index', $params)->with('success', $message);
     }
 
     public function archive($id)
@@ -503,26 +493,5 @@ class PurchaseOrderController extends Controller
         }
 
         return null;
-    }
-
-    private function logPoHistory(int $id, string $status, ?string $remarks = null): void
-    {
-        if (! Schema::hasTable('approval_logs_table')) {
-            return;
-        }
-
-        try {
-            DB::table('approval_logs_table')->insert([
-                'approval_log_reference_type' => 'PO',
-                'approval_log_reference_id' => $id,
-                'approval_log_level' => 'Purchaser',
-                'approval_log_approved_by' => Auth::id(),
-                'approval_log_approval_status' => $status,
-                'approval_log_approval_remarks' => $remarks,
-                'approval_log_approved_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-            // Keep cancel flow resilient if audit table shape differs.
-        }
     }
 }

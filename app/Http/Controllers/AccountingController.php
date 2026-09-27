@@ -14,6 +14,7 @@ use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\PurchaseOrderBasket;
+use App\Support\RfcAtpLinks;
 
 class AccountingController extends Controller
 {
@@ -350,7 +351,10 @@ class AccountingController extends Controller
 
         $chain = $this->chainFromAtp((int) $id);
         $history = $this->documentHistory('ATP', (int) $id);
-        $reviewable = $atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at !== null;
+        $purchaseOrder = $this->purchaseOrderForAtp((int) $id);
+        $reviewable = $atp->authority_purchase_status === 'Pending'
+            && $atp->authority_purchase_submitted_at !== null
+            && ! $this->atpReviewedViaPurchaseOrder($purchaseOrder);
         $returnStatus = $this->resolveReturnStatus($request, 'accounting.atp_status', 'incoming');
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
@@ -362,8 +366,42 @@ class AccountingController extends Controller
             'history',
             'reviewable',
             'returnStatus',
-            'savedSignatures'
+            'savedSignatures',
+            'purchaseOrder'
         ));
+    }
+
+    private function purchaseOrderForAtp(int $atpId): ?object
+    {
+        if (! PurchaseOrderBasket::tablesExist()) {
+            return null;
+        }
+
+        $poId = PurchaseOrderBasket::poIdForAtp($atpId);
+
+        return $poId ? DB::table('purchase_orders_table')->where('purchase_order_id', $poId)->first() : null;
+    }
+
+    private function atpReviewedViaPurchaseOrder(?object $order): bool
+    {
+        return $order && in_array((string) $order->purchase_order_status, [
+            PurchaseOrderBasket::STATUS_SUBMITTED,
+            PurchaseOrderBasket::STATUS_APPROVED,
+        ], true);
+    }
+
+    private function purchaseOrderDecisionBlock(Request $request, int $atpId)
+    {
+        $order = $this->purchaseOrderForAtp($atpId);
+        if (! $this->atpReviewedViaPurchaseOrder($order)) {
+            return null;
+        }
+
+        $message = 'This ATP is part of '.PurchaseOrderBasket::displayNumber($order).'. Approve or send back the whole Purchase Order instead.';
+
+        return $request->expectsJson()
+            ? response()->json(['ok' => false, 'message' => $message], 422)
+            : back()->with('error', $message);
     }
 
     /**
@@ -453,6 +491,10 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
+        if ($blocked = $this->purchaseOrderDecisionBlock($request, (int) $id)) {
+            return $blocked;
+        }
+
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
         $update = [
             'authority_purchase_status' => 'Approved',
@@ -500,6 +542,10 @@ class AccountingController extends Controller
 
         if ($atp->authority_purchase_status !== 'Pending' || $atp->authority_purchase_submitted_at === null) {
             return back()->with('error', 'Only submitted ATP records can be sent back for revision.');
+        }
+
+        if ($blocked = $this->purchaseOrderDecisionBlock($request, (int) $id)) {
+            return $blocked;
         }
 
         DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
@@ -605,7 +651,16 @@ class AccountingController extends Controller
 
         $reviewable = ($order->purchase_order_status ?? '') === PurchaseOrderBasket::STATUS_SUBMITTED;
 
-        return view('accounting.purchase-orders.show', compact('order', 'reviewable'));
+        $atpIds = collect($order->linked_atps ?? [])->pluck('authority_purchase_id')->all();
+        $atpItems = $atpIds !== [] && Schema::hasTable('authority_to_purchase_items_table')
+            ? DB::table('authority_to_purchase_items_table')
+                ->whereIn('authority_purchase_id', $atpIds)
+                ->orderBy('atp_item_id')
+                ->get()
+                ->groupBy('authority_purchase_id')
+            : collect();
+
+        return view('accounting.purchase-orders.show', compact('order', 'reviewable', 'atpItems'));
     }
 
     public function approvePurchaseOrder(Request $request, $id)
@@ -832,11 +887,29 @@ class AccountingController extends Controller
 
         $atpItems = collect();
         $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
-        if ($atpId > 0 && Schema::hasTable('authority_to_purchase_items_table')) {
+        $linkedAtpIds = RfcAtpLinks::atpIdsFor((int) $id, $atpId ?: null);
+        $linkedAtps = $linkedAtpIds === []
+            ? collect()
+            : DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_id', $linkedAtpIds)
+                ->get(['authority_purchase_id', 'authority_purchase_form_number', 'authority_purchase_status'])
+                ->sortBy(fn ($atp) => array_search((int) $atp->authority_purchase_id, $linkedAtpIds, true))
+                ->values();
+        if ($linkedAtpIds !== [] && Schema::hasTable('authority_to_purchase_items_table')) {
+            $labels = $linkedAtps->mapWithKeys(fn ($atp) => [(int) $atp->authority_purchase_id => PurchaseOrderBasket::atpListLabel($atp)]);
             $atpItems = DB::table('authority_to_purchase_items_table')
-                ->where('authority_purchase_id', $atpId)
+                ->whereIn('authority_purchase_id', $linkedAtpIds)
+                ->orderBy('authority_purchase_id')
                 ->orderBy('atp_item_id')
-                ->get();
+                ->get()
+                ->each(function ($item) use ($labels) {
+                    $item->atp_label = $labels[(int) $item->authority_purchase_id] ?? null;
+                });
+        }
+        $purchaseOrderLabel = null;
+        if (!empty($rfc->request_check_purchase_order_id) && PurchaseOrderBasket::tablesExist()) {
+            $order = DB::table('purchase_orders_table')->where('purchase_order_id', $rfc->request_check_purchase_order_id)->first();
+            $purchaseOrderLabel = $order ? PurchaseOrderBasket::displayNumber($order) : null;
         }
 
         $chain = $this->chainFromAtp($atpId);
@@ -853,6 +926,8 @@ class AccountingController extends Controller
             'rfc',
             'attachments',
             'atpItems',
+            'linkedAtps',
+            'purchaseOrderLabel',
             'chain',
             'history',
             'reviewable',
@@ -1132,11 +1207,11 @@ class AccountingController extends Controller
         $atpId = 0;
         if (!empty($liq->liquidation_report_receiving_report_id) && Schema::hasTable('receiving_reports_table')) {
             $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $liq->liquidation_report_receiving_report_id)->first();
-            if ($rr && Schema::hasTable('request_check_table') && !empty($rr->receiving_report_request_check_id)) {
+            if ($rr && !empty($rr->receiving_report_atp_id)) {
+                $atpId = (int) $rr->receiving_report_atp_id;
+            } elseif ($rr && Schema::hasTable('request_check_table') && !empty($rr->receiving_report_request_check_id)) {
                 $rfc = DB::table('request_check_table')->where('request_check_id', $rr->receiving_report_request_check_id)->first();
                 $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
-            } elseif ($rr && !empty($rr->receiving_report_atp_id)) {
-                $atpId = (int) $rr->receiving_report_atp_id;
             } elseif ($rr) {
                 $atpId = (int) ($rr->receiving_report_authority_purchase_id ?? $rr->authority_purchase_id ?? 0);
             }
@@ -2027,10 +2102,7 @@ class AccountingController extends Controller
         }
 
         if (Schema::hasTable('request_check_table')) {
-            $rfc = DB::table('request_check_table')
-                ->where('request_check_authority_purchase_id', $atpId)
-                ->orderByDesc('request_check_id')
-                ->first();
+            $rfc = RfcAtpLinks::latestRfcForAtp($atpId);
             if ($rfc) {
                 $chain['rfc'] = [
                     'label' => $rfc->request_check_form_number ?: ('RFC #' . $rfc->request_check_id),
@@ -2046,9 +2118,13 @@ class AccountingController extends Controller
                 if (Schema::hasTable('receiving_reports_table')) {
                     $rr = DB::table('receiving_reports_table')
                         ->where(function ($q) use ($rfc, $atpId) {
-                            $q->where('receiving_report_request_check_id', $rfc->request_check_id);
                             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
-                                $q->orWhere('receiving_report_atp_id', $atpId);
+                                $q->where(function ($own) use ($rfc) {
+                                    $own->where('receiving_report_request_check_id', $rfc->request_check_id)
+                                        ->whereNull('receiving_report_atp_id');
+                                })->orWhere('receiving_report_atp_id', $atpId);
+                            } else {
+                                $q->where('receiving_report_request_check_id', $rfc->request_check_id);
                             }
                         })
                         ->orderByDesc('receiving_report_id')

@@ -44,7 +44,8 @@
                     $typeLabel = match ((string) ($event->type ?? '')) {
                         'filed' => 'This ticket',
                         'item_status' => 'Item update',
-                        'past_report' => 'Earlier report',
+                        'past_report' => 'Other report',
+                        'past_outcome' => 'Outcome',
                         default => null,
                     };
                 @endphp

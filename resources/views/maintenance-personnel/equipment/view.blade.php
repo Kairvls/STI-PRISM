@@ -88,6 +88,12 @@
                             <i data-lucide="map-pin" class="h-4 w-4"></i>
                             {{ $na($equipment->room_name) }}
                         </span>
+                        @if ($propertyAssignment)
+                            <a href="#property-assignment" class="inline-flex items-center gap-2 text-teal-700 hover:underline">
+                                <i data-lucide="user-round-check" class="h-4 w-4"></i>
+                                {{ $propertyAssignment->custodian_full_name ?? 'Assigned' }}
+                            </a>
+                        @endif
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -257,49 +263,102 @@
                         </div>
                         <i data-lucide="git-branch" class="h-5 w-5 text-slate-400"></i>
                     </div>
-                    @php $lp = $lifecycleProfile ?? null; @endphp
+                    @php
+                        $lp = $lifecycleProfile ?? null;
+                        $acqSource = $lp['acquisition_source'] ?? null;
+                        $isProcured = $acqSource === \App\Support\EquipmentAcquisition::PROCUREMENT
+                            || filled($lp['receiving_report_number'] ?? null)
+                            || filled($lp['purchase_order_number'] ?? null);
+                        $isManualSource = filled($acqSource) && ! $isProcured;
+                        $notRecorded = ! $isProcured && ! $isManualSource;
+                        $stockedMeta = array_filter([
+                            $lp['stocked_by_name'] ?? null,
+                            $lp['tracking_mode'] ?? null,
+                            ! empty($lp['stock_lot_code']) ? 'Lot '.$lp['stock_lot_code'] : null,
+                        ]);
+                    @endphp
+                    @if ($notRecorded)
+                        <div class="mx-6 mt-5 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                            <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                            <p>
+                                This item was added without a Receiving Report or an acquisition source, so procurement details are blank.
+                                Fill them in from <span class="font-semibold">Inventory → Edit → More details → Acquisition</span>.
+                            </p>
+                        </div>
+                    @endif
                     <div class="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Supplier</p>
-                            <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['supplier_name'] ?? null) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase order</p>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Acquired via</p>
                             <p class="mt-1 font-semibold text-slate-900">
-                                {{ $na($lp['purchase_order_number'] ?? null) }}
-                                @if (!empty($lp['purchase_order_date']))
-                                    <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
-                                @endif
+                                {{ $isProcured ? \App\Support\EquipmentAcquisition::sourceLabel(\App\Support\EquipmentAcquisition::PROCUREMENT) : $na($lp['acquisition_source_label'] ?? null) }}
                             </p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">ATP / RIS</p>
-                            <p class="mt-1 font-semibold text-slate-900">
-                                {{ $lp['atp_number'] ?? '—' }}
-                                <span class="text-slate-300">/</span>
-                                {{ $lp['ris_number'] ?? '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received (RR)</p>
-                            <p class="mt-1 font-semibold text-slate-900">
-                                {{ $na($lp['receiving_report_number'] ?? null) }}
-                                @if (!empty($lp['receiving_report_date']))
-                                    <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['receiving_report_date']) }}</span>
-                                @endif
-                            </p>
-                            @if (!empty($lp['received_by']))
-                                <p class="mt-0.5 text-xs text-slate-500">By {{ $lp['received_by'] }}</p>
+                            @if (!empty($lp['acquisition_notes']))
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $lp['acquisition_notes'] }}</p>
                             @endif
                         </div>
                         <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ $acqSource === 'donation' ? 'Donor' : 'Supplier' }}</p>
+                            <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['supplier_name'] ?? null) }}</p>
+                        </div>
+                        @if ($isManualSource)
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Reference no.</p>
+                                <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['reference_number'] ?? null) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received</p>
+                                <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? null) }}</p>
+                                <p class="mt-0.5 text-xs text-slate-500">No RR / PO — not procured through PRISM</p>
+                            </div>
+                        @else
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase order</p>
+                                <p class="mt-1 font-semibold text-slate-900">
+                                    {{ $na($lp['purchase_order_number'] ?? null) }}
+                                    @if (!empty($lp['purchase_order_date']))
+                                        <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">ATP / RIS</p>
+                                <p class="mt-1 font-semibold text-slate-900">
+                                    {{ $lp['atp_number'] ?? '—' }}
+                                    <span class="text-slate-300">/</span>
+                                    {{ $lp['ris_number'] ?? '—' }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received (RR)</p>
+                                <p class="mt-1 font-semibold text-slate-900">
+                                    {{ $na($lp['receiving_report_number'] ?? null) }}
+                                    @if (!empty($lp['receiving_report_date']))
+                                        <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['receiving_report_date']) }}</span>
+                                    @endif
+                                </p>
+                                @if (!empty($lp['received_by']))
+                                    <p class="mt-0.5 text-xs text-slate-500">By {{ $lp['received_by'] }}</p>
+                                @endif
+                            </div>
+                        @endif
+                        <div>
                             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Stocked</p>
                             <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? $equipment->equipment_acquired_date ?? null) }}</p>
-                            <p class="mt-0.5 text-xs text-slate-500">
-                                {{ $lp['stocked_by_name'] ?? '—' }}
-                                @if (!empty($lp['tracking_mode'])) · {{ $lp['tracking_mode'] }} @endif
-                                @if (!empty($lp['stock_lot_code'])) · Lot {{ $lp['stock_lot_code'] }} @endif
-                            </p>
+                            @if ($stockedMeta)
+                                <p class="mt-0.5 text-xs text-slate-500">{{ implode(' · ', $stockedMeta) }}</p>
+                            @endif
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Deployed</p>
+                            @if (!empty($lp['deployed_at']))
+                                <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['deployed_at']) }}</p>
+                                @if (!empty($lp['deployed_room']))
+                                    <p class="mt-0.5 text-xs text-slate-500">First placed in {{ $lp['deployed_room'] }}</p>
+                                @endif
+                            @else
+                                <p class="mt-1 font-semibold text-slate-900">Not yet deployed</p>
+                                <p class="mt-0.5 text-xs text-slate-500">Still in storage</p>
+                            @endif
                         </div>
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">QR issued</p>
@@ -362,8 +421,46 @@
                             'maintenance' => 'bg-orange-500',
                             'report' => 'bg-rose-500',
                             'disposal' => 'bg-rose-700',
+                            'assignment' => 'bg-teal-500',
                         ];
                     @endphp
+                    @if (!empty($reportSummary) && ($reportSummary['times_reported'] ?? 0) > 0)
+                        @php
+                            $stateTone = match ($reportSummary['state']) {
+                                'Needs replacement' => 'bg-orange-50 text-orange-700 ring-orange-200',
+                                'Under repair' => 'bg-sky-50 text-sky-700 ring-sky-200',
+                                'Malfunction reported' => 'bg-rose-50 text-rose-700 ring-rose-200',
+                                default => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                            };
+                        @endphp
+                        <div class="grid grid-cols-2 gap-3 border-b border-slate-100 px-6 py-4 sm:grid-cols-4">
+                            <div>
+                                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Right now</p>
+                                <span class="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $stateTone }}">
+                                    {{ $reportSummary['state'] }}
+                                </span>
+                                @if (($reportSummary['open_count'] ?? 0) > 1)
+                                    <p class="mt-1 text-xs text-rose-600">{{ $reportSummary['open_count'] }} open tickets</p>
+                                @endif
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Times reported</p>
+                                <p class="mt-1 text-lg font-semibold text-slate-900">{{ $reportSummary['times_reported'] }}</p>
+                                <p class="text-xs text-slate-500">Last: {{ $formatDate($reportSummary['last_reported_at']) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Times fixed</p>
+                                <p class="mt-1 text-lg font-semibold text-slate-900">{{ $reportSummary['times_fixed'] }}</p>
+                                <p class="text-xs text-slate-500">Last: {{ $reportSummary['last_fixed_at'] ? $formatDate($reportSummary['last_fixed_at']) : '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Replacement</p>
+                                <p class="mt-1 text-sm font-semibold {{ $reportSummary['replacement'] ? 'text-orange-700' : 'text-slate-900' }}">
+                                    {{ $reportSummary['replacement'] ? 'Needed' : 'Not needed' }}
+                                </p>
+                            </div>
+                        </div>
+                    @endif
                     @if (!empty($counts))
                         <div class="flex flex-wrap gap-2 border-b border-slate-100 px-6 py-3">
                             @foreach ($counts as $type => $count)
@@ -380,7 +477,7 @@
                                 @if (! $loop->last)
                                     <span class="absolute left-[7px] top-4 bottom-0 w-px bg-slate-200"></span>
                                 @endif
-                                <span class="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ring-white {{ $typeColors[$event['type'] ?? ''] ?? 'bg-slate-400' }}"></span>
+                                <span class="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ring-white {{ $event['meta']['dot'] ?? ($typeColors[$event['type'] ?? ''] ?? 'bg-slate-400') }}"></span>
                                 <div class="min-w-0 flex-1">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <p class="text-sm font-semibold text-slate-900">{{ $event['title'] ?? 'Event' }}</p>
@@ -447,6 +544,8 @@
                         </div>
                     </div>
                 </section>
+
+                @include('maintenance-personnel.equipment.partials.property-assignment-panel')
 
                 @if (filled($equipment->equipment_image))
                     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">

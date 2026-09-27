@@ -7,6 +7,7 @@
 
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\DraftHandoverController;
 use App\Http\Controllers\FileMaintenanceController;
 use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
@@ -107,7 +108,7 @@ Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'
 Route::post('/purchase-orders/{id}/attach', [PurchaseOrderController::class, 'attach'])->name('purchase-orders.attach');
 Route::post('/purchase-orders/{id}/detach', [PurchaseOrderController::class, 'detach'])->name('purchase-orders.detach');
 Route::post('/purchase-orders/{id}/submit', [PurchaseOrderController::class, 'submit'])->name('purchase-orders.submit');
-Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+Route::post('/purchase-orders/{id}/payment-path', [PurchaseOrderController::class, 'paymentPath'])->name('purchase-orders.payment-path');
 Route::post('/purchase-orders/{id}/archive', [PurchaseOrderController::class, 'archive'])->name('purchase-orders.archive');
 Route::post('/purchase-orders/{id}/restore', [PurchaseOrderController::class, 'restore'])->name('purchase-orders.restore');
 
@@ -160,6 +161,18 @@ Route::post('/liquidation-reports/{id}/restore', [LiquidationReportController::c
 Route::get('/liquidation-reports/{id}/attachments/{attachmentId}', [LiquidationReportController::class, 'downloadAttachment'])->name('liq.attachment');
 Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('liq.export-xlsx');
 Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('liq.export-docx');
+
+// =====================================================
+// DRAFT HANDOVER (pass a draft RIS / ATP / PO to a co-worker)
+// =====================================================
+
+Route::post('/handovers', [DraftHandoverController::class, 'store'])->name('handovers.store');
+Route::post('/handovers/{handoverId}/accept', [DraftHandoverController::class, 'accept'])->whereNumber('handoverId')->name('handovers.accept');
+Route::post('/handovers/{handoverId}/decline', [DraftHandoverController::class, 'decline'])->whereNumber('handoverId')->name('handovers.decline');
+Route::post('/handovers/{handoverId}/cancel', [DraftHandoverController::class, 'cancel'])->whereNumber('handoverId')->name('handovers.cancel');
+Route::post('/handovers/{handoverId}/dismiss', [DraftHandoverController::class, 'dismiss'])->whereNumber('handoverId')->name('handovers.dismiss');
+Route::get('/handovers/{handoverId}/preview', [DraftHandoverController::class, 'preview'])->whereNumber('handoverId')->name('handovers.preview');
+
 
 // =====================================================
 // REVIEWER REASSIGN (purchaser only — while in review)

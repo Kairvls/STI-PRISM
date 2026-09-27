@@ -20,6 +20,8 @@ class AdminMiddleware
             abort(403);
         }
 
+        RoleAccess::enterPortal('admin');
+
         return $next($request);
     }
 }

@@ -66,7 +66,7 @@ class RisWorkflowTest extends TestCase
         $forwarded = $this->ris(['ris_status' => 'Forwarded to President']);
         $this->assertTrue(RisWorkflow::isAwaitingPresident($forwarded));
         $this->assertFalse(RisWorkflow::isEligibleForAtp($forwarded));
-        $this->assertSame('Forwarded to President', RisWorkflow::statusLabel($forwarded));
+        $this->assertSame('Forwarded to the President by the Administrator', RisWorkflow::statusLabel($forwarded));
     }
 
     public function test_president_reject_label_is_normalized(): void

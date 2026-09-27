@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\MaintenanceReportService;
+use App\Support\EquipmentTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\JsonResponse;
 
 class MobileMaintenanceController extends Controller
@@ -523,6 +525,57 @@ class MobileMaintenanceController extends Controller
 
             'recent_history' => $history,
 
+        ]);
+    }
+
+    // =====================================================
+    // FULL EQUIPMENT PROFILE (view-only, mirrors web asset details)
+    // =====================================================
+
+    public function equipmentProfile($id): JsonResponse
+    {
+        $timeline = EquipmentTimeline::forEquipment((int) $id);
+        $profile = $timeline['equipment'] ?? null;
+
+        if (! $profile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Equipment not found.',
+            ], 404);
+        }
+
+        $events = collect($timeline['events'] ?? []);
+        $transfers = $events->where('type', 'transfer')->values();
+        $maintenance = $events->where('type', 'maintenance')->values();
+        $disposal = $events->where('type', 'disposal')->first();
+
+        $roomId = DB::table('equipment_table')
+            ->where('equipment_id', (int) $id)
+            ->value('equipment_room_id');
+
+        $deployedAt = $profile['acquired_date'] ?: $profile['created_at'];
+        if ($roomId && Schema::hasTable('equipment_transfer_history_table')) {
+            $intoCurrent = DB::table('equipment_transfer_history_table')
+                ->where('equipment_id', (int) $id)
+                ->where('to_room_id', $roomId)
+                ->orderByDesc('created_at')
+                ->value('created_at');
+            if ($intoCurrent) {
+                $deployedAt = $intoCurrent;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'equipment' => $profile,
+            'lifecycle' => [
+                'deployed_at' => $deployedAt,
+                'last_moved_at' => data_get($transfers->first(), 'occurred_at'),
+                'last_maintenance_at' => data_get($maintenance->first(), 'occurred_at'),
+                'disposed_at' => data_get($disposal, 'occurred_at'),
+            ],
+            'events' => $events->all(),
+            'counts' => $timeline['counts'] ?? [],
         ]);
     }
 

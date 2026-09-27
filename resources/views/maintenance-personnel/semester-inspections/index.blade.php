@@ -5,9 +5,11 @@
 @section('content')
 @php
     $tablesMissing = $tablesMissing ?? false;
+    $canManage = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
 @endphp
 
 <div class="space-y-6">
+    @if ($canManage)
     <div class="flex justify-end">
         <a
             href="{{ url('/maintenance/semester-inspections/create') }}"
@@ -17,6 +19,7 @@
             New campaign
         </a>
     </div>
+    @endif
 
     @if ($tablesMissing)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
@@ -130,6 +133,7 @@
                             <i data-lucide="clipboard-list" class="h-6 w-6"></i>
                         </div>
                         <p class="mt-4 text-sm font-semibold text-slate-900">No semester inspections yet</p>
+                        @if ($canManage)
                         <p class="mt-1 text-sm text-slate-500">Create a campaign to check all school equipment for the semester.</p>
                         <a
                             href="{{ url('/maintenance/semester-inspections/create') }}"
@@ -138,6 +142,9 @@
                             <i data-lucide="plus" class="h-4 w-4"></i>
                             Create campaign
                         </a>
+                        @else
+                        <p class="mt-1 text-sm text-slate-500">Campaigns started by Maintenance will appear here.</p>
+                        @endif
                     </div>
                 @endforelse
             </div>

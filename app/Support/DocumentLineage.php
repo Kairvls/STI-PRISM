@@ -56,18 +56,18 @@ class DocumentLineage
         return self::extendFromAtp($chain, $atp);
     }
 
-    public static function forRfc(int $rfcId): array
+    /**
+     * @param  int|null  $atpId  For a funding request covering several ATPs, the ATP to trace.
+     */
+    public static function forRfc(int $rfcId, ?int $atpId = null): array
     {
         $rfc = DB::table('request_check_table')->where('request_check_id', $rfcId)->first();
         if (!$rfc) {
             return self::emptyChain();
         }
 
-        if (!empty($rfc->request_check_authority_purchase_id)) {
-            $chain = self::forAtp((int) $rfc->request_check_authority_purchase_id);
-        } else {
-            $chain = self::emptyChain();
-        }
+        $atpId = $atpId ?: ((int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null);
+        $chain = $atpId ? self::forAtp($atpId) : self::emptyChain();
 
         $chain['rfc'] = self::node(
             'RFC',
@@ -77,7 +77,7 @@ class DocumentLineage
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
 
-        return self::extendFromRfc($chain, $rfc);
+        return self::extendFromRfc($chain, $rfc, $atpId);
     }
 
     public static function forRr(int $rrId): array
@@ -88,7 +88,10 @@ class DocumentLineage
         }
 
         if (!empty($rr->receiving_report_request_check_id)) {
-            $chain = self::forRfc((int) $rr->receiving_report_request_check_id);
+            $chain = self::forRfc(
+                (int) $rr->receiving_report_request_check_id,
+                (int) ($rr->receiving_report_atp_id ?? 0) ?: null
+            );
         } else {
             $chain = self::emptyChain();
         }
@@ -237,19 +240,16 @@ class DocumentLineage
             self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
         );
 
-        $rfc = DB::table('request_check_table')
-            ->where('request_check_authority_purchase_id', $atp->authority_purchase_id)
-            ->orderByDesc('request_check_id')
-            ->first();
+        $rfc = RfcAtpLinks::latestRfcForAtp((int) $atp->authority_purchase_id);
 
         if ($rfc) {
-            return self::extendFromRfc($chain, $rfc);
+            return self::extendFromRfc($chain, $rfc, (int) $atp->authority_purchase_id);
         }
 
         return $chain;
     }
 
-    private static function extendFromRfc(array $chain, object $rfc): array
+    private static function extendFromRfc(array $chain, object $rfc, ?int $atpId = null): array
     {
         $chain['rfc'] = self::node(
             'RFC',
@@ -262,6 +262,15 @@ class DocumentLineage
         $rrQuery = DB::table('receiving_reports_table');
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')) {
             $rrQuery->where('receiving_report_request_check_id', $rfc->request_check_id);
+            if ($atpId && Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
+                $isPrimary = (int) ($rfc->request_check_authority_purchase_id ?? 0) === $atpId;
+                $rrQuery->where(function ($q) use ($atpId, $isPrimary) {
+                    $q->where('receiving_report_atp_id', $atpId);
+                    if ($isPrimary) {
+                        $q->orWhereNull('receiving_report_atp_id');
+                    }
+                });
+            }
         } elseif (Schema::hasColumn('request_check_table', 'request_check_receiving_report_id') && !empty($rfc->request_check_receiving_report_id)) {
             $rrQuery->where('receiving_report_id', $rfc->request_check_receiving_report_id);
         } else {

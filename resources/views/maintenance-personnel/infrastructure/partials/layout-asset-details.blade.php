@@ -67,6 +67,31 @@
         <span class="text-slate-400">Zone</span>
         <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location || '—'"></span>
     </div>
+    <div class="border-b border-slate-50 py-3">
+        <div class="flex items-center justify-between gap-3">
+            <span class="text-slate-400">Accountable person</span>
+            <template x-if="selectedLayoutAsset()?.custodian">
+                <a
+                    :href="selectedLayoutAsset()?.custodian?.person_url"
+                    class="max-w-[60%] truncate text-right font-medium text-slate-800 hover:underline"
+                    x-text="selectedLayoutAsset()?.custodian?.name || 'Assigned'"
+                ></a>
+            </template>
+            <template x-if="!selectedLayoutAsset()?.custodian">
+                <span class="font-medium text-slate-400">None</span>
+            </template>
+        </div>
+        <p
+            x-show="selectedLayoutAsset()?.custodian"
+            class="mt-1 text-right text-[11px] text-slate-400"
+            x-text="[selectedLayoutAsset()?.custodian?.employee_id, selectedLayoutAsset()?.custodian?.document_no, selectedLayoutAsset()?.custodian?.since ? 'since ' + formatLayoutDate(selectedLayoutAsset()?.custodian?.since) : null].filter(Boolean).join(' · ')"
+        ></p>
+        <a
+            :href="(selectedLayoutAsset()?.view_url || ('/maintenance/equipment/view/' + selectedLayoutAsset()?.id)) + '#property-assignment'"
+            class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0025cc] hover:underline"
+            x-text="selectedLayoutAsset()?.custodian ? 'Transfer or return' : 'Assign to a person'"
+        ></a>
+    </div>
 
     <div class="border-b border-slate-50 py-3">
         <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Lifecycle</p>

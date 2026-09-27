@@ -36,6 +36,10 @@ class Equipment extends Model
 
         'equipment_purchase_date',
 
+        'equipment_acquired_date',
+
+        'equipment_stocked_by',
+
         'equipment_warranty_expiration',
 
         'equipment_useful_life_years',

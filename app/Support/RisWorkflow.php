@@ -50,6 +50,21 @@ class RisWorkflow
     }
 
     /**
+     * Must be applied before any other ordering so it becomes the primary sort key.
+     */
+    public static function orderUrgentFirst($query, string $table = 'requisition_issue_slip_table')
+    {
+        if (Schema::hasColumn($table, 'ris_urgency')) {
+            $query->orderByRaw(
+                "CASE WHEN TRIM({$table}.ris_urgency) = ? THEN 0 ELSE 1 END",
+                [self::URGENCY_URGENT]
+            );
+        }
+
+        return $query;
+    }
+
+    /**
      * Display / stored RIS "No." value (RIS-YYYYMM-0000000).
      * Prefers the saved form number; otherwise builds a display fallback from id + month.
      *
@@ -290,7 +305,7 @@ class RisWorkflow
         }
 
         if ($status === self::FORWARDED || ($status === self::APPROVED_LEGACY && !self::presidentDigitalSignature($ris))) {
-            return self::FORWARDED;
+            return 'Forwarded to the President by the Administrator';
         }
 
         if (in_array($status, ['Minor Revision', 'Rejected'], true)) {

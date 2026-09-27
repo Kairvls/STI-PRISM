@@ -118,6 +118,17 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                 <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $urgencyPill }}">
                     {{ $report->report_urgency_level }}
                 </span>
+                @if ((int) ($report->repeat_flagged_count ?? 0) > 0)
+                    <button
+                        type="button"
+                        onclick="event.stopPropagation(); openReportItemsHighlight({{ $report->report_id }})"
+                        data-tooltip="{{ (int) $report->repeat_flagged_count }} equipment on this ticket were reported before and are still waiting"
+                        class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-600 hover:text-white"
+                    >
+                        <i data-lucide="alert-triangle" class="h-3 w-3"></i>
+                        Reported before
+                    </button>
+                @endif
             </div>
         </div>
 

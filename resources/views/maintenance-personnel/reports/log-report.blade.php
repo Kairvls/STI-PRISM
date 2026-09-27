@@ -1177,7 +1177,7 @@
                     if (item.openReportTicket) {
                         const openNote = document.createElement('p');
                         openNote.className = 'mt-0.5 truncate text-xs text-slate-500';
-                        openNote.textContent = 'Open report ' + item.openReportTicket + ' — submit will add your update there.';
+                        openNote.textContent = 'Already reported in ' + item.openReportTicket + ' — it will be flagged as priority on the new ticket.';
                         row.querySelector('.min-w-0').appendChild(openNote);
                     }
                     row.querySelector('button').addEventListener('click', function () {

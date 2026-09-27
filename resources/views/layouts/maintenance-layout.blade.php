@@ -5,16 +5,20 @@
 @section ("main-bg", "bg-white")
 @section ("main-pad", "px-8 pb-8 pt-5")
 
+@php
+    $adminShell = \App\Support\RoleAccess::adminShell();
+@endphp
+
 @section ("sidebar")
     @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
         <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
     @endif
-    @include ("layouts.maintenance-sidebar")
+    @include ($adminShell ? "layouts.admin-sidebar" : "layouts.maintenance-sidebar")
 
 @endsection
 
 @section ("topbar")
-    @include ("layouts.maintenance-topbar")
+    @include ($adminShell ? "layouts.admin-topbar" : "layouts.maintenance-topbar")
 
 @endsection
 
@@ -446,6 +450,7 @@
     (function () {
         const ITEM_H = 40;
         const MAX_VISIBLE = 5;
+        const SEARCH_H = 48;
         let panel = null;
         let openSelect = null;
         let uid = 0;
@@ -510,11 +515,12 @@
             }
 
             const rect = select.getBoundingClientRect();
+            const searchH = select.dataset.searchable === '1' ? SEARCH_H : 0;
             const count = Math.min(select.options.length, MAX_VISIBLE);
-            const height = count * ITEM_H + 8;
+            const height = count * ITEM_H + 8 + searchH;
             const width = Math.max(rect.width, 160);
             panel.style.width = width + 'px';
-            panel.style.maxHeight = (MAX_VISIBLE * ITEM_H + 8) + 'px';
+            panel.style.maxHeight = (MAX_VISIBLE * ITEM_H + 8 + searchH) + 'px';
             panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) + 'px';
 
             const spaceBelow = window.innerHeight - rect.bottom - 8;
@@ -532,13 +538,49 @@
             closeMpSelect();
             select.focus();
 
+            const searchable = select.dataset.searchable === '1';
+
             panel = document.createElement('div');
             panel.setAttribute('data-mp-select-panel', '1');
-            panel.className = 'overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-950/15';
+            panel.className = searchable
+                ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/15'
+                : 'overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-950/15';
             panel.style.position = 'fixed';
             panel.style.zIndex = '2147483646';
 
+            let list = panel;
+            let searchInput = null;
+            if (searchable) {
+                const searchWrap = document.createElement('div');
+                searchWrap.className = 'shrink-0 border-b border-slate-100 p-2';
+                searchInput = document.createElement('input');
+                searchInput.type = 'search';
+                searchInput.placeholder = select.dataset.searchPlaceholder || 'Search…';
+                searchInput.className = 'h-8 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+                searchWrap.appendChild(searchInput);
+                panel.appendChild(searchWrap);
+
+                list = document.createElement('div');
+                list.className = 'min-h-0 flex-1 overflow-y-auto py-1';
+                panel.appendChild(list);
+            }
+
+            const rows = [];
+            let currentGroup = null;
+
             Array.from(select.options).forEach(function (option) {
+                const group = option.parentElement && option.parentElement.tagName === 'OPTGROUP'
+                    ? option.parentElement
+                    : null;
+                if (group && group !== currentGroup) {
+                    const header = document.createElement('div');
+                    header.className = 'px-3.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400';
+                    header.textContent = group.label;
+                    list.appendChild(header);
+                    rows.push({ header: header, group: group });
+                }
+                currentGroup = group;
+
                 const item = document.createElement('button');
                 item.type = 'button';
                 item.className =
@@ -560,12 +602,65 @@
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     closeMpSelect();
                 });
-                panel.appendChild(item);
+                list.appendChild(item);
+                rows.push({
+                    item: item,
+                    group: group,
+                    text: (option.text + ' ' + (group ? group.label : '')).toLowerCase(),
+                });
             });
+
+            if (searchInput) {
+                const empty = document.createElement('p');
+                empty.className = 'hidden px-3.5 py-3 text-sm text-slate-400';
+                empty.textContent = 'No matches';
+                list.appendChild(empty);
+
+                const filter = function () {
+                    const terms = searchInput.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                    const visibleGroups = new Set();
+                    let visible = 0;
+
+                    rows.forEach(function (row) {
+                        if (!row.item) return;
+                        const match = terms.every(function (term) { return row.text.includes(term); });
+                        row.item.classList.toggle('hidden', !match);
+                        if (match) {
+                            visible++;
+                            if (row.group) visibleGroups.add(row.group);
+                        }
+                    });
+                    rows.forEach(function (row) {
+                        if (row.header) row.header.classList.toggle('hidden', !visibleGroups.has(row.group));
+                    });
+                    empty.classList.toggle('hidden', visible > 0);
+                };
+
+                searchInput.addEventListener('input', filter);
+                searchInput.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        const first = rows.find(function (row) {
+                            return row.item && !row.item.disabled && !row.item.classList.contains('hidden');
+                        });
+                        if (first) first.item.click();
+                    } else if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        const first = rows.find(function (row) {
+                            return row.item && !row.item.classList.contains('hidden');
+                        });
+                        if (first) first.item.focus();
+                    }
+                });
+            }
 
             document.body.appendChild(panel);
             placePanel(select);
             openSelect = select;
+
+            if (searchInput) {
+                searchInput.focus();
+            }
 
             panel.addEventListener('wheel', function (event) {
                 event.stopPropagation();
@@ -631,7 +726,7 @@
     })();
 </script>
 
-@include('layouts.partials.maintenance-daily-reminder')
+@include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.maintenance-daily-reminder')
 @include('partials.purchaser-confirm-dialog')
 @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
     @include('partials.purchaser-print-sheet-helper')

@@ -43,6 +43,8 @@
             />
         </div>
 
+        @include('partials.handover-inbox-chip')
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"

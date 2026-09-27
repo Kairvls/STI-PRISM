@@ -59,7 +59,6 @@
         ['label' => 'Condition', 'value' => $na($item->equipment_condition_status ?? null)],
         ['label' => 'Inventory status', 'value' => $na($item->equipment_inventory_status ?? null)],
         ['label' => 'Warranty expiration', 'value' => $na($formatDate($item->equipment_warranty_expiration ?? null))],
-        ['label' => 'Received', 'value' => $na($formatDate($item->equipment_acquired_date ?? null))],
         ['label' => 'Room', 'value' => $na($item->room_name ?? null)],
         ['label' => 'Zone', 'value' => $na($zone)],
         [
@@ -69,20 +68,6 @@
                 : '—',
         ],
     ];
-
-    $purchased = $formatDate($item->equipment_purchase_date ?? null);
-    if ($purchased) {
-        $fullProfileRows[] = ['label' => 'Purchased', 'value' => $purchased];
-    }
-
-    if (isset($item->equipment_purchase_cost) && $item->equipment_purchase_cost !== null && $item->equipment_purchase_cost !== '') {
-        $fullProfileRows[] = [
-            'label' => 'Purchase cost',
-            'value' => is_numeric($item->equipment_purchase_cost)
-                ? '₱'.number_format((float) $item->equipment_purchase_cost, 2)
-                : (string) $item->equipment_purchase_cost,
-        ];
-    }
 
     $isStorageRoom = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
     $fullProfileRows[] = [
@@ -246,6 +231,24 @@
                     </div>
                 @endforeach
             </dl>
+
+            <div
+                class="mt-4"
+                data-eq-procurement
+                data-eq-loaded="0"
+                data-eq-url="/maintenance/equipment/timeline/{{ $equipmentId }}?types=created"
+            >
+                <p class="text-xs text-slate-500">Loading purchase & source…</p>
+            </div>
+
+            <a
+                href="{{ url('/maintenance/equipment/view/'.$equipmentId) }}"
+                target="_blank"
+                class="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0025cc] hover:underline"
+            >
+                Open full equipment page
+                <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+            </a>
         </div>
 
         <div
@@ -399,10 +402,105 @@
 
             if (typeof lucide !== "undefined") lucide.createIcons();
 
-            if (panel === "lifecycle" || panel === "activity") {
+            if (panel === "profile") {
+                await window.loadReportEquipmentProcurement(card);
+            } else if (panel === "lifecycle" || panel === "activity") {
                 await window.loadReportEquipmentLifecyclePanel(card, panel);
             } else if (panel === "maintenance" || panel === "transfers") {
                 await window.loadReportEquipmentPanel(card, panel);
+            }
+        };
+
+        window.loadReportEquipmentProcurement = async function (card) {
+            const body = card.querySelector("[data-eq-procurement]");
+            if (!body || body.getAttribute("data-eq-loaded") === "1") return;
+
+            const esc = function (value) {
+                return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            };
+            const date = window.formatReportEquipmentDate;
+            const joinParts = function (parts) {
+                const filled = parts.filter(function (part) {
+                    return part !== null && part !== undefined && String(part).trim() !== "" && part !== "—";
+                });
+                return filled.length ? filled.join(" · ") : "—";
+            };
+            const section = function (title, rows) {
+                return (
+                    '<p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">' + esc(title) + "</p>" +
+                    '<dl class="mb-4 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">' +
+                    rows
+                        .map(function (row) {
+                            return (
+                                '<div class="flex items-start justify-between gap-3 px-3 py-2">' +
+                                '<dt class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">' + esc(row[0]) + "</dt>" +
+                                '<dd class="min-w-0 break-words text-right text-xs font-medium text-slate-800">' + (row[2] ? row[1] : esc(row[1] || "—")) + "</dd>" +
+                                "</div>"
+                            );
+                        })
+                        .join("") +
+                    "</dl>"
+                );
+            };
+
+            try {
+                const response = await fetch(body.getAttribute("data-eq-url"), {
+                    headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin",
+                });
+                const data = await response.json().catch(() => null);
+                const p = data && data.equipment;
+
+                if (!response.ok || !p) {
+                    body.innerHTML = '<p class="text-xs text-rose-600">Could not load purchase details.</p>';
+                    return;
+                }
+
+                const cost = p.purchase_cost !== null && p.purchase_cost !== undefined
+                    ? "₱" + Number(p.purchase_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : "—";
+                const link = function (id, label) {
+                    return '<a class="text-[#0025cc] hover:underline" target="_blank" href="/maintenance/equipment/view/' + Number(id) + '">' + esc(label) + " #" + Number(id) + "</a>";
+                };
+                const replacement = p.replaces_id
+                    ? [link(p.replaces_id, "Replaces"), true]
+                    : p.replaced_by_id
+                        ? [link(p.replaced_by_id, "Replaced by"), true]
+                        : ["—", false];
+
+                let html = section("Purchase & source", [
+                    ["Purchased", date(p.purchase_date)],
+                    ["Purchase cost", cost],
+                    ["Supplier", joinParts([p.supplier_name, p.supplier_store_type])],
+                    ["Purchase order", joinParts([p.purchase_order_number, p.purchase_order_date ? date(p.purchase_order_date) : null])],
+                    ["ATP", p.atp_number || "—"],
+                    ["RIS", p.ris_number || "—"],
+                ]);
+
+                html += section("Delivery & stock", [
+                    ["Receiving report", joinParts([p.receiving_report_number, p.receiving_report_date ? date(p.receiving_report_date) : null])],
+                    ["Condition on delivery", p.receiving_condition || "—"],
+                    ["Counted by", p.received_by || "—"],
+                    ["Stocked", joinParts([p.acquired_date ? date(p.acquired_date) : null, p.stocked_by_name ? "by " + p.stocked_by_name : null, p.stock_lot_code ? "Lot " + p.stock_lot_code : null])],
+                    ["Useful life", p.useful_life_years ? p.useful_life_years + " years" : "— (default 5 years)"],
+                    ["QR code", joinParts([p.qr_code, p.qr_issued_at ? "issued " + date(p.qr_issued_at) : null])],
+                    ["Replacement link", replacement[0], replacement[1]],
+                ]);
+
+                const s = data.report_summary;
+                if (s && s.times_reported > 0) {
+                    html += section("Report history", [
+                        ["Right now", s.state],
+                        ["Times reported", s.times_reported + (s.last_reported_at ? " · last " + date(s.last_reported_at) : "")],
+                        ["Times fixed", s.times_fixed + (s.last_fixed_at ? " · last " + date(s.last_fixed_at) : "")],
+                        ["Open tickets", String(s.open_count)],
+                    ]);
+                }
+
+                body.innerHTML = html;
+                body.setAttribute("data-eq-loaded", "1");
+            } catch (error) {
+                body.innerHTML = '<p class="text-xs text-rose-600">Could not load purchase details.</p>';
             }
         };
 

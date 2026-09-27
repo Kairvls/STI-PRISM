@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportSubmissionService;
+use App\Support\PersonNames;
+use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
@@ -699,6 +701,13 @@ class ReporterController extends Controller
 
         ]);
     }
+    public function getAssignedEquipment($employeeId)
+    {
+        return response()->json(
+            PropertyAssignments::reportableForEmployee((string) $employeeId)
+        );
+    }
+
     // REPORTCONTROLLER.PHP
 
     public function getSuggestions($equipmentId)
@@ -887,11 +896,13 @@ class ReporterController extends Controller
                 ->with('success_title', 'Link expired');
         }
 
+        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
+
         $request->validate([
             'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{5}[FS]$/'],
-            'first_name' => ['required', 'string', 'max:100'],
-            'middle_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
+            'first_name' => PersonNames::rules(),
+            'middle_name' => PersonNames::rules(false),
+            'last_name' => PersonNames::rules(),
             'type' => ['required', 'in:Faculty,Staff'],
             'contact' => ['required', 'regex:/^09[0-9]{9}$/'],
         ], [

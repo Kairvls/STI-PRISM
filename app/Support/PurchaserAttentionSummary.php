@@ -81,6 +81,25 @@ class PurchaserAttentionSummary
                         });
                     }
                 })
+                ->when(RfcAtpLinks::tableExists(), function ($q) {
+                    $q->whereNotExists(function ($query) {
+                        $query->select(DB::raw(1))
+                            ->from('request_check_atps_table')
+                            ->join('request_check_table', 'request_check_table.request_check_id', '=', 'request_check_atps_table.request_check_id')
+                            ->whereColumn(
+                                'request_check_atps_table.authority_purchase_id',
+                                'authority_to_purchase_table.authority_purchase_id'
+                            )
+                            ->where('request_check_table.request_check_status', '!=', 'Rejected');
+
+                        if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+                            $query->where(function ($inner) {
+                                $inner->whereNull('request_check_table.request_check_is_archived')
+                                    ->orWhere('request_check_table.request_check_is_archived', 0);
+                            });
+                        }
+                    });
+                })
                 ->count();
         }
 
