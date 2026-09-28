@@ -248,7 +248,7 @@
             <input type="hidden" name="target_id" id="targetId" value="" />
             <input type="hidden" name="decision" id="targetDecision" value="" />
             <div class="mt-4">
-                <label>Rejection remarks</label>
+                <label>Rejection remarks <span class="text-red-500">*</span></label>
                 <textarea name="remarks" rows="3" placeholder="Required for reject."></textarea>
             </div>
             <div class="confirm-actions mt-5">
@@ -274,6 +274,7 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const presidentDisplayName = @json(Auth::user()->user_full_name ?? 'President');
     const searchInput = document.getElementById('queueSearch');
+    const attentionFocusKey = @json($attentionFocus['key'] ?? '');
     const PIN_STORAGE_KEY = 'president_ris_pins';
     let searchTimeout = null, sendInFlight = false, decideInFlight = false;
     window.approvedPreviewDirty = false;
@@ -361,6 +362,7 @@
         const pagination = document.getElementById('risPagination');
         if (queueList) queueList.classList.add('updating');
         const params = new URLSearchParams();
+        if (attentionFocusKey) params.set('focus', attentionFocusKey);
         if (search) params.set('search', search);
         params.set('page', page || 1);
         fetch(`{{ route('president.approvals') }}?${params.toString()}`, {
@@ -845,13 +847,16 @@
         const params = new URLSearchParams(window.location.search);
         const approveId = params.get('approve');
         const previewId = params.get('preview');
+        if (!approveId && !previewId) return;
         if (approveId) {
             openRisReviewModal(approveId);
-            history.replaceState({}, '', window.location.pathname);
-        } else if (previewId) {
+        } else {
             openApprovedRisPreviewModal(previewId);
-            history.replaceState({}, '', window.location.pathname);
         }
+        params.delete('approve');
+        params.delete('preview');
+        const rest = params.toString();
+        history.replaceState({}, '', window.location.pathname + (rest ? '?' + rest : ''));
     })();
 </script>
 

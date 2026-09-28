@@ -191,6 +191,9 @@
     @php
         $handoverOutgoing = \App\Support\DraftHandover::outgoing('atp');
         $handoverDeclined = \App\Support\DraftHandover::declinedForSender('atp');
+        $atpFormLabel = fn ($atp) => $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id);
+        $rfcPathConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Request for Check? Accounting will prepare a check paid to the supplier, and the RFC form will open next. This can\'t be changed once the RFC is created.';
+        $cashAdvanceConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Cash Advance? Accounting will release cash to you, and you must liquidate it with receipts after receiving. This can\'t be changed once the cash advance request is created.';
     @endphp
 
     {{-- SUMMARY CARDS --}}
@@ -224,6 +227,11 @@
 
     {{-- ATP RECORDS --}}
     <div class="pur-card">
+        @if(!empty($attentionFocus))
+            <div class="px-5 pt-5">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $atps->total()])
+            </div>
+        @endif
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -243,6 +251,9 @@
                 <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
+                    @endif
+                    @if(!empty($attentionFocus))
+                        <input type="hidden" name="focus" value="{{ request('focus') }}">
                     @endif
 
                     <div class="relative">
@@ -316,9 +327,14 @@
                                         <i data-lucide="file-check-2" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">
-                                            {{ $atp->authority_purchase_form_number ?: '—' }}
-                                        </p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-gray-900">
+                                                {{ $atp->authority_purchase_form_number ?: '—' }}
+                                            </p>
+                                            @if(\App\Support\DocumentUrgency::isUrgent('ATP', $atp))
+                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                            @endif
+                                        </div>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $atp->authority_purchase_id }}</p>
                                     </div>
                                 </div>
@@ -506,26 +522,46 @@
                                         @elseif(!$atp->has_rfc)
                                             @if(empty($atp->authority_purchase_payment_path))
                                                 <div class="flex flex-wrap gap-1.5">
-                                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                                        class="inline"
+                                                        data-pur-confirm="{{ $rfcPathConfirm($atp) }}"
+                                                        data-pur-confirm-title="Use Request for Check?"
+                                                        data-pur-confirm-ok="Use Request for Check"
+                                                    >
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
                                                         <button
                                                             type="submit"
                                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-800 transition hover:bg-blue-100"
-                                                            title="Request for Check"
                                                             aria-label="Request for Check"
+                                                            data-pur-tip-title="Request for Check"
+                                                            data-pur-tip="Accounting prepares a check paid to the supplier. Opens the RFC form for this ATP."
+                                                            data-pur-tip-note="No liquidation needed afterwards."
+                                                            data-pur-tip-accent="#60a5fa"
                                                         >
                                                             <i data-lucide="file-check-2" class="h-4 w-4"></i>
                                                         </button>
                                                     </form>
-                                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}" class="inline">
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                                        class="inline"
+                                                        data-pur-confirm="{{ $cashAdvanceConfirm($atp) }}"
+                                                        data-pur-confirm-title="Use Cash Advance?"
+                                                        data-pur-confirm-ok="Use Cash Advance"
+                                                    >
                                                         @csrf
                                                         <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
                                                         <button
                                                             type="submit"
                                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
-                                                            title="Cash Advance"
                                                             aria-label="Cash Advance"
+                                                            data-pur-tip-title="Cash Advance"
+                                                            data-pur-tip="Accounting releases cash to you to buy the items. Opens the cash advance form for this ATP."
+                                                            data-pur-tip-note="You must liquidate with receipts after receiving."
+                                                            data-pur-tip-accent="#38bdf8"
                                                         >
                                                             <i data-lucide="banknote" class="h-4 w-4"></i>
                                                         </button>
@@ -663,7 +699,7 @@
                         @else
                             <div class="mb-4">
                                 <label class="text-xs font-medium text-gray-500">
-                                    Approved RIS
+                                    Approved RIS <span class="text-red-500">*</span>
                                     <span class="font-normal text-gray-400">(required to submit · optional for draft)</span>
                                 </label>
                                 <select
@@ -770,6 +806,9 @@
                                     {{ $atp->authority_purchase_form_number ?: '—' }}
                                 </h3>
 
+                                @if(\App\Support\DocumentUrgency::isUrgent('ATP', $atp))
+                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                @endif
                                 @include('accounting.partials.status-badge', [
                                     'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
                                     'submitted' => $atp->authority_purchase_submitted_at,
@@ -781,10 +820,17 @@
                                 RIS: {{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}
                             </p>
                             @if($atp->authority_purchase_rejection_reason)
-                                <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                    {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason:' : 'Revision requested:' }}
-                                    {{ $atp->authority_purchase_rejection_reason }}
-                                </p>
+                                <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                    <p>
+                                        {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason:' : 'Revision requested:' }}
+                                        {{ $atp->authority_purchase_rejection_reason }}
+                                    </p>
+                                    @include('partials.ris-revision-images', [
+                                        'revision' => \App\Support\DocumentRevisionNotes::latest('ATP', $atp->authority_purchase_id),
+                                        'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                        'size' => 'sm',
+                                    ])
+                                </div>
                             @endif
                         </div>
 
@@ -897,15 +943,41 @@
                                 </a>
                             @elseif(!$atp->has_rfc)
                                 @if(empty($atp->authority_purchase_payment_path))
-                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
+                                    <form
+                                        method="POST"
+                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                        data-pur-confirm="{{ $rfcPathConfirm($atp) }}"
+                                        data-pur-confirm-title="Use Request for Check?"
+                                        data-pur-confirm-ok="Use Request for Check"
+                                    >
                                         @csrf
                                         <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
-                                        <button type="submit" class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800">Request for Check</button>
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 transition hover:bg-blue-100"
+                                            data-pur-tip-title="Request for Check"
+                                            data-pur-tip="Accounting prepares a check paid to the supplier. Opens the RFC form for this ATP."
+                                            data-pur-tip-note="No liquidation needed afterwards."
+                                            data-pur-tip-accent="#60a5fa"
+                                        >Request for Check</button>
                                     </form>
-                                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}">
+                                    <form
+                                        method="POST"
+                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                        data-pur-confirm="{{ $cashAdvanceConfirm($atp) }}"
+                                        data-pur-confirm-title="Use Cash Advance?"
+                                        data-pur-confirm-ok="Use Cash Advance"
+                                    >
                                         @csrf
                                         <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
-                                        <button type="submit" class="inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800">Cash Advance</button>
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-100"
+                                            data-pur-tip-title="Cash Advance"
+                                            data-pur-tip="Accounting releases cash to you to buy the items. Opens the cash advance form for this ATP."
+                                            data-pur-tip-note="You must liquidate with receipts after receiving."
+                                            data-pur-tip-accent="#38bdf8"
+                                        >Cash Advance</button>
                                     </form>
                                 @else
                                     <a
@@ -1160,4 +1232,5 @@
     }
 </style>
 
+@include('partials.ris-revision-image-viewer')
 @endsection

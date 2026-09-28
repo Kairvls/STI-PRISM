@@ -64,9 +64,18 @@
 
                         <div class="min-w-0 flex-1 -mt-0.5">
                             <div class="flex flex-wrap items-center gap-2">
-                                <p class="text-[15px] font-semibold text-slate-900">
-                                    {{ $event->title }}
-                                </p>
+                                @if (($event->type ?? null) === 'filed')
+                                    <p class="min-w-0 text-[15px] font-semibold text-slate-900">
+                                        @include('components.tables.partials.more-items-popover', [
+                                            'label' => $event->title,
+                                            'items' => $report->report_items ?? [],
+                                        ])
+                                    </p>
+                                @else
+                                    <p class="text-[15px] font-semibold text-slate-900">
+                                        {{ $event->title }}
+                                    </p>
+                                @endif
                                 @if ($typeLabel)
                                     <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
                                         {{ $typeLabel }}
@@ -105,6 +114,15 @@
                                 <p class="mt-0.5 text-xs text-slate-400">
                                     {{ \Carbon\Carbon::parse($event->at)->format('M d, Y g:i A') }}
                                 </p>
+                            @endif
+                            @if (!empty($ticketLinkBase) && !empty($event->ticket))
+                                <a
+                                    href="{{ $ticketLinkBase }}?{{ http_build_query(['search' => $event->ticket, 'archive' => !empty($event->ticket_archived) ? 1 : 0]) }}"
+                                    class="mt-2 inline-flex items-center gap-1 rounded-md text-xs font-semibold text-[#0037C7] transition hover:text-[#0025cc] hover:underline"
+                                >
+                                    View ticket {{ $event->ticket }}
+                                    <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
+                                </a>
                             @endif
                         </div>
                     </div>

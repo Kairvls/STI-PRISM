@@ -559,16 +559,85 @@ class RisWorkflow
 
     public static function requestedByPrintedName(?object $ris): string
     {
+        return self::requesterName($ris, '');
+    }
+
+    /** @var array<int, string>|null */
+    private static ?array $userNames = null;
+
+    /**
+     * Full name of the account that owns the RIS (creator, then submitter).
+     * Falls back to the name typed on the form for legacy rows without an owner.
+     */
+    public static function requesterName(?object $ris, string $fallback = '—'): string
+    {
         if (!$ris) {
+            return $fallback;
+        }
+
+        foreach (['ris_created_by', 'ris_submitted_by'] as $field) {
+            $name = self::userFullName($ris->{$field} ?? null);
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        $typed = trim((string) ($ris->ris_requested_by_signature ?? ''));
+        if ($typed !== '' && !self::isDrawnSignature($typed)) {
+            return $typed;
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function userIdsMatchingName(string $search): array
+    {
+        $search = trim($search);
+        if ($search === '') {
+            return [];
+        }
+
+        try {
+            return DB::table('users_table')
+                ->where('user_full_name', 'like', '%'.$search.'%')
+                ->pluck('user_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public static function userFullName($userId): string
+    {
+        $userId = (int) ($userId ?? 0);
+        if ($userId <= 0) {
             return '';
         }
 
-        $name = trim((string) ($ris->ris_requested_by_signature ?? ''));
-        if ($name === '' || self::isDrawnSignature($name)) {
-            return '';
+        if (self::$userNames === null) {
+            try {
+                self::$userNames = DB::table('users_table')
+                    ->pluck('user_full_name', 'user_id')
+                    ->map(fn ($name) => trim((string) $name))
+                    ->all();
+            } catch (\Throwable $e) {
+                self::$userNames = [];
+            }
         }
 
-        return $name;
+        if (!array_key_exists($userId, self::$userNames)) {
+            try {
+                self::$userNames[$userId] = trim((string) DB::table('users_table')->where('user_id', $userId)->value('user_full_name'));
+            } catch (\Throwable $e) {
+                self::$userNames[$userId] = '';
+            }
+        }
+
+        return self::$userNames[$userId];
     }
 
     /**

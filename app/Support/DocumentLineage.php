@@ -150,6 +150,9 @@ class DocumentLineage
         if (in_array($status, ['Approved', 'Completed', 'Directly Approved'], true)) {
             return $status === 'Completed' ? 'Completed' : 'Approved';
         }
+        if ($status === 'Incomplete') {
+            return 'Incomplete — waiting for back order items';
+        }
         if (in_array($status, ['Rejected', 'Returned', RisWorkflow::PRESIDENT_REJECTED, RisWorkflow::PRESIDENT_REJECTED_LEGACY], true)) {
             return str_contains($status, 'Rejected') ? 'Rejected' : $status;
         }

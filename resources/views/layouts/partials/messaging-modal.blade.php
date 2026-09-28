@@ -4,7 +4,7 @@
 {{-- ===================================================== --}}
 <div
     id="messagingHoverTooltip"
-    class="messaging-hover-tooltip pointer-events-none fixed z-[10080] hidden max-w-[240px] rounded-lg bg-gray-900 px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug text-white shadow-[0_8px_24px_rgba(15,23,42,0.28)]"
+    class="messaging-hover-tooltip pointer-events-none fixed z-[10080] hidden max-w-[240px] rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)]"
     role="tooltip"
 ></div>
 
@@ -2301,7 +2301,7 @@
                         for="createGroupChatName"
                         class="mb-2 block text-xs font-semibold text-gray-700"
                     >
-                        Group name
+                        Group name <span class="text-red-500">*</span>
                     </label>
 
                     <input
@@ -2335,7 +2335,7 @@
 
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold text-gray-700">
-                            Members
+                            Members <span class="text-red-500">*</span>
                         </p>
 
                         <span

@@ -117,6 +117,11 @@
     </div>
 
     <div class="pur-card">
+        @if(!empty($attentionFocus))
+            <div class="px-5 pt-5">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $totalRequests])
+            </div>
+        @endif
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>

@@ -47,9 +47,9 @@
                 <td>
                     <div
                         class="truncate text-sm font-medium {{ $isDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $history->ris_requested_by_signature ?? 'Purchaser' }}"
+                        title="{{ \App\Support\RisWorkflow::requesterName($history) }}"
                     >
-                        {{ $history->ris_requested_by_signature ?? 'Purchaser' }}
+                        {{ \App\Support\RisWorkflow::requesterName($history) }}
                     </div>
                     <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
                         {{ $history->ris_requested_by_date ? \Carbon\Carbon::parse($history->ris_requested_by_date)->format('d/m/Y') : 'N/A' }}

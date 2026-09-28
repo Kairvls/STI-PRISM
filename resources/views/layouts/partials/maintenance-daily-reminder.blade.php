@@ -10,6 +10,10 @@
         + $overdueBorrowings
     ));
     $showDailyReminder = $attentionTotal > 0;
+    $urgentFocusUrl = url('/maintenance/reports/urgent?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_URGENT_ACTION);
+    $nonUrgentFocusUrl = url('/maintenance/reports/incoming?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_NON_URGENT_PENDING);
+    $schedulesFocusUrl = url('/maintenance/schedules?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE);
+    $borrowingFocusUrl = url('/maintenance/borrowing?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE);
 @endphp
 
 @if ($showDailyReminder)
@@ -53,7 +57,7 @@
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                 @if ($urgentReportsNeedingAction > 0)
                     <a
-                        href="{{ url('/maintenance/reports/urgent') }}"
+                        href="{{ $urgentFocusUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-rose-200 hover:bg-rose-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover:bg-rose-100">
@@ -64,7 +68,7 @@
                                 {{ $urgentReportsNeedingAction }} urgent {{ \Illuminate\Support\Str::plural('report', $urgentReportsNeedingAction) }} need action
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Overdue or still pending — not yet actioned by maintenance.
+                                Pending and unclaimed, or processing by you since before today.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-rose-400"></i>
@@ -73,7 +77,7 @@
 
                 @if ($nonUrgentReportsNeedingAction > 0)
                     <a
-                        href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
+                        href="{{ $nonUrgentFocusUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-sky-200 hover:bg-sky-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 transition group-hover:bg-sky-100">
@@ -93,7 +97,7 @@
 
                 @if ($overdueMaintenance > 0)
                     <a
-                        href="{{ url('/maintenance/schedules') }}"
+                        href="{{ $schedulesFocusUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-orange-200 hover:bg-orange-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100 transition group-hover:bg-orange-100">
@@ -113,7 +117,7 @@
 
                 @if ($overdueBorrowings > 0)
                     <a
-                        href="{{ url('/maintenance/borrowing?status=Overdue') }}"
+                        href="{{ $borrowingFocusUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
@@ -143,28 +147,28 @@
 
                 @if ($urgentReportsNeedingAction > 0)
                     <a
-                        href="{{ url('/maintenance/reports/urgent') }}"
+                        href="{{ $urgentFocusUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View urgent reports
                     </a>
                 @elseif ($nonUrgentReportsNeedingAction > 0)
                     <a
-                        href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
+                        href="{{ $nonUrgentFocusUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View non-urgent reports
                     </a>
                 @elseif ($overdueMaintenance > 0)
                     <a
-                        href="{{ url('/maintenance/schedules') }}"
+                        href="{{ $schedulesFocusUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View schedules
                     </a>
                 @elseif ($overdueBorrowings > 0)
                     <a
-                        href="{{ url('/maintenance/borrowing?status=Overdue') }}"
+                        href="{{ $borrowingFocusUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View overdue borrows

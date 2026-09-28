@@ -28,6 +28,7 @@
 
     @include('admin.procurement-review._direct-approve-modal')
     @include('admin.digital-signatures._return-revision-modal')
+    @include('admin.digital-signatures._president-remarks-modal')
 
 </div>
 
@@ -49,6 +50,7 @@
     let signRisFilterFetchTimer = null;
     let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
+    let currentFocus = @json($attentionFocus['key'] ?? '');
 
 
     // =====================================================
@@ -60,6 +62,10 @@
         const params = new URLSearchParams();
 
         params.set('filter', filter || 'pending');
+
+        if (currentFocus) {
+            params.set('focus', currentFocus);
+        }
 
         if (search) {
             params.set('search', search);
@@ -114,6 +120,10 @@
                 const partial = parsed.querySelector('#signRisContent')
                     || parsed.querySelector('#signRisContentContainer');
                 contentContainer.innerHTML = partial ? partial.innerHTML : html;
+
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
             }
 
             // Re-bind event listeners after DOM update.
@@ -212,6 +222,7 @@
             return;
         }
 
+        currentFocus = '';
         currentFilter = filter;
         updateSignRisFilterSlider(currentFilter, true);
 

@@ -5,7 +5,7 @@
 @endphp
 
 @if ($lifecycleAlerts->isNotEmpty() || $semesterInspectionDue->isNotEmpty() || $warrantyAlerts->isNotEmpty())
-    <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4">
         <section class="rounded-2xl border border-slate-200 bg-white p-5">
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div>

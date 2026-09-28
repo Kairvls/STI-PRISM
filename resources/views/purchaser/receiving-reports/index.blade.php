@@ -66,16 +66,24 @@
             for (let i = 0; i < 9; i++) {
                 const item = rows[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
+                const ordered = form.querySelector('[name=\'items[' + i + '][ordered_qty]\']');
+                const damaged = form.querySelector('[name=\'items[' + i + '][damaged_qty]\']');
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
                 const article = form.querySelector('[name=\'items[' + i + '][article]\']');
                 const unitPrice = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
                 const supplier = form.querySelector('[name=\'items[' + i + '][supplier_id]\']');
                 if (qty) qty.value = item.quantity ?? '';
-                if (unit) unit.value = item.unit ?? '';
+                if (ordered) ordered.value = item.ordered_qty ?? '';
+                if (damaged) damaged.value = '';
+                if (unit) {
+                    unit.value = item.unit ?? '';
+                    unit.dispatchEvent(new Event('input', { bubbles: true }));
+                }
                 if (article) article.value = item.article ?? '';
                 if (unitPrice) unitPrice.value = item.unit_price ?? '';
                 if (supplier && item.supplier_id) supplier.value = item.supplier_id;
             }
+            if (window.rrRefreshConditions) window.rrRefreshConditions(form);
         },
 
         printRr(id) {
@@ -95,6 +103,9 @@
         }
     }"
     x-init="
+        if (@js((int) ($editRrId ?? 0)) > 0) {
+            $nextTick(() => openEdit(@js((int) ($editRrId ?? 0))));
+        }
         if (createOpen) {
             $nextTick(() => {
                 bindDocSig('rr-create', 'Received by signature');
@@ -163,11 +174,18 @@
                     'active' => request('status') === 'Submitted',
                 ],
                 [
+                    'label' => 'Incomplete',
+                    'hint' => 'Missing or damaged items still on back order',
+                    'value' => number_format($summary['incomplete'] ?? 0),
+                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['completeness' => 'incomplete']),
+                    'active' => ($completeness ?? null) === 'incomplete',
+                ],
+                [
                     'label' => 'Completed',
-                    'hint' => 'Approved by Receiving Officer',
+                    'hint' => 'All items delivered and verified',
                     'value' => number_format($summary['completed']),
-                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Completed']),
-                    'active' => request('status') === 'Completed',
+                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['completeness' => 'complete']),
+                    'active' => ($completeness ?? null) === 'complete',
                 ],
             ],
         ])
@@ -176,13 +194,21 @@
     @php
         $rrHasFilters = request()->filled('search')
             || request()->filled('status')
-            || request()->filled('date');
+            || request()->filled('date')
+            || request()->filled('completeness')
+            || request()->boolean('replacement')
+            || request()->boolean('new_supplier');
         $rrClearUrl = $archiveView
             ? route(($pp ?? 'purchaser').'.rr.index', ['view' => 'archive'])
             : route(($pp ?? 'purchaser').'.rr.index');
     @endphp
 
     <div class="pur-card">
+        @if(!empty($attentionFocus))
+            <div class="px-5 pt-5">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $reports->total()])
+            </div>
+        @endif
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -206,6 +232,9 @@
                     aria-label="Filter receiving reports"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
                 >
+                    @if(!empty($attentionFocus))
+                        <input type="hidden" name="focus" value="{{ request('focus') }}">
+                    @endif
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -226,10 +255,25 @@
 
                     <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        @foreach(['Draft','Submitted','Minor Revision','Completed','Returned'] as $status)
+                        @foreach(['Draft','Submitted','Minor Revision','Incomplete','Completed','Returned'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
                         @endforeach
                     </select>
+
+                    <select id="rr-completeness" name="completeness" aria-label="Filter by delivery completeness" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                        <option value="">Complete &amp; incomplete</option>
+                        <option value="complete" @selected(($completeness ?? null) === 'complete')>Complete only</option>
+                        <option value="incomplete" @selected(($completeness ?? null) === 'incomplete')>Incomplete only</option>
+                    </select>
+
+                    <label class="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-600" title="RRs with replacement rows added from back orders">
+                        <input type="checkbox" name="replacement" value="1" @checked(request()->boolean('replacement')) class="h-4 w-4 rounded border-gray-300 text-[#0025cc]">
+                        Replacement rows
+                    </label>
+                    <label class="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-600" title="RRs with replacement items bought from a different supplier">
+                        <input type="checkbox" name="new_supplier" value="1" @checked(request()->boolean('new_supplier')) class="h-4 w-4 rounded border-gray-300 text-[#0025cc]">
+                        New supplier
+                    </label>
 
                     <input id="rr-date" type="date" name="date" value="{{ request('date') }}" aria-label="Filter by date" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
 
@@ -275,8 +319,21 @@
                                         <i data-lucide="package-check" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number ?: '—' }}</p>
-                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rr->receiving_report_id }}</p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number ?: '—' }}</p>
+                                            @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
+                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                            @endif
+                                        </div>
+                                        <p class="mt-0.5 text-xs text-gray-400">
+                                            Record #{{ $rr->receiving_report_id }}
+                                            @if(($rr->open_back_orders ?? 0) > 0)
+                                                <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{{ $rr->receiving_report_status === 'Incomplete' ? '' : 'Incomplete · ' }}{{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }}</span>
+                                            @endif
+                                            @if(($rr->replacement_rows ?? 0) > 0)
+                                                <span class="ml-1 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">{{ $rr->replacement_rows }} replacement row{{ $rr->replacement_rows === 1 ? '' : 's' }}</span>
+                                            @endif
+                                        </p>
                                     </div>
                                 </div>
                             </td>
@@ -290,6 +347,9 @@
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
+                                    @if(!$archiveView && ($rr->open_back_orders ?? 0) > 0)
+                                        <a href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100" title="Back orders ({{ $rr->open_back_orders }} open)" aria-label="Back orders"><i data-lucide="package-x" class="h-4 w-4"></i></a>
+                                    @endif
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         <div
@@ -442,7 +502,7 @@
                         <input type="hidden" name="save_action" value="draft">
                         <div class="bg-slate-100 p-3 md:p-5">
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <label class="text-xs font-medium text-gray-500">Approved funding request · ATP</label>
+                                <label class="text-xs font-medium text-gray-500">Approved funding request · ATP <span class="text-red-500">*</span></label>
                                 @php $createFundingKey = (string) old('receiving_report_funding_key', $selectedFundingKey ?? ''); @endphp
                                 <select name="receiving_report_funding_key" x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select funding request and ATP</option>
@@ -515,12 +575,31 @@
                                     <i data-lucide="package-check" class="h-5 w-5"></i>
                                 </div>
                                 <div>
-                                    <h3 id="rr-view-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $rr->receiving_report_form_number }}</h3>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 id="rr-view-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $rr->receiving_report_form_number }}</h3>
+                                        @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
+                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                        @endif
+                                    </div>
                                     <p class="mt-0.5 text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
                                 </div>
                             </div>
-                            @if($rr->receiving_report_revision_notes)<p class="mt-2 text-sm text-amber-700">Revision: {{ $rr->receiving_report_revision_notes }}</p>@endif
-                            @if($rr->receiving_report_return_reason)<p class="mt-2 text-sm text-red-700">Returned: {{ $rr->receiving_report_return_reason }}</p>@endif
+                            @if($rr->receiving_report_revision_notes)
+                                <p class="mt-2 text-sm text-amber-700">Revision: {{ $rr->receiving_report_revision_notes }}</p>
+                                @include('partials.ris-revision-images', [
+                                    'revision' => \App\Support\DocumentRevisionNotes::latest('RR', $rr->receiving_report_id),
+                                    'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                    'size' => 'sm',
+                                ])
+                            @endif
+                            @if($rr->receiving_report_return_reason)
+                                <p class="mt-2 text-sm text-red-700">Returned: {{ $rr->receiving_report_return_reason }}</p>
+                                @include('partials.ris-revision-images', [
+                                    'revision' => \App\Support\DocumentRevisionNotes::latest('RR', $rr->receiving_report_id, \App\Support\DocumentRevisionNotes::KIND_RETURN),
+                                    'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                    'size' => 'sm',
+                                ])
+                            @endif
                         </div>
                         <div class="flex shrink-0 items-center gap-1.5">
                             <button
@@ -584,7 +663,12 @@
                         >
                             Close
                         </button>
-                        @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
+                        @if(!$archiveView && ($rr->open_back_orders ?? 0) > 0)
+                            <a href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition hover:bg-amber-100">
+                                <i data-lucide="package-x" class="h-4 w-4"></i>
+                                {{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }} to complete this RR
+                            </a>
+                        @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                             @if(!$rr->has_liq)
                                 <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
                             @else
@@ -788,4 +872,5 @@
         .rr-print-active { background: #fff !important; }
     }
 </style>
+@include('partials.ris-revision-image-viewer')
 @endsection

@@ -114,7 +114,7 @@
                     <input type="hidden" name="return" value="{{ $returnUrl }}">
                     <label class="block">
                         <span class="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
-                            Person
+                            <span>Person <span class="text-red-500">*</span></span>
                             <a href="{{ route('maintenance.property-assignments.people.create') }}" class="font-semibold text-[#0025cc] hover:underline">+ Add person</a>
                         </span>
                         <select name="custodian_id" required data-searchable="1" data-search-placeholder="Search name, position, or ID…" class="{{ $fieldClass }}">

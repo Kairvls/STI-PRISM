@@ -155,4 +155,46 @@ If you later want real desks in offices, a lighter option than the full desk edi
 
 in the admin system make the procurement shows in it sidebar to not go to frist to purchaser portal before can perform procurement workflow, and already include also in admin that the admin can monitor and manage the reporters, 
 
-in the admin system make the procurement shows in it sidebar to not go to first to purchaser portal before can perform procurement workflow, and already include also in admin that the admin can monitor and manage the reporters tab/list, reporters approvals, can add equipm
+in the admin system make the procurement shows it in sidebar to not to go first to purchaser portal before can perform procurement workflow, and include also in admin that the admin can monitor and manage the reporters tab/list, reporters approvals, personnel directory, can add equipment(very optional), can view equipment in stock and equipment been deployed and disposed, can monitor semestral inspection or checking of equipments, property assignment/department like that
+
+since theres an urgency for ris put the urgent ris always on the first list of table still maintain stock and when its from the president approval not direct approval of the admin change the status wording make it easy to understand that is from the president and need signing about issued by to send back to purchaser not just "pending administrator review"
+
+limit the signature saved make it per account cause right now for example one person has addtional roles like his primary role is purchaser theres already save signature from the other purchaser even in his account he doesn't has saved any signature yet and the other scenario for example person 1 purchaser additional role is accounting in the accounting portal of it also theres already signature in his accounting portal even he dont already has saved any signature yet maybe its from the other accounting signature, the point is about confidentiality of signature must be secure to avoid others using your signature
+
+is this already implemented?
+
+Request for Check: any back order blocks the Receiving Report completely. You can't receive the 5 mice that did arrive.
+
+Cash Advance: there's no block. The Purchaser can buy from several suppliers.
+
+
+
+
+1. How the new supplier gets paid on Request for Check. The check was issued to the original supplier, and Request for Check has no liquidation. When the refund comes back and you buy from a new supplier, how is that supplier paid?
+A. From the refunded money, with the cash difference remark sent to Accounting.
+B. A new Request for Check for the new supplier.
+C. Just recorded on the back order, and Accounting handles it outside the system.
+
+answer: the request for check will not assign another supplier its just one supplier the one first or original supplier only if it cash advance has or can set multiple supplier
+
+2. RR row limit. The RR form and printed paper currently hold 9 rows. Adding replacement rows could go past that. Should I:
+raise the limit and let the printed form continue on a second page, or
+keep 9 and block adding more rows?
+
+
+u
+
+make this parth of the
+
+for the RIS, ATPs, RR make the rows of form of it that i can add multiple more rows (but i think max it to 50 rows minimum 1 row) when creating or editing ris, atp, rr and can delete rows not just the data inside but the literally the rows and its data and for the RIS use 11 rows default, for the ATP use 8 rows default, and for the RR use 9 rows default 
+
+
+Yes, the current setup is correct, and keeping separate back-order IDs for the missing and damaged quantities makes sense, even though they come from the same RR line. The two problems usually get resolved in different ways:
+
+Missing (6 pcs): the supplier still owes you those items. They might deliver later ("Waiting for restock"), refund you, or you buy them from another supplier.
+Damaged (1 pc): you already have that item, but it's broken. Usually it's returned to the supplier and exchanged for a new one, or refunded.
+Because each problem can end differently, each back order needs its own status, reason, replacement or refund record, and second count. For example, the supplier might swap the damaged keyboard tomorrow while the 6 missing ones stay "Waiting for restock" for weeks. With one combined ID, you couldn't mark the damaged one as done while the missing ones are still open.
+
+Many procurement systems handle it the same way: undelivered items are a back order, while returned damaged items get a separate exchange record.
+
+Nothing needs to change. The only thing to remember is that Received counts every piece that arrived, including damaged ones. If 5 arrived and 1 is broken, enter Received 5 and Damaged 1, and the system works out 5 missing plus 1 damaged.

@@ -174,7 +174,7 @@
             @else
                 <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.blacklist', $supplier->supplier_id) }}" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     @csrf
-                    <p class="text-sm font-medium text-amber-900">Mark as blacklisted (warning)</p>
+                    <p class="text-sm font-medium text-amber-900">Mark as blacklisted (warning) <span class="text-red-500">*</span></p>
                     <textarea
                         name="supplier_note_body"
                         rows="2"

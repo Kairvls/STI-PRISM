@@ -43,6 +43,19 @@
         $formNo = '';
     }
     $oldItems = old('items');
+    $verifiedItemIds = collect($rows)
+        ->filter(fn ($row) => is_object($row) && !empty($row->receiving_report_item_verified))
+        ->map(fn ($row) => (int) $row->receiving_report_item_id)
+        ->all();
+    $replacementLabels = \App\Support\BackOrders::replacementLabels($rows);
+    $uomNames = $editable
+        ? collect($uomNames ?? once(fn () => \Illuminate\Support\Facades\Schema::hasTable('uom_table')
+            ? \Illuminate\Support\Facades\DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->all()
+            : []))->values()
+        : collect();
+    $rrQtyAttrs = 'min="0" max="9999999" step="1" inputmode="numeric"'
+        .' onkeydown="if ([\'e\', \'E\', \'+\', \'-\', \'.\'].includes(event.key)) event.preventDefault();"'
+        .' oninput="if (this.value.length > 7) this.value = this.value.replace(/\D/g, \'\').slice(0, 7);"';
 @endphp
 
 <div
@@ -74,7 +87,7 @@
             <div class="mt-2 text-xl font-bold underline">RECEIVING REPORT</div>
         </div>
         <div class="absolute right-0 top-0 flex items-end gap-1 text-sm">
-            <span>Date:</span>
+            <span>Date: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
                 <input type="date" name="receiving_report_date" value="{{ $dateValue }}" class="h-7 w-36 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
@@ -86,7 +99,7 @@
     <div class="mt-10 grid grid-cols-2 gap-8">
         <div class="space-y-3">
             <div class="flex items-end gap-2">
-                <span class="shrink-0">Received from:</span>
+                <span class="shrink-0">Received from: @if($editable)<span class="text-red-500">*</span>@endif</span>
                 @if($editable)
                     <input type="text" name="receiving_report_received_from" value="{{ $fromValue }}" class="h-7 flex-1 border-0 border-b border-black bg-transparent outline-none">
                 @else
@@ -159,10 +172,11 @@
     <table class="mt-2 w-full border-collapse border border-black text-center">
         <thead>
             <tr>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]">ORDERED</th>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]">RECEIVED</th>
-                <th class="w-20 border border-black py-1 font-semibold">UNIT</th>
-                <th class="border border-black py-1 font-semibold">ARTICLE</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">ORDERED @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">RECEIVED @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">DAMAGED</th>
+                <th class="w-20 border border-black py-1 font-semibold">UNIT @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="border border-black py-1 font-semibold">ARTICLE @if($editable)<span class="text-red-500">*</span>@endif</th>
                 <th class="w-24 border border-black py-1 font-semibold text-[10px]">CONDITION</th>
                 @if($allowMultiSupplier && $editable)
                     <th class="w-36 border border-black py-1 font-semibold">SUPPLIER</th>
@@ -174,6 +188,12 @@
             @for($i = 0; $i < 9; $i++)
                 @php
                     $row = $oldItems[$i] ?? $rows[$i] ?? null;
+                    $itemId = (int) (is_array($row) ? ($row['item_id'] ?? 0) : ($row->receiving_report_item_id ?? 0));
+                    $isVerified = $itemId > 0 && in_array($itemId, $verifiedItemIds, true);
+                    if ($isVerified && is_array($row)) {
+                        $row = collect($rows)->firstWhere('receiving_report_item_id', $itemId) ?? $row;
+                    }
+                    $cellsEditable = $editable && !$isVerified;
                     $qty = is_array($row) ? ($row['quantity'] ?? '') : ($row->receiving_report_item_quantity ?? '');
                     $orderedQty = is_array($row) ? ($row['ordered_qty'] ?? '') : ($row->receiving_report_item_ordered_qty ?? '');
                     $condition = is_array($row) ? ($row['condition'] ?? 'ok') : ($row->receiving_report_item_condition ?? 'ok');
@@ -183,59 +203,190 @@
                     $unitPrice = is_array($row) ? ($row['unit_price'] ?? '') : ($row->receiving_report_item_unit_price ?? '');
                     $supplierId = is_array($row) ? ($row['supplier_id'] ?? '') : ($row->receiving_report_item_supplier_id ?? '');
                     $supplierName = is_array($row) ? ($row['supplier_name'] ?? '') : ($row->receiving_report_item_supplier_name ?? '');
+                    $backOrderId = is_array($row) ? ($row['back_order_id'] ?? '') : ($row->receiving_report_item_back_order_id ?? '');
+                    $damagedQty = (int) (is_array($row) ? ($row['damaged_qty'] ?? 0) : ($row->receiving_report_item_damaged_qty ?? 0));
+                    $damageRemarks = is_array($row) ? '' : (string) ($row->receiving_report_item_damage_remarks ?? '');
+                    $replacement = $backOrderId !== '' && $backOrderId !== null ? ($replacementLabels[(int) $backOrderId] ?? null) : null;
                 @endphp
-                <tr class="h-8">
+                <tr class="h-8 {{ $replacement ? 'bg-sky-50/60' : '' }}" data-rr-row>
                     <td class="border border-black">
-                        @if($editable)
-                            <input type="number" min="0" name="items[{{ $i }}][ordered_qty]" value="{{ $orderedQty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+                        @if($editable && $itemId > 0)
+                            <input type="hidden" name="items[{{ $i }}][item_id]" value="{{ $itemId }}">
+                        @endif
+                        @if($cellsEditable)
+                            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][ordered_qty]" value="{{ $orderedQty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
                         @else
-                            {{ $orderedQty !== '' ? $orderedQty : '—' }}
+                            {{ $orderedQty !== '' && $orderedQty !== null ? $orderedQty : '—' }}
                         @endif
                     </td>
                     <td class="border border-black">
-                        @if($editable)
-                            <input type="number" min="0" name="items[{{ $i }}][quantity]" value="{{ $qty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+                        @if($cellsEditable)
+                            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][quantity]" value="{{ $qty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
                         @else
                             {{ $qty }}
                         @endif
                     </td>
                     <td class="border border-black">
-                        @if($editable)
-                            <input type="text" name="items[{{ $i }}][unit]" value="{{ $unit }}" class="h-7 w-full border-0 bg-transparent text-center outline-none">
+                        @if($cellsEditable)
+                            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][damaged_qty]" value="{{ $damagedQty ?: '' }}" placeholder="0" title="Units received but damaged" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px] text-red-700">
+                        @else
+                            <span class="{{ $damagedQty > 0 ? 'font-semibold text-red-700' : '' }}">{{ $damagedQty > 0 ? $damagedQty : ($article !== '' ? '0' : '') }}</span>
+                        @endif
+                    </td>
+                    <td class="border border-black">
+                        @if($cellsEditable)
+                            <div
+                                class="relative min-w-0"
+                                x-data="{
+                                    value: @js((string) $unit),
+                                    options: @js($uomNames->all()),
+                                    open: false,
+                                    query: '',
+                                    get filtered() {
+                                        const list = this.value && !this.options.includes(this.value)
+                                            ? [this.value, ...this.options]
+                                            : this.options;
+                                        const q = this.query.trim().toLowerCase();
+                                        return q ? list.filter((opt) => opt.toLowerCase().includes(q)) : list;
+                                    },
+                                    toggle() {
+                                        this.open = !this.open;
+                                        this.query = '';
+                                        if (this.open) this.$nextTick(() => this.$refs.search.focus({ preventScroll: true }));
+                                    },
+                                    pick(opt) {
+                                        this.value = opt;
+                                        this.open = false;
+                                        this.query = '';
+                                    }
+                                }"
+                                x-on:keydown.escape.stop="open = false"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="items[{{ $i }}][unit]"
+                                    value="{{ $unit }}"
+                                    x-bind:value="value"
+                                    x-on:input="value = $event.target.value"
+                                >
+                                <button
+                                    type="button"
+                                    x-on:click.stop="toggle()"
+                                    class="flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0"
+                                    x-bind:aria-expanded="open.toString()"
+                                >
+                                    <span class="min-w-0 flex-1 truncate" x-bind:class="value ? '' : 'text-gray-400'" x-text="value || 'Unit'">{{ $unit }}</span>
+                                    <svg class="h-3 w-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
+                                    </svg>
+                                </button>
+                                <div
+                                    x-show="open"
+                                    x-cloak
+                                    x-transition
+                                    x-on:click.outside="open = false"
+                                    class="absolute left-0 top-full z-[80] mt-0.5 w-max min-w-[7rem] max-w-[16rem] overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-lg"
+                                >
+                                    <div class="border-b border-gray-100 p-1.5">
+                                        <input
+                                            type="text"
+                                            x-ref="search"
+                                            x-model="query"
+                                            x-on:click.stop
+                                            x-on:keydown.enter.prevent="filtered.length && pick(filtered[0])"
+                                            placeholder="Search..."
+                                            class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
+                                        >
+                                    </div>
+                                    <ul class="max-h-[10.5rem] overflow-y-auto py-1">
+                                        <li>
+                                            <button
+                                                type="button"
+                                                x-on:click="pick('')"
+                                                class="flex w-full px-2.5 py-1.5 text-left text-[11px] text-gray-500 hover:bg-gray-50"
+                                                x-bind:class="!value ? 'bg-slate-50 font-medium text-slate-800' : ''"
+                                            >
+                                                Select unit
+                                            </button>
+                                        </li>
+                                        <template x-for="opt in filtered" :key="opt">
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    x-on:click="pick(opt)"
+                                                    class="flex w-full px-2.5 py-1.5 text-left text-[11px] text-gray-800 hover:bg-gray-50"
+                                                    x-bind:class="value === opt ? 'bg-slate-50 font-medium' : ''"
+                                                    x-text="opt"
+                                                ></button>
+                                            </li>
+                                        </template>
+                                        <li x-show="filtered.length === 0" class="px-2.5 py-2 text-[11px] text-gray-400">
+                                            No matches
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         @else
                             {{ $unit }}
                         @endif
                     </td>
                     <td class="border border-black text-left px-2">
-                        @if($editable)
+                        @if($cellsEditable)
                             <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" class="h-7 w-full border-0 bg-transparent outline-none">
-                            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" placeholder="Short/bad remarks" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
+                            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" placeholder="Remarks for missing / damaged units" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
+                            @if($backOrderId !== '' && $backOrderId !== null)
+                                <input type="hidden" name="items[{{ $i }}][back_order_id]" value="{{ $backOrderId }}">
+                            @endif
                         @else
                             {{ $article }}
                             @if($conditionRemarks)
                                 <span class="block text-[10px] text-amber-700">{{ $conditionRemarks }}</span>
                             @endif
+                            @if($damagedQty > 0 && $damageRemarks !== '' && $damageRemarks !== $conditionRemarks)
+                                <span class="block text-[10px] text-red-700">{{ $damageRemarks }}</span>
+                            @endif
+                        @endif
+                        @if($replacement)
+                            <span class="block text-[10px] font-semibold {{ $replacement['new'] ? 'text-violet-700' : 'text-sky-700' }}">↳ {{ $replacement['label'] }}</span>
+                        @endif
+                        @if($editable && $isVerified)
+                            <span class="block text-[10px] font-medium text-emerald-700">Verified at second count · locked</span>
                         @endif
                     </td>
-                    <td class="border border-black">
-                        @if($editable)
-                            <select name="items[{{ $i }}][condition]" class="h-7 w-full border-0 bg-transparent text-[10px] outline-none">
-                                <option value="ok" @selected($condition === 'ok')>OK</option>
-                                <option value="short" @selected($condition === 'short')>Short</option>
-                                <option value="bad_order" @selected($condition === 'bad_order')>Bad Order</option>
-                            </select>
+                    @php
+                        $missingQty = ($orderedQty !== '' && $orderedQty !== null && $qty !== '' && $qty !== null)
+                            ? max(0, (int) $orderedQty - (int) $qty)
+                            : 0;
+                        $isMissing = $condition === 'short' || $missingQty > 0;
+                        $conditionParts = [];
+                        if ($condition === 'bad_order' && $damagedQty === 0) {
+                            $conditionParts[] = 'Bad Order';
+                        }
+                        if ($isMissing) {
+                            $conditionParts[] = $missingQty > 0 ? 'Missing '.$missingQty : 'Missing';
+                        }
+                        if ($damagedQty > 0) {
+                            $conditionParts[] = 'Damaged '.$damagedQty;
+                        }
+                        $hasRowData = $article !== '' || ($qty !== '' && $qty !== null);
+                        $conditionLabel = $conditionParts !== [] ? implode(' · ', $conditionParts) : ($hasRowData ? 'OK' : '');
+                    @endphp
+                    <td class="border border-black px-1">
+                        @if($cellsEditable)
+                            <input type="hidden" name="items[{{ $i }}][condition]" value="{{ $condition }}" data-rr-condition-input data-rr-condition-original="{{ $condition }}">
+                            <span
+                                data-rr-condition-label
+                                class="text-[10px] {{ $conditionLabel === 'OK' || $conditionLabel === '' ? 'text-slate-500' : 'font-semibold text-amber-700' }}"
+                                title="Worked out from Ordered, Received and Damaged"
+                            >{{ $conditionLabel !== '' ? $conditionLabel : '—' }}</span>
                         @else
-                            @php
-                                $conditionLabel = match ($condition) {
-                                    'short' => 'Short',
-                                    'bad_order' => 'Bad Order',
-                                    default => 'OK',
-                                };
-                            @endphp
-                            <span class="text-[10px] {{ $condition === 'ok' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
+                            <span class="text-[10px] {{ $conditionLabel === 'OK' || $conditionLabel === '' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
                         @endif
                     </td>
-                    @if($allowMultiSupplier && $editable)
+                    @if($allowMultiSupplier && $editable && !$cellsEditable)
+                        <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>
+                        <td class="border border-black text-xs">{{ $unitPrice !== '' && $unitPrice !== null ? number_format((float) $unitPrice, 2) : '—' }}</td>
+                    @elseif($allowMultiSupplier && $editable)
                         <td class="border border-black px-1">
                             <select name="items[{{ $i }}][supplier_id]" class="h-7 w-full border-0 bg-transparent text-xs outline-none" onchange="const o=this.options[this.selectedIndex]; const n=this.form.querySelector('[name=\'items[{{ $i }}][supplier_name]\']'); if(n) n.value=o.dataset.name||'';">
                                 <option value="">—</option>
@@ -264,7 +415,7 @@
 
     <div class="mt-12 grid grid-cols-2 gap-16">
         <div class="text-left">
-            <div class="font-semibold">Second Count:</div>
+            <div class="font-semibold">Second Count: @if($signSecondCount)<span class="text-red-500">*</span>@endif</div>
             @if($signSecondCount)
                 <div class="relative mt-6 w-56">
                     <span class="signature-name-stack w-full">
@@ -304,7 +455,7 @@
         </div>
         <div class="flex justify-end">
             <div class="w-56 text-left">
-                <div class="font-semibold">Received by:</div>
+                <div class="font-semibold">Received by: @if($editable)<span class="text-red-500">*</span>@endif</div>
                 @if($editable)
                     <div class="relative mt-6 w-full">
                         <span class="signature-name-stack w-full">
@@ -367,6 +518,11 @@
         background-position: left top;
     }
 
+    .rr-print-sheet input.rr-cell-invalid {
+        background-color: #fef2f2;
+        box-shadow: inset 0 0 0 1px #f87171;
+    }
+
     @media print {
         .rr-print-sheet {
             min-height: 0 !important;
@@ -375,3 +531,96 @@
         }
     }
 </style>
+
+@pushOnce('scripts')
+<script>
+(function () {
+    function num(row, field) {
+        var input = row.querySelector('input[name$="[' + field + ']"]');
+        if (!input || String(input.value).trim() === '') return null;
+        var value = parseInt(input.value, 10);
+        return isNaN(value) ? null : Math.max(0, value);
+    }
+
+    function refreshRow(row) {
+        var hidden = row.querySelector('[data-rr-condition-input]');
+        var label = row.querySelector('[data-rr-condition-label]');
+        if (!hidden || !label) return;
+
+        var original = hidden.getAttribute('data-rr-condition-original') || 'ok';
+        var ordered = num(row, 'ordered_qty');
+        var received = num(row, 'quantity');
+        var damaged = num(row, 'damaged_qty') || 0;
+        var article = row.querySelector('input[name$="[article]"]');
+        var hasData = received !== null || (article && article.value.trim() !== '');
+
+        var missing = 0;
+        var isMissing;
+        if (ordered !== null && received !== null) {
+            missing = Math.max(0, ordered - received);
+            isMissing = missing > 0;
+        } else {
+            isMissing = original === 'short';
+        }
+
+        var parts = [];
+        if (original === 'bad_order' && damaged === 0) parts.push('Bad Order');
+        if (isMissing) parts.push(missing > 0 ? 'Missing ' + missing : 'Missing');
+        if (damaged > 0) parts.push('Damaged ' + damaged);
+
+        hidden.value = isMissing ? 'short' : (original === 'bad_order' ? 'bad_order' : 'ok');
+
+        var problem = null;
+        var problemField = null;
+        var rowHasData = hasData || ordered !== null || damaged > 0;
+        if (rowHasData) {
+            if (ordered === null) {
+                problem = 'Enter ordered';
+                problemField = 'ordered_qty';
+            } else if (received === null) {
+                problem = 'Enter received';
+                problemField = 'quantity';
+            } else if (received > ordered) {
+                problem = 'Over ordered by ' + (received - ordered);
+                problemField = 'quantity';
+            } else if (damaged > received) {
+                problem = 'Damaged > received';
+                problemField = 'damaged_qty';
+            } else if (!article || article.value.trim() === '') {
+                problem = 'Enter article';
+                problemField = 'article';
+            }
+        }
+
+        ['ordered_qty', 'quantity', 'damaged_qty', 'article'].forEach(function (field) {
+            var input = row.querySelector('input[name$="[' + field + ']"]');
+            if (input) input.classList.toggle('rr-cell-invalid', field === problemField);
+        });
+
+        var text = problem || (parts.length ? parts.join(' · ') : (hasData ? 'OK' : '—'));
+        label.textContent = text;
+        label.title = problem ? 'Fix this before submitting' : 'Worked out from Ordered, Received and Damaged';
+        var flagged = parts.length > 0 && !problem;
+        label.classList.toggle('font-semibold', flagged || !!problem);
+        label.classList.toggle('text-amber-700', flagged);
+        label.classList.toggle('text-red-600', !!problem);
+        label.classList.toggle('text-slate-500', !flagged && !problem);
+    }
+
+    window.rrRefreshConditions = function (root) {
+        (root || document).querySelectorAll('[data-rr-row]').forEach(refreshRow);
+    };
+
+    document.addEventListener('input', function (event) {
+        var row = event.target.closest && event.target.closest('[data-rr-row]');
+        if (row) refreshRow(row);
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { window.rrRefreshConditions(); });
+    } else {
+        window.rrRefreshConditions();
+    }
+})();
+</script>
+@endPushOnce

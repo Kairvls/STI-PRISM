@@ -10,7 +10,7 @@
         class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
     >
         @if (($overdueBorrowings ?? 0) > 0)
-            @if (request('status') === 'Overdue')
+            @if (request('status') === 'Overdue' || !empty($attentionFocus))
                 <a
                     href="{{ url('/maintenance/borrowing') }}"
                     class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -62,6 +62,8 @@
             ],
         ])
     </div>
+
+    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
 
     <div class="rounded-3xl bg-white">
         <!--<div class="mb-6 flex items-center justify-between">
@@ -227,7 +229,7 @@
 
                             <option
                                 value="Overdue"
-                                @selected(request('status') === 'Overdue')
+                                @selected(request('status') === 'Overdue' || !empty($attentionFocus))
                             >
                                 Overdue
                             </option>
@@ -887,7 +889,7 @@
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart</p>
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
                                 <p class="mt-1 text-sm text-slate-500">Type to search, then add quantity for each equipment line.</p>
                             </div>
                             <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>

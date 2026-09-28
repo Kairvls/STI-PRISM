@@ -19,6 +19,7 @@
             this.$nextTick(() => {
                 const el = document.getElementById('reviseRemarks');
                 if (el) { el.value = ''; el.focus(); }
+                if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('rrReviseImages');
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
             });
         },
@@ -30,6 +31,7 @@
             this.$nextTick(() => {
                 const el = document.getElementById('returnRemarks');
                 if (el) { el.value = ''; el.focus(); }
+                if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('rrReturnImages');
                 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
             });
         },
@@ -67,6 +69,11 @@
     
 >
     <div class="space-y-6">
+        @php
+            $focusKey = $attentionFocus['key'] ?? null;
+            // Leftover is a subset of the queue, so no card total matches it.
+            $activeCard = $focusKey === 'leftover' ? null : $filter;
+        @endphp
         @if(!empty($dateFilter))
             <p class="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/80 px-3.5 py-2 text-xs font-medium text-blue-800">
                 Showing reports for {{ \Carbon\Carbon::parse($dateFilter)->format('M d, Y') }}
@@ -85,14 +92,14 @@
             @foreach ($statCards as $card)
                 <a
                     href="{{ route('receiving.rr.index', array_filter(['status' => $card['key'], 'date' => $dateFilter ?? null])) }}"
-                    class="group rounded-2xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm {{ $filter === $card['key'] ? 'border-[#0025cc]/60 ring-2 ring-[#0025cc]/15' : 'border-slate-200' }}"
+                    class="group rounded-2xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm {{ $activeCard === $card['key'] ? 'border-[#0025cc]/60 ring-2 ring-[#0025cc]/15' : 'border-slate-200' }}"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
                             <p class="mt-1 text-xs text-slate-400">{{ $card['hint'] }}</p>
                         </div>
-                        @if ($filter === $card['key'])
+                        @if ($activeCard === $card['key'])
                             <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#0025cc]"></span>
                         @endif
                     </div>
@@ -101,8 +108,13 @@
             @endforeach
         </div>
 
+        @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $reports->total()])
+
         <form method="GET" action="{{ route('receiving.rr.index') }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <input type="hidden" name="status" value="{{ $filter }}">
+            @if($focusKey)
+                <input type="hidden" name="focus" value="{{ $focusKey }}">
+            @endif
             @if(!empty($dateFilter))
                 <input type="hidden" name="date" value="{{ $dateFilter }}">
             @endif
@@ -135,7 +147,7 @@
                         Search
                     </button>
                     @if(request()->filled('search'))
-                        <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                        <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null, 'focus' => $focusKey])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                             <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
                             Reset
                         </a>
@@ -162,7 +174,12 @@
                             @endphp
                             <tr class="transition hover:bg-slate-50/70">
                                 <td class="px-5 py-4">
-                                    <p class="font-semibold text-slate-950">{{ $rr->receiving_report_form_number }}</p>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="font-semibold text-slate-950">{{ $rr->receiving_report_form_number }}</p>
+                                        @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
+                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                        @endif
+                                    </div>
                                     <p class="mt-0.5 text-xs text-slate-400">Record #{{ $rr->receiving_report_id }}</p>
                                 </td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '—' }}</td>
@@ -239,6 +256,7 @@
                     @endphp
                     @include('receiving-officer.partials.list-info-card', [
                         'title' => $rr->receiving_report_form_number,
+                        'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
                         'subtitle' => 'RFC: '.($rr->request_check_form_number ?? '—'),
                         'status' => $displayStatus,
                         'statusClass' => 'border-slate-200 bg-slate-50 text-slate-700',
@@ -270,7 +288,12 @@
                 <div @click.stop class="relative my-auto w-full max-w-5xl rounded-2xl bg-white shadow-xl">
                     <div class="flex items-center justify-between gap-3 border-b px-6 py-5">
                         <div>
-                            <h3 class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
+                                @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
+                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                @endif
+                            </div>
                             <p class="text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -331,6 +354,95 @@
                                     >
                                     <p class="mt-1 text-xs text-gray-500">Optional. Upload photos of the verified products.</p>
                                 </div>
+
+                                @php
+                                    $inspectLines = $rrItems
+                                        ->filter(fn ($line) => empty($line->receiving_report_item_verified) && filled($line->receiving_report_item_article ?? null))
+                                        ->values();
+                                    $inspectLabels = \App\Support\BackOrders::replacementLabels($inspectLines);
+                                    $verifiedCount = $rrItems->filter(fn ($line) => !empty($line->receiving_report_item_verified))->count();
+                                @endphp
+                                @if($inspectLines->isNotEmpty())
+                                    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+                                        <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-800">Item inspection · second verification</p>
+                                                <p class="text-xs text-gray-500">
+                                                    The Purchaser's first check is filled in. Correct the received or damaged count if yours differs.
+                                                    Missing and damaged units stay on back order and the RR is marked Incomplete until they are delivered.
+                                                    @if($verifiedCount > 0)
+                                                        {{ $verifiedCount }} row{{ $verifiedCount === 1 ? ' was' : 's were' }} already verified earlier and {{ $verifiedCount === 1 ? 'is' : 'are' }} not shown.
+                                                    @endif
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-sm">
+                                                <thead>
+                                                    <tr class="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
+                                                        <th class="py-2 pr-3 font-medium">Article</th>
+                                                        <th class="py-2 pr-3 text-center font-medium">Ordered</th>
+                                                        <th class="py-2 pr-3 text-center font-medium">Purchaser count</th>
+                                                        <th class="w-24 py-2 pr-3 text-center font-medium">Received</th>
+                                                        <th class="w-24 py-2 pr-3 text-center font-medium">Damaged</th>
+                                                        <th class="py-2 font-medium">Damage remarks</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-100">
+                                                    @foreach($inspectLines as $line)
+                                                        @php
+                                                            $lineQty = (int) ($line->receiving_report_item_quantity ?? 0);
+                                                            $lineOrdered = $line->receiving_report_item_ordered_qty;
+                                                            $lineDamaged = \App\Support\BackOrders::damagedQty($line);
+                                                            $lineLabel = $inspectLabels[(int) ($line->receiving_report_item_back_order_id ?? 0)] ?? null;
+                                                        @endphp
+                                                        <tr class="{{ $lineLabel ? 'bg-sky-50/50' : '' }}">
+                                                            <td class="py-2 pr-3 text-gray-800">
+                                                                {{ $line->receiving_report_item_article ?: 'Item' }}
+                                                                @if($lineLabel)
+                                                                    <span class="block text-[11px] font-semibold {{ $lineLabel['new'] ? 'text-violet-700' : 'text-sky-700' }}">{{ $lineLabel['label'] }}{{ filled($line->receiving_report_item_supplier_name ?? null) ? ' · '.$line->receiving_report_item_supplier_name : '' }}</span>
+                                                                @endif
+                                                            </td>
+                                                            <td class="py-2 pr-3 text-center text-gray-600">{{ $lineOrdered ?? '—' }}</td>
+                                                            <td class="py-2 pr-3 text-center text-xs text-gray-500">{{ $lineQty }} received{{ $lineDamaged > 0 ? ' · '.$lineDamaged.' damaged' : '' }}</td>
+                                                            <td class="py-2 pr-3">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    @if($lineOrdered !== null) max="{{ (int) $lineOrdered }}" @endif
+                                                                    step="1"
+                                                                    name="received[{{ $line->receiving_report_item_id }}]"
+                                                                    value="{{ $lineQty }}"
+                                                                    class="h-9 w-full rounded-lg border border-gray-300 px-2 text-center text-sm"
+                                                                >
+                                                            </td>
+                                                            <td class="py-2 pr-3">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    name="damaged[{{ $line->receiving_report_item_id }}]"
+                                                                    value="{{ $lineDamaged }}"
+                                                                    class="h-9 w-full rounded-lg border border-gray-300 px-2 text-center text-sm"
+                                                                >
+                                                            </td>
+                                                            <td class="py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    maxlength="500"
+                                                                    name="damaged_remarks[{{ $line->receiving_report_item_id }}]"
+                                                                    value="{{ $line->receiving_report_item_damage_remarks ?? '' }}"
+                                                                    placeholder="e.g. cracked casing"
+                                                                    class="h-9 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                                                                >
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
 
                             @include('partials.receiving-report-paper', [
@@ -373,8 +485,9 @@
         <form
             method="POST"
             :action="'/receiving/reports/' + remarksRr + '/revise'"
+            enctype="multipart/form-data"
             @click.stop
-            class="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            class="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl"
         >
             @csrf
             <div class="border-b border-slate-100 px-6 py-5">
@@ -415,6 +528,7 @@
                         class="block w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                     ></textarea>
                 </div>
+                @include('admin.partials.revision-image-picker', ['pickerId' => 'rrReviseImages'])
                 <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <p class="text-xs leading-relaxed text-slate-600">
                         The Purchaser will see these remarks, update the report, and resubmit it for second count. Inventory is not updated until second count is confirmed.
@@ -450,8 +564,9 @@
         <form
             method="POST"
             :action="'/receiving/reports/' + remarksRr + '/return'"
+            enctype="multipart/form-data"
             @click.stop
-            class="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            class="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl"
         >
             @csrf
             <div class="border-b border-slate-100 px-6 py-5">
@@ -492,6 +607,7 @@
                         class="block w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                     ></textarea>
                 </div>
+                @include('admin.partials.revision-image-picker', ['pickerId' => 'rrReturnImages'])
                 <div class="rounded-xl border border-rose-100 bg-rose-50/70 px-4 py-3">
                     <p class="text-xs leading-relaxed text-rose-800">
                         Items will not be accepted into inventory. The Purchaser is notified with your reason.

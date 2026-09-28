@@ -8,7 +8,7 @@
 <div id="purDocSignaturePanel" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h4 id="purDocSignTitle" class="text-sm font-semibold text-slate-900">Purchaser signature</h4>
+            <h4 class="text-sm font-semibold text-slate-900"><span id="purDocSignTitle">Purchaser signature</span> <span class="text-red-500">*</span></h4>
             <p id="purDocSignHint" class="mt-1 text-xs leading-relaxed text-slate-500">
                 Pick a saved signature, draw one, or upload. It overlays your printed name on the form.
             </p>

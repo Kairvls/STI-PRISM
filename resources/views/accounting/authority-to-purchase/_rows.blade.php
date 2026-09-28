@@ -6,9 +6,14 @@
                     <i data-lucide="file-check-2" class="h-4 w-4"></i>
                 </div>
                 <div>
-                    <p class="font-semibold text-gray-900">
-                        {{ $row->authority_purchase_form_number ?? 'ATP-' . $row->authority_purchase_id }}
-                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-semibold text-gray-900">
+                            {{ $row->authority_purchase_form_number ?? 'ATP-' . $row->authority_purchase_id }}
+                        </p>
+                        @if (\App\Support\DocumentUrgency::isUrgent('ATP', $row))
+                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                        @endif
+                    </div>
                     <p class="mt-0.5 text-xs text-gray-400">Record #{{ $row->authority_purchase_id }}</p>
                 </div>
             </div>

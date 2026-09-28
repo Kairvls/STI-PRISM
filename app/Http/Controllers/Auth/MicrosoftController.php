@@ -187,7 +187,7 @@ class MicrosoftController extends Controller
                 AdminLoginGate::clearIntent();
 
                 return redirect('/')
-                    ->with('error', 'Administrators can sign in on the admin page.');
+                    ->with('error', 'Invalid credentials or account type.');
             }
 
             Auth::login($user);

@@ -84,7 +84,7 @@
             </div>
 
             <div class="mt-2 flex items-end gap-2">
-                <strong>Date</strong>
+                <strong>Date @if($editable)<span class="text-red-500">*</span>@endif</strong>
                 @if($editable)
                     <input
                         type="date"
@@ -106,7 +106,7 @@
 
     {{-- SUPPLIER --}}
     <div class="mt-10">
-        <strong>To:</strong>
+        <strong>To: @if($editable)<span class="text-red-500">*</span>@endif</strong>
         @if($editable)
             @php
                 $selectedSupplier = collect($suppliers ?? [])->firstWhere('supplier_id', (int) $supplierId);
@@ -165,24 +165,17 @@
     <table class="mt-5 w-full table-fixed border-collapse border border-black text-sm">
         <colgroup>
             <col style="width: 10%">
-            <col style="width: 12%">
-            <col style="width: 8%">
-            <col style="width: 42%">
+            <col style="width: 10%">
+            <col style="width: 52%">
             <col style="width: 14%">
             <col style="width: 14%">
         </colgroup>
         <thead>
             <tr>
-                <th class="border border-black p-2">Quantity</th>
-                <th class="border border-black p-2">
-                    Supplier Stock
-                    @if($editable)
-                        <span class="font-normal text-[10px]">(opt.)</span>
-                    @endif
-                </th>
-                <th class="border border-black p-2">Unit</th>
-                <th class="border border-black p-2 text-left">Description</th>
-                <th class="border border-black p-2">Unit Price</th>
+                <th class="border border-black p-2">Quantity @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="border border-black p-2">Unit @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="border border-black p-2 text-left">Description @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="border border-black p-2">Unit Price @if($editable)<span class="text-red-500">*</span>@endif</th>
                 <th class="border border-black p-2">Amount</th>
             </tr>
         </thead>
@@ -193,7 +186,6 @@
                         $row = is_array($oldItems) ? ($oldItems[$i] ?? null) : null;
                         $item = $items[$i] ?? null;
                         $qty = is_array($row) ? ($row['quantity'] ?? '') : ($item->atp_quantity ?? '');
-                        $stock = is_array($row) ? ($row['supplier_stock'] ?? '') : ($item->atp_supplier_stock ?? '');
                         $unit = is_array($row) ? ($row['unit'] ?? '') : ($item->atp_unit ?? '');
                         $desc = is_array($row) ? ($row['description'] ?? '') : ($item->atp_description ?? '');
                         $price = is_array($row) ? ($row['unit_price'] ?? '') : ($item->atp_unit_price ?? '');
@@ -203,10 +195,18 @@
                     @endphp
                     <tr>
                         <td class="border border-black p-1">
-                            <input type="number" name="items[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="{{ $atpCellClass }} text-center">
-                        </td>
-                        <td class="border border-black p-1">
-                            <input type="number" name="items[{{ $i }}][supplier_stock]" value="{{ $stock }}" min="0" class="{{ $atpCellClass }} text-center" title="Available stock at supplier (manual entry)">
+                            <input
+                                type="number"
+                                name="items[{{ $i }}][quantity]"
+                                value="{{ $qty }}"
+                                min="1"
+                                max="9999999"
+                                step="1"
+                                inputmode="numeric"
+                                onkeydown="if (['e', 'E', '+', '-', '.'].includes(event.key)) event.preventDefault();"
+                                oninput="if (this.value.length > 7) this.value = this.value.replace(/\D/g, '').slice(0, 7);"
+                                class="{{ $atpCellClass }} text-center"
+                            >
                         </td>
                         <td class="border border-black p-1">
                             <div
@@ -304,7 +304,18 @@
                             <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" class="{{ $atpCellClass }}">
                         </td>
                         <td class="border border-black p-1">
-                            <input type="number" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ $price }}" min="0" class="{{ $atpCellClass }} text-right">
+                            <input
+                                type="number"
+                                step="0.01"
+                                name="items[{{ $i }}][unit_price]"
+                                value="{{ $price }}"
+                                min="0"
+                                max="9999999.99"
+                                inputmode="decimal"
+                                onkeydown="if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();"
+                                oninput="const [whole, decimals] = this.value.split('.'); if (whole.length > 7 || (decimals ?? '').length > 2) this.value = whole.slice(0, 7) + (decimals !== undefined ? '.' + decimals.slice(0, 2) : '');"
+                                class="{{ $atpCellClass }} text-right"
+                            >
                         </td>
                         <td class="border border-black p-1">
                             <input
@@ -328,7 +339,7 @@
                     </tr>
                 @endfor
                 <tr>
-                    <td colspan="4" class="border border-black">&nbsp;</td>
+                    <td colspan="3" class="border border-black">&nbsp;</td>
                     <td class="border border-black px-2 text-right font-bold">TOTAL</td>
                     <td class="border border-black px-2 text-right font-bold">&nbsp;</td>
                 </tr>
@@ -338,12 +349,6 @@
                     @if($item)
                         <tr>
                             <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
-                            <td class="border border-black text-center">
-                                {{ $item->atp_supplier_stock ?? '—' }}
-                                @if((int) ($item->atp_back_order_qty ?? 0) > 0)
-                                    <span class="block text-[10px] font-semibold text-amber-700">Back order: {{ $item->atp_back_order_qty }}</span>
-                                @endif
-                            </td>
                             <td class="border border-black text-center">{{ $item->atp_unit }}</td>
                             <td class="border border-black px-2">{{ $item->atp_description }}</td>
                             <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>
@@ -356,13 +361,12 @@
                             <td class="border border-black">&nbsp;</td>
                             <td class="border border-black">&nbsp;</td>
                             <td class="border border-black">&nbsp;</td>
-                            <td class="border border-black">&nbsp;</td>
                         </tr>
                     @endif
                 @endfor
 
                 <tr>
-                    <td colspan="4" class="border border-black">&nbsp;</td>
+                    <td colspan="3" class="border border-black">&nbsp;</td>
                     <td class="border border-black px-2 text-right font-bold">TOTAL</td>
                     <td class="border border-black px-2 text-right font-bold">
                         {{ $items->isNotEmpty() ? number_format($atpTotal, 2) : '' }}
@@ -375,7 +379,7 @@
     {{-- BOTTOM SIGNATURES --}}
     <div class="{{ $editable ? 'mt-8' : 'mt-10' }} grid grid-cols-2 items-start gap-10">
         <div class="w-full max-w-sm">
-            <div class="font-semibold leading-6">RECEIVED BY:</div>
+            <div class="font-semibold leading-6">RECEIVED BY: @if($editable)<span class="text-red-500">*</span>@endif</div>
 
             @if($editable)
                 <div class="relative mt-6 w-full">

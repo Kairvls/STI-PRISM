@@ -238,7 +238,7 @@
                     </div>
 
                     <div class="ris-signature-column">
-                        <div class="ris-signature-label">Approved by:</div>
+                        <div class="ris-signature-label">Approved by: <span class="text-red-500">*</span></div>
                         <div class="ris-signature-line ris-signature-line--input ris-signature-input-wrap">
                             <img
                                 id="paApprovedSigOverlay"
@@ -258,7 +258,7 @@
                                 title="President name for Approved by"
                             >
                         </div>
-                        <div class="ris-date-label">Date:</div>
+                        <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
                         <div class="ris-date-line ris-date-line--input">
                             <input
                                 type="text"
@@ -312,7 +312,7 @@
         <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h4 class="text-sm font-semibold text-slate-900">President signature</h4>
+                    <h4 class="text-sm font-semibold text-slate-900">President signature <span class="text-red-500">*</span></h4>
                     <p class="mt-1 text-xs leading-relaxed text-slate-500">
                         Pick a saved signature, draw one, or upload. It overlays <strong>Approved by</strong> on the form above.
                     </p>

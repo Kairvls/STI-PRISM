@@ -40,6 +40,7 @@
     let risFilterFetchTimer = null;
     let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
+    let currentFocus = @json($attentionFocus['key'] ?? '');
 
 
     // =====================================================
@@ -51,7 +52,11 @@
         // Build query parameters.
         const params = new URLSearchParams();
 
-        params.set('filter', filter || 'pending');
+        if (currentFocus) {
+            params.set('focus', currentFocus);
+        } else {
+            params.set('filter', filter || 'pending');
+        }
 
         if (search) {
             params.set('search', search);
@@ -189,9 +194,12 @@
             }
         }
 
+        // Reminder focus lists are not produced by any tab.
         if (!activeBtn) {
-            activeBtn = buttons[0];
+            thumb.style.opacity = '0';
+            return;
         }
+        thumb.style.opacity = '';
 
         const x = activeBtn.offsetLeft;
         const w = activeBtn.offsetWidth;
@@ -219,6 +227,7 @@
             return;
         }
 
+        currentFocus = '';
         currentFilter = filter;
         updateRisFilterSlider(currentFilter, true);
 

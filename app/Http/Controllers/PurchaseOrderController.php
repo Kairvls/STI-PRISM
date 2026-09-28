@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
+use App\Support\DocumentUrgency;
 use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\ProcurementPortal;
@@ -53,6 +54,7 @@ class PurchaseOrderController extends Controller
             $query->where('purchase_order_status', $status);
         }
 
+        DocumentUrgency::select($query, 'PO');
         $orders = $query
             ->orderByRaw("CASE purchase_order_status WHEN 'Draft' THEN 0 WHEN 'Submitted' THEN 1 ELSE 2 END")
             ->orderByDesc('purchase_order_updated_at')

@@ -54,4 +54,5 @@
     @include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.purchaser-daily-reminder')
     @include('partials.purchaser-print-sheet-helper')
     @include('partials.purchaser-confirm-dialog')
+    @include('partials.purchaser-rich-tooltip')
 @endpush

@@ -6,6 +6,7 @@
  */
 
 use App\Http\Controllers\AuthorityToPurchaseController;
+use App\Http\Controllers\BackOrderController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\DraftHandoverController;
 use App\Http\Controllers\FileMaintenanceController;
@@ -65,6 +66,12 @@ Route::delete('/ris/saved-signatures/{signature}', [RisController::class, 'destr
     ->name('ris.saved-signatures.destroy');
 Route::get('/ris/attachments/{attachmentId}/download', [RisController::class, 'downloadAttachment'])
     ->name('ris.attachments.download');
+Route::get('/ris/revisions/{revisionId}/images/{index}', [RisController::class, 'revisionImage'])
+    ->whereNumber(['revisionId', 'index'])
+    ->name('ris.revision-image');
+Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
+    ->whereNumber(['revisionId', 'index'])
+    ->name('document-revision-image');
 Route::get('/ris/export-blank-xlsx', [RisController::class, 'exportBlankExcel'])->name('ris.export-blank-xlsx');
 Route::get('/ris/export-blank-docx', [RisController::class, 'exportBlankWord'])->name('ris.export-blank-docx');
 Route::put('/ris/{risId}', [RisController::class, 'update'])->name('ris.update');
@@ -144,6 +151,21 @@ Route::post('/receiving-reports/{id}/archive', [ReceivingReportController::class
 Route::post('/receiving-reports/{id}/restore', [ReceivingReportController::class, 'restore'])->name('rr.restore');
 Route::get('/receiving-reports/{id}/export-xlsx', [ReceivingReportController::class, 'exportExcel'])->name('rr.export-xlsx');
 Route::get('/receiving-reports/{id}/export-docx', [ReceivingReportController::class, 'exportWord'])->name('rr.export-docx');
+
+
+// =====================================================
+// BACK ORDERS (short / damaged RR lines)
+// =====================================================
+
+Route::get('/back-orders', [BackOrderController::class, 'index'])->name('bo.index');
+Route::post('/back-orders/{id}', [BackOrderController::class, 'update'])->whereNumber('id')->name('bo.update');
+Route::post('/back-orders/{id}/refund', [BackOrderController::class, 'refund'])->whereNumber('id')->name('bo.refund');
+Route::post('/back-orders/{id}/replace', [BackOrderController::class, 'replace'])->whereNumber('id')->name('bo.replace');
+Route::post('/back-orders/{id}/undo-replacement', [BackOrderController::class, 'undoReplacement'])->whereNumber('id')->name('bo.undo-replacement');
+Route::get('/back-orders/{id}/files/{kind}/{index}', [BackOrderController::class, 'file'])
+    ->whereNumber(['id', 'index'])
+    ->whereIn('kind', ['proof', 'refund', 'replacement'])
+    ->name('bo.file');
 
 
 // =====================================================

@@ -31,7 +31,7 @@
 
     <div class="mt-8 flex justify-end">
         <div class="flex w-72 items-end gap-2">
-            <span class="font-semibold">Date:</span>
+            <span class="font-semibold">Date: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
                 <input type="date" name="request_check_date" value="{{ $dateValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
@@ -42,7 +42,7 @@
 
     <div class="mt-10 space-y-8">
         <div class="flex items-end gap-3">
-            <span class="w-24 shrink-0 font-semibold">Payee:</span>
+            <span class="w-24 shrink-0 font-semibold">Payee: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
                 <input type="text" name="request_check_payee" value="{{ $payeeValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
@@ -51,7 +51,7 @@
         </div>
 
         <div class="flex items-end gap-3">
-            <span class="w-24 shrink-0 font-semibold">Amount:</span>
+            <span class="w-24 shrink-0 font-semibold">Amount: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
                 <input type="number" step="0.01" min="0" name="request_check_amount_figures" value="{{ $amountValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
@@ -63,7 +63,7 @@
 
         <div>
             <div class="flex items-end gap-3">
-                <span class="w-24 shrink-0 font-semibold">For:</span>
+                <span class="w-24 shrink-0 font-semibold">For: @if($editable)<span class="text-red-500">*</span>@endif</span>
                 @if($editable)
                     <textarea name="request_check_particulars_purpose" rows="2" class="flex-1 resize-none border-0 border-b border-black bg-transparent px-1 outline-none">{{ $purposeValue }}</textarea>
                 @else
@@ -78,7 +78,7 @@
 
     <div class="mt-12 grid grid-cols-2 gap-16">
         <div class="text-left">
-            <div class="font-semibold">Requested by:</div>
+            <div class="font-semibold">Requested by: @if($editable)<span class="text-red-500">*</span>@endif</div>
             @if($editable)
                 <div class="relative mt-6 w-64">
                     <span class="signature-name-stack w-full">

@@ -37,7 +37,7 @@
 
             <h2>PaAyo</h2>
 
-            <span>Receiving Officer</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('receiving') }}</span>
 
         </div>
 
@@ -188,6 +188,42 @@
             <span>Pending Receiving Reports</span>
 
         </a>
+
+        @php
+            $boGroupActive = request()->is('receiving/back-orders*');
+            $activeBoPayment = $boGroupActive ? request('payment') : null;
+            $boLinks = [
+                ['payment' => null, 'label' => 'All Back Orders', 'icon' => 'layers'],
+                ['payment' => 'rfc', 'label' => 'Request for Check', 'icon' => 'clipboard-check'],
+                ['payment' => 'ca', 'label' => 'Cash Advance', 'icon' => 'banknote'],
+            ];
+        @endphp
+
+        <div class="menu-group {{ $boGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $boGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $boGroupActive ? 'true' : 'false' }}"
+            >
+                <span class="menu-icon-wrap">
+                    <i data-lucide="package-x"></i>
+                </span>
+                <span>Back Orders</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
+                @foreach($boLinks as $boLink)
+                    <a
+                        href="{{ route('receiving.back-orders.index', array_filter(['payment' => $boLink['payment']])) }}"
+                        class="menu-sub-item {{ $boGroupActive && $activeBoPayment === $boLink['payment'] ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $boLink['icon'] }}"></i>
+                        <span>{{ $boLink['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         <a
             href="/receiving/delivered-items"
@@ -626,6 +662,95 @@
     color: #ffffff;
 }
 
+/* ======================================
+   COLLAPSIBLE MENU GROUP
+====================================== */
+
+.menu-group {
+    margin-bottom: 2px;
+}
+
+.menu-group-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu-group-toggle .menu-group-chevron {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.menu-group.is-open > .menu-group-toggle .menu-group-chevron {
+    transform: rotate(180deg);
+    color: #94a3b8;
+}
+
+.menu-group-toggle.active-parent,
+.menu-group-toggle.active-parent span {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.menu-group-toggle.active-parent svg:not(.menu-group-chevron) {
+    color: #fde68a;
+    stroke: #fde68a;
+}
+
+.menu-sub {
+    display: grid;
+    gap: 2px;
+    padding: 2px 0 8px 18px;
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+    margin: 0 0 4px 8px;
+}
+
+.menu-sub[hidden] {
+    display: none;
+}
+
+.menu-sub-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 8px 0 4px;
+    border-radius: 8px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.menu-sub-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.menu-sub-item:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.menu-sub-item.active {
+    color: #fde68a;
+    background: rgba(253, 230, 138, 0.08);
+    font-weight: 500;
+}
+
+.menu-sub-item.active svg {
+    color: #fde68a;
+}
+
     /* ======================================
    USER CARD
 ====================================== */
@@ -719,6 +844,27 @@
 
     const sidebarContent =
         document.querySelector(".sidebar-content");
+
+
+    // =====================================================
+    // COLLAPSIBLE MENU GROUPS
+    // =====================================================
+
+    document.querySelectorAll("[data-menu-group]").forEach((group) => {
+        const toggle = group.querySelector("[data-menu-group-toggle]");
+        const panel = group.querySelector(".menu-sub");
+        if (!toggle || !panel) return;
+
+        toggle.addEventListener("click", () => {
+            const willOpen = !group.classList.contains("is-open");
+            group.classList.toggle("is-open", willOpen);
+            panel.hidden = !willOpen;
+            toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+            if (window.lucide && typeof window.lucide.createIcons === "function") {
+                window.lucide.createIcons();
+            }
+        });
+    });
 
 
     // =====================================================

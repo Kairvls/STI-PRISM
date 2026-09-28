@@ -5,6 +5,9 @@
     $amendRis = (int) ($attention['amendRis'] ?? 0);
     $attentionTotal = (int) ($attention['attentionTotal'] ?? 0);
     $showDailyReminder = $attentionTotal > 0;
+    $pendingRisUrl = route('admin.procurement-review.index', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
+    $awaitingCosignUrl = route('admin.digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);
+    $amendRisUrl = route('admin.procurement-review.index', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]);
 @endphp
 
 @if ($showDailyReminder)
@@ -48,7 +51,7 @@
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                 @if ($pendingRis > 0)
                     <a
-                        href="{{ url('/admin/procurement-review') }}"
+                        href="{{ $pendingRisUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 transition group-hover:bg-blue-100">
@@ -68,7 +71,7 @@
 
                 @if ($awaitingCosign > 0)
                     <a
-                        href="{{ url('/admin/digital-signatures/sign-ris') }}"
+                        href="{{ $awaitingCosignUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
@@ -88,7 +91,7 @@
 
                 @if ($amendRis > 0)
                     <a
-                        href="{{ url('/admin/procurement-review?filter=all') }}"
+                        href="{{ $amendRisUrl }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-slate-300 hover:bg-slate-50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 ring-1 ring-slate-200 transition group-hover:bg-slate-200">
@@ -118,24 +121,24 @@
 
                 @if ($pendingRis > 0)
                     <a
-                        href="{{ url('/admin/procurement-review') }}"
+                        href="{{ $pendingRisUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Accept Requests
                     </a>
                 @elseif ($awaitingCosign > 0)
                     <a
-                        href="{{ url('/admin/digital-signatures/sign-ris') }}"
+                        href="{{ $awaitingCosignUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Open Sign RIS
                     </a>
                 @elseif ($amendRis > 0)
                     <a
-                        href="{{ url('/admin/procurement-review?filter=all') }}"
+                        href="{{ $amendRisUrl }}"
                         class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                        View all
+                        View amendments
                     </a>
                 @endif
             </div>

@@ -41,6 +41,8 @@
         ])
     </div>
 
+    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => method_exists($reports, 'total') ? $reports->total() : null])
+
     @include('components.tables.reports-table', [
         'reports' => $reports,
         'context' => 'purchaser-urgent',

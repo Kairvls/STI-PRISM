@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReviewerAssignment;
+use App\Support\RisRevisionImages;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
@@ -117,8 +119,14 @@ class RisController extends Controller
             });
         }
 
+        $attentionFocus = $archiveView
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP);
+
         // Status filter (Approved / Rejected / In Review match risStatusSummary groups)
-        if ($request->filled('status')) {
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeRisReadyForAtp($risQuery);
+        } elseif ($request->filled('status')) {
             $statusGroups = $this->risStatusGroups();
             $groupKey = match ($request->status) {
                 'In Review' => 'submitted',
@@ -278,7 +286,7 @@ class RisController extends Controller
         $risCopyPrefill = $isAjax ? null : $this->risCopyPrefillFromRequest($request);
         $defaultRequestedBy = $isAjax
             ? null
-            : ($risCopyPrefill['requested_by'] ?? (Auth::user()->user_full_name ?? ''));
+            : (trim((string) (Auth::user()->user_full_name ?? '')) ?: ($risCopyPrefill['requested_by'] ?? ''));
         $defaultRequestedByDate = $isAjax
             ? null
             : ($risCopyPrefill['requested_by_date'] ?? now()->format('d/m/Y'));
@@ -287,6 +295,7 @@ class RisController extends Controller
             : UserSignatureLibrary::forUser((int) Auth::id());
 
         return view('purchaser.ris.index', compact(
+            'attentionFocus',
             'risRecords',
             'risSummary',
             'attachmentsByRis',
@@ -471,21 +480,21 @@ class RisController extends Controller
                 'nullable',
                 'integer',
                 'min:1',
-                'max:999999',
+                'max:9999999',
             ],
 
             'ris_items.*.quantity_issued' => [
                 'nullable',
                 'integer',
                 'min:0',
-                'max:999999',
+                'max:9999999',
             ],
 
             'ris_items.*.unit_cost' => [
                 'nullable',
                 'numeric',
                 'min:0',
-                'max:999999999.99',
+                'max:9999999.99',
             ],
 
             // We still accept the field from the form,
@@ -620,6 +629,15 @@ class RisController extends Controller
 
             'ris_items.*.unit_cost.min' =>
                 'Unit Cost cannot be negative.',
+
+            'ris_items.*.quantity_requested.max' =>
+                'Quantity Requested can be up to 7 digits only.',
+
+            'ris_items.*.quantity_issued.max' =>
+                'Quantity Issued can be up to 7 digits only.',
+
+            'ris_items.*.unit_cost.max' =>
+                'Unit Cost can be up to 7 digits only.',
 
             'ris_attachments.max' =>
                 'You may upload only 1 supporting document at a time.',
@@ -1129,21 +1147,21 @@ public function update(Request $request, $risId)
             'nullable',
             'integer',
             'min:1',
-            'max:999999',
+            'max:9999999',
         ],
 
         'ris_items.*.quantity_issued' => [
             'nullable',
             'integer',
             'min:0',
-            'max:999999',
+            'max:9999999',
         ],
 
         'ris_items.*.unit_cost' => [
             'nullable',
             'numeric',
             'min:0',
-            'max:999999999.99',
+            'max:9999999.99',
         ],
 
         'ris_items.*.total_amount' => [
@@ -1226,6 +1244,15 @@ public function update(Request $request, $risId)
 
         'ris_items.*.unit_cost.min' =>
             'Unit Cost cannot be negative.',
+
+        'ris_items.*.quantity_requested.max' =>
+            'Quantity Requested can be up to 7 digits only.',
+
+        'ris_items.*.quantity_issued.max' =>
+            'Quantity Issued can be up to 7 digits only.',
+
+        'ris_items.*.unit_cost.max' =>
+            'Unit Cost can be up to 7 digits only.',
 
         'ris_attachments.*.mimes' =>
             'Supporting documents must be Word or Excel files only.',
@@ -1909,7 +1936,10 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             ->where('ris_id', $attachment->ris_id)
             ->first();
         abort_if(!$ris, 404);
-        PurchaserDocumentAccess::assertOwns($ris, 'ris');
+        // Admin and President routes sit behind their own middleware; multi-role reviewers would otherwise hit the purchaser owner check.
+        if (!request()->routeIs('admin.*', 'president.*')) {
+            PurchaserDocumentAccess::assertOwns($ris, 'ris');
+        }
 
         abort_if(!Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
 
@@ -1917,6 +1947,30 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             $attachment->ris_attachment_path,
             $attachment->ris_attachment_original_name
         );
+    }
+
+    public function revisionImage($revisionId, $index)
+    {
+        abort_unless(RisRevisionImages::supported(), 404);
+
+        $revision = DB::table('ris_revision_notes_table')
+            ->where('ris_revision_id', $revisionId)
+            ->first();
+        abort_if(!$revision, 404);
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $revision->ris_id)
+            ->first();
+        abort_if(!$ris, 404);
+        // Admin routes sit behind the admin middleware; multi-role admins would otherwise hit the purchaser owner check.
+        if (!request()->routeIs('admin.*')) {
+            PurchaserDocumentAccess::assertOwns($ris, 'ris');
+        }
+
+        $image = RisRevisionImages::decode($revision)[(int) $index] ?? null;
+        abort_if(!$image || !Storage::disk('public')->exists($image['path']), 404);
+
+        return Storage::disk('public')->response($image['path'], $image['name'] ?: basename($image['path']));
     }
 
     private function activeSuppliersForRis()

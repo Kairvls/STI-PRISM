@@ -14,6 +14,9 @@
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $liq->liquidation_report_form_number ?? ('LIQ-'.$liq->liquidation_report_id) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])
+                @if (\App\Support\DocumentUrgency::isUrgent('LIQ', $liq->liquidation_report_id))
+                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                @endif
                 @include('accounting.partials.deadline-badge', ['deadline' => $liq->liquidation_report_submission_deadline ?? null])
             </div>
             <p class="acc-page-subtitle">Official liquidation form. Approval completes the transaction.</p>
@@ -73,7 +76,14 @@
                 @include('accounting.partials.related-docs', ['chain' => $chain, 'current' => 'liq'])
                 @include('accounting.partials.history', ['history' => $history])
                 @if (!empty($liq->liquidation_report_revision_notes))
-                    <div class="acc-note acc-note-info">Last revision note: {{ $liq->liquidation_report_revision_notes }}</div>
+                    <div class="acc-note acc-note-info">
+                        Last revision note: {{ $liq->liquidation_report_revision_notes }}
+                        @include('partials.ris-revision-images', [
+                            'revision' => \App\Support\DocumentRevisionNotes::latest('LIQ', $liq->liquidation_report_id),
+                            'routeName' => 'accounting.document-revision-image',
+                            'size' => 'sm',
+                        ])
+                    </div>
                 @endif
             </div>
         </div>
@@ -108,8 +118,11 @@
                 ])
             </div>
             <div class="mt-4">
-                <label>Remarks</label>
+                <label>Remarks <span id="remarksReqStar" class="text-red-500 hidden">*</span></label>
                 <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for revision."></textarea>
+            </div>
+            <div id="decisionImagesBlock" class="hidden mt-4">
+                @include('admin.partials.revision-image-picker', ['pickerId' => 'decisionRevisionImages'])
             </div>
             <div class="confirm-actions mt-5">
                 <button type="button" class="btn-ghost" data-tip="Cancel decision" onclick="closeDecisionModal()">Cancel</button>
@@ -144,6 +157,9 @@
         document.getElementById('decisionModalSubtitle').textContent = '{{ $liq->liquidation_report_form_number ?? ('LIQ-'. $liq->liquidation_report_id) }}';
         form.action = '/accounting/liquidation-reports/' + id + (isApproved ? '/approve' : '/revise');
         document.getElementById('signatureBlock').classList.toggle('hidden', !isApproved);
+        document.getElementById('decisionImagesBlock').classList.toggle('hidden', isApproved);
+        document.getElementById('remarksReqStar').classList.toggle('hidden', isApproved);
+        if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('decisionRevisionImages');
         document.getElementById('approveBtn').classList.toggle('hidden', !isApproved);
         document.getElementById('rejectBtn').classList.toggle('hidden', isApproved);
         document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
@@ -215,4 +231,5 @@
     });
 </script>
 
+@include('partials.ris-revision-image-viewer')
 @endsection

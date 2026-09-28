@@ -1,7 +1,7 @@
 {{--
   Generic Receiving list card (Cards view).
   Expects: $title, $roStatus, $roSearch
-  Optional: $subtitle, $status, $statusClass, $fields ([['label','value']]), $actionsHtml
+  Optional: $subtitle, $status, $statusClass, $fields ([['label','value']]), $actionsHtml, $urgent
 --}}
 @php
     $title = $title ?? '—';
@@ -21,7 +21,12 @@
 >
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-            <h3 class="truncate text-sm font-bold text-black" title="{{ $title }}">{{ $title }}</h3>
+            <div class="flex min-w-0 items-center gap-2">
+                <h3 class="truncate text-sm font-bold text-black" title="{{ $title }}">{{ $title }}</h3>
+                @if(!empty($urgent))
+                    @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                @endif
+            </div>
             @if($subtitle)
                 <p class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $subtitle }}</p>
             @endif

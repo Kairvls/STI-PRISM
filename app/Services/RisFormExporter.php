@@ -207,7 +207,7 @@ class RisFormExporter
             ['G', 'H'],
         ];
         $sigs = [
-            ['Requested by:', $this->plainName($ris->ris_requested_by_signature ?? ''), $ris->ris_requested_by_date ?? null],
+            ['Requested by:', RisWorkflow::requesterName($ris, ''), $ris->ris_requested_by_date ?? null],
             ['Approved by:', $this->plainName($ris->ris_approved_by_signature ?? ''), $ris->ris_approved_by_date ?? null],
             ['Issued by:', $this->plainName($ris->ris_issued_by_signature ?? ''), $ris->ris_issued_by_date ?? null],
             ['Received by:', $this->plainName($ris->ris_received_by_signature ?? ''), $ris->ris_received_by_date ?? null],
@@ -436,7 +436,7 @@ class RisFormExporter
         ]);
 
         $sigData = [
-            ['Requested by:', $this->plainName($ris->ris_requested_by_signature ?? ''), $ris->ris_requested_by_date ?? null, RisWorkflow::requestedByDrawnSignature($ris)],
+            ['Requested by:', RisWorkflow::requesterName($ris, ''), $ris->ris_requested_by_date ?? null, RisWorkflow::requestedByDrawnSignature($ris)],
             ['Approved by:', $this->plainName($ris->ris_approved_by_signature ?? ''), $ris->ris_approved_by_date ?? null, RisWorkflow::isDrawnSignature($ris->ris_approved_by_signature ?? null) ? (string) $ris->ris_approved_by_signature : ''],
             ['Issued by:', $this->plainName($ris->ris_issued_by_signature ?? ''), $ris->ris_issued_by_date ?? null, RisWorkflow::isDrawnSignature($ris->ris_issued_by_signature ?? null) ? (string) $ris->ris_issued_by_signature : ''],
             ['Received by:', $this->plainName($ris->ris_received_by_signature ?? ''), $ris->ris_received_by_date ?? null, ''],

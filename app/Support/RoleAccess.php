@@ -271,6 +271,32 @@ class RoleAccess
         return null;
     }
 
+    /**
+     * The person's main role (user_role_id), shown under their name in every portal.
+     */
+    public static function primaryRoleLabel(?object $user = null): string
+    {
+        return self::portalMeta()[self::primaryRoleId($user)]['label'] ?? 'User';
+    }
+
+    /**
+     * Sidebar subtitle: plain role name for the user's primary portal, "X Panel" for additional roles.
+     */
+    public static function sidebarPortalLabel(string $portalKey, ?object $user = null): string
+    {
+        foreach (self::portalMeta() as $roleId => $portal) {
+            if ($portal['key'] !== $portalKey) {
+                continue;
+            }
+
+            return $roleId === self::primaryRoleId($user)
+                ? $portal['label']
+                : $portal['label'].' Panel';
+        }
+
+        return 'Portal';
+    }
+
     public static function currentPortalLabel(?object $user = null): string
     {
         $key = self::currentPortalKey();

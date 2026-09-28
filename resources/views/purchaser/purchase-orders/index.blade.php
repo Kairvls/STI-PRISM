@@ -122,6 +122,9 @@
                                         <i data-lucide="shopping-bag" class="h-4 w-4"></i>
                                     </div>
                                     <p class="font-semibold tracking-tight text-gray-900">{{ $label }}</p>
+                                    @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
+                                        @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Includes an ATP from an urgent RIS'])
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-5 py-4">
@@ -347,7 +350,12 @@
                             <i data-lucide="shopping-bag" class="h-5 w-5"></i>
                         </div>
                         <div>
-                            <h3 class="text-lg font-semibold tracking-tight text-gray-950">{{ $label }}</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-lg font-semibold tracking-tight text-gray-950">{{ $label }}</h3>
+                                @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
+                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Includes an ATP from an urgent RIS'])
+                                @endif
+                            </div>
                             <p class="mt-0.5 text-sm text-gray-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s)</p>
                         </div>
                     </div>
@@ -360,6 +368,13 @@
                         <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                             <span class="font-medium">{{ ($order->purchase_order_status ?? '') === 'Cancelled' ? 'Cancel reason' : 'Note' }}:</span>
                             {{ $order->purchase_order_revision_reason }}
+                            @if(($order->purchase_order_status ?? '') !== 'Cancelled')
+                                @include('partials.ris-revision-images', [
+                                    'revision' => \App\Support\DocumentRevisionNotes::latest('PO', $order->purchase_order_id),
+                                    'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                    'size' => 'sm',
+                                ])
+                            @endif
                         </div>
                     @endif
                     @forelse($linked as $atp)
@@ -638,6 +653,7 @@
     </template>
 </div>
 
+@include('partials.ris-revision-image-viewer')
 @endsection
 
 @push('scripts')

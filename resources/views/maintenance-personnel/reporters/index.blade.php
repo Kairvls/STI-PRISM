@@ -1898,7 +1898,7 @@
                 <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                     <label id="importDropzone" class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-400 hover:bg-slate-100">
                         <i data-lucide="cloud-upload" class="h-8 w-8 text-slate-400"></i>
-                        <p class="mt-3 text-sm font-medium text-slate-700">Drop a CSV or Excel file, or click to browse</p>
+                        <p class="mt-3 text-sm font-medium text-slate-700">Drop a CSV or Excel file, or click to browse <span class="text-red-500">*</span></p>
                         <p class="mt-1 text-xs text-slate-400">Use the sample file so names and numbers import correctly</p>
                         <input id="importFile" name="file" type="file" accept=".csv,.txt,.xlsx" class="hidden" required />
                     </label>

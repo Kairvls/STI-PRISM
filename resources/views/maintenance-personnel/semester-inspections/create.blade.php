@@ -91,7 +91,7 @@
         </div>
 
         <div class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Scope</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Scope <span class="text-red-500">*</span></p>
             <p class="mt-1 text-xs text-slate-500">STI College Ormoc — choose how much of the school to include.</p>
 
             <div class="mt-3 grid grid-cols-1 gap-3 {{ $showBuildingScope ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
@@ -161,7 +161,7 @@
                 @endif
 
                 <div x-show="scope === 'floor'" x-cloak class="{{ $showBuildingScope ? '' : 'sm:col-span-2' }}">
-                    <label class="mb-1.5 block text-sm text-slate-600">Floor</label>
+                    <label class="mb-1.5 block text-sm text-slate-600">Floor <span class="text-red-500">*</span></label>
                     <select
                         name="campaign_scope_floor_id"
                         class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm outline-none ring-1 ring-slate-200/80"

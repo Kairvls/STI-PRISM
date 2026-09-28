@@ -43,7 +43,7 @@
                     'label' => $label,
                     'hint' => $monthlyHint($percentage),
                     'value' => number_format((int) $count),
-                    'href' => request()->fullUrlWithQuery(['status' => $isActive ? null : $status, 'page' => null]),
+                    'href' => request()->fullUrlWithQuery(['status' => $isActive ? null : $status, 'page' => null, 'focus' => null]),
                     'active' => $isActive,
                     'title' => $isActive ? 'Show all statuses' : 'Show only '.$status.' reports',
                 ];
@@ -60,7 +60,7 @@
         </div>
     @endif
 
-    @if (!$isMainReportsPage)
+    @if (!$isMainReportsPage && empty($attentionFocus))
         <div class="mb-5 flex items-baseline justify-end gap-2">
             <span class="text-4xl font-black tracking-tight text-slate-950">
                 {{ $reports->count() }}
@@ -70,6 +70,8 @@
             </span>
         </div>
     @endif
+
+    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $reports->total()])
 
     @include ("components.tables.reports-table",
         ["reports" => $reports])

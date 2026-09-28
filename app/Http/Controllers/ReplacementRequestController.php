@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Support\PurchaserAttentionSummary;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReplacementRequestCode;
 use App\Support\WorkflowNotifier;
@@ -119,7 +120,12 @@ class ReplacementRequestController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
+        $attentionFocus = $archiveView
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_REPLACEMENT_PENDING);
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeReplacementPending($query);
+        } elseif ($request->filled('status')) {
             $query->where('procurement_requests_table.procurement_request_status', $request->status);
         }
 
@@ -141,7 +147,7 @@ class ReplacementRequestController extends Controller
 
         ReplacementRequestBasket::attachToRequests($replacementRequests);
 
-        return view('purchaser.procurement.replacement-requests', compact('replacementRequests', 'archiveView'));
+        return view('purchaser.procurement.replacement-requests', compact('replacementRequests', 'archiveView', 'attentionFocus'));
     }
 
     public function approve(Request $request, int $requestId)

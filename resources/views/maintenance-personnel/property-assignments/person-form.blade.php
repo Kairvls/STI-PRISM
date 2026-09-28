@@ -130,7 +130,7 @@
             </div>
 
             <label class="block">
-                <span class="mb-1 block text-xs font-medium text-slate-500">Status</span>
+                <span class="mb-1 block text-xs font-medium text-slate-500">Status <span class="text-red-500">*</span></span>
                 <select name="custodian_status" class="{{ $fieldClass }} @error('custodian_status') {{ $errorClass }} @enderror">
                     @foreach (\App\Support\Custodians::STATUSES as $status)
                         <option value="{{ $status }}" @selected($selectedStatus === $status)>{{ $status }}</option>

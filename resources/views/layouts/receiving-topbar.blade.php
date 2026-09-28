@@ -9,6 +9,9 @@
                 request()->is('receiving/dashboard') => ['Dashboard', 'Overview of receiving activity and deliveries.'],
                 request()->is('receiving/reports*') => ['Receiving Reports', 'Review and process receiving reports.'],
                 request()->is('receiving/delivered-items*') => ['Delivered Items', 'Track items already received.'],
+                request()->is('receiving/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Short or damaged items paid through Request for Check.'],
+                request()->is('receiving/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
+                request()->is('receiving/back-orders*') => ['Back Orders', 'Items delivered short or damaged and how the Purchaser is resolving them.'],
                 request()->is('receiving/supplier-records*') => ['Supplier Records', 'Supplier delivery and receiving records.'],
                 request()->is('receiving/history*') => ['History', 'Past receiving activity and completed records.'],
                 request()->is('receiving/logs*') => ['Logs', 'Receiving activity logs.'],
@@ -22,18 +25,10 @@
             $recentNotes = collect();
             $attentionTotal = (int) ($attentionTotal ?? 0);
             try {
-                $unreadCount = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Receiving Officer');
-                    })
+                $unreadCount = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Receiving Officer')
                     ->count();
 
-                $recentNotes = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Receiving Officer');
-                    })
+                $recentNotes = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Receiving Officer')
                     ->orderByDesc('notification_created_at')
                     ->limit(8)
                     ->get();
@@ -269,7 +264,7 @@
                         {{ $topbarUser->user_full_name }}
                     </p>
                     <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
-                        {{ \App\Support\RoleAccess::currentPortalLabel($topbarUser) }}
+                        {{ \App\Support\RoleAccess::primaryRoleLabel($topbarUser) }}
                     </p>
                 </div>
 

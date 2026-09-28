@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
+use App\Support\DocumentUrgency;
 use App\Services\LiquidationReportExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\BackOrders;
 use App\Support\LrFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserDocumentAccess;
@@ -56,6 +58,7 @@ class LiquidationReportController extends Controller
             $query->whereDate('liquidation_reports_table.liquidation_report_date_submitted', $request->date);
         }
 
+        DocumentUrgency::select($query, 'LIQ');
         $spotlightQuery = clone $query;
         $reports = $query->orderByDesc('liquidation_reports_table.liquidation_report_created_at')->paginate(10)->withQueryString();
 
@@ -594,6 +597,14 @@ class LiquidationReportController extends Controller
                     })
                     ->whereIn('liquidation_report_status', self::ACTIVE_STATUSES);
             })
+            ->when(BackOrders::supported(), function ($q) {
+                $q->whereNotExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from(BackOrders::TABLE)
+                        ->whereColumn(BackOrders::TABLE.'.back_order_root_receiving_report_id', 'receiving_reports_table.receiving_report_id')
+                        ->whereIn(BackOrders::TABLE.'.back_order_status', BackOrders::UNRESOLVED);
+                });
+            })
             ->select(
                 'receiving_reports_table.receiving_report_id',
                 'receiving_reports_table.receiving_report_form_number',
@@ -637,28 +648,40 @@ class LiquidationReportController extends Controller
         foreach ($eligibleRrs as $rr) {
             $isShare = (int) ($rfcAtpCounts[(int) ($rr->request_check_id ?? 0)] ?? 0) > 1;
             $rows = [];
-            $source = $rrItems[$rr->receiving_report_id] ?? collect();
+            // Replacement rows are folded into the original row they replace, so rows still line up with the ATP.
+            $source = ($rrItems[$rr->receiving_report_id] ?? collect())
+                ->filter(fn ($item) => empty($item->receiving_report_item_back_order_id));
             $atp = $atpItems[$rr->authority_purchase_id] ?? collect();
             $shortfall = 0.0;
             $notes = [];
+            $lineTotals = BackOrders::lineTotals((int) $rr->receiving_report_id);
 
             foreach ($source->values() as $i => $item) {
                 $atpRow = $atp[$i] ?? null;
                 $orderedQty = (int) ($item->receiving_report_item_ordered_qty ?? $atpRow->atp_quantity ?? 0);
-                $receivedQty = (int) ($item->receiving_report_item_quantity ?? 0);
                 $unitPrice = (float) ($item->receiving_report_item_unit_price ?? $atpRow->atp_unit_price ?? 0);
-                $condition = strtolower((string) ($item->receiving_report_item_condition ?? 'ok'));
                 $budgetAmount = $atpRow->atp_amount ?? ($orderedQty * $unitPrice);
-                $actualAmount = $receivedQty * $unitPrice;
+                $article = $item->receiving_report_item_article ?: 'Item';
 
-                if ($condition === 'bad_order') {
-                    $actualAmount = 0;
-                    $shortfall += (float) $budgetAmount;
-                    $notes[] = ($item->receiving_report_item_article ?: 'Item').' marked Bad Order';
-                } elseif ($condition === 'short' || ($orderedQty > 0 && $receivedQty < $orderedQty)) {
-                    $missing = max(0, $orderedQty - $receivedQty);
+                // Only good units count as spent, including replacements from the same or a new supplier.
+                $damagedQty = BackOrders::damagedQty($item);
+                $line = $lineTotals[(int) $item->receiving_report_item_id] ?? null;
+                $totalGood = (int) ($line['good'] ?? BackOrders::goodQty($item));
+                $actualAmount = round((float) ($line['amount'] ?? BackOrders::goodQty($item) * $unitPrice), 2);
+
+                if ($damagedQty > 0) {
+                    $notes[] = $article.': '.$damagedQty.' damaged on arrival';
+                }
+                foreach ($line['notes'] ?? [] as $note) {
+                    $notes[] = $article.': '.$note;
+                }
+                if (!empty($line['refund'])) {
+                    $notes[] = $article.': supplier refunded ₱'.number_format((float) $line['refund'], 2);
+                }
+                if ($orderedQty > 0 && $totalGood < $orderedQty) {
+                    $missing = $orderedQty - $totalGood;
                     $shortfall += $missing * $unitPrice;
-                    $notes[] = ($item->receiving_report_item_article ?: 'Item').' short by '.$missing;
+                    $notes[] = $article.' short by '.$missing;
                 }
 
                 $article = $item->receiving_report_item_article;
@@ -672,7 +695,7 @@ class LiquidationReportController extends Controller
             }
 
             $cashHint = $shortfall > 0
-                ? 'Return unused cash ₱'.number_format($shortfall, 2).' (short/bad order)'
+                ? 'Return unused cash ₱'.number_format($shortfall, 2).' (undelivered or refunded items)'
                 : '';
 
             // One funding request can cover several ATPs; each RR liquidates only its ATP's budget share.
@@ -770,6 +793,10 @@ class LiquidationReportController extends Controller
             ?? ($rr->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
         if ($path !== ProcurementPaymentPath::CASH_ADVANCE) {
             return 'Liquidation Reports apply only to Cash Advance workflows. Request for Check ends after the Receiving Report.';
+        }
+
+        if ($required && ($open = BackOrders::unresolvedCounts([(int) $rrId])[(int) $rrId] ?? 0) > 0) {
+            return 'This Receiving Report is still incomplete: '.$open.' back order'.($open === 1 ? ' needs' : 's need').' delivery before the liquidation can be submitted.';
         }
 
         if ($this->hasBlocking($rrId, $ignoreId)) {

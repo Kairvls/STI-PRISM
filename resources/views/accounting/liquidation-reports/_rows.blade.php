@@ -16,6 +16,9 @@
                             {{ $row->liquidation_report_form_number ?? ('LIQ-'.$row->liquidation_report_id) }}
                         </p>
                         @include('accounting.partials.deadline-badge', ['deadline' => $deadline])
+                        @if (\App\Support\DocumentUrgency::isUrgent('LIQ', $row))
+                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                        @endif
                     </div>
                     <p class="mt-0.5 text-xs text-gray-400">Record #{{ $row->liquidation_report_id }}</p>
                 </div>

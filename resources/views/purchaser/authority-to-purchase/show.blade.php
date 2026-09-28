@@ -76,6 +76,12 @@
                             {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason' : 'Revision requested' }}
                         </dt>
                         <dd class="mt-1 text-sm {{ $atp->authority_purchase_status === 'Rejected' ? 'text-red-700' : 'text-amber-800' }}">{{ $atp->authority_purchase_rejection_reason }}</dd>
+                        <dd>
+                            @include('partials.ris-revision-images', [
+                                'revision' => \App\Support\DocumentRevisionNotes::latest('ATP', $atp->authority_purchase_id),
+                                'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                            ])
+                        </dd>
                     </div>
                 @endif
             </dl>
@@ -185,4 +191,5 @@
     </div>
 </div>
 
+@include('partials.ris-revision-image-viewer')
 @endsection

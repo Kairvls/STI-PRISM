@@ -5,7 +5,7 @@
         </div>
         <div>
             <h2>PaAyo</h2>
-            <span>President Panel</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('president') }}</span>
         </div>
     </div>
 

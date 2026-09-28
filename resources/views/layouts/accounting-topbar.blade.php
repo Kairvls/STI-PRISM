@@ -480,7 +480,7 @@
 
                     <p
                         class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
-                    >{{ \App\Support\RoleAccess::currentPortalLabel() }}</p>
+                    >{{ \App\Support\RoleAccess::primaryRoleLabel() }}</p>
                 </div>
 
                 <!-- CHEVRON -->

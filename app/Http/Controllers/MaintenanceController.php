@@ -277,239 +277,12 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // FLOORS
+        // FLOORS AND ROOMS (WITH DASHBOARD STATUS)
         // =====================================================
 
-        $floors = DB::table('floors_table')
+        $floors = \App\Support\BuildingLayout3D::floors();
 
-            ->leftJoin(
-                'buildings_table',
-                'floors_table.floor_building_id',
-                '=',
-                'buildings_table.building_id'
-            )
-
-            ->select(
-                'floors_table.floor_id',
-
-                'floors_table.floor_building_id',
-
-                'floors_table.floor_level',
-
-                'buildings_table.building_name'
-            )
-
-            ->orderBy(
-                'floors_table.floor_id',
-                'asc'
-            )
-
-            ->get();
-
-
-        // =====================================================
-        // ROOMS WITH BUILDING, FLOOR, AND EQUIPMENT COUNT
-        // =====================================================
-
-        $rooms = DB::table('rooms_table')
-
-            ->leftJoin(
-                'floors_table',
-                'rooms_table.room_floor_id',
-                '=',
-                'floors_table.floor_id'
-            )
-
-            ->leftJoin(
-                'buildings_table',
-                'floors_table.floor_building_id',
-                '=',
-                'buildings_table.building_id'
-            )
-
-            ->where(
-                'rooms_table.room_is_archived',
-                false
-            )
-
-            ->select(
-                'rooms_table.*',
-
-                'floors_table.floor_id',
-
-                'floors_table.floor_building_id',
-
-                'floors_table.floor_level',
-
-                'buildings_table.building_id',
-
-                'buildings_table.building_name'
-            )
-
-            ->selectSub(function ($query) {
-
-                $query
-                    ->from('equipment_table')
-
-                    ->selectRaw(
-                        'COALESCE(SUM(equipment_quantity), 0)'
-                    )
-
-                    ->whereColumn(
-                        'equipment_table.equipment_room_id',
-                        'rooms_table.room_id'
-                    )
-
-                    ->where(
-                        'equipment_table.equipment_inventory_status',
-                        '!=',
-                        'Disposed'
-                    );
-
-            }, 'equipment_count')
-
-            ->orderBy(
-                'buildings_table.building_id',
-                'asc'
-            )
-
-            ->orderBy(
-                'floors_table.floor_id',
-                'asc'
-            )
-
-            ->orderBy(
-                'rooms_table.room_name',
-                'asc'
-            )
-
-            ->get();
-
-
-        // =====================================================
-        // ADD DASHBOARD INFORMATION TO EVERY ROOM
-        // =====================================================
-
-        $rooms->transform(function ($room) {
-
-
-            // =================================================
-            // ACTIVE REPORT COUNT
-            // =================================================
-
-            $room->active_report_count =
-                DB::table('reports_table')
-
-                    ->where(
-                        'report_room_id',
-                        $room->room_id
-                    )
-
-                    ->whereNotIn(
-                        'report_current_status',
-                        [
-                            'Resolved',
-                            'Rejected',
-                            'For Replacement',
-                        ]
-                    )
-
-                    ->where(
-                        'report_is_archived',
-                        false
-                    )
-
-                    ->count();
-
-
-            // =================================================
-            // ACTIVE URGENT REPORT COUNT
-            // =================================================
-
-            $room->urgent_report_count =
-                DB::table('reports_table')
-
-                    ->where(
-                        'report_room_id',
-                        $room->room_id
-                    )
-
-                    ->where(
-                        'report_urgency_level',
-                        'Urgent'
-                    )
-
-                    ->whereNotIn(
-                        'report_current_status',
-                        [
-                            'Resolved',
-                            'Rejected',
-                            'For Replacement',
-                        ]
-                    )
-
-                    ->where(
-                        'report_is_archived',
-                        false
-                    )
-
-                    ->count();
-
-
-            // =================================================
-            // UNDER MAINTENANCE EQUIPMENT COUNT
-            // =================================================
-
-            $room->maintenance_equipment_count =
-                DB::table('equipment_table')
-
-                    ->where(
-                        'equipment_room_id',
-                        $room->room_id
-                    )
-
-                    ->where(
-                        'equipment_inventory_status',
-                        'Under Maintenance'
-                    )
-
-                    ->count();
-
-
-            // =================================================
-            // DETERMINE ROOM DASHBOARD STATUS
-            // =================================================
-
-            if ($room->urgent_report_count > 0) {
-
-                $room->dashboard_status = 'critical';
-
-                $room->dashboard_label = 'Critical';
-
-            } elseif ($room->active_report_count > 0) {
-
-                $room->dashboard_status = 'needs-repair';
-
-                $room->dashboard_label = 'Repair';
-
-            } elseif ($room->maintenance_equipment_count > 0) {
-
-                $room->dashboard_status = 'maintenance';
-
-                $room->dashboard_label = 'Maintenance';
-
-            } else {
-
-                $room->dashboard_status = 'available';
-
-                $room->dashboard_label = 'Good';
-
-            }
-
-
-            return $room;
-
-        });
+        $rooms = \App\Support\BuildingLayout3D::rooms();
 
         // =====================================================
         // DASHBOARD QUICK ACTION MODAL DATA
@@ -2756,6 +2529,9 @@ class MaintenanceController extends Controller
         $request = request();
         $showArchive = $request->archive == 1;
         $isArchiveMode = $request->boolean('archive');
+        $exactTicketId = preg_match('/^RPT-\d{8}-\d+$/i', trim((string) $request->search))
+            ? ReportGrouping::parseTicketSearch((string) $request->search)
+            : null;
 
         return DB::table('reports_table')
 
@@ -2890,6 +2666,34 @@ class MaintenanceController extends Controller
                 }
             )
 
+            ->when(
+                $request->filled('reporter'),
+                function ($query) use ($request, $showArchive) {
+                    $reporterId = (string) $request->reporter;
+
+                    // A stacked row also matches when this reporter filed any report in its stack.
+                    $query->where(function ($reporterQuery) use ($reporterId, $showArchive) {
+                        $reporterQuery->where('reports_table.report_reporter_employee_id', $reporterId);
+
+                        if (! $showArchive) {
+                            $reporterQuery->orWhereExists(function ($stack) use ($reporterId) {
+                                $stack
+                                    ->select(DB::raw(1))
+                                    ->from('reports_table as stacked_reports')
+                                    ->whereColumn('stacked_reports.report_equipment_id', 'reports_table.report_equipment_id')
+                                    ->whereColumn('stacked_reports.report_room_id', 'reports_table.report_room_id')
+                                    ->where('stacked_reports.report_is_archived', false)
+                                    ->whereIn('stacked_reports.report_current_status', ReportGrouping::groupedStatuses())
+                                    ->whereRaw(
+                                        ReportGrouping::groupBucketSql('stacked_reports').' = '.ReportGrouping::groupBucketSql('reports_table')
+                                    )
+                                    ->where('stacked_reports.report_reporter_employee_id', $reporterId);
+                            });
+                        }
+                    });
+                }
+            )
+
             //REPORTS ARCHIVE SWITCH
             ->when(
                 $showArchive,
@@ -2899,87 +2703,18 @@ class MaintenanceController extends Controller
                         true
                     );
                 },
-                function ($query) {
+                function ($query) use ($exactTicketId) {
                     $query->where(
                         'reports_table.report_is_archived',
                         false
                     );
 
-                    // One card/row per equipment+room group, including
-                    // Resolved and For Replacement — not one card per report.
-                    $query->where(function ($groupQuery) {
-                        $groupQuery
-                            ->whereNull('reports_table.report_equipment_id')
-                            ->when(
-                                ReportItems::tableExists(),
-                                fn ($q) => $q->orWhereRaw(ReportGrouping::multiItemReportSql())
-                            )
-                            ->orWhereNotIn(
-                                'reports_table.report_current_status',
-                                ReportGrouping::groupedStatuses()
-                            )
-                            ->orWhereRaw(
-                                'reports_table.report_id = (
-                                    SELECT MAX(duplicate_reports.report_id)
-                                    FROM reports_table AS duplicate_reports
-                                    WHERE duplicate_reports.report_equipment_id = reports_table.report_equipment_id
-                                      AND duplicate_reports.report_room_id = reports_table.report_room_id
-                                      AND duplicate_reports.report_is_archived = 0
-                                      AND duplicate_reports.report_current_status IN (?, ?, ?, ?)
-                                      AND '.ReportGrouping::groupBucketSql('duplicate_reports').'
-                                        = '.ReportGrouping::groupBucketSql('reports_table').'
-                                )',
-                                ReportGrouping::groupedStatuses()
-                            );
-                    });
+                    // Shared with the daily reminder counts so both see the same rows.
+                    MaintenanceAttentionSummary::applyActiveGroupRows($query, $exactTicketId);
                 }
             )
 
-            ->leftJoin(
-                DB::raw('(
-                    SELECT
-                        report_equipment_id,
-                        report_room_id,
-                        CASE
-                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
-                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
-                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
-                            ELSE report_current_status
-                        END AS report_group_bucket,
-                        COUNT(*) AS open_count,
-                        MAX(CASE WHEN report_urgency_level = \'Urgent\' THEN 1 ELSE 0 END) AS has_urgent,
-                        MAX('.ReportGrouping::lastReportedSql('reports_table').') AS group_last_reported_at
-                    FROM reports_table
-                    WHERE report_equipment_id IS NOT NULL
-                      AND report_is_archived = 0
-                      AND report_current_status IN (\'Pending\', \'Processing\', \'Resolved\', \'For Replacement\')
-                    GROUP BY
-                        report_equipment_id,
-                        report_room_id,
-                        CASE
-                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
-                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
-                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
-                            ELSE report_current_status
-                        END
-                ) AS open_report_group'),
-                function ($join) {
-                    $join
-                        ->on(
-                            'open_report_group.report_equipment_id',
-                            '=',
-                            'reports_table.report_equipment_id'
-                        )
-                        ->on(
-                            'open_report_group.report_room_id',
-                            '=',
-                            'reports_table.report_room_id'
-                        )
-                        ->whereRaw(
-                            'open_report_group.report_group_bucket = '.ReportGrouping::groupBucketSql('reports_table')
-                        );
-                }
-            )
+            ->tap(fn ($query) => MaintenanceAttentionSummary::joinReportGroupStats($query))
 
             /*
             |--------------------------------------------------------------------------
@@ -3454,13 +3189,39 @@ class MaintenanceController extends Controller
 
     public function incomingReports()
     {
+        $attentionFocus = $this->reminderFocus(request(), 'reports.incoming', ['status', 'urgency', 'archive', 'view']);
+
         $reports = $this->reportsQuery()
+
+            ->when($attentionFocus, fn ($query) => MaintenanceAttentionSummary::scopeNonUrgentPending($query))
 
             ->paginate(10)
 
             ->withQueryString();
 
-        return $this->reportsView($reports);
+        return $this->reportsView($reports, false, $attentionFocus);
+    }
+
+    /**
+     * A daily reminder link (?focus=...) replaces the page's own status/priority/archive
+     * filters so the list matches the reminder count; search can still narrow it.
+     */
+    private function reminderFocus(Request $request, string $page, array $overriddenFilters): ?array
+    {
+        $focus = $request->query('focus');
+        $details = MaintenanceAttentionSummary::focusDetails($page, is_string($focus) ? $focus : null);
+
+        if (! $details) {
+            return null;
+        }
+
+        foreach ($overriddenFilters as $filter) {
+            $request->query->remove($filter);
+        }
+
+        return $details + [
+            'clear_url' => $request->fullUrlWithoutQuery(['focus', 'page']),
+        ];
     }
 
     /*
@@ -3471,17 +3232,21 @@ class MaintenanceController extends Controller
 
     public function urgentReports()
     {
+        $attentionFocus = $this->reminderFocus(request(), 'reports.urgent', ['status', 'urgency', 'archive', 'view']);
+
         $reports = $this->reportsQuery()
 
             ->whereRaw(
                 "CASE WHEN COALESCE(open_report_group.has_urgent, 0) = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END = 'Urgent'"
             )
 
+            ->when($attentionFocus, fn ($query) => MaintenanceAttentionSummary::scopeUrgentAction($query, (int) Auth::id()))
+
             ->paginate(10)
 
             ->withQueryString();
 
-        return $this->reportsView($reports);
+        return $this->reportsView($reports, false, $attentionFocus);
     }
 
     // =====================================================
@@ -3620,7 +3385,7 @@ class MaintenanceController extends Controller
         return 3;
     }
 
-    private function reportsView($reports, bool $showReportStats = false)
+    private function reportsView($reports, bool $showReportStats = false, ?array $attentionFocus = null)
     {
         $reports->getCollection()->transform(function ($report) {
             if (isset($report->grouped_report_count)) {
@@ -3649,6 +3414,7 @@ class MaintenanceController extends Controller
                 [
                     'reports' => $reports,
                     'allReports' => $showReportStats,
+                    'attentionFocus' => $attentionFocus,
                 ],
 
                 // =====================================================
@@ -10171,6 +9937,12 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_name'
             );
 
+        $attentionFocus = $this->reminderFocus($request, 'borrowing', ['status']);
+
+        if ($attentionFocus) {
+            MaintenanceAttentionSummary::scopeOverdueBorrowings($query);
+        }
+
 
         // =====================================================
         // SEARCH FILTER
@@ -10588,7 +10360,9 @@ class MaintenanceController extends Controller
                 'overdueBorrowings',
                 'overduePercentage',
 
-                'borrowingMonthlyTrend'
+                'borrowingMonthlyTrend',
+
+                'attentionFocus'
             )
         );
     }
@@ -11417,6 +11191,12 @@ class MaintenanceController extends Controller
 
         $tableSchedulesQuery = clone $schedulesQuery;
 
+        $attentionFocus = $this->reminderFocus($request, 'schedules', ['status']);
+
+        if ($attentionFocus) {
+            MaintenanceAttentionSummary::scopeOverdueSchedules($tableSchedulesQuery);
+        }
+
 
         // =====================================================
         // SEARCH FILTER
@@ -11911,7 +11691,9 @@ class MaintenanceController extends Controller
 
                 'outstandingSchedules',
 
-                'scheduleMonthlyTrend'
+                'scheduleMonthlyTrend',
+
+                'attentionFocus'
             )
         );
     }

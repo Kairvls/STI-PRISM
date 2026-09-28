@@ -1,7 +1,13 @@
 @php
     $awaitingNotifyRis = $awaitingNotifyRis ?? collect();
     $hasRows = $awaitingNotifyRis->isNotEmpty() || $pendingRis->count() > 0;
+    $attentionFocus = $attentionFocus ?? null;
+    $attentionFocusTotal = ($attentionFocus['key'] ?? null) === \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY
+        ? $awaitingNotifyRis->count()
+        : $pendingRis->total();
 @endphp
+
+@include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $attentionFocusTotal])
 
 @if ($hasRows)
     <div class="pm-queue-table-wrap">
@@ -37,7 +43,7 @@
                             <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
                         </td>
                         <td class="col-req">
-                            <span class="truncate-cell">{{ $ris->ris_requested_by_signature ?: '—' }}</span>
+                            <span class="truncate-cell">{{ \App\Support\RisWorkflow::requesterName($ris) }}</span>
                         </td>
                         <td class="col-purpose">
                             <span class="truncate-cell">{{ $ris->ris_purpose_description ?: '—' }}</span>
@@ -86,7 +92,7 @@
                             <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
                         </td>
                         <td class="col-req">
-                            <span class="truncate-cell">{{ $ris->ris_requested_by_signature ?: '—' }}</span>
+                            <span class="truncate-cell">{{ \App\Support\RisWorkflow::requesterName($ris) }}</span>
                         </td>
                         <td class="col-purpose">
                             <span class="truncate-cell">{{ $ris->ris_purpose_description ?: '—' }}</span>

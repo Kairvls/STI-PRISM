@@ -384,6 +384,12 @@
             </div>
         </div>
 
+        @if (!empty($attentionFocus))
+            <div class="px-5 pt-3">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $schedules->total()])
+            </div>
+        @endif
+
 
         {{-- ===================================================== --}}
         {{-- SEARCH AND FILTER BAR --}}
@@ -562,7 +568,7 @@
 
                         <option
                             value="Overdue"
-                            @selected(request('status') === 'Overdue')
+                            @selected(request('status') === 'Overdue' || !empty($attentionFocus))
                         >
                             Overdue
                         </option>

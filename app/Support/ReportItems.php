@@ -813,6 +813,8 @@ class ReportItems
                     'meta' => $past->reporter_full_name ?? null,
                     'notes' => null,
                     'is_current' => false,
+                    'ticket' => $ticket,
+                    'ticket_archived' => (bool) ($past->report_is_archived ?? false),
                 ]);
 
                 $outcome = match ($status) {
@@ -834,6 +836,8 @@ class ReportItems
                         'meta' => null,
                         'notes' => $outcome[1] ?: null,
                         'is_current' => false,
+                        'ticket' => $ticket,
+                        'ticket_archived' => (bool) ($past->report_is_archived ?? false),
                     ]);
                 }
             }

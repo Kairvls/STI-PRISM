@@ -85,6 +85,8 @@
 <div class="acc-page acc-atp-page acc-content-fill space-y-6 fade-in">
     @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
 
+    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $records->total()])
+
     <div class="pur-card">
         @include('accounting.partials.status-filter-bar', [
             'filters' => $filters,
@@ -131,8 +133,20 @@
         const filterCards = document.querySelectorAll('.status-filter-card');
         const filterTabs = document.querySelectorAll('.status-filter-tab');
         let currentFilter = '{{ $filter }}';
+        let currentFocus = @json($attentionFocus['key'] ?? null);
         let searchTimeout = null;
         let fetching = false;
+
+        function syncFocusChip(total) {
+            const chip = document.querySelector('[data-attention-focus]');
+            if (!chip) return;
+            if (!currentFocus) {
+                chip.remove();
+                return;
+            }
+            const badge = chip.querySelector('p.text-sm span');
+            if (badge && total !== undefined) badge.textContent = Number(total).toLocaleString();
+        }
 
         function updateFilterButtons(activeFilter) {
             filterCards.forEach(card => {
@@ -155,6 +169,7 @@
         function buildUrl(page, filter, search) {
             const params = new URLSearchParams();
             params.set('status', filter);
+            if (currentFocus) params.set('focus', currentFocus);
             if (search) params.set('search', search);
             if (page && page > 1) params.set('page', page);
             return '/accounting/authority-to-purchase?' + params.toString();
@@ -194,6 +209,8 @@
                         });
                     });
                 }
+                currentFocus = data.focus || null;
+                syncFocusChip(data.total);
                 if (window.lucide) lucide.createIcons();
                 fetching = false;
             })
@@ -209,8 +226,10 @@
         }
 
         function applyFilter(newFilter) {
-            if (newFilter === currentFilter) return;
+            if (newFilter === currentFilter && !currentFocus) return;
             currentFilter = newFilter;
+            currentFocus = null;
+            syncFocusChip();
             updateFilterButtons(newFilter);
             fetchData(1, newFilter);
             pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
@@ -265,6 +284,7 @@
             const filter = params.get('status') || 'incoming';
             const search = params.get('search') || '';
             currentFilter = filter;
+            currentFocus = params.get('focus') || null;
             if (searchInput) searchInput.value = search;
             updateFilterButtons(filter);
             fetchData(1, filter);

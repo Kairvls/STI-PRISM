@@ -56,7 +56,7 @@
                         {{ \App\Support\RisWorkflow::formNumber($ris) }}
                         @if(\App\Support\RisWorkflow::isUrgent($ris))
                             <div class="mt-0.5">
-                                <span class="inline-flex items-center rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm'])
                             </div>
                         @endif
                     </div>
@@ -78,9 +78,9 @@
                 <td>
                     <div
                         class="truncate text-sm font-medium {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $ris->ris_requested_by_signature ?? 'Purchaser' }}"
+                        title="{{ \App\Support\RisWorkflow::requesterName($ris) }}"
                     >
-                        {{ $ris->ris_requested_by_signature ?? 'Purchaser' }}
+                        {{ \App\Support\RisWorkflow::requesterName($ris) }}
                     </div>
                     <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
                         {{ $ris->ris_requested_by_date ?? 'N/A' }}

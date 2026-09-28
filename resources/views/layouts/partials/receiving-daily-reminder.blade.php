@@ -48,7 +48,7 @@
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                 @if ($pendingCount > 0)
                     <a
-                        href="{{ url('/receiving/reports') }}"
+                        href="{{ route('receiving.rr.index', ['focus' => 'queue']) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
@@ -68,7 +68,7 @@
 
                 @if ($leftoverCount > 0)
                     <a
-                        href="{{ url('/receiving/reports') }}"
+                        href="{{ route('receiving.rr.index', ['focus' => 'leftover']) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-sky-200 hover:bg-sky-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-100 transition group-hover:bg-sky-100">
@@ -76,7 +76,7 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-slate-900">
-                                {{ $leftoverCount }} leftover from yesterday
+                                {{ $leftoverCount }} leftover from before today
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
                                 Still open in the queue from a previous day.
@@ -88,7 +88,7 @@
 
                 @if ($returnedCount > 0)
                     <a
-                        href="{{ url('/receiving/history') }}"
+                        href="{{ route('receiving.rr.index', ['focus' => 'returned']) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-rose-200 hover:bg-rose-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover:bg-rose-100">
@@ -118,17 +118,17 @@
 
                 @if ($pendingCount > 0 || $leftoverCount > 0)
                     <a
-                        href="{{ url('/receiving/reports') }}"
+                        href="{{ route('receiving.rr.index', ['focus' => 'queue']) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Review queue
                     </a>
                 @elseif ($returnedCount > 0)
                     <a
-                        href="{{ url('/receiving/history') }}"
+                        href="{{ route('receiving.rr.index', ['focus' => 'returned']) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001db3]"
                     >
-                        View history
+                        View returned
                     </a>
                 @endif
             </div>

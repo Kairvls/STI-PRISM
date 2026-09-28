@@ -161,7 +161,7 @@
                 <div class="mx-auto mt-6 grid max-w-xl gap-5 md:grid-cols-2">
 
                 <label class="text-xs font-bold text-slate-700">
-                    Lowest Floor
+                    Lowest Floor <span class="text-red-500">*</span>
 
                     <input
                         type="number"
@@ -175,7 +175,7 @@
                 </label>
 
                 <label class="text-xs font-bold text-slate-700">
-                    Highest Floors
+                    Highest Floors <span class="text-red-500">*</span>
 
                     <input
                         type="number"
@@ -209,7 +209,7 @@
                     </p>
 
                     <label class="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                        Password / Unlock Code
+                        Password / Unlock Code <span class="text-red-500">*</span>
                         <input
                             type="password"
                             x-model="unlockCredential"
@@ -452,7 +452,7 @@
                                     <article class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
                                         <div class="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr_auto]">
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Room Name
+                                                Room Name <span class="text-red-500">*</span>
                                                 <input
                                                     x-model="room.name"
                                                     @input="handleStep3RoomNameInput(wizardFloorIndex)"
@@ -470,7 +470,7 @@
                                             </label>
 
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Room Type
+                                                Room Type <span class="text-red-500">*</span>
                                                 <select
                                                     x-model="room.type"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][type]`"
@@ -489,7 +489,7 @@
                                             </label>
 
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Room Status
+                                                Room Status <span class="text-red-500">*</span>
                                                 <select
                                                     x-model="room.status"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
@@ -583,7 +583,7 @@
                                                 :value="room.id ?? ''"
                                             >
                                             <label class="text-[11px] font-semibold uppercase text-black">
-                                                Room Name
+                                                Room Name <span class="text-red-500">*</span>
                                                 <input
                                                     x-model="room.name"
                                                     @input="handleStep3RoomNameInput(wizardFloorIndex)"
@@ -600,7 +600,7 @@
                                                 ></span>
                                             </label>
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Room Type
+                                                Room Type <span class="text-red-500">*</span>
                                                 <select
                                                     x-model="room.type"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][type]`"
@@ -618,7 +618,7 @@
                                                 </select>
                                             </label>
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Status / Condition
+                                                Status / Condition <span class="text-red-500">*</span>
                                                 <select
                                                     x-model="room.status"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
@@ -680,7 +680,7 @@
 
                                                     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                            Equipment Name
+                                                            Equipment Name <span class="text-red-500">*</span>
                                                             <input
                                                                 x-model="eq.name"
                                                                 :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][name]`"
@@ -713,7 +713,7 @@
                                                         </label>
 
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                            Quantity
+                                                            Quantity <span class="text-red-500">*</span>
                                                             <input
                                                                 type="number"
                                                                 min="1"
@@ -724,7 +724,7 @@
                                                         </label>
 
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                            Condition
+                                                            Condition <span class="text-red-500">*</span>
                                                             <select
                                                                 x-model="eq.condition"
                                                                 :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][condition]`"
@@ -737,7 +737,7 @@
                                                         </label>
 
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black sm:col-span-2 lg:col-span-2">
-                                                            Placement
+                                                            Placement <span class="text-red-500">*</span>
                                                             <select
                                                                 x-model="eq.zone"
                                                                 :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][zone]`"

@@ -58,6 +58,40 @@ class WorkflowNotifier
         }
     }
 
+    /**
+     * Display name of a notification recipient, falling back to the given label (e.g. the role) when unknown.
+     */
+    public static function recipientName($userId, string $fallback): string
+    {
+        $userId = (int) ($userId ?? 0);
+        if ($userId <= 0) {
+            return $fallback;
+        }
+
+        try {
+            $name = trim((string) DB::table('users_table')->where('user_id', $userId)->value('user_full_name'));
+        } catch (\Throwable $e) {
+            $name = '';
+        }
+
+        return $name !== '' ? $name : $fallback;
+    }
+
+    /**
+     * Notifications addressed to this user, plus role-wide broadcasts that have no specific recipient.
+     * A notification sent to another user of the same role stays private to that user.
+     */
+    public static function scopeVisibleTo($query, $userId, string $role)
+    {
+        return $query->where(function ($q) use ($userId, $role) {
+            $q->where('notifications_table.notification_user_id', $userId)
+                ->orWhere(function ($q) use ($role) {
+                    $q->whereNull('notifications_table.notification_user_id')
+                        ->where('notifications_table.notification_target_role', $role);
+                });
+        });
+    }
+
     public static function userIdsForRole(string $role): array
     {
         $roleId = self::ROLE_IDS[$role] ?? null;

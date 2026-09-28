@@ -720,7 +720,7 @@
 
                     <div>
                         <div class="mb-1.5 flex items-center justify-between">
-                            <label for="equipmentSelect" class="text-sm font-medium text-slate-700">Equipment</label>
+                            <label for="equipmentSelect" class="text-sm font-medium text-slate-700">Equipment <span class="text-red-500">*</span></label>
                             <button type="button" id="toggleManualEquipment" class="text-xs font-semibold text-[#0025cc] hover:underline">
                                 Not listed?
                             </button>
@@ -807,7 +807,7 @@
 
                     <div class="lr-field">
                         <div class="lr-field-label">
-                            <span>Type of report</span>
+                            <span>Type of report <span class="text-red-500">*</span></span>
                         </div>
                         <div class="lr-priority-row">
                             <label class="lr-priority-option" id="priorityCardNonUrgent">

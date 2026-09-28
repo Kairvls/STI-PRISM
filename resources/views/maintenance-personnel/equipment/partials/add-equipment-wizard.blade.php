@@ -502,7 +502,7 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty</label>
+                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty <span class="text-red-500">*</span></label>
                                 <input
                                     id="add_equipment_quantity"
                                     type="number"
@@ -830,7 +830,7 @@
                                             <div
                                                 x-show="String(item.equipment_asset_tag || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_asset_tag"
                                             ></div>
                                         </div>
@@ -841,7 +841,7 @@
                                             <div
                                                 x-show="String(item.equipment_serial_number || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_serial_number"
                                             ></div>
                                         </div>
@@ -852,7 +852,7 @@
                                             <div
                                                 x-show="String(item.equipment_brand_name || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_brand_name"
                                             ></div>
                                         </div>
@@ -863,7 +863,7 @@
                                             <div
                                                 x-show="String(item.equipment_model || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_model"
                                             ></div>
                                         </div>

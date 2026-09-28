@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use App\Support\PurchaserAttentionSummary;
+use App\Support\PurchaserDashboard;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
@@ -17,44 +18,17 @@ class PurchaserController extends Controller
     // PURCHASER DASHBOARD
     public function dashboard()
     {
-        $attention = PurchaserAttentionSummary::counts();
-
-        $pendingReplacementRequests = $attention['pendingReplacementRequests'];
-        $availableUrgentReports = $attention['availableUrgentReports'];
-        $risReadyForAtp = $attention['risReadyForAtp'];
-        $atpReadyForRfc = $attention['atpReadyForRfc'];
-        $rfcReadyForRr = $attention['rfcReadyForRr'];
-        $rrReadyForLiq = $attention['rrReadyForLiq'];
-
-        $replacementCounts = DB::table('procurement_requests_table')
-            ->select('procurement_request_status', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('procurement_request_status')
-            ->pluck('aggregate', 'procurement_request_status');
-
-        $approvedReplacementRequests = (int) ($replacementCounts['Approved'] ?? 0);
-        $completedReplacementRequests = (int) ($replacementCounts['Completed'] ?? 0);
-
-        return view('purchaser.dashboard', compact(
-            'pendingReplacementRequests',
-            'approvedReplacementRequests',
-            'completedReplacementRequests',
-            'availableUrgentReports',
-            'risReadyForAtp',
-            'atpReadyForRfc',
-            'rfcReadyForRr',
-            'rrReadyForLiq'
-        ));
+        return view('purchaser.dashboard', [
+            'user' => Auth::user(),
+            'dashboard' => PurchaserDashboard::build((int) Auth::id()),
+        ]);
     }
 
     public function notifications()
     {
         $items = collect();
         try {
-            $items = DB::table('notifications_table')
-                ->where(function ($q) {
-                    $q->where('notification_user_id', Auth::id())
-                        ->orWhere('notification_target_role', 'Purchaser');
-                })
+            $items = \App\Support\WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Purchaser')
                 ->orderByDesc('notification_created_at')
                 ->limit(80)
                 ->get();
@@ -123,7 +97,17 @@ class PurchaserController extends Controller
     // SHOW URGENT REPORTS
     public function urgentReports(Request $request)
     {
-        $reports = $this->urgentReportsQuery()
+        $isArchive = $request->query('archive') == 1 || $request->query('view') === 'archive';
+        $attentionFocus = $isArchive
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_URGENT_UNCLAIMED);
+
+        $reportsQuery = $this->urgentReportsQuery();
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeUrgentUnclaimed($reportsQuery);
+        }
+
+        $reports = $reportsQuery
             ->paginate(10)
             ->withQueryString();
 
@@ -146,6 +130,7 @@ class PurchaserController extends Controller
         return view('purchaser.reports.urgent-reports', [
             'reports' => $reports,
             'urgentSummary' => $this->urgentReportsStatusSummary(),
+            'attentionFocus' => $attentionFocus,
         ]);
     }
 

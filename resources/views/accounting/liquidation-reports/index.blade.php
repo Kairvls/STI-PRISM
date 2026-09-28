@@ -48,6 +48,8 @@
         'approved' => 'Approved',
     ];
     $searchQuery = request('search') ? '&search='.urlencode(request('search')) : '';
+    // Overdue is a subset of Needs review, so no tab total matches it.
+    $activeFilter = ($attentionFocus['key'] ?? null) === 'overdue' ? null : $filter;
     $statCards = [
         [
             'label' => 'Needs review',
@@ -55,7 +57,7 @@
             'value' => number_format($counts['incoming'] ?? 0),
             'href' => '/accounting/liquidation-reports?status=incoming'.$searchQuery,
             'filterKey' => 'incoming',
-            'active' => $filter === 'incoming',
+            'active' => $activeFilter === 'incoming',
         ],
         [
             'label' => 'Revision',
@@ -63,7 +65,7 @@
             'value' => number_format($counts['revision'] ?? 0),
             'href' => '/accounting/liquidation-reports?status=revision'.$searchQuery,
             'filterKey' => 'revision',
-            'active' => $filter === 'revision',
+            'active' => $activeFilter === 'revision',
         ],
         [
             'label' => 'Approved',
@@ -71,7 +73,7 @@
             'value' => number_format($counts['approved'] ?? 0),
             'href' => '/accounting/liquidation-reports?status=approved'.$searchQuery,
             'filterKey' => 'approved',
-            'active' => $filter === 'approved',
+            'active' => $activeFilter === 'approved',
         ],
     ];
     $filterLabels = [
@@ -84,6 +86,8 @@
 
 <div class="acc-page acc-liq-page acc-content-fill space-y-6 fade-in">
     @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
+
+    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $records->total()])
 
     @if (!empty($deadlineFilter))
         @php
@@ -110,7 +114,7 @@
     <div class="pur-card">
         @include('accounting.partials.status-filter-bar', [
             'filters' => $filters,
-            'activeFilter' => $filter,
+            'activeFilter' => $activeFilter,
             'baseUrl' => '/accounting/liquidation-reports',
             'searchPlaceholder' => 'Search liquidation or employee...',
             'formId' => 'liqSearchForm',
@@ -155,8 +159,20 @@
         const filterTabs = document.querySelectorAll('.status-filter-tab');
         let currentFilter = '{{ $filter }}';
         let currentDeadline = @json($deadlineFilter ?? null);
+        let currentFocus = @json($attentionFocus['key'] ?? null);
         let searchTimeout = null;
         let fetching = false;
+
+        function syncFocusChip(total) {
+            const chip = document.querySelector('[data-attention-focus]');
+            if (!chip) return;
+            if (!currentFocus) {
+                chip.remove();
+                return;
+            }
+            const badge = chip.querySelector('p.text-sm span');
+            if (badge && total !== undefined) badge.textContent = Number(total).toLocaleString();
+        }
 
         function updateFilterButtons(activeFilter) {
             filterCards.forEach(card => {
@@ -179,6 +195,7 @@
         function buildUrl(page, filter, search, deadline) {
             const params = new URLSearchParams();
             params.set('status', filter);
+            if (currentFocus) params.set('focus', currentFocus);
             if (search) params.set('search', search);
             if (deadline) params.set('deadline', deadline);
             if (page && page > 1) params.set('page', page);
@@ -220,6 +237,8 @@
                         });
                     });
                 }
+                currentFocus = data.focus || null;
+                syncFocusChip(data.total);
                 currentDeadline = data.deadline_filter || null;
                 const banner = document.getElementById('liqDeadlineBanner');
                 if (banner && !currentDeadline) banner.remove();
@@ -252,9 +271,11 @@
         }
 
         function applyFilter(newFilter) {
-            if (newFilter === currentFilter && !currentDeadline) return;
+            if (newFilter === currentFilter && !currentDeadline && !currentFocus) return;
             currentFilter = newFilter;
             currentDeadline = null;
+            currentFocus = null;
+            syncFocusChip();
             updateFilterButtons(newFilter);
             fetchData(1, newFilter);
             pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
@@ -310,6 +331,7 @@
             const search = params.get('search') || '';
             currentFilter = filter;
             currentDeadline = params.get('deadline') || null;
+            currentFocus = params.get('focus') || null;
             if (searchInput) searchInput.value = search;
             updateFilterButtons(filter);
             fetchData(1, filter);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Support\PresidentAttentionSummary;
+use App\Support\PresidentDashboardInsights;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -110,6 +111,8 @@ class PresidentController extends Controller
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
                 'ris.ris_approved_by_signature',
+                'ris.ris_created_by',
+                'ris.ris_submitted_by',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
             ->where(function ($q) {
@@ -122,7 +125,9 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
-                'ris.ris_approved_by_signature'
+                'ris.ris_approved_by_signature',
+                'ris.ris_created_by',
+                'ris.ris_submitted_by'
             )
             ->orderByDesc('ris.ris_created_at')
             ->orderByDesc('ris.ris_id')
@@ -182,6 +187,7 @@ class PresidentController extends Controller
             'monthlyStats' => $monthlyStats,
             'recentRis' => $recentRis,
             'recentlyApprovedRis' => $recentlyApprovedRis,
+            'insights' => PresidentDashboardInsights::build(),
         ]);
     }
 
@@ -227,6 +233,8 @@ class PresidentController extends Controller
             'ris.ris_approved_by_date',
             'ris.ris_approved_by_signature',
             'ris.ris_requested_by_signature',
+            'ris.ris_created_by',
+            'ris.ris_submitted_by',
             'ris.ris_created_at',
             DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
         ];
@@ -238,6 +246,8 @@ class PresidentController extends Controller
             'ris.ris_approved_by_date',
             'ris.ris_approved_by_signature',
             'ris.ris_requested_by_signature',
+            'ris.ris_created_by',
+            'ris.ris_submitted_by',
             'ris.ris_created_at',
         ];
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
@@ -249,30 +259,42 @@ class PresidentController extends Controller
             $pendingGroupBy[] = 'ris.ris_forward_attachment_path';
         }
 
+        // Daily reminder focus: show only the rows counted by that reminder item.
+        $focus = (string) $request->query('focus', '');
+        $focusMeta = PresidentAttentionSummary::focusMeta($focus);
+        if ($focusMeta === null) {
+            $focus = '';
+        }
+
         $query = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
             ->select($pendingSelect)
-            ->whereNotNull('ris.ris_requested_by_date')
-            ->where('ris.ris_status', '!=', 'Directly Approved')
             ->groupBy($pendingGroupBy);
 
-        $query->where(function ($q) {
-            $this->scopeAwaitingPresident($q, 'ris.');
-        });
+        PresidentAttentionSummary::scopePendingApproval($query, 'ris.');
+
+        if ($focus === PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY) {
+            $query->whereRaw('1 = 0');
+        }
 
         // ================================
         // Search filter
         // ================================
-        if ($request->filled('search')) {
-            $search = $request->search;
+        $search = $request->filled('search') ? (string) $request->search : '';
+        $applySearch = function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%")
-                  ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%");
+                  ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%")
+                  ->orWhereIn('ris.ris_created_by', RisWorkflow::userIdsMatchingName($search));
 
                 $this->addDateSearch($q, 'ris.ris_created_at', $search);
             });
+        };
+
+        if ($search !== '') {
+            $applySearch($query);
         }
 
         // ================================
@@ -296,6 +318,8 @@ class PresidentController extends Controller
             'ris.ris_approved_by_signature',
             'ris.ris_requested_by_signature',
             'ris.ris_issued_by_signature',
+            'ris.ris_created_by',
+            'ris.ris_submitted_by',
             'ris.ris_created_at',
             DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
         ];
@@ -308,6 +332,8 @@ class PresidentController extends Controller
             'ris.ris_approved_by_signature',
             'ris.ris_requested_by_signature',
             'ris.ris_issued_by_signature',
+            'ris.ris_created_by',
+            'ris.ris_submitted_by',
             'ris.ris_created_at',
         ];
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
@@ -319,22 +345,23 @@ class PresidentController extends Controller
             $awaitingGroupBy[] = 'ris.ris_forward_attachment_path';
         }
 
-        $awaitingNotifyRis = DB::table('requisition_issue_slip_table as ris')
+        $awaitingQuery = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
             ->select($awaitingSelect)
-            ->where(function ($q) {
-                $this->scopePresidentApproved($q, 'ris.');
-            })
-            ->where(function ($q) {
-                $q->whereNull('ris.ris_issued_by_signature')
-                    ->orWhere('ris.ris_issued_by_signature', '');
-            })
             ->groupBy($awaitingGroupBy)
             ->orderBy('ris.ris_approved_by_date')
-            ->orderBy('ris.ris_id')
+            ->orderBy('ris.ris_id');
+
+        PresidentAttentionSummary::scopeAwaitingNotify($awaitingQuery, 'ris.');
+
+        if ($focus === PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL) {
+            $awaitingQuery->whereRaw('1 = 0');
+        } elseif ($focus === PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY && $search !== '') {
+            $applySearch($awaitingQuery);
+        }
+
+        $awaitingNotifyRis = $awaitingQuery
             ->get()
-            ->filter(fn ($ris) => !$this->presidentHasNotifiedAdmin((int) $ris->ris_id))
-            ->values()
             ->map(function ($ris) {
                 $ris->is_president_approved = true;
                 $ris->awaiting_notify = true;
@@ -420,6 +447,11 @@ class PresidentController extends Controller
             })
         );
 
+        $attentionFocus = $focusMeta === null ? null : $focusMeta + [
+            'key' => $focus,
+            'clear_url' => route('president.approvals', array_filter(['search' => $search])),
+        ];
+
         // ================================
         // AJAX response: return JSON with rendered partial
         // ================================
@@ -442,6 +474,7 @@ class PresidentController extends Controller
             $tableHtml = view('president.approvals._table', [
                 'pendingRis' => $pendingRis,
                 'awaitingNotifyRis' => $awaitingNotifyRis,
+                'attentionFocus' => $attentionFocus,
             ])->render();
 
             return response()->json([
@@ -474,6 +507,7 @@ class PresidentController extends Controller
             'recentRis' => $recentRis,
             'pendingValue' => $pendingValue,
             'latestSubmitted' => $latestSubmitted,
+            'attentionFocus' => $attentionFocus,
         ]);
     }
 
@@ -929,6 +963,8 @@ class PresidentController extends Controller
                 'ris.ris_approved_by_signature',
                 'ris.ris_approved_by_date',
                 'ris.ris_issued_by_signature',
+                'ris.ris_created_by',
+                'ris.ris_submitted_by',
                 'log.approval_log_approval_remarks as remarks',
                 'log.approval_log_approved_at as decided_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
@@ -943,6 +979,8 @@ class PresidentController extends Controller
                 'ris.ris_approved_by_signature',
                 'ris.ris_approved_by_date',
                 'ris.ris_issued_by_signature',
+                'ris.ris_created_by',
+                'ris.ris_submitted_by',
                 'log.approval_log_approval_remarks',
                 'log.approval_log_approved_at'
             );
@@ -957,6 +995,7 @@ class PresidentController extends Controller
                   ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%")
+                  ->orWhereIn('ris.ris_created_by', RisWorkflow::userIdsMatchingName((string) $search))
                   ->orWhere('ris.ris_status', 'LIKE', "%{$search}%");
 
                 $this->addDateSearch($q, 'ris.ris_created_at', $search);
@@ -1650,7 +1689,7 @@ class PresidentController extends Controller
             'ris_id' => $record->ris_id,
             'form_number' => RisWorkflow::formNumber($record),
             'purpose' => $record->ris_purpose_description,
-            'requester_name' => $record->ris_requested_by_signature,
+            'requester_name' => RisWorkflow::requesterName($record, ''),
             'status' => $record->ris_status,
             'created_at' => $record->ris_created_at,
             'approved_by_date' => $record->ris_approved_by_date,

@@ -22,8 +22,13 @@
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slip documents.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare and track ATP documents.'],
                 request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
-                request()->is('purchaser/request-check*') => ['Request Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', 'Cash Advance documents and status.'],
+                request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/request-check*') => ['Request Fund', 'Request for Check and Cash Advance documents and status.'],
                 request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Short or damaged items paid through Request for Check.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
+                request()->is('purchaser/back-orders*') => ['Back Orders', 'Follow up items delivered short or damaged.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
                 default => [View::yieldContent('title', 'PaAyo'), 'Purchaser'],
             };
@@ -32,18 +37,10 @@
             $recentNotes = collect();
             $attentionTotal = 0;
             try {
-                $unreadCount = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Purchaser');
-                    })
+                $unreadCount = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Purchaser')
                     ->count();
 
-                $recentNotes = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Purchaser');
-                    })
+                $recentNotes = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Purchaser')
                     ->orderByDesc('notification_created_at')
                     ->limit(8)
                     ->get();
@@ -370,7 +367,7 @@
                         {{ $topbarUser->user_full_name }}
                     </p>
                     <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
-                        {{ \App\Support\RoleAccess::currentPortalLabel($topbarUser) }}
+                        {{ \App\Support\RoleAccess::primaryRoleLabel($topbarUser) }}
                     </p>
                 </div>
 

@@ -2,7 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use App\Support\ProcurementPaymentPath;
+use App\Support\RoleAccess;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -15,6 +22,7 @@ use Tests\TestCase;
  */
 class PurchaserModuleIntegrationTest extends TestCase
 {
+    use RefreshDatabase;
     use WithFaker;
 
     // ============ ROUTE REGISTRATION TESTS ============
@@ -48,17 +56,19 @@ class PurchaserModuleIntegrationTest extends TestCase
         $atpCreateRoute = $routes->getByName('purchaser.atp.create');
         $atpStoreRoute = $routes->getByName('purchaser.atp.store');
         $atpSubmitRoute = $routes->getByName('purchaser.atp.submit');
-        $atpApproveRoute = $routes->getByName('purchaser.atp.approve');
-        $atpRejectRoute = $routes->getByName('purchaser.atp.reject');
         $atpArchiveRoute = $routes->getByName('purchaser.atp.archive');
+        $atpRestoreRoute = $routes->getByName('purchaser.atp.restore');
 
         $this->assertNotNull($atpIndexRoute);
         $this->assertNotNull($atpCreateRoute);
         $this->assertNotNull($atpStoreRoute);
         $this->assertNotNull($atpSubmitRoute);
-        $this->assertNotNull($atpApproveRoute);
-        $this->assertNotNull($atpRejectRoute);
         $this->assertNotNull($atpArchiveRoute);
+        $this->assertNotNull($atpRestoreRoute);
+
+        // Approving or returning an ATP is Accounting's decision, not the Purchaser's.
+        $this->assertNotNull($routes->getByName('accounting.atp.approve'));
+        $this->assertNotNull($routes->getByName('accounting.atp.revise'));
     }
 
     /**
@@ -111,18 +121,15 @@ class PurchaserModuleIntegrationTest extends TestCase
      */
     public function test_purchaser_controller_has_required_methods()
     {
-        $controller = app('App\Http\Controllers\PurchaserController');
-        
-        $requiredMethods = [
-            'dashboard',
-            'risIndex',
-            'storeRis',
-        ];
+        $this->assertTrue(
+            method_exists(\App\Http\Controllers\PurchaserController::class, 'dashboard'),
+            'PurchaserController missing method: dashboard'
+        );
 
-        foreach ($requiredMethods as $method) {
+        foreach (['index', 'store', 'update', 'submit', 'resubmit', 'archive', 'restore'] as $method) {
             $this->assertTrue(
-                method_exists($controller, $method),
-                "PurchaserController missing method: {$method}"
+                method_exists(\App\Http\Controllers\RisController::class, $method),
+                "RisController missing method: {$method}"
             );
         }
     }
@@ -159,9 +166,8 @@ class PurchaserModuleIntegrationTest extends TestCase
             'edit',
             'update',
             'show',
+            'choosePaymentPath',
             'submit',
-            'approve',
-            'reject',
             'archive',
             'restore',
         ];
@@ -343,25 +349,24 @@ class PurchaserModuleIntegrationTest extends TestCase
 
     /**
      * Test that the workflow progression is possible
-     * RIS (Pending) -> RIS (Approved) -> ATP (Draft) -> ATP (Submitted) -> ATP (Approved)
+     * RIS (Pending) -> RIS (Approved) -> ATP (Draft) -> ATP (Submitted) -> ATP (Approved / For Revision)
      */
     public function test_purchaser_workflow_progression_structure()
     {
-        // This test verifies the structural flow is in place
-        // Actual functional testing would require database seeding
+        $risController = \App\Http\Controllers\RisController::class;
+        $atpController = \App\Http\Controllers\AuthorityToPurchaseController::class;
+        $accountingController = \App\Http\Controllers\AccountingController::class;
 
-        $risController = app('App\Http\Controllers\PurchaserController');
-        $atpController = app('App\Http\Controllers\AuthorityToPurchaseController');
+        // RIS workflow: store -> submit -> resubmit after revision
+        $this->assertTrue(method_exists($risController, 'store'));
+        $this->assertTrue(method_exists($risController, 'submit'));
+        $this->assertTrue(method_exists($risController, 'resubmit'));
 
-        // RIS workflow: store -> submit
-        $this->assertTrue(method_exists($risController, 'storeRis'));
-        // Submit method is in risSubmit
-
-        // ATP workflow: create -> submit -> approve/reject -> archive
+        // ATP workflow: store -> submit -> Accounting approves or returns -> archive
         $this->assertTrue(method_exists($atpController, 'store'));
         $this->assertTrue(method_exists($atpController, 'submit'));
-        $this->assertTrue(method_exists($atpController, 'approve'));
-        $this->assertTrue(method_exists($atpController, 'reject'));
+        $this->assertTrue(method_exists($accountingController, 'approveAtp'));
+        $this->assertTrue(method_exists($accountingController, 'reviseAtp'));
         $this->assertTrue(method_exists($atpController, 'archive'));
     }
 
@@ -398,102 +403,42 @@ class PurchaserModuleIntegrationTest extends TestCase
 
     public function test_rfc_cannot_bind_unapproved_atp()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
-            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
-            $this->markTestSkipped('Procurement tables are not available in this environment.');
-        }
-
-        $user = new \App\Models\User();
-        $user->user_id = 99002;
-        $user->user_role_id = 3;
-        $user->user_full_name = 'Test Purchaser';
-
-        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
-            'authority_purchase_status' => 'Pending',
-            'authority_purchase_is_archived' => 0,
-            'authority_purchase_created_at' => now(),
-            'authority_purchase_updated_at' => now(),
-        ]);
+        $user = $this->makeUser(RoleAccess::PURCHASER, 'Test Purchaser');
+        $atpId = $this->makeAtp('Pending');
 
         $this->actingAs($user)
             ->from(route('purchaser.rfc.index'))
-            ->post(route('purchaser.rfc.store'), [
-                'save_action' => 'submit',
-                'request_check_authority_purchase_id' => $atpId,
-                'request_check_date' => now()->toDateString(),
-                'request_check_payee' => 'Test Payee',
-                'request_check_amount_figures' => 100,
-                'request_check_particulars_purpose' => 'Test purpose',
-                'request_check_requested_by' => 'Test Purchaser',
-            ])
+            ->post(route('purchaser.rfc.store'), $this->rfcPayload($atpId))
             ->assertSessionHas('error');
 
-        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
+        $this->assertFalse(DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->exists());
     }
 
     public function test_rfc_can_bind_approved_atp_without_existing_rfc()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
-            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
-            $this->markTestSkipped('Procurement tables are not available in this environment.');
-        }
-
-        $user = new \App\Models\User();
-        $user->user_id = 99005;
-        $user->user_role_id = 3;
-        $user->user_full_name = 'Test Purchaser';
-
-        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
-            'authority_purchase_status' => 'Approved',
-            'authority_purchase_is_archived' => 0,
-            'authority_purchase_created_at' => now(),
-            'authority_purchase_updated_at' => now(),
-        ]);
+        $user = $this->makeUser(RoleAccess::PURCHASER, 'Test Purchaser');
+        $atpId = $this->makeAtp('Approved');
 
         $this->actingAs($user)
             ->from(route('purchaser.rfc.index'))
-            ->post(route('purchaser.rfc.store'), [
-                'save_action' => 'submit',
-                'request_check_authority_purchase_id' => $atpId,
-                'request_check_date' => now()->toDateString(),
-                'request_check_payee' => 'Test Payee',
-                'request_check_amount_figures' => 100,
-                'request_check_particulars_purpose' => 'Test purpose',
-                'request_check_requested_by' => 'Test Purchaser',
-            ])
+            ->post(route('purchaser.rfc.store'), $this->rfcPayload($atpId))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
 
         $this->assertTrue(
-            \Illuminate\Support\Facades\DB::table('request_check_table')
+            DB::table('request_check_table')
                 ->where('request_check_authority_purchase_id', $atpId)
+                ->where('request_check_requested_by_user_id', $user->user_id)
                 ->exists()
         );
-
-        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->delete();
-        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
     }
 
     public function test_rfc_cannot_bind_atp_that_already_has_rfc()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
-            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
-            $this->markTestSkipped('Procurement tables are not available in this environment.');
-        }
+        $user = $this->makeUser(RoleAccess::PURCHASER, 'Test Purchaser');
+        $atpId = $this->makeAtp('Approved');
 
-        $user = new \App\Models\User();
-        $user->user_id = 99006;
-        $user->user_role_id = 3;
-        $user->user_full_name = 'Test Purchaser';
-
-        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
-            'authority_purchase_status' => 'Approved',
-            'authority_purchase_is_archived' => 0,
-            'authority_purchase_created_at' => now(),
-            'authority_purchase_updated_at' => now(),
-        ]);
-
-        \Illuminate\Support\Facades\DB::table('request_check_table')->insert([
+        DB::table('request_check_table')->insert([
             'request_check_authority_purchase_id' => $atpId,
             'request_check_status' => 'Approved',
             'request_check_is_archived' => 0,
@@ -503,34 +448,17 @@ class PurchaserModuleIntegrationTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('purchaser.rfc.index'))
-            ->post(route('purchaser.rfc.store'), [
-                'save_action' => 'submit',
-                'request_check_authority_purchase_id' => $atpId,
-                'request_check_date' => now()->toDateString(),
-                'request_check_payee' => 'Test Payee',
-                'request_check_amount_figures' => 100,
-                'request_check_particulars_purpose' => 'Test purpose',
-                'request_check_requested_by' => 'Test Purchaser',
-            ])
+            ->post(route('purchaser.rfc.store'), $this->rfcPayload($atpId))
             ->assertSessionHas('error');
 
-        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->delete();
-        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
+        $this->assertSame(1, DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->count());
     }
 
     public function test_liq_cannot_bind_incomplete_receiving_report()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('receiving_reports_table')
-            || !\Illuminate\Support\Facades\Schema::hasTable('liquidation_reports_table')) {
-            $this->markTestSkipped('Liquidation tables are not available in this environment.');
-        }
+        $user = $this->makeUser(RoleAccess::PURCHASER, 'Test Purchaser');
 
-        $user = new \App\Models\User();
-        $user->user_id = 99003;
-        $user->user_role_id = 3;
-        $user->user_full_name = 'Test Purchaser';
-
-        $rrId = \Illuminate\Support\Facades\DB::table('receiving_reports_table')->insertGetId([
+        $rrId = DB::table('receiving_reports_table')->insertGetId([
             'receiving_report_status' => 'Draft',
             'receiving_report_is_archived' => 0,
             'receiving_report_created_at' => now(),
@@ -541,44 +469,40 @@ class PurchaserModuleIntegrationTest extends TestCase
             ->from(route('purchaser.liq.index'))
             ->post(route('purchaser.liq.store'), [
                 'save_action' => 'submit',
+                'assigned_reviewer_id' => $this->accountingReviewerId(),
                 'liquidation_report_receiving_report_id' => $rrId,
                 'liquidation_report_employee_name' => 'Test Employee',
                 'liquidation_report_purpose' => 'Test purpose',
                 'liquidation_report_amount_advance' => 50,
-                'liquidation_report_submitted_by_signature' => 'Test Purchaser',
+                'liquidation_report_submitted_by_name' => 'Test Purchaser',
+                'liquidation_report_submitted_by_signature' => self::SIGNATURE,
                 'items' => [
                     ['particulars' => 'Item', 'amount' => 50, 'actual_amount' => 50, 'actual_total' => 50],
                 ],
             ])
             ->assertSessionHas('error');
 
-        \Illuminate\Support\Facades\DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->delete();
+        $this->assertFalse(DB::table('liquidation_reports_table')->where('liquidation_report_receiving_report_id', $rrId)->exists());
     }
 
     public function test_rfc_submit_rejects_incomplete_draft()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
-            $this->markTestSkipped('Request for Check table is not available in this environment.');
-        }
+        $user = $this->makeUser(RoleAccess::PURCHASER, 'Test Purchaser');
 
-        $user = new \App\Models\User();
-        $user->user_id = 99004;
-        $user->user_role_id = 3;
-        $user->user_full_name = 'Test Purchaser';
-
-        $rfcId = \Illuminate\Support\Facades\DB::table('request_check_table')->insertGetId([
+        $rfcId = DB::table('request_check_table')->insertGetId([
             'request_check_status' => 'Draft',
             'request_check_is_archived' => 0,
+            'request_check_requested_by_user_id' => $user->user_id,
             'request_check_created_at' => now(),
             'request_check_updated_at' => now(),
         ]);
 
         $this->actingAs($user)
             ->from(route('purchaser.rfc.index'))
-            ->post(route('purchaser.rfc.submit', $rfcId))
+            ->post(route('purchaser.rfc.submit', $rfcId), ['assigned_reviewer_id' => $this->accountingReviewerId()])
             ->assertSessionHas('error');
 
-        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_id', $rfcId)->delete();
+        $this->assertSame('Draft', DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_status'));
     }
 
     public function test_replacement_cannot_approve_non_pending()
@@ -610,5 +534,60 @@ class PurchaserModuleIntegrationTest extends TestCase
             ->assertSessionHas('error');
 
         \Illuminate\Support\Facades\DB::table('procurement_requests_table')->where('procurement_request_id', $requestId)->delete();
+    }
+
+    /** 1x1 transparent PNG, standing in for a drawn signature. */
+    private const SIGNATURE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+    private function makeUser(int $roleId, string $name): User
+    {
+        $slug = Str::slug($name, '.').'.'.Str::lower(Str::random(6));
+
+        return User::query()->create([
+            'user_role_id' => $roleId,
+            'user_employee_id' => 'EMP-'.Str::upper(Str::random(8)),
+            'user_username' => $slug,
+            'user_full_name' => $name,
+            'user_email_address' => $slug.'@sti.edu.ph',
+            'user_contact_number' => '09171234567',
+            'user_password' => Hash::make('password'),
+        ]);
+    }
+
+    private ?int $accountingReviewerId = null;
+
+    private function accountingReviewerId(): int
+    {
+        return $this->accountingReviewerId ??= (int) $this->makeUser(RoleAccess::ACCOUNTING, 'Test Accounting')->user_id;
+    }
+
+    private function makeAtp(string $status): int
+    {
+        return DB::table('authority_to_purchase_table')->insertGetId([
+            'authority_purchase_status' => $status,
+            'authority_purchase_payment_path' => ProcurementPaymentPath::REQUEST_FOR_CHECK,
+            'authority_purchase_is_archived' => 0,
+            'authority_purchase_created_at' => now(),
+            'authority_purchase_updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rfcPayload(int $atpId): array
+    {
+        return [
+            'save_action' => 'submit',
+            'assigned_reviewer_id' => $this->accountingReviewerId(),
+            'request_check_funding_type' => ProcurementPaymentPath::REQUEST_FOR_CHECK,
+            'request_check_authority_purchase_id' => $atpId,
+            'request_check_date' => now()->toDateString(),
+            'request_check_payee' => 'Test Payee',
+            'request_check_amount_figures' => 100,
+            'request_check_particulars_purpose' => 'Test purpose',
+            'request_check_requested_by' => 'Test Purchaser',
+            'request_check_requested_by_signature' => self::SIGNATURE,
+        ];
     }
 }

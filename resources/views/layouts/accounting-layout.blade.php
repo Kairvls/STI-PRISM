@@ -27,6 +27,22 @@
     @include('accounting.partials.print-form')
     <script>
         (function () {
+            function portalConfirmModals() {
+                document.querySelectorAll('.confirm-modal').forEach(function (modal) {
+                    if (modal.parentElement !== document.body) {
+                        document.body.appendChild(modal);
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', portalConfirmModals);
+            } else {
+                portalConfirmModals();
+            }
+        })();
+
+        (function () {
             if (window.__pmFloatingTipInit) return;
             window.__pmFloatingTipInit = true;
 

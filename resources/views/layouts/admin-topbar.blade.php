@@ -12,6 +12,9 @@
                 request()->is('admin/operations/schedules*') => ['Maintenance Schedules', 'Overdue and upcoming equipment maintenance schedules.'],
                 request()->is('admin/operations/reports*') => ['Equipment Reports', 'Monitor reports and override when needed.'],
                 request()->is('admin/operations/procurement*') => ['Procurement Monitor', 'Track RIS forms and procurement stage activity.'],
+                request()->is('admin/operations/back-orders*') && request('payment') === 'rfc' => ['Back Order Monitor · Request for Check', 'Short or damaged items paid through Request for Check.'],
+                request()->is('admin/operations/back-orders*') && request('payment') === 'ca' => ['Back Order Monitor · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
+                request()->is('admin/operations/back-orders*') => ['Back Order Monitor', 'Items delivered short or damaged and how they are being resolved.'],
                 request()->is('admin/operations/movements*') && request('tab') === 'borrowing' => ['Borrowing', 'Monitor active and historical equipment borrows.'],
                 request()->is('admin/operations/movements*') && request('tab') === 'disposal' => ['Disposal', 'Review disposed equipment and inventory status.'],
                 request()->is('admin/operations/movements*') => ['Transfers', 'Track equipment room-to-room transfers.'],
@@ -30,8 +33,13 @@
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slip documents.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare and track ATP documents.'],
                 request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
-                request()->is('purchaser/request-check*') => ['Request for Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', 'Cash Advance documents and status.'],
+                request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', 'Request for Check documents and status.'],
+                request()->is('purchaser/request-check*') => ['Request Fund', 'Request for Check and Cash Advance documents and status.'],
                 request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Short or damaged items paid through Request for Check.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
+                request()->is('purchaser/back-orders*') => ['Back Orders', 'Follow up items delivered short or damaged.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
                 request()->is('purchaser/procurement-records*') => ['Procurement Records', 'Completed procurement packages and their documents.'],
                 request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
@@ -57,18 +65,10 @@
             $recentNotes = collect();
             $attentionTotal = (int) ($attentionTotal ?? 0);
             try {
-                $unreadCount = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Admin');
-                    })
+                $unreadCount = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Admin')
                     ->count();
 
-                $recentNotes = \DB::table('notifications_table')
-                    ->where(function ($q) {
-                        $q->where('notification_user_id', auth()->id())
-                            ->orWhere('notification_target_role', 'Admin');
-                    })
+                $recentNotes = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Admin')
                     ->orderByDesc('notification_created_at')
                     ->limit(8)
                     ->get();
@@ -305,7 +305,7 @@
                         {{ $topbarUser->user_full_name }}
                     </p>
                     <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
-                        {{ \App\Support\RoleAccess::currentPortalLabel($topbarUser) }}
+                        {{ \App\Support\RoleAccess::primaryRoleLabel($topbarUser) }}
                     </p>
                 </div>
 

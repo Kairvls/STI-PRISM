@@ -6,7 +6,7 @@
         </div>
         <div>
             <h2>PaAyo</h2>
-            <span>Maintenance System</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('maintenance') }}</span>
         </div>
     </div>
 
@@ -226,7 +226,7 @@
             class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="building-2"></i>
-            <span>Building Layout</span>
+            <span>Building Rooms Layout</span>
         </a>
         <a
             href="/maintenance/rooms"

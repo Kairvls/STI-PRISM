@@ -11,9 +11,17 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\WorkflowNotifier;
+use App\Support\ReceivingAttentionSummary;
+use App\Support\ReceivingDashboard;
 use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
+use App\Support\DocumentRevisionNotes;
+use App\Support\DocumentUrgency;
+use App\Support\RisRevisionImages;
+use App\Support\BackOrders;
+use App\Exceptions\RevisionImageUploadException;
+use Illuminate\Http\RedirectResponse;
 
 class ReceivingController extends Controller
 {
@@ -21,77 +29,17 @@ class ReceivingController extends Controller
 
     public function dashboard(): View
     {
-        $pendingRows = $this->pendingRows();
-        $queueRows = $pendingRows->filter(fn ($row) => ($row->receiving_report_status ?? '') !== 'Returned')->values();
-        $acceptedRows = $this->acceptedRows();
-        $returnedRows = $this->returnedRows();
-        $logs = $this->logRows(20);
-        $suppliers = $this->supplierRows();
-        $logCount = 0;
-        if (Schema::hasTable('receiving_logs_table')) {
-            try {
-                $logCount = (int) DB::table('receiving_logs_table')->count();
-            } catch (\Throwable $e) {
-                $logCount = $logs->count();
-            }
-        }
-
-        $calendarEvents = $this->receivingCalendarEvents($pendingRows, $acceptedRows, $returnedRows);
-        $calendarEventsByDate = [];
-        foreach ($calendarEvents as $evt) {
-            $dateKey = $evt->event_date ?? null;
-            if ($dateKey) {
-                $calendarEventsByDate[$dateKey][] = $evt;
-            }
-        }
-
-        $todayStart = now()->startOfDay();
-        $yesterdayLeftoverCount = $queueRows->filter(function ($row) use ($todayStart) {
-            $raw = $row->receiving_report_submitted_at
-                ?? $row->receiving_report_created_at
-                ?? $row->receiving_report_date
-                ?? null;
-            if (empty($raw)) {
-                return false;
-            }
-            try {
-                return \Carbon\Carbon::parse($raw)->lt($todayStart);
-            } catch (\Throwable $e) {
-                return false;
-            }
-        })->count();
-
-        return view('receiving-officer.dashboard', $this->withQueryError([
-            'pendingCount' => $queueRows->count(),
-            'pendingAmount' => (float) $queueRows->sum(fn ($row) => (float) ($row->total_amount ?? 0)),
-            'acceptedCount' => $acceptedRows->count(),
-            'acceptedMonth' => $acceptedRows->filter(function ($row) {
-                return !empty($row->received_at) && \Carbon\Carbon::parse($row->received_at)->isCurrentMonth();
-            })->count(),
-            'returnedCount' => $returnedRows->count(),
-            'historyCount' => $acceptedRows->count() + $returnedRows->count(),
-            'supplierCount' => $suppliers->count(),
-            'logCount' => $logCount,
-            'yesterdayLeftoverCount' => $yesterdayLeftoverCount,
-            'pendingRows' => $pendingRows->take(8),
-            'acceptedRows' => $acceptedRows->take(6),
-            'returnedRows' => $returnedRows->take(5),
-            'recentLogs' => $logs->take(8),
-            'topSuppliers' => $suppliers->sortByDesc('delivery_count')->take(5)->values(),
-            'calendarEvents' => $calendarEvents,
-            'calendarEventsByDate' => $calendarEventsByDate,
-        ]));
+        return view('receiving-officer.dashboard', [
+            'user' => Auth::user(),
+            'dashboard' => ReceivingDashboard::build(),
+        ]);
     }
 
     public function notifications(): View
     {
         $items = collect();
         try {
-            $items = DB::table('notifications_table')
-                ->where(function ($q) {
-                    $q->where('notification_user_id', Auth::id())
-                        ->orWhere('notification_target_role', 'Receiving Officer');
-                })
+            $items = WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Receiving Officer')
                 ->orderByDesc('notification_created_at')
                 ->limit(80)
                 ->get();
@@ -128,6 +76,13 @@ class ReceivingController extends Controller
     public function reports(Request $request)
     {
         $filter = $request->query('status', 'queue');
+        $focusKey = (string) $request->query('focus', '');
+        $focusOption = ReceivingAttentionSummary::focusOptions()[$focusKey] ?? null;
+        if ($focusOption) {
+            $filter = $focusOption['status'];
+        } else {
+            $focusKey = '';
+        }
         $empty = $this->emptyRrPager($request);
 
         if (!Schema::hasTable('receiving_reports_table')) {
@@ -138,14 +93,19 @@ class ReceivingController extends Controller
                 'counts' => ['queue' => 0, 'completed' => 0, 'returned' => 0],
                 'dateFilter' => trim((string) $request->query('date', '')),
                 'savedSignatures' => UserSignatureLibrary::forUser((int) Auth::id()),
+                'attentionFocus' => null,
             ]);
         }
 
         $query = $this->receivingReviewQuery();
         $this->applyRrActiveScope($query);
-        $this->applyRrStatusFilter($query, $filter);
+        if ($focusKey !== '') {
+            ReceivingAttentionSummary::applyFocus($query, $focusKey);
+        } else {
+            $this->applyRrStatusFilter($query, $filter);
+            $this->applyRrDateFilter($query, $request);
+        }
         $this->applyRrSearch($query, $request);
-        $this->applyRrDateFilter($query, $request);
 
         $sortColumn = 'receiving_reports_table.receiving_report_id';
         foreach (['receiving_report_submitted_at', 'receiving_report_created_at', 'receiving_report_date'] as $column) {
@@ -153,6 +113,11 @@ class ReceivingController extends Controller
                 $sortColumn = 'receiving_reports_table.'.$column;
                 break;
             }
+        }
+
+        DocumentUrgency::select($query, 'RR');
+        if ($filter === 'queue') {
+            DocumentUrgency::orderUrgentFirst($query, 'RR');
         }
 
         try {
@@ -181,8 +146,15 @@ class ReceivingController extends Controller
             'returned' => $this->countReceivingReports('returned'),
         ];
 
-        $dateFilter = trim((string) $request->query('date', ''));
+        $dateFilter = $focusKey !== '' ? '' : trim((string) $request->query('date', ''));
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+        $attentionFocus = $focusOption ? [
+            'key' => $focusKey,
+            'label' => $focusOption['label'],
+            'description' => $focusOption['description'],
+            'clear_url' => route('receiving.rr.index', ['status' => $filter]),
+            'scope' => $focusOption['scope'],
+        ] : null;
 
         return view('receiving-officer.receiving-reports.index', compact(
             'reports',
@@ -190,7 +162,8 @@ class ReceivingController extends Controller
             'filter',
             'counts',
             'dateFilter',
-            'savedSignatures'
+            'savedSignatures',
+            'attentionFocus'
         ));
     }
 
@@ -226,40 +199,29 @@ class ReceivingController extends Controller
             $query->select($select);
         }
 
-        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
-            ReviewerAssignment::applyQueueFilter($query, 'receiving_reports_table.receiving_report_assigned_reviewer_id');
-        }
+        ReceivingAttentionSummary::scopeReviewer($query);
 
         return $query;
     }
 
     private function applyRrActiveScope($query): void
     {
-        if (!Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
-            return;
-        }
-
-        $query->where(function ($q) {
-            $q->whereNull('receiving_reports_table.receiving_report_is_archived')
-                ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
-        });
+        ReceivingAttentionSummary::scopeActive($query);
     }
 
     private function applyRrStatusFilter($query, string $filter): void
     {
-        $statusCol = 'receiving_reports_table.receiving_report_status';
-
         if ($filter === 'completed') {
-            $query->where($statusCol, 'Completed');
+            $query->whereIn('receiving_reports_table.receiving_report_status', ['Completed', 'Incomplete']);
             return;
         }
 
         if ($filter === 'returned') {
-            $query->where($statusCol, 'Returned');
+            ReceivingAttentionSummary::scopeReturned($query);
             return;
         }
 
-        $query->whereIn($statusCol, ['Pending', 'Submitted', 'Resubmitted', 'Under Review']);
+        ReceivingAttentionSummary::scopeQueue($query);
     }
 
     private function applyRrSearch($query, Request $request): void
@@ -371,12 +333,23 @@ class ReceivingController extends Controller
             'signature_data' => ['nullable', 'string', 'max:2000000'],
             'verification_photos' => ['nullable', 'array'],
             'verification_photos.*' => ['nullable', 'image', 'max:5120'],
+            'received' => ['nullable', 'array'],
+            'received.*' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'damaged' => ['nullable', 'array'],
+            'damaged.*' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'damaged_remarks' => ['nullable', 'array'],
+            'damaged_remarks.*' => ['nullable', 'string', 'max:500'],
         ]);
 
         return DB::transaction(function () use ($request, $id) {
             $rr = $this->lockQueueRr($id);
             if (!is_object($rr)) {
                 return $rr;
+            }
+
+            $inspection = $this->inspectUnverifiedRows($request, (int) $id);
+            if (is_string($inspection)) {
+                return back()->with('error', $inspection);
             }
 
             $name = trim((string) $request->input('second_count_by', ''));
@@ -390,8 +363,13 @@ class ReceivingController extends Controller
             }
             $photoPaths = $this->storeVerificationPhotos($request, (int) $id);
 
+            $this->markRowsVerified($inspection);
+            $newBackOrders = BackOrders::syncForRr($rr, true);
+            $finalStatus = BackOrders::rrStatusAfterCount((int) $id);
+            $openBackOrders = (int) (BackOrders::unresolvedCounts([(int) $id])[(int) $id] ?? 0);
+
             $update = [
-                'receiving_report_status' => 'Completed',
+                'receiving_report_status' => $finalStatus,
                 'receiving_report_second_count_by' => $name,
                 'receiving_report_second_count_by_user_id' => Auth::id(),
                 'receiving_report_second_count_at' => now(),
@@ -416,24 +394,52 @@ class ReceivingController extends Controller
             // Stock is created by Maintenance from completed RR lines (Add to stock),
             // so inventory stays tied to what was actually received — not free-form adds.
             $pendingLines = $this->queueReceivingLinesForMaintenanceStock($rr, Auth::id());
+            $atpId = !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null;
             $this->writeLog(
                 (int) $rr->receiving_report_id,
-                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                $atpId,
                 'Second count completed',
-                $pendingLines > 0
-                    ? 'Items delivered. '.$pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for Maintenance inventory.'
-                    : 'Items delivered. No new inventory lines to stock.',
+                ($finalStatus === 'Incomplete' ? 'Items verified; RR is still Incomplete. ' : 'Items delivered. ')
+                    .($pendingLines > 0
+                        ? $pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for Maintenance inventory.'
+                        : 'No new inventory lines to stock.'),
                 Auth::id(),
-                'Delivered'
+                $finalStatus === 'Incomplete' ? 'Incomplete' : 'Delivered'
             );
 
-            $this->notifyPurchaserRr($rr, 'Receiving completed', 'Items were accepted. You may create a Liquidation Report.', 'rr_completed');
+            if ($newBackOrders > 0) {
+                $this->writeLog(
+                    (int) $rr->receiving_report_id,
+                    $atpId,
+                    'Back order recorded',
+                    $newBackOrders.' more line'.($newBackOrders === 1 ? ' was' : 's were').' found missing or damaged at second count.',
+                    Auth::id(),
+                    'Incomplete'
+                );
+            }
+
+            if ($finalStatus === 'Incomplete') {
+                $this->notifyPurchaserRr(
+                    $rr,
+                    'Receiving Report incomplete',
+                    $openBackOrders.' back order'.($openBackOrders === 1 ? '' : 's').' still need delivery. Record a replacement or refund on the Back Orders page.',
+                    'rr_back_order',
+                    '/purchaser/back-orders'
+                );
+            } else {
+                $this->notifyPurchaserRr($rr, 'Receiving completed', 'All items were delivered. You may create a Liquidation Report.', 'rr_completed');
+            }
+
+            $purchaserName = WorkflowNotifier::recipientName($rr->receiving_report_submitted_by ?? null, 'the Purchaser');
+            $sentTo = $finalStatus === 'Incomplete'
+                ? 'Verified and sent to '.$purchaserName.' as Incomplete ('.$openBackOrders.' back order'.($openBackOrders === 1 ? '' : 's').' open).'
+                : 'Successfully sent to '.$purchaserName.' for Liquidation.';
 
             return back()->with(
                 'success',
                 $pendingLines > 0
-                    ? 'Successfully sent to Purchaser for Liquidation. Maintenance can now Add to stock from this RR.'
-                    : 'Successfully sent to Purchaser for Liquidation.'
+                    ? $sentTo.' Maintenance can now Add to stock from this RR.'
+                    : $sentTo
             );
         });
     }
@@ -441,61 +447,103 @@ class ReceivingController extends Controller
     public function returnRr(Request $request, $id)
     {
         $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
 
-        return DB::transaction(function () use ($request, $id) {
-            $rr = $this->lockQueueRr($id);
-            if (!is_object($rr)) {
-                return $rr;
-            }
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $rr = $this->lockQueueRr($id);
+                if (!is_object($rr)) {
+                    return $rr;
+                }
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
-                'receiving_report_status' => 'Returned',
-                'receiving_report_return_reason' => $request->input('remarks'),
-                'receiving_report_updated_at' => now(),
-            ]));
+                $remarks = (string) $request->input('remarks');
 
-            $this->notifyPurchaserRr($rr, 'Receiving returned', $request->input('remarks'), 'rr_returned');
-            $this->writeLog(
-                (int) $rr->receiving_report_id,
-                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
-                'Returned for correction',
-                $request->input('remarks'),
-                Auth::id(),
-                'Returned'
-            );
+                return DocumentRevisionNotes::record($request, 'RR', (int) $id, $remarks, DocumentRevisionNotes::KIND_RETURN, function (array $images) use ($rr, $id, $remarks) {
+                    // A replacement round only sends back the new rows; the verified delivery stays on the RR.
+                    $replacementRound = BackOrders::hasVerifiedRows((int) $id);
+                    DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
+                        'receiving_report_status' => $replacementRound ? 'Incomplete' : 'Returned',
+                        'receiving_report_return_reason' => $remarks,
+                        'receiving_report_updated_at' => now(),
+                    ]));
+                    if ($replacementRound) {
+                        BackOrders::rejectUnverifiedRows((int) $id);
+                    } else {
+                        BackOrders::discardForRr((int) $id);
+                    }
 
-            return back()->with('success', 'Successfully returned to Purchaser.');
-        });
+                    $suffix = DocumentRevisionNotes::imagesSuffix($images);
+                    $this->notifyPurchaserRr(
+                        $rr,
+                        $replacementRound ? 'Replacement items returned' : 'Receiving returned',
+                        $remarks.$suffix,
+                        $replacementRound ? 'rr_back_order' : 'rr_returned',
+                        $replacementRound ? '/purchaser/back-orders' : '/purchaser/receiving-reports'
+                    );
+                    $this->writeLog(
+                        (int) $rr->receiving_report_id,
+                        !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                        $replacementRound ? 'Replacement items returned' : 'Returned for correction',
+                        $remarks,
+                        Auth::id(),
+                        $replacementRound ? 'Incomplete' : 'Returned'
+                    );
+
+                    return back()->with('success', ($replacementRound ? 'Replacement items returned to ' : 'Successfully returned to ').WorkflowNotifier::recipientName($rr->receiving_report_submitted_by ?? null, 'the Purchaser').$suffix.'.');
+                });
+            });
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
+        }
+    }
+
+    private function revisionImageError(Request $request, string $message): RedirectResponse
+    {
+        return back()->withInput($request->except(RisRevisionImages::FIELD))->with('error', $message);
     }
 
     public function reviseRr(Request $request, $id)
     {
         $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
 
-        return DB::transaction(function () use ($request, $id) {
-            $rr = $this->lockQueueRr($id);
-            if (!is_object($rr)) {
-                return $rr;
-            }
+        try {
+            return DB::transaction(function () use ($request, $id) {
+                $rr = $this->lockQueueRr($id);
+                if (!is_object($rr)) {
+                    return $rr;
+                }
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
-                'receiving_report_status' => 'Minor Revision',
-                'receiving_report_revision_notes' => $request->input('remarks'),
-                'receiving_report_updated_at' => now(),
-            ]);
+                $remarks = (string) $request->input('remarks');
 
-            $this->notifyPurchaserRr($rr, 'Receiving revision required', $request->input('remarks'), 'rr_revision');
-            $this->writeLog(
-                (int) $rr->receiving_report_id,
-                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
-                'Returned for revision',
-                $request->input('remarks'),
-                Auth::id(),
-                'Minor Revision'
-            );
+                return DocumentRevisionNotes::record($request, 'RR', (int) $id, $remarks, DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($rr, $id, $remarks) {
+                    DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                        'receiving_report_status' => 'Minor Revision',
+                        'receiving_report_revision_notes' => $remarks,
+                        'receiving_report_updated_at' => now(),
+                    ]);
 
-            return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
-        });
+                    $suffix = DocumentRevisionNotes::imagesSuffix($images);
+                    $this->notifyPurchaserRr($rr, 'Receiving revision required', $remarks.$suffix, 'rr_revision');
+                    $this->writeLog(
+                        (int) $rr->receiving_report_id,
+                        !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                        'Returned for revision',
+                        $remarks,
+                        Auth::id(),
+                        'Minor Revision'
+                    );
+
+                    return back()->with('success', 'Receiving Report returned to '.WorkflowNotifier::recipientName($rr->receiving_report_submitted_by ?? null, 'the Purchaser').' for revision'.$suffix.'.');
+                });
+            });
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
+        }
     }
 
     public function deliveredItems(Request $request): View
@@ -538,8 +586,13 @@ class ReceivingController extends Controller
         ]));
     }
 
-    public function history(Request $request): View
+    public function history(Request $request): View|RedirectResponse
     {
+        // History filters client-side without the reviewer queue rule, so the reminder item lives on the RR list.
+        if ($request->query('focus') === 'returned') {
+            return redirect()->route('receiving.rr.index', ['focus' => 'returned']);
+        }
+
         $accepted = $this->acceptedRows();
         $returned = $this->returnedRows();
         $rows = $accepted->merge($returned)->sortByDesc(fn ($row) => $row->received_at ?? $row->authority_purchase_id)->values();
@@ -682,7 +735,11 @@ class ReceivingController extends Controller
                     !empty($row->received_at) ? \Carbon\Carbon::parse($row->received_at)->format('Y-m-d') : '—',
                     $this->receivingReference($row),
                     $row->supplier_name ?: '—',
-                    in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : 'Returned',
+                    match ($row->receiving_report_status) {
+                        'Accepted', 'Completed' => 'Delivered',
+                        'Incomplete' => 'Incomplete',
+                        default => 'Returned',
+                    },
                     $row->officer_name ?: '—',
                 ]),
                 'delivery-history.pdf'
@@ -765,42 +822,6 @@ class ReceivingController extends Controller
             'rows' => $rows->values()->all(),
             'filename' => $filename,
         ];
-    }
-
-    private function receivingCalendarEvents($pendingRows, $acceptedRows, $returnedRows)
-    {
-        $events = collect();
-        foreach ($pendingRows as $row) {
-            $ref = $this->receivingReference($row);
-            $label = (($row->receiving_report_status ?? null) === 'Returned') ? 'Returned for correction' : 'Pending inspection';
-            $this->pushReceivingCalendarEvent($events, $row->receiving_report_created_at ?? $row->authority_purchase_date ?? null, $ref.' · '.$label);
-        }
-        foreach ($acceptedRows as $row) {
-            $ref = $this->receivingReference($row);
-            $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? null, $ref.' · Delivered');
-        }
-        foreach ($returnedRows as $row) {
-            $ref = $this->receivingReference($row);
-            $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? $row->receiving_report_created_at ?? null, $ref.' · Returned');
-        }
-
-        return $events->sortBy('event_date')->values();
-    }
-
-    private function pushReceivingCalendarEvent($events, $rawDate, string $name): void
-    {
-        if (empty($rawDate)) {
-            return;
-        }
-        try {
-            $date = \Carbon\Carbon::parse($rawDate)->format('Y-m-d');
-        } catch (\Throwable $e) {
-            return;
-        }
-        $events->push((object) [
-            'event_date' => $date,
-            'event_name' => $name,
-        ]);
     }
 
     private function reportBaseQuery()
@@ -1034,7 +1055,7 @@ class ReceivingController extends Controller
 
         return $this->safeQuery(function () {
             return $this->reportBaseQuery()
-                ->whereIn('receiving_reports_table.receiving_report_status', ['Accepted', 'Completed'])
+                ->whereIn('receiving_reports_table.receiving_report_status', BackOrders::RECEIVED_RR_STATUSES)
                 ->orderByDesc('receiving_reports_table.receiving_report_id')
                 ->get();
         });
@@ -1099,7 +1120,7 @@ class ReceivingController extends Controller
             if ($hasReports) {
                 $query->leftJoin('receiving_reports_table', function ($join) {
                     $join->on('receiving_reports_table.receiving_report_supplier_id', '=', 'suppliers_table.supplier_id')
-                        ->whereIn('receiving_reports_table.receiving_report_status', ['Accepted', 'Completed']);
+                        ->whereIn('receiving_reports_table.receiving_report_status', BackOrders::RECEIVED_RR_STATUSES);
                 });
             }
 
@@ -1137,7 +1158,11 @@ class ReceivingController extends Controller
         return $this->safeQuery(function () {
             return DB::table('receiving_report_items_table')
                 ->join('receiving_reports_table', 'receiving_reports_table.receiving_report_id', '=', 'receiving_report_items_table.receiving_report_id')
-                ->whereIn('receiving_reports_table.receiving_report_status', ['Accepted', 'Completed'])
+                ->whereIn('receiving_reports_table.receiving_report_status', BackOrders::RECEIVED_RR_STATUSES)
+                ->when(
+                    Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_verified'),
+                    fn ($q) => $q->where('receiving_report_items_table.receiving_report_item_verified', 1)
+                )
                 ->select('receiving_report_items_table.*', 'receiving_reports_table.receiving_report_created_at', 'receiving_reports_table.receiving_report_date')
                 ->orderByDesc('receiving_report_items_table.receiving_report_id')
                 ->get();
@@ -1179,6 +1204,12 @@ class ReceivingController extends Controller
                 $q->whereNull('receiving_report_item_condition')
                     ->orWhereNotIn('receiving_report_item_condition', ['bad_order', 'bad']);
             });
+        }
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_damaged_qty')) {
+            $pendingQuery->whereRaw('receiving_report_item_quantity > COALESCE(receiving_report_item_damaged_qty, 0)');
+        }
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_verified')) {
+            $pendingQuery->where('receiving_report_item_verified', 1);
         }
 
         $pending = (int) $pendingQuery->count();
@@ -1520,7 +1551,7 @@ class ReceivingController extends Controller
         return $rr;
     }
 
-    private function notifyPurchaserRr($rr, string $title, string $message, string $type): void
+    private function notifyPurchaserRr($rr, string $title, string $message, string $type, string $link = '/purchaser/receiving-reports'): void
     {
         $ref = $rr->receiving_report_form_number ?? ('RR #' . $rr->receiving_report_id);
         WorkflowNotifier::toUser(
@@ -1531,8 +1562,85 @@ class ReceivingController extends Controller
             $type,
             'RR',
             (int) $rr->receiving_report_id,
-            '/purchaser/receiving-reports'
+            $link
         );
+    }
+
+    /**
+     * Second verification of the rows not yet counted: the Receiving Officer may correct the Purchaser's
+     * received and damaged figures. Returns an error message, or the row updates to apply.
+     *
+     * @return string|array<int, array<string, mixed>>
+     */
+    private function inspectUnverifiedRows(Request $request, int $rrId)
+    {
+        $table = 'receiving_report_items_table';
+        if (!Schema::hasColumn($table, 'receiving_report_item_damaged_qty')) {
+            return [];
+        }
+
+        $hasVerified = Schema::hasColumn($table, 'receiving_report_item_verified');
+        $received = (array) $request->input('received', []);
+        $damaged = (array) $request->input('damaged', []);
+        $remarks = (array) $request->input('damaged_remarks', []);
+        $items = DB::table($table)->where('receiving_report_id', $rrId)->orderBy('receiving_report_item_id')->get();
+        $parentQty = BackOrders::supported()
+            ? DB::table(BackOrders::TABLE)
+                ->whereIn('back_order_id', $items->pluck('receiving_report_item_back_order_id')->filter()->all())
+                ->pluck('back_order_quantity', 'back_order_id')
+            : collect();
+
+        $updates = [];
+        foreach ($items->values() as $index => $item) {
+            if ($hasVerified && !empty($item->receiving_report_item_verified)) {
+                continue;
+            }
+            $itemId = (int) $item->receiving_report_item_id;
+            $line = 'Item '.($index + 1);
+            $ordered = $item->receiving_report_item_ordered_qty !== null ? (int) $item->receiving_report_item_ordered_qty : null;
+            $limit = $parentQty->get((int) ($item->receiving_report_item_back_order_id ?? 0)) ?? $ordered;
+
+            $qty = array_key_exists($itemId, $received) && $received[$itemId] !== null && $received[$itemId] !== ''
+                ? max(0, (int) $received[$itemId])
+                : max(0, (int) ($item->receiving_report_item_quantity ?? 0));
+            if ($limit !== null && $qty > (int) $limit) {
+                return $line.': received cannot exceed the '.(int) $limit.' ordered.';
+            }
+            $count = array_key_exists($itemId, $damaged) && $damaged[$itemId] !== null && $damaged[$itemId] !== ''
+                ? max(0, (int) $damaged[$itemId])
+                : BackOrders::damagedQty($item);
+            if ($count > $qty) {
+                return $line.': damaged quantity cannot exceed the '.$qty.' received.';
+            }
+            $note = array_key_exists($itemId, $remarks)
+                ? trim((string) $remarks[$itemId])
+                : trim((string) ($item->receiving_report_item_damage_remarks ?? ''));
+
+            $row = [
+                'receiving_report_item_quantity' => $qty,
+                'receiving_report_item_damaged_qty' => $count,
+                'receiving_report_item_damage_remarks' => $count > 0 && $note !== '' ? mb_substr($note, 0, 500) : null,
+            ];
+            if (Schema::hasColumn($table, 'receiving_report_item_condition')) {
+                $row['receiving_report_item_condition'] = $limit !== null && $qty < (int) $limit ? 'short' : 'ok';
+            }
+            if ($hasVerified) {
+                $row['receiving_report_item_verified'] = 1;
+            }
+            $updates[$itemId] = $row;
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $updates
+     */
+    private function markRowsVerified(array $updates): void
+    {
+        foreach ($updates as $itemId => $row) {
+            DB::table('receiving_report_items_table')->where('receiving_report_item_id', $itemId)->update($row);
+        }
     }
 
     private function replacementRoomId(object $rr, $atp): ?int

@@ -88,14 +88,24 @@ class ReceivableStockLines
 
         $query = DB::table('receiving_report_items_table as ri')
             ->join('receiving_reports_table as rr', 'rr.receiving_report_id', '=', 'ri.receiving_report_id')
-            ->whereIn('rr.receiving_report_status', ['Completed', 'Accepted'])
             ->where('ri.receiving_report_item_quantity', '>', 0);
+
+        // Rows count as received once second count verified them, even while replacements are still pending.
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_verified')) {
+            $query->where('ri.receiving_report_item_verified', 1)
+                ->where('rr.receiving_report_status', '!=', 'Returned');
+        } else {
+            $query->whereIn('rr.receiving_report_status', ['Completed', 'Accepted']);
+        }
 
         if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_condition')) {
             $query->where(function ($q) {
                 $q->whereNull('ri.receiving_report_item_condition')
                     ->orWhereNotIn('ri.receiving_report_item_condition', ['bad_order', 'bad']);
             });
+        }
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_damaged_qty')) {
+            $query->whereRaw('ri.receiving_report_item_quantity > COALESCE(ri.receiving_report_item_damaged_qty, 0)');
         }
 
         $select = [
@@ -109,6 +119,7 @@ class ReceivableStockLines
         foreach ([
             'receiving_report_items_table' => [
                 'receiving_report_item_ordered_qty' => 'ri.receiving_report_item_ordered_qty',
+                'receiving_report_item_damaged_qty' => 'ri.receiving_report_item_damaged_qty',
                 'receiving_report_item_unit_price' => 'ri.receiving_report_item_unit_price',
                 'receiving_report_item_amount' => 'ri.receiving_report_item_amount',
                 'receiving_report_item_condition' => 'ri.receiving_report_item_condition',
@@ -255,7 +266,7 @@ class ReceivableStockLines
                 $supplierName = (string) ($suppliers->get($supplierId)->supplier_name ?? '');
             }
 
-            $qty = (int) ($row->receiving_report_item_quantity ?? 0);
+            $qty = max(0, (int) ($row->receiving_report_item_quantity ?? 0) - (int) ($row->receiving_report_item_damaged_qty ?? 0));
             $ordered = isset($row->receiving_report_item_ordered_qty) && $row->receiving_report_item_ordered_qty !== null
                 ? (int) $row->receiving_report_item_ordered_qty
                 : null;

@@ -226,7 +226,7 @@
                     <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
                         {{ Auth::user()->user_full_name }}
                     </p>
-                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">{{ \App\Support\RoleAccess::currentPortalLabel() }}</p>
+                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">{{ \App\Support\RoleAccess::primaryRoleLabel() }}</p>
                 </div>
 
                 <i

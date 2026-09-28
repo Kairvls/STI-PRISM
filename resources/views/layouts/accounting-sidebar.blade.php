@@ -5,7 +5,7 @@
         </div>
         <div>
             <h2>PaAyo</h2>
-            <span>Accounting Panel</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('accounting') }}</span>
         </div>
     </div>
 

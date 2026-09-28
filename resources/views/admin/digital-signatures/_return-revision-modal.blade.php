@@ -14,9 +14,9 @@
                     Send this President-rejected RIS back to the Purchaser with revision remarks.
                 </p>
             </div>
-            <form id="returnRevisionForm" method="POST" action="">
+            <form id="returnRevisionForm" method="POST" action="" enctype="multipart/form-data">
                 @csrf
-                <div class="space-y-5 px-6 py-5">
+                <div class="max-h-[65vh] space-y-5 overflow-y-auto px-6 py-5">
                     <div>
                         <label for="return_revision_remarks" class="block text-sm font-medium text-gray-700">
                             Revision Remarks <span class="text-red-500">*</span>
@@ -30,6 +30,7 @@
                             class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
                         ></textarea>
                     </div>
+                    @include('admin.partials.revision-image-picker', ['pickerId' => 'returnRevisionImages'])
                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs text-slate-700">
                             Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to Administrator.
@@ -64,6 +65,9 @@
         if (!modal || !form || !textarea) return;
         form.action = '/admin/digital-signatures/ris/' + risId + '/return-revision';
         textarea.value = '';
+        if (typeof window.resetRevisionImagePicker === 'function') {
+            window.resetRevisionImagePicker('returnRevisionImages');
+        }
         modal.classList.remove('hidden');
         setTimeout(function () { textarea.focus(); }, 200);
     };

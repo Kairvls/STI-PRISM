@@ -1516,7 +1516,7 @@
                                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Qty</label>
+                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Qty <span class="text-red-500">*</span></label>
                                                 <input
                                                     type="number"
                                                     min="1"
@@ -1529,7 +1529,7 @@
                                                 <p x-show="addErrors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.quantity"></p>
                                             </div>
                                             <div>
-                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Condition</label>
+                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Condition <span class="text-red-500">*</span></label>
                                                 <select x-model="addForm.condition" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10">
                                                     <option value="Good">Good</option>
                                                     <option value="Damaged">Damaged</option>
@@ -1539,7 +1539,7 @@
                                             </div>
                                         </div>
                                         <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Tracking mode</label>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Tracking mode <span class="text-red-500">*</span></label>
                                             <div class="flex h-11 rounded-xl bg-slate-100 p-1">
                                                 <button type="button" @click="addForm.tracking = 'Bulk'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
                                                 <button type="button" @click="addForm.tracking = 'Individual'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
@@ -2044,7 +2044,7 @@
                                                 text-slate-600
                                             "
                                         >
-                                            Room Name
+                                            Room Name <span class="text-red-500">*</span>
                                         </label>
 
 
@@ -2502,7 +2502,7 @@
 
                                 <div x-show="transferMode === 'single'" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     <div>
-                                        <label class="mb-2 block text-xs font-medium text-slate-600">Equipment</label>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Equipment <span class="text-red-500">*</span></label>
                                         <select
                                             x-model="selectedEquipment"
                                             class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
@@ -2514,7 +2514,7 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room</label>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room <span class="text-red-500">*</span></label>
                                         <select
                                             x-model="destinationRoom"
                                             class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
@@ -2537,7 +2537,7 @@
                                         from <span class="font-semibold text-slate-900">{{ $room->room_name }}</span> to one destination room.
                                     </div>
                                     <div>
-                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room</label>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room <span class="text-red-500">*</span></label>
                                         <select
                                             x-model="transferAllRoom"
                                             class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
@@ -3756,7 +3756,7 @@
                                                     text-slate-600
                                                 "
                                             >
-                                                Equipment Name
+                                                Equipment Name <span class="text-red-500">*</span>
                                             </label>
 
 
@@ -3950,7 +3950,7 @@
                                                         text-slate-600
                                                     "
                                                 >
-                                                    Quantity
+                                                    Quantity <span class="text-red-500">*</span>
                                                 </label>
 
 
@@ -4000,7 +4000,7 @@
                                                     text-slate-600
                                                 "
                                             >
-                                                Condition
+                                                Condition <span class="text-red-500">*</span>
                                             </label>
 
 
@@ -4225,7 +4225,7 @@
                                                     text-slate-600
                                                 "
                                             >
-                                                Destination Room
+                                                Destination Room <span class="text-red-500">*</span>
                                             </label>
 
 

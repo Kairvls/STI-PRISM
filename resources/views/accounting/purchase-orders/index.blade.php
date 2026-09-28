@@ -95,9 +95,14 @@
                                         <i data-lucide="shopping-bag" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">
-                                            {{ \App\Support\PurchaseOrderBasket::displayNumber($order) }}
-                                        </p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-gray-900">
+                                                {{ \App\Support\PurchaseOrderBasket::displayNumber($order) }}
+                                            </p>
+                                            @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
+                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Includes an ATP from an urgent RIS'])
+                                            @endif
+                                        </div>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $order->purchase_order_id }}</p>
                                     </div>
                                 </div>

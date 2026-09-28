@@ -10,7 +10,7 @@
     if ($title === '' || $title === 'N/A' || $title === '—') {
         $title = $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? \App\Support\RisWorkflow::formNumber($ris));
     }
-    $requestor = $ris->ris_requested_by_signature ?? 'Purchaser';
+    $requestor = \App\Support\RisWorkflow::requesterName($ris);
     $dateRaw = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? $ris->ris_created_at ?? null;
     $dateLabel = $dateRaw ? \Carbon\Carbon::parse($dateRaw)->format('M d, Y g:i A') : '—';
     $amount = number_format((float) ($ris->ris_calculated_total ?? 0), 2);
@@ -108,6 +108,10 @@
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </button>
             @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
+            @include('admin.partials.ris-president-remarks-button', [
+                'ris' => $ris,
+                'btnClass' => 'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+            ])
             @if (\App\Support\RisWorkflow::needsSignDecision($ris))
                 @include('admin.procurement-review._ris-action-menu', ['risId' => $ris->ris_id])
             @endif

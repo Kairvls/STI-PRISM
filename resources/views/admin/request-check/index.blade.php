@@ -114,7 +114,8 @@
         <form method="POST" :action="'/admin/request-check/' + remarksRfc + '/revise'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">
             @csrf
             <h3 class="text-lg font-semibold">Request revision</h3>
-            <textarea name="remarks" required class="mt-4 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
+            <label class="mt-4 block text-sm font-medium text-gray-700">Remarks <span class="text-red-500">*</span></label>
+            <textarea name="remarks" required class="mt-1.5 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
             <div class="mt-4 flex justify-end gap-2">
                 <button type="button" @click="reviseOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
                 <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white">Send back</button>
@@ -126,7 +127,8 @@
         <form method="POST" :action="'/admin/request-check/' + remarksRfc + '/reject'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">
             @csrf
             <h3 class="text-lg font-semibold">Reject Request for Check</h3>
-            <textarea name="remarks" required class="mt-4 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
+            <label class="mt-4 block text-sm font-medium text-gray-700">Remarks <span class="text-red-500">*</span></label>
+            <textarea name="remarks" required class="mt-1.5 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
             <div class="mt-4 flex justify-end gap-2">
                 <button type="button" @click="rejectOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
                 <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">Reject</button>

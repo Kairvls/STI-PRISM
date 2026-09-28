@@ -177,7 +177,7 @@
                                 <p x-show="err('lines.' + i + '.quantity')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="err('lines.' + i + '.quantity')"></p>
                             </div>
                             <div>
-                                <label class="{{ $bLabel }}">Tracking</label>
+                                <label class="{{ $bLabel }}">Tracking <span class="text-red-500">*</span></label>
                                 <div class="flex h-11 rounded-xl bg-slate-100 p-1">
                                     <button type="button" @click="line.tracking = 'Bulk'; line.custodian_id = ''" class="flex-1 rounded-lg text-sm font-medium transition" :class="line.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
                                     <button type="button" @click="line.tracking = 'Individual'" class="flex-1 rounded-lg text-sm font-medium transition" :class="line.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\DocumentUrgency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,6 +12,7 @@ use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
+use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RfcAtpLinks;
 use App\Support\ReviewerAssignment;
@@ -105,7 +107,12 @@ class AuthorityToPurchaseController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
+        $attentionFocus = $archiveView
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_ATP_READY_FOR_RFC);
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeAtpReadyForRfc($query);
+        } elseif ($request->filled('status')) {
             $this->applyStatusFilter($query, $request->status);
         }
 
@@ -122,6 +129,7 @@ class AuthorityToPurchaseController extends Controller
             );
         }
 
+        DocumentUrgency::select($query, 'ATP');
         $spotlightQuery = clone $query;
         $atps = $query
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
@@ -195,6 +203,7 @@ class AuthorityToPurchaseController extends Controller
         return view(
             'purchaser.authority-to-purchase.index',
             compact(
+                'attentionFocus',
                 'atps',
                 'archiveView',
                 'atpSummary',
@@ -254,10 +263,9 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
-            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
@@ -464,10 +472,9 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
-            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'items.*.supplier_stock' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
@@ -1029,9 +1036,6 @@ class AuthorityToPurchaseController extends Controller
                     'unit_price' => isset($item['unit_price']) && $item['unit_price'] !== ''
                         ? (float) $item['unit_price']
                         : null,
-                    'supplier_stock' => isset($item['supplier_stock']) && $item['supplier_stock'] !== ''
-                        ? (int) $item['supplier_stock']
-                        : null,
                 ];
             })
             ->values();
@@ -1085,12 +1089,6 @@ class AuthorityToPurchaseController extends Controller
             $quantity = $item['quantity'] ?? null;
             $unitPrice = $item['unit_price'] ?? null;
 
-            $supplierStock = $item['supplier_stock'] ?? null;
-            $backOrderQty = null;
-            if ($quantity !== null && $supplierStock !== null && $quantity > $supplierStock) {
-                $backOrderQty = $quantity - $supplierStock;
-            }
-
             $row = [
                 'authority_purchase_id' => $authorityPurchaseId,
                 'atp_description' => $item['description'],
@@ -1101,14 +1099,6 @@ class AuthorityToPurchaseController extends Controller
                     ? $quantity * $unitPrice
                     : null,
             ];
-
-            if (Schema::hasColumn('authority_to_purchase_items_table', 'atp_supplier_stock')) {
-                $row['atp_supplier_stock'] = $supplierStock;
-            }
-            if (Schema::hasColumn('authority_to_purchase_items_table', 'atp_back_order_qty')) {
-                $row['atp_back_order_qty'] = $backOrderQty;
-            }
-
             $rows[] = $row;
         }
         if ($rows !== []) {

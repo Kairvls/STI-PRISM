@@ -51,7 +51,7 @@
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                 @if ($pendingReplacementRequests > 0)
                     <a
-                        href="{{ route('purchaser.procurement.replacement-requests', ['status' => 'Pending']) }}"
+                        href="{{ route('purchaser.procurement.replacement-requests', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_REPLACEMENT_PENDING]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
@@ -71,7 +71,7 @@
 
                 @if ($availableUrgentReports > 0)
                     <a
-                        href="{{ route('purchaser.reports.urgent') }}"
+                        href="{{ route('purchaser.reports.urgent', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_URGENT_UNCLAIMED]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-rose-200 hover:bg-rose-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover:bg-rose-100">
@@ -91,7 +91,7 @@
 
                 @if ($risReadyForAtp > 0)
                     <a
-                        href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
+                        href="{{ route('purchaser.ris.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-100 transition group-hover:bg-blue-100">
@@ -111,7 +111,7 @@
 
                 @if ($atpReadyForRfc > 0)
                     <a
-                        href="{{ route('purchaser.rfc.index', ['create' => 1]) }}"
+                        href="{{ route('purchaser.atp.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_ATP_READY_FOR_RFC]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-indigo-200 hover:bg-indigo-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 transition group-hover:bg-indigo-100">
@@ -131,7 +131,7 @@
 
                 @if ($rfcReadyForRr > 0)
                     <a
-                        href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}"
+                        href="{{ route('purchaser.rfc.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-sky-200 hover:bg-sky-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-100 transition group-hover:bg-sky-100">
@@ -151,7 +151,7 @@
 
                 @if ($rrReadyForLiq > 0)
                     <a
-                        href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}"
+                        href="{{ route('purchaser.rr.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RR_READY_FOR_LIQ]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-violet-200 hover:bg-violet-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100 transition group-hover:bg-violet-100">
@@ -181,45 +181,45 @@
 
                 @if ($pendingReplacementRequests > 0)
                     <a
-                        href="{{ route('purchaser.procurement.replacement-requests', ['status' => 'Pending']) }}"
+                        href="{{ route('purchaser.procurement.replacement-requests', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_REPLACEMENT_PENDING]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View pending requests
                     </a>
                 @elseif ($availableUrgentReports > 0)
                     <a
-                        href="{{ route('purchaser.reports.urgent') }}"
+                        href="{{ route('purchaser.reports.urgent', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_URGENT_UNCLAIMED]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View urgent reports
                     </a>
                 @elseif ($risReadyForAtp > 0)
                     <a
-                        href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
+                        href="{{ route('purchaser.ris.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
-                        Open approved RIS
+                        Open RIS ready for ATP
                     </a>
                 @elseif ($atpReadyForRfc > 0)
                     <a
-                        href="{{ route('purchaser.rfc.index', ['create' => 1]) }}"
+                        href="{{ route('purchaser.atp.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_ATP_READY_FOR_RFC]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
-                        Create RFC
+                        Open ATP ready for RFC
                     </a>
                 @elseif ($rfcReadyForRr > 0)
                     <a
-                        href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}"
+                        href="{{ route('purchaser.rfc.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
-                        Open approved RFC
+                        Open RFC ready for RR
                     </a>
                 @elseif ($rrReadyForLiq > 0)
                     <a
-                        href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}"
+                        href="{{ route('purchaser.rr.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RR_READY_FOR_LIQ]) }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
-                        Open completed RR
+                        Open RR ready for liquidation
                     </a>
                 @endif
             </div>

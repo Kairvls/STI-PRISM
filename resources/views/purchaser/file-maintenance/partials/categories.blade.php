@@ -255,7 +255,7 @@
                                             <input type="text" :name="`items[${index}][item_category_name]`" x-model="row.name" required placeholder="Enter category name" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300">
                                         </div>
                                         <div>
-                                            <label class="mb-1 block text-xs font-medium text-gray-600">Status</label>
+                                            <label class="mb-1 block text-xs font-medium text-gray-600">Status <span class="text-red-500">*</span></label>
                                             <select :name="`items[${index}][item_category_status]`" x-model="row.status" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300">
                                                 <option value="Active">Active</option>
                                                 <option value="Inactive">Inactive</option>
@@ -286,7 +286,7 @@
                                 <textarea name="item_category_description" x-model="form.description" rows="3" placeholder="Optional description" class="box-border w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"></textarea>
                             </div>
                             <div>
-                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Status</label>
+                                <label class="mb-1.5 block text-xs font-medium text-gray-600">Status <span class="text-red-500">*</span></label>
                                 <select name="item_category_status" x-model="form.status" class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300 focus:bg-white">
                                     <option value="Active">Active</option>
                                     <option value="Inactive">Inactive</option>

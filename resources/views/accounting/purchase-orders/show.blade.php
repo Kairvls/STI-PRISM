@@ -14,7 +14,12 @@
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <a href="/accounting/purchase-orders?status=incoming" class="text-sm font-medium text-blue-700 hover:underline">← Back to Purchase Orders</a>
-            <h1 class="mt-2 text-xl font-semibold text-slate-900">{{ $label }}</h1>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <h1 class="text-xl font-semibold text-slate-900">{{ $label }}</h1>
+                @if(\App\Support\DocumentUrgency::isUrgent('PO', $order->purchase_order_id))
+                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Includes an ATP from an urgent RIS'])
+                @endif
+            </div>
             <p class="mt-1 text-sm text-slate-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s) · ₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}</p>
         </div>
     </div>
@@ -22,6 +27,11 @@
     @if(!empty($order->purchase_order_revision_reason) && ($order->purchase_order_status ?? '') === 'Draft')
         <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Previous revision note: {{ $order->purchase_order_revision_reason }}
+            @include('partials.ris-revision-images', [
+                'revision' => \App\Support\DocumentRevisionNotes::latest('PO', $order->purchase_order_id),
+                'routeName' => 'accounting.document-revision-image',
+                'size' => 'sm',
+            ])
         </div>
     @endif
 
@@ -106,14 +116,19 @@
                 <button type="submit" class="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Approve PO</button>
             </form>
 
-            <form method="POST" action="/accounting/purchase-orders/{{ $order->purchase_order_id }}/revise" class="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
+            <form method="POST" action="/accounting/purchase-orders/{{ $order->purchase_order_id }}/revise" enctype="multipart/form-data" class="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
                 @csrf
                 <h3 class="text-sm font-semibold text-amber-900">Request revision</h3>
                 <p class="mt-1 text-xs text-amber-800">Returns the PO and linked ATPs to the purchaser.</p>
-                <textarea name="remarks" rows="3" required class="mt-3 w-full rounded-lg border border-amber-200 px-3 py-2 text-sm" placeholder="Describe what needs to be corrected..."></textarea>
+                <label for="poReviseRemarks" class="mt-3 block text-xs font-semibold text-amber-900">Remarks <span class="text-red-500">*</span></label>
+                <textarea id="poReviseRemarks" name="remarks" rows="3" required class="mt-1.5 w-full rounded-lg border border-amber-200 px-3 py-2 text-sm" placeholder="Describe what needs to be corrected...">{{ old('remarks') }}</textarea>
+                <div class="mt-3">
+                    @include('admin.partials.revision-image-picker', ['pickerId' => 'poRevisionImages'])
+                </div>
                 <button type="submit" class="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700">Send back</button>
             </form>
         </div>
     @endif
 </div>
+@include('partials.ris-revision-image-viewer')
 @endsection

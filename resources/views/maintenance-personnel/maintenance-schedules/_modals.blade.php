@@ -32,7 +32,7 @@
                 <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment <span class="text-red-500">*</span></p>
                             <p class="mt-1 text-sm text-slate-500">Type to search, then add each asset to this schedule batch.</p>
                         </div>
                         <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' selected') : 'None selected'"></p>
@@ -146,7 +146,7 @@
                 </div>
 
                 <div>
-                    <label for="scheduleFrequency" class="mb-1.5 block text-sm text-slate-600">Frequency</label>
+                    <label for="scheduleFrequency" class="mb-1.5 block text-sm text-slate-600">Frequency <span class="text-red-500">*</span></label>
                     <select
                         id="scheduleFrequency"
                         name="frequency"
@@ -160,7 +160,7 @@
                 </div>
 
                 <div x-data="scheduleNextDatePicker()" class="space-y-2.5">
-                    <label class="block text-sm text-slate-600">Next date</label>
+                    <label class="block text-sm text-slate-600">Next date <span class="text-red-500">*</span></label>
                     <input id="scheduleNextDate" type="hidden" name="next_date" x-model="value" />
 
                     <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">

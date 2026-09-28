@@ -47,7 +47,7 @@
                     <button
                         type="button"
                         onclick="window.{{ $printFn }}()"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-white hover:bg-gray-800"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white hover:bg-blue-800"
                         title="Print"
                         aria-label="Print"
                     >

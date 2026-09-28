@@ -728,6 +728,7 @@
 
 @include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.maintenance-daily-reminder')
 @include('partials.purchaser-confirm-dialog')
+@include('partials.purchaser-rich-tooltip')
 @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
     @include('partials.purchaser-print-sheet-helper')
 @endif

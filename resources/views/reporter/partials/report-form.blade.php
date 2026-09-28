@@ -888,15 +888,16 @@
         z-index: 100070;
         max-width: min(360px, calc(100vw - 24px));
         padding: 8px 10px;
-        border-radius: 10px;
-        background: #0f172a;
-        color: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        background: #ffffff;
+        color: #334155;
         font-size: 12px;
         font-weight: 500;
         line-height: 1.45;
         white-space: normal;
         word-break: break-word;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
@@ -991,15 +992,16 @@
         z-index: 40;
         max-width: min(320px, 80vw);
         padding: 8px 10px;
-        border-radius: 10px;
-        background: #0f172a;
-        color: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        background: #ffffff;
+        color: #334155;
         font-size: 12px;
         font-weight: 500;
         line-height: 1.45;
         white-space: normal;
         word-break: break-word;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
@@ -1008,15 +1010,6 @@
             opacity 0.15s ease,
             transform 0.15s ease,
             visibility 0.15s ease;
-    }
-
-    .rf-eq-tip::after {
-        content: "";
-        position: absolute;
-        left: 16px;
-        top: 100%;
-        border: 6px solid transparent;
-        border-top-color: #0f172a;
     }
 
     .rf-eq-item:hover .rf-eq-tip,
@@ -3333,7 +3326,7 @@
                         <label
                             class="rf-label rf-mobile-section-title"
                             style="margin-bottom: 14px"
-                            >Priority level</label
+                            >Priority level <span class="text-red-500">*</span></label
                         >
 
                         {{-- NON-URGENT --}}

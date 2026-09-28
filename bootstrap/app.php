@@ -36,7 +36,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'maintenance.procurement' => \App\Http\Middleware\MaintenanceProcurementMiddleware::class,
         ]);
 
-        
+        $middleware->redirectGuestsTo(
+            fn (\Illuminate\Http\Request $request) => $request->is('admin', 'admin/*')
+                ? route('admin.login')
+                : route('login')
+        );
+
 
     })
     ->withExceptions(function (Exceptions $exceptions): void {

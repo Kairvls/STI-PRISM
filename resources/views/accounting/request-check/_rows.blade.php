@@ -12,9 +12,14 @@
                     <i data-lucide="clipboard-list" class="h-4 w-4"></i>
                 </div>
                 <div>
-                    <p class="font-semibold text-gray-900">
-                        {{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}
-                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-semibold text-gray-900">
+                            {{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}
+                        </p>
+                        @if (\App\Support\DocumentUrgency::isUrgent('RFC', $row))
+                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                        @endif
+                    </div>
                     <p class="mt-0.5 text-xs text-gray-400">Record #{{ $row->request_check_id }}</p>
                 </div>
             </div>

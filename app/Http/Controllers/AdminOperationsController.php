@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\MaintenanceReportService;
 use App\Support\AdminAttentionSummary;
+use App\Support\BuildingLayout3D;
 use App\Support\DocumentLineage;
 use App\Support\ProcurementPaymentPath;
 use App\Support\RisWorkflow;
@@ -475,6 +476,14 @@ class AdminOperationsController extends Controller
             'equipment' => $equipment,
             'usefulLifeYears' => self::DEFAULT_USEFUL_LIFE_YEARS,
         ]);
+    }
+
+    public function buildingLayout(): View
+    {
+        $floors = BuildingLayout3D::floors();
+        $roomsByFloor = BuildingLayout3D::rooms()->groupBy('floor_id');
+
+        return view('admin.operations.building-layout', compact('floors', 'roomsByFloor'));
     }
 
     public function schedules(Request $request): View

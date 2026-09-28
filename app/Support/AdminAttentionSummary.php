@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 
 class AdminAttentionSummary
 {
+    public const FOCUS_PENDING_REVIEW = 'pending-review';
+    public const FOCUS_AMENDMENTS = 'amendments';
+    public const FOCUS_AWAITING_COSIGN = 'awaiting-cosign';
+
     /** @var array<string, int>|null */
     private static ?array $cached = null;
 
@@ -31,39 +35,14 @@ class AdminAttentionSummary
         $amendRis = 0;
 
         if (Schema::hasTable('requisition_issue_slip_table')) {
-            $base = DB::table('requisition_issue_slip_table')
-                ->whereNotNull('ris_requested_by_date');
+            $reviewBase = DB::table('requisition_issue_slip_table');
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+                ReviewerAssignment::applyQueueFilter($reviewBase, 'ris_assigned_reviewer_id');
+            }
 
-            $pendingRis = (int) (clone $base)
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->count();
-
-            $amendRis = (int) (clone $base)
-                ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
-                ->count();
-
-            $acceptedForDecision = (int) (clone $base)
-                ->where('ris_status', 'Accepted')
-                ->count();
-
-            // Sign RIS workload: Accepted (decision) + President-approved awaiting Issued by
-            $awaitingIssuedBy = (int) DB::table('requisition_issue_slip_table')
-                ->where(function ($q) {
-                    $q->where('ris_status', 'Approved by the President')
-                        ->orWhere(function ($legacy) {
-                            $legacy->where('ris_status', 'Approved')
-                                ->whereNotNull('ris_approved_by_signature')
-                                ->where('ris_approved_by_signature', '!=', '')
-                                ->where('ris_approved_by_signature', 'like', 'data:image%');
-                        });
-                })
-                ->where(function ($unsigned) {
-                    $unsigned->whereNull('ris_issued_by_signature')
-                        ->orWhere('ris_issued_by_signature', '');
-                })
-                ->count();
-
-            $awaitingCosign = $acceptedForDecision + $awaitingIssuedBy;
+            $pendingRis = (int) self::scopePendingRis(clone $reviewBase)->count();
+            $amendRis = (int) self::scopeAmendRis(clone $reviewBase)->count();
+            $awaitingCosign = (int) self::scopeAwaitingCosign(DB::table('requisition_issue_slip_table'))->count();
         }
 
         self::$cached = [
@@ -74,5 +53,80 @@ class AdminAttentionSummary
         ];
 
         return self::$cached;
+    }
+
+    /**
+     * Submitted / resubmitted RIS waiting for Administrator accept (Procurement Review).
+     */
+    public static function scopePendingRis($query, string $prefix = '')
+    {
+        return $query->whereNotNull($prefix.'ris_requested_by_date')
+            ->whereIn($prefix.'ris_status', RisWorkflow::incomingStatuses());
+    }
+
+    /**
+     * RIS returned for minor revision or rejected by Administrator (Procurement Review).
+     */
+    public static function scopeAmendRis($query, string $prefix = '')
+    {
+        return $query->whereNotNull($prefix.'ris_requested_by_date')
+            ->whereIn($prefix.'ris_status', ['Minor Revision', 'Rejected']);
+    }
+
+    /**
+     * Sign RIS "Pending" work: Accepted decisions plus President-approved RIS without Issued by.
+     */
+    public static function scopeAwaitingCosign($query, string $prefix = '')
+    {
+        $status = $prefix.'ris_status';
+        $approvedSig = $prefix.'ris_approved_by_signature';
+        $issuedSig = $prefix.'ris_issued_by_signature';
+
+        return $query->where(function ($pending) use ($status, $approvedSig, $issuedSig) {
+            $pending->where($status, RisWorkflow::ACCEPTED)
+                ->orWhere(function ($awaiting) use ($status, $approvedSig, $issuedSig) {
+                    $awaiting->where(function ($approved) use ($status, $approvedSig) {
+                        $approved->where(function ($president) use ($status, $approvedSig) {
+                            $president->where($status, RisWorkflow::PRESIDENT_APPROVED)
+                                ->whereNotNull($approvedSig)
+                                ->whereRaw('TRIM('.$approvedSig.') != ""');
+                        })->orWhere(function ($legacy) use ($status, $approvedSig) {
+                            $legacy->where($status, RisWorkflow::APPROVED_LEGACY)
+                                ->whereNotNull($approvedSig)
+                                ->where($approvedSig, 'like', 'data:image%');
+                        });
+                    })->where(function ($unsigned) use ($issuedSig) {
+                        $unsigned->whereNull($issuedSig)
+                            ->orWhereRaw('TRIM('.$issuedSig.') = ""');
+                    });
+                });
+        });
+    }
+
+    /**
+     * Banner metadata for a reminder focus key, or null when the key is unknown.
+     *
+     * @return array{label:string, description:string, scope:string}|null
+     */
+    public static function focusMeta(?string $focus): ?array
+    {
+        return match ($focus) {
+            self::FOCUS_PENDING_REVIEW => [
+                'label' => 'Procurement requests to accept',
+                'description' => 'Submitted, resubmitted, or under-review RIS waiting for Administrator accept.',
+                'scope' => 'shared',
+            ],
+            self::FOCUS_AMENDMENTS => [
+                'label' => 'Amendments / returned RIS',
+                'description' => 'RIS marked for minor revision or rejected and still in the pipeline.',
+                'scope' => 'shared',
+            ],
+            self::FOCUS_AWAITING_COSIGN => [
+                'label' => 'RIS awaiting Sign RIS action',
+                'description' => 'Accepted RIS waiting for a decision plus President-approved RIS waiting for your Issued by signature.',
+                'scope' => 'shared',
+            ],
+            default => null,
+        };
     }
 }

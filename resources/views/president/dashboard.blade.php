@@ -92,7 +92,7 @@
                 @php
                     $label = \App\Support\RisWorkflow::formNumber($ris);
                     $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
-                    $requester = $ris->ris_requested_by_signature ?: '—';
+                    $requester = \App\Support\RisWorkflow::requesterName($ris);
                     $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
                 <div class="rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
@@ -219,6 +219,266 @@
                 </div>
             @empty
                 <p class="px-3 py-4 text-center text-xs text-gray-400">No approved RIS yet</p>
+            @endforelse
+        </div>
+    </aside>
+</div>
+
+{{-- ===================================== --}}
+{{-- SPENDING + WAITING ON YOU --}}
+{{-- ===================================== --}}
+@php
+    $insights = $insights ?? [];
+    $spend = $insights['spend'] ?? [];
+    $aging = $insights['aging'] ?? ['buckets' => [], 'oldest' => null, 'total' => 0];
+    $pipeline = $insights['pipeline'] ?? ['steps' => [], 'stalled' => 0, 'total' => 0];
+    $peso = fn ($v) => '₱'.number_format((float) $v, 2);
+
+    $thisMonth = (float) ($spend['thisMonth'] ?? 0);
+    $lastMonth = (float) ($spend['lastMonth'] ?? 0);
+    $spendChange = match (true) {
+        $lastMonth <= 0 && $thisMonth <= 0 => 'No approvals yet',
+        $lastMonth <= 0 => 'None approved last month',
+        default => (function () use ($thisMonth, $lastMonth, $peso) {
+            $pct = round((($thisMonth - $lastMonth) / $lastMonth) * 100);
+            return abs($pct) > 500
+                ? $peso($lastMonth).' last month'
+                : ($pct >= 0 ? '▲ ' : '▼ ').abs($pct).'% vs last month';
+        })(),
+    };
+
+    $hours = $insights['decisionHours'] ?? null;
+    $decisionText = match (true) {
+        $hours === null => '—',
+        $hours < 1 => max(1, (int) round($hours * 60)).' min',
+        $hours < 48 => rtrim(rtrim(number_format($hours, 1), '0'), '.').' hrs',
+        default => round($hours / 24, 1).' days',
+    };
+    $agingMax = max(1, collect($aging['buckets'])->max('count'));
+@endphp
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.32s">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-bold text-gray-900">Spending Overview</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Value of requests you are deciding on and have approved</p>
+            </div>
+            <a href="/president/reports/monthly-summary" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open monthly summary">
+                Monthly summary
+            </a>
+        </div>
+
+        <div class="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+            <a href="/president/approvals" class="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50">
+                <p class="text-[11px] font-medium text-gray-500">Awaiting your decision</p>
+                <p class="mt-1.5 truncate text-lg font-bold text-blue-700" title="{{ $peso($spend['pendingAmount'] ?? 0) }}">{{ $peso($spend['pendingAmount'] ?? 0) }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400">{{ $pendingApprovalsCount ?? 0 }} pending RIS</p>
+            </a>
+            <a href="/president/reports/approved" class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/40">
+                <p class="text-[11px] font-medium text-gray-500">Approved this month</p>
+                <p class="mt-1.5 truncate text-lg font-bold text-gray-900" title="{{ $peso($thisMonth) }}">{{ $peso($thisMonth) }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400">{{ (int) ($spend['thisMonthCount'] ?? 0) }} RIS · {{ $spendChange }}</p>
+            </a>
+            <a href="/president/direct-approvals" class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/40">
+                <p class="text-[11px] font-medium text-gray-500">Direct approvals this month</p>
+                <p class="mt-1.5 truncate text-lg font-bold text-gray-900">{{ (int) ($spend['directCount'] ?? 0) }}</p>
+                <p class="mt-0.5 truncate text-[11px] text-gray-400">{{ $peso($spend['directAmount'] ?? 0) }} approved by Administrator</p>
+            </a>
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+                <p class="text-[11px] font-medium text-gray-500">Your avg. decision time</p>
+                <p class="mt-1.5 text-lg font-bold text-gray-900">{{ $decisionText }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400">From forwarded to decided · 90 days</p>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold text-gray-700">Top requested items</p>
+                <p class="text-[11px] text-gray-400">Approved RIS · last 90 days</p>
+            </div>
+            <div class="mt-3 space-y-2.5">
+                @forelse ($insights['topItems'] ?? [] as $item)
+                    <div>
+                        <div class="flex items-center justify-between gap-3 text-xs">
+                            <span class="min-w-0 truncate font-medium text-gray-800" title="{{ $item->name }}">{{ $item->name }}</span>
+                            <span class="shrink-0 font-semibold text-gray-900">{{ $peso($item->amount) }}</span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-3">
+                            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-blue-50">
+                                <div class="h-full rounded-full bg-blue-600" style="width: {{ max(2, $item->share) }}%"></div>
+                            </div>
+                            <span class="w-28 shrink-0 text-right text-[11px] text-gray-400">{{ number_format($item->qty) }} qty · {{ $item->requests }} RIS</span>
+                        </div>
+                    </div>
+                @empty
+                    <p class="rounded-xl border border-dashed border-gray-200 px-3 py-6 text-center text-xs text-gray-400">No approved requests in the last 90 days</p>
+                @endforelse
+            </div>
+        </div>
+    </section>
+
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.34s">
+        <div>
+            <h2 class="text-sm font-bold text-gray-900">Waiting On You</h2>
+            <p class="mt-0.5 text-xs text-gray-400">How long pending RIS have been in your queue</p>
+        </div>
+
+        <div class="mt-4 space-y-2.5">
+            @foreach ($aging['buckets'] as $bucket)
+                @php $isLate = $bucket['label'] === 'Over 7 days' && $bucket['count'] > 0; @endphp
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="w-20 shrink-0 text-gray-500">{{ $bucket['label'] }}</span>
+                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full {{ $isLate ? 'bg-amber-500' : 'bg-blue-600' }}" style="width: {{ $bucket['count'] ? max(6, ($bucket['count'] / $agingMax) * 100) : 0 }}%"></div>
+                    </div>
+                    <span class="w-5 shrink-0 text-right font-semibold {{ $isLate ? 'text-amber-600' : ($bucket['count'] ? 'text-gray-900' : 'text-gray-300') }}">{{ $bucket['count'] }}</span>
+                </div>
+            @endforeach
+        </div>
+
+        @if ($aging['oldest'])
+            @php $oldest = $aging['oldest']; @endphp
+            <div class="mt-5 rounded-xl border {{ $oldest->days > 7 ? 'border-amber-200 bg-amber-50/60' : 'border-blue-100 bg-blue-50/50' }} px-3.5 py-3">
+                <p class="text-[11px] font-medium {{ $oldest->days > 7 ? 'text-amber-700' : 'text-blue-700' }}">Oldest in your queue</p>
+                <div class="mt-1 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="truncate text-xs font-semibold text-gray-900">{{ $oldest->number }}</p>
+                        <p class="text-[11px] text-gray-500">
+                            {{ $oldest->days === 0 ? 'Forwarded today' : 'Waiting '.$oldest->days.' '.($oldest->days === 1 ? 'day' : 'days') }} · {{ $peso($oldest->amount) }}
+                        </p>
+                    </div>
+                    <a href="/president/approvals?approve={{ $oldest->id }}" class="inline-flex h-8 shrink-0 items-center rounded-xl bg-blue-600 px-3 text-[11px] font-medium text-white transition hover:bg-blue-700">
+                        Review
+                    </a>
+                </div>
+            </div>
+        @else
+            <div class="mt-5 rounded-xl border border-dashed border-gray-200 px-3 py-6 text-center">
+                <p class="text-xs font-medium text-gray-500">Your queue is clear</p>
+            </div>
+        @endif
+
+        @php $decisions = $insights['decisions'] ?? ['approved' => 0, 'rejected' => 0, 'returned' => 0, 'total' => 0, 'days' => 30]; @endphp
+        <div class="mt-5 border-t border-gray-100 pt-4">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold text-gray-700">Your decisions</p>
+                <a href="/president/approvals/history" class="text-[11px] font-medium text-gray-400 transition hover:text-blue-700">Last {{ $decisions['days'] }} days</a>
+            </div>
+            <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div class="rounded-xl bg-blue-50/70 px-2 py-2.5">
+                    <p class="text-base font-bold text-blue-700">{{ $decisions['approved'] }}</p>
+                    <p class="text-[11px] text-gray-500">Approved</p>
+                </div>
+                <div class="rounded-xl bg-slate-50 px-2 py-2.5">
+                    <p class="text-base font-bold text-gray-900">{{ $decisions['returned'] }}</p>
+                    <p class="text-[11px] text-gray-500">Returned</p>
+                </div>
+                <div class="rounded-xl bg-slate-50 px-2 py-2.5">
+                    <p class="text-base font-bold text-gray-900">{{ $decisions['rejected'] }}</p>
+                    <p class="text-[11px] text-gray-500">Rejected</p>
+                </div>
+            </div>
+            @if ($decisions['total'] > 0)
+                <div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div class="bg-blue-600" style="width: {{ ($decisions['approved'] / $decisions['total']) * 100 }}%"></div>
+                    <div class="bg-slate-400" style="width: {{ ($decisions['returned'] / $decisions['total']) * 100 }}%"></div>
+                    <div class="bg-slate-300" style="width: {{ ($decisions['rejected'] / $decisions['total']) * 100 }}%"></div>
+                </div>
+            @endif
+        </div>
+    </aside>
+</div>
+
+{{-- ===================================== --}}
+{{-- AFTER APPROVAL + DIRECT APPROVALS --}}
+{{-- ===================================== --}}
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.36s">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-bold text-gray-900">After Your Approval</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Where approved RIS are now in purchasing, funding and delivery</p>
+            </div>
+            <a href="/president/procurement-records" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open procurement records">
+                Procurement records
+            </a>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-5">
+            @foreach ($pipeline['steps'] as $i => $step)
+                <div class="rounded-xl border {{ $i === 0 ? 'border-blue-100 bg-blue-50/70' : 'border-slate-200 bg-white' }} px-3.5 py-3.5">
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="text-xl font-bold {{ $i === 0 ? 'text-blue-700' : 'text-gray-900' }}">{{ $step['count'] }}</span>
+                        @if ($i > 0)
+                            <span class="text-[11px] font-semibold text-blue-600">{{ $step['percent'] }}%</span>
+                        @endif
+                    </div>
+                    <p class="mt-1.5 text-xs font-semibold text-gray-900">{{ $step['label'] }}</p>
+                    <p class="mt-0.5 text-[11px] leading-snug text-gray-500">{{ $step['hint'] }}</p>
+                    <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-blue-50">
+                        <div class="h-full rounded-full bg-blue-600" style="width: {{ $step['percent'] }}%"></div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        @if (($pipeline['stalled'] ?? 0) > 0)
+            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="clock-alert" class="h-4 w-4 shrink-0 text-amber-600"></i>
+                    <p class="text-xs text-gray-700">
+                        <span class="font-semibold text-amber-700">{{ $pipeline['stalled'] }} approved {{ $pipeline['stalled'] === 1 ? 'RIS has' : 'RIS have' }}</span>
+                        no Authority to Purchase yet after {{ $pipeline['stalledAfter'] }}+ days. The Purchaser may need a follow-up.
+                    </p>
+                </div>
+                <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    @foreach ($pipeline['stalledList'] ?? [] as $stalled)
+                        <a href="/president/procurement-records" class="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-amber-100 transition hover:ring-amber-200">
+                            <div class="min-w-0">
+                                <p class="truncate text-xs font-semibold text-gray-900">{{ $stalled->number }}</p>
+                                <p class="text-[11px] text-gray-500">Approved {{ $stalled->days }} days ago</p>
+                            </div>
+                            <span class="shrink-0 text-xs font-semibold text-gray-700">{{ $peso($stalled->amount) }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @else
+            <div class="mt-4 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3">
+                <i data-lucide="circle-check" class="h-4 w-4 shrink-0 text-blue-600"></i>
+                <p class="text-xs text-gray-700">Every approved RIS older than {{ $pipeline['stalledAfter'] ?? 7 }} days already has an Authority to Purchase.</p>
+            </div>
+        @endif
+    </section>
+
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.38s">
+        <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <h2 class="text-sm font-bold text-gray-900">Direct Approvals</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Approved by Administrator without you</p>
+            </div>
+            <a href="/president/direct-approvals" class="shrink-0 whitespace-nowrap text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all direct approvals">
+                View all
+            </a>
+        </div>
+        <div class="mt-4 space-y-2.5">
+            @forelse ($insights['directApprovals'] ?? [] as $direct)
+                <a href="/president/direct-approvals" class="block rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="truncate text-xs font-semibold text-gray-900">{{ $direct->number }}</p>
+                            <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ $direct->approver }} · {{ $direct->at?->format('M d, Y') ?? '—' }}</p>
+                        </div>
+                        <span class="shrink-0 text-xs font-semibold text-blue-700">{{ $peso($direct->amount) }}</span>
+                    </div>
+                    @if ($direct->reason !== '')
+                        <p class="mt-1.5 line-clamp-2 border-l-2 border-blue-100 pl-2 text-[11px] italic text-gray-500">“{{ $direct->reason }}”</p>
+                    @endif
+                </a>
+            @empty
+                <div class="rounded-xl border border-dashed border-gray-200 px-3 py-8 text-center">
+                    <p class="text-xs font-medium text-gray-500">No direct approvals yet</p>
+                </div>
             @endforelse
         </div>
     </aside>

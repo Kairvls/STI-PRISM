@@ -3,7 +3,7 @@
     $type = $type ?? 'text';
 @endphp
 <div class="flex items-end gap-3 py-1.5">
-    <span class="{{ $labelClass }}">{{ $label }}:</span>
+    <span class="{{ $labelClass }}">{{ $label }}: @if($editable && ($required ?? false))<span class="text-red-500">*</span>@endif</span>
     @if($editable)
         <input
             type="{{ $type }}"

@@ -1,4 +1,4 @@
-﻿<style>
+<style>
     @keyframes scanner {
         0% {
             left: -40%;
@@ -34,7 +34,41 @@
     $listUrl = $isPurchaserUrgent ? route('purchaser.reports.urgent') : request()->url();
     $reportViewStorageKey = $isPurchaserUrgent ? 'prism-purchaser-urgent-report-view' : 'prism-report-view';
     $isArchiveView = request('archive') == 1 || request('view') === 'archive';
+    $reporterOptions = $isPurchaserUrgent
+        ? collect()
+        : \Illuminate\Support\Facades\DB::table('reporters_table')
+            ->whereExists(function ($query) use ($isArchiveView) {
+                $query
+                    ->select(\Illuminate\Support\Facades\DB::raw(1))
+                    ->from('reports_table')
+                    ->whereColumn('reports_table.report_reporter_employee_id', 'reporters_table.reporter_employee_id')
+                    ->where('reports_table.report_is_archived', $isArchiveView);
+            })
+            ->orderBy('reporter_full_name')
+            ->get(['reporter_employee_id', 'reporter_full_name']);
 @endphp
+
+<!-- ACTIVE / ARCHIVE -->
+<nav
+    class="mb-4 flex w-fit flex-wrap gap-1.5 rounded-[0.9rem] border border-slate-200 bg-white p-1.5 shadow-sm"
+    aria-label="Reports list view"
+>
+    @foreach ([['label' => 'Active', 'icon' => 'folder-open', 'archive' => 0], ['label' => 'Archive', 'icon' => 'archive', 'archive' => 1]] as $listTab)
+        @php $isCurrentTab = $isArchiveView === (bool) $listTab['archive']; @endphp
+        <a
+            href="{{ $listUrl }}?archive={{ $listTab['archive'] }}"
+            class="inline-flex items-center gap-2 rounded-[0.65rem] px-[0.95rem] py-[0.55rem] text-[13px] transition
+                {{ $isCurrentTab
+                    ? 'bg-[#0025cc] font-bold text-white'
+                    : 'font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}"
+            @if ($isCurrentTab) aria-current="page" @endif
+        >
+            <i data-lucide="{{ $listTab['icon'] }}" class="h-3.5 w-3.5"></i>
+            {{ $listTab['label'] }}
+        </a>
+    @endforeach
+</nav>
+
 <div
     class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
 >
@@ -47,6 +81,9 @@
                 action="{{ $isPurchaserUrgent ? route('purchaser.reports.urgent') : '' }}"
                 class="flex flex-1 flex-col items-stretch gap-2.5 lg:flex-row lg:items-center"
             >
+                @if(request()->filled('focus'))
+                    <input type="hidden" name="focus" value="{{ request('focus') }}" />
+                @endif
                 <input
                     type="hidden"
                     name="archive"
@@ -218,6 +255,32 @@
 
                 @endif
 
+                <!-- REPORTER NAME -->
+                @if (!$isPurchaserUrgent)
+                    <div class="relative shrink-0">
+                        <select
+                            name="reporter"
+                            aria-label="Filter by reporter name"
+                            data-searchable="1"
+                            data-search-placeholder="Search reporter name…"
+                            class="h-9 w-full cursor-pointer appearance-none truncate rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[170px]"
+                        >
+                            <option value="">All Reporters</option>
+                            @foreach ($reporterOptions as $reporterOption)
+                                <option
+                                    value="{{ $reporterOption->reporter_employee_id }}"
+                                    {{ (string) request('reporter') === (string) $reporterOption->reporter_employee_id ? 'selected' : '' }}
+                                >
+                                    {{ $reporterOption->reporter_full_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path d="m6 9 6 6 6-6" />
+                        </svg>
+                    </div>
+                @endif
+
                 <!-- SEARCH BUTTON -->
                 <button
                     type="submit"
@@ -238,41 +301,10 @@
                             data-lucide="search"
                             class="h-4 w-4"
                         ></i>
-                    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0025cc] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-xl border border-slate-200/80 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 opacity-0 shadow-[0_8px_24px_rgba(15,23,42,0.14)] transition group-hover:opacity-100">
                         Search
                     </span>
                 </button>
-
-                <!-- DIVIDER -->
-                <div class="hidden h-6 w-px bg-slate-200 lg:block"></div>
-
-                <div
-                    class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1"
-                >
-                    <a
-                        href="{{ $listUrl }}?archive=0"
-                        class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
-                    {{ ! $isArchiveView
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600'
-                    }}"
-                    >
-                        <i data-lucide="folder-open" class="h-3.5 w-3.5"></i>
-                        Active
-                    </a>
-
-                    <a
-                        href="{{ $listUrl }}?archive=1"
-                        class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
-                    {{ $isArchiveView
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600'
-                    }}"
-                    >
-                        <i data-lucide="archive" class="h-3.5 w-3.5"></i>
-                        Archive
-                    </a>
-                </div>
             </form>
 
             <!-- DIVIDER -->
@@ -344,7 +376,7 @@
                             data-lucide="{{
                                 request()->filled('search')
                                 || request()->filled('status')
-                                || request()->filled('urgency')
+                                || request()->filled('urgency') || request()->filled('reporter')
                                     ? 'search-x'
                                     : 'clipboard-list'
                             }}"
@@ -358,7 +390,7 @@
                         {{
                             request()->filled('search')
                             || request()->filled('status')
-                            || request()->filled('urgency')
+                            || request()->filled('urgency') || request()->filled('reporter')
 
                                 ? 'No matching reports'
 
@@ -377,7 +409,7 @@
                         {{
                             request()->filled('search')
                             || request()->filled('status')
-                            || request()->filled('urgency')
+                            || request()->filled('urgency') || request()->filled('reporter')
 
                                 ? ($isPurchaserUrgent
                                     ? 'No urgent reports match your current search or filters.'
@@ -400,7 +432,7 @@
                     @if (
                         request()->filled('search')
                         || request()->filled('status')
-                        || request()->filled('urgency')
+                        || request()->filled('urgency') || request()->filled('reporter')
                     )
 
                         <a
@@ -781,7 +813,7 @@
                                         data-lucide="{{
                                             request()->filled('search')
                                             || request()->filled('status')
-                                            || request()->filled('urgency')
+                                            || request()->filled('urgency') || request()->filled('reporter')
                                                 ? 'search-x'
                                                 : 'clipboard-list'
                                         }}"
@@ -799,7 +831,7 @@
                                     {{
                                         request()->filled('search')
                                         || request()->filled('status')
-                                        || request()->filled('urgency')
+                                        || request()->filled('urgency') || request()->filled('reporter')
 
                                             ? 'No matching reports'
 
@@ -825,7 +857,7 @@
                                     {{
                                         request()->filled('search')
                                         || request()->filled('status')
-                                        || request()->filled('urgency')
+                                        || request()->filled('urgency') || request()->filled('reporter')
 
                                             ? ($isPurchaserUrgent
                                                 ? 'No urgent reports match your current search or filters.'
@@ -853,7 +885,7 @@
                                 @if (
                                     request()->filled('search')
                                     || request()->filled('status')
-                                    || request()->filled('urgency')
+                                    || request()->filled('urgency') || request()->filled('reporter')
                                 )
 
                                     <a
@@ -978,7 +1010,10 @@
                         <div class="mt-2 space-y-1.5 text-sm text-slate-500">
                             <p class="flex items-center gap-2">
                                 <i data-lucide="wrench" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                <span class="truncate">{{ $equipmentLabel }}</span>
+                                @include('components.tables.partials.more-items-popover', [
+                                    'label' => $equipmentLabel,
+                                    'items' => $viewItems,
+                                ])
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
@@ -1123,7 +1158,10 @@
                         <p class="mb-4 text-xs leading-5 text-slate-500">
                             Status updates for equipment on this ticket, plus every other time those same assets were reported, fixed, or sent for replacement.
                         </p>
-                        @include("components.tables.partials.equipment-report-history", ["report" => $report])
+                        @include("components.tables.partials.equipment-report-history", [
+                            "report" => $report,
+                            "ticketLinkBase" => $isPurchaserUrgent ? null : url("/maintenance/reports"),
+                        ])
                     </div>
                 </div>
             </div>

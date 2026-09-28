@@ -30,5 +30,8 @@
     if ($raw === 'Rejected') {
         $cls = 'bg-rose-50 text-rose-800 ring-rose-300';
     }
+    if ($raw === 'Incomplete') {
+        $cls = 'bg-amber-50 text-amber-800 ring-amber-300';
+    }
 @endphp
 <span class="acc-status-badge inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-tight ring-1 {{ $cls }}">{{ $label }}</span>

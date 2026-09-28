@@ -7,11 +7,11 @@
     <thead>
         <tr>
             <th class="w-[13%]">RIS Number</th>
-            <th class="w-[26%]">Equipment</th>
-            <th class="w-[15%]">Requested By</th>
+            <th class="w-[23%]">Equipment</th>
+            <th class="w-[14%]">Requested By</th>
             <th class="w-[18%]">Status</th>
             <th class="w-[12%] text-right">Amount</th>
-            <th class="w-[16%] text-center">Actions</th>
+            <th class="w-[20%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -33,7 +33,7 @@
                         {{ \App\Support\RisWorkflow::formNumber($ris) }}
                         @if(\App\Support\RisWorkflow::isUrgent($ris))
                             <div class="mt-0.5">
-                                <span class="inline-flex items-center rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
+                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm'])
                             </div>
                         @endif
                     </div>
@@ -55,9 +55,9 @@
                 <td>
                     <div
                         class="truncate text-sm font-medium {{ $rowDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $ris->ris_requested_by_signature ?? 'Purchaser' }}"
+                        title="{{ \App\Support\RisWorkflow::requesterName($ris) }}"
                     >
-                        {{ $ris->ris_requested_by_signature ?? 'Purchaser' }}
+                        {{ \App\Support\RisWorkflow::requesterName($ris) }}
                     </div>
                     <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
                         {{ $ris->ris_requested_by_date ?? 'N/A' }}
@@ -66,7 +66,7 @@
 
                 <td>
                     {{-- Keep existing status badge design --}}
-                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
+                    @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                 </td>
 
                 <td
@@ -95,6 +95,8 @@
                             'risId' => $ris->ris_id,
                             'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900',
                         ])
+
+                        @include('admin.partials.ris-president-remarks-button', ['ris' => $ris])
 
                         @if($needsDecision)
                             @include('admin.procurement-review._ris-action-menu', [

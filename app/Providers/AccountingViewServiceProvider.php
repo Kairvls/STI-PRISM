@@ -41,13 +41,7 @@ class AccountingViewServiceProvider extends ServiceProvider
                 }
 
                 $accessibleNotifications = function () use ($userId) {
-                    return DB::table('notifications_table')
-                        ->where(function ($query) use ($userId) {
-                            $query->where('notifications_table.notification_user_id', $userId)
-                                ->orWhere(function ($query) {
-                                    $query->where('notifications_table.notification_target_role', 'Accounting');
-                                });
-                        });
+                    return \App\Support\WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), $userId, 'Accounting');
                 };
 
                 $hasReads = Schema::hasTable('notification_reads_table');

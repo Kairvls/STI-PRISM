@@ -167,6 +167,11 @@ Route::middleware(['auth', 'admin'])
         )->whereNumber('id')->name('operations.equipment.show');
 
         Route::get(
+            '/operations/building-layout',
+            [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayout']
+        )->name('operations.building-layout');
+
+        Route::get(
             '/operations/schedules',
             [\App\Http\Controllers\AdminOperationsController::class, 'schedules']
         )->name('operations.schedules');
@@ -190,6 +195,16 @@ Route::middleware(['auth', 'admin'])
             '/operations/procurement/{risId}/pipeline',
             [\App\Http\Controllers\AdminOperationsController::class, 'procurementPipeline']
         )->whereNumber('risId')->name('operations.procurement.pipeline');
+
+        Route::get(
+            '/operations/back-orders',
+            [\App\Http\Controllers\BackOrderController::class, 'index']
+        )->name('back-orders.index');
+
+        Route::get(
+            '/operations/back-orders/{id}/files/{kind}/{index}',
+            [\App\Http\Controllers\BackOrderController::class, 'file']
+        )->whereNumber(['id', 'index'])->whereIn('kind', ['proof', 'refund', 'replacement'])->name('back-orders.file');
 
         Route::get(
             '/operations/documents/{type}/{id}',
@@ -506,6 +521,11 @@ Route::middleware(['auth', 'admin'])
             '/ris/attachments/{attachmentId}/download',
             [RisController::class, 'downloadAttachment']
         )->name('ris.attachments.download');
+
+        Route::get(
+            '/ris/revisions/{revisionId}/images/{index}',
+            [RisController::class, 'revisionImage']
+        )->whereNumber(['revisionId', 'index'])->name('ris.revision-image');
 
         Route::get(
             '/ris/{ris}/details',
@@ -1921,6 +1941,16 @@ Route::middleware([
 
 
         // =====================================================
+        // PURCHASE HISTORY (per purchaser account)
+        // =====================================================
+
+        Route::get(
+            '/history',
+            [\App\Http\Controllers\PurchaserHistoryController::class, 'index']
+        )->name('history.index');
+
+
+        // =====================================================
         // PURCHASER URGENT REPORTS
         // =====================================================
 
@@ -2218,6 +2248,10 @@ Route::middleware(['auth', 'accounting'])
         Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('accounting.liq.export-xlsx');
         Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('accounting.liq.export-docx');
 
+        Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
+            ->whereNumber(['revisionId', 'index'])
+            ->name('accounting.document-revision-image');
+
         Route::get('/history', [AccountingController::class, 'history']);
         Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
         Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'accountingIndex'])->name('accounting.procurement-records.index');
@@ -2273,6 +2307,15 @@ Route::middleware(['auth', 'receiving'])
         Route::post('/reports/{id}/second-count', [ReceivingController::class, 'secondCount'])->name('receiving.rr.second-count');
         Route::post('/reports/{id}/return', [ReceivingController::class, 'returnRr'])->name('receiving.rr.return');
         Route::post('/reports/{id}/revise', [ReceivingController::class, 'reviseRr'])->name('receiving.rr.revise');
+        Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
+            ->whereNumber(['revisionId', 'index'])
+            ->name('receiving.document-revision-image');
+
+        Route::get('/back-orders', [\App\Http\Controllers\BackOrderController::class, 'index'])->name('receiving.back-orders.index');
+        Route::get('/back-orders/{id}/files/{kind}/{index}', [\App\Http\Controllers\BackOrderController::class, 'file'])
+            ->whereNumber(['id', 'index'])
+            ->whereIn('kind', ['proof', 'refund', 'replacement'])
+            ->name('receiving.back-orders.file');
 
         Route::get('/delivered-items', [ReceivingController::class, 'deliveredItems']);
 

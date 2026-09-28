@@ -991,7 +991,7 @@
                         <span
                             class="text-xs font-extrabold uppercase tracking-wider text-slate-500"
                         >
-                            Room name
+                            Room name <span class="text-red-500">*</span>
                         </span>
                         <input
                             type="text"

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\AccountingAttentionSummary;
+use App\Support\AccountingDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,10 @@ use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\PurchaseOrderBasket;
 use App\Support\RfcAtpLinks;
+use App\Support\DocumentRevisionNotes;
+use App\Support\DocumentUrgency;
+use App\Support\RisRevisionImages;
+use App\Exceptions\RevisionImageUploadException;
 
 class AccountingController extends Controller
 {
@@ -22,238 +27,32 @@ class AccountingController extends Controller
 
     public function dashboard(Request $request)
     {
-        $metrics = $this->metrics();
-        $financialSummary = $this->financialSummary();
-        $deadlines = $this->deadlines();
         $chartYears = $this->fundsReleasedChartYears();
         $chartYear = (int) $request->query('year', now()->year);
         if (!in_array($chartYear, $chartYears, true)) {
             $chartYear = (int) ($chartYears[0] ?? now()->year);
         }
         $fundsReleasedChart = $this->fundsReleasedChart($chartYear);
-        $nowMs = now()->getTimestampMs();
-        $recentIncomingDocs = collect();
 
-        $pushRecentIncoming = function (string $type, string $ref, ?float $amount, $whenValue, string $url) use (&$recentIncomingDocs, $nowMs) {
-            if (empty($whenValue)) {
-                $whenMs = 0;
-                $whenIso = '';
-            } else {
-                $whenMs = (int) \Carbon\Carbon::parse($whenValue)->getTimestampMs();
-                $whenIso = \Carbon\Carbon::createFromTimestampMs($whenMs)->toISOString();
-            }
-
-            $recentIncomingDocs->push((object) [
-                'type' => $type,
-                'ref' => $ref ?: '—',
-                'amount' => $amount,
-                'url' => $url,
-                'arrived_at_ms' => $whenMs,
-                'arrived_at_iso' => $whenIso,
-                'arrived_relative' => $this->relativeAgoMs($whenMs, $nowMs),
-            ]);
-        };
-
-        $incomingAtp = Schema::hasTable('authority_to_purchase_table')
-            ? $this->atpQuery()
-                ->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
-                ->whereNotNull('authority_to_purchase_table.authority_purchase_submitted_at')
-                ->orderByDesc('authority_to_purchase_table.authority_purchase_submitted_at')
-                ->get()
-            : collect();
-
-        $incomingRfc = Schema::hasTable('request_check_table')
-            ? $this->rfcQuery()
-                ->whereIn('request_check_table.request_check_status', $this->rfcIncomingStatuses())
-                ->orderByDesc($this->rfcSortColumn())
-                ->get()
-            : collect();
-
-        foreach ($incomingAtp as $row) {
-            $pushRecentIncoming(
-                'ATP',
-                $row->authority_purchase_form_number ?: ('ATP-' . $row->authority_purchase_id),
-                $row->atp_total !== null ? (float) $row->atp_total : null,
-                $row->authority_purchase_submitted_at ?? $row->authority_purchase_created_at,
-                '/accounting/authority-to-purchase/' . $row->authority_purchase_id
-            );
-        }
-        foreach ($incomingRfc as $row) {
-            $pushRecentIncoming(
-                'Request Check',
-                $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
-                $row->request_check_amount_figures !== null ? (float) $row->request_check_amount_figures : null,
-                $row->request_check_submitted_at ?? $row->request_check_created_at ?? $row->request_check_date,
-                '/accounting/request-check/' . $row->request_check_id
-            );
-        }
-
-        $awaitingFunds = collect();
-        if (Schema::hasTable('request_check_table') && $this->rfcHas('request_check_funds_released_at')) {
-            $fundsQuery = $this->rfcQuery()
-                ->where('request_check_table.request_check_status', 'Approved')
-                ->whereNull('request_check_table.request_check_funds_released_at');
-            $fundsQuery->orderByDesc($this->rfcHas('request_check_approved_at')
-                ? 'request_check_table.request_check_approved_at'
-                : $this->rfcSortColumn());
-            $awaitingFunds = $fundsQuery->get();
-        }
-
-        $incomingLiq = Schema::hasTable('liquidation_reports_table')
-            ? $this->liqQuery()
-                ->whereIn('liquidation_reports_table.liquidation_report_status', self::LIQ_INCOMING)
-                ->orderByDesc($this->liqSortColumn())
-                ->get()
-            : collect();
-
-        foreach ($incomingLiq as $row) {
-            $pushRecentIncoming(
-                'Liquidation',
-                $row->liquidation_report_form_number ?? ('LIQ-' . $row->liquidation_report_id),
-                $row->liquidation_report_amount_advance !== null ? (float) $row->liquidation_report_amount_advance : null,
-                $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at,
-                '/accounting/liquidation-reports/' . $row->liquidation_report_id
-            );
-        }
-
-        $recentIncomingDocs = $recentIncomingDocs
-            ->sortByDesc('arrived_at_ms')
-            ->values()
-            ->take(5);
-
-        $queue = collect();
-        foreach ($incomingAtp as $row) {
-            $queue->push((object) [
-                'type' => 'ATP',
-                'ref' => $row->authority_purchase_form_number ?: ('ATP-' . $row->authority_purchase_id),
-                'related' => $row->ris_form_number ?? '—',
-                'who' => $row->company_name ?? $row->shop_name ?? '—',
-                'amount' => $row->atp_total ?? null,
-                'when' => $row->authority_purchase_submitted_at ?? $row->authority_purchase_created_at,
-                'status' => 'Pending',
-                'action' => 'Review',
-                'url' => '/accounting/authority-to-purchase/' . $row->authority_purchase_id,
-            ]);
-        }
-        foreach ($incomingRfc as $row) {
-            $queue->push((object) [
-                'type' => 'Request Check',
-                'ref' => $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
-                'related' => $row->ris_form_number ?? ($row->authority_purchase_form_number ?? '—'),
-                'who' => $row->request_check_payee ?? $row->request_check_requested_by ?? '—',
-                'amount' => $row->request_check_amount_figures ?? null,
-                'when' => $row->request_check_submitted_at ?? $row->request_check_created_at ?? $row->request_check_date,
-                'status' => $row->request_check_status,
-                'action' => 'Review',
-                'url' => '/accounting/request-check/' . $row->request_check_id,
-            ]);
-        }
-        foreach ($awaitingFunds as $row) {
-            $queue->push((object) [
-                'type' => 'Funds',
-                'ref' => $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
-                'related' => $row->ris_form_number ?? ($row->authority_purchase_form_number ?? '—'),
-                'who' => $row->request_check_payee ?? '—',
-                'amount' => $row->request_check_amount_figures ?? null,
-                'when' => $row->request_check_approved_at ?? $row->request_check_created_at,
-                'status' => 'Approved',
-                'action' => 'Release funds',
-                'url' => '/accounting/request-check/' . $row->request_check_id,
-            ]);
-        }
-        foreach ($incomingLiq as $row) {
-            $queue->push((object) [
-                'type' => 'Liquidation',
-                'ref' => $row->liquidation_report_form_number ?? ('LIQ-' . $row->liquidation_report_id),
-                'related' => $row->receiving_report_form_number ?? '—',
-                'who' => $row->liquidation_report_employee_name ?? '—',
-                'amount' => $row->liquidation_report_amount_advance ?? null,
-                'when' => $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at,
-                'status' => $row->liquidation_report_status,
-                'action' => 'Review',
-                'url' => '/accounting/liquidation-reports/' . $row->liquidation_report_id,
-            ]);
-        }
-        $queue = $queue->sortByDesc('when')->values();
-
-        // Pending document requests: max 10 per page (pagination only when > 10).
-        $queueItems = $queue;
-        $queueTotal = $queueItems->count();
-        $queuePerPage = 10;
-        $queuePage = LengthAwarePaginator::resolveCurrentPage('queue_page');
-        $queue = new LengthAwarePaginator(
-            $queueItems->forPage($queuePage, $queuePerPage)->values(),
-            $queueTotal,
-            $queuePerPage,
-            $queuePage,
-            [
-                'path' => LengthAwarePaginator::resolveCurrentPath(),
-                'query' => $request->query(),
-                'pageName' => 'queue_page',
-            ]
-        );
-
-        $recentActivity = collect();
-        if (Schema::hasTable('approval_logs_table')) {
-            try {
-                $recentActivity = DB::table('approval_logs_table')
-                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
-                    ->where('approval_log_level', 'Accounting')
-                    ->orderByDesc('approval_log_approved_at')
-                    ->select('approval_logs_table.*', 'users_table.user_full_name')
-                    ->paginate(10, ['*'], 'activity_page')
-                    ->withQueryString();
-            } catch (\Throwable $e) {
-                $recentActivity = new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 10, 1, ['pageName' => 'activity_page']);
-            }
-        }
-
-        if ($request->ajax()) {
-            $recentIncomingDocsHtml = view('accounting._recent-incoming-docs-rows', compact('recentIncomingDocs'))->render();
-
-            if ($request->query('partial') === 'recent_incoming_docs') {
-                return response()->json([
-                    'recent_incoming_docs_html' => $recentIncomingDocsHtml,
-                ]);
-            }
-
-            if ($request->query('partial') === 'funds_chart') {
-                return response()->json([
-                    'year' => $fundsReleasedChart['year'],
-                    'months' => $fundsReleasedChart['months'],
-                    'total' => $fundsReleasedChart['total'],
-                    'releases' => $fundsReleasedChart['releases'],
-                ]);
-            }
-
+        if ($request->ajax() && $request->query('partial') === 'funds_chart') {
             return response()->json([
-                'queue_html' => view('accounting._queue-table', compact('queue'))->render(),
-                'queue_pagination_html' => $queue->hasPages()
-                    ? view('pagination.president', ['paginator' => $queue])->render()
-                    : '',
-                'activity_html' => view('accounting._activity-items', compact('recentActivity'))->render(),
-                'activity_pagination_html' => $recentActivity->hasPages()
-                    ? view('pagination.president', ['paginator' => $recentActivity])->render()
-                    : '',
-                'recent_incoming_docs_html' => $recentIncomingDocsHtml,
+                'year' => $fundsReleasedChart['year'],
+                'months' => $fundsReleasedChart['months'],
+                'total' => $fundsReleasedChart['total'],
+                'releases' => $fundsReleasedChart['releases'],
             ]);
         }
 
-        return view('accounting.dashboard', compact(
-            'metrics',
-            'financialSummary',
-            'deadlines',
-            'recentIncomingDocs',
-            'fundsReleasedChart',
-            'chartYear',
-            'chartYears',
-            'incomingAtp',
-            'incomingRfc',
-            'awaitingFunds',
-            'incomingLiq',
-            'queue',
-            'recentActivity'
-        ));
+        return view('accounting.dashboard', [
+            'user' => Auth::user(),
+            'metrics' => $this->metrics(),
+            'financialSummary' => $this->financialSummary(),
+            'deadlines' => $this->deadlines(),
+            'fundsReleasedChart' => $fundsReleasedChart,
+            'chartYear' => $chartYear,
+            'chartYears' => $chartYears,
+            'dashboard' => AccountingDashboard::build(),
+        ]);
     }
 
     public function authorityToPurchase(Request $request)
@@ -261,35 +60,20 @@ class AccountingController extends Controller
         $filter = $this->resolveModuleFilter($request, 'accounting.atp_status', 'incoming', [
             'all', 'incoming', 'revision', 'approved', 'rejected',
         ]);
+        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'authority_to_purchase_table');
+        if ($attentionFocus) {
+            $filter = $attentionFocus['status'];
+            session(['accounting.atp_status' => $filter]);
+        }
         $query = $this->atpQuery()->where(function ($q) {
             $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                 ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
         });
 
-        if ($filter === 'incoming') {
-            $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
-                ->whereNotNull('authority_to_purchase_table.authority_purchase_submitted_at');
-            // Bundled ATPs are reviewed via Purchase Orders.
-            if (PurchaseOrderBasket::tablesExist()) {
-                $query->whereNotExists(function ($sub) {
-                    $sub->select(DB::raw(1))
-                        ->from('purchase_order_atps_table')
-                        ->join(
-                            'purchase_orders_table',
-                            'purchase_order_atps_table.purchase_order_id',
-                            '=',
-                            'purchase_orders_table.purchase_order_id'
-                        )
-                        ->whereColumn(
-                            'purchase_order_atps_table.authority_purchase_id',
-                            'authority_to_purchase_table.authority_purchase_id'
-                        )
-                        ->whereIn('purchase_orders_table.purchase_order_status', [
-                            PurchaseOrderBasket::STATUS_SUBMITTED,
-                            PurchaseOrderBasket::STATUS_APPROVED,
-                        ]);
-                });
-            }
+        if ($attentionFocus) {
+            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
+        } elseif ($filter === 'incoming') {
+            AccountingAttentionSummary::scopeAtpIncoming($query);
         } elseif ($filter === 'revision') {
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
                 ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
@@ -309,6 +93,9 @@ class AccountingController extends Controller
             'online_suppliers_table.shop_name',
         ]);
 
+        if ($filter === 'incoming') {
+            DocumentUrgency::orderUrgentFirst($query, 'ATP');
+        }
         $records = $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
             ->paginate(15)
             ->withQueryString();
@@ -324,6 +111,7 @@ class AccountingController extends Controller
             return response()->json([
                 'table_html' => view('accounting.authority-to-purchase._rows', compact('records', 'filter'))->render(),
                 'counts' => $counts,
+                'focus' => $attentionFocus['key'] ?? null,
                 'total' => $records->total(),
                 'from' => $records->firstItem(),
                 'to' => $records->lastItem(),
@@ -335,7 +123,7 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts'));
+        return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts', 'attentionFocus'));
     }
 
     public function showAtp(Request $request, $id)
@@ -521,16 +309,20 @@ class AccountingController extends Controller
             '/purchaser/request-check?selected_atp=' . (int) $id
         );
 
+        $message = 'ATP approved. ' . WorkflowNotifier::recipientName($atp->authority_purchase_submitted_by, 'The Purchaser') . ' has been notified.';
         if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'ATP approved. Purchaser has been notified.']);
+            return response()->json(['ok' => true, 'message' => $message]);
         }
-        return redirect('/accounting/authority-to-purchase/' . $id)->with('success', 'ATP approved. Purchaser has been notified.');
+        return redirect('/accounting/authority-to-purchase/' . $id)->with('success', $message);
         });
     }
 
     public function reviseAtp(Request $request, $id)
     {
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
         $atp = $this->lockAtp($id);
         abort_if(!$atp, 404);
         ReviewerAssignment::assertCanAct(
@@ -548,28 +340,44 @@ class AccountingController extends Controller
             return $blocked;
         }
 
-        DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
-            'authority_purchase_rejection_reason' => $validated['remarks'],
-            'authority_purchase_submitted_at' => null,
-            'authority_purchase_updated_at' => now(),
-        ]);
+        try {
+            return DocumentRevisionNotes::record($request, 'ATP', (int) $id, $validated['remarks'], DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($request, $id, $atp, $validated) {
+                DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
+                    'authority_purchase_rejection_reason' => $validated['remarks'],
+                    'authority_purchase_submitted_at' => null,
+                    'authority_purchase_updated_at' => now(),
+                ]);
 
-        $this->log('ATP', (int) $id, 'Under Review', $validated['remarks']);
-        $this->notifyPurchaser(
-            $atp->authority_purchase_submitted_by,
-            'ATP revision required',
-            ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ': ' . $validated['remarks'],
-            'atp_revision',
-            'ATP',
-            (int) $id,
-            '/purchaser/authority-to-purchase'
-        );
+                $this->log('ATP', (int) $id, 'Under Review', $validated['remarks']);
+                $this->notifyPurchaser(
+                    $atp->authority_purchase_submitted_by,
+                    'ATP revision required',
+                    ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ': ' . $validated['remarks'] . DocumentRevisionNotes::imagesSuffix($images),
+                    'atp_revision',
+                    'ATP',
+                    (int) $id,
+                    '/purchaser/authority-to-purchase'
+                );
 
-        if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($atp->authority_purchase_submitted_by, 'The Purchaser') . ' has been notified' . DocumentRevisionNotes::imagesSuffix($images) . '.';
+                if ($request->ajax()) {
+                    return response()->json(['ok' => true, 'message' => $message]);
+                }
+                return redirect('/accounting/authority-to-purchase?status=' . urlencode(session('accounting.atp_status', 'incoming')))
+                    ->with('success', $message);
+            });
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
         }
-        return redirect('/accounting/authority-to-purchase?status=' . urlencode(session('accounting.atp_status', 'incoming')))
-            ->with('success', 'Revision requested. Purchaser has been notified.');
+    }
+
+    private function revisionImageError(Request $request, string $message)
+    {
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => false, 'message' => $message], 422);
+        }
+
+        return back()->withInput($request->except(RisRevisionImages::FIELD))->with('error', $message);
     }
 
     public function purchaseOrders(Request $request)
@@ -613,6 +421,10 @@ class AccountingController extends Controller
             });
         }
 
+        DocumentUrgency::select($query, 'PO');
+        if ($filter === 'incoming') {
+            DocumentUrgency::orderUrgentFirst($query, 'PO');
+        }
         $records = $query
             ->orderByDesc('purchase_order_updated_at')
             ->orderByDesc('purchase_order_id')
@@ -728,34 +540,49 @@ class AccountingController extends Controller
                 '/purchaser/purchase-orders?view_po='.(int) $id
             );
 
-            return redirect('/accounting/purchase-orders/'.$id)->with('success', $label.' approved. Purchaser has been notified.');
+            return redirect('/accounting/purchase-orders/'.$id)->with(
+                'success',
+                $label.' approved. '.WorkflowNotifier::recipientName($order->purchase_order_submitted_by ?: $order->purchase_order_created_by, 'The Purchaser').' has been notified.'
+            );
         });
     }
 
     public function revisePurchaseOrder(Request $request, $id)
     {
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
 
-        return DB::transaction(function () use ($validated, $id) {
-            abort_unless(PurchaseOrderBasket::tablesExist(), 404);
+        try {
+            return DB::transaction(fn () => $this->revisePurchaseOrderLocked($request, $validated['remarks'], (int) $id));
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
+        }
+    }
 
-            $order = DB::table('purchase_orders_table')
-                ->where('purchase_order_id', $id)
-                ->lockForUpdate()
-                ->first();
-            abort_if(! $order, 404);
-            ReviewerAssignment::assertCanAct(
-                isset($order->purchase_order_assigned_reviewer_id)
-                    ? (int) $order->purchase_order_assigned_reviewer_id
-                    : null,
-                'Purchase Order'
-            );
+    private function revisePurchaseOrderLocked(Request $request, string $remarks, int $id)
+    {
+        abort_unless(PurchaseOrderBasket::tablesExist(), 404);
 
-            if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
-                return back()->with('error', 'Only submitted Purchase Orders can be sent back for revision.');
-            }
+        $order = DB::table('purchase_orders_table')
+            ->where('purchase_order_id', $id)
+            ->lockForUpdate()
+            ->first();
+        abort_if(! $order, 404);
+        ReviewerAssignment::assertCanAct(
+            isset($order->purchase_order_assigned_reviewer_id)
+                ? (int) $order->purchase_order_assigned_reviewer_id
+                : null,
+            'Purchase Order'
+        );
 
-            $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
+        if (($order->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_SUBMITTED) {
+            return back()->with('error', 'Only submitted Purchase Orders can be sent back for revision.');
+        }
+
+        return DocumentRevisionNotes::record($request, 'PO', $id, $remarks, DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($order, $remarks, $id) {
+            $atpIds = PurchaseOrderBasket::atpIdsForPo($id);
             $now = now();
 
             DB::table('purchase_orders_table')
@@ -763,7 +590,7 @@ class AccountingController extends Controller
                 ->update([
                     'purchase_order_status' => PurchaseOrderBasket::STATUS_DRAFT,
                     'purchase_order_submitted_at' => null,
-                    'purchase_order_revision_reason' => $validated['remarks'],
+                    'purchase_order_revision_reason' => $remarks,
                     'purchase_order_updated_at' => $now,
                 ]);
 
@@ -771,25 +598,29 @@ class AccountingController extends Controller
                 DB::table('authority_to_purchase_table')
                     ->where('authority_purchase_id', $atpId)
                     ->update([
-                        'authority_purchase_rejection_reason' => $validated['remarks'],
+                        'authority_purchase_rejection_reason' => $remarks,
                         'authority_purchase_submitted_at' => null,
                         'authority_purchase_updated_at' => $now,
                     ]);
             }
 
+            $suffix = DocumentRevisionNotes::imagesSuffix($images);
             $label = PurchaseOrderBasket::displayNumber($order);
-            $this->log('PO', (int) $id, 'Under Review', $validated['remarks']);
+            $this->log('PO', $id, 'Under Review', $remarks);
             $this->notifyPurchaser(
                 $order->purchase_order_submitted_by ?: $order->purchase_order_created_by,
                 'Purchase Order revision required',
-                $label.': '.$validated['remarks'],
+                $label.': '.$remarks.$suffix,
                 'po_revision',
                 'PO',
-                (int) $id,
-                '/purchaser/purchase-orders?edit_po='.(int) $id
+                $id,
+                '/purchaser/purchase-orders?edit_po='.$id
             );
 
-            return redirect('/accounting/purchase-orders')->with('success', 'Purchase Order sent back for revision.');
+            return redirect('/accounting/purchase-orders')->with(
+                'success',
+                'Purchase Order sent back to '.WorkflowNotifier::recipientName($order->purchase_order_submitted_by ?: $order->purchase_order_created_by, 'the Purchaser').' for revision'.$suffix.'.'
+            );
         });
     }
 
@@ -798,21 +629,20 @@ class AccountingController extends Controller
         $filter = $this->resolveModuleFilter($request, 'accounting.rfc_status', 'incoming', [
             'all', 'incoming', 'funds', 'released', 'revision', 'approved',
         ]);
-        $query = $this->rfcQuery();
-        if ($this->rfcHas('request_check_is_archived')) {
-            $query->where(function ($q) {
-                $q->whereNull('request_check_table.request_check_is_archived')
-                    ->orWhere('request_check_table.request_check_is_archived', 0);
-            });
+        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'request_check_table');
+        if ($attentionFocus) {
+            $filter = $attentionFocus['status'];
+            session(['accounting.rfc_status' => $filter]);
         }
+        $query = $this->rfcQuery();
+        AccountingAttentionSummary::scopeRfcActive($query);
 
-        if ($filter === 'incoming') {
-            $query->whereIn('request_check_table.request_check_status', $this->rfcIncomingStatuses());
+        if ($attentionFocus) {
+            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
+        } elseif ($filter === 'incoming') {
+            AccountingAttentionSummary::scopeRfcIncoming($query);
         } elseif ($filter === 'funds') {
-            $query->where('request_check_table.request_check_status', 'Approved');
-            if ($this->rfcHas('request_check_funds_released_at')) {
-                $query->whereNull('request_check_table.request_check_funds_released_at');
-            }
+            AccountingAttentionSummary::scopeRfcFunds($query);
         } elseif ($filter === 'released') {
             if ($this->rfcHas('request_check_funds_released_at')) {
                 $query->whereNotNull('request_check_table.request_check_funds_released_at');
@@ -839,6 +669,9 @@ class AccountingController extends Controller
         }
         $this->applySearch($query, $request, $searchCols);
 
+        if (in_array($filter, ['incoming', 'funds'], true)) {
+            DocumentUrgency::orderUrgentFirst($query, 'RFC');
+        }
         $records = $query->orderByDesc($this->rfcSortColumn())->paginate(15)->withQueryString();
         $counts = [
             'incoming' => $this->countRfcIncoming(),
@@ -852,6 +685,7 @@ class AccountingController extends Controller
             return response()->json([
                 'table_html' => view('accounting.request-check._rows', compact('records', 'filter'))->render(),
                 'counts' => $counts,
+                'focus' => $attentionFocus['key'] ?? null,
                 'total' => $records->total(),
                 'from' => $records->firstItem(),
                 'to' => $records->lastItem(),
@@ -863,7 +697,7 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.request-check.index', compact('records', 'filter', 'counts'));
+        return view('accounting.request-check.index', compact('records', 'filter', 'counts', 'attentionFocus'));
     }
 
     public function showRequestCheck(Request $request, $id)
@@ -977,15 +811,19 @@ class AccountingController extends Controller
             '/purchaser/request-check'
         );
 
+        $message = 'Request Check approved. ' . WorkflowNotifier::recipientName($rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id, 'The Purchaser') . ' has been notified.';
         if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Request Check approved.']);
+            return response()->json(['ok' => true, 'message' => $message]);
         }
-        return redirect('/accounting/request-check/' . $id)->with('success', 'Request Check approved.');
+        return redirect('/accounting/request-check/' . $id)->with('success', $message);
     }
 
     public function reviseRequestCheck(Request $request, $id)
     {
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
         $rfc = $this->lockRfc($id);
         abort_if(!$rfc, 404);
         ReviewerAssignment::assertCanAct(
@@ -999,30 +837,39 @@ class AccountingController extends Controller
             return back()->with('error', 'This Request Check cannot be sent for revision.');
         }
 
-        $revisionStatus = $this->rfcStatusAllowed('Minor Revision') ? 'Minor Revision' : 'Rejected';
-        $this->rfcUpdate($id, [
-            'request_check_status' => $revisionStatus,
-            'request_check_review_stage' => 'purchaser',
-            'request_check_revision_notes' => $validated['remarks'],
-            'request_check_updated_at' => now(),
-        ]);
+        try {
+            return DocumentRevisionNotes::record($request, 'RFC', (int) $id, $validated['remarks'], DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($request, $id, $rfc, $validated) {
+                $revisionStatus = $this->rfcStatusAllowed('Minor Revision') ? 'Minor Revision' : 'Rejected';
+                $this->rfcUpdate($id, [
+                    'request_check_status' => $revisionStatus,
+                    'request_check_review_stage' => 'purchaser',
+                    'request_check_revision_notes' => $validated['remarks'],
+                    'request_check_updated_at' => now(),
+                ]);
 
-        $this->log('RFC', (int) $id, 'Minor Revision', $validated['remarks']);
-        $this->notifyPurchaser(
-            $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
-            'Request Check revision required',
-            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ': ' . $validated['remarks'],
-            'rfc_revision',
-            'RFC',
-            (int) $id,
-            '/purchaser/request-check'
-        );
+                $suffix = DocumentRevisionNotes::imagesSuffix($images);
+                $purchaserId = $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id;
+                $this->log('RFC', (int) $id, 'Minor Revision', $validated['remarks']);
+                $this->notifyPurchaser(
+                    $purchaserId,
+                    'Request Check revision required',
+                    ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ': ' . $validated['remarks'] . $suffix,
+                    'rfc_revision',
+                    'RFC',
+                    (int) $id,
+                    '/purchaser/request-check'
+                );
 
-        if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($purchaserId, 'The Purchaser') . ' has been notified' . $suffix . '.';
+                if ($request->ajax()) {
+                    return response()->json(['ok' => true, 'message' => $message]);
+                }
+                return redirect('/accounting/request-check?status=' . urlencode(session('accounting.rfc_status', 'incoming')))
+                    ->with('success', $message);
+            });
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
         }
-        return redirect('/accounting/request-check?status=' . urlencode(session('accounting.rfc_status', 'incoming')))
-            ->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
     public function releaseFunds($id)
@@ -1061,7 +908,10 @@ class AccountingController extends Controller
             '/purchaser/receiving-reports'
         );
 
-        return redirect('/accounting/request-check/' . $id)->with('success', 'Funds marked as ready for collection. Purchaser notified.');
+        return redirect('/accounting/request-check/' . $id)->with(
+            'success',
+            'Funds marked as ready for collection. ' . WorkflowNotifier::recipientName($rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id, 'The Purchaser') . ' has been notified.'
+        );
     }
 
     public function downloadRfcAttachment($id, $attachmentId)
@@ -1090,6 +940,13 @@ class AccountingController extends Controller
             $deadlineFilter = null;
         }
 
+        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'liquidation_reports_table');
+        if ($attentionFocus) {
+            $filter = $attentionFocus['status'];
+            $deadlineFilter = null;
+            session(['accounting.liq_status' => $filter]);
+        }
+
         // Deadline cards always mean incoming liquidations.
         if ($deadlineFilter) {
             $filter = 'incoming';
@@ -1097,15 +954,14 @@ class AccountingController extends Controller
         }
 
         $query = $this->liqQuery();
-        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
-            $query->where(function ($q) {
-                $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
-                    ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
-            });
-        }
+        AccountingAttentionSummary::scopeLiqActive($query);
 
-        if ($filter === 'incoming') {
-            $query->whereIn('liquidation_reports_table.liquidation_report_status', self::LIQ_INCOMING);
+        if ($attentionFocus) {
+            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
+        } elseif ($deadlineFilter === 'overdue') {
+            AccountingAttentionSummary::scopeLiqOverdue($query);
+        } elseif ($filter === 'incoming') {
+            AccountingAttentionSummary::scopeLiqIncoming($query);
         } elseif ($filter === 'revision') {
             $query->whereIn('liquidation_reports_table.liquidation_report_status', Schema::hasColumn('liquidation_reports_table', 'liquidation_report_revision_notes') ? ['Minor Revision'] : ['Rejected']);
         } elseif ($filter === 'approved') {
@@ -1113,13 +969,11 @@ class AccountingController extends Controller
         }
 
         $hasDeadlineCol = Schema::hasColumn('liquidation_reports_table', 'liquidation_report_submission_deadline');
-        if ($deadlineFilter && $hasDeadlineCol) {
+        if ($deadlineFilter && $deadlineFilter !== 'overdue' && $hasDeadlineCol) {
             $today = now()->toDateString();
             $weekEnd = now()->copy()->addDays(7)->toDateString();
 
-            if ($deadlineFilter === 'overdue') {
-                $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '<', $today);
-            } elseif ($deadlineFilter === 'due_today') {
+            if ($deadlineFilter === 'due_today') {
                 $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '=', $today);
             } else {
                 $query->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '>=', $today)
@@ -1166,6 +1020,7 @@ class AccountingController extends Controller
                     'deadlineFilter' => $deadlineFilter,
                 ])->render(),
                 'counts' => $counts,
+                'focus' => $attentionFocus['key'] ?? null,
                 'total' => $records->total(),
                 'from' => $records->firstItem(),
                 'to' => $records->lastItem(),
@@ -1178,7 +1033,7 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts', 'deadlineFilter'));
+        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts', 'deadlineFilter', 'attentionFocus'));
     }
 
     public function showLiquidation(Request $request, $id)
@@ -1286,15 +1141,19 @@ class AccountingController extends Controller
             '/purchaser/liquidation-reports'
         );
 
+        $message = 'Liquidation approved. Transaction completed. ' . WorkflowNotifier::recipientName($liq->liquidation_report_submitted_by, 'The Purchaser') . ' has been notified.';
         if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Liquidation approved. Transaction completed.']);
+            return response()->json(['ok' => true, 'message' => $message]);
         }
-        return redirect('/accounting/liquidation-reports/' . $id)->with('success', 'Liquidation approved. Transaction completed.');
+        return redirect('/accounting/liquidation-reports/' . $id)->with('success', $message);
     }
 
     public function reviseLiquidation(Request $request, $id)
     {
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $this->revisionImageError($request, $imageError);
+        }
         $liq = $this->lockLiq($id);
         abort_if(!$liq, 404);
         ReviewerAssignment::assertCanAct(
@@ -1308,30 +1167,38 @@ class AccountingController extends Controller
             return back()->with('error', 'This liquidation report cannot be sent for revision.');
         }
 
-        $revisionStatus = Schema::hasColumn('liquidation_reports_table', 'liquidation_report_revision_notes') ? 'Minor Revision' : 'Rejected';
-        $this->liqUpdate($id, [
-            'liquidation_report_status' => $revisionStatus,
-            'liquidation_report_review_stage' => 'purchaser',
-            'liquidation_report_revision_notes' => $validated['remarks'],
-            'liquidation_report_updated_at' => now(),
-        ]);
+        try {
+            return DocumentRevisionNotes::record($request, 'LIQ', (int) $id, $validated['remarks'], DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($request, $id, $liq, $validated) {
+                $revisionStatus = Schema::hasColumn('liquidation_reports_table', 'liquidation_report_revision_notes') ? 'Minor Revision' : 'Rejected';
+                $this->liqUpdate($id, [
+                    'liquidation_report_status' => $revisionStatus,
+                    'liquidation_report_review_stage' => 'purchaser',
+                    'liquidation_report_revision_notes' => $validated['remarks'],
+                    'liquidation_report_updated_at' => now(),
+                ]);
 
-        $this->log('LIQ', (int) $id, 'Rejected', $validated['remarks']);
-        $this->notifyPurchaser(
-            $liq->liquidation_report_submitted_by,
-            'Liquidation revision required',
-            ($liq->liquidation_report_form_number ?: ('LIQ #' . $id)) . ': ' . $validated['remarks'],
-            'liq_revision',
-            'LIQ',
-            (int) $id,
-            '/purchaser/liquidation-reports'
-        );
+                $suffix = DocumentRevisionNotes::imagesSuffix($images);
+                $this->log('LIQ', (int) $id, 'Rejected', $validated['remarks']);
+                $this->notifyPurchaser(
+                    $liq->liquidation_report_submitted_by,
+                    'Liquidation revision required',
+                    ($liq->liquidation_report_form_number ?: ('LIQ #' . $id)) . ': ' . $validated['remarks'] . $suffix,
+                    'liq_revision',
+                    'LIQ',
+                    (int) $id,
+                    '/purchaser/liquidation-reports'
+                );
 
-        if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($liq->liquidation_report_submitted_by, 'The Purchaser') . ' has been notified' . $suffix . '.';
+                if ($request->ajax()) {
+                    return response()->json(['ok' => true, 'message' => $message]);
+                }
+                return redirect('/accounting/liquidation-reports?status=' . urlencode(session('accounting.liq_status', 'incoming')))
+                    ->with('success', $message);
+            });
+        } catch (RevisionImageUploadException $e) {
+            return $this->revisionImageError($request, $e->getMessage());
         }
-        return redirect('/accounting/liquidation-reports?status=' . urlencode(session('accounting.liq_status', 'incoming')))
-            ->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
     public function downloadLiqAttachment($id, $attachmentId)
@@ -1477,11 +1344,7 @@ class AccountingController extends Controller
 
         $items = collect();
         try {
-            $query = DB::table('notifications_table')
-                ->where(function ($q) {
-                    $q->where('notification_user_id', Auth::id())
-                        ->orWhere('notification_target_role', 'Accounting');
-                });
+            $query = WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Accounting');
 
             switch ($period) {
                 case 'week':
@@ -1625,31 +1488,6 @@ class AccountingController extends Controller
         ];
     }
 
-    private function relativeAgoMs(int $timestampMs, int $nowMs): string
-    {
-        if ($timestampMs <= 0) {
-            return '—';
-        }
-
-        $diffSec = (int) floor(max(0, ($nowMs - $timestampMs)) / 1000);
-
-        if ($diffSec < 60) {
-            return 'now';
-        }
-
-        $diffMin = (int) floor($diffSec / 60);
-        if ($diffMin === 1) return 'one minute ago';
-        if ($diffMin < 60) return $diffMin . ' minutes ago';
-
-        $diffHr = (int) floor($diffMin / 60);
-        if ($diffHr === 1) return 'one hour ago';
-        if ($diffHr < 24) return $diffHr . ' hours ago';
-
-        $diffDays = (int) floor($diffHr / 24);
-        if ($diffDays === 1) return 'one day ago';
-        return $diffDays . ' days ago';
-    }
-
     private function financialSummary(): array
     {
         $received = 0.0;
@@ -1791,13 +1629,13 @@ class AccountingController extends Controller
         $weekEnd = now()->copy()->addDays(7)->toDateString();
 
         $base = function () {
-            return DB::table('liquidation_reports_table')
-                ->whereIn('liquidation_report_status', self::LIQ_INCOMING);
+            $query = AccountingAttentionSummary::queue('liquidation_reports_table');
+            AccountingAttentionSummary::scopeLiqIncoming($query);
+
+            return $query;
         };
 
-        $overdue = (int) $base()
-            ->whereDate('liquidation_report_submission_deadline', '<', $today)
-            ->count();
+        $overdue = AccountingAttentionSummary::countFocus('overdue');
 
         $dueToday = (int) $base()
             ->whereDate('liquidation_report_submission_deadline', '=', $today)
@@ -1848,13 +1686,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('authority_to_purchase_table')) {
             return 0;
         }
-        return (int) DB::table('authority_to_purchase_table')
-            ->where('authority_purchase_status', 'Pending')
-            ->whereNotNull('authority_purchase_submitted_at')
-            ->where(function ($q) {
-                $q->whereNull('authority_purchase_is_archived')->orWhere('authority_purchase_is_archived', 0);
-            })
-            ->count();
+        return AccountingAttentionSummary::countFocus('atp-review');
     }
 
     private function countAtpAll(): int
@@ -1862,7 +1694,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('authority_to_purchase_table')) {
             return 0;
         }
-        return (int) DB::table('authority_to_purchase_table')
+        return (int) AccountingAttentionSummary::queue('authority_to_purchase_table')
             ->where(function ($q) {
                 $q->whereNull('authority_purchase_is_archived')->orWhere('authority_purchase_is_archived', 0);
             })
@@ -1874,7 +1706,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('authority_to_purchase_table')) {
             return 0;
         }
-        return (int) DB::table('authority_to_purchase_table')
+        return (int) AccountingAttentionSummary::queue('authority_to_purchase_table')
             ->where('authority_purchase_status', 'Pending')
             ->whereNull('authority_purchase_submitted_at')
             ->whereNotNull('authority_purchase_rejection_reason')
@@ -1886,7 +1718,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('authority_to_purchase_table')) {
             return 0;
         }
-        return (int) DB::table('authority_to_purchase_table')->where('authority_purchase_status', 'Approved')->count();
+        return (int) AccountingAttentionSummary::queue('authority_to_purchase_table')->where('authority_purchase_status', 'Approved')->count();
     }
 
     private function countRfcIncoming(): int
@@ -1894,7 +1726,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('request_check_table')) {
             return 0;
         }
-        return (int) DB::table('request_check_table')->whereIn('request_check_status', $this->rfcIncomingStatuses())->count();
+        return AccountingAttentionSummary::countFocus('rfc-review');
     }
 
     private function countRfcRevision(): int
@@ -1902,7 +1734,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('request_check_table')) {
             return 0;
         }
-        return (int) DB::table('request_check_table')->whereIn('request_check_status', $this->rfcRevisionStatuses())->count();
+        return (int) AccountingAttentionSummary::queue('request_check_table')->whereIn('request_check_status', $this->rfcRevisionStatuses())->count();
     }
 
     private function countRfcApproved(): int
@@ -1910,18 +1742,12 @@ class AccountingController extends Controller
         if (!Schema::hasTable('request_check_table')) {
             return 0;
         }
-        return (int) DB::table('request_check_table')->where('request_check_status', 'Approved')->count();
+        return (int) AccountingAttentionSummary::queue('request_check_table')->where('request_check_status', 'Approved')->count();
     }
 
     private function countFundsAwaiting(): int
     {
-        if (!Schema::hasTable('request_check_table') || !Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
-            return 0;
-        }
-        return (int) DB::table('request_check_table')
-            ->where('request_check_status', 'Approved')
-            ->whereNull('request_check_funds_released_at')
-            ->count();
+        return AccountingAttentionSummary::countFocus('funds');
     }
 
     private function countFundsReleased(): int
@@ -1937,7 +1763,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('liquidation_reports_table')) {
             return 0;
         }
-        return (int) DB::table('liquidation_reports_table')->whereIn('liquidation_report_status', self::LIQ_INCOMING)->count();
+        return AccountingAttentionSummary::countFocus('liq-review');
     }
 
     private function countLiqAll(): int
@@ -1945,7 +1771,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('liquidation_reports_table')) {
             return 0;
         }
-        $query = DB::table('liquidation_reports_table');
+        $query = AccountingAttentionSummary::queue('liquidation_reports_table');
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
             $query->where(function ($q) {
                 $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
@@ -1959,7 +1785,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('liquidation_reports_table')) {
             return 0;
         }
-        return (int) DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Minor Revision')->count();
+        return (int) AccountingAttentionSummary::queue('liquidation_reports_table')->where('liquidation_report_status', 'Minor Revision')->count();
     }
 
     private function countLiqApproved(): int
@@ -1967,7 +1793,7 @@ class AccountingController extends Controller
         if (!Schema::hasTable('liquidation_reports_table')) {
             return 0;
         }
-        return (int) DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Approved')->count();
+        return (int) AccountingAttentionSummary::queue('liquidation_reports_table')->where('liquidation_report_status', 'Approved')->count();
     }
 
     private function atpQuery()
@@ -2003,7 +1829,7 @@ class AccountingController extends Controller
             'authority_purchase_assigned_reviewer_id'
         );
 
-        return $query->select($select);
+        return DocumentUrgency::select($query->select($select), 'ATP');
     }
 
     private function applyAssignedReviewerFilter($query, string $table, string $column): void
@@ -2037,12 +1863,12 @@ class AccountingController extends Controller
             'request_check_assigned_reviewer_id'
         );
 
-        return $query->select(
+        return DocumentUrgency::select($query->select(
             'request_check_table.*',
             'authority_to_purchase_table.authority_purchase_form_number',
             'authority_to_purchase_table.authority_purchase_ris_id',
             'requisition_issue_slip_table.ris_form_number'
-        );
+        ), 'RFC');
     }
 
     private function liqQuery()
@@ -2066,7 +1892,7 @@ class AccountingController extends Controller
             'liquidation_report_assigned_reviewer_id'
         );
 
-        return $query->select($select);
+        return DocumentUrgency::select($query->select($select), 'LIQ');
     }
 
     private function chainFromAtp(int $atpId): array

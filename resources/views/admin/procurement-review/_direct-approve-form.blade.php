@@ -202,9 +202,9 @@
                     @if ($isForward)
                         All RIS details are locked. You may add optional <strong>supporting details</strong> and an attachment for the President. Confirming forwards this RIS without an Issued by signature. After the President approves, sign Issued by here on Sign RIS.
                     @elseif ($isCosign)
-                        The President has already signed <strong>Approved by</strong>. You can only fill <strong>Issued by</strong> and its <strong>Date</strong>. Confirming returns this RIS to the Purchaser.
+                        The President has already signed <strong>Approved by</strong>. <strong>Sign Issued by</strong> (required) and set its <strong>Date</strong>. Confirming returns this RIS to the Purchaser.
                     @else
-                        Direct approval bypasses presidential signing. Fill <strong>Checked by</strong> and <strong>Issued by</strong>, provide a <strong>reason</strong> (and optional proof), then confirm. This returns the RIS to the Purchaser, keeps a copy in <strong>Signature History</strong>, and records it for the President.
+                        Direct approval bypasses presidential signing. Fill <strong>Checked by</strong> and <strong>Issued by</strong>, <strong>add your signature</strong> (required), provide a <strong>reason</strong> (and optional proof), then confirm. This returns the RIS to the Purchaser, keeps a copy in <strong>Signature History</strong>, and records it for the President.
                     @endif
                 </p>
             </div>
@@ -396,7 +396,7 @@
                     </div>
 
                     <div class="ris-signature-column {{ $isDirect ? '' : 'admin-da-locked' }}">
-                        <div class="ris-signature-label">{{ $secondColumnLabel }}</div>
+                        <div class="ris-signature-label">{{ $secondColumnLabel }}@if ($isDirect) <span class="text-red-500">*</span>@endif</div>
                         @if ($isDirect)
                             <div class="ris-signature-line ris-signature-line--input ris-signature-input-wrap">
                                 <img
@@ -417,7 +417,7 @@
                                     title="Administrator name for Checked by"
                                 >
                             </div>
-                            <div class="ris-date-label">Date:</div>
+                            <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
                             <div class="ris-date-line ris-date-line--input">
                                 <input
                                     type="text"
@@ -458,7 +458,7 @@
                     </div>
 
                     <div class="ris-signature-column {{ $isForward ? 'admin-da-locked' : '' }}">
-                        <div class="ris-signature-label">Issued by:</div>
+                        <div class="ris-signature-label">Issued by:@unless ($isForward) <span class="text-red-500">*</span>@endunless</div>
                         @if ($isForward)
                             <div class="ris-signature-line"> </div>
                             <div class="ris-date-label">Date:</div>
@@ -483,7 +483,7 @@
                                 title="Administrator name for Issued by"
                             >
                         </div>
-                        <div class="ris-date-label">Date:</div>
+                        <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
                         <div class="ris-date-line ris-date-line--input">
                             <input
                                 type="text"
@@ -515,68 +515,13 @@
                 </div>
             </div>
 
-            {{-- Supporting documents already attached to this RIS --}}
-            @php $risSupportingDocs = $supportingDocuments ?? collect(); @endphp
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h4 class="text-sm font-semibold text-slate-900">
-                            Supporting documents
-                        </h4>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Files the Purchaser attached to this RIS. Open any file to review before you confirm.
-                        </p>
-                    </div>
-                    <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                        {{ $risSupportingDocs->count() }} file{{ $risSupportingDocs->count() === 1 ? '' : 's' }}
-                    </span>
-                </div>
-
-                @if ($risSupportingDocs->isNotEmpty())
-                    <ul class="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
-                        @foreach ($risSupportingDocs as $file)
-                            <li>
-                                <a
-                                    href="{{ route('admin.ris.attachments.download', $file->ris_attachment_id) }}"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50"
-                                    title="{{ $file->ris_attachment_original_name }}"
-                                >
-                                    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
-                                        </svg>
-                                    </span>
-                                    <span class="min-w-0 flex-1">
-                                        <span class="block truncate text-xs font-medium text-slate-800">
-                                            {{ $file->ris_attachment_original_name }}
-                                        </span>
-                                        @if (!empty($file->ris_attachment_size))
-                                            <span class="mt-0.5 block text-[11px] text-slate-400">
-                                                {{ number_format(((int) $file->ris_attachment_size) / 1024, 1) }} KB
-                                            </span>
-                                        @endif
-                                    </span>
-                                    <span class="text-[11px] font-medium text-slate-500">Open</span>
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                @else
-                    <div class="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 text-xs text-slate-500">
-                        No supporting documents were attached to this RIS.
-                    </div>
-                @endif
-            </div>
-
             @if (!$isForward)
             @php $savedSignatures = $savedSignatures ?? collect(); @endphp
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+            <div id="adminDaSignaturePanel" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5 transition">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            {{ $isDirect ? 'Administrator signature' : 'Issued by signature' }}
+                            {{ $isDirect ? 'Administrator signature' : 'Issued by signature' }} <span class="text-red-500">*</span>
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
                             @if ($isDirect)
@@ -694,6 +639,63 @@
                     </span>
                 </label>
             </div>
+
+            {{-- Supporting documents already attached to this RIS --}}
+            @php $risSupportingDocs = $supportingDocuments ?? collect(); @endphp
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-slate-900">
+                            Supporting documents
+                        </h4>
+                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                            Files the Purchaser attached to this RIS. Open any file to review before you confirm.
+                        </p>
+                    </div>
+                    <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                        {{ $risSupportingDocs->count() }} file{{ $risSupportingDocs->count() === 1 ? '' : 's' }}
+                    </span>
+                </div>
+
+                @if ($risSupportingDocs->isNotEmpty())
+                    <ul class="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+                        @foreach ($risSupportingDocs as $file)
+                            <li>
+                                <a
+                                    href="{{ route('admin.ris.attachments.download', $file->ris_attachment_id) }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50"
+                                    title="{{ $file->ris_attachment_original_name }}"
+                                >
+                                    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-xs font-medium text-slate-800">
+                                            {{ $file->ris_attachment_original_name }}
+                                        </span>
+                                        @if (!empty($file->ris_attachment_size))
+                                            <span class="mt-0.5 block text-[11px] text-slate-400">
+                                                {{ number_format(((int) $file->ris_attachment_size) / 1024, 1) }} KB
+                                            </span>
+                                        @endif
+                                    </span>
+                                    <span class="text-[11px] font-medium text-slate-500">Open</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <div class="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 text-xs text-slate-500">
+                        No supporting documents were attached to this RIS.
+                    </div>
+                @endif
+            </div>
+
+            
 
             <div id="adminDaSignPadModal" class="fixed inset-0 z-[12100] hidden">
                 <div class="absolute inset-0 flex items-center justify-center bg-slate-900/45 p-4" data-admin-da-pad-dismiss>
@@ -1390,6 +1392,24 @@
         });
     });
 
+    function hasAppliedSignature() {
+        return !!issuedHidden && String(issuedHidden.value || '').indexOf('data:image/') === 0;
+    }
+
+    function requireSignature() {
+        var panel = document.getElementById('adminDaSignaturePanel');
+        showNotice(form.dataset.mode === 'direct'
+            ? 'Please add your signature before approving this RIS.'
+            : 'Please sign Issued by before returning this RIS to the Purchaser.');
+        if (panel) {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            panel.classList.add('ring-2', 'ring-rose-300', 'border-rose-300');
+            setTimeout(function () {
+                panel.classList.remove('ring-2', 'ring-rose-300', 'border-rose-300');
+            }, 2200);
+        }
+    }
+
     if (form) {
         form.addEventListener('submit', function (event) {
             var canvas = document.getElementById('adminDaSignatureCanvas');
@@ -1397,20 +1417,25 @@
                 applySignature((window.exportTrimmedSignatureDataUrl
                     ? window.exportTrimmedSignatureDataUrl(canvas)
                     : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png'));
+            }
+            if (hasAppliedSignature()) {
                 return;
             }
+
+            event.preventDefault();
             var file = uploadInput && uploadInput.files && uploadInput.files[0];
-            var issuedVal = issuedHidden ? String(issuedHidden.value || '') : '';
-            var checkedVal = checkedHidden ? String(checkedHidden.value || '') : '';
-            if (file && issuedVal.indexOf('data:image/') !== 0 && checkedVal.indexOf('data:image/') !== 0) {
-                event.preventDefault();
-                readFileAsDataUrl(file).then(function (url) {
-                    applySignature(url || '');
-                    form.submit();
-                }).catch(function () {
-                    form.submit();
-                });
+            if (!file) {
+                requireSignature();
+                return;
             }
+            readFileAsDataUrl(file).then(function (url) {
+                applySignature(url || '');
+                if (hasAppliedSignature()) {
+                    form.submit();
+                } else {
+                    requireSignature();
+                }
+            }).catch(requireSignature);
         });
     }
 

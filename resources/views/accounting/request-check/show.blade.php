@@ -14,6 +14,9 @@
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status])
+                @if (\App\Support\DocumentUrgency::isUrgent('RFC', $rfc->request_check_id))
+                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                @endif
             </div>
             <p class="acc-page-subtitle">Official Request for Check. Funds are collected in person.</p>
         </div>
@@ -101,7 +104,7 @@
                 @csrf
                 <div class="confirm-actions">
                     <button type="button" class="btn-ghost" data-tip="Cancel" onclick="closeReleaseFundsModal()">Cancel</button>
-                    <button type="submit" class="btn-send" data-tip="Mark funds as ready" onclick="this.disabled = true; this.form.submit();">Confirm</button>
+                    <button type="submit" class="btn-send bg-[#0025cc] hover:bg-blue-800" data-tip="Mark funds as ready" onclick="this.disabled = true; this.form.submit();">Confirm</button>
                 </div>
             </form>
         </div>
@@ -150,7 +153,14 @@
                 ])
                 @include('accounting.partials.history', ['history' => $history])
                 @if (!empty($rfc->request_check_revision_notes))
-                    <div class="acc-note acc-note-info">Last revision note: {{ $rfc->request_check_revision_notes }}</div>
+                    <div class="acc-note acc-note-info">
+                        Last revision note: {{ $rfc->request_check_revision_notes }}
+                        @include('partials.ris-revision-images', [
+                            'revision' => \App\Support\DocumentRevisionNotes::latest('RFC', $rfc->request_check_id),
+                            'routeName' => 'accounting.document-revision-image',
+                            'size' => 'sm',
+                        ])
+                    </div>
                 @endif
             </div>
         </div>
@@ -185,8 +195,11 @@
                 ])
             </div>
             <div class="mt-4">
-                <label>Remarks</label>
+                <label>Remarks <span id="remarksReqStar" class="text-red-500 hidden">*</span></label>
                 <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for revision."></textarea>
+            </div>
+            <div id="decisionImagesBlock" class="hidden mt-4">
+                @include('admin.partials.revision-image-picker', ['pickerId' => 'decisionRevisionImages'])
             </div>
             <div class="confirm-actions mt-5">
                 <button type="button" class="btn-ghost" data-tip="Cancel decision" onclick="closeDecisionModal()">Cancel</button>
@@ -225,6 +238,9 @@
         document.getElementById('decisionModalSubtitle').textContent = '{{ $rfc->request_check_form_number ?? ('RFC-'. $rfc->request_check_id) }}';
         form.action = '/accounting/request-check/' + id + (isApproved ? '/approve' : '/revise');
         document.getElementById('signatureBlock').classList.toggle('hidden', !isApproved);
+        document.getElementById('decisionImagesBlock').classList.toggle('hidden', isApproved);
+        document.getElementById('remarksReqStar').classList.toggle('hidden', isApproved);
+        if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('decisionRevisionImages');
         document.getElementById('approveBtn').classList.toggle('hidden', !isApproved);
         document.getElementById('rejectBtn').classList.toggle('hidden', isApproved);
         document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
@@ -301,4 +317,5 @@
     });
 </script>
 
+@include('partials.ris-revision-image-viewer')
 @endsection

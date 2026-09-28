@@ -47,7 +47,7 @@
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                 @if ($pendingApprovalsCount > 0)
                     <a
-                        href="{{ url('/president/approvals') }}"
+                        href="{{ route('president.approvals', ['focus' => \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 transition group-hover:bg-blue-100">
@@ -67,7 +67,7 @@
 
                 @if ($awaitingNotifyCount > 0)
                     <a
-                        href="{{ url('/president/approvals') }}"
+                        href="{{ route('president.approvals', ['focus' => \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY]) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
                     >
                         <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
@@ -96,13 +96,13 @@
                 </button>
 
                 <a
-                    href="{{ url('/president/approvals') }}"
+                    href="{{ route('president.approvals', ['focus' => $pendingApprovalsCount > 0 ? \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL : \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY]) }}"
                     class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                 >
                     @if ($pendingApprovalsCount > 0)
                         Review pending RIS
                     @else
-                        Open approvals
+                        Review approved RIS
                     @endif
                 </a>
             </div>

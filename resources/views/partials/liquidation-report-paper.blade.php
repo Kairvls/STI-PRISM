@@ -12,10 +12,10 @@
     {{-- Header meta (two columns, Excel-like spacing) --}}
     <div class="mt-8 grid grid-cols-2 gap-x-16 gap-y-1">
         <div class="space-y-1">
-            @include('partials.liquidation-line', ['label' => 'Employee Name', 'name' => 'liquidation_report_employee_name', 'value' => old('liquidation_report_employee_name', $liq?->liquidation_report_employee_name ?? (auth()->user()->user_full_name ?? '')), 'editable' => $editable])
+            @include('partials.liquidation-line', ['label' => 'Employee Name', 'name' => 'liquidation_report_employee_name', 'value' => old('liquidation_report_employee_name', $liq?->liquidation_report_employee_name ?? (auth()->user()->user_full_name ?? '')), 'editable' => $editable, 'required' => true])
             @include('partials.liquidation-line', ['label' => 'Cheque Number', 'name' => 'liquidation_report_cheque_number', 'value' => old('liquidation_report_cheque_number', $liq?->liquidation_report_cheque_number ?? ''), 'editable' => $editable])
-            @include('partials.liquidation-line', ['label' => 'Purpose', 'name' => 'liquidation_report_purpose', 'value' => old('liquidation_report_purpose', $liq?->liquidation_report_purpose ?? ''), 'editable' => $editable])
-            @include('partials.liquidation-line', ['label' => 'Amount', 'name' => 'liquidation_report_amount_advance', 'value' => old('liquidation_report_amount_advance', $liq?->liquidation_report_amount_advance ?? ''), 'editable' => $editable, 'type' => 'number'])
+            @include('partials.liquidation-line', ['label' => 'Purpose', 'name' => 'liquidation_report_purpose', 'value' => old('liquidation_report_purpose', $liq?->liquidation_report_purpose ?? ''), 'editable' => $editable, 'required' => true])
+            @include('partials.liquidation-line', ['label' => 'Amount', 'name' => 'liquidation_report_amount_advance', 'value' => old('liquidation_report_amount_advance', $liq?->liquidation_report_amount_advance ?? ''), 'editable' => $editable, 'type' => 'number', 'required' => true])
             @include('partials.liquidation-line', ['label' => 'Date Released', 'name' => 'liquidation_report_date_released', 'value' => old('liquidation_report_date_released', $liq?->liquidation_report_date_released ?? ''), 'editable' => $editable, 'type' => 'date'])
             @include('partials.liquidation-line', [
                 'label' => 'Charge to Expense/Refundable Account',
@@ -48,7 +48,7 @@
     <table class="mt-8 w-full border-collapse border border-black text-center">
         <thead>
             <tr>
-                <th class="border border-black px-2 py-2 align-middle" rowspan="2">PARTICULAR / Breakdown For Cash Advances</th>
+                <th class="border border-black px-2 py-2 align-middle" rowspan="2">PARTICULAR / Breakdown For Cash Advances @if($editable)<span class="text-red-500">*</span>@endif</th>
                 <th class="border border-black px-2 py-2 align-middle" rowspan="2">AMOUNT</th>
                 <th class="border border-black px-2 py-2 align-middle" colspan="2">ACTUAL EXPENSES Amount</th>
                 <th class="border border-black px-2 py-2 align-middle" rowspan="2">Variance</th>
@@ -157,7 +157,7 @@
     <div class="mt-14 space-y-10">
         <div class="max-w-xl">
             <div class="flex items-start justify-between gap-8">
-                <div class="font-semibold">Submitted By:</div>
+                <div class="font-semibold">Submitted By: @if($editable)<span class="text-red-500">*</span>@endif</div>
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">

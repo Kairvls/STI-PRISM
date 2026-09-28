@@ -9,7 +9,7 @@
 @endphp
 @if ($renderPad)
 <div class="signature-pad" data-required-message="{{ $requiredMessage }}">
-    <label class="block text-sm font-medium text-slate-700">{{ $label }}</label>
+    <label class="block text-sm font-medium text-slate-700">{{ $label }} <span class="text-red-500">*</span></label>
     <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
     <input type="hidden" name="{{ $hiddenName }}" id="{{ $hiddenId }}" value="">
     <canvas

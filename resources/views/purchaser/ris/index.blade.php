@@ -1636,6 +1636,17 @@
             opacity: 0.45;
         }
 
+        .ris-edit-add-row button.ris-undo-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ris-edit-add-row button.ris-undo-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
         .ris-delete-mode-toggle {
             display: inline-flex;
             align-items: center;
@@ -1984,7 +1995,7 @@
                     </div>
 
                     <div class="border-b border-gray-100 bg-white px-5 py-4 md:px-6">
-                        <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency</p>
+                        <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency <span class="text-red-500">*</span></p>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <label
                                 class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
@@ -2137,17 +2148,17 @@
                                     </colgroup>
                                     <thead>
                                         <tr>
-                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Item</th>
-                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Brand</th>
-                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit</th>
-                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Supplier</th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Item <span class="text-red-500">*</span></th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Brand <span class="text-red-500">*</span></th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit <span class="text-red-500">*</span></th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Supplier <span class="text-red-500">*</span></th>
                                             <th colspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Quantity</th>
-                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit Cost</th>
+                                            <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Unit Cost <span class="text-red-500">*</span></th>
                                             <th rowspan="2" class="border border-gray-800 px-1 py-1.5 text-center text-[9px] font-bold uppercase sm:px-2 sm:text-xs">Amount</th>
                                         </tr>
                                         <tr>
-                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Requested</th>
-                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Issued</th>
+                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Requested <span class="text-red-500">*</span></th>
+                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Issued <span class="text-red-500">*</span></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2185,13 +2196,13 @@
                                                     <p class="mt-1 px-0.5 text-[9px] leading-snug text-amber-700 sm:px-1 sm:text-[10px]" x-show="supplierWarning(item.supplier_id)" x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="1" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
@@ -2204,14 +2215,14 @@
 
                             <div class="mt-5">
                                 <div class="ris-purpose-lined-wrap">
-                                    <label class="ris-purpose-label">PURPOSE</label>
+                                    <label class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></label>
                                     <textarea name="ris_purpose_description" rows="2" x-model="purposeText" class="ris-purpose-input"></textarea>
                                 </div>
                             </div>
 
                             <div class="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 sm:mt-10 sm:gap-x-8 md:grid-cols-4">
                                 <div>
-                                    <label class="block text-[10px] text-gray-600 sm:text-xs">Requested by:</label>
+                                    <label class="block text-[10px] text-gray-600 sm:text-xs">Requested by: <span class="text-red-500">*</span></label>
                                     <div class="relative mt-3 sm:mt-5">
                                         <span class="signature-name-stack w-full">
                                             <img
@@ -2224,7 +2235,7 @@
                                             <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
                                         </span>
                                     </div>
-                                    <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
+                                    <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date: <span class="text-red-500">*</span></label>
                                     <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date', $defaultRequestedByDate ?? '') }}" placeholder="dd/mm/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
                                 </div>
                                 <div>
@@ -2251,7 +2262,7 @@
                         <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <h4 class="text-sm font-semibold text-slate-900">Purchaser signature</h4>
+                                    <h4 class="text-sm font-semibold text-slate-900">Purchaser signature <span class="text-red-500">*</span></h4>
                                     <p class="mt-1 text-xs leading-relaxed text-slate-500">
                                         Pick a saved signature, draw one, or upload. It overlays <strong>Requested by</strong> on the form above.
                                     </p>
@@ -2383,8 +2394,8 @@
                         <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
-                                    <p class="truncate text-[11px] text-slate-500">Optional · 1 file at a time · Word/Excel</p>
+                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents <span class="text-red-500">*</span></p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file at a time · Word/Excel</p>
                                 </div>
                                 <button
                                     type="button"
@@ -2582,6 +2593,12 @@
 
     <div id="ris-records-section" class="pur-card">
 
+        @if(!empty($attentionFocus))
+            <div class="px-5 pt-5">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $risRecords->total()])
+            </div>
+        @endif
+
         {{-- TOOLBAR --}}
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -2602,6 +2619,9 @@
                     x-on:submit.prevent="refreshRisRecords()"
                     class="flex flex-col gap-2 sm:flex-row sm:items-center"
                 >
+                    @if(!empty($attentionFocus))
+                        <input type="hidden" name="focus" value="{{ request('focus') }}">
+                    @endif
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
@@ -2756,16 +2776,11 @@
                             </td>
 
                             <td class="px-3 py-3.5">
-                                @php $urgency = \App\Support\RisWorkflow::urgencyLabel($ris); @endphp
-                                @if($urgency === 'Urgent')
-                                    <span class="inline-flex items-center whitespace-nowrap rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
-                                @else
-                                    <span class="inline-flex items-center whitespace-nowrap rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
-                                @endif
+                                @include('partials.ris-urgency-badge', ['urgent' => \App\Support\RisWorkflow::urgencyLabel($ris) === 'Urgent'])
                             </td>
 
                             <td class="px-3 py-3.5 text-gray-600">
-                                {{ $ris->ris_requested_by_signature ?: 'Not specified' }}
+                                {{ \App\Support\RisWorkflow::requesterName($ris, 'Not specified') }}
                             </td>
 
                             <td class="px-3 py-3.5">
@@ -2892,6 +2907,9 @@
                                         @if(!$ris->has_atp)
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected."
+                                                data-pur-confirm-title="Create ATP"
+                                                data-pur-confirm-ok="Create ATP"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                 title="Create ATP"
                                                 aria-label="Create ATP"
@@ -3111,12 +3129,7 @@
                             </h3>
 
                             @include('admin.partials.ris-status-badge', ['ris' => $ris])
-                            @php $viewUrgency = \App\Support\RisWorkflow::urgencyLabel($ris); @endphp
-                            @if($viewUrgency === 'Urgent')
-                                <span class="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Urgent</span>
-                            @else
-                                <span class="inline-flex items-center rounded-md bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">Non-Urgent</span>
-                            @endif
+                            @include('partials.ris-urgency-badge', ['urgent' => \App\Support\RisWorkflow::urgencyLabel($ris) === 'Urgent'])
                         </div>
 
                         <p class="mt-2 text-sm text-gray-500">Requisition and Issue Slip</p>
@@ -3210,6 +3223,7 @@
                                 <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-800">
                                     {{ $latestRevision->ris_revision_note }}
                                 </p>
+                                @include('partials.ris-revision-images', ['revision' => $latestRevision])
                                 <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
                                     <span>Requested by: <strong class="font-medium text-gray-700">{{ $latestRevision->revision_requested_by_name ?? 'Administrator' }}</strong></span>
                                     <span>Type: <strong class="font-medium text-gray-700">{{ $latestRevision->ris_revision_type }}</strong></span>
@@ -3389,6 +3403,7 @@
                                             <p class="text-xs text-gray-500">{{ $revision->ris_revision_created_at ? \Carbon\Carbon::parse($revision->ris_revision_created_at)->format('M d, Y h:i A') : '' }}</p>
                                         </div>
                                         <p class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-700">{{ $revision->ris_revision_note }}</p>
+                                        @include('partials.ris-revision-images', ['revision' => $revision, 'size' => 'sm'])
                                         <p class="mt-3 text-xs text-gray-500">
                                             Requested by: <span class="font-medium text-gray-700">{{ $revision->revision_requested_by_name ?? 'Administrator' }}</span>
                                         </p>
@@ -3414,6 +3429,9 @@
                         @if(!$ris->has_atp)
                             <a
                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected."
+                                data-pur-confirm-title="Create ATP"
+                                data-pur-confirm-ok="Create ATP"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
                                 Create ATP
@@ -3688,6 +3706,39 @@
                             : \App\Support\RisWorkflow::urgencyLabel($ris)
                     ),
                     rowDeleteMode: false,
+                    undoHistory: [],
+                    undoSnapshot: null,
+                    undoTimer: null,
+                    undoRestoring: false,
+                    init() {
+                        this.undoSnapshot = JSON.stringify(this.editItems);
+                        this.$watch('editItems', () => {
+                            if (this.undoRestoring) return;
+                            clearTimeout(this.undoTimer);
+                            this.undoTimer = setTimeout(() => this.commitUndoStep(), 400);
+                        });
+                    },
+                    commitUndoStep() {
+                        clearTimeout(this.undoTimer);
+                        this.undoTimer = null;
+                        const current = JSON.stringify(this.editItems);
+                        if (current === this.undoSnapshot) return;
+                        this.undoHistory.push(this.undoSnapshot);
+                        if (this.undoHistory.length > 50) this.undoHistory.shift();
+                        this.undoSnapshot = current;
+                    },
+                    canUndo() {
+                        return this.undoHistory.length > 0 || JSON.stringify(this.editItems) !== this.undoSnapshot;
+                    },
+                    undoEdit() {
+                        this.commitUndoStep();
+                        if (!this.undoHistory.length) return;
+                        const previous = this.undoHistory.pop();
+                        this.undoRestoring = true;
+                        this.editItems = JSON.parse(previous);
+                        this.undoSnapshot = previous;
+                        this.$nextTick(() => { this.undoRestoring = false; });
+                    },
                     blankEditItem() {
                         return {
                             _uid: 'edit-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
@@ -3808,6 +3859,7 @@
                                     </div>
                                     <div class="mt-4 rounded-lg border border-orange-100 bg-white p-4">
                                         <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ $latestRevision->ris_revision_note }}</p>
+                                        @include('partials.ris-revision-images', ['revision' => $latestRevision])
                                     </div>
                                     <div class="mt-3 flex flex-wrap gap-4 text-xs text-orange-700">
                                         <span>Requested by: <strong>{{ $latestRevision->revision_requested_by_name ?? 'Administrator' }}</strong></span>
@@ -3817,7 +3869,7 @@
                             @endif
 
                             <div class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency</p>
+                                <p class="mb-2 text-sm font-medium text-gray-900">Procurement urgency <span class="text-red-500">*</span></p>
                                 <div class="grid gap-2 sm:grid-cols-2">
                                     <label
                                         class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition"
@@ -3885,17 +3937,17 @@
                                     >
                                         <thead>
                                             <tr>
-                                                <th rowspan="2" class="ris-item-column">ITEM</th>
-                                                <th rowspan="2" class="ris-brand-column">BRAND</th>
-                                                <th rowspan="2" class="ris-unit-column">UNIT</th>
-                                                <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
+                                                <th rowspan="2" class="ris-item-column">ITEM <span class="text-red-500">*</span></th>
+                                                <th rowspan="2" class="ris-brand-column">BRAND <span class="text-red-500">*</span></th>
+                                                <th rowspan="2" class="ris-unit-column">UNIT <span class="text-red-500">*</span></th>
+                                                <th rowspan="2" class="ris-supplier-column">SUPPLIER <span class="text-red-500">*</span></th>
                                                 <th colspan="2" class="ris-quantity-header">QUANTITY</th>
-                                                <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
+                                                <th rowspan="2" class="ris-unit-cost-column">UNIT COST <span class="text-red-500">*</span></th>
                                                 <th rowspan="2" class="ris-amount-column">AMOUNT</th>
                                             </tr>
                                             <tr>
-                                                <th class="ris-requested-column">REQUESTED</th>
-                                                <th class="ris-issued-column">ISSUED</th>
+                                                <th class="ris-requested-column">REQUESTED <span class="text-red-500">*</span></th>
+                                                <th class="ris-issued-column">ISSUED <span class="text-red-500">*</span></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -3993,15 +4045,15 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
+                                                        <input type="number" min="0" max="9999999" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center">
+                                                        <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
+                                                        <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
@@ -4028,6 +4080,16 @@
                                         </div>
                                         <button
                                             type="button"
+                                            class="ris-add-item-btn ris-undo-btn"
+                                            x-on:click="undoEdit()"
+                                            x-bind:disabled="!canUndo()"
+                                            x-bind:title="canUndo() ? 'Undo last item change' : 'Nothing to undo'"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
+                                            Undo
+                                        </button>
+                                        <button
+                                            type="button"
                                             class="ris-add-item-btn"
                                             x-on:click="addEditItem()"
                                             x-bind:disabled="editItems.length >= 8"
@@ -4037,14 +4099,14 @@
 
                                     <div class="ris-purpose-area">
                                         <div class="ris-purpose-lined-wrap">
-                                            <div class="ris-purpose-label">PURPOSE</div>
+                                            <div class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></div>
                                             <textarea name="ris_purpose_description" rows="2" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
                                         </div>
                                     </div>
 
                                     <div class="ris-signatures">
                                         <div class="ris-signature-column">
-                                            <div class="ris-signature-label">Requested by:</div>
+                                            <div class="ris-signature-label">Requested by: <span class="text-red-500">*</span></div>
                                             <div class="ris-signature-input-wrap">
                                                 @php
                                                     $editRequestedImage = \App\Support\RisWorkflow::requestedByDrawnSignature($ris);
@@ -4056,7 +4118,7 @@
                                                     <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
                                                 </span>
                                             </div>
-                                            <div class="ris-date-label">Date:</div>
+                                            <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
                                             <input
                                                 type="text"
                                                 name="ris_requested_by_date"
@@ -4153,12 +4215,12 @@
                             >
                                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
+                                        <p class="text-sm font-semibold text-slate-950">Supporting Documents <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
                                                 {{ $ris->risAttachments->count() }} existing · 1 file at a time · Word/Excel
                                             @else
-                                                Optional · 1 file at a time · Word/Excel
+                                                Required to submit · 1 file at a time · Word/Excel
                                             @endif
                                         </p>
                                     </div>
@@ -4513,6 +4575,46 @@
 
         amount.value = (quantity * cost).toFixed(2);
     });
+
+    // =====================================================
+    // RIS ITEMS: LIMIT REQUESTED / ISSUED / UNIT COST TO 7 DIGITS
+    // Unit cost keeps up to 2 decimal places after the 7 whole digits.
+    // =====================================================
+    (function () {
+        const MAX_DIGITS = 7;
+        const selector = [
+            'input[name^="ris_items"][name$="[quantity_requested]"]',
+            'input[name^="ris_items"][name$="[quantity_issued]"]',
+            'input[name^="ris_items"][name$="[unit_cost]"]',
+        ].join(',');
+
+        document.addEventListener('keydown', function (event) {
+            const input = event.target;
+            if (!input.matches || !input.matches(selector)) return;
+            if (['e', 'E', '+', '-'].includes(event.key)) {
+                event.preventDefault();
+            }
+        }, true);
+
+        document.addEventListener('input', function (event) {
+            const input = event.target;
+            if (!input.matches || !input.matches(selector)) return;
+
+            const value = String(input.value || '');
+            if (value === '') return;
+
+            const allowDecimals = /\[unit_cost\]$/.test(input.name);
+            const parts = value.replace(/[^\d.]/g, '').split('.');
+            let next = parts[0].slice(0, MAX_DIGITS);
+            if (allowDecimals && parts.length > 1) {
+                next += '.' + parts.slice(1).join('').slice(0, 2);
+            }
+
+            if (next !== value) {
+                input.value = next;
+            }
+        }, true);
+    })();
 </script>
 
 <script>
@@ -4591,5 +4693,7 @@
         .print-hidden { display: none !important; }
     }
 </style>
+
+@include('partials.ris-revision-image-viewer')
 
 @endsection

@@ -1516,8 +1516,7 @@
             white-space: nowrap;
         }
 
-        .prism-tooltip.is-truncate:not(.has-overflow)::after,
-        .prism-tooltip.is-truncate:not(.has-overflow)::before {
+        .prism-tooltip.is-truncate:not(.has-overflow)::after {
             display: none;
         }
 
@@ -1536,13 +1535,6 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        .analysis-breakdown .prism-tooltip::before {
-            bottom: auto;
-            top: calc(100% + 2px);
-            border-top-color: transparent;
-            border-bottom-color: #0f172a;
-        }
-
         .prism-tooltip::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -1553,15 +1545,16 @@
             max-width: min(300px, calc(100vw - 32px));
             padding: 10px 12px;
             border-radius: 12px;
-            background: #0f172a;
-            color: #f8fafc;
+            border: 1px solid rgba(226, 232, 240, .8);
+            background: #ffffff;
+            color: #334155;
             font-size: 12px;
             font-weight: 600;
             line-height: 1.45;
             text-align: left;
             white-space: normal;
             word-break: break-word;
-            box-shadow: 0 14px 34px rgba(15, 23, 42, .22);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -1569,24 +1562,8 @@
             z-index: 30;
         }
 
-        .prism-tooltip::before {
-            content: '';
-            position: absolute;
-            left: 50%;
-            bottom: calc(100% + 2px);
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: #0f172a;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity .18s ease, visibility .18s ease;
-            z-index: 30;
-        }
-
         .prism-tooltip:hover::after,
-        .prism-tooltip:focus-visible::after,
-        .prism-tooltip:hover::before,
-        .prism-tooltip:focus-visible::before {
+        .prism-tooltip:focus-visible::after {
             opacity: 1;
             visibility: visible;
         }
@@ -2278,7 +2255,7 @@
 
                     <h1 class="shimmer-text font-extrabold tracking-tight leading-[1.12] mb-5"
                         style="font-size:clamp(2.35rem,5vw,3.6rem);">
-                        We are here to make easy your campus asset ops
+                        We are here to make your campus asset ops easier
                     </h1>
 
                     <p class="hero-lead text-base leading-relaxed max-w-md mb-8" style="color:var(--muted);">
@@ -3442,6 +3419,8 @@
 
 
     @include('landing.partials.faq-chatbot', ['showChatFab' => true])
+
+    @include('partials.required-field-marker')
 
 </body>
 </html>

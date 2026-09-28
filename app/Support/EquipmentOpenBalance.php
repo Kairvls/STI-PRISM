@@ -35,7 +35,7 @@ class EquipmentOpenBalance
 
         $base = DB::table('receiving_report_items_table as ri')
             ->join('receiving_reports_table as rr', 'rr.receiving_report_id', '=', 'ri.receiving_report_id')
-            ->whereIn('rr.receiving_report_status', ['Completed', 'Accepted'])
+            ->whereIn('rr.receiving_report_status', BackOrders::RECEIVED_RR_STATUSES)
             ->where('ri.receiving_report_item_quantity', '>', 0);
 
         $reportIds = (clone $base)

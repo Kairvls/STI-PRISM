@@ -48,6 +48,8 @@
     {{-- Records card --}}
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
+            @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $signableRisRecords->total()])
+
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">

@@ -6,995 +6,540 @@
 @include('accounting.partials.flash')
 
 @php
+    use Illuminate\Support\Str;
+
+    $d = $dashboard;
+    $review = $d['review'];
+    $funds = $d['funds'];
+    $released = $d['releasedThisMonth'];
+
+    $firstName = Str::of(trim((string) ($user->user_full_name ?? '')) ?: 'there')->before(' ');
+    $peso = fn ($amount) => '₱'.number_format((float) $amount, 2);
+    $plural = fn (int $n, string $word) => $n.' '.($n === 1 ? $word : Str::plural($word));
+
+    $typeLinks = [
+        'atp' => route('accounting.atp.index', ['focus' => 'atp-review']),
+        'po' => route('accounting.purchase-orders.index', ['status' => 'incoming']),
+        'rfc' => route('accounting.rfc.index', ['focus' => 'rfc-review']),
+        'funds' => route('accounting.rfc.index', ['focus' => 'funds']),
+        'liq' => route('accounting.liq.index', ['focus' => 'liq-review']),
+    ];
+    $typeShort = ['atp' => 'ATP', 'po' => 'PO', 'rfc' => 'Request Check', 'funds' => 'Release', 'liq' => 'Liquidation'];
+
+    if ($review['count'] > 0 && $funds['count'] > 0) {
+        $headline = $plural($review['count'], 'document').' to review and '.$peso($funds['amount']).' ready to release';
+    } elseif ($review['count'] > 0) {
+        $headline = $plural($review['count'], 'document').' waiting for your review';
+    } elseif ($funds['count'] > 0) {
+        $headline = $peso($funds['amount']).' approved and ready to release';
+    } else {
+        $headline = 'You\'re all caught up';
+    }
+
+    $releasedNote = match (true) {
+        $d['releasedChange'] === null => $plural($released['count'], 'release').' · none last month',
+        abs($d['releasedChange']) > 999 => '+'.$peso($released['amount'] - $d['releasedLastMonth']['amount']).' vs last month',
+        default => ($d['releasedChange'] >= 0 ? '+' : '−').abs($d['releasedChange']).'% vs last month',
+    };
+
+    $overdue = (int) ($deadlines['overdue'] ?? 0);
+    $dueToday = (int) ($deadlines['due_today'] ?? 0);
+    $dueWeek = (int) ($deadlines['this_week'] ?? 0);
+
+    $received = (float) ($financialSummary['received'] ?? 0);
+    $releasedTotal = (float) ($financialSummary['released'] ?? 0);
+    $liquidated = (float) ($financialSummary['liquidated'] ?? 0);
+    $awaiting = max(0, $received - $releasedTotal);
+
+    $docStatus = [
+        ['label' => 'Authority to Purchase', 'review' => $metrics['atp_pending'] ?? 0, 'returned' => $metrics['atp_revision'] ?? 0, 'done' => $metrics['atp_approved'] ?? 0, 'url' => route('accounting.atp.index', ['status' => 'all'])],
+        ['label' => 'Purchase Orders', 'review' => $d['poCounts']['pending'], 'returned' => $d['poCounts']['revision'], 'done' => $d['poCounts']['approved'], 'url' => route('accounting.purchase-orders.index', ['status' => 'all'])],
+        ['label' => 'Request Checks', 'review' => $metrics['rfc_pending'] ?? 0, 'returned' => $metrics['rfc_revision'] ?? 0, 'done' => $metrics['rfc_approved'] ?? 0, 'url' => route('accounting.rfc.index', ['status' => 'all'])],
+        ['label' => 'Liquidations', 'review' => $metrics['liq_pending'] ?? 0, 'returned' => $metrics['liq_revision'] ?? 0, 'done' => $metrics['liq_approved'] ?? 0, 'url' => route('accounting.liq.index', ['status' => 'all'])],
+    ];
+
     $chartMonths = $fundsReleasedChart['months'] ?? [];
-    $chartYearTotal = (float) ($fundsReleasedChart['total'] ?? 0);
-    $chartYearReleases = (int) ($fundsReleasedChart['releases'] ?? 0);
 @endphp
 
-<div class="acc-page acc-dash fade-in">
-    
+<div class="acx space-y-6">
 
-    {{-- Metric cards --}}
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Pending ATP',
-                'hint' => 'Awaiting review',
-                'value' => number_format((int) ($metrics['atp_pending'] ?? 0)),
-                'href' => '/accounting/authority-to-purchase?status=incoming',
-            ],
-            [
-                'label' => 'Pending checks',
-                'hint' => 'Pending review',
-                'value' => number_format((int) ($metrics['rfc_pending'] ?? 0)),
-                'href' => '/accounting/request-check?status=incoming',
-            ],
-            [
-                'label' => 'Funds to release',
-                'hint' => 'Ready for release',
-                'value' => number_format((int) ($metrics['funds_awaiting'] ?? 0)),
-                'href' => '/accounting/request-check?status=funds',
-            ],
-            [
-                'label' => 'Pending liquid.',
-                'hint' => 'Pending review',
-                'value' => number_format((int) ($metrics['liq_pending'] ?? 0)),
-                'href' => '/accounting/liquidation-reports?status=incoming',
-            ],
-        ],
-    ])
+    {{-- Header --}}
+    <header class="flex flex-col gap-4 pt-1 lg:flex-row lg:items-end lg:justify-between">
+        <div class="min-w-0">
+            <p class="text-xs text-slate-500">{{ now()->format('l, F j, Y') }} · Hello, {{ $firstName }}</p>
+            <h1 class="acx-h mt-1.5 text-2xl font-semibold tracking-tight sm:text-[28px]">{{ $headline }}</h1>
+        </div>
+        <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            @foreach([
+                ['Authority to Purchase', route('accounting.atp.index')],
+                ['Purchase Orders', route('accounting.purchase-orders.index')],
+                ['Request Checks', route('accounting.rfc.index')],
+                ['Liquidations', route('accounting.liq.index')],
+            ] as [$label, $url])
+                <a href="{{ $url }}" class="text-slate-500 underline-offset-4 transition hover:text-[#0025cc] hover:underline">{{ $label }}</a>
+            @endforeach
+        </nav>
+    </header>
 
-    {{-- Deadlines --}}
-    <div class="mt-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Overdue',
-                    'hint' => 'Past submission deadline',
-                    'value' => number_format((int) ($deadlines['overdue'] ?? 0)),
-                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=overdue',
-                ],
-                [
-                    'label' => 'Due today',
-                    'hint' => 'Must be submitted today',
-                    'value' => number_format((int) ($deadlines['due_today'] ?? 0)),
-                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=due_today',
-                ],
-                [
-                    'label' => 'This week',
-                    'hint' => 'Due within 7 days',
-                    'value' => number_format((int) ($deadlines['this_week'] ?? 0)),
-                    'href' => '/accounting/liquidation-reports?status=incoming&deadline=this_week',
-                ],
-            ],
-        ])
-    </div>
+    {{-- Statement --}}
+    @php
+        $reviewAlert = $review['slow'] > 0
+            ? $review['slow'].' waiting '.\App\Support\AccountingDashboard::SLOW_AFTER_DAYS.'+ days'
+            : ($review['urgent'] > 0 ? $review['urgent'].' urgent' : null);
+        $fundsFigure = ['label' => 'Ready to release', 'value' => $peso($funds['amount']), 'note' => $funds['count'] > 0 ? $plural($funds['count'], 'approved check').' · oldest '.$plural((int) $funds['oldest_days'], 'day') : 'Nothing to release', 'alert' => null, 'url' => $typeLinks['funds']];
+        $reviewFigure = ['label' => 'Waiting for review', 'value' => number_format($review['count']), 'note' => $review['count'] > 0 ? $peso($review['amount']).' in requests' : 'Queue is clear', 'alert' => $reviewAlert, 'url' => '#review-queue'];
 
-    {{-- Recent incoming (primary actionable feed) --}}
-    <section class="pm-card acc-recent-incoming mt-3 slide-up overflow-hidden" style="animation-delay:.2s">
-        <div class="acc-dash-section-head">
+        // Lead with money to release; when there is none, lead with the review workload instead.
+        $leadFunds = $funds['count'] > 0 || $review['count'] === 0;
+    @endphp
+    <section class="acx-card grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div class="flex flex-col justify-between gap-6 p-6 sm:p-8">
             <div>
-                <h2 class="acc-dash-title">Recent incoming documents</h2>
-                <p class="acc-dash-sub">Newest ATP, Request Checks, and Liquidations waiting for Accounting</p>
+                @if($leadFunds)
+                    <p class="acx-label">Ready to release</p>
+                    <p class="mt-3 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl {{ $funds['count'] > 0 ? 'text-[#0025cc]' : 'text-slate-300' }}">{{ $peso($funds['amount']) }}</p>
+                    <p class="mt-2 text-sm text-slate-500">
+                        {{ $funds['count'] > 0 ? $plural($funds['count'], 'approved check').' · oldest waiting '.$plural((int) $funds['oldest_days'], 'day') : 'Nothing approved is waiting for release.' }}
+                    </p>
+                @else
+                    <p class="acx-label">In your review queue</p>
+                    <p class="mt-3 text-4xl font-semibold tracking-tight tabular-nums text-[#0025cc] sm:text-5xl">{{ $peso($review['amount']) }}</p>
+                    <p class="mt-2 text-sm text-slate-500">
+                        {{ $plural($review['count'], 'document') }} to review
+                        @if($reviewAlert)<span class="text-amber-600"> · {{ $reviewAlert }}</span>@endif
+                    </p>
+                @endif
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                @if($leadFunds)
+                    <a href="{{ $typeLinks['funds'] }}" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
+                        Release funds <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                    </a>
+                    <a href="#review-queue" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Review queue</a>
+                @else
+                    <a href="#review-queue" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
+                        Start reviewing <i data-lucide="arrow-down" class="h-4 w-4"></i>
+                    </a>
+                    <a href="{{ $typeLinks['funds'] }}" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Funds to release</a>
+                @endif
             </div>
         </div>
-        <div class="acc-table-wrap acc-dash-flush">
-            <table class="acc-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Reference</th>
-                        <th class="!text-right">Amount</th>
-                        <th>Arrived</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="recentIncomingDocsBody" class="acc-animate">
-                    @include('accounting._recent-incoming-docs-rows', ['recentIncomingDocs' => $recentIncomingDocs])
-                </tbody>
-            </table>
+
+        @php
+            $figures = [
+                $leadFunds ? $reviewFigure : $fundsFigure,
+                ['label' => 'Released this month', 'value' => $peso($released['amount']), 'note' => $releasedNote, 'alert' => null, 'url' => route('accounting.rfc.index', ['status' => 'released'])],
+                ['label' => 'Cash advances out', 'value' => $peso($d['cashAdvanceAmount']), 'note' => $d['cashAdvanceCount'] > 0 ? $d['cashAdvanceCount'].' not yet liquidated' : 'All liquidated', 'alert' => null, 'url' => '#cash-advances'],
+                ['label' => 'Liquidations overdue', 'value' => number_format($overdue), 'note' => $dueToday.' due today · '.$dueWeek.' in 7 days', 'alert' => $overdue > 0 ? 'Past deadline' : null, 'url' => route('accounting.liq.index', ['status' => 'incoming', 'deadline' => 'overdue'])],
+            ];
+        @endphp
+        <div class="grid grid-cols-1 border-t border-slate-100 sm:grid-cols-2 lg:border-l lg:border-t-0">
+            @foreach($figures as $i => $fig)
+                <a href="{{ $fig['url'] }}"
+                   class="group flex flex-col justify-between gap-3 p-6 transition hover:bg-slate-50/70 {{ $i >= 2 ? 'border-t border-slate-100' : '' }} {{ $i === 1 ? 'max-sm:border-t sm:border-l sm:border-slate-100' : '' }} {{ $i === 3 ? 'sm:border-l sm:border-slate-100' : '' }}">
+                    <p class="flex items-center justify-between text-xs text-slate-500">
+                        {{ $fig['label'] }}
+                        <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 text-slate-300 transition group-hover:text-[#0025cc]"></i>
+                    </p>
+                    <div>
+                        <p class="text-2xl font-semibold tracking-tight tabular-nums text-slate-900">{{ $fig['value'] }}</p>
+                        <p class="mt-1 text-xs text-slate-400">
+                            {{ $fig['note'] }}
+                            @if($fig['alert'])<span class="text-amber-600"> · {{ $fig['alert'] }}</span>@endif
+                        </p>
+                    </div>
+                </a>
+            @endforeach
         </div>
     </section>
 
-    {{-- Financial summary --}}
-    <div class="acc-table-wrap mt-3 slide-up" style="animation-delay:.22s">
-        <table class="acc-table acc-dash-summary">
-            <thead>
-                <tr>
-                    <th colspan="3" class="!normal-case !tracking-normal !text-[13px] !font-bold !text-slate-900 !py-3">Financial summary</th>
-                </tr>
-                <tr>
-                    <th class="text-center">Received</th>
-                    <th class="text-center">Released</th>
-                    <th class="text-center">Liquidated</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="acc-money text-center whitespace-nowrap text-blue-700">₱{{ number_format((float) $financialSummary['received'], 2) }}</td>
-                    <td class="acc-money text-center whitespace-nowrap">₱{{ number_format((float) $financialSummary['released'], 2) }}</td>
-                    <td class="acc-money text-center whitespace-nowrap">₱{{ number_format((float) $financialSummary['liquidated'], 2) }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    {{-- Chart (maintenance-style analytics card) --}}
-    <section class="dashboard-analytics-card mt-3 slide-up" style="animation-delay:.22s">
-        <div class="dashboard-analytics-header">
-            <div class="min-w-0">
-                <h2 class="dashboard-analytics-title">Funds released trend</h2>
-                <p class="dashboard-analytics-subtitle">Monthly totals for {{ $chartYear }} · hover a month for details</p>
-            </div>
-            <div class="flex flex-wrap items-center justify-end gap-3">
-                <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
-                    <span class="sr-only">Year</span>
-                    <select
-                        id="fundsChartYear"
-                        class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-400"
-                        aria-label="Select chart year"
-                    >
-                        @foreach ($chartYears as $y)
-                            <option value="{{ $y }}" @selected((int) $y === (int) $chartYear)>{{ $y }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <div class="activity-chart-total is-blue" id="fundsChartTotal">
-                    ₱{{ number_format($chartYearTotal, 2) }}
-                    <span>released</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="dashboard-report-activity-chart acc-dash-chart">
-            <canvas id="fundsReleasedChart"></canvas>
-        </div>
-    </section>
-
-    {{-- Pending queue (full width — hugs content, no empty stretch) --}}
-    <section class="pm-card acc-pending-card mt-3 slide-up overflow-hidden" style="animation-delay:.26s">
-        <div class="acc-dash-section-head">
-            <div>
-                <h2 class="acc-dash-title">Pending document requests</h2>
-                <p class="acc-dash-sub">ATP, Request Check, funds, and liquidation work</p>
-            </div>
-        </div>
-        <div id="queueItems" class="acc-dash-queue">
-            @include('accounting._queue-table', ['queue' => $queue])
-        </div>
-        <div id="queuePagination">
-            @if ($queue->hasPages())
-                <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $queue->links('pagination.president') }}</div>
-            @endif
-        </div>
-    </section>
-
-    {{-- Document status + Activity --}}
-    <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2 xl:items-stretch">
-        <section class="pm-card acc-doc-status-card slide-up overflow-hidden" style="animation-delay:.3s">
-            <div class="acc-dash-section-head">
+    {{-- Review queue + deadlines --}}
+    <section class="grid gap-6 xl:grid-cols-3">
+        <div id="review-queue" class="acx-card scroll-mt-24 xl:col-span-2">
+            <div class="flex flex-wrap items-end justify-between gap-3 px-6 pt-6">
                 <div>
-                    <h2 class="acc-dash-title">Document status</h2>
-                    <p class="acc-dash-sub">Workload vs completed · click a row to open</p>
+                    <h2 class="acx-h text-base font-semibold">Review queue</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Urgent first, then the ones waiting longest</p>
                 </div>
+                <span class="text-xs tabular-nums text-slate-400">{{ $d['queueCount'] }} open</span>
             </div>
-            @php
-                $docStatusRows = [
-                    [
-                        'label' => 'ATP',
-                        'pending' => (int) ($metrics['atp_pending'] ?? 0),
-                        'revision' => (int) ($metrics['atp_revision'] ?? 0),
-                        'approved' => (int) ($metrics['atp_approved'] ?? 0),
-                        'extra' => null,
-                        'href' => '/accounting/authority-to-purchase?status=incoming',
-                    ],
-                    [
-                        'label' => 'Request Checks',
-                        'pending' => (int) ($metrics['rfc_pending'] ?? 0),
-                        'revision' => (int) ($metrics['rfc_revision'] ?? 0),
-                        'approved' => (int) ($metrics['rfc_approved'] ?? 0),
-                        'extra' => null,
-                        'href' => '/accounting/request-check?status=incoming',
-                    ],
-                    [
-                        'label' => 'Funds to release',
-                        'pending' => (int) ($metrics['funds_awaiting'] ?? 0),
-                        'revision' => 0,
-                        'approved' => (int) ($metrics['funds_released'] ?? 0),
-                        'extra' => 'Awaiting release',
-                        'href' => '/accounting/request-check?status=funds',
-                        'hide_revision' => true,
-                    ],
-                    [
-                        'label' => 'Liquidations',
-                        'pending' => (int) ($metrics['liq_pending'] ?? 0),
-                        'revision' => (int) ($metrics['liq_revision'] ?? 0),
-                        'approved' => (int) ($metrics['liq_approved'] ?? 0),
-                        'extra' => null,
-                        'href' => '/accounting/liquidation-reports?status=incoming',
-                    ],
-                ];
-            @endphp
-            <div class="acc-table-wrap acc-dash-flush acc-doc-status-wrap">
-                <table class="acc-table acc-doc-status">
-                    <colgroup>
-                        <col style="width:34%">
-                        <col style="width:14%">
-                        <col style="width:14%">
-                        <col style="width:14%">
-                        <col style="width:24%">
-                    </colgroup>
+
+            <div class="mt-4 flex flex-wrap gap-x-5 border-b border-slate-100 px-6 text-sm">
+                @foreach($d['queueByType'] as $type => $group)
+                    <a href="{{ $typeLinks[$type] }}"
+                       class="-mb-px shrink-0 border-b-2 pb-2.5 transition {{ $group['count'] > 0 ? 'border-[#0025cc] font-medium text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">
+                        {{ $group['label'] }}
+                        <span class="ml-1 tabular-nums {{ $group['count'] > 0 ? 'text-[#0025cc]' : '' }}">{{ $group['count'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+
+            @if($d['queue']->isNotEmpty())
+                <table class="w-full text-sm">
                     <thead>
-                        <tr>
-                            <th class="acc-doc-col-label">Document</th>
-                            <th class="acc-doc-col-num">Review</th>
-                            <th class="acc-doc-col-num">Revise</th>
-                            <th class="acc-doc-col-num">Done</th>
-                            <th class="acc-doc-col-label">Completion</th>
+                        <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400">
+                            <th class="px-6 py-3 font-medium">Reference</th>
+                            <th class="py-3 pr-4 font-medium max-md:hidden">From</th>
+                            <th class="py-3 pr-4 font-medium max-sm:hidden">Waiting</th>
+                            <th class="py-3 pr-4 text-right font-medium">Amount</th>
+                            <th class="py-3 pr-6"></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @foreach ($docStatusRows as $row)
-                            @php
-                                $tracked = $row['pending'] + $row['revision'] + $row['approved'];
-                                $pct = $tracked > 0 ? (int) round(($row['approved'] / $tracked) * 100) : 0;
-                            @endphp
-                            <tr class="acc-doc-status-row" onclick="window.location='{{ $row['href'] }}'">
-                                <td class="acc-doc-col-label">
-                                    <span class="font-semibold text-slate-800">{{ $row['label'] }}</span>
-                                    @if (!empty($row['extra']))
-                                        <span class="mt-0.5 block text-[10px] font-medium text-slate-400">
-                                            {{ $row['extra'] }}
-                                        </span>
-                                    @endif
+                    <tbody class="divide-y divide-slate-100 border-t border-slate-100">
+                        @foreach($d['queue'] as $item)
+                            <tr class="group cursor-pointer transition hover:bg-slate-50/70" onclick="window.location='{{ $item->url }}'">
+                                <td class="px-6 py-3.5">
+                                    <a href="{{ $item->url }}" class="font-medium text-slate-900 group-hover:text-[#0025cc]">{{ $item->ref }}</a>
+                                    <span class="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                                        {{ $typeShort[$item->type] ?? $item->type_label }}
+                                        @if($item->urgent)<span class="font-medium text-amber-600">· Urgent</span>@endif
+                                    </span>
                                 </td>
-                                <td class="acc-doc-col-num font-semibold text-slate-800">{{ $row['pending'] }}</td>
-                                <td class="acc-doc-col-num font-semibold {{ !empty($row['hide_revision']) ? 'text-slate-300' : ($row['revision'] > 0 ? 'text-amber-600' : 'text-slate-500') }}">
-                                    {{ !empty($row['hide_revision']) ? '—' : $row['revision'] }}
+                                <td class="max-w-[220px] py-3.5 pr-4 max-md:hidden">
+                                    <span class="block truncate text-slate-600">{{ $item->who }}</span>
+                                    @if($item->related)<span class="block truncate text-xs text-slate-400">{{ $item->related }}</span>@endif
                                 </td>
-                                <td class="acc-doc-col-num font-semibold text-blue-700">{{ $row['approved'] }}</td>
-                                <td class="acc-doc-col-label">
-                                    <div class="acc-doc-progress">
-                                        <div class="acc-doc-progress-track">
-                                            <span class="acc-doc-progress-bar" style="width: {{ $pct }}%"></span>
-                                        </div>
-                                        <span class="acc-doc-progress-pct">{{ $pct }}%</span>
-                                    </div>
+                                <td class="whitespace-nowrap py-3.5 pr-4 text-xs max-sm:hidden {{ $item->slow ? 'font-medium text-amber-600' : 'text-slate-500' }}">{{ $item->waiting ?: '—' }}</td>
+                                <td class="whitespace-nowrap py-3.5 pr-4 text-right font-medium tabular-nums text-slate-900">{{ $item->amount !== null ? $peso($item->amount) : '—' }}</td>
+                                <td class="whitespace-nowrap py-3.5 pr-6 text-right">
+                                    <span class="text-xs font-medium {{ $item->action === 'Release' ? 'text-[#0025cc]' : 'text-slate-500 group-hover:text-slate-900' }}">{{ $item->action }} →</span>
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-            </div>
-        </section>
-
-        <aside class="pm-card slide-up overflow-hidden flex flex-col" style="animation-delay:.34s">
-            <div class="acc-dash-section-head">
-                <div>
-                    <h2 class="acc-dash-title">Recent activity</h2>
-                    <p class="acc-dash-sub">Accounting decisions</p>
-                </div>
-                <a href="/accounting/history" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
-            </div>
-            <div class="acc-dash-activity px-4 pb-2" id="activityItems">
-                @include('accounting._activity-items', ['recentActivity' => $recentActivity])
-            </div>
-            <div id="activityPagination">
-                @if ($recentActivity->hasPages())
-                    <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $recentActivity->links('pagination.president') }}</div>
+                @if($d['queueCount'] > $d['queue']->count())
+                    <p class="border-t border-slate-100 px-6 py-3 text-xs text-slate-400">Showing {{ $d['queue']->count() }} of {{ $d['queueCount'] }} · open a tab above for the full list</p>
                 @endif
+            @else
+                <div class="px-6 py-14 text-center">
+                    <p class="text-sm font-medium text-slate-800">Nothing waiting for Accounting</p>
+                    <p class="mt-1 text-xs text-slate-500">New ATPs, Purchase Orders, Request Checks and Liquidations will show up here.</p>
+                </div>
+            @endif
+        </div>
+
+        <div class="acx-card flex flex-col">
+            <div class="px-6 pt-6">
+                <h2 class="acx-h text-base font-semibold">Liquidation deadlines</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Reports pending your review</p>
             </div>
-        </aside>
-    </div>
+
+            <div class="mt-4 grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100">
+                @foreach([
+                    ['Overdue', $overdue, 'overdue', true],
+                    ['Due today', $dueToday, 'due_today', true],
+                    ['Next 7 days', $dueWeek, 'this_week', false],
+                ] as [$label, $count, $key, $warn])
+                    <a href="{{ route('accounting.liq.index', ['status' => 'incoming', 'deadline' => $key]) }}" class="px-4 py-4 text-center transition hover:bg-slate-50/70">
+                        <span class="block text-2xl font-semibold tabular-nums {{ $count > 0 ? ($warn ? 'text-amber-600' : 'text-slate-900') : 'text-slate-300' }}">{{ $count }}</span>
+                        <span class="mt-0.5 block text-[11px] text-slate-500">{{ $label }}</span>
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="flex-1 divide-y divide-slate-100">
+                @forelse($d['upcomingDeadlines'] as $due)
+                    <a href="{{ $due->url }}" class="group flex items-center gap-4 px-6 py-3 transition hover:bg-slate-50/70">
+                        <span class="w-12 shrink-0 text-xs tabular-nums text-slate-400">{{ $due->deadline->format('M j') }}</span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-slate-900 group-hover:text-[#0025cc]">{{ $due->ref }}</span>
+                            <span class="block truncate text-xs text-slate-400">{{ $due->who }}</span>
+                        </span>
+                        <span class="shrink-0 text-xs {{ $due->days <= 1 ? 'font-medium text-amber-600' : 'text-slate-500' }}">{{ $due->label }}</span>
+                    </a>
+                @empty
+                    <div class="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
+                        <p class="text-sm font-medium text-slate-700">No upcoming deadlines</p>
+                        <p class="mt-1 text-xs text-slate-500">Pending liquidations with a deadline appear here.</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    </section>
+
+    {{-- Funds chart + statement --}}
+    <section class="grid gap-6 xl:grid-cols-3">
+        <div class="acx-card p-6 xl:col-span-2">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="acx-h text-base font-semibold">Funds released</h2>
+                    <p class="mt-0.5 text-xs text-slate-500" id="fundsChartSubtitle">Monthly totals for {{ $chartYear }}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-lg font-semibold tabular-nums text-slate-900" id="fundsChartTotal">{{ $peso($fundsReleasedChart['total'] ?? 0) }}</p>
+                        <p class="text-[11px] text-slate-400" id="fundsChartReleases">{{ $plural((int) ($fundsReleasedChart['releases'] ?? 0), 'release') }}</p>
+                    </div>
+                    <select id="fundsChartYear" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-[#0025cc]" aria-label="Select chart year">
+                        @foreach($chartYears as $y)
+                            <option value="{{ $y }}" @selected((int) $y === (int) $chartYear)>{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="relative mt-6 h-[240px]">
+                <canvas id="fundsReleasedChart"></canvas>
+            </div>
+        </div>
+
+        <div class="acx-card flex flex-col p-6">
+            <h2 class="acx-h text-base font-semibold">Money flow</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Approved Request Checks and Cash Advances</p>
+
+            <dl class="mt-5 space-y-3 text-sm">
+                <div class="flex items-baseline gap-2">
+                    <dt class="text-slate-600">Approved for payment</dt>
+                    <span class="acx-leader"></span>
+                    <dd class="tabular-nums text-slate-900">{{ $peso($received) }}</dd>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <dt class="text-slate-600">Less: released</dt>
+                    <span class="acx-leader"></span>
+                    <dd class="tabular-nums text-slate-900">({{ $peso($releasedTotal) }})</dd>
+                </div>
+                <div class="flex items-baseline gap-2 border-t border-slate-900/80 pt-3">
+                    <dt class="font-medium text-slate-900">Awaiting release</dt>
+                    <span class="acx-leader"></span>
+                    <dd class="font-semibold tabular-nums text-[#0025cc]">{{ $peso($awaiting) }}</dd>
+                </div>
+            </dl>
+
+            <div class="mt-3">
+                <div class="flex h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    @if($received > 0)
+                        <span class="bg-[#0025cc]" style="width: {{ min(100, round(($releasedTotal / $received) * 100)) }}%"></span>
+                    @endif
+                </div>
+                <p class="mt-1.5 text-[11px] text-slate-400">{{ $received > 0 ? round(($releasedTotal / $received) * 100).'% of approved funds released' : 'Nothing approved yet' }}</p>
+            </div>
+
+            <p class="acx-label mt-6">Cash advances</p>
+            <dl class="mt-3 space-y-3 text-sm">
+                <div class="flex items-baseline gap-2">
+                    <dt class="text-slate-600">Liquidated</dt>
+                    <span class="acx-leader"></span>
+                    <dd class="tabular-nums text-slate-900">{{ $peso($liquidated) }}</dd>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <dt class="text-slate-600">Outstanding</dt>
+                    <span class="acx-leader"></span>
+                    <dd class="tabular-nums {{ $d['cashAdvanceAmount'] > 0 ? 'text-amber-600' : 'text-slate-900' }}">{{ $peso($d['cashAdvanceAmount']) }}</dd>
+                </div>
+            </dl>
+        </div>
+    </section>
+
+    {{-- Cash advances · document status · decisions --}}
+    <section class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        <div id="cash-advances" class="acx-card flex scroll-mt-24 flex-col">
+            <div class="flex items-baseline justify-between px-6 pt-6">
+                <div>
+                    <h2 class="acx-h text-base font-semibold">Cash advances to liquidate</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Released with no approved liquidation</p>
+                </div>
+                <span class="text-xs tabular-nums text-slate-400">{{ $d['cashAdvanceCount'] }}</span>
+            </div>
+            <div class="mt-4 flex-1 divide-y divide-slate-100 border-t border-slate-100">
+                @forelse($d['cashAdvances'] as $ca)
+                    <a href="{{ $ca->url }}" class="group flex items-center gap-3 px-6 py-3 transition hover:bg-slate-50/70">
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-slate-900 group-hover:text-[#0025cc]">{{ $ca->ref }}</span>
+                            <span class="block truncate text-xs text-slate-400">{{ $ca->payee }}</span>
+                        </span>
+                        <span class="shrink-0 text-right">
+                            <span class="block text-sm tabular-nums text-slate-900">{{ $peso($ca->amount) }}</span>
+                            <span class="block text-[11px] {{ $ca->liquidation_status ? 'text-[#0025cc]' : ($ca->days >= 14 ? 'font-medium text-amber-600' : 'text-slate-400') }}">
+                                {{ $ca->liquidation_status ? 'Liquidation '.Str::lower($ca->liquidation_status) : ($ca->days === 0 ? 'Released today' : 'Released '.$plural($ca->days, 'day').' ago') }}
+                            </span>
+                        </span>
+                    </a>
+                @empty
+                    <div class="px-6 py-10 text-center">
+                        <p class="text-sm font-medium text-slate-700">All settled</p>
+                        <p class="mt-1 text-xs text-slate-500">Every released cash advance has an approved liquidation.</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+        <div class="acx-card flex flex-col">
+            <div class="px-6 pt-6">
+                <h2 class="acx-h text-base font-semibold">Document status</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Everything Accounting has handled</p>
+            </div>
+            <table class="mt-4 w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-100 text-[11px] uppercase tracking-wider text-slate-400">
+                        <th class="px-6 py-2.5 text-left font-medium">Document</th>
+                        <th class="py-2.5 text-right font-medium">Review</th>
+                        <th class="py-2.5 text-right font-medium">Returned</th>
+                        <th class="py-2.5 pl-2 pr-6 text-right font-medium">Approved</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach($docStatus as $row)
+                        <tr class="group cursor-pointer transition hover:bg-slate-50/70" onclick="window.location='{{ $row['url'] }}'">
+                            <td class="px-6 py-3.5"><a href="{{ $row['url'] }}" class="text-slate-700 group-hover:text-[#0025cc]">{{ $row['label'] }}</a></td>
+                            <td class="py-3.5 text-right tabular-nums {{ $row['review'] > 0 ? 'font-semibold text-[#0025cc]' : 'text-slate-300' }}">{{ $row['review'] }}</td>
+                            <td class="py-3.5 text-right tabular-nums {{ $row['returned'] > 0 ? 'text-amber-600' : 'text-slate-300' }}">{{ $row['returned'] }}</td>
+                            <td class="py-3.5 pl-2 pr-6 text-right tabular-nums text-slate-600">{{ $row['done'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        <div class="acx-card flex flex-col lg:col-span-2 xl:col-span-1">
+            <div class="flex items-baseline justify-between px-6 pt-6">
+                <div>
+                    <h2 class="acx-h text-base font-semibold">Recent decisions</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Latest approvals and releases</p>
+                </div>
+                <a href="{{ url('/accounting/history') }}" class="text-xs font-medium text-slate-500 hover:text-[#0025cc]">History →</a>
+            </div>
+            <ol class="mt-4 flex-1 divide-y divide-slate-100 border-t border-slate-100">
+                @forelse($d['decisions'] as $decision)
+                    @php
+                        $dot = match ($decision->tone) {
+                            'blue' => 'bg-[#0025cc]',
+                            'red', 'amber' => 'bg-amber-500',
+                            default => 'bg-slate-300',
+                        };
+                    @endphp
+                    <li>
+                        <a href="{{ $decision->url ?? url('/accounting/history') }}" class="group flex items-start gap-3 px-6 py-3 transition hover:bg-slate-50/70">
+                            <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full {{ $dot }}"></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm text-slate-800">
+                                    {{ $decision->action }} <span class="text-slate-400">·</span> <span class="group-hover:text-[#0025cc]">{{ $decision->ref ?: $decision->type_label }}</span>
+                                </span>
+                                <span class="block truncate text-xs text-slate-400">{{ $decision->by }}</span>
+                            </span>
+                            <span class="shrink-0 text-[11px] text-slate-400">{{ $decision->at?->diffForHumans(null, true, true) }}</span>
+                        </a>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center">
+                        <p class="text-sm font-medium text-slate-700">No decisions yet</p>
+                        <p class="mt-1 text-xs text-slate-500">Approvals, returns and releases will be listed here.</p>
+                    </li>
+                @endforelse
+            </ol>
+        </div>
+    </section>
 </div>
 
-<script>
-    (function () {
-        function livePagination(containerId, apply) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            container.addEventListener('click', function (e) {
-                const link = e.target.closest('a[href]');
-                if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') return;
-                e.preventDefault();
-                const url = new URL(link.href, window.location.origin);
-                fetch(url.pathname + url.search, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                })
-                .then(res => res.json())
-                .then(data => apply(data, url))
-                .catch(err => console.error(err));
-            });
-        }
-
-        livePagination('queuePagination', function (data, url) {
-            const items = document.getElementById('queueItems');
-            const pag = document.getElementById('queuePagination');
-            if (items && data.queue_html !== undefined) items.innerHTML = data.queue_html;
-            if (pag && data.queue_pagination_html !== undefined) {
-                pag.innerHTML = data.queue_pagination_html
-                    ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.queue_pagination_html + '</div>'
-                    : '';
-                if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
-            }
-            if (window.lucide) lucide.createIcons();
-            window.history.replaceState({}, '', url.pathname + url.search);
-        });
-
-        livePagination('activityPagination', function (data, url) {
-            const items = document.getElementById('activityItems');
-            const pag = document.getElementById('activityPagination');
-            if (items && data.activity_html !== undefined) items.innerHTML = data.activity_html;
-            if (pag && data.activity_pagination_html !== undefined) {
-                pag.innerHTML = data.activity_pagination_html
-                    ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.activity_pagination_html + '</div>'
-                    : '';
-                if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
-            }
-            if (window.lucide) lucide.createIcons();
-            window.history.replaceState({}, '', url.pathname + url.search);
-        });
-    })();
-</script>
-
-<script>
-    (function () {
-        const tbody = document.getElementById('recentIncomingDocsBody');
-        if (!tbody) return;
-
-        function formatAgo(diffSec) {
-            if (diffSec < 60) return 'now';
-            const mins = Math.floor(diffSec / 60);
-            if (mins === 1) return 'one minute ago';
-            if (mins < 60) return mins + ' minutes ago';
-
-            const hrs = Math.floor(mins / 60);
-            if (hrs === 1) return 'one hour ago';
-            if (hrs < 24) return hrs + ' hours ago';
-
-            const days = Math.floor(hrs / 24);
-            if (days === 1) return 'one day ago';
-            return days + ' days ago';
-        }
-
-        function updateRelativeTimes() {
-            const nowMs = Date.now();
-            const spans = document.querySelectorAll('.acc-relative-time[data-arrived-at-ms]');
-            spans.forEach(span => {
-                const tsMs = Number(span.getAttribute('data-arrived-at-ms'));
-                if (!tsMs) {
-                    span.textContent = '—';
-                    return;
-                }
-                const diffSec = Math.max(0, Math.floor((nowMs - tsMs) / 1000));
-                span.textContent = formatAgo(diffSec);
-            });
-        }
-
-        updateRelativeTimes();
-        setInterval(updateRelativeTimes, 10000); // keeps "now -> one minute ago" live
-
-        let fetching = false;
-        async function fetchRecentIncomingDocs() {
-            if (fetching) return;
-            fetching = true;
-            tbody.classList.add('is-loading');
-            try {
-                const url = new URL(window.location.href);
-                url.searchParams.set('partial', 'recent_incoming_docs');
-                url.searchParams.set('t', String(Date.now())); // avoid caching
-                const res = await fetch(url.pathname + url.search, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                });
-                const data = await res.json();
-                if (data && typeof data.recent_incoming_docs_html === 'string') {
-                    tbody.innerHTML = data.recent_incoming_docs_html;
-                    tbody.classList.remove('acc-animate');
-                    void tbody.offsetWidth;
-                    tbody.classList.add('acc-animate');
-                    updateRelativeTimes();
-                    if (window.lucide) lucide.createIcons();
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                tbody.classList.remove('is-loading');
-                fetching = false;
-            }
-        }
-
-        // Poll periodically to keep "top 5 recent" truly live as new documents arrive.
-        setInterval(fetchRecentIncomingDocs, 15000);
-    })();
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
 <style>
-    @keyframes chartFadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .acc-dash .acc-dash-section-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 12px 16px;
-        border-bottom: 1px solid #f1f5f9;
-    }
-    .acc-dash .acc-dash-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 1.25;
-    }
-    .acc-dash .acc-dash-sub {
-        margin: 2px 0 0;
-        color: #94a3b8;
-        font-size: 11px;
-        line-height: 1.3;
-    }
-    .acc-dash .acc-dash-flush {
-        border: 0;
-        border-radius: 0;
-        box-shadow: none;
-        background: transparent;
-    }
-    .acc-dash .acc-dash-summary th,
-    .acc-dash .acc-dash-summary td {
-        text-align: center;
-    }
-    .acc-dash .acc-dash-summary .acc-money {
-        text-align: center;
-        font-size: 0.95rem;
-    }
-    /* Only Pending document requests hugs its rows (no stretched empty height). */
-    .acc-dash .acc-dash-queue,
-    .acc-dash .acc-dash-queue .acc-table-wrap {
-        min-height: 0 !important;
-        height: auto !important;
-    }
-    .acc-dash .acc-pending-card {
-        height: auto !important;
-        align-self: stretch;
-        display: block;
-        padding-bottom: 0;
-    }
-    .acc-dash .acc-pending-card #queuePagination:empty {
-        display: none;
-    }
-    .acc-dash .acc-recent-incoming {
-        border-color: #bfdbfe;
-        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
-    }
-    .acc-dash .acc-dash-activity .acc-activity-item {
-        padding: 0.55rem 0;
-    }
-    .acc-dash .acc-dash-chart {
-        height: 280px;
-    }
-
-    /* Maintenance-style analytics card */
-    .dashboard-analytics-card {
-        min-width: 0;
-        overflow: hidden;
-        padding: 22px;
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 22px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    }
-    .dashboard-analytics-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
-    }
-    .dashboard-analytics-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 16px;
-        font-weight: 700;
-    }
-    .dashboard-analytics-subtitle {
-        margin: 3px 0 0;
-        color: #94a3b8;
-        font-size: 10px;
-    }
-    .dashboard-report-activity-chart {
-        position: relative;
-        width: 100%;
-        height: 280px;
-        animation: chartFadeIn 0.8s ease-out forwards;
-    }
-    .activity-chart-total {
-        font-size: 18px;
-        font-weight: 800;
-        color: #0f172a;
-        white-space: nowrap;
-    }
-    .activity-chart-total.is-blue { color: #1d4ed8; }
-    .activity-chart-total span {
-        margin-left: 2px;
-        font-size: 9px;
-        font-weight: 500;
-        color: #94a3b8;
-    }
-
-    /* Deadlines cards */
-    .acc-deadline-card {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 0;
-        padding: 14px 16px;
-        border-radius: 16px;
-        border: 1px solid #e5e7eb;
-        background: #fff;
-        text-decoration: none;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-        transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
-    }
-    .acc-deadline-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-    }
-    .acc-deadline-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 40px;
-    }
-    .acc-deadline-icon svg { width: 18px; height: 18px; }
-    .acc-deadline-label {
-        margin: 0;
-        font-size: 11px;
-        font-weight: 600;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-    .acc-deadline-value {
-        margin: 0;
-        font-size: 22px;
-        font-weight: 800;
-        line-height: 1;
-        color: #0f172a;
-    }
-    .acc-deadline-hint {
-        margin: 4px 0 0;
-        font-size: 11px;
-        color: #94a3b8;
-    }
-    .acc-deadline-card.is-rose {
-        border-color: #fecdd3;
-        background: linear-gradient(180deg, #fff1f2 0%, #ffffff 70%);
-    }
-    .acc-deadline-card.is-rose .acc-deadline-icon { background: #ffe4e6; color: #e11d48; }
-    .acc-deadline-card.is-rose .acc-deadline-value { color: #be123c; }
-    .acc-deadline-card.is-amber {
-        border-color: #fde68a;
-        background: linear-gradient(180deg, #fffbeb 0%, #ffffff 70%);
-    }
-    .acc-deadline-card.is-amber .acc-deadline-icon { background: #fef3c7; color: #d97706; }
-    .acc-deadline-card.is-amber .acc-deadline-value { color: #b45309; }
-    .acc-deadline-card.is-blue {
-        border-color: #bfdbfe;
-        background: linear-gradient(180deg, #eff6ff 0%, #ffffff 70%);
-    }
-    .acc-deadline-card.is-blue .acc-deadline-icon { background: #dbeafe; color: #2563eb; }
-    .acc-deadline-card.is-blue .acc-deadline-value { color: #1d4ed8; }
-
-    /* Document status table — fill card height */
-    .acc-doc-status-card {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-height: 0;
-    }
-    .acc-doc-status-wrap {
-        flex: 1 1 auto;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-    }
-    .acc-doc-status {
-        table-layout: fixed;
-        width: 100%;
-        height: 100%;
-        flex: 1 1 auto;
-    }
-    .acc-doc-status tbody {
-        height: 100%;
-    }
-    .acc-doc-status tbody tr {
-        height: 25%;
-    }
-    .acc-doc-status th,
-    .acc-doc-status td {
-        vertical-align: middle;
-    }
-    .acc-doc-status .acc-doc-col-label {
-        text-align: left !important;
-    }
-    .acc-doc-status .acc-doc-col-num {
-        text-align: right !important;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-    }
-    .acc-doc-status .acc-money { text-align: right; }
-    .acc-doc-status-row {
-        cursor: pointer;
-    }
-    .acc-doc-status-row:hover td {
-        background: #f8fafc;
-    }
-    .acc-doc-progress {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-    }
-    .acc-doc-progress-track {
-        flex: 1 1 auto;
-        height: 6px;
-        border-radius: 999px;
-        background: #e2e8f0;
-        overflow: hidden;
-        min-width: 0;
-    }
-    .acc-doc-progress-bar {
-        display: block;
-        height: 100%;
-        border-radius: 999px;
-        background: #2563eb;
-    }
-    .acc-doc-progress-pct {
-        flex: 0 0 auto;
-        width: 2.25rem;
-        text-align: right;
-        font-size: 11px;
-        font-weight: 700;
-        color: #475569;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .pm-analytics-card {
-        min-width: 0;
-        overflow: hidden;
-        padding: 22px;
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 22px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    }
-    .pm-analytics-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 10px;
-        flex-wrap: wrap;
-    }
-    .pm-analytics-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 16px;
-        font-weight: 700;
-    }
-    .pm-analytics-subtitle {
-        margin: 3px 0 0;
-        color: #94a3b8;
-        font-size: 10px;
-    }
-    .pm-chart-total {
-        font-size: 18px;
-        font-weight: 800;
-        color: #0f172a;
-        white-space: nowrap;
-    }
-    .pm-chart-total.is-blue { color: #1d4ed8; }
-    .pm-chart-total span {
-        margin-left: 2px;
-        font-size: 9px;
-        font-weight: 500;
-        color: #94a3b8;
-    }
+    .acx .acx-card { overflow: hidden; border: 1px solid #e5e7eb; border-radius: 1rem; background: #fff; }
+    .acx .acx-h { color: #0f172a; letter-spacing: -0.01em; }
+    .acx .acx-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; }
+    .acx .acx-leader { flex: 1 1 auto; min-width: 1rem; border-bottom: 1px dotted #cbd5e1; transform: translateY(-4px); }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const canvas = document.getElementById('fundsReleasedChart');
         const yearSelect = document.getElementById('fundsChartYear');
-        const totalEl = document.getElementById('fundsChartTotal');
-        const subtitleEl = document.querySelector('.dashboard-analytics-card .dashboard-analytics-subtitle');
         if (!canvas || typeof Chart === 'undefined') return;
 
-        let chartLabels = @json(array_column($chartMonths, 'month_label'));
-        let chartReleased = @json(array_column($chartMonths, 'released'));
-        let chartCounts = @json(array_column($chartMonths, 'count'));
-        let chartAverages = @json(array_column($chartMonths, 'average'));
-        let fundsChart = null;
+        const ACCENT = '#0025cc';
+        const MUTED = '#dfe4f5';
+        let months = @json($chartMonths);
+        let year = Number(@json((int) $chartYear));
+        let chart = null;
 
         function peso(value) {
-            const n = Number(value || 0);
-            return '₱' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return '₱' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        function movingAverage(values, windowSize) {
-            const size = Math.max(2, windowSize || 3);
-            return values.map(function (_, index) {
-                const start = Math.max(0, index - size + 1);
-                const slice = values.slice(start, index + 1);
-                const sum = slice.reduce(function (acc, n) { return acc + Number(n || 0); }, 0);
-                return sum / slice.length;
-            });
+        function compactPeso(value) {
+            const n = Number(value);
+            if (n >= 1000000) return '₱' + (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return '₱' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+            return '₱' + n;
         }
 
-        function updateHeader(year, total) {
-            if (totalEl) {
-                totalEl.innerHTML = peso(total) + ' <span>released</span>';
-            }
-            if (subtitleEl) {
-                subtitleEl.textContent = 'Monthly totals for ' + year + ' · hover a month for details';
-            }
+        function barColors() {
+            const now = new Date();
+            const current = year === now.getFullYear() ? now.getMonth() : -1;
+            return months.map((m, i) => i === current ? ACCENT : MUTED);
         }
 
-        const softBlueShadowPlugin = {
-            id: 'accountingFundsSoftBlueShadow',
-            beforeDatasetsDraw(chart) {
-                const meta = chart.getDatasetMeta(0);
-                if (!meta || meta.hidden || !meta.data.length || !meta.dataset) return;
-
-                const ctx = chart.ctx;
-                const chartArea = chart.chartArea;
-                const points = meta.data;
-                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                gradient.addColorStop(0, 'rgba(114, 180, 220, 0.45)');
-                gradient.addColorStop(0.35, 'rgba(114, 180, 220, 0.22)');
-                gradient.addColorStop(0.7, 'rgba(114, 180, 220, 0.08)');
-                gradient.addColorStop(1, 'rgba(114, 180, 220, 0)');
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-                ctx.clip();
-                ctx.beginPath();
-                meta.dataset.path(ctx);
-
-                const lastPoint = points[points.length - 1];
-                const firstPoint = points[0];
-                const shadowDepth = 75;
-                ctx.lineTo(lastPoint.x, Math.min(lastPoint.y + shadowDepth, chartArea.bottom));
-                ctx.lineTo(firstPoint.x, Math.min(firstPoint.y + shadowDepth, chartArea.bottom));
-                ctx.closePath();
-                ctx.fillStyle = gradient;
-                ctx.fill();
-                ctx.restore();
-            }
-        };
-
-        const hoverLinePlugin = {
-            id: 'accountingFundsHoverLine',
-            afterDatasetsDraw(chart) {
-                const activeElements = chart.tooltip?.getActiveElements();
-                if (!activeElements?.length) return;
-
-                const activeElement = activeElements[0].element;
-                const activeIndex = activeElements[0].index;
-                const x = activeElement.x;
-                const ctx = chart.ctx;
-                const chartArea = chart.chartArea;
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.setLineDash([3, 3]);
-                ctx.moveTo(x, chartArea.top);
-                ctx.lineTo(x, chartArea.bottom);
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = '#d7dce5';
-                ctx.stroke();
-                ctx.restore();
-
-                const xScale = chart.scales.x;
-                const labelX = xScale.getPixelForTick(activeIndex);
-                const labelY = xScale.bottom + 17;
-                const activeLabel = String(chartLabels[activeIndex] || '');
-
-                ctx.save();
-                ctx.font = '600 10px Inter, sans-serif';
-                const textWidth = ctx.measureText(activeLabel).width;
-                const boxWidth = textWidth + 14;
-                const boxHeight = 22;
-                ctx.fillStyle = '#f1f1f3';
-                ctx.beginPath();
-                if (typeof ctx.roundRect === 'function') {
-                    ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 6);
-                } else {
-                    ctx.rect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight);
-                }
-                ctx.fill();
-                ctx.fillStyle = '#475569';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(activeLabel, labelX, labelY);
-                ctx.restore();
-            }
-        };
-
-        function buildChart() {
-            if (fundsChart) {
-                fundsChart.destroy();
-            }
-
-            const trendData = movingAverage(chartReleased, 3);
-
-            fundsChart = new Chart(canvas, {
-                type: 'line',
+        function build() {
+            if (chart) chart.destroy();
+            chart = new Chart(canvas, {
+                type: 'bar',
                 data: {
-                    labels: chartLabels,
-                    datasets: [
-                        {
-                            label: 'Funds released',
-                            data: chartReleased,
-                            borderColor: '#72b4dc',
-                            backgroundColor: 'transparent',
-                            borderWidth: 1.5,
-                            fill: false,
-                            tension: 0.42,
-                            cubicInterpolationMode: 'monotone',
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            pointHitRadius: 25,
-                            pointHoverBackgroundColor: '#72b4dc',
-                            pointHoverBorderColor: 'white',
-                            pointHoverBorderWidth: 2,
-                        },
-                        {
-                            label: 'Trend',
-                            data: trendData,
-                            borderColor: '#e9b26f',
-                            backgroundColor: 'transparent',
-                            borderWidth: 1.5,
-                            fill: false,
-                            tension: 0.42,
-                            cubicInterpolationMode: 'monotone',
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            pointHitRadius: 25,
-                            pointHoverBackgroundColor: '#e9b26f',
-                            pointHoverBorderColor: 'white',
-                            pointHoverBorderWidth: 2,
-                        },
-                    ],
+                    labels: months.map(m => m.month_label),
+                    datasets: [{
+                        label: 'Funds released',
+                        data: months.map(m => Number(m.released || 0)),
+                        backgroundColor: barColors(),
+                        hoverBackgroundColor: ACCENT,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        maxBarThickness: 28,
+                    }],
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    normalized: true,
                     interaction: { mode: 'index', intersect: false },
-                    layout: { padding: { top: 10, right: 8, bottom: 18, left: 0 } },
-                    animation: { duration: 350 },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            enabled: true,
-                            mode: 'index',
-                            intersect: false,
-                            position: 'nearest',
                             backgroundColor: '#0f172a',
-                            titleColor: 'white',
-                            bodyColor: '#94a3b8',
-                            borderWidth: 0,
-                            padding: { top: 10, right: 12, bottom: 10, left: 12 },
-                            cornerRadius: 7,
-                            caretSize: 0,
-                            displayColors: true,
-                            usePointStyle: false,
-                            boxWidth: 2,
-                            boxHeight: 14,
-                            boxPadding: 7,
-                            titleSpacing: 4,
-                            bodySpacing: 7,
-                            titleMarginBottom: 7,
-                            titleFont: { family: 'Inter', size: 11, weight: '600' },
-                            bodyFont: { family: 'Inter', size: 10, weight: '400' },
+                            padding: 10,
+                            cornerRadius: 8,
+                            displayColors: false,
                             callbacks: {
-                                title(context) {
-                                    return context[0].label;
-                                },
                                 label(context) {
-                                    if (context.datasetIndex === 1) {
-                                        return 'Trend     ' + peso(context.raw);
-                                    }
-                                    const i = context.dataIndex;
-                                    const released = Number(chartReleased[i] || 0);
-                                    const count = Number(chartCounts[i] || 0);
-                                    const average = Number(chartAverages[i] || 0);
+                                    const m = months[context.dataIndex] || {};
                                     return [
-                                        'Total released     ' + peso(released),
-                                        'Releases     ' + count,
-                                        'Avg / release     ' + peso(average),
+                                        'Released  ' + peso(m.released),
+                                        'Releases  ' + (m.count || 0),
+                                        'Average   ' + peso(m.average),
                                     ];
                                 },
                             },
                         },
                     },
                     scales: {
-                        x: {
-                            offset: false,
-                            border: { display: false },
-                            grid: { display: false },
-                            ticks: {
-                                autoSkip: false,
-                                color: '#8c929c',
-                                padding: 14,
-                                maxRotation: 0,
-                                minRotation: 0,
-                                font: { family: 'Inter', size: 10, weight: '400' },
-                            },
-                        },
+                        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
                         y: {
                             beginAtZero: true,
                             border: { display: false },
-                            grid: {
-                                color: '#eef1f5',
-                                drawTicks: false,
-                            },
-                            ticks: {
-                                padding: 8,
-                                color: '#94a3b8',
-                                font: { family: 'Inter', size: 10 },
-                                callback(value) {
-                                    const n = Number(value);
-                                    if (n >= 1000000) return '₱' + (n / 1000000).toFixed(1) + 'M';
-                                    if (n >= 1000) return '₱' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
-                                    return '₱' + n;
-                                },
-                            },
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#94a3b8', font: { size: 11 }, callback: compactPeso, maxTicksLimit: 5 },
                         },
                     },
                 },
-                plugins: [softBlueShadowPlugin, hoverLinePlugin],
             });
         }
 
-        buildChart();
+        build();
 
         if (yearSelect) {
             yearSelect.addEventListener('change', async function () {
-                const year = yearSelect.value;
                 const url = new URL(window.location.href);
-                url.searchParams.set('year', year);
+                url.searchParams.set('year', yearSelect.value);
                 url.searchParams.set('partial', 'funds_chart');
-                url.searchParams.set('t', String(Date.now()));
-
                 try {
                     const res = await fetch(url.pathname + url.search, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                     });
                     const data = await res.json();
-                    const months = Array.isArray(data.months) ? data.months : [];
-                    chartLabels = months.map(m => m.month_label);
-                    chartReleased = months.map(m => Number(m.released || 0));
-                    chartCounts = months.map(m => Number(m.count || 0));
-                    chartAverages = months.map(m => Number(m.average || 0));
-                    updateHeader(data.year || year, data.total || 0);
-                    buildChart();
-
-                    const clean = new URL(window.location.href);
-                    clean.searchParams.set('year', year);
-                    clean.searchParams.delete('partial');
-                    clean.searchParams.delete('t');
-                    window.history.replaceState({}, '', clean.pathname + clean.search);
+                    months = Array.isArray(data.months) ? data.months : [];
+                    year = Number(data.year || yearSelect.value);
+                    const releases = data.releases || 0;
+                    document.getElementById('fundsChartTotal').textContent = peso(data.total);
+                    document.getElementById('fundsChartReleases').textContent = releases + (releases === 1 ? ' release' : ' releases');
+                    document.getElementById('fundsChartSubtitle').textContent = 'Monthly totals for ' + year;
+                    build();
+                    url.searchParams.delete('partial');
+                    window.history.replaceState({}, '', url.pathname + url.search);
                 } catch (err) {
                     console.error(err);
                 }

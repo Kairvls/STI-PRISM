@@ -20,7 +20,7 @@
 
             <h2>PaAyo</h2>
 
-            <span>Administrator Panel</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('admin') }}</span>
 
         </div>
 
@@ -200,9 +200,9 @@
                 ['route' => 'purchaser.purchase-orders.index', 'match' => 'purchaser/purchase-orders*', 'label' => 'Purchase Orders', 'icon' => 'shopping-cart'],
                 ['route' => 'purchaser.rfc.index', 'match' => 'purchaser/request-check*', 'label' => 'Request for Check', 'icon' => 'banknote'],
                 ['route' => 'purchaser.rr.index', 'match' => 'purchaser/receiving-reports*', 'label' => 'Receiving Reports', 'icon' => 'package-check'],
+                ['route' => 'purchaser.bo.index', 'match' => 'purchaser/back-orders*', 'label' => 'Back Orders', 'icon' => 'package-x'],
                 ['route' => 'purchaser.liq.index', 'match' => 'purchaser/liquidation-reports*', 'label' => 'Liquidation', 'icon' => 'receipt'],
-                ['route' => 'purchaser.procurement-records.index', 'match' => 'purchaser/procurement-records*', 'label' => 'Procurement Records', 'icon' => 'folder-archive'],
-                ['route' => 'purchaser.suppliers.index', 'match' => 'purchaser/suppliers*', 'label' => 'Suppliers', 'icon' => 'store'],
+                ['route' => 'purchaser.procurement-records.index', 'match' => 'purchaser/procurement-records*', 'label' => 'Procurement Records', 'icon' => 'folder-archive'],                ['route' => 'purchaser.suppliers.index', 'match' => 'purchaser/suppliers*', 'label' => 'Suppliers', 'icon' => 'store'],
                 ['route' => 'purchaser.file-maintenance.index', 'match' => ['purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*'], 'label' => 'File Maintenance', 'icon' => 'database'],
             ];
             foreach ($workflowLinks as &$workflowLink) {
@@ -235,6 +235,14 @@
                 @endforeach
             </div>
         </div>
+
+        <a
+            href="{{ route('purchaser.history.index') }}"
+            class="menu-item {{ request()->is('purchaser/history*') ? 'active' : '' }}"
+        >
+            <i data-lucide="history"></i>
+            <span>Purchase History</span>
+        </a>
 
         {{-- ====================================== --}}
         {{-- DIGITAL SIGNATURES --}}
@@ -291,6 +299,14 @@
         </a>
 
         <a
+            href="{{ route('admin.operations.building-layout') }}"
+            class="menu-item {{ request()->is('admin/operations/building-layout*') ? 'active' : '' }}"
+        >
+            <i data-lucide="building"></i>
+            <span>Campus Monitoring</span>
+        </a>
+
+        <a
             href="{{ route('admin.operations.equipment') }}"
             class="menu-item {{ request()->is('admin/operations/equipment*') ? 'active' : '' }}"
         >
@@ -329,6 +345,40 @@
             <i data-lucide="git-branch"></i>
             <span>Procurement Monitor</span>
         </a>
+
+        @php
+            $boGroupActive = request()->is('admin/operations/back-orders*');
+            $activeBoPayment = $boGroupActive ? request('payment') : null;
+            $boLinks = [
+                ['payment' => null, 'label' => 'All Back Orders', 'icon' => 'layers'],
+                ['payment' => 'rfc', 'label' => 'Request for Check', 'icon' => 'clipboard-check'],
+                ['payment' => 'ca', 'label' => 'Cash Advance', 'icon' => 'banknote'],
+            ];
+        @endphp
+
+        <div class="menu-group {{ $boGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $boGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $boGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="package-x"></i>
+                <span>Back Order Monitor</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
+                @foreach($boLinks as $boLink)
+                    <a
+                        href="{{ route('admin.back-orders.index', array_filter(['payment' => $boLink['payment']])) }}"
+                        class="menu-sub-item {{ $boGroupActive && $activeBoPayment === $boLink['payment'] ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $boLink['icon'] }}"></i>
+                        <span>{{ $boLink['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         @php
             $movementsSectionActive = request()->is('admin/operations/movements*');

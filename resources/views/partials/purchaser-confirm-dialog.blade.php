@@ -204,5 +204,26 @@
             }
         });
     }, true);
+
+    document.addEventListener('click', function (event) {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        var link = event.target.closest && event.target.closest('a[data-pur-confirm][href]');
+        if (!link) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        var danger = link.getAttribute('data-pur-confirm-danger') === '1';
+
+        window.purConfirm({
+            title: link.getAttribute('data-pur-confirm-title') || 'Please confirm',
+            text: link.getAttribute('data-pur-confirm') || 'Are you sure you want to continue?',
+            confirmText: link.getAttribute('data-pur-confirm-ok') || 'Continue',
+            danger: danger,
+            kind: link.getAttribute('data-pur-confirm-kind') || (danger ? 'danger' : 'submit')
+        }).then(function (result) {
+            if (result) window.location.href = link.href;
+        });
+    }, true);
 })();
 </script>

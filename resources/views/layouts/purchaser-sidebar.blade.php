@@ -10,7 +10,7 @@
         </div>
         <div class="min-w-0">
             <h2>PaAyo</h2>
-            <span>Purchaser</span>
+            <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('purchaser') }}</span>
         </div>
     </div>
 
@@ -62,6 +62,9 @@
                         tabindex="0"
                     >
                         Purchasing Workflow
+                    </div>
+                    <div class="dropdown-item" role="option" data-target="history-section" tabindex="0">
+                        History
                     </div>
                 </div>
             </div>
@@ -342,7 +345,7 @@
                 aria-expanded="{{ $atpGroupActive ? 'true' : 'false' }}"
             >
                 <i data-lucide="file-check-2" class="h-5 w-5"></i>
-                <span>ATP</span>
+                <span>Purchasing Process</span>
                 @php $atpGroupInbox = $handoverInbox['atp'] + $handoverInbox['po']; @endphp
                 @if($atpGroupInbox > 0)
                     <span class="{{ str_replace('mr-2', 'mr-1.5', $handoverBadge) }}" title="{{ $atpGroupInbox }} draft(s) passed to you">{{ $atpGroupInbox }}</span>
@@ -374,24 +377,42 @@
         </div>
 
         {{-- ===================================================== --}}
-        {{-- REQUEST CHECK --}}
+        {{-- REQUEST FUND (Request for Check + Cash Advance) --}}
         {{-- ===================================================== --}}
 
-        <a
-            href="{{ route('purchaser.rfc.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.rfc*') ? 'active' : '' }}"
-        >
+        @php
+            $fundGroupActive = request()->routeIs('purchaser.rfc*');
+            $activeFund = $fundGroupActive ? request('fund') : null;
+        @endphp
 
-            <i
-                data-lucide="clipboard-check"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                RFC / Cash Advance
-            </span>
-
-        </a>
+        <div class="menu-group {{ $fundGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $fundGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $fundGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="wallet" class="h-5 w-5"></i>
+                <span>Request Fund</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $fundGroupActive) hidden @endif>
+                <a
+                    href="{{ route('purchaser.rfc.index', ['fund' => 'request_for_check']) }}"
+                    class="menu-sub-item {{ $activeFund === 'request_for_check' ? 'active' : '' }}"
+                >
+                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                    <span>Request for Check</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.rfc.index', ['fund' => 'cash_advance']) }}"
+                    class="menu-sub-item {{ $activeFund === 'cash_advance' ? 'active' : '' }}"
+                >
+                    <i data-lucide="banknote" class="h-4 w-4"></i>
+                    <span>Cash Advance</span>
+                </a>
+            </div>
+        </div>
 
 
 
@@ -414,6 +435,47 @@
             </span>
 
         </a>
+
+        @php
+            $boGroupActive = request()->routeIs('purchaser.bo*');
+            $activeBoPayment = $boGroupActive ? request('payment') : null;
+        @endphp
+
+        <div class="menu-group mt-1 {{ $boGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $boGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $boGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="package-x" class="h-5 w-5"></i>
+                <span>Back Orders</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
+                <a
+                    href="{{ route('purchaser.bo.index') }}"
+                    class="menu-sub-item {{ $boGroupActive && ! $activeBoPayment ? 'active' : '' }}"
+                >
+                    <i data-lucide="layers" class="h-4 w-4"></i>
+                    <span>All Back Orders</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.bo.index', ['payment' => 'rfc']) }}"
+                    class="menu-sub-item {{ $activeBoPayment === 'rfc' ? 'active' : '' }}"
+                >
+                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                    <span>Request for Check</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.bo.index', ['payment' => 'ca']) }}"
+                    class="menu-sub-item {{ $activeBoPayment === 'ca' ? 'active' : '' }}"
+                >
+                    <i data-lucide="banknote" class="h-4 w-4"></i>
+                    <span>Cash Advance</span>
+                </a>
+            </div>
+        </div>
 
         {{-- ===================================================== --}}
         {{-- LIQUIDATION REPORTS --}}
@@ -449,6 +511,18 @@
                 Compiled Records
             </span>
 
+        </a>
+
+        <div class="menu-title" id="history-section">
+            HISTORY
+        </div>
+
+        <a
+            href="{{ route('purchaser.history.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.history*') ? 'active' : '' }}"
+        >
+            <i data-lucide="history" class="h-5 w-5"></i>
+            <span>Purchase History</span>
         </a>
 
         

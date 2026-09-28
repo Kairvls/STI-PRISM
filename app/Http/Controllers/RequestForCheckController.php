@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\DocumentUrgency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -10,6 +11,7 @@ use Illuminate\Validation\Rule;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
+use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RfcAtpLinks;
 use App\Support\ReviewerAssignment;
@@ -50,7 +52,17 @@ class RequestForCheckController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
+        $fundFilter = in_array($request->query('fund'), [ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE], true)
+            ? $request->query('fund')
+            : null;
+        $this->applyFundFilter($query, $fundFilter);
+
+        $attentionFocus = $archiveView
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR);
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeRfcReadyForRr($query);
+        } elseif ($request->filled('status')) {
             $this->applyStatusFilter($query, $request->status);
         }
 
@@ -65,6 +77,7 @@ class RequestForCheckController extends Controller
             $query->whereDate('request_check_table.request_check_date', '<=', $dateTo);
         }
 
+        DocumentUrgency::select($query, 'RFC');
         $spotlightQuery = clone $query;
         $rfcs = $query
             ->orderByDesc($this->rfcSortColumn())
@@ -84,7 +97,7 @@ class RequestForCheckController extends Controller
             }
         }
 
-        $rfcSummary = $this->rfcStatusSummary();
+        $rfcSummary = $this->rfcStatusSummary($fundFilter);
         $eligibleAtps = collect();
         $fundingGroups = [];
         $atpPrefill = [];
@@ -149,6 +162,8 @@ class RequestForCheckController extends Controller
         }
 
         return view('purchaser.request-check.index', [
+            'attentionFocus' => $attentionFocus,
+            'fundFilter' => $fundFilter,
             'rfcs' => $rfcs,
             'archiveView' => $archiveView,
             'rfcSummary' => $rfcSummary,
@@ -773,14 +788,29 @@ class RequestForCheckController extends Controller
 
     private function resolveFundingType(Request $request): string
     {
-        $type = (string) $request->query('funding_type', ProcurementPaymentPath::REQUEST_FOR_CHECK);
+        $type = (string) $request->query('funding_type', $request->query('fund', ProcurementPaymentPath::REQUEST_FOR_CHECK));
 
         return ProcurementPaymentPath::isValid($type)
             ? $type
             : ProcurementPaymentPath::REQUEST_FOR_CHECK;
     }
 
-    private function rfcStatusSummary(): array
+    private function applyFundFilter($query, ?string $fund): void
+    {
+        if (!$fund || !$this->rfcHas('request_check_funding_type')) {
+            return;
+        }
+
+        $query->where(function ($sub) use ($fund) {
+            $sub->where('request_check_table.request_check_funding_type', $fund);
+            if ($fund === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+                $sub->orWhereNull('request_check_table.request_check_funding_type')
+                    ->orWhere('request_check_table.request_check_funding_type', '');
+            }
+        });
+    }
+
+    private function rfcStatusSummary(?string $fund = null): array
     {
         $select = ['request_check_status', DB::raw('COUNT(*) as aggregate')];
         $groupBy = ['request_check_status'];
@@ -789,10 +819,11 @@ class RequestForCheckController extends Controller
             $groupBy[] = 'request_check_is_archived';
         }
 
-        $counts = DB::table('request_check_table')
+        $countsQuery = DB::table('request_check_table')
             ->select($select)
-            ->groupBy($groupBy)
-            ->get();
+            ->groupBy($groupBy);
+        $this->applyFundFilter($countsQuery, $fund);
+        $counts = $countsQuery->get();
 
         $summary = [
             'total' => 0,

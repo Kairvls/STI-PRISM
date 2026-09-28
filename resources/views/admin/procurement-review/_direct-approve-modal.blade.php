@@ -76,9 +76,9 @@
                 </p>
             </div>
 
-            <form id="amendForm" method="POST" action="">
+            <form id="amendForm" method="POST" action="" enctype="multipart/form-data">
                 @csrf
-                <div class="space-y-4 px-5 py-4">
+                <div class="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
                     <div>
                         <label for="amend_remarks" class="block text-sm font-medium text-slate-700">
                             Revision remarks <span class="text-red-500">*</span>
@@ -92,9 +92,11 @@
                             class="mt-1.5 block w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
                         ></textarea>
                         <p class="mt-1.5 text-xs text-slate-400">
-                            These remarks will be visible to the Purchaser when they revise this RIS.
+                            These remarks and any images will be visible to the Purchaser when they revise this RIS.
                         </p>
                     </div>
+
+                    @include('admin.partials.revision-image-picker', ['pickerId' => 'amendRevisionImages'])
 
                     <div class="flex gap-2.5 rounded-xl border border-amber-100 bg-amber-50/80 px-3.5 py-2.5">
                         <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -243,6 +245,9 @@
         }
         form.action = '/admin/procurement-review/ris/' + risId + '/reject';
         textarea.value = '';
+        if (typeof window.resetRevisionImagePicker === 'function') {
+            window.resetRevisionImagePicker('amendRevisionImages');
+        }
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         setTimeout(function () { textarea.focus(); }, 200);

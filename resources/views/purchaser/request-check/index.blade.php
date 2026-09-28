@@ -177,18 +177,26 @@
     @keydown.escape.window="closeAll()"
     class="flex flex-col gap-6"
 >
+    @php
+        $fundQuery = !empty($fundFilter) ? ['fund' => $fundFilter] : [];
+        $fundLabel = match ($fundFilter ?? null) {
+            'cash_advance' => 'Cash Advance',
+            'request_for_check' => 'Request for Check',
+            default => null,
+        };
+    @endphp
     <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <nav class="pur-tabs !mb-0" aria-label="RFC list view">
             <a
-                href="{{ route(($pp ?? 'purchaser').'.rfc.index') }}"
+                href="{{ route(($pp ?? 'purchaser').'.rfc.index', $fundQuery) }}"
                 class="pur-tab {{ !$archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="file-stack" class="h-3.5 w-3.5"></i>
                 Active
             </a>
             <a
-                href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive']) }}"
+                href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive'] + $fundQuery) }}"
                 class="pur-tab {{ $archiveView ? 'is-active' : '' }}"
             >
                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -225,21 +233,21 @@
                     'label' => 'Draft',
                     'hint' => 'Incomplete drafts awaiting submit',
                     'value' => number_format($rfcSummary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft'] + $fundQuery),
                     'active' => request('status') === 'Draft',
                 ],
                 [
                     'label' => 'In Review',
                     'hint' => 'Waiting for accounting review',
                     'value' => number_format($rfcSummary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted'] + $fundQuery),
                     'active' => request('status') === 'Submitted',
                 ],
                 [
                     'label' => 'Approved',
                     'hint' => 'Approved for receiving workflow',
                     'value' => number_format($rfcSummary['approved']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved']),
+                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved'] + $fundQuery),
                     'active' => request('status') === 'Approved',
                 ],
             ],
@@ -253,24 +261,37 @@
             || request()->filled('date_to')
             || request()->filled('date');
         $rfcClearUrl = $archiveView
-            ? route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive'])
-            : route(($pp ?? 'purchaser').'.rfc.index');
+            ? route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive'] + $fundQuery)
+            : route(($pp ?? 'purchaser').'.rfc.index', $fundQuery);
     @endphp
 
     <div id="rfc-records-section" class="pur-card">
+        @if(!empty($attentionFocus))
+            <div class="px-5 pt-5">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $rfcs->total()])
+            </div>
+        @endif
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div class="min-w-0 shrink">
                     <div class="flex items-center gap-3">
                         <h2 class="text-base font-semibold text-gray-950">
-                            {{ $archiveView ? 'Archived RFC' : 'RFC Records' }}
+                            @if($fundLabel)
+                                {{ $archiveView ? 'Archived '.$fundLabel : $fundLabel.' Records' }}
+                            @else
+                                {{ $archiveView ? 'Archived RFC' : 'RFC Records' }}
+                            @endif
                         </h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
                             {{ $rfcs->total() }}
                         </span>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
-                        {{ $archiveView ? 'Stored RFC records.' : 'Manage RFC records.' }}
+                        @if($fundLabel)
+                            {{ $archiveView ? 'Stored '.$fundLabel.' records.' : 'Manage '.$fundLabel.' records.' }}
+                        @else
+                            {{ $archiveView ? 'Stored RFC records.' : 'Manage RFC records.' }}
+                        @endif
                     </p>
                 </div>
 
@@ -281,6 +302,12 @@
                     x-on:submit.prevent="refreshRfcRecords()"
                     class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:ml-auto xl:w-auto xl:flex-nowrap"
                 >
+                    @if(!empty($attentionFocus))
+                        <input type="hidden" name="focus" value="{{ request('focus') }}">
+                    @endif
+                    @if(!empty($fundFilter))
+                        <input type="hidden" name="fund" value="{{ $fundFilter }}">
+                    @endif
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -361,7 +388,12 @@
                                         <i data-lucide="receipt-text" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?: '—' }}</p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?: '—' }}</p>
+                                            @if(\App\Support\DocumentUrgency::isUrgent('RFC', $rfc))
+                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                            @endif
+                                        </div>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rfc->request_check_id }}</p>
                                     </div>
                                 </div>
@@ -448,7 +480,7 @@
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
+                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" data-pur-confirm="Create a Receiving Report for {{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}? The RR form will open with this RFC already selected." data-pur-confirm-title="Create RR" data-pur-confirm-ok="Create RR" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
@@ -560,7 +592,7 @@
                             </div>
                         @else
                             <div class="mb-4">
-                                <label class="text-xs font-medium text-gray-500">Fund <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft)</span></label>
                                 <select name="request_check_funding_source" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
                                     <option value="">Select an approved ATP or Purchase Order</option>
                                     @if(!empty($fundingGroups))
@@ -682,7 +714,12 @@
                 >
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
-                            <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
+                                @if(\App\Support\DocumentUrgency::isUrgent('RFC', $rfc))
+                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                @endif
+                            </div>
                             <p class="mt-1 text-sm text-gray-500">
                                 @if(!empty($rfc->purchase_order_label))
                                     {{ $rfc->purchase_order_label }} · ATPs: {{ implode(', ', $rfc->linked_atp_labels ?? []) }}
@@ -695,6 +732,11 @@
                             </p>
                             @if($rfc->request_check_revision_notes)
                                 <p class="mt-2 text-sm text-amber-700">Revision notes: {{ $rfc->request_check_revision_notes }}</p>
+                                @include('partials.ris-revision-images', [
+                                    'revision' => \App\Support\DocumentRevisionNotes::latest('RFC', $rfc->request_check_id),
+                                    'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                    'size' => 'sm',
+                                ])
                             @endif
                             @if($rfc->request_check_rejection_reason)
                                 <p class="mt-2 text-sm text-red-700">Rejection: {{ $rfc->request_check_rejection_reason }}</p>
@@ -841,7 +883,7 @@
                                     @endif
                                 @elseif(($eligibleAtps ?? collect())->isNotEmpty() || !empty($fundingGroups))
                                     <div class="mb-4">
-                                        <label class="text-xs font-medium text-gray-500">Fund <span class="font-normal text-gray-400">(required before submit)</span></label>
+                                        <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(required before submit)</span></label>
                                         <select
                                             name="request_check_funding_source"
                                             class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
@@ -1012,4 +1054,5 @@
         .rfc-print-active { background: #fff !important; }
     }
 </style>
+@include('partials.ris-revision-image-viewer')
 @endsection

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\DocumentUrgency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\BackOrders;
 use App\Support\ProcurementPaymentPath;
+use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
 use App\Support\RfcAtpLinks;
@@ -27,6 +30,14 @@ class ReceivingReportController extends Controller
         'Under Review',
         'Minor Revision',
         'Resubmitted',
+    ];
+
+    // Missing or damaged items are delivered as replacement rows on the same RR, never on a second RR.
+    private const TAKEN_STATUSES = [
+        ...self::ACTIVE_STATUSES,
+        'Completed',
+        'Accepted',
+        'Incomplete',
     ];
 
     public function index(Request $request)
@@ -51,7 +62,12 @@ class ReceivingReportController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
+        $attentionFocus = $archiveView
+            ? null
+            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_RR_READY_FOR_LIQ);
+        if ($attentionFocus) {
+            PurchaserAttentionSummary::scopeRrReadyForLiq($query);
+        } elseif ($request->filled('status')) {
             $this->applyStatusFilter($query, $request->status);
         }
 
@@ -59,6 +75,12 @@ class ReceivingReportController extends Controller
             $query->whereDate('receiving_reports_table.receiving_report_date', $request->date);
         }
 
+        $completeness = in_array($request->query('completeness'), ['complete', 'incomplete'], true) ? $request->query('completeness') : null;
+        if (!$attentionFocus) {
+            $this->applyBackOrderFilters($query, $completeness, $request->boolean('replacement'), $request->boolean('new_supplier'));
+        }
+
+        DocumentUrgency::select($query, 'RR');
         $spotlightQuery = clone $query;
         $reports = $query
             ->orderByDesc('receiving_reports_table.receiving_report_created_at')
@@ -66,12 +88,14 @@ class ReceivingReportController extends Controller
             ->withQueryString();
 
         $viewRrId = (int) ($request->query('view_rr') ?: 0);
+        $editRrId = (int) ($request->query('edit_rr') ?: 0);
+        $spotlightId = $editRrId ?: $viewRrId;
         if (
-            $viewRrId
-            && !$reports->getCollection()->contains(fn ($row) => (int) $row->receiving_report_id === $viewRrId)
+            $spotlightId
+            && !$reports->getCollection()->contains(fn ($row) => (int) $row->receiving_report_id === $spotlightId)
         ) {
             $spotlight = $spotlightQuery
-                ->where('receiving_reports_table.receiving_report_id', $viewRrId)
+                ->where('receiving_reports_table.receiving_report_id', $spotlightId)
                 ->first();
             if ($spotlight) {
                 $reports->setCollection($reports->getCollection()->prepend($spotlight));
@@ -105,14 +129,20 @@ class ReceivingReportController extends Controller
                 ->all();
         }
 
+        $unresolvedBackOrders = BackOrders::unresolvedCounts($rrIds->all());
         foreach ($reports as $rr) {
             $rr->has_liq = in_array((int) $rr->receiving_report_id, $rrHasLiq, true);
             $path = $rr->authority_purchase_payment_path
                 ?? ($rr->request_check_funding_type ?? null);
             $rr->requires_liquidation = ProcurementPaymentPath::requiresLiquidation($path);
+            $rr->open_back_orders = (int) ($unresolvedBackOrders[(int) $rr->receiving_report_id] ?? 0);
+            $rrRows = $items->get($rr->receiving_report_id, collect());
+            $rr->replacement_rows = $rrRows->filter(fn ($row) => !empty($row->receiving_report_item_back_order_id))->count();
+            $rr->is_incomplete = $rr->receiving_report_status === 'Incomplete' || $rr->open_back_orders > 0;
         }
 
         return view('purchaser.receiving-reports.index', [
+            'attentionFocus' => $attentionFocus,
             'reports' => $reports,
             'archiveView' => $archiveView,
             'summary' => $summary,
@@ -123,6 +153,8 @@ class ReceivingReportController extends Controller
             'selectedRfcId' => $selectedRfcId ?: null,
             'selectedFundingKey' => $selectedFundingKey !== '' ? $selectedFundingKey : null,
             'viewRrId' => $viewRrId ?: null,
+            'editRrId' => $editRrId ?: null,
+            'completeness' => $completeness,
             'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
             'suggestedRrFormNumber' => RrFormNumber::next(),
         ]);
@@ -144,6 +176,10 @@ class ReceivingReportController extends Controller
 
         if ($error = $this->rrEligibilityError($rfcId, $atpId, null, !$isDraft)) {
             return back()->withInput()->with('error', $error);
+        }
+
+        if (!$isDraft && ($itemError = $this->rrItemRowsError($validated['items'] ?? [], $atpId))) {
+            return back()->withInput()->with('error', $itemError);
         }
 
         if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $atpId, $validated['items'] ?? []))) {
@@ -198,13 +234,15 @@ class ReceivingReportController extends Controller
             $this->linkRfc($rfcId, $id);
             $this->attachRelatedDocuments($id, $rfcId, $atpId);
 
+            $backOrders = 0;
             if (!$isDraft) {
+                $backOrders = $this->syncBackOrders($id);
                 $this->notifyReceiving($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
                 'success',
-                $isDraft ? 'Receiving Report draft saved.' : 'Receiving Report submitted to Receiving.'
+                $isDraft ? 'Receiving Report draft saved.' : $this->submittedMessage($backOrders)
             );
         });
     }
@@ -234,7 +272,11 @@ class ReceivingReportController extends Controller
             return back()->withInput()->with('error', $error);
         }
 
-        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $atpId, $validated['items'] ?? []))) {
+        if (!$isDraft && ($itemError = $this->rrItemRowsError($validated['items'] ?? [], $atpId, (int) $id))) {
+            return back()->withInput()->with('error', $itemError);
+        }
+
+        if (!$isDraft && ($itemError = $this->validateRrItemsForFunding($rfcId, $atpId, $validated['items'] ?? [], (int) $id))) {
             return back()->withInput()->with('error', $itemError);
         }
 
@@ -287,13 +329,15 @@ class ReceivingReportController extends Controller
             $this->linkRfc($rfcId, $id);
             $this->attachRelatedDocuments($id, $rfcId, $atpId);
 
+            $backOrders = 0;
             if (!$isDraft) {
+                $backOrders = $this->syncBackOrders($id);
                 $this->notifyReceiving($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
                 'success',
-                $isDraft ? 'Receiving Report updated.' : 'Receiving Report submitted to Receiving.'
+                $isDraft ? 'Receiving Report updated.' : $this->submittedMessage($backOrders)
             );
         });
     }
@@ -316,6 +360,10 @@ class ReceivingReportController extends Controller
 
             if (!$this->hasCompleteRrItem($id)) {
                 return back()->with('error', 'Add at least one item with quantity of 1 or more before submitting.');
+            }
+
+            if ($itemError = $this->rrItemRowsError($this->storedRrItemRows((int) $id), $atpId, (int) $id)) {
+                return back()->with('error', $itemError);
             }
 
             $receivedName = trim((string) ($rr->receiving_report_received_by_name ?? ''));
@@ -344,9 +392,10 @@ class ReceivingReportController extends Controller
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($update);
             $this->linkRfc($rfcId, $id);
             $this->attachRelatedDocuments($id, $rfcId, $atpId);
+            $backOrders = $this->syncBackOrders($id);
             $this->notifyReceiving($id, $reviewerId);
 
-            return back()->with('success', 'Receiving Report submitted to Receiving.');
+            return back()->with('success', $this->submittedMessage($backOrders));
         });
     }
 
@@ -424,8 +473,8 @@ class ReceivingReportController extends Controller
             'receiving_report_received_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'items' => ['nullable', 'array', 'max:9'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:999999'],
-            'items.*.ordered_qty' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:9999999'],
+            'items.*.ordered_qty' => ['nullable', 'integer', 'min:0', 'max:9999999'],
             'items.*.condition' => ['nullable', 'in:ok,short,bad_order'],
             'items.*.condition_remarks' => ['nullable', 'string', 'max:500'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
@@ -433,7 +482,12 @@ class ReceivingReportController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
             'items.*.supplier_name' => ['nullable', 'string', 'max:255'],
+            'items.*.back_order_id' => ['nullable', 'integer'],
+            'items.*.item_id' => ['nullable', 'integer'],
+            'items.*.damaged_qty' => ['nullable', 'integer', 'min:0', 'max:9999999', 'lte:items.*.quantity'],
+            'items.*.damage_remarks' => ['nullable', 'string', 'max:500'],
         ], [
+            'items.*.damaged_qty.lte' => 'Damaged units cannot be more than the quantity received.',
             'receiving_report_form_number.required' => 'Receiving Report number is required before submitting.',
             'receiving_report_form_number.regex' => 'Receiving Report number must follow the format RR-YYYYMM-0000001.',
             'receiving_report_form_number.unique' => 'This Receiving Report number is already in use.',
@@ -454,12 +508,34 @@ class ReceivingReportController extends Controller
         ];
     }
 
-    private function replaceItems($rrId, array $items, ?string $paymentPath = null): void
+    /**
+     * Rows already verified at second count are kept untouched; the rest are re-inserted in form order
+     * and their back order links move to the new row ids.
+     */
+    private function replaceItems($rrId, array $items): void
     {
-        DB::table('receiving_report_items_table')->where('receiving_report_id', $rrId)->delete();
+        $table = 'receiving_report_items_table';
+        $hasVerified = Schema::hasColumn($table, 'receiving_report_item_verified');
+        $existing = DB::table($table)->where('receiving_report_id', $rrId)->orderBy('receiving_report_item_id')->get();
+        [$verifiedRows, $oldRows] = $existing->partition(fn ($row) => $hasVerified && !empty($row->receiving_report_item_verified));
+        $verifiedIds = $verifiedRows->pluck('receiving_report_item_id')->map(fn ($itemId) => (int) $itemId)->all();
+        $oldIds = $oldRows->pluck('receiving_report_item_id')->map(fn ($itemId) => (int) $itemId)->values()->all();
 
-        $rows = [];
-        foreach (array_slice($items, 0, 10) as $row) {
+        DB::table($table)->where('receiving_report_id', $rrId)
+            ->when($verifiedIds !== [], fn ($q) => $q->whereNotIn('receiving_report_item_id', $verifiedIds))
+            ->delete();
+
+        $allowedBackOrderIds = BackOrders::supported()
+            ? DB::table(BackOrders::TABLE)->where('back_order_root_receiving_report_id', $rrId)->pluck('back_order_id')->map(fn ($boId) => (int) $boId)->all()
+            : [];
+        $hasBackOrderColumn = Schema::hasColumn($table, 'receiving_report_item_back_order_id');
+        $hasDamagedColumn = Schema::hasColumn($table, 'receiving_report_item_damaged_qty');
+
+        $newIds = [];
+        foreach (array_slice($items, 0, 9) as $row) {
+            if (in_array((int) ($row['item_id'] ?? 0), $verifiedIds, true)) {
+                continue;
+            }
             $qty = $row['quantity'] ?? null;
             $unit = $row['unit'] ?? null;
             $article = $row['article'] ?? null;
@@ -508,15 +584,154 @@ class ReceivingReportController extends Controller
                     ? trim((string) $row['condition_remarks'])
                     : null;
             }
+            if ($hasBackOrderColumn) {
+                $backOrderId = (int) ($row['back_order_id'] ?? 0);
+                $itemRow['receiving_report_item_back_order_id'] = in_array($backOrderId, $allowedBackOrderIds, true) ? $backOrderId : null;
+            }
+            if ($hasDamagedColumn) {
+                $damaged = min((int) ($qty ?: 0), max(0, (int) ($row['damaged_qty'] ?? 0)));
+                $itemRow['receiving_report_item_damaged_qty'] = $damaged;
+                $damageRemarks = $row['damage_remarks'] ?? $row['condition_remarks'] ?? null;
+                $itemRow['receiving_report_item_damage_remarks'] = $damaged > 0 && filled($damageRemarks)
+                    ? mb_substr(trim((string) $damageRemarks), 0, 500)
+                    : null;
+            }
 
-            $rows[] = $itemRow;
+            $newId = (int) DB::table($table)->insertGetId($itemRow, 'receiving_report_item_id');
+            $postedId = (int) ($row['item_id'] ?? 0);
+            if (in_array($postedId, $oldIds, true)) {
+                $newIds[$postedId] = $newId;
+            }
         }
-        if ($rows !== []) {
-            DB::table('receiving_report_items_table')->insert($rows);
-        }
+
+        $this->relinkBackOrders($rrId, $oldIds, $newIds);
     }
 
-    private function validateRrItemsForFunding($rfcId, $atpId, array $items): ?string
+    /**
+     * Point back orders at the re-inserted rows; back orders of removed rows are dropped
+     * (or, for a removed replacement row, reopened).
+     *
+     * @param  array<int, int>  $oldIds
+     * @param  array<int, int>  $newIds  old row id => new row id
+     */
+    private function relinkBackOrders($rrId, array $oldIds, array $newIds): void
+    {
+        if ($oldIds === [] || !BackOrders::supported()) {
+            return;
+        }
+
+        $table = BackOrders::TABLE;
+        foreach ($newIds as $oldId => $newId) {
+            DB::table($table)->where('back_order_receiving_report_item_id', $oldId)->update(['back_order_receiving_report_item_id' => $newId]);
+            DB::table($table)->where('back_order_replacement_item_id', $oldId)->update(['back_order_replacement_item_id' => $newId]);
+        }
+
+        $removedIds = array_values(array_diff($oldIds, array_keys($newIds)));
+        if ($removedIds === []) {
+            return;
+        }
+
+        foreach (DB::table($table)->whereIn('back_order_replacement_item_id', $removedIds)->get() as $bo) {
+            BackOrders::clearReplacement($bo);
+        }
+        BackOrders::deleteBackOrders(DB::table($table)->whereIn('back_order_receiving_report_item_id', $removedIds)->get());
+    }
+
+    /**
+     * Row checks applied on submit: ordered and received are both required, received cannot exceed
+     * ordered, article and unit are required, and ordered must match the ATP line (or back order).
+     */
+    private function rrItemRowsError(array $items, ?int $atpId, ?int $rrId = null): ?string
+    {
+        $filled = fn ($value) => $value !== null && trim((string) $value) !== '';
+        $normalize = fn ($text) => mb_strtolower(preg_replace('/\s+/', ' ', trim((string) $text)));
+
+        $atpLines = $atpId
+            ? DB::table('authority_to_purchase_items_table')
+                ->where('authority_purchase_id', $atpId)
+                ->orderBy('atp_item_id')
+                ->get(['atp_description', 'atp_quantity'])
+                ->map(fn ($line) => ['description' => $normalize($line->atp_description), 'quantity' => (int) $line->atp_quantity])
+                ->all()
+            : [];
+        $backOrders = $rrId && BackOrders::supported()
+            ? BackOrders::forRoot($rrId)->keyBy('back_order_id')
+            : collect();
+
+        foreach (array_values(array_slice($items, 0, 9)) as $index => $row) {
+            $line = 'Item '.($index + 1);
+            $ordered = $row['ordered_qty'] ?? null;
+            $received = $row['quantity'] ?? null;
+            $article = $row['article'] ?? null;
+            $unit = $row['unit'] ?? null;
+            $hasData = $filled($ordered) || $filled($received) || (int) ($row['damaged_qty'] ?? 0) > 0
+                || $filled($article) || $filled($unit);
+            if (!$hasData) {
+                continue;
+            }
+
+            if (!$filled($ordered)) {
+                return $line.': enter the ordered quantity.';
+            }
+            if (!$filled($received)) {
+                return $line.': enter the received quantity (0 if nothing arrived).';
+            }
+            if ((int) $received > (int) $ordered) {
+                return $line.': received ('.(int) $received.') cannot be more than ordered ('.(int) $ordered.').';
+            }
+            if (!$filled($article) || !$filled($unit)) {
+                return $line.': article and unit are required.';
+            }
+
+            $backOrder = $backOrders->get((int) ($row['back_order_id'] ?? 0));
+            if ($backOrder) {
+                $expected = (int) $backOrder->back_order_quantity;
+                if ((int) $ordered !== $expected) {
+                    return $line.': ordered must match the back order quantity ('.$expected.').';
+                }
+                continue;
+            }
+
+            $key = $normalize($article);
+            foreach ($atpLines as $atpIndex => $atpLine) {
+                if ($atpLine['description'] !== $key) {
+                    continue;
+                }
+                unset($atpLines[$atpIndex]);
+                if ((int) $ordered !== $atpLine['quantity']) {
+                    return $line.': ordered must match the ATP quantity ('.$atpLine['quantity'].').';
+                }
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Stored rows in the same shape as the submitted form, skipping rows already verified at second count.
+     */
+    private function storedRrItemRows(int $rrId): array
+    {
+        $table = 'receiving_report_items_table';
+        $hasVerified = Schema::hasColumn($table, 'receiving_report_item_verified');
+
+        return DB::table($table)
+            ->where('receiving_report_id', $rrId)
+            ->orderBy('receiving_report_item_id')
+            ->get()
+            ->map(fn ($item) => ($hasVerified && !empty($item->receiving_report_item_verified)) ? [] : [
+                'ordered_qty' => $item->receiving_report_item_ordered_qty ?? null,
+                'quantity' => $item->receiving_report_item_quantity ?? null,
+                'damaged_qty' => $item->receiving_report_item_damaged_qty ?? 0,
+                'article' => $item->receiving_report_item_article ?? null,
+                'unit' => $item->receiving_report_item_unit ?? null,
+                'back_order_id' => $item->receiving_report_item_back_order_id ?? null,
+            ])
+            ->all();
+    }
+
+    private function validateRrItemsForFunding($rfcId, $atpId, array $items, ?int $rrId = null): ?string
     {
         if (!$rfcId) {
             return null;
@@ -541,12 +756,6 @@ class ReceivingReportController extends Controller
             ->get();
 
         if ($path === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
-            foreach ($atpItems as $item) {
-                if ((int) ($item->atp_back_order_qty ?? 0) > 0) {
-                    return 'Back order items must be fulfilled by the original supplier before creating a Receiving Report.';
-                }
-            }
-
             foreach ($items as $row) {
                 if (!empty($row['supplier_id']) && (int) $row['supplier_id'] !== (int) $rfc->authority_purchase_supplier_id) {
                     return 'Request for Check requires all items from the ATP supplier only.';
@@ -554,10 +763,26 @@ class ReceivingReportController extends Controller
             }
         }
 
+        $backOrders = $rrId && BackOrders::supported()
+            ? BackOrders::forRoot((int) $rrId)->keyBy('back_order_id')
+            : collect();
+        $rows = array_values(array_slice($items, 0, 9));
+        foreach ($rows as $index => $row) {
+            $qty = (int) ($row['quantity'] ?? 0);
+            $backOrder = $backOrders->get((int) ($row['back_order_id'] ?? 0));
+            if ($backOrder && $qty > (int) $backOrder->back_order_quantity) {
+                return 'Item ' . ($index + 1) . ' cannot receive more than the ' . (int) $backOrder->back_order_quantity . ' on back order.';
+            }
+        }
+
         if ($path === ProcurementPaymentPath::CASH_ADVANCE) {
             $budgetByIndex = $atpItems->values();
-            foreach (array_values(array_slice($items, 0, 10)) as $index => $row) {
-                $budgetItem = $budgetByIndex[$index] ?? null;
+            $originalIndex = 0;
+            foreach ($rows as $index => $row) {
+                if ($backOrders->has((int) ($row['back_order_id'] ?? 0))) {
+                    continue;
+                }
+                $budgetItem = $budgetByIndex[$originalIndex++] ?? null;
                 if (!$budgetItem) {
                     continue;
                 }
@@ -708,7 +933,7 @@ class ReceivingReportController extends Controller
                 $inner->whereNull('receiving_report_is_archived')
                     ->orWhere('receiving_report_is_archived', 0);
             })
-            ->whereIn('receiving_report_status', self::ACTIVE_STATUSES)
+            ->whereIn('receiving_report_status', self::TAKEN_STATUSES)
             ->get($this->rrHasAtpColumn()
                 ? ['receiving_report_request_check_id', 'receiving_report_atp_id']
                 : ['receiving_report_request_check_id']);
@@ -820,6 +1045,7 @@ class ReceivingReportController extends Controller
             'draft' => 0,
             'submitted' => 0,
             'completed' => 0,
+            'incomplete' => 0,
             'returned' => 0,
             'archived' => 0,
         ];
@@ -838,6 +1064,8 @@ class ReceivingReportController extends Controller
                 $summary['submitted'] += $count;
             } elseif ($row->receiving_report_status === 'Completed') {
                 $summary['completed'] += $count;
+            } elseif ($row->receiving_report_status === 'Incomplete') {
+                $summary['incomplete'] += $count;
             } elseif ($row->receiving_report_status === 'Returned') {
                 $summary['returned'] += $count;
             }
@@ -894,7 +1122,7 @@ class ReceivingReportController extends Controller
 
         $query = DB::table('receiving_reports_table')
             ->where('receiving_report_request_check_id', $rfcId)
-            ->whereIn('receiving_report_status', self::ACTIVE_STATUSES)
+            ->whereIn('receiving_report_status', self::TAKEN_STATUSES)
             ->where(function ($q) {
                 $q->whereNull('receiving_report_is_archived')
                     ->orWhere('receiving_report_is_archived', 0);
@@ -915,6 +1143,60 @@ class ReceivingReportController extends Controller
         }
 
         return $query->exists();
+    }
+
+    /**
+     * Purchaser's verdict at submission (first check) creates the back orders.
+     */
+    private function syncBackOrders($rrId): int
+    {
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->first();
+
+        return $rr ? BackOrders::syncForRr($rr) : 0;
+    }
+
+    private function submittedMessage(int $newBackOrders): string
+    {
+        return $newBackOrders > 0
+            ? 'Receiving Report submitted to Receiving as Incomplete. ' . $newBackOrders . ' missing/damaged line' . ($newBackOrders === 1 ? ' was' : 's were') . ' added to Back Orders.'
+            : 'Receiving Report submitted to Receiving.';
+    }
+
+    private function applyBackOrderFilters($query, ?string $completeness, bool $replacementOnly, bool $newSupplierOnly): void
+    {
+        $unresolved = function ($q) {
+            $q->select(DB::raw(1))
+                ->from(BackOrders::TABLE)
+                ->whereColumn('back_order_root_receiving_report_id', 'receiving_reports_table.receiving_report_id')
+                ->whereIn('back_order_status', BackOrders::UNRESOLVED);
+        };
+        $supported = BackOrders::supported();
+
+        if ($completeness === 'incomplete') {
+            $query->where(function ($q) use ($unresolved, $supported) {
+                $q->where('receiving_reports_table.receiving_report_status', 'Incomplete');
+                if ($supported) {
+                    $q->orWhereExists($unresolved);
+                }
+            });
+        } elseif ($completeness === 'complete') {
+            $query->whereIn('receiving_reports_table.receiving_report_status', ['Completed', 'Accepted']);
+            if ($supported) {
+                $query->whereNotExists($unresolved);
+            }
+        }
+
+        if (($replacementOnly || $newSupplierOnly) && $supported) {
+            $query->whereExists(function ($q) use ($newSupplierOnly) {
+                $q->select(DB::raw(1))
+                    ->from(BackOrders::TABLE)
+                    ->whereColumn('back_order_root_receiving_report_id', 'receiving_reports_table.receiving_report_id')
+                    ->whereNotNull('back_order_replacement_item_id');
+                if ($newSupplierOnly) {
+                    $q->whereNotNull('back_order_replacement_supplier_name');
+                }
+            });
+        }
     }
 
     private function rfcReadyForReceivingReport($rfcId): bool

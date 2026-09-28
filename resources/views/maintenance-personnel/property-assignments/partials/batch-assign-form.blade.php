@@ -73,7 +73,7 @@
         @else
             <label class="block">
                 <span class="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
-                    Accountable person
+                    <span>Accountable person <span class="text-red-500">*</span></span>
                     <a href="{{ route('maintenance.property-assignments.people.create', ['room' => $roomId ?? null]) }}" class="font-semibold text-[#0025cc] hover:underline">+ Add person</a>
                 </span>
                 <select name="custodian_id" required data-searchable="1" data-search-placeholder="Search name, position, or ID…" class="{{ $fieldClass }}">

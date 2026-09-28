@@ -3,755 +3,491 @@
 @section('title', 'Dashboard')
 
 @section('content')
+@php
+    $d = $dashboard;
+    $counts = $d['counts'];
+    $queue = $d['queue'];
+    $board = $d['board'];
+    $snap = $d['snapshot'];
+    $week = $d['week'];
+    $replacementCount = $board['receiving']['count'] ?? 0;
+    $firstName = trim(explode(' ', (string) ($user->user_full_name ?? $user->name ?? ''))[0] ?? '');
+
+    $peso = fn ($v) => '₱'.number_format((float) $v, 2);
+    $plural = fn (int $n, string $word, ?string $many = null) => $n.' '.($n === 1 ? $word : ($many ?? $word.'s'));
+    $ageText = function (?int $days) {
+        if ($days === null) return '—';
+        if ($days === 0) return 'today';
+        return $days === 1 ? '1 day' : $days.' days';
+    };
+
+    // Neutral scale; amber is reserved for things Receiving has to act on.
+    $tones = [
+        'ink' => ['dot' => 'bg-[#0025cc]', 'hex' => '#0025cc'],
+        'mid' => ['dot' => 'bg-slate-500', 'hex' => '#64748b'],
+        'soft' => ['dot' => 'bg-slate-300', 'hex' => '#cbd5e1'],
+        'accent' => ['dot' => 'bg-amber-500', 'hex' => '#f59e0b'],
+    ];
+    $boardFilter = [
+        'open' => 'unresolved',
+        'waiting_restock' => 'waiting_restock',
+        'refunded' => 'refunded',
+        'receiving' => 'receiving',
+    ];
+
+    if ($counts['pendingCount'] > 0) {
+        $headline = $plural($counts['pendingCount'], 'delivery', 'deliveries').' waiting for your second count';
+    } elseif ($replacementCount > 0) {
+        $headline = $plural($replacementCount, 'replacement').' arrived and need counting';
+    } else {
+        $headline = 'Nothing waiting to be counted';
+    }
+    $subline = $snap['total'] > 0
+        ? $plural($snap['total'], 'back-order line').' still open ('.$plural($snap['units'], 'unit').') across '.$plural($d['incomplete']->count(), 'incomplete report').'.'
+        : 'No open back orders. Every counted delivery is complete.';
+
+    $ring = [];
+    $cursor = 0;
+    foreach ($snap['byStatus'] as $row) {
+        if ($snap['total'] <= 0 || $row['count'] <= 0) continue;
+        $end = $cursor + ($row['count'] / $snap['total']) * 360;
+        $ring[] = $tones[$row['tone']]['hex'].' '.round($cursor, 2).'deg '.round($end, 2).'deg';
+        $cursor = $end;
+    }
+    $ringCss = $ring ? 'conic-gradient('.implode(', ', $ring).')' : 'conic-gradient(#f1f5f9 0deg 360deg)';
+
+    $weekMax = max(1, collect($week)->max(fn ($day) => max($day['arrived'], $day['counted'])));
+    $missingShare = $snap['units'] > 0 ? round(($snap['missing']['units'] / $snap['units']) * 100) : 0;
+@endphp
 
 <style>
-.ro-dash { font-family: Inter, sans-serif; }
-.ro-dash-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
-.ro-date { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; font-weight: 500; color: #475569; }
-.ro-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
-.ro-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
-.ro-card-link { display: block; text-decoration: none; color: inherit; }
-.ro-card-link:hover .ro-card { border-color: #cbd5e1; box-shadow: 0 6px 16px rgba(15,23,42,.06); transform: translateY(-1px); }
-.ro-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.03); transition: .15s ease; height: 100%; }
-.ro-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-.ro-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-.ro-icon i, .ro-icon svg { width: 18px; height: 18px; }
-.ro-icon-amber { background: #fffbeb; color: #d97706; }
-.ro-icon-emerald { background: #eff6ff; color: #3b82f6; }
-.ro-icon-rose { background: #f1f5f9; color: #475569; }
-.ro-icon-blue { background: #eff6ff; color: #3b82f6; }
-.ro-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
-.ro-pill-warn { background: #fffbeb; color: #d97706; }
-.ro-pill-ok { background: #eff6ff; color: #3b82f6; }
-.ro-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
-.ro-value { font-family: Outfit, sans-serif; font-size: 1.75rem; font-weight: 700; color: #0f172a; line-height: 1; }
-.ro-hint { margin-top: 6px; font-size: 12px; color: #94a3b8; }
-.ro-alert { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-radius: 18px; margin-bottom: 16px; }
-.ro-alert-warn { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
-.ro-alert-ok { background: #f8fbff; border: 1px solid #bfdbfe; }
-.ro-alert-left { display: flex; align-items: center; gap: 12px; }
-.ro-alert-icon { width: 40px; height: 40px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
-.ro-alert-title { font-family: Outfit, sans-serif; font-size: 15px; font-weight: 700; color: #0f172a; }
-.ro-alert-desc { margin-top: 2px; font-size: 12px; color: #64748b; }
-.ro-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #64748b; color: #fff; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.ro-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
-.ro-panel-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
-.ro-panel-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; }
-.ro-panel-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
-.ro-link { font-size: 12px; font-weight: 600; color: #3b82f6; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.ro-table { width: 100%; border-collapse: collapse; }
-.ro-table th { text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-.ro-table td { padding: 10px 14px; font-size: 12px; color: #475569; border-bottom: 1px solid #f1f5f9; }
-.ro-ref { font-weight: 600; color: #0f172a; }
-.ro-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.ro-badge-amber { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-.ro-badge-emerald { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
-.ro-badge-rose { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-.ro-side { display: flex; flex-direction: column; gap: 16px; }
-.ro-act { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f8fafc; }
-.ro-act:last-child { border-bottom: none; }
-.ro-empty { padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 13px; }
-.ro-attention-popup {
-    position: fixed;
-    inset: 0;
-    z-index: 12000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(15, 23, 42, 0.45);
-    padding: 16px;
-}
-.ro-attention-popup.hidden { display: none !important; }
-.ro-attention-card {
-    position: relative;
-    width: min(420px, 100%);
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    padding: 24px 22px 20px;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
-}
-.ro-attention-close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    cursor: pointer;
-}
-.ro-attention-title {
-    font-family: Outfit, sans-serif;
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: #0a0a0a;
-}
-.ro-attention-subtitle {
-    margin-top: 6px;
-    font-size: 0.875rem;
-    color: #64748b;
-}
-.ro-attention-rows {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.ro-attention-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-}
-.ro-attention-row-blue { background: #eff6ff; border-color: #bfdbfe; }
-.ro-attention-row-yellow { background: #fffbeb; border-color: #fde68a; }
-.ro-attention-label { font-size: 12px; font-weight: 600; color: #64748b; }
-.ro-attention-value { margin-top: 2px; font-family: Outfit, sans-serif; font-size: 1.35rem; font-weight: 700; color: #0f172a; }
-.ro-attention-cta {
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 10px;
-    background: #0025cc;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    text-decoration: none;
-    white-space: nowrap;
-}
-.ro-attention-cta:hover { background: #001db3; }
-.sidebar-calendar-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
-.sidebar-calendar-header { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
-.sidebar-calendar-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; }
-.sidebar-calendar-body { padding: 10px 12px 12px; }
-.calendar-month-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.cal-nav-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; }
-.cal-nav-btn:hover { background: #fff; border-color: #cbd5e1; color: #0f172a; }
-.cal-nav-btn:disabled, .cal-nav-btn:disabled:hover { opacity: .4; cursor: not-allowed; background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
-.cal-month-label { font-size: 12px; font-weight: 700; color: #0f172a; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 10px; }
-.cal-day-header { text-align: center; font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; padding: 2px 0; }
-.cal-day { text-align: center; padding: 4px 1px; border-radius: 6px; font-size: 10px; font-weight: 500; color: #475569; min-height: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: none; background: transparent; width: 100%; font-family: inherit; }
-.cal-day-btn { cursor: pointer; }
-.cal-day-btn:hover { background: #f1f5f9; }
-.cal-day-empty { opacity: .3; }
-.cal-day-today { background: #eff6ff; color: #3b82f6; font-weight: 700; }
-.cal-day-has-event { color: #0f172a; font-weight: 600; }
-.cal-day-selected { outline: 2px solid #60a5fa; outline-offset: 1px; background: #dbeafe; }
-.cal-day-dot { width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; margin-top: 1px; }
-.cal-day-events { border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 8px; }
-.cal-day-events-title { font-size: 10px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
-.cal-upcoming { border-top: 1px solid #f1f5f9; padding-top: 8px; }
-.cal-upcoming-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
-.cal-upcoming-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; transition: background .15s ease; border-radius: 6px; }
-.cal-upcoming-item.is-highlighted { background: #eff6ff; padding: 4px 6px; }
-.cal-upcoming-dot { width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; margin-top: 4px; flex-shrink: 0; }
-.cal-upcoming-content { display: flex; flex-direction: column; min-width: 0; }
-.cal-upcoming-name { font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-upcoming-date { font-size: 9px; color: #94a3b8; }
-.cal-upcoming-empty { font-size: 10px; color: #94a3b8; text-align: center; padding: 6px 0; }
-.cal-view-all {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin-top: 10px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    color: #0f172a;
-    font-size: 11px;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background .15s ease, border-color .15s ease;
-}
-.cal-view-all:hover { background: #fff; border-color: #cbd5e1; color: #3b82f6; }
-.cal-view-all-hint { margin-top: 6px; font-size: 10px; color: #94a3b8; text-align: center; }
-@media (max-width: 1200px) { .ro-grid { grid-template-columns: 1fr; } .ro-stat-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) { .ro-stat-grid { grid-template-columns: 1fr; } .ro-dash-header, .ro-alert { flex-direction: column; align-items: flex-start; } }
+    .rod-panel { border-radius: 1rem; border: 1px solid #e2e8f0; background: #fff; }
+    .rod-perf { border-top: 1px dashed #e2e8f0; }
+    .rod-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; }
 </style>
 
-<div class="admin-page ro-dash">
-    <div class="ro-dash-header">
-        
-        <span class="ro-date">
-            <i data-lucide="calendar" class="h-4 w-4"></i>
-            {{ now()->format('l, F j, Y') }}
-        </span>
-    </div>
+<span class="admin-keep-colors hidden" aria-hidden="true"></span>
+<div class="mx-auto max-w-[1400px] space-y-6">
 
-    @include('layouts.partials.receiving-query-error')
+    {{-- Overview --}}
+    <section class="rod-panel overflow-hidden">
+        <div class="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div class="min-w-0">
+                <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    <i data-lucide="warehouse" class="h-3.5 w-3.5 text-slate-400"></i>
+                    <span class="font-medium text-slate-700">Receiving</span>
+                    <span class="text-slate-300">/</span>
+                    <span>{{ now()->format('l, F j, Y') }}</span>
+                    @if($firstName !== '')
+                        <span class="text-slate-300">/</span>
+                        <span>On duty: {{ $firstName }}</span>
+                    @endif
+                </p>
+                <h1 class="mt-4 max-w-2xl text-2xl font-semibold tracking-tight text-slate-900 sm:text-[28px] sm:leading-tight">{{ $headline }}</h1>
+                <p class="mt-2 max-w-2xl text-sm text-slate-500">{{ $subline }}</p>
 
-    <div class="ro-grid">
-        <div>
-            <div class="ro-stat-grid">
-                <a href="/receiving/reports" class="ro-card-link">
-                    <div class="ro-card">
-                        <div class="ro-card-top">
-                            <div class="ro-icon ro-icon-amber"><i data-lucide="clipboard-list"></i></div>
-                            @if($pendingCount > 0)
-                                <span class="ro-pill ro-pill-warn">Needs attention</span>
-                            @else
-                                <span class="ro-pill ro-pill-ok">All clear</span>
-                            @endif
-                        </div>
-                        <p class="ro-label">Pending Receiving Reports</p>
-                        <p class="ro-value">{{ $pendingCount }}</p>
-                        <p class="ro-hint">₱{{ number_format($pendingAmount, 2) }} awaiting inspection</p>
-                    </div>
-                </a>
-                <a href="/receiving/delivered-items" class="ro-card-link">
-                    <div class="ro-card">
-                        <div class="ro-card-top"><div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div></div>
-                        <p class="ro-label">Delivered Items</p>
-                        <p class="ro-value">{{ $acceptedCount }}</p>
-                        <p class="ro-hint">{{ $acceptedMonth }} delivered this month</p>
-                    </div>
-                </a>
-                <a href="/receiving/supplier-records" class="ro-card-link">
-                    <div class="ro-card">
-                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div></div>
-                        <p class="ro-label">Supplier lookup</p>
-                        <p class="ro-value">{{ $supplierCount }}</p>
-                        <p class="ro-hint">Read-only · Purchaser maintains the register</p>
-                    </div>
-                </a>
-                <a href="/receiving/history" class="ro-card-link">
-                    <div class="ro-card">
-                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="history"></i></div></div>
-                        <p class="ro-label">Delivery History</p>
-                        <p class="ro-value">{{ $historyCount ?? ($acceptedCount + $returnedCount) }}</p>
-                        <p class="ro-hint">{{ $returnedCount }} returned</p>
-                    </div>
-                </a>
-                <a href="/receiving/logs" class="ro-card-link">
-                    <div class="ro-card">
-                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="scroll-text"></i></div></div>
-                        <p class="ro-label">Receiving Logs</p>
-                        <p class="ro-value">{{ $logCount }}</p>
-                        <p class="ro-hint">Inspection audit trail</p>
-                    </div>
-                </a>
+                <div class="mt-6 flex flex-wrap items-center gap-2">
+                    <a href="{{ route('receiving.rr.index', ['focus' => 'queue']) }}"
+                       class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
+                        <i data-lucide="clipboard-check" class="h-4 w-4"></i> Start second count
+                    </a>
+                    <a href="{{ route('receiving.back-orders.index') }}"
+                       class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                        <i data-lucide="package-x" class="h-4 w-4 text-slate-400"></i> Back orders
+                    </a>
+                    @if($counts['returnedCount'] > 0)
+                        <a href="{{ route('receiving.rr.index', ['focus' => 'returned']) }}"
+                           class="ml-1 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900">
+                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> {{ $counts['returnedCount'] }} returned to Purchaser
+                        </a>
+                    @endif
+                </div>
             </div>
 
-            @if($pendingCount > 0)
-                <div class="ro-alert ro-alert-warn">
-                    <div class="ro-alert-left">
-                        <div class="ro-alert-icon" style="background:#f59e0b;"><i data-lucide="bell"></i></div>
-                        <div>
-                            <p class="ro-alert-title">{{ $pendingCount }} {{ $pendingCount === 1 ? 'delivery needs' : 'deliveries need' }} inspection</p>
-                            <p class="ro-alert-desc">Validate quantity, model, condition, and documents before updating inventory.</p>
+            {{-- Last 7 days --}}
+            <div class="lg:border-l lg:border-slate-100 lg:pl-8">
+                <div class="flex items-center justify-between">
+                    <p class="rod-label">Last 7 days</p>
+                    <div class="flex items-center gap-3 text-[11px] text-slate-500">
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-slate-300"></span>Arrived</span>
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-[#0025cc]"></span>Counted</span>
+                    </div>
+                </div>
+                <div class="mt-4 flex h-28 items-end justify-between gap-2">
+                    @foreach($week as $day)
+                        @php $isToday = $day['date']->isToday(); @endphp
+                        <div class="flex h-full flex-1 flex-col items-center justify-end gap-2"
+                             title="{{ $day['date']->format('D, M j') }} · {{ $day['arrived'] }} arrived · {{ $day['counted'] }} counted">
+                            <div class="flex h-full w-full items-end justify-center gap-[3px]">
+                                <span class="w-2 rounded-sm bg-slate-300" style="height: {{ $day['arrived'] ? max(8, ($day['arrived'] / $weekMax) * 100) : 2 }}%"></span>
+                                <span class="w-2 rounded-sm {{ $day['counted'] ? 'bg-[#0025cc]' : 'bg-slate-200' }}" style="height: {{ $day['counted'] ? max(8, ($day['counted'] / $weekMax) * 100) : 2 }}%"></span>
+                            </div>
+                            <span class="text-[10px] {{ $isToday ? 'font-semibold text-[#0025cc]' : 'text-slate-400' }}">{{ $isToday ? 'Today' : $day['date']->format('D') }}</span>
                         </div>
-                    </div>
-                    <a href="/receiving/reports" class="ro-btn">Inspect now <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+                    @endforeach
                 </div>
-            @else
-                <div class="ro-alert ro-alert-ok">
-                    <div class="ro-alert-left">
-                        <div class="ro-alert-icon" style="background:#60a5fa;"><i data-lucide="check-circle-2"></i></div>
-                        <div>
-                            <p class="ro-alert-title">No Receiving Reports waiting</p>
-                            <p class="ro-alert-desc">Waiting for Purchaser to submit a Receiving Report after Accounting releases funds.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            <div class="ro-panel" data-ro-table data-ro-default-filter="pending">
-                <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <p class="ro-panel-title">Pending Receiving Reports</p>
-                        <p class="ro-panel-sub">Submitted reports waiting for second count</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $pendingRows->count() }} total</span>
-                        <a class="ro-link" href="/receiving/reports">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
-                    </div>
-                </div>
-                <div class="px-4 pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-gray-100">
-                    @include('layouts.partials.receiving-filter-slider', [
-                        'sliderId' => 'dashPendingFilterSlider',
-                        'current' => 'pending',
-                        'ariaLabel' => 'Dashboard pending filters',
-                        'options' => [
-                            ['filter' => 'pending', 'label' => 'Pending'],
-                            ['filter' => 'returned', 'label' => 'For correction'],
-                            ['filter' => 'all', 'label' => 'All'],
-                        ],
-                    ])
-                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashPendingSearch', 'placeholder' => 'Search RR, RIS, supplier...'])
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="ro-table">
-                        <thead>
-                            <tr>
-                                <th>Reference</th>
-                                <th>Items</th>
-                                <th>Supplier</th>
-                                <th>Value</th>
-                                <th>Status</th>
-                                <th>Preview</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($pendingRows as $row)
-                                @php
-                                    $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
-                                    $rowStatus = ($row->receiving_report_status ?? null) === 'Returned' ? 'returned' : 'pending';
-                                    $rowSearch = trim(implode(' ', [$row->receiving_report_form_number ?? '', $row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '']));
-                                @endphp
-                                <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
-                                    <td><span class="ro-ref">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'RR-'.$row->receiving_report_id)) }}</span></td>
-                                    <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
-                                    <td>{{ $row->supplier_name }}</td>
-                                    <td>₱{{ number_format((float) ($row->total_amount ?? 0), 2) }}</td>
-                                    <td>
-                                        @if(($row->receiving_report_status ?? null) === 'Returned')
-                                            <span class="ro-badge ro-badge-rose">Returned</span>
-                                        @else
-                                            <span class="ro-badge ro-badge-amber">Pending</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <div class="flex items-center gap-2">
-                                            @include('layouts.partials.receiving-ris-eye', [
-                                                'reportId' => $row->receiving_report_id ?? null,
-                                                'risId' => $previewRisId,
-                                            ])
-                                            <a class="ro-link" href="{{ route('receiving.rr.index', ['status' => 'queue']) }}">Inspect</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                            @endforelse
-                                <tr class="receiving-empty-row" @if($pendingRows->count()) style="display:none" @endif>
-                                    <td colspan="6" class="ro-empty">Waiting for Purchaser to submit a Receiving Report. Nothing is ready for second count yet.</td>
-                                </tr>
-                        </tbody>
-                    </table>
-                </div>
-                @include('layouts.partials.receiving-table-pager')
-            </div>
-
-            <div class="ro-panel" data-ro-table data-ro-default-filter="all">
-                <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <p class="ro-panel-title">Recently delivered</p>
-                        <p class="ro-panel-sub">Items delivered after second count</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $acceptedRows->count() }} total</span>
-                        <a class="ro-link" href="/receiving/delivered-items">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
-                    </div>
-                </div>
-                <div class="px-4 pb-3 flex justify-end border-b border-gray-100">
-                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashAcceptedSearch', 'placeholder' => 'Search RIS, ATP, supplier...'])
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="ro-table">
-                        <thead>
-                            <tr>
-                                <th>Reference</th>
-                                <th>Items</th>
-                                <th>Supplier</th>
-                                <th>OR</th>
-                                <th>Date</th>
-                                <th>Officer</th>
-                                <th>Preview</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($acceptedRows as $row)
-                                @php
-                                    $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
-                                    $rowSearch = trim(implode(' ', [$row->receiving_report_form_number ?? '', $row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '', $row->official_receipt ?? '', $row->officer_name ?? '']));
-                                @endphp
-                                <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
-                                    <td><span class="ro-ref">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</span></td>
-                                    <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
-                                    <td>{{ $row->supplier_name }}</td>
-                                    <td>{{ $row->official_receipt ?: '—' }}</td>
-                                    <td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
-                                    <td>{{ $row->officer_name ?: '—' }}</td>
-                                    <td>
-                                        <div class="flex items-center gap-2">
-                                            @include('layouts.partials.receiving-ris-eye', [
-                                                'reportId' => $row->receiving_report_id ?? null,
-                                                'risId' => $previewRisId,
-                                            ])
-                                            @if(!empty($row->receiving_report_id))
-                                                <button type="button" class="ro-preview-btn" onclick="receivingBrowserPrintRr({{ (int) $row->receiving_report_id }})" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                            @endforelse
-                                <tr class="receiving-empty-row" @if($acceptedRows->count()) style="display:none" @endif>
-                                    <td colspan="7" class="ro-empty">Waiting for the first delivered item.</td>
-                                </tr>
-                        </tbody>
-                    </table>
-                </div>
-                @include('layouts.partials.receiving-table-pager')
             </div>
         </div>
 
-        <div class="ro-side">
-            @php
-                $calendarEvents = $calendarEvents ?? collect();
-                $calendarEventsByDate = $calendarEventsByDate ?? [];
-            @endphp
-            <div class="sidebar-calendar-card">
-                <div class="sidebar-calendar-header">
-                    <h3 class="sidebar-calendar-title">
-                        <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
-                        Calendar of Events
-                    </h3>
-                    <p class="mt-1 text-[11px] font-normal text-slate-500">Inspections, delivered items, and returns</p>
-                </div>
-                <div class="sidebar-calendar-body">
-                    <div class="calendar-month-header">
-                        <button type="button" id="receivingCalPrevBtn" class="cal-nav-btn" title="Previous month">
-                            <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
-                        </button>
-                        <span id="receivingCalMonthLabel" class="cal-month-label">{{ now()->format('F Y') }}</span>
-                        <button type="button" id="receivingCalNextBtn" class="cal-nav-btn" title="Next month">
-                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
-                        </button>
-                    </div>
-                    <div id="receivingCalendarGrid" class="calendar-grid">
-                        <div class="cal-day-header">Sun</div>
-                        <div class="cal-day-header">Mon</div>
-                        <div class="cal-day-header">Tue</div>
-                        <div class="cal-day-header">Wed</div>
-                        <div class="cal-day-header">Thu</div>
-                        <div class="cal-day-header">Fri</div>
-                        <div class="cal-day-header">Sat</div>
-                        @php
-                            $now = now();
-                            $firstDay = $now->copy()->startOfMonth();
-                            $lastDay = $now->copy()->endOfMonth();
-                            $startPadding = $firstDay->dayOfWeek;
-                            $totalCells = $startPadding + $lastDay->day;
-                            $rows = ceil($totalCells / 7);
-                            $totalSlots = $rows * 7;
-                            $todayDate = $now->format('Y-m-d');
-                            $currentMonthKey = $now->format('Y-m');
-                        @endphp
-                        @for($i = 0; $i < $startPadding; $i++)
-                            <div class="cal-day cal-day-empty"></div>
-                        @endfor
-                        @for($day = 1; $day <= $lastDay->day; $day++)
-                            @php
-                                $dateKey = $currentMonthKey . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
-                                $hasEvents = isset($calendarEventsByDate[$dateKey]) && count($calendarEventsByDate[$dateKey]) > 0;
-                                $isToday = $dateKey === $todayDate;
-                                $eventCount = count($calendarEventsByDate[$dateKey] ?? []);
-                            @endphp
-                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }} {{ $hasEvents ? 'cal-day-btn' : '' }}"
-                                @if($hasEvents)
-                                    role="button"
-                                    tabindex="0"
-                                    data-cal-date="{{ $dateKey }}"
-                                    title="{{ $eventCount }} event(s) — click to view"
-                                @else
-                                    title=""
-                                @endif
-                            >
-                                <span class="cal-day-num">{{ $day }}</span>
-                                @if($hasEvents)
-                                    <span class="cal-day-dot"></span>
-                                @endif
+        @php
+            $stats = [
+                ['label' => 'To count', 'value' => $counts['pendingCount'], 'note' => $counts['leftoverCount'] > 0 ? $counts['leftoverCount'].' from before today' : 'All arrived today', 'href' => route('receiving.rr.index', ['focus' => 'queue']), 'alert' => $counts['leftoverCount'] > 0 || $d['urgentCount'] > 0],
+                ['label' => 'Replacements', 'value' => $replacementCount, 'note' => 'Waiting at the dock', 'href' => route('receiving.back-orders.index', ['status' => 'receiving']), 'alert' => $replacementCount > 0],
+                ['label' => 'Open back orders', 'value' => $snap['total'], 'note' => $snap['units'] > 0 ? $plural($snap['units'], 'unit').' · '.$peso($snap['value']) : 'Nothing outstanding', 'href' => route('receiving.back-orders.index'), 'alert' => false],
+                ['label' => 'Counted this month', 'value' => $d['countedThisMonth'], 'note' => 'Last month: '.$d['countedLastMonth'], 'href' => route('receiving.rr.index', ['status' => 'completed']), 'alert' => false],
+            ];
+        @endphp
+        <div class="grid grid-cols-2 border-t border-slate-100 lg:grid-cols-4">
+            @foreach($stats as $i => $stat)
+                <a href="{{ $stat['href'] }}"
+                   class="group px-6 py-5 transition hover:bg-slate-50 sm:px-8 {{ $i % 2 === 1 ? 'border-l border-slate-100' : '' }} {{ $i === 2 ? 'max-lg:border-t lg:border-l' : '' }} {{ $i === 3 ? 'max-lg:border-t' : '' }}">
+                    <span class="flex items-center gap-1.5 text-xs text-slate-500">
+                        {{ $stat['label'] }}
+                        @if($stat['alert'])<span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>@endif
+                    </span>
+                    <span class="mt-1 block text-3xl font-semibold tabular-nums tracking-tight text-slate-900">{{ $stat['value'] }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-slate-400 group-hover:text-slate-500">{{ $stat['note'] }}</span>
+                </a>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- Back-order board --}}
+    <section class="rod-panel p-6 sm:p-8">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <p class="rod-label">Back-order board</p>
+                <h2 class="mt-1.5 text-lg font-semibold text-slate-900">Where every missing or damaged item stands</h2>
+                <p class="mt-0.5 text-sm text-slate-500">Lines move left to right until the replacement passes your second count.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-1 text-sm">
+                <a href="{{ route('receiving.back-orders.index', ['type' => 'short']) }}" class="rounded-md px-2.5 py-1.5 text-slate-600 hover:bg-slate-100">
+                    Missing <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ $snap['missing']['lines'] }}</span>
+                </a>
+                <a href="{{ route('receiving.back-orders.index', ['type' => 'damaged']) }}" class="rounded-md px-2.5 py-1.5 text-slate-600 hover:bg-slate-100">
+                    Damaged <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ $snap['damaged']['lines'] }}</span>
+                </a>
+                <span class="mx-1 h-4 w-px bg-slate-200"></span>
+                <a href="{{ route('receiving.back-orders.index', ['status' => 'all']) }}" class="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 font-medium text-[#0025cc] hover:bg-blue-50">
+                    All back orders <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach($board as $status => $col)
+                @php $isMine = $status === 'receiving'; $highlight = $isMine && $col['count'] > 0; @endphp
+                <div class="flex flex-col rounded-xl p-3 {{ $highlight ? 'bg-amber-50/60 ring-1 ring-amber-200' : 'bg-slate-50' }}">
+                    <div class="flex items-start justify-between gap-2 px-1 pb-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full {{ $tones[$col['tone']]['dot'] }}"></span>
+                                <h3 class="text-sm font-medium text-slate-900">{{ $col['label'] }}</h3>
                             </div>
-                        @endfor
-                        @for($i = $startPadding + $lastDay->day; $i < $totalSlots; $i++)
-                            <div class="cal-day cal-day-empty"></div>
-                        @endfor
+                            <p class="mt-0.5 pl-4 text-[11px] text-slate-400">{{ $col['hint'] }}</p>
+                        </div>
+                        <span class="shrink-0 text-sm font-semibold tabular-nums {{ $col['count'] ? 'text-slate-900' : 'text-slate-300' }}">{{ $col['count'] }}</span>
                     </div>
-                    <div id="receivingCalendarDayEvents" class="cal-day-events" style="display:none;"></div>
-                    <div id="receivingCalendarUpcoming" class="cal-upcoming">
-                        <h4 class="cal-upcoming-title">Upcoming Events</h4>
-                        @php
-                            $upcomingPreview = collect($calendarEvents ?? [])->take(3);
-                            $upcomingTotal = collect($calendarEvents ?? [])->count();
-                        @endphp
-                        @forelse($upcomingPreview as $event)
-                            <div class="cal-upcoming-item" data-event-date="{{ $event->event_date ?? '' }}">
-                                <div class="cal-upcoming-dot"></div>
-                                <div class="cal-upcoming-content">
-                                    <span class="cal-upcoming-name">{{ $event->event_name ?? 'Receiving' }}</span>
-                                    <span class="cal-upcoming-date">
-                                        {{ !empty($event->event_date) ? \Carbon\Carbon::parse($event->event_date)->format('M d, Y') : 'No date set' }}
-                                    </span>
+
+                    <div class="flex flex-1 flex-col gap-2">
+                        @forelse($col['tickets'] as $ticket)
+                            <a href="{{ route('receiving.back-orders.index', array_filter(['status' => $boardFilter[$status], 'rr' => $ticket->root_id ?: null])) }}"
+                               class="block rounded-lg border border-slate-200 bg-white px-3.5 py-3 transition hover:border-slate-300 hover:shadow-sm">
+                                <p class="mb-1 font-mono text-[10px] font-medium tracking-tight text-[#0025cc]">{{ $ticket->number }}</p>
+                                <div class="flex items-start justify-between gap-2">
+                                    <p class="min-w-0 truncate text-sm font-medium text-slate-900" title="{{ $ticket->article }}">{{ $ticket->article }}</p>
+                                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium {{ $ticket->type === 'damaged' ? 'border border-slate-200 text-slate-500' : 'bg-slate-100 text-slate-700' }}">{{ $ticket->type_label }}</span>
                                 </div>
-                            </div>
+                                <p class="mt-1 text-xl font-semibold tabular-nums text-slate-900">{{ $ticket->qty }} <span class="text-xs font-normal text-slate-400">{{ $ticket->unit }}</span></p>
+                                <div class="rod-perf mt-2.5 space-y-0.5 pt-2 text-[11px] text-slate-500">
+                                    <p class="truncate" title="{{ $ticket->supplier }}">{{ $ticket->supplier }}</p>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="truncate text-slate-400">{{ $ticket->rr_number ?? 'RR not linked' }}</span>
+                                        <span class="shrink-0 {{ ($ticket->age ?? 0) >= 7 ? 'font-medium text-amber-600' : 'text-slate-400' }}">{{ $ticket->age === 0 ? 'Today' : $ageText($ticket->age) }}</span>
+                                    </div>
+                                    @if($ticket->reason)
+                                        <p class="text-slate-400">{{ $ticket->reason }}</p>
+                                    @endif
+                                </div>
+                            </a>
                         @empty
-                            <div class="cal-upcoming-empty">No receiving dates this month</div>
+                            <div class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center">
+                                <p class="text-xs text-slate-400">{{ $isMine ? 'No replacements to count' : 'Empty' }}</p>
+                            </div>
                         @endforelse
-                        @if($upcomingTotal > 0)
-                            <a class="cal-view-all" href="/receiving/reports">View all</a>
+
+                        @if($col['count'] > count($col['tickets']))
+                            <a href="{{ route('receiving.back-orders.index', ['status' => $boardFilter[$status]]) }}" class="rounded-md py-1.5 text-center text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-900">
+                                +{{ $col['count'] - count($col['tickets']) }} more
+                            </a>
                         @endif
                     </div>
                 </div>
-            </div>
-
-            <div class="ro-panel">
-                <div class="ro-panel-h">
-                    <div>
-                        <p class="ro-panel-title">Returned for correction</p>
-                        <p class="ro-panel-sub">Need a follow-up inspection</p>
-                    </div>
-                </div>
-                @forelse($returnedRows as $row)
-                    <div class="ro-act">
-                        <div class="ro-icon ro-icon-rose" style="width:32px;height:32px;border-radius:8px;"><i data-lucide="undo-2"></i></div>
-                        <div>
-                            <p class="text-xs font-semibold text-slate-800">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</p>
-                            <p class="text-[11px] text-slate-500">{{ \Illuminate\Support\Str::limit($row->item_names ?: $row->supplier_name, 42) }}</p>
-                        </div>
-                    </div>
-                @empty
-                    <p class="ro-empty">No returned deliveries.</p>
-                @endforelse
-            </div>
-
-            <div class="ro-panel">
-                <div class="ro-panel-h">
-                    <div>
-                        <p class="ro-panel-title">Top suppliers</p>
-                        <p class="ro-panel-sub">By delivered items</p>
-                    </div>
-                    <a class="ro-link" href="/receiving/supplier-records">All</a>
-                </div>
-                @forelse($topSuppliers as $supplier)
-                    <div class="ro-act">
-                        <div class="ro-icon ro-icon-blue" style="width:32px;height:32px;border-radius:8px;"><i data-lucide="store"></i></div>
-                        <div>
-                            <p class="text-xs font-semibold text-slate-800">{{ $supplier->supplier_name }}</p>
-                            <p class="text-[11px] text-slate-500">{{ $supplier->delivery_count }} delivered · {{ $supplier->contact_person ?: 'No contact' }}</p>
-                        </div>
-                    </div>
-                @empty
-                    <p class="ro-empty">No supplier records yet.</p>
-                @endforelse
-            </div>
-
-            <div class="ro-panel">
-                <div class="ro-panel-h">
-                    <div>
-                        <p class="ro-panel-title">Recent activity</p>
-                        <p class="ro-panel-sub">Inspection and inventory log</p>
-                    </div>
-                    <a class="ro-link" href="/receiving/logs">Logs</a>
-                </div>
-                @forelse($recentLogs as $log)
-                    <div class="ro-act">
-                        <div class="ro-icon {{ str_contains(strtolower($log->receiving_log_action), 'return') ? 'ro-icon-rose' : 'ro-icon-emerald' }}" style="width:32px;height:32px;border-radius:8px;">
-                            <i data-lucide="{{ str_contains(strtolower($log->receiving_log_action), 'return') ? 'undo-2' : 'check' }}"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold text-slate-800">{{ $log->receiving_log_action }}</p>
-                            <p class="text-[11px] text-slate-500">{{ $log->receiving_report_form_number ?? $log->ris_form_number ?: ($log->authority_purchase_form_number ?: 'RR') }} · {{ $log->officer_name ?: 'Receiving Officer' }}</p>
-                            <p class="text-[11px] text-slate-400">{{ \Carbon\Carbon::parse($log->receiving_log_created_at)->format('M d, Y g:i A') }}</p>
-                        </div>
-                    </div>
-                @empty
-                    <p class="ro-empty">No receiving activity logged yet.</p>
-                @endforelse
-            </div>
+            @endforeach
         </div>
+    </section>
+
+    {{-- Queue + snapshot --}}
+    <div class="grid gap-6 lg:grid-cols-5">
+        <section class="rod-panel flex flex-col lg:col-span-3">
+            <div class="flex items-center justify-between gap-3 px-6 pb-4 pt-6 sm:px-8">
+                <div>
+                    <h2 class="text-base font-semibold text-slate-900">Second-count line</h2>
+                    <p class="text-xs text-slate-500">Oldest delivery first · urgent ones jump the line</p>
+                </div>
+                <a href="{{ route('receiving.rr.index', ['focus' => 'queue']) }}" class="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900">
+                    {{ $queue['total'] > count($queue['rows']) ? 'See all '.$queue['total'] : 'Open queue' }} →
+                </a>
+            </div>
+
+            <div class="flex-1 divide-y divide-slate-100 border-t border-slate-100">
+                @forelse($queue['rows'] as $rr)
+                    <a href="{{ route('receiving.rr.index', ['focus' => 'queue', 'search' => $rr->number]) }}" class="group flex items-center gap-4 px-6 py-4 transition hover:bg-slate-50 sm:px-8">
+                        <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-slate-200">
+                            <span class="text-[10px] uppercase tracking-wide text-slate-400">{{ $rr->submitted_at?->format('M') ?? '—' }}</span>
+                            <span class="text-lg font-semibold leading-none tabular-nums text-slate-900">{{ $rr->submitted_at?->format('d') ?? '--' }}</span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium text-slate-900">{{ $rr->number }}</span>
+                                <span class="text-[11px] text-slate-400">{{ $rr->status }}</span>
+                                @if($rr->is_urgent)
+                                    <span class="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"><i data-lucide="zap" class="h-3 w-3"></i>Urgent</span>
+                                @endif
+                                @if($rr->has_replacement)
+                                    <span class="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Replacement</span>
+                                @endif
+                            </div>
+                            <p class="mt-0.5 truncate text-sm text-slate-600">{{ $rr->supplier }}</p>
+                            <p class="mt-0.5 truncate text-xs text-slate-400">
+                                {{ collect($rr->articles)->take(3)->implode(', ') }}{{ count($rr->articles) > 3 ? ' +'.(count($rr->articles) - 3).' more' : '' }}
+                                · {{ $plural($rr->qty, 'unit') }} · {{ $plural($rr->lines, 'line') }}
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <p class="text-xs {{ $rr->is_leftover && $rr->age >= 3 ? 'font-medium text-amber-600' : 'text-slate-500' }}">
+                                {{ $rr->age === null ? 'Date unknown' : ($rr->age === 0 ? 'Arrived today' : 'Waiting '.$ageText($rr->age)) }}
+                            </p>
+                            @if($rr->amount > 0)
+                                <p class="mt-0.5 text-xs tabular-nums text-slate-400">{{ $peso($rr->amount) }}</p>
+                            @endif
+                            <span class="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-slate-400 group-hover:text-slate-900">Count <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i></span>
+                        </div>
+                    </a>
+                @empty
+                    <div class="flex flex-col items-center justify-center px-6 py-14 text-center">
+                        <i data-lucide="check" class="h-5 w-5 text-slate-400"></i>
+                        <p class="mt-2 text-sm font-medium text-slate-800">No deliveries waiting</p>
+                        <p class="text-xs text-slate-500">New receiving reports from the Purchaser will line up here.</p>
+                    </div>
+                @endforelse
+
+                @if($d['recentlyCounted']->isNotEmpty() && count($queue['rows']) < 4)
+                    <div class="px-6 py-5 sm:px-8">
+                        <p class="rod-label">Recently counted</p>
+                        <ul class="mt-3 space-y-2">
+                            @foreach($d['recentlyCounted'] as $done)
+                                @php $isIncomplete = $done->status === 'Incomplete'; @endphp
+                                <li class="flex items-center gap-3 text-sm">
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $isIncomplete ? 'bg-amber-500' : 'bg-slate-300' }}"></span>
+                                    <span class="shrink-0 text-slate-700">{{ $done->number }}</span>
+                                    <span class="min-w-0 flex-1 truncate text-xs text-slate-400">{{ $done->supplier }}{{ $done->qty ? ' · '.$plural($done->qty, 'unit') : '' }}</span>
+                                    <span class="shrink-0 text-xs {{ $isIncomplete ? 'text-amber-600' : 'text-slate-400' }}">{{ $isIncomplete ? 'Incomplete' : $done->counted_at->format('M j') }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+            </div>
+
+            @if($counts['returnedCount'] > 0 || $counts['leftoverCount'] > 0)
+                <div class="flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 px-6 py-3 text-xs sm:px-8">
+                    @if($counts['leftoverCount'] > 0)
+                        <a href="{{ route('receiving.rr.index', ['focus' => 'leftover']) }}" class="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900">
+                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> {{ $counts['leftoverCount'] }} left over from before today
+                        </a>
+                    @endif
+                    @if($counts['returnedCount'] > 0)
+                        <a href="{{ route('receiving.rr.index', ['focus' => 'returned']) }}" class="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900">
+                            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span> {{ $counts['returnedCount'] }} returned to Purchaser
+                        </a>
+                    @endif
+                </div>
+            @endif
+        </section>
+
+        <section class="rod-panel p-6 sm:p-8 lg:col-span-2">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-900">Back-order snapshot</h2>
+                <span class="text-[11px] text-slate-400">{{ $snap['fulfilledThisMonth'] }} delivered this month</span>
+            </div>
+
+            <div class="mt-6 flex items-center gap-6">
+                <div class="relative h-32 w-32 shrink-0 rounded-full" style="background: {{ $ringCss }}">
+                    <div class="absolute inset-[10px] flex flex-col items-center justify-center rounded-full bg-white">
+                        <span class="text-3xl font-semibold tabular-nums text-slate-900">{{ $snap['total'] }}</span>
+                        <span class="text-[11px] text-slate-400">open {{ $snap['total'] === 1 ? 'line' : 'lines' }}</span>
+                    </div>
+                </div>
+                <ul class="min-w-0 flex-1 space-y-2">
+                    @foreach($snap['byStatus'] as $status => $row)
+                        <li>
+                            <a href="{{ route('receiving.back-orders.index', ['status' => $boardFilter[$status]]) }}" class="flex items-center justify-between gap-2 rounded-md px-1 py-0.5 text-sm hover:bg-slate-50">
+                                <span class="flex min-w-0 items-center gap-2 text-slate-600">
+                                    <span class="h-2 w-2 shrink-0 rounded-full {{ $tones[$row['tone']]['dot'] }}"></span>
+                                    <span class="truncate">{{ $row['label'] }}</span>
+                                </span>
+                                <span class="tabular-nums {{ $row['count'] ? 'font-semibold text-slate-900' : 'text-slate-300' }}">{{ $row['count'] }}</span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+
+            <dl class="mt-6 grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100 py-4 text-center">
+                <div>
+                    <dt class="text-[11px] text-slate-400">Units owed</dt>
+                    <dd class="mt-0.5 text-lg font-semibold tabular-nums text-slate-900">{{ number_format($snap['units']) }}</dd>
+                </div>
+                <div class="px-1">
+                    <dt class="text-[11px] text-slate-400">Value on hold</dt>
+                    <dd class="mt-0.5 truncate text-lg font-semibold tabular-nums text-slate-900" title="{{ $peso($snap['value']) }}">{{ $snap['value'] >= 100000 ? '₱'.number_format($snap['value'] / 1000, 1).'k' : '₱'.number_format($snap['value']) }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] text-slate-400">Oldest open</dt>
+                    <dd class="mt-0.5 text-lg font-semibold tabular-nums {{ ($snap['oldestDays'] ?? 0) >= 7 ? 'text-amber-600' : 'text-slate-900' }}">{{ $snap['oldestDays'] === null ? '—' : ($snap['oldestDays'] === 0 ? 'Today' : $snap['oldestDays'].'d') }}</dd>
+                </div>
+            </dl>
+
+            <div class="mt-5">
+                <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-[#0025cc]"></span>Missing · {{ $plural($snap['missing']['units'], 'unit') }}</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-slate-300"></span>Damaged · {{ $plural($snap['damaged']['units'], 'unit') }}</span>
+                </div>
+                <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    @if($snap['units'] > 0)
+                        <span class="bg-[#0025cc]" style="width: {{ $missingShare }}%"></span>
+                        <span class="bg-slate-300" style="width: {{ 100 - $missingShare }}%"></span>
+                    @endif
+                </div>
+            </div>
+
+            @if(!empty($snap['reasons']))
+                <div class="mt-5">
+                    <p class="rod-label">Why items were held back</p>
+                    <ul class="mt-2 space-y-1 text-sm">
+                        @foreach($snap['reasons'] as $reason)
+                            <li class="flex items-center justify-between text-slate-600">
+                                <span>{{ $reason['label'] }}</span>
+                                <span class="tabular-nums text-slate-900">{{ $reason['count'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+        </section>
+    </div>
+
+    {{-- Incomplete reports · suppliers · activity --}}
+    <div class="grid gap-6 lg:grid-cols-3">
+        <section class="rod-panel p-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-900">Incomplete reports</h2>
+                <a href="{{ route('receiving.rr.index', ['status' => 'completed']) }}" class="text-xs font-medium text-slate-500 hover:text-slate-900">View →</a>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-500">Counted, but still waiting on back-order lines</p>
+
+            <div class="mt-4 space-y-2">
+                @forelse($d['incomplete'] as $rr)
+                    <a href="{{ route('receiving.back-orders.index', ['rr' => $rr->id, 'status' => 'all']) }}" class="block rounded-lg border border-slate-200 p-3 transition hover:border-slate-300 hover:bg-slate-50">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="truncate text-sm font-medium text-slate-900">{{ $rr->number }}</span>
+                            <span class="shrink-0 text-xs tabular-nums text-slate-500">{{ $rr->settled }}/{{ $rr->total }} settled</span>
+                        </div>
+                        <p class="mt-0.5 truncate text-xs text-slate-400" title="{{ $rr->supplier }}">{{ $rr->supplier }}</p>
+                        <div class="mt-2.5 flex h-1 overflow-hidden rounded-full bg-slate-100">
+                            <span class="bg-[#0025cc]" style="width: {{ $rr->percent }}%"></span>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                            <span class="truncate">
+                                {{ collect([
+                                    $rr->missing_units ? $rr->missing_units.' missing' : null,
+                                    $rr->damaged_units ? $rr->damaged_units.' damaged' : null,
+                                ])->filter()->implode(' · ') }}
+                                @if($rr->awaiting_count)<span class="text-amber-600"> · {{ $rr->awaiting_count }} to count</span>@endif
+                            </span>
+                            @if($rr->counted_at)
+                                <span class="shrink-0 text-slate-400">Counted {{ $rr->counted_at->format('M j') }}</span>
+                            @endif
+                        </div>
+                    </a>
+                @empty
+                    <div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center">
+                        <p class="text-xs text-slate-400">Every counted report is complete.</p>
+                    </div>
+                @endforelse
+            </div>
+        </section>
+
+        <section class="rod-panel p-6">
+            <h2 class="text-base font-semibold text-slate-900">Supplier issues</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Units held back per supplier, all time</p>
+
+            <div class="mt-4 space-y-4">
+                @forelse($d['suppliers']['rows'] as $sup)
+                    @php $w = ($sup['units'] / $d['suppliers']['maxUnits']) * 100; @endphp
+                    <a href="{{ route('receiving.back-orders.index', ['status' => 'all', 'search' => $sup['name']]) }}" class="group block">
+                        <div class="flex items-center justify-between gap-2 text-sm">
+                            <span class="truncate text-slate-700 group-hover:text-slate-900" title="{{ $sup['name'] }}">{{ $sup['name'] }}</span>
+                            <span class="shrink-0 text-xs tabular-nums text-slate-500">{{ $plural($sup['units'], 'unit') }}</span>
+                        </div>
+                        <div class="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <div class="flex h-full" style="width: {{ max(8, $w) }}%">
+                                @if($sup['units'] > 0)
+                                    <span class="bg-[#0025cc]" style="width: {{ ($sup['missing'] / $sup['units']) * 100 }}%"></span>
+                                    <span class="bg-slate-300" style="width: {{ ($sup['damaged'] / $sup['units']) * 100 }}%"></span>
+                                @endif
+                            </div>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">
+                            {{ $plural($sup['lines'], 'line') }} · {{ $sup['missing'] }} missing · {{ $sup['damaged'] }} damaged
+                            @if($sup['open'])<span class="text-slate-600"> · {{ $sup['open'] }} open</span>@endif
+                        </p>
+                    </a>
+                @empty
+                    <div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center">
+                        <p class="text-xs text-slate-400">No supplier has short or damaged deliveries.</p>
+                    </div>
+                @endforelse
+            </div>
+        </section>
+
+        <section class="rod-panel p-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-900">Dock activity</h2>
+                <a href="{{ url('/receiving/logs') }}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Logs →</a>
+            </div>
+
+            <ol class="relative mt-4 space-y-4 border-l border-slate-200 pl-5">
+                @forelse($d['activity'] as $log)
+                    <li class="relative">
+                        <span class="absolute -left-[24.5px] top-1.5 h-2 w-2 rounded-full ring-4 ring-white {{ $tones[$log->tone]['dot'] ?? 'bg-slate-300' }}"></span>
+                        <div class="flex items-baseline justify-between gap-2">
+                            <p class="truncate text-sm font-medium text-slate-800">{{ $log->action }}</p>
+                            <span class="shrink-0 text-[11px] text-slate-400" title="{{ $log->at?->format('M j, Y g:i A') }}">{{ $log->at?->diffForHumans(null, true, true) }}</span>
+                        </div>
+                        <p class="text-xs text-slate-500">
+                            {{ $log->rr_number ?? 'General' }}@if($log->officer) · {{ $log->officer }}@endif
+                        </p>
+                        @if($log->remarks)
+                            <p class="mt-0.5 line-clamp-2 text-xs text-slate-400">{{ $log->remarks }}</p>
+                        @endif
+                    </li>
+                @empty
+                    <li class="text-xs text-slate-400">No receiving activity yet.</li>
+                @endforelse
+            </ol>
+        </section>
     </div>
 </div>
-
-<script>
-(function() {
-    var prevBtn = document.getElementById('receivingCalPrevBtn');
-    var nextBtn = document.getElementById('receivingCalNextBtn');
-    var monthLabel = document.getElementById('receivingCalMonthLabel');
-    var grid = document.getElementById('receivingCalendarGrid');
-    var upcoming = document.getElementById('receivingCalendarUpcoming');
-    var dayEventsEl = document.getElementById('receivingCalendarDayEvents');
-    var events = {!! json_encode(
-        collect($calendarEvents ?? [])->map(function ($event) {
-            return [
-                'date' => $event->event_date ?? null,
-                'name' => $event->event_name ?? 'Receiving',
-            ];
-        })->filter(fn ($e) => !empty($e['date']))->values()
-    ) !!};
-    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var view = new Date();
-    view.setDate(1);
-    var now = new Date();
-    var minMonthIndex = now.getFullYear() * 12 + now.getMonth() - 1;
-    var selectedDate = null;
-
-    function pad(n) { return n < 10 ? '0' + n : String(n); }
-    function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-    function monthIndex(d) { return d.getFullYear() * 12 + d.getMonth(); }
-    function canGoPrev() { return monthIndex(view) > minMonthIndex; }
-    function updateNavButtons() {
-        if (!prevBtn) return;
-        var allowed = canGoPrev();
-        prevBtn.disabled = !allowed;
-        prevBtn.title = allowed ? 'Previous month' : 'Cannot go back more than one month';
-    }
-    function eventsOn(dateKey) {
-        return events.filter(function (e) { return e.date === dateKey; });
-    }
-    function formatLabel(dateKey) {
-        var parts = dateKey.split('-');
-        return monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
-    }
-    function highlightUpcoming(dateKey) {
-        if (!upcoming) return;
-        upcoming.querySelectorAll('.cal-upcoming-item').forEach(function (el) {
-            el.classList.toggle('is-highlighted', el.getAttribute('data-event-date') === dateKey);
-        });
-    }
-    function showDayEvents(dateKey) {
-        if (!dayEventsEl) return;
-        var dayEvents = eventsOn(dateKey).slice().reverse();
-        var total = dayEvents.length;
-        if (!total) {
-            dayEventsEl.style.display = 'none';
-            dayEventsEl.innerHTML = '';
-            return;
-        }
-        var preview = dayEvents.slice(0, 3);
-        var html = '<h4 class="cal-day-events-title">' + formatLabel(dateKey) + '</h4>';
-        preview.forEach(function (e) {
-            html += '<div class="cal-upcoming-item is-highlighted"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
-            html += '<span class="cal-upcoming-name">' + e.name + '</span>';
-            html += '<span class="cal-upcoming-date"><a class="ro-link" href="/receiving/reports?date=' + encodeURIComponent(dateKey) + '">Open reports</a></span>';
-            html += '</div></div>';
-        });
-        html += '<a class="cal-view-all" href="/receiving/reports?date=' + encodeURIComponent(dateKey) + '">View all</a>';
-        if (total > 3) {
-            html += '<p class="cal-view-all-hint">Showing 3 of ' + total + ' on this day</p>';
-        }
-        dayEventsEl.innerHTML = html;
-        dayEventsEl.style.display = 'block';
-        highlightUpcoming(dateKey);
-        dayEventsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    function selectDate(dateKey) {
-        selectedDate = dateKey;
-        if (grid) {
-            grid.querySelectorAll('[data-cal-date]').forEach(function (el) {
-                el.classList.toggle('cal-day-selected', el.getAttribute('data-cal-date') === dateKey);
-            });
-        }
-        showDayEvents(dateKey);
-    }
-    function bindDayClicks() {
-        if (!grid) return;
-        grid.querySelectorAll('[data-cal-date]').forEach(function (el) {
-            el.addEventListener('click', function () {
-                var dateKey = el.getAttribute('data-cal-date');
-                if (!dateKey) return;
-                selectDate(dateKey);
-            });
-            el.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    el.click();
-                }
-            });
-        });
-    }
-    function render() {
-        if (!grid || !monthLabel) return;
-        var year = view.getFullYear();
-        var month = view.getMonth();
-        monthLabel.textContent = monthNames[month] + ' ' + year;
-        var first = new Date(year, month, 1);
-        var lastDate = new Date(year, month + 1, 0).getDate();
-        var startPad = first.getDay();
-        var todayKey = ymd(new Date());
-        var html = '';
-        ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d) {
-            html += '<div class="cal-day-header">' + d + '</div>';
-        });
-        var totalSlots = Math.ceil((startPad + lastDate) / 7) * 7;
-        for (var i = 0; i < totalSlots; i++) {
-            var dayNum = i - startPad + 1;
-            if (dayNum < 1 || dayNum > lastDate) {
-                html += '<div class="cal-day cal-day-empty"></div>';
-                continue;
-            }
-            var dateKey = year + '-' + pad(month + 1) + '-' + pad(dayNum);
-            var dayEvents = eventsOn(dateKey);
-            var cls = 'cal-day';
-            if (dateKey === todayKey) cls += ' cal-day-today';
-            if (dayEvents.length) cls += ' cal-day-has-event cal-day-btn';
-            if (selectedDate === dateKey) cls += ' cal-day-selected';
-            if (dayEvents.length) {
-                html += '<div class="' + cls + '" role="button" tabindex="0" data-cal-date="' + dateKey + '" title="' + dayEvents.length + ' event(s) — click to view">';
-            } else {
-                html += '<div class="' + cls + '">';
-            }
-            html += '<span class="cal-day-num">' + dayNum + '</span>';
-            if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
-            html += '</div>';
-        }
-        grid.innerHTML = html;
-        if (upcoming) {
-            var monthPrefix = year + '-' + pad(month + 1);
-            var monthEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
-                .sort(function (a, b) { return b.date.localeCompare(a.date); });
-            var monthTotal = monthEvents.length;
-            monthEvents = monthEvents.slice(0, 3);
-            var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
-            if (!monthEvents.length) {
-                list += '<div class="cal-upcoming-empty">No receiving dates this month</div>';
-            } else {
-                monthEvents.forEach(function (e) {
-                    list += '<div class="cal-upcoming-item" data-event-date="' + e.date + '"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
-                    list += '<span class="cal-upcoming-name">' + e.name + '</span>';
-                    list += '<span class="cal-upcoming-date">' + formatLabel(e.date) + '</span></div></div>';
-                });
-            }
-            if (monthTotal > 0) {
-                list += '<a class="cal-view-all" href="/receiving/reports">View all</a>';
-            }
-            if (monthTotal > 3) {
-                list += '<p class="cal-view-all-hint">Showing 3 of ' + monthTotal + '</p>';
-            }
-            upcoming.innerHTML = list;
-        }
-        bindDayClicks();
-        if (selectedDate) {
-            highlightUpcoming(selectedDate);
-            if (eventsOn(selectedDate).length) showDayEvents(selectedDate);
-        }
-        updateNavButtons();
-        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-    }
-    if (prevBtn && nextBtn) {
-        prevBtn.addEventListener('click', function () {
-            if (!canGoPrev()) return;
-            view.setMonth(view.getMonth() - 1);
-            render();
-        });
-        nextBtn.addEventListener('click', function () {
-            view.setMonth(view.getMonth() + 1);
-            render();
-        });
-    }
-    render();
-})();
-</script>
-
 @endsection

@@ -271,7 +271,12 @@
                                         <i data-lucide="receipt" class="h-4 w-4"></i>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '—' }}</p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '—' }}</p>
+                                            @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
+                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                            @endif
+                                        </div>
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $liq->liquidation_report_id }}</p>
                                     </div>
                                 </div>
@@ -531,7 +536,7 @@
                             </div>
                         @else
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <label class="text-xs text-gray-500">Completed Receiving Report <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <label class="text-xs text-gray-500">Completed Receiving Report <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft)</span></label>
                                 <select name="liquidation_report_receiving_report_id" x-on:change="applyRrPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select RR</option>
                                     @foreach($eligibleRrs as $rr)
@@ -643,7 +648,12 @@
                                     <i data-lucide="receipt" class="h-5 w-5"></i>
                                 </div>
                                 <div>
-                                    <h3 id="liq-view-title-{{ $liq->liquidation_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $liq->liquidation_report_form_number }}</h3>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 id="liq-view-title-{{ $liq->liquidation_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $liq->liquidation_report_form_number }}</h3>
+                                        @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
+                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                        @endif
+                                    </div>
                                     <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? '—' }}</p>
                                 </div>
                             </div>
@@ -699,6 +709,16 @@
                         'currentType' => 'LIQ',
                         'statusHint' => $liqHint,
                     ])
+                    @if(!empty($liq->liquidation_report_revision_notes) && in_array($liq->liquidation_report_status, ['Minor Revision', 'Rejected'], true))
+                        <div class="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:mx-6">
+                            <p><span class="font-medium">Revision requested by Accounting:</span> {{ $liq->liquidation_report_revision_notes }}</p>
+                            @include('partials.ris-revision-images', [
+                                'revision' => \App\Support\DocumentRevisionNotes::latest('LIQ', $liq->liquidation_report_id),
+                                'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                'size' => 'sm',
+                            ])
+                        </div>
+                    @endif
                     <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.liquidation-report-paper', ['editable' => false, 'liq' => $liq, 'rows' => $liqItems, 'printId' => 'liq-print-'.$liq->liquidation_report_id])
                     </div>
@@ -759,6 +779,16 @@
                                 </div>
                             </div>
                             <div class="bg-slate-100 p-3 md:p-5">
+                                @if(!empty($liq->liquidation_report_revision_notes) && $liq->liquidation_report_status === 'Minor Revision')
+                                    <div class="mx-auto mb-4 w-full max-w-[1095px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        <p><span class="font-medium">Changes requested:</span> {{ $liq->liquidation_report_revision_notes }}</p>
+                                        @include('partials.ris-revision-images', [
+                                            'revision' => \App\Support\DocumentRevisionNotes::latest('LIQ', $liq->liquidation_report_id),
+                                            'routeName' => ($pp ?? 'purchaser').'.document-revision-image',
+                                            'size' => 'sm',
+                                        ])
+                                    </div>
+                                @endif
                                 @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => $liq, 'rows' => $liqItems, 'signKey' => 'liq-'.$liq->liquidation_report_id])
                                 <div id="purSigSlot-liq-{{ $liq->liquidation_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                                 <div
@@ -858,4 +888,5 @@
     .liq-print-active { background: #fff !important; }
 }
 </style>
+@include('partials.ris-revision-image-viewer')
 @endsection
