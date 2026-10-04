@@ -180,7 +180,7 @@
             >
                 View Room
 
-                <i data-lucide="arrow-right"></i>
+                <!--<i data-lucide="arrow-right"></i>-->
             </button>
         </div>
 

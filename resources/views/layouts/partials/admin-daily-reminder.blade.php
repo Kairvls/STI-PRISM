@@ -4,10 +4,10 @@
     $awaitingCosign = (int) ($attention['awaitingCosign'] ?? 0);
     $amendRis = (int) ($attention['amendRis'] ?? 0);
     $attentionTotal = (int) ($attention['attentionTotal'] ?? 0);
-    $showDailyReminder = $attentionTotal > 0;
-    $pendingRisUrl = route('admin.procurement-review.index', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
-    $awaitingCosignUrl = route('admin.digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);
-    $amendRisUrl = route('admin.procurement-review.index', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]);
+    $showDailyReminder = $attentionTotal > 0 && \App\Support\AdminPortal::canActOnRis();
+    $pendingRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
+    $awaitingCosignUrl = \App\Support\AdminPortal::route('digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);
+    $amendRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]);
 @endphp
 
 @if ($showDailyReminder)
@@ -62,7 +62,7 @@
                                 {{ $pendingRis }} procurement requests to accept
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Purchaser submissions waiting for Administrator accept before Sign RIS.
+                                Purchaser submissions waiting for School Administrator accept before Sign RIS.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-blue-400"></i>

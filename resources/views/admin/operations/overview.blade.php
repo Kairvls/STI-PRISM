@@ -423,7 +423,10 @@
                         <p class="mt-0.5 text-xs text-gray-400">View only</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button type="button" class="pur-btn-secondary h-9 px-3 text-xs" @click="printDoc()">Print</button>
+                        <button type="button" class="pur-btn-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs" @click="printDoc()">
+                            <i data-lucide="printer" class="h-4 w-4"></i>
+                            Print
+                        </button>
                         <button
                             type="button"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50"

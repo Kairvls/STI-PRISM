@@ -17,10 +17,10 @@
             padding: 0.28in 0.24in;
             margin: 0 auto;
         }
-        .ris-document .school { font-size: 17px; }
-        .ris-document .title { font-size: 18px; }
-        .ris-document .number { font-size: 12px; }
-        .ris-document .line { min-width: 150px; }
+        html:not(.print-measuring) .ris-document .school { font-size: 17px; }
+        html:not(.print-measuring) .ris-document .title { font-size: 18px; }
+        html:not(.print-measuring) .ris-document .number { font-size: 12px; }
+        html:not(.print-measuring) .ris-document .line { min-width: 150px; }
         .ris-document .ris-table th,
         .ris-document .ris-table td {
             height: 36px;
@@ -31,14 +31,16 @@
             word-break: break-word;
             overflow-wrap: anywhere;
         }
+        html.print-measuring .ris-document .ris-table th,
+        html.print-measuring .ris-document .ris-table td { font-size: 13px; }
         .ris-document .ris-table tbody td:empty::before {
             content: "\00a0";
         }
-        .ris-document .signatures {
+        html:not(.print-measuring) .ris-document .signatures {
             gap: 12px;
             font-size: 12px;
         }
-        .ris-document .purpose { font-size: 13px; }
+        html:not(.print-measuring) .ris-document .purpose { font-size: 13px; }
         @endif
         .header { position: relative; margin-top: 24px; margin-bottom: 10px; text-align: center; }
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
@@ -104,10 +106,11 @@
 
         @media print {
             .ris-document {
-                width: 11in !important;
+                width: 100% !important;
                 max-width: none !important;
-                min-height: 8.5in !important;
-                padding: 0.35in !important;
+                min-height: 0 !important;
+                height: auto !important;
+                padding: 0.2in !important;
                 margin: 0 !important;
             }
             .ris-document .school { font-size: 20px !important; }

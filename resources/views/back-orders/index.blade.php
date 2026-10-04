@@ -190,6 +190,12 @@
                     <a href="{{ $filterUrl(['supplier' => 'original']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($supplierFilter === 'original') }}">Original supplier</a>
                     <a href="{{ $filterUrl(['supplier' => 'new']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($supplierFilter === 'new') }}">New supplier</a>
                 </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="font-medium text-gray-500">Payment</span>
+                    <a href="{{ $filterUrl(['payment' => null]) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill(!$paymentFilter) }}">All</a>
+                    <a href="{{ $filterUrl(['payment' => 'rfc']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($paymentFilter === 'rfc') }}">Request for Check</a>
+                    <a href="{{ $filterUrl(['payment' => 'ca']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($paymentFilter === 'ca') }}">Cash Advance</a>
+                </div>
             </div>
         </div>
 

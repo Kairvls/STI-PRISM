@@ -4,6 +4,7 @@
         ->reject(fn ($row) => $current && (int) $row->assignment_id === (int) $current->assignment_id);
     $people = collect($assignablePeople ?? []);
     $returnUrl = $equipmentBack['url'] ?? '';
+    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
     $fieldClass = 'h-10 w-full rounded-xl border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
     $textareaClass = 'w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
 @endphp
@@ -59,6 +60,7 @@
                 @endif
             </div>
 
+            @unless ($readOnly)
             <details class="group rounded-xl ring-1 ring-slate-200/80">
                 <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700">
                     <span class="inline-flex items-center gap-2">
@@ -88,9 +90,16 @@
                     </button>
                 </form>
             </details>
+            @endunless
         @endif
 
-        @if ($assignmentBlocker)
+        @if ($readOnly)
+            @unless ($current)
+                <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
+                    No accountable person yet. Maintenance assigns property.
+                </p>
+            @endunless
+        @elseif ($assignmentBlocker)
             <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
                 {{ $assignmentBlocker }}
             </p>

@@ -278,7 +278,7 @@
             }
             if (!this.submitRisSignatureReady()) {
                 event.preventDefault();
-                if (c) c.signatureError = 'Please sign the RIS before ' + (c.kind === 'resubmit' ? 'resubmitting' : 'submitting') + ' to Administrator.';
+                if (c) c.signatureError = 'Please sign the RIS before ' + (c.kind === 'resubmit' ? 'resubmitting' : 'submitting') + ' to School Administrator.';
                 return;
             }
             this.submitRisSending = true;
@@ -3093,7 +3093,7 @@
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Submit to Administrator
+                                                        Submit to School Administrator
                                                     </button>
                                                     @if($risHandover = $handoverOutgoing->get((int) $ris->ris_id))
                                                         <form method="POST" action="{{ route('purchaser.handovers.cancel', $risHandover->handover_id) }}">
@@ -3141,7 +3141,7 @@
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Resubmit to Administrator
+                                                        Resubmit to School Administrator
                                                     </button>
                                                 @endif
                                             </div>
@@ -4031,8 +4031,8 @@
                                 <div class="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-5">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
-                                            <p class="text-sm font-semibold text-orange-900">Changes Requested by Administrator</p>
-                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below, save your changes, then use <strong>⋮ → Resubmit to Administrator</strong> in the list.</p>
+                                            <p class="text-sm font-semibold text-orange-900">Changes Requested by School Administrator</p>
+                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below, save your changes, then use <strong>⋮ → Resubmit to School Administrator</strong> in the list.</p>
                                         </div>
                                         <span class="shrink-0 rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
                                             Minor Revision
@@ -4495,9 +4495,9 @@
                             </p>
                             <p class="mr-auto max-w-md text-xs text-gray-500 sm:mr-0 sm:flex-1 sm:text-right">
                                 @if($ris->ris_status === 'Draft')
-                                    Save your changes here, then use <strong>⋮ → Submit to Administrator</strong>
+                                    Save your changes here, then use <strong>⋮ → Submit to School Administrator</strong>
                                 @elseif($ris->ris_status === 'Minor Revision')
-                                    Save your corrections here, then use <strong>⋮ → Resubmit to Administrator</strong> 
+                                    Save your corrections here, then use <strong>⋮ → Resubmit to School Administrator</strong> 
                                 @endif
                             </p>
                             <button
@@ -4556,7 +4556,7 @@
                                 <h3
                                     id="ris-submit-title"
                                     class="text-lg font-semibold tracking-tight text-gray-950"
-                                    x-text="submitRisConfirm?.kind === 'resubmit' ? 'Resubmit to Administrator' : 'Submit to Administrator'"
+                                    x-text="submitRisConfirm?.kind === 'resubmit' ? 'Resubmit to School Administrator' : 'Submit to School Administrator'"
                                 ></h3>
                                 <p
                                     class="mt-0.5 text-sm text-gray-500"
@@ -4577,14 +4577,14 @@
                         <p>
                             <span x-text="submitRisConfirm?.kind === 'resubmit' ? 'Resubmit' : 'Submit'"></span>
                             <span class="font-semibold text-gray-900" x-text="submitRisConfirm?.number"></span>
-                            to Administrator?
+                            to School Administrator?
                         </p>
 
                         <div class="rounded-xl border border-slate-200 bg-white p-3.5">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="text-xs font-semibold text-slate-900">Requested by signature <span class="text-red-500">*</span></p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">Required before this RIS can be sent to the Administrator.</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">Required before this RIS can be sent to the School Administrator.</p>
                                 </div>
                                 <span
                                     x-show="submitRisSignatureReady()"
@@ -4691,18 +4691,18 @@
                         </div>
 
                         <div>
-                            <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to Administrator <span class="text-red-500">*</span></label>
+                            <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to School Administrator <span class="text-red-500">*</span></label>
                             <select
                                 name="assigned_reviewer_id"
                                 required
                                 class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
                             >
-                                <option value="">Select Administrator…</option>
-                                @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_ADMIN) as $reviewer)
+                                <option value="">Select School Administrator…</option>
+                                @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN) as $reviewer)
                                     <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
                                 @endforeach
                             </select>
-                            <p class="mt-1.5 text-xs text-gray-400">Only the selected Administrator will receive this RIS for review.</p>
+                            <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this RIS for review.</p>
                         </div>
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">

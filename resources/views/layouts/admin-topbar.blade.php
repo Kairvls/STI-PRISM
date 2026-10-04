@@ -6,6 +6,20 @@
 
         @php
             $moduleHeading = match (true) {
+                request()->is('school-admin/dashboard') => ['Dashboard', 'Procurement approvals, signatures, and campus equipment at a glance.'],
+                request()->is('school-admin/operations/equipment*') => ['Equipment Monitor', 'Inventory status, replacement needs, and lifecycle alerts.'],
+                request()->is('school-admin/operations/schedules*') => ['Schedules Monitor', 'Overdue and upcoming equipment maintenance schedules.'],
+                request()->is('school-admin/operations/reports*') => ['Equipment Reports', 'Monitor reports and override when needed.'],
+                request()->is('school-admin/operations/procurement*', 'school-admin/operations/documents*') => ['Procurement Monitor', 'Track RIS forms and procurement stage activity.'],
+                request()->is('school-admin/procurement-review*') => ['Procurement Requests', 'Review and act on RIS submitted for School Administrator approval.'],
+                request()->is('school-admin/digital-signatures/sign-ris*') => ['Sign RIS', 'Sign RIS forms awaiting the School Administrator signature.'],
+                request()->is('school-admin/digital-signatures/history*') => ['Signature History', 'Past digital signature activity.'],
+                request()->is('school-admin/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
+                request()->is('school-admin/profile*') => ['Profile Settings', 'Update your School Administrator account details.'],
+                request()->is('school-admin/security*') => ['Security Settings', 'Manage your password and account security.'],
+                request()->is('school-admin/*') => [View::yieldContent('title', 'PaAyo'), 'School Administrator'],
+                request()->is('admin/procurement-review*') => ['Procurement Requests', 'Monitor RIS submitted for School Administrator approval (view only).'],
+                request()->is('admin/digital-signatures/sign-ris*') => ['Sign RIS', 'Monitor RIS signing by the School Administrator (view only).'],
                 request()->is('admin/dashboard') => ['Dashboard', 'Overview of system activity, users, and procurement operations.'],
                 request()->is('admin/operations') && ! request()->is('admin/operations/*') => ['Command Center', 'Monitor campus operations across equipment, schedules, reports, and procurement.'],
                 request()->is('admin/operations/equipment*') => ['Equipment Monitor', 'Inventory status, replacement needs, and lifecycle alerts.'],
@@ -18,10 +32,8 @@
                 request()->is('admin/operations/movements*') && request('tab') === 'borrowing' => ['Borrowing', 'Monitor active and historical equipment borrows.'],
                 request()->is('admin/operations/movements*') && request('tab') === 'disposal' => ['Disposal', 'Review disposed equipment and inventory status.'],
                 request()->is('admin/operations/movements*') => ['Transfers', 'Track equipment room-to-room transfers.'],
-                request()->is('admin/procurement-review*') => ['Procurement Requests', 'Review and act on RIS submitted for approval.'],
                 request()->is('admin/request-check*') => ['Request Checks', 'Review RFC documents awaiting Administrator action.'],
                 request()->is('admin/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents awaiting Administrator action.'],
-                request()->is('admin/digital-signatures/sign-ris*') => ['Sign RIS', 'Co-sign RIS forms awaiting Administrator signature.'],
                 request()->is('admin/digital-signatures/history*') => ['Signature History', 'Past digital signature activity.'],
                 request()->is('admin/users*') => ['User Management', 'Create accounts and assign primary and additional roles.'],
                 request()->is('admin/reports*') => ['System Reports', 'Maintenance, procurement, receiving, and approval history.'],
@@ -64,11 +76,13 @@
             $unreadCount = 0;
             $recentNotes = collect();
             $attentionTotal = (int) ($attentionTotal ?? 0);
+            $topbarNotificationRole = \App\Support\AdminPortal::notificationRole();
+            $topbarNotificationsUrl = \App\Support\AdminPortal::route('notifications');
             try {
-                $unreadCount = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Admin')
+                $unreadCount = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), $topbarNotificationRole)
                     ->count();
 
-                $recentNotes = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), 'Admin')
+                $recentNotes = \App\Support\WorkflowNotifier::scopeVisibleTo(\DB::table('notifications_table'), auth()->id(), $topbarNotificationRole)
                     ->orderByDesc('notification_created_at')
                     ->limit(8)
                     ->get();
@@ -217,7 +231,7 @@
                             };
                         @endphp
                         <a
-                            href="{{ $note->notification_url ?: url('/admin/notifications') }}"
+                            href="{{ $note->notification_url ?: $topbarNotificationsUrl }}"
                             class="flex items-start gap-2.5 border-b border-slate-100 px-4 py-2.5 transition hover:bg-slate-50"
                         >
                             <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $iconStyle }}">
@@ -258,7 +272,7 @@
 
                 <div class="border-t border-slate-100 px-3 py-1.5">
                     <a
-                        href="{{ url('/admin/notifications') }}"
+                        href="{{ $topbarNotificationsUrl }}"
                         class="block w-full
                             rounded-lg
                             px-3 py-2
@@ -349,14 +363,14 @@
 
                 <div class="p-2">
                     <a
-                        href="{{ route('admin.profile') }}"
+                        href="{{ \App\Support\AdminPortal::route('profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
                         Profile settings
                     </a>
                     <a
-                        href="{{ route('admin.security') }}"
+                        href="{{ \App\Support\AdminPortal::route('security') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>

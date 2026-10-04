@@ -1115,7 +1115,7 @@
         }
 
         .building-room-details-row span {
-            color: #64748b;
+            color: #CACACA;
         }
 
         .building-room-details-row strong {
@@ -1152,7 +1152,7 @@
             font-size: 9px;
             line-height: 1.3;
 
-            color: #64748b;
+            color: #CACACA;
         }
 
         .building-room-details-stat strong {
@@ -1185,7 +1185,7 @@
 
             background: rgba(8, 145, 178, 0.15);
 
-            color: #67e8f9;
+            color: white;
 
             font-size: 12px;
             font-weight: 600;

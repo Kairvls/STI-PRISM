@@ -90,7 +90,7 @@
             <input type="email"
                 name="email"
                 class="w-full border p-2 rounded"
-                placeholder="e.g. juan.delacruz@sti.edu.ph"
+                placeholder="e.g. juan.demo@example.com"
                 required>
         </div>
 

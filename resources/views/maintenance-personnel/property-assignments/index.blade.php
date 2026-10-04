@@ -14,6 +14,7 @@
         'On Leave' => 'bg-sky-50 text-sky-700 ring-sky-100',
         'Inactive' => 'bg-slate-100 text-slate-600 ring-slate-200',
     ];
+    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
 @endphp
 
 <div class="space-y-6">
@@ -69,7 +70,7 @@
                         </button>
                     </form>
 
-                    @if ($view === 'people')
+                    @if ($view === 'people' && ! $readOnly)
                         <a
                             href="{{ route('maintenance.property-assignments.people.create') }}"
                             class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
@@ -120,7 +121,7 @@
                         @endif
                     </div>
 
-                    @if ($unlinkedReporters > 0)
+                    @if ($unlinkedReporters > 0 && ! $readOnly)
                         <form method="POST" action="{{ route('maintenance.property-assignments.people.import') }}" class="flex items-center gap-2 text-xs text-slate-500">
                             @csrf
                             <span>{{ $unlinkedReporters }} faculty/staff {{ \Illuminate\Support\Str::plural('account', $unlinkedReporters) }} not in the directory</span>
@@ -204,13 +205,19 @@
                         <p class="mt-4 text-sm font-semibold text-slate-900">
                             {{ $search !== '' || $filter !== 'all' || $departmentId ? 'No one matches this search or filter' : 'The people directory is empty' }}
                         </p>
-                        <p class="mt-1 text-sm text-slate-500">
-                            Add anyone who can be accountable for property, even people without a system account.
-                        </p>
-                        <a href="{{ route('maintenance.property-assignments.people.create') }}" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
-                            <i data-lucide="user-plus" class="h-4 w-4"></i>
-                            Add person
-                        </a>
+                        @if ($readOnly)
+                            <p class="mt-1 text-sm text-slate-500">
+                                Maintenance adds people and assigns property. This view is read only.
+                            </p>
+                        @else
+                            <p class="mt-1 text-sm text-slate-500">
+                                Add anyone who can be accountable for property, even people without a system account.
+                            </p>
+                            <a href="{{ route('maintenance.property-assignments.people.create') }}" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
+                                <i data-lucide="user-plus" class="h-4 w-4"></i>
+                                Add person
+                            </a>
+                        @endif
                     </div>
                 @endif
             @else

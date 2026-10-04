@@ -1,6 +1,17 @@
 @extends('layouts.document-viewer', ['title' => $title ?? 'Document Preview'])
 
 @section('document')
+    @php
+        $printPage = match ($type) {
+            'ris' => 'landscape; margin: 0.25in',
+            'rfc', 'liq' => 'A4 landscape; margin: 8mm',
+            default => 'A4 portrait; margin: 8mm',
+        };
+    @endphp
+    @push('head')
+        <style>@media print { @page { size: {{ $printPage }}; } }</style>
+    @endpush
+
     @switch($type)
         @case('ris')
             @include('partials.ris-document-paper-styles', [

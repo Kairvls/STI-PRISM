@@ -8,6 +8,7 @@
     @php
         $filter = $filter ?? 'pending';
         $search = $search ?? '';
+        $risCanAct = \App\Support\AdminPortal::canActOnRis();
         $procurementCards = [
             [
                 'label' => 'All',
@@ -27,7 +28,7 @@
                 'filterKey' => 'pending',
                 'extraClass' => 'ris-filter-card',
                 'active' => $filter === 'pending',
-                'title' => 'Show procurement requests waiting for Administrator accept',
+                'title' => 'Show procurement requests waiting for School Administrator accept',
             ],
             [
                 'label' => 'Accepted',
@@ -61,7 +62,11 @@
                         >{{ $risRecords->total() }} total</span>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">
-                        Accept purchaser submissions to send them to Sign RIS for Forward, Approve Directly, or Return.
+                        @if ($risCanAct)
+                            Accept purchaser submissions to send them to Sign RIS for Forward, Approve Directly, or Return.
+                        @else
+                            View only. The School Administrator accepts, forwards, approves, and returns procurement requests.
+                        @endif
                     </p>
                 </div>
 
@@ -71,6 +76,7 @@
                         'btnClass' => 'admin-pr-view-btn',
                     ])
 
+                    @if ($risCanAct)
                     <div
                         id="risBulkAcceptBar"
                         class="hidden items-center gap-2 rounded-lg border border-[#0025cc]/20 bg-[#0025cc]/5 px-2.5 py-1.5"
@@ -97,9 +103,10 @@
                             Clear
                         </button>
                     </div>
+                    @endif
 
                     <a
-                        href="{{ route('admin.procurement-review.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
+                        href="{{ \App\Support\AdminPortal::route('procurement-review.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
                         title="Export the current RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >

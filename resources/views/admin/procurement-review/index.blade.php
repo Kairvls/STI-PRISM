@@ -18,8 +18,10 @@
     </div>
 
     @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
-    @include('admin.procurement-review._direct-approve-modal')
-    @include('admin.procurement-review._accept-modal')
+    @if (\App\Support\AdminPortal::canActOnRis())
+        @include('admin.procurement-review._direct-approve-modal')
+        @include('admin.procurement-review._accept-modal')
+    @endif
 </div>
 
 @include('admin.partials.view-mode-script')
@@ -78,7 +80,7 @@
 
         // Fetch the updated content.
         fetch(
-            '{{ route('admin.procurement-review.ris') }}?' +
+            '{{ \App\Support\AdminPortal::route('procurement-review.ris') }}?' +
             params.toString(),
             {
                 headers: {
@@ -132,7 +134,7 @@
 
             // Update URL without reloading the page.
             const url =
-                '{{ route('admin.procurement-review.ris') }}?' +
+                '{{ \App\Support\AdminPortal::route('procurement-review.ris') }}?' +
                 params.toString();
 
             window.history.replaceState(
@@ -525,15 +527,15 @@
         // =====================================================
 
         iframe.src =
-            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print?ts=${Date.now()}`;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);
         }
 
         const csrfToken = document.querySelector('input[name="_token"]')?.value;
-        if (csrfToken) {
-            fetch(`/admin/procurement-review/ris/${risId}/review`, {
+        if (csrfToken && @json(\App\Support\AdminPortal::canActOnRis())) {
+            fetch(`{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/review`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,

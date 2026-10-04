@@ -21,6 +21,7 @@
         ['System account', $person->linked_reporter_name ? $person->linked_reporter_name.' ('.$person->linked_employee_id.')' : 'Not linked', 'link'],
         ['In directory since', $formatDate($person->custodian_created_at), 'calendar'],
     ];
+    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
 @endphp
 
 <div class="space-y-6">
@@ -51,13 +52,15 @@
             </div>
 
             <div class="flex shrink-0 flex-wrap gap-2">
-                <a
-                    href="{{ route('maintenance.property-assignments.people.edit', $person->custodian_id) }}"
-                    class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                    <i data-lucide="pencil" class="h-4 w-4"></i>
-                    Edit details
-                </a>
+                @unless ($readOnly)
+                    <a
+                        href="{{ route('maintenance.property-assignments.people.edit', $person->custodian_id) }}"
+                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <i data-lucide="pencil" class="h-4 w-4"></i>
+                        Edit details
+                    </a>
+                @endunless
                 <a
                     href="{{ route('maintenance.property-assignments.person.form', $person->custodian_id) }}"
                     target="_blank"
@@ -87,7 +90,7 @@
         @endif
     </section>
 
-    @if (! $canReceive)
+    @if (! $canReceive && ! $readOnly)
         <p class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
             This person is marked <strong>{{ $person->custodian_status }}</strong>, so new items cannot be assigned to them. Change the status under Edit details to assign again.
         </p>
@@ -97,7 +100,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
                 <h2 class="text-base font-semibold text-slate-900">Currently accountable for</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Open an item to transfer or return it.</p>
+                <p class="mt-0.5 text-sm text-slate-500">{{ $readOnly ? 'Items this person must return before clearance.' : 'Open an item to transfer or return it.' }}</p>
             </div>
             <i data-lucide="package" class="h-5 w-5 text-slate-400"></i>
         </div>
@@ -155,7 +158,7 @@
         @endif
     </section>
 
-    @if ($canReceive)
+    @if ($canReceive && ! $readOnly)
         @php
             $addOpen = ! $holdsProperty || $itemSearch !== '' || $itemRoomId || old('equipment_ids');
         @endphp

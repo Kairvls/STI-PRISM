@@ -73,10 +73,13 @@
                 max-width: none !important;
                 width: 100% !important;
                 margin: 0 !important;
+                padding: 6mm 12mm 12mm !important;
             }
             @page { size: A4 portrait; margin: 8mm; }
         }
     </style>
+    @include('partials.print-fit-page')
+    <script>window.installPrintFit('.rr-print-sheet');</script>
     <script>
         if (window.self !== window.top) {
             document.documentElement.classList.add('embedded-preview');

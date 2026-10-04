@@ -858,13 +858,13 @@ class PresidentController extends Controller
         if ($decision === 'Rejected') {
             $form = RisWorkflow::formNumber($target);
             WorkflowNotifier::toRole(
-                WorkflowNotifier::ROLE_ADMIN,
+                WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 'President rejected an RIS',
                 $form . (trim((string) $remarks) !== '' ? (': ' . $remarks) : ''),
                 'ris_president_rejected',
                 'RIS',
                 (int) $targetId,
-                '/admin/digital-signatures/sign-ris'
+                '/school-admin/digital-signatures/sign-ris'
             );
         }
 
@@ -1775,13 +1775,13 @@ class PresidentController extends Controller
 
         $form = RisWorkflow::formNumber($record);
         WorkflowNotifier::toRole(
-            WorkflowNotifier::ROLE_ADMIN,
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN,
             'President approved an RIS',
-            $form . ' was approved by the President and is ready for Administrator co-sign.',
+            $form . ' was approved by the President and is ready for School Administrator co-sign.',
             'ris_president_approved',
             'RIS',
             (int) $record->ris_id,
-            '/admin/digital-signatures/sign-ris'
+            '/school-admin/digital-signatures/sign-ris'
         );
 
         return response()->json([

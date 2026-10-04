@@ -66,7 +66,7 @@
 
 <div
     @if(!empty($printId)) id="{{ $printId }}" @endif
-    class="rr-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-5 pt-8 text-[13px] text-black shadow {{ $printClass ?? '' }}"
+    class="rr-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-[36px] pt-[42px] text-[13px] text-black shadow {{ $printClass ?? '' }}"
     style="min-height: 0; height: auto;"
 >
     <div class="relative">
@@ -237,7 +237,7 @@
                     {{ now()->format('d/m/Y') }}
                 </div>
             @else
-                <div class="mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
+                <div class="relative mt-6 w-56 border-b border-black pb-1 min-h-[1.5rem]">
                     @include('partials.drawn-signature', [
                         'value' => $secondCount,
                         'printedName' => \App\Support\RisWorkflow::isDrawnSignature((string) $secondCount)

@@ -182,14 +182,14 @@
                 ? 'Review the RIS form, then forward it to the President. Issued by is signed later on Sign RIS after approval.'
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
-                    : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm Administrator Approval.');
+                    : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm School Administrator Approval.');
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
 
-        fetch('/admin/procurement-review/ris/' + risId + '/direct-approve-form?mode=' + encodeURIComponent(actionMode), {
+        fetch(@js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + risId + '/direct-approve-form?mode=' + encodeURIComponent(actionMode), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'text/html'
@@ -243,7 +243,7 @@
         if (modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
-        form.action = '/admin/procurement-review/ris/' + risId + '/reject';
+        form.action = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + risId + '/reject';
         textarea.value = '';
         if (typeof window.resetRevisionImagePicker === 'function') {
             window.resetRevisionImagePicker('amendRevisionImages');

@@ -83,7 +83,7 @@
 
 <script>
 (function () {
-    var bulkAcceptUrl = @js(route('admin.procurement-review.ris.accept-bulk'));
+    var bulkAcceptUrl = @js(\App\Support\AdminPortal::route('procurement-review.ris.accept-bulk'));
 
     function prepareAcceptModalShell() {
         var modal = document.getElementById('acceptRisModal');
@@ -118,7 +118,7 @@
 
         if (bulkIds) bulkIds.innerHTML = '';
 
-        form.action = '/admin/procurement-review/ris/' + encodeURIComponent(risId) + '/accept';
+        form.action = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + encodeURIComponent(risId) + '/accept';
         fillAcceptModalCopy(
             'Accept procurement request?',
             'This moves the RIS to Sign RIS for Forward, Approve Directly, or Return.',

@@ -17,6 +17,7 @@ class RoleSeeder extends Seeder
         4 => 'President',
         5 => 'Accounting',
         6 => 'Receiving Officer',
+        7 => 'School Administrator',
     ];
 
     public function run(): void

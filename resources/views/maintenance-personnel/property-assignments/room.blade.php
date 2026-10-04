@@ -10,6 +10,7 @@
         $room->building_name,
         $room->floor_level ? 'Floor '.$room->floor_level : null,
     ]));
+    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
 @endphp
 
 <div class="space-y-6">
@@ -71,7 +72,7 @@
         @empty
             <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-12 text-center xl:col-span-2">
                 <p class="text-sm font-semibold text-slate-900">No one is accountable for items in this room yet</p>
-                <p class="mt-1 text-sm text-slate-500">Assign the items below to the people who use them.</p>
+                <p class="mt-1 text-sm text-slate-500">{{ $readOnly ? 'Maintenance has not assigned the items here yet.' : 'Assign the items below to the people who use them.' }}</p>
             </div>
         @endforelse
     </div>
@@ -84,7 +85,21 @@
             </div>
             <i data-lucide="package-search" class="h-5 w-5 text-slate-400"></i>
         </div>
-        @if ($unassignedItems->isNotEmpty() && $isStorageRoom)
+        @if ($unassignedItems->isNotEmpty() && $readOnly)
+            <ul class="divide-y divide-slate-100">
+                @foreach ($unassignedItems as $item)
+                    <li class="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-slate-800">{{ $item->equipment_name }}</p>
+                            <p class="truncate text-xs text-slate-500">
+                                {{ implode(' · ', array_filter([$item->equipment_category_name ?? null, $item->equipment_asset_tag ?? null, $item->equipment_condition_status ?? null])) ?: '—' }}
+                            </p>
+                        </div>
+                        <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id, request()->fullUrl()) }}" class="shrink-0 text-xs font-semibold text-slate-400 hover:text-slate-700">Details</a>
+                    </li>
+                @endforeach
+            </ul>
+        @elseif ($unassignedItems->isNotEmpty() && $isStorageRoom)
             <p class="px-5 py-10 text-center text-sm text-slate-500">
                 This is a storage room. Deploy items to the person's office before assigning them.
             </p>

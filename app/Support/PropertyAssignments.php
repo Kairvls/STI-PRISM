@@ -22,6 +22,19 @@ class PropertyAssignments
         'inactive' => 'Inactive',
     ];
 
+    /**
+     * Maintenance owns property assignment; an Administrator viewing it from the admin portal only monitors.
+     */
+    public static function isReadOnly(): bool
+    {
+        return RoleAccess::adminShell();
+    }
+
+    public static function assertCanManage(): void
+    {
+        abort_if(self::isReadOnly(), 403, 'Property assignment is managed by Maintenance. The Administrator portal is view only.');
+    }
+
     public static function tableReady(): bool
     {
         return Schema::hasTable('property_assignments_table')

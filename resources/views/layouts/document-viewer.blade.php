@@ -41,22 +41,67 @@
             height: auto !important;
         }
         @media print {
-            body {
-                padding: 0;
-                background: white;
-                overflow: visible;
+            html, body {
+                display: block !important;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                overflow: visible !important;
             }
             .document-viewer-shell {
-                max-width: none;
-                width: auto;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
             }
-            .document-viewer-shell > * {
-                box-shadow: none;
+            .document-viewer-shell > *,
+            .document-viewer-shell .atp-print-sheet,
+            .document-viewer-shell .rfc-print-sheet,
+            .document-viewer-shell .rr-print-sheet,
+            .document-viewer-shell .liq-print-sheet,
+            .document-viewer-shell .ris-document {
+                box-shadow: none !important;
+            }
+            .document-viewer-shell .ris-document {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0.2in !important;
+            }
+            .document-viewer-shell .atp-print-sheet,
+            .document-viewer-shell .rr-print-sheet,
+            .document-viewer-shell .rfc-print-sheet,
+            .document-viewer-shell .liq-print-sheet {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0 !important;
+                background: #fff !important;
+            }
+            .document-viewer-shell .atp-print-sheet,
+            .document-viewer-shell .rr-print-sheet {
+                padding: 6mm 12mm 12mm !important;
+            }
+            .document-viewer-shell .rfc-print-sheet {
+                padding: 10mm 14mm !important;
+            }
+            .document-viewer-shell .liq-print-sheet {
+                padding: 8mm 10mm !important;
+            }
+            .approval-watermark,
+            .print-hidden {
+                display: none !important;
             }
         }
     </style>
     @stack('head')
     @include('partials.ris-signature-overlay-styles')
+    @include('partials.print-fit-page')
+    <script>window.installPrintFit('.ris-document, .atp-print-sheet, .rfc-print-sheet, .rr-print-sheet, .liq-print-sheet');</script>
 </head>
 <body>
     <div class="document-viewer-shell">

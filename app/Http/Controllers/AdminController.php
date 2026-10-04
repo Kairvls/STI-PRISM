@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use App\Support\AdminAttentionSummary;
+use App\Support\AdminPortal;
 use App\Support\BackOrders;
 use App\Support\PersonNames;
 use App\Support\RisWorkflow;
@@ -1372,7 +1373,7 @@ class AdminController extends Controller
     if ($focusMeta !== null) {
         $attentionFocus = $focusMeta + [
             'key' => $focus,
-            'clear_url' => route('admin.procurement-review.index', array_filter(['search' => $search])),
+            'clear_url' => AdminPortal::route('procurement-review', array_filter(['search' => $search])),
         ];
         // No status tab produced this list; keep every tab unselected.
         $filter = 'focus';
@@ -1664,7 +1665,7 @@ class AdminController extends Controller
 
     $attentionFocus = $focusMeta === null ? null : $focusMeta + [
         'key' => $focus,
-        'clear_url' => route('admin.digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search])),
+        'clear_url' => AdminPortal::route('digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search])),
     ];
 
 
@@ -2040,7 +2041,7 @@ class AdminController extends Controller
         );
 
         return redirect()
-            ->route('admin.digital-signatures.sign-ris')
+            ->to(AdminPortal::route('digital-signatures.sign-ris'))
             ->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($target->ris_submitted_by, 'the Purchaser') . '.');
     }
 
@@ -3368,7 +3369,7 @@ class AdminController extends Controller
                     'id' => $file->ris_attachment_id,
                     'name' => $file->ris_attachment_original_name,
                     'size' => $file->ris_attachment_size ?? null,
-                    'url' => route('admin.ris.attachments.download', $file->ris_attachment_id),
+                    'url' => AdminPortal::route('ris.attachments.download', $file->ris_attachment_id),
                 ]);
         }
 
@@ -3506,7 +3507,7 @@ class AdminController extends Controller
             );
 
             return redirect()
-                ->route('admin.digital-signatures.sign-ris', ['filter' => 'pending'])
+                ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'pending']))
                 ->with('success', 'Successfully sent to President.');
         });
     }
@@ -3535,7 +3536,7 @@ class AdminController extends Controller
         abort_if($result === 'not_found', 404);
 
         return redirect()
-            ->route('admin.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+            ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']))
             ->with('success', 'Procurement request accepted. Continue on Sign RIS.');
     }
 
@@ -3588,7 +3589,7 @@ class AdminController extends Controller
         }
 
         return redirect()
-            ->route('admin.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+            ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']))
             ->with('success', $message);
     }
 
@@ -3909,9 +3910,9 @@ class AdminController extends Controller
 
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PRESIDENT,
-                'Administrator direct approval recorded',
+                AdminPortal::label() . ' direct approval recorded',
                 RisWorkflow::formNumber($ris)
-                    . ' was directly approved by Administrator. Reason: '
+                    . ' was directly approved by the ' . AdminPortal::label() . '. Reason: '
                     . \Illuminate\Support\Str::limit($reason, 120),
                 'ris_direct_approved',
                 'RIS',
@@ -3946,9 +3947,9 @@ class AdminController extends Controller
             }
 
             return redirect()
-                ->route('admin.digital-signatures.history', [
+                ->to(AdminPortal::route('digital-signatures.history', [
                     'filter' => 'direct_approved',
-                ])
+                ]))
                 ->with(
                     'success',
                     'Directly approved and sent to '
@@ -5204,7 +5205,7 @@ public function rejectRis(Request $request, $risId)
     private function redirectMoneyDocsAway()
     {
         return redirect()
-            ->route('admin.procurement-review.index')
+            ->route('admin.procurement-review')
             ->with('success', 'Request for Check and Liquidation Reports are reviewed by Accounting. In Administrator you only review and sign RIS. To create procurement documents, switch to the Purchaser portal (Decision A).');
     }
 

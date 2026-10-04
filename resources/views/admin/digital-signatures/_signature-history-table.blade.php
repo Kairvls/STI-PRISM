@@ -77,7 +77,7 @@
                             @endif
                             @if ($directProofPath !== '')
                                 <a
-                                    href="{{ route('admin.procurement-review.ris.direct-approval-proof', $history->ris_id) }}"
+                                    href="{{ \App\Support\AdminPortal::route('procurement-review.ris.direct-approval-proof', $history->ris_id) }}"
                                     class="mt-1 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-sky-700 hover:underline"
                                     title="{{ $directProofName !== '' ? $directProofName : 'Download proof' }}"
                                 >

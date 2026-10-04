@@ -4,7 +4,7 @@
     use App\Support\WorkflowNotifier;
 
     $purReviewerOptions = [
-        WorkflowNotifier::ROLE_ADMIN => ReviewerAssignment::options(WorkflowNotifier::ROLE_ADMIN),
+        WorkflowNotifier::ROLE_SCHOOL_ADMIN => ReviewerAssignment::options(WorkflowNotifier::ROLE_SCHOOL_ADMIN),
         WorkflowNotifier::ROLE_ACCOUNTING => ReviewerAssignment::options(WorkflowNotifier::ROLE_ACCOUNTING),
         WorkflowNotifier::ROLE_RECEIVING => ReviewerAssignment::options(WorkflowNotifier::ROLE_RECEIVING),
     ];
@@ -33,6 +33,7 @@
 
     function reviewerRoleLabel(role) {
         if (role === 'Admin') return 'Administrator';
+        if (role === 'School Administrator') return 'School Administrator';
         if (role === 'Receiving Officer') return 'Receiving Officer';
         if (role === 'Accounting') return 'Accounting';
         return 'reviewer';

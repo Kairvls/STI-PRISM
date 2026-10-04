@@ -16,10 +16,11 @@
     $amount = number_format((float) ($ris->ris_calculated_total ?? 0), 2);
     $ref = \App\Support\RisWorkflow::formNumber($ris);
     $statusLabel = \App\Support\RisWorkflow::statusLabel($ris);
-    $isPending = in_array($status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true);
+    $risCanAct = \App\Support\AdminPortal::canActOnRis();
+    $isPending = $risCanAct && in_array($status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true);
 
-    $awaitingSign = $cardMode === 'sign' && \App\Support\RisWorkflow::needsAdminIssuedBy($ris);
-    $isPresidentRejected = $cardMode === 'sign' && \App\Support\RisWorkflow::canReturnForRevision($ris);
+    $awaitingSign = $risCanAct && $cardMode === 'sign' && \App\Support\RisWorkflow::needsAdminIssuedBy($ris);
+    $isPresidentRejected = $risCanAct && $cardMode === 'sign' && \App\Support\RisWorkflow::canReturnForRevision($ris);
 @endphp
 
 <article class="admin-ris-info-card rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-black shadow-[0_1px_2px_rgba(15,23,42,0.03)]">

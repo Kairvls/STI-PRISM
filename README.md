@@ -198,3 +198,5 @@ Because each problem can end differently, each back order needs its own status, 
 Many procurement systems handle it the same way: undelivered items are a back order, while returned damaged items get a separate exchange record.
 
 Nothing needs to change. The only thing to remember is that Received counts every piece that arrived, including damaged ones. If 5 arrived and 1 is broken, enter Received 5 and Damaged 1, and the system works out 5 missing plus 1 damaged.
+
+!M3Dc4meT#

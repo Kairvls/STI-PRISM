@@ -45,13 +45,13 @@
 
     <div class="flex gap-6 border-b border-slate-200 px-6">
         <a
-            href="{{ route('admin.profile') }}"
+            href="{{ \App\Support\AdminPortal::route('profile') }}"
             class="relative -mb-px border-b-2 py-3 text-sm transition {{ $isProfile ? 'border-slate-950 font-semibold text-slate-950' : 'border-transparent font-medium text-slate-500 hover:text-slate-800' }}"
         >
             Profile
         </a>
         <a
-            href="{{ route('admin.security') }}"
+            href="{{ \App\Support\AdminPortal::route('security') }}"
             class="relative -mb-px border-b-2 py-3 text-sm transition {{ $isSecurity ? 'border-slate-950 font-semibold text-slate-950' : 'border-transparent font-medium text-slate-500 hover:text-slate-800' }}"
         >
             Security

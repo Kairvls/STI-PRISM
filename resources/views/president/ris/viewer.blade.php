@@ -97,19 +97,21 @@
             height: auto !important;
             padding: 0.12in 0.28in 0.22in;
         }
-        html.screen-preview .header {
+        html.screen-preview:not(.print-measuring) .header {
             margin-top: 6px;
             margin-bottom: 8px;
         }
-        html.screen-preview .signatures {
+        html.screen-preview:not(.print-measuring) .signatures {
             margin-top: 12px;
             margin-bottom: 0;
             padding-bottom: 0;
         }
-        html.screen-preview .date-row {
+        html.screen-preview:not(.print-measuring) .date-row {
             margin-top: 8px;
             margin-bottom: 0;
         }
+        html.print-measuring .header { margin-top: 24px; margin-bottom: 10px; }
+        html.print-measuring .signatures { margin-top: 16px; }
 
         @media print {
             html, body, main {
@@ -144,6 +146,8 @@
         }
     </style>
     @include('partials.ris-signature-overlay-styles')
+    @include('partials.print-fit-page')
+    <script>window.installPrintFit('.ris-document');</script>
 </head>
 <body>
     <main>

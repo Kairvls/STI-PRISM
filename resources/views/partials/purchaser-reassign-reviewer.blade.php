@@ -10,6 +10,7 @@
     $reviewers = $cfg ? \App\Support\ReviewerAssignment::options($cfg['role']) : [];
     $roleLabel = match ($cfg['role'] ?? '') {
         \App\Support\WorkflowNotifier::ROLE_ADMIN => 'Administrator',
+        \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN => 'School Administrator',
         \App\Support\WorkflowNotifier::ROLE_RECEIVING => 'Receiving Officer',
         default => 'Accounting',
     };

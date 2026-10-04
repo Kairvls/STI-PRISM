@@ -97,8 +97,12 @@
             .signatures { margin-top: 16px; }
             @page { size: landscape; margin: 0.25in; }
         }
+        html.print-measuring .header { margin-top: 24px; margin-bottom: 8px; }
+        html.print-measuring .signatures { margin-top: 16px; }
     </style>
     @include('partials.ris-signature-overlay-styles')
+    @include('partials.print-fit-page')
+    <script>window.installPrintFit('.ris-document');</script>
 </head>
 <body>
 

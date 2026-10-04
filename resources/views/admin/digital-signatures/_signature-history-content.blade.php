@@ -67,7 +67,7 @@
                     ])
 
                     <a
-                        href="{{ route('admin.digital-signatures.history.export-pdf', ['search' => $search, 'filter' => $filter]) }}"
+                        href="{{ \App\Support\AdminPortal::route('digital-signatures.history.export-pdf', ['search' => $search, 'filter' => $filter]) }}"
                         title="Export the current Signature History table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >

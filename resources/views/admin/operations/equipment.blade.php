@@ -8,6 +8,9 @@
 @php
     $filters = [
         'all' => 'All',
+        'stock' => 'In stock',
+        'deployed' => 'Deployed',
+        'disposed' => 'Disposed',
         'maintenance' => 'Needs maintenance',
         'replacement' => 'For replacement',
         'damaged' => 'Damaged',
@@ -50,7 +53,7 @@
                             : ($remaining === 0 ? 'Replace this year' : '~'.$remaining.'y left');
                     @endphp
                     <a
-                        href="{{ route('admin.operations.equipment.show', $alert->equipment_id) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.equipment.show', $alert->equipment_id) }}"
                         class="block px-5 py-4 transition hover:bg-gray-50/70"
                     >
                         <p class="text-sm font-semibold text-gray-900">{{ $alert->equipment_name }}</p>
@@ -92,7 +95,7 @@
                     </button>
                     @if($q !== '' && $q !== null)
                         <a
-                            href="{{ route('admin.operations.equipment', ['filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.equipment', ['filter' => $filter]) }}"
                             class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
@@ -102,7 +105,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($filters as $key => $label)
                     <a
-                        href="{{ route('admin.operations.equipment', ['filter' => $key, 'q' => $q]) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.equipment', ['filter' => $key, 'q' => $q]) }}"
                         class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
@@ -126,7 +129,7 @@
                         <tr class="transition hover:bg-gray-50/70">
                             <td>
                                 <a
-                                    href="{{ route('admin.operations.equipment.show', $row->equipment_id) }}"
+                                    href="{{ \App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id) }}"
                                     class="font-semibold text-gray-900 transition hover:text-[#0025cc]"
                                 >{{ $row->equipment_name }}</a>
                                 <p class="mt-0.5 text-xs text-gray-400">
@@ -143,7 +146,7 @@
                             <td class="whitespace-nowrap text-sm text-gray-500">{{ $formatDate($row->equipment_warranty_expiration) }}</td>
                             <td class="text-right">
                                 <x-view-action-button
-                                    :href="route('admin.operations.equipment.show', $row->equipment_id)"
+                                    :href="\App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id)"
                                     label="View"
                                 />
                             </td>

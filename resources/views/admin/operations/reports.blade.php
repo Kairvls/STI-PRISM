@@ -67,7 +67,7 @@
                     </button>
                     @if($q !== '' && $q !== null)
                         <a
-                            href="{{ route('admin.operations.reports', ['filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.reports', ['filter' => $filter]) }}"
                             class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
@@ -77,7 +77,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($filters as $key => $label)
                     <a
-                        href="{{ route('admin.operations.reports', ['filter' => $key, 'q' => $q]) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.reports', ['filter' => $key, 'q' => $q]) }}"
                         class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
@@ -92,7 +92,7 @@
                         <th>Status</th>
                         <th>Assignee</th>
                         <th>Submitted</th>
-                        <th class="text-center">Administrator action</th>
+                        <th class="text-center">{{ \App\Support\AdminPortal::label() }} action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -133,34 +133,34 @@
                                 @if($canProcess || $canClose)
                                     <div class="inline-flex flex-wrap items-center justify-center gap-2">
                                         @if($canProcess)
-                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline">
+                                            <form method="POST" action="{{ \App\Support\AdminPortal::route('operations.reports.update', $row->report_id) }}" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="status" value="Processing">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001fa8]">
                                                     Start processing
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline" onsubmit="return confirm('Reject this report as Administrator override?')">
+                                            <form method="POST" action="{{ \App\Support\AdminPortal::route('operations.reports.update', $row->report_id) }}" class="inline" onsubmit="return confirm('Reject this report as {{ \App\Support\AdminPortal::label() }} override?')">
                                                 @csrf
                                                 <input type="hidden" name="status" value="Rejected">
-                                                <input type="hidden" name="remarks" value="Rejected by Administrator override">
+                                                <input type="hidden" name="remarks" value="Rejected by {{ \App\Support\AdminPortal::label() }} override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
                                                     Reject
                                                 </button>
                                             </form>
                                         @elseif($canClose)
-                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline">
+                                            <form method="POST" action="{{ \App\Support\AdminPortal::route('operations.reports.update', $row->report_id) }}" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="status" value="Resolved">
-                                                <input type="hidden" name="remarks" value="Resolved by Administrator override">
+                                                <input type="hidden" name="remarks" value="Resolved by {{ \App\Support\AdminPortal::label() }} override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-500">
                                                     Resolve
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('admin.operations.reports.update', $row->report_id) }}" class="inline">
+                                            <form method="POST" action="{{ \App\Support\AdminPortal::route('operations.reports.update', $row->report_id) }}" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="status" value="For Replacement">
-                                                <input type="hidden" name="remarks" value="Marked for replacement by Administrator override">
+                                                <input type="hidden" name="remarks" value="Marked for replacement by {{ \App\Support\AdminPortal::label() }} override">
                                                 <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-white px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-50">
                                                     For replacement
                                                 </button>

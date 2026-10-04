@@ -82,7 +82,7 @@
                 overflow: hidden;
                 background: #fff;
             }
-            .ris-document {
+            html:not(.print-measuring) .ris-document {
                 width: 11in;
                 height: auto;
                 min-height: 0;
@@ -91,19 +91,20 @@
                 overflow: visible;
                 background: #fff;
             }
-            .header {
+            html:not(.print-measuring) .header {
                 margin-top: 4px;
                 margin-bottom: 8px;
             }
-            .school { font-size: 17px; }
-            .title { font-size: 17px; margin-top: 4px; }
-            .ris-table th, .ris-table td { height: 24px; padding: 2px 5px; font-size: 12px; }
-            .purpose { margin-top: 6px; font-size: 13px; }
-            .purpose-line { min-height: 20px; line-height: 20px; }
-            .purpose-line-2 { margin-top: 6px; }
-            .signatures { margin-top: 12px; gap: 14px; font-size: 12px; }
-            .signature-line { min-height: 26px; }
-            .date-row { margin-top: 6px; }
+            html:not(.print-measuring) .school { font-size: 17px; }
+            html:not(.print-measuring) .title { font-size: 17px; margin-top: 4px; }
+            html:not(.print-measuring) .ris-table th,
+            html:not(.print-measuring) .ris-table td { height: 24px; padding: 2px 5px; font-size: 12px; }
+            html:not(.print-measuring) .purpose { margin-top: 6px; font-size: 13px; }
+            html:not(.print-measuring) .purpose-line { min-height: 20px; line-height: 20px; }
+            html:not(.print-measuring) .purpose-line-2 { margin-top: 6px; }
+            html:not(.print-measuring) .signatures { margin-top: 12px; gap: 14px; font-size: 12px; }
+            html:not(.print-measuring) .signature-line { min-height: 26px; }
+            html:not(.print-measuring) .date-row { margin-top: 6px; }
         }
 
         @media print {
@@ -131,6 +132,8 @@
         }
     </style>
     @include('partials.ris-signature-overlay-styles')
+    @include('partials.print-fit-page')
+    <script>window.installPrintFit('.ris-document');</script>
 </head>
 <body>
 @php

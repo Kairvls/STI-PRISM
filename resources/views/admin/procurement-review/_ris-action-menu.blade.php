@@ -3,7 +3,7 @@
     $risId = $risId ?? ($ris->ris_id ?? null);
     $btnSizeClass = $btnSizeClass ?? 'h-8 w-8';
 @endphp
-@if ($risId)
+@if ($risId && \App\Support\AdminPortal::canActOnRis())
 <div
     class="relative inline-block"
     x-data="risActionMenu()"
@@ -52,7 +52,7 @@
                 type="button"
                 role="menuitem"
                 @click="runAction(() => openDirectApproveModal('{{ $risId }}', 'direct'))"
-                title="Sign Issued by and mark this RIS as Administrator Approved for the Purchaser"
+                title="Sign Issued by and mark this RIS as approved by the School Administrator for the Purchaser"
                 class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
             >
                 <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

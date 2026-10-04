@@ -21,7 +21,7 @@
             </div>
         </div>
 
-        <form method="POST" action="{{ route('admin.security.password') }}" class="px-6 py-6">
+        <form method="POST" action="{{ \App\Support\AdminPortal::route('security.password') }}" class="px-6 py-6">
             @csrf
             @method('PUT')
 

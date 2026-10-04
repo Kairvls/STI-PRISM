@@ -25,6 +25,8 @@ class RoleAccess
 
     public const RECEIVING = 6;
 
+    public const SCHOOL_ADMIN = 7;
+
     public const PORTAL_SESSION_KEY = 'portal_context';
 
     public static function user(?object $user = null): ?object
@@ -173,6 +175,12 @@ class RoleAccess
                 'label' => 'Receiving',
                 'path' => '/receiving/dashboard',
                 'match' => 'receiving',
+            ],
+            self::SCHOOL_ADMIN => [
+                'key' => 'school-admin',
+                'label' => 'School Administrator',
+                'path' => '/school-admin/dashboard',
+                'match' => 'school-admin',
             ],
         ];
     }

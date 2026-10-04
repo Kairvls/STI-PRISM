@@ -55,7 +55,7 @@
                     </button>
                     @if($q !== '' && $q !== null)
                         <a
-                            href="{{ route('admin.operations.schedules', ['filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $filter]) }}"
                             class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
@@ -65,7 +65,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($filters as $key => $label)
                     <a
-                        href="{{ route('admin.operations.schedules', ['filter' => $key, 'q' => $q]) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $key, 'q' => $q]) }}"
                         class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach

@@ -302,7 +302,7 @@
         var list = box.querySelector('[data-attachment-list]');
         box.classList.add('hidden');
         if (list) list.innerHTML = '';
-        fetch('/admin/ris/' + risId + '/details', {
+        fetch(@js(\App\Support\AdminPortal::url('ris')) + '/' + risId + '/details', {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(function (res) { return res.ok ? res.json() : { attachments: [] }; })
@@ -350,7 +350,7 @@
 
     window.printAdminRis = function (risId) {
         if (!risId) return;
-        var url = '/admin/procurement-review/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var url = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
         var iframe = document.getElementById('adminRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');

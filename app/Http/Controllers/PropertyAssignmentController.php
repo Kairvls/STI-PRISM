@@ -88,6 +88,8 @@ class PropertyAssignmentController extends Controller
 
     public function createPerson(Request $request)
     {
+        PropertyAssignments::assertCanManage();
+
         return view('maintenance-personnel.property-assignments.person-form', [
             'person' => null,
             'rooms' => $this->roomOptions(),
@@ -99,6 +101,7 @@ class PropertyAssignmentController extends Controller
 
     public function storePerson(Request $request)
     {
+        PropertyAssignments::assertCanManage();
         $validated = $this->validatePerson($request);
 
         if ($duplicate = $this->holdForDuplicateName($request, $validated)) {
@@ -114,6 +117,7 @@ class PropertyAssignmentController extends Controller
 
     public function editPerson(int $custodian)
     {
+        PropertyAssignments::assertCanManage();
         $person = $this->findPerson($custodian);
 
         return view('maintenance-personnel.property-assignments.person-form', [
@@ -127,6 +131,7 @@ class PropertyAssignmentController extends Controller
 
     public function updatePerson(Request $request, int $custodian)
     {
+        PropertyAssignments::assertCanManage();
         $this->findPerson($custodian);
         $validated = $this->validatePerson($request, $custodian);
 
@@ -147,6 +152,7 @@ class PropertyAssignmentController extends Controller
 
     public function importReporters()
     {
+        PropertyAssignments::assertCanManage();
         $count = Custodians::importReporters();
 
         return back()->with(
@@ -178,6 +184,7 @@ class PropertyAssignmentController extends Controller
 
     public function store(Request $request, int $equipment)
     {
+        PropertyAssignments::assertCanManage();
         $validated = $request->validate([
             'custodian_id' => ['required', 'integer'],
             'document_no' => ['nullable', 'string', 'max:64'],
@@ -198,6 +205,7 @@ class PropertyAssignmentController extends Controller
 
     public function storeBatch(Request $request)
     {
+        PropertyAssignments::assertCanManage();
         $validated = $request->validate([
             'custodian_id' => ['required', 'integer'],
             'equipment_ids' => ['required', 'array', 'min:1', 'max:100'],
@@ -231,6 +239,7 @@ class PropertyAssignmentController extends Controller
 
     public function returnAssignment(Request $request, int $assignment)
     {
+        PropertyAssignments::assertCanManage();
         $validated = $request->validate([
             'return_condition' => ['required', Rule::in(PropertyAssignments::RETURN_CONDITIONS)],
             'return_notes' => ['nullable', 'string', 'max:1000'],

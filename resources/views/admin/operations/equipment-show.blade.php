@@ -62,7 +62,7 @@
 <div class="admin-page space-y-6">
     <header>
         <div class="mb-4 flex items-center gap-2 text-sm text-slate-400">
-            <a href="{{ route('admin.operations.equipment') }}" class="transition hover:text-slate-700">Equipment Monitor</a>
+            <a href="{{ \App\Support\AdminPortal::route('operations.equipment') }}" class="transition hover:text-slate-700">Equipment Monitor</a>
             <i data-lucide="chevron-right" class="h-4 w-4"></i>
             <span class="font-medium text-slate-600">Equipment details</span>
         </div>
@@ -108,7 +108,7 @@
             </div>
 
             <a
-                href="{{ route('admin.operations.equipment') }}"
+                href="{{ \App\Support\AdminPortal::route('operations.equipment') }}"
                 class="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
             >
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>

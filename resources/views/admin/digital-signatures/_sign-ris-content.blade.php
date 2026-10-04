@@ -61,7 +61,11 @@
                         >{{ $signableRisRecords->total() }} total</span>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">
-                        Forward to President, approve directly, return for revision, or sign Issued by after the President approves.
+                        @if (\App\Support\AdminPortal::canActOnRis())
+                            Forward to President, approve directly, return for revision, or sign Issued by after the President approves.
+                        @else
+                            View only. The School Administrator forwards, approves, returns, and signs Issued by on these RIS.
+                        @endif
                     </p>
                 </div>
 
@@ -72,7 +76,7 @@
                     ])
 
                     <a
-                        href="{{ route('admin.digital-signatures.sign-ris.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
+                        href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
                         title="Export the current Sign RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >

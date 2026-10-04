@@ -55,14 +55,14 @@ class ReviewerAssignment
                 'table' => 'requisition_issue_slip_table',
                 'id' => 'ris_id',
                 'column' => 'ris_assigned_reviewer_id',
-                'role' => WorkflowNotifier::ROLE_ADMIN,
+                'role' => WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 'ownership' => 'ris',
                 'label' => 'RIS',
                 'ref_type' => 'RIS',
                 'form_number' => 'ris_form_number',
                 'notify_title' => 'RIS reassigned to you',
                 'notify_type' => 'ris_reassigned',
-                'notify_url' => fn (int $id) => '/admin/procurement-review',
+                'notify_url' => fn (int $id) => '/school-admin/procurement-review',
                 'status_check' => function (object $row): bool {
                     return in_array($row->ris_status ?? null, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
                         && (int) ($row->ris_is_archived ?? 0) === 0;
@@ -177,6 +177,7 @@ class ReviewerAssignment
         if ($id <= 0 || ! in_array($id, $allowed, true)) {
             $label = match ($role) {
                 WorkflowNotifier::ROLE_ADMIN => 'Administrator',
+                WorkflowNotifier::ROLE_SCHOOL_ADMIN => 'School Administrator',
                 WorkflowNotifier::ROLE_ACCOUNTING => 'Accounting',
                 WorkflowNotifier::ROLE_RECEIVING => 'Receiving Officer',
                 default => 'reviewer',

@@ -21,7 +21,7 @@
     <form
         id="profileSettingsForm"
         method="POST"
-        action="{{ route('admin.profile.update') }}"
+        action="{{ \App\Support\AdminPortal::route('profile.update') }}"
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
         @csrf
@@ -103,13 +103,13 @@
 
         <div class="flex gap-6 border-b border-slate-200 px-6">
             <a
-                href="{{ route('admin.profile') }}"
+                href="{{ \App\Support\AdminPortal::route('profile') }}"
                 class="relative -mb-px border-b-2 border-slate-950 py-3 text-sm font-semibold text-slate-950"
             >
                 Profile
             </a>
             <a
-                href="{{ route('admin.security') }}"
+                href="{{ \App\Support\AdminPortal::route('security') }}"
                 class="relative -mb-px border-b-2 border-transparent py-3 text-sm font-medium text-slate-500 transition hover:text-slate-800"
             >
                 Security
@@ -300,7 +300,7 @@
                 body.append('user_profile_picture', file);
 
                 try {
-                    const response = await fetch('{{ route('admin.profile.picture') }}', {
+                    const response = await fetch('{{ \App\Support\AdminPortal::route('profile.picture') }}', {
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
@@ -338,7 +338,7 @@
                 setSaving(true);
 
                 try {
-                    const response = await fetch('{{ route('admin.profile.picture.remove') }}', {
+                    const response = await fetch('{{ \App\Support\AdminPortal::route('profile.picture.remove') }}', {
                         method: 'DELETE',
                         headers: {
                             'Accept': 'application/json',

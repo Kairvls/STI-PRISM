@@ -2,11 +2,16 @@
 {{-- RIS TABLE PARTIAL --}}
 {{-- ===================================================== --}}
 
+@php
+    $risCanAct = \App\Support\AdminPortal::canActOnRis();
+@endphp
+
 <table class="pur-table w-full min-w-[1020px] table-fixed">
 
     <thead>
         <tr>
             <th class="w-[4%] text-center">
+                @if ($risCanAct)
                 <input
                     type="checkbox"
                     id="risSelectAllPage"
@@ -15,6 +20,7 @@
                     aria-label="Select all acceptable requests on this page"
                     onclick="typeof window.toggleRisSelectAllPage === 'function' && window.toggleRisSelectAllPage(this)"
                 >
+                @endif
             </th>
             <th class="w-[12%]">RIS Number</th>
             <th class="w-[24%]">Equipment</th>
@@ -33,7 +39,7 @@
 
             <tr class="transition hover:bg-gray-50/70 {{ !$isAcceptable ? 'bg-gray-50/50 text-gray-500' : '' }}">
                 <td class="text-center">
-                    @if ($isAcceptable)
+                    @if ($isAcceptable && $risCanAct)
                         <input
                             type="checkbox"
                             class="ris-accept-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
@@ -119,7 +125,7 @@
                             'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900',
                         ])
 
-                        @if($isAcceptable)
+                        @if($isAcceptable && $risCanAct)
                             @php
                                 $acceptRef = \App\Support\RisWorkflow::formNumber($ris);
                                 $acceptDetail = \App\Support\RisWorkflow::sourceLabel($ris);

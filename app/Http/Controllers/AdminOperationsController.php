@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Services\MaintenanceReportService;
 use App\Support\AdminAttentionSummary;
+use App\Support\AdminPortal;
 use App\Support\BuildingLayout3D;
 use App\Support\DocumentLineage;
 use App\Support\ProcurementPaymentPath;
 use App\Support\RisWorkflow;
+use App\Support\RoomCategories;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -396,7 +398,19 @@ class AdminOperationsController extends Controller
                     'equipment_categories_table.equipment_category_name'
                 );
 
-            if ($filter === 'maintenance') {
+            if ($filter === 'stock') {
+                $query->where('equipment_table.equipment_inventory_status', '!=', 'Disposed')
+                    ->where('rooms_table.room_type', RoomCategories::STORAGE_TYPE);
+            } elseif ($filter === 'deployed') {
+                $query->whereNotNull('equipment_table.equipment_room_id')
+                    ->where('equipment_table.equipment_inventory_status', '!=', 'Disposed')
+                    ->where(function ($builder) {
+                        $builder->whereNull('rooms_table.room_type')
+                            ->orWhere('rooms_table.room_type', '!=', RoomCategories::STORAGE_TYPE);
+                    });
+            } elseif ($filter === 'disposed') {
+                $query->where('equipment_table.equipment_inventory_status', 'Disposed');
+            } elseif ($filter === 'maintenance') {
                 $query->where(function ($builder) {
                     $builder->where('equipment_condition_status', 'Under Maintenance')
                         ->orWhere('equipment_inventory_status', 'Under Maintenance');
@@ -441,7 +455,7 @@ class AdminOperationsController extends Controller
     {
         if (! Schema::hasTable('equipment_table')) {
             return redirect()
-                ->route('admin.operations.equipment')
+                ->to(AdminPortal::route('operations.equipment'))
                 ->with('error', 'Equipment not found.');
         }
 
@@ -468,7 +482,7 @@ class AdminOperationsController extends Controller
 
         if (! $equipment) {
             return redirect()
-                ->route('admin.operations.equipment')
+                ->to(AdminPortal::route('operations.equipment'))
                 ->with('error', 'Equipment not found.');
         }
 
@@ -630,11 +644,11 @@ class AdminOperationsController extends Controller
         $this->logAdminOverride(
             'equipment_report',
             $reportId,
-            'Administrator override: set status to '.$status,
+            AdminPortal::label().' override: set status to '.$status,
             $remarks
         );
 
-        return back()->with('success', ($result['message'] ?? 'Report updated.').' (Administrator override)');
+        return back()->with('success', ($result['message'] ?? 'Report updated.').' ('.AdminPortal::label().' override)');
     }
 
     public function procurement(Request $request): View
@@ -943,7 +957,7 @@ class AdminOperationsController extends Controller
                         'id' => $risId,
                         'label' => RisWorkflow::formNumber(null, $risId),
                         'hint' => 'Pipeline unavailable',
-                        'view_url' => route('admin.operations.document', ['type' => 'ris', 'id' => $risId]),
+                        'view_url' => AdminPortal::route('operations.document', ['type' => 'ris', 'id' => $risId]),
                     ],
                     'atp' => ['exists' => false, 'key' => 'atp', 'type' => 'ATP', 'id' => null, 'label' => 'ATP', 'hint' => null, 'view_url' => null],
                     'rfc' => ['exists' => false, 'key' => 'rfc', 'type' => 'RFC', 'id' => null, 'label' => 'RFC', 'hint' => null, 'view_url' => null],
@@ -994,7 +1008,7 @@ class AdminOperationsController extends Controller
                 'id' => $node['id'] ?? null,
                 'label' => $node['label'] ?? strtoupper($key),
                 'hint' => $node['hint'] ?? null,
-                'view_url' => route('admin.operations.document', [
+                'view_url' => AdminPortal::route('operations.document', [
                     'type' => $key,
                     'id' => $node['id'],
                 ]),
@@ -1328,7 +1342,7 @@ class AdminOperationsController extends Controller
                 'approval_log_reference_type' => $refType,
                 'approval_log_reference_id' => $refId,
                 'approval_log_approval_status' => $status,
-                'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Administrator override',
+                'approval_log_approval_remarks' => $remarks !== '' ? $remarks : AdminPortal::label().' override',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approved_at' => now(),
             ];

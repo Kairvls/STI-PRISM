@@ -20,13 +20,13 @@
     $overdueBorrows = (int) ($overview['overdue_borrows'] ?? 0);
 
     if ($pendingRis > 0) {
-        $headline = $plural((int) $pendingRis, 'RIS', 'RIS').' waiting for your acceptance';
+        $headline = $plural((int) $pendingRis, 'RIS', 'RIS').' waiting for School Administrator acceptance';
     } elseif ($forCosigningCount > 0) {
-        $headline = $plural((int) $forCosigningCount, 'RIS', 'RIS').' waiting for your signature';
+        $headline = $plural((int) $forCosigningCount, 'RIS', 'RIS').' waiting for the School Administrator signature';
     } elseif ($amendRis > 0) {
         $headline = $plural((int) $amendRis, 'RIS', 'RIS').' sent back for amendment';
     } else {
-        $headline = 'Nothing is waiting on you';
+        $headline = 'No RIS waiting on the School Administrator';
     }
 
     $campusParts = array_filter([
@@ -37,7 +37,7 @@
     $campusText = $campusParts
         ? (count($campusParts) > 1 ? implode(', ', array_slice($campusParts, 0, -1)).' and '.end($campusParts) : reset($campusParts)).' need follow-up on campus.'
         : 'Campus operations are clear.';
-    $subline = ($pendingRis > 0 && $forCosigningCount > 0 ? $plural((int) $forCosigningCount, 'RIS', 'RIS').' also waiting for your signature. ' : '').$campusText;
+    $subline = ($pendingRis > 0 && $forCosigningCount > 0 ? $plural((int) $forCosigningCount, 'RIS', 'RIS').' also waiting for the School Administrator signature. ' : '').$campusText;
 
     $pipeline = [
         'ris' => 'RIS',
@@ -49,8 +49,8 @@
     $pipelineMax = max(1, collect($pipeline)->keys()->map(fn ($key) => (int) ($stages[$key] ?? 0))->max());
 
     $stats = [
-        ['label' => 'To accept', 'value' => (int) $pendingRis, 'note' => $peso($pendingRisAmount).' waiting', 'href' => route('admin.procurement-review.ris', ['filter' => 'pending'])],
-        ['label' => 'To sign', 'value' => (int) $forCosigningCount, 'note' => 'Issued-by signature', 'href' => route('admin.digital-signatures.sign-ris', ['filter' => 'pending'])],
+        ['label' => 'Awaiting accept', 'value' => (int) $pendingRis, 'note' => $peso($pendingRisAmount).' with School Administrator', 'href' => route('admin.procurement-review.ris', ['filter' => 'pending'])],
+        ['label' => 'Awaiting signature', 'value' => (int) $forCosigningCount, 'note' => 'School Administrator Issued-by', 'href' => route('admin.digital-signatures.sign-ris', ['filter' => 'pending'])],
         ['label' => 'Urgent reports', 'value' => $urgentReports, 'note' => ($overview['open_reports'] ?? 0).' open in total', 'href' => route('admin.operations.reports', ['filter' => 'urgent'])],
         ['label' => 'Overdue schedules', 'value' => $overdueSchedules, 'note' => 'Maintenance', 'href' => route('admin.operations.schedules', ['filter' => 'overdue'])],
     ];
@@ -93,11 +93,11 @@
                 <div class="mt-6 flex flex-wrap items-center gap-2">
                     <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}"
                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
-                        <i data-lucide="inbox" class="h-4 w-4"></i> Review RIS
+                        <i data-lucide="inbox" class="h-4 w-4"></i> View RIS
                     </a>
                     <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'pending']) }}"
                        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                        <i data-lucide="pen-tool" class="h-4 w-4 text-slate-400"></i> Sign RIS
+                        <i data-lucide="pen-tool" class="h-4 w-4 text-slate-400"></i> Signing status
                     </a>
                     <a href="{{ route('admin.operations.overview') }}"
                        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
@@ -152,8 +152,8 @@
         <section class="ad-panel flex flex-col lg:col-span-3">
             <div class="flex items-center justify-between gap-3 px-6 pb-4 pt-6 sm:px-8">
                 <div>
-                    <h2 class="text-base font-semibold text-slate-900">Your queue</h2>
-                    <p class="text-xs text-slate-500">RIS waiting on the Administrator</p>
+                    <h2 class="text-base font-semibold text-slate-900">School Administrator queue</h2>
+                    <p class="text-xs text-slate-500">RIS waiting on the School Administrator (view only)</p>
                 </div>
                 @if($canPurchaser)
                     <a href="{{ url('/purchaser/dashboard') }}" class="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900">Purchaser portal →</a>
@@ -161,8 +161,8 @@
             </div>
 
             @foreach([
-                ['label' => 'To accept', 'rows' => $actionPendingRis, 'href' => route('admin.procurement-review.ris', ['filter' => 'pending']), 'empty' => 'Nothing waiting for acceptance.', 'meta' => fn ($ris) => \Illuminate\Support\Str::limit($ris->ris_purpose_description, 60) ?: $ris->ris_status],
-                ['label' => 'To sign', 'rows' => $actionSignRis, 'href' => route('admin.digital-signatures.sign-ris', ['filter' => 'pending']), 'empty' => 'Nothing waiting for your signature.', 'meta' => fn ($ris) => $ris->ris_status],
+                ['label' => 'Awaiting accept', 'rows' => $actionPendingRis, 'href' => route('admin.procurement-review.ris', ['filter' => 'pending']), 'empty' => 'Nothing waiting for acceptance.', 'meta' => fn ($ris) => \Illuminate\Support\Str::limit($ris->ris_purpose_description, 60) ?: $ris->ris_status],
+                ['label' => 'Awaiting signature', 'rows' => $actionSignRis, 'href' => route('admin.digital-signatures.sign-ris', ['filter' => 'pending']), 'empty' => 'Nothing waiting for the School Administrator signature.', 'meta' => fn ($ris) => $ris->ris_status],
             ] as $block)
                 <div class="border-t border-slate-100">
                     <div class="flex items-center justify-between px-6 pt-4 sm:px-8">

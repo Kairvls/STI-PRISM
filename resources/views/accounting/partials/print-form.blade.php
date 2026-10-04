@@ -1,4 +1,5 @@
 {{-- Accounting form print: clone only the paper sheet (same approach as purchaser) --}}
+@include('partials.print-fit-page')
 <script>
     window.accountingPrintForm = function (options) {
         options = options || {};
@@ -54,6 +55,10 @@
         clone.classList.remove('shadow');
         mount.appendChild(clone);
         document.body.appendChild(mount);
+
+        if (window.fitPrintPage) {
+            window.fitPrintPage(clone, { host: mount });
+        }
 
         var cleaned = false;
         var cleanup = function () {
@@ -163,7 +168,7 @@
 
         #accounting-print-mount .atp-print-sheet,
         #accounting-print-mount .rr-print-sheet {
-            padding: 12mm !important;
+            padding: 6mm 12mm 12mm !important;
         }
 
         #accounting-print-mount .rfc-print-sheet {
@@ -175,7 +180,7 @@
         }
 
         #accounting-print-mount .ris-document {
-            padding: 0.35in !important;
+            padding: 0.2in !important;
             width: 100% !important;
         }
 

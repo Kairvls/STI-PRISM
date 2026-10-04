@@ -33,7 +33,7 @@
                     @include('admin.partials.revision-image-picker', ['pickerId' => 'returnRevisionImages'])
                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs text-slate-700">
-                            Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to Administrator.
+                            Approved by and Issued by signatures will be cleared. The Purchaser edits under Minor Revision, then resubmits to the School Administrator.
                         </p>
                     </div>
                 </div>
@@ -63,7 +63,7 @@
         var form = document.getElementById('returnRevisionForm');
         var textarea = document.getElementById('return_revision_remarks');
         if (!modal || !form || !textarea) return;
-        form.action = '/admin/digital-signatures/ris/' + risId + '/return-revision';
+        form.action = @js(\App\Support\AdminPortal::url('digital-signatures/ris')) + '/' + risId + '/return-revision';
         textarea.value = '';
         if (typeof window.resetRevisionImagePicker === 'function') {
             window.resetRevisionImagePicker('returnRevisionImages');

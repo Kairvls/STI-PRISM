@@ -934,7 +934,7 @@ class RisController extends Controller
             if ($isDraft) {
                 $this->notifyPurchaserDraft((int) $risId);
             } else {
-                $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ADMIN);
+                $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_SCHOOL_ADMIN);
                 if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
                     DB::table('requisition_issue_slip_table')
                         ->where('ris_id', $risId)
@@ -949,13 +949,13 @@ class RisController extends Controller
                 $this->deleteCopiedSourceDraftIfNeeded($savedRis);
 
                 DocumentWorkflowService::notifySubmitted(
-                    WorkflowNotifier::ROLE_ADMIN,
+                    WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                     'New RIS submitted',
-                    RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.',
+                    RisWorkflow::formNumber($formNumber) . ' was submitted for School Administrator review.',
                     'ris_submitted',
                     'RIS',
                     (int) $risId,
-                    '/admin/procurement-review',
+                    '/school-admin/procurement-review',
                     $reviewerId
                 );
             }
@@ -1474,7 +1474,7 @@ public function update(Request $request, $risId)
             $updateData['ris_submitted_at'] =
                 now();
 
-            $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ADMIN);
+            $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_SCHOOL_ADMIN);
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
                 $updateData['ris_assigned_reviewer_id'] = $reviewerId;
             }
@@ -1573,13 +1573,13 @@ public function update(Request $request, $risId)
             }
 
             DocumentWorkflowService::notifySubmitted(
-                WorkflowNotifier::ROLE_ADMIN,
+                WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 $saveAction === 'resubmit' ? 'RIS resubmitted' : 'New RIS submitted',
-                RisWorkflow::formNumber($formNumber ?: $ris) . ' was submitted for Administrator review.',
+                RisWorkflow::formNumber($formNumber ?: $ris) . ' was submitted for School Administrator review.',
                 'ris_submitted',
                 'RIS',
                 (int) $risId,
-                '/admin/procurement-review',
+                '/school-admin/procurement-review',
                 $reviewerId
             );
         }
@@ -1610,7 +1610,7 @@ public function resubmit($risId)
 protected function submitOrResubmit($risId, string $mode = 'submit')
 {
     $isResubmit = $mode === 'resubmit';
-    $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ADMIN);
+    $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_SCHOOL_ADMIN);
 
     return DB::transaction(function () use ($risId, $reviewerId, $isResubmit) {
 
@@ -1809,7 +1809,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
             $newStatus = 'Submitted';
             $notifyTitle = 'New RIS submitted';
-            $notifyBody = RisWorkflow::formNumber($formNumber) . ' was submitted for Administrator review.';
+            $notifyBody = RisWorkflow::formNumber($formNumber) . ' was submitted for School Administrator review.';
             $successMessage = 'RIS submitted to Administrator successfully.';
         }
 
@@ -1834,13 +1834,13 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         DocumentWorkflowService::notifySubmitted(
-            WorkflowNotifier::ROLE_ADMIN,
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN,
             $notifyTitle,
             $notifyBody,
             $isResubmit ? 'ris_resubmitted' : 'ris_submitted',
             'RIS',
             (int) $risId,
-            '/admin/procurement-review',
+            '/school-admin/procurement-review',
             $reviewerId
         );
 

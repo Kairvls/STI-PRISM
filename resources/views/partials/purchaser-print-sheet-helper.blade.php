@@ -1,4 +1,5 @@
 {{-- Clone a form sheet out of hidden modals so browser print is not blank --}}
+@include('partials.print-fit-page')
 <script>
     window.purchaserPrintSheet = function (sheetId, activeClass) {
         var sheet = document.getElementById(sheetId);
@@ -22,6 +23,10 @@
         clone.classList.add('purchaser-print-sheet');
         mount.appendChild(clone);
         document.body.appendChild(mount);
+
+        if (window.fitPrintPage) {
+            window.fitPrintPage(clone, { host: mount });
+        }
 
         var cleaned = false;
         var cleanup = function () {
@@ -106,7 +111,7 @@
 
         #purchaser-print-mount .atp-print-sheet,
         #purchaser-print-mount .rr-print-sheet {
-            padding: 12mm !important;
+            padding: 6mm 12mm 12mm !important;
             min-height: 0 !important;
             height: auto !important;
             background: #fff !important;

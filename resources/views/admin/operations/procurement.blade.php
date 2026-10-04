@@ -129,19 +129,21 @@
 
 <div class="admin-page space-y-6" x-data="adminProcurementMonitor">
     {{-- Intro / actions --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <!--<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <p class="max-w-2xl text-sm leading-relaxed text-gray-500">
             View-only track of RIS → ATP → RFC/CA → RR → Liquidation.
-            To <span class="font-semibold text-gray-900">create and drive</span> documents, enable procurement on your Administrator account and open the
-            <span class="font-semibold text-gray-900">Purchaser</span> portal.
+            @if (! \App\Support\AdminPortal::isSchoolAdmin())
+                To <span class="font-semibold text-gray-900">create and drive</span> documents, enable procurement on your Administrator account and open the
+                <span class="font-semibold text-gray-900">Purchaser</span> portal.
+            @endif
         </p>
         <div class="flex flex-wrap items-center gap-2">
-            @if(\App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::PURCHASER))
+            @if(! \App\Support\AdminPortal::isSchoolAdmin() && \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::PURCHASER))
                 <a href="{{ url('/purchaser/dashboard') }}" class="pur-btn-primary h-9 px-4 text-[13px]">Open Purchaser portal</a>
             @endif
-            <a href="{{ url('/admin/procurement-review') }}" class="pur-btn-secondary h-9 px-4 text-[13px]">Procurement Requests</a>
+            <a href="{{ \App\Support\AdminPortal::route('procurement-review') }}" class="pur-btn-secondary h-9 px-4 text-[13px]">Procurement Requests</a>
         </div>
-    </div>
+    </div>-->
 
     {{-- Stage metrics --}}
     @include('layouts.partials.maintenance-stat-cards', [
@@ -192,7 +194,7 @@
                     </button>
                     @if($q !== '' && $q !== null)
                         <a
-                            href="{{ route('admin.operations.procurement', ['filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.procurement', ['filter' => $filter]) }}"
                             class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
@@ -202,7 +204,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($filters as $key => $label)
                     <a
-                        href="{{ route('admin.operations.procurement', ['filter' => $key, 'q' => $q]) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.procurement', ['filter' => $key, 'q' => $q]) }}"
                         class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
@@ -334,7 +336,10 @@
                         <p class="mt-0.5 text-xs text-gray-400">View only</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button type="button" class="pur-btn-secondary h-9 px-3 text-xs" @click="printDoc()">Print</button>
+                        <button type="button" class="pur-btn-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs" @click="printDoc()">
+                            <i data-lucide="printer" class="h-4 w-4"></i>
+                            Print
+                        </button>
                         <button
                             type="button"
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
@@ -452,7 +457,7 @@ document.addEventListener('alpine:init', () => {
             this.docTitle = title || (String(type).toUpperCase() + ' #' + id);
             this.docOpen = true;
             this.docLoading = true;
-            const url = @json(url('/admin/operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
+            const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
             this.$nextTick(() => {
                 if (window.lucide && typeof window.lucide.createIcons === 'function') {
                     window.lucide.createIcons();
@@ -491,7 +496,7 @@ document.addEventListener('alpine:init', () => {
             });
 
             try {
-                const res = await fetch(@json(url('/admin/operations/procurement')) + '/' + encodeURIComponent(risId) + '/pipeline', {
+                const res = await fetch(@json(\App\Support\AdminPortal::url('operations/procurement')) + '/' + encodeURIComponent(risId) + '/pipeline', {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 if (!res.ok) throw new Error('Failed');

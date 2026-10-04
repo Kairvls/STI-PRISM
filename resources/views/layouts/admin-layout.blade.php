@@ -6,7 +6,11 @@
 @section('main-pad', 'px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5 lg:px-8')
 
 @section('sidebar')
-    @include('layouts.admin-sidebar')
+    @if (\App\Support\AdminPortal::isSchoolAdmin())
+        @include('layouts.school-admin-sidebar')
+    @else
+        @include('layouts.admin-sidebar')
+    @endif
 @endsection
 
 @section('topbar')

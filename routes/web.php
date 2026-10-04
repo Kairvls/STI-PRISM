@@ -96,6 +96,190 @@ Route::middleware('auth')->group(function () {
 
 
 // =====================================================
+// SHARED ADMINISTRATOR / SCHOOL ADMINISTRATOR MODULES
+// Procurement Requests, Sign RIS, Signature History and the
+// equipment / schedules / reports / procurement monitors.
+// Registered under both /admin (oversight) and /school-admin.
+// =====================================================
+
+$schoolAdminModuleRoutes = function () {
+
+    Route::get(
+        '/operations/equipment',
+        [\App\Http\Controllers\AdminOperationsController::class, 'equipment']
+    )->name('operations.equipment');
+
+    Route::get(
+        '/operations/equipment/{id}',
+        [\App\Http\Controllers\AdminOperationsController::class, 'showEquipment']
+    )->whereNumber('id')->name('operations.equipment.show');
+
+    Route::get(
+        '/operations/schedules',
+        [\App\Http\Controllers\AdminOperationsController::class, 'schedules']
+    )->name('operations.schedules');
+
+    Route::get(
+        '/operations/reports',
+        [\App\Http\Controllers\AdminOperationsController::class, 'reports']
+    )->name('operations.reports');
+
+    Route::post(
+        '/operations/reports/{reportId}',
+        [\App\Http\Controllers\AdminOperationsController::class, 'updateReport']
+    )->whereNumber('reportId')->name('operations.reports.update');
+
+    Route::get(
+        '/operations/procurement',
+        [\App\Http\Controllers\AdminOperationsController::class, 'procurement']
+    )->name('operations.procurement');
+
+    Route::get(
+        '/operations/procurement/{risId}/pipeline',
+        [\App\Http\Controllers\AdminOperationsController::class, 'procurementPipeline']
+    )->whereNumber('risId')->name('operations.procurement.pipeline');
+
+    Route::get(
+        '/operations/documents/{type}/{id}',
+        [\App\Http\Controllers\AdminOperationsController::class, 'viewDocument']
+    )->whereNumber('id')->where('type', 'ris|atp|rfc|rr|liq')->name('operations.document');
+
+    Route::get(
+        '/procurement-review',
+        [AdminController::class, 'procurementReview']
+    )->name('procurement-review');
+
+    Route::get(
+        '/procurement-review/ris',
+        [AdminController::class, 'risApprovals']
+    )->name('procurement-review.ris');
+
+    Route::get(
+        '/procurement-review/ris/{ris}/direct-approval-proof',
+        [AdminController::class, 'downloadDirectApprovalProof']
+    )->whereNumber('ris')->name('procurement-review.ris.direct-approval-proof');
+
+    Route::get(
+        '/procurement-review/ris/{ris}/forward-attachment',
+        [AdminController::class, 'downloadForwardAttachment']
+    )->whereNumber('ris')->name('procurement-review.ris.forward-attachment');
+
+    Route::get(
+        '/procurement-review/ris/{ris}/print',
+        [AdminController::class, 'printRis']
+    )->name('procurement-review.ris.print');
+
+    Route::get(
+        '/procurement-review/export-pdf',
+        [AdminController::class, 'exportProcurementRisPdf']
+    )->name('procurement-review.export-pdf');
+
+    Route::get(
+        '/ris/attachments/{attachmentId}/download',
+        [RisController::class, 'downloadAttachment']
+    )->name('ris.attachments.download');
+
+    Route::get(
+        '/ris/revisions/{revisionId}/images/{index}',
+        [RisController::class, 'revisionImage']
+    )->whereNumber(['revisionId', 'index'])->name('ris.revision-image');
+
+    Route::get(
+        '/ris/{ris}/details',
+        [AdminController::class, 'risDetails']
+    )->name('ris.details');
+
+    Route::get(
+        '/digital-signatures/sign-ris',
+        [AdminController::class, 'signRis']
+    )->name('digital-signatures.sign-ris');
+
+    Route::get(
+        '/digital-signatures/sign-ris/export-pdf',
+        [AdminController::class, 'exportSignRisPdf']
+    )->name('digital-signatures.sign-ris.export-pdf');
+
+    Route::get(
+        '/digital-signatures/history',
+        [AdminController::class, 'signatureHistory']
+    )->name('digital-signatures.history');
+
+    Route::get(
+        '/digital-signatures/history/export-pdf',
+        [AdminController::class, 'exportSignatureHistoryPdf']
+    )->name('digital-signatures.history.export-pdf');
+};
+
+// RIS decisions: School Administrator only (the Administrator portal is view-only).
+$schoolAdminRisActionRoutes = function () {
+
+    Route::post(
+        '/procurement-review/ris/accept-bulk',
+        [AdminController::class, 'bulkAcceptRis']
+    )->name('procurement-review.ris.accept-bulk');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/accept',
+        [AdminController::class, 'acceptRis']
+    )->name('procurement-review.ris.accept');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/approve',
+        [AdminController::class, 'approveRis']
+    )->name('procurement-review.ris.approve');
+
+    Route::get(
+        '/procurement-review/ris/{ris}/direct-approve-form',
+        [AdminController::class, 'directApproveForm']
+    )->name('procurement-review.ris.direct-approve-form');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/direct-approve',
+        [AdminController::class, 'directApproveRis']
+    )->name('procurement-review.ris.direct-approve');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/reject',
+        [AdminController::class, 'rejectRis']
+    )->name('procurement-review.ris.reject');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/review',
+        [AdminController::class, 'startRisReview']
+    )->name('procurement-review.ris.review');
+
+    Route::post(
+        '/procurement-review/ris/{ris}/final-reject',
+        [AdminController::class, 'finalRejectRis']
+    )->name('procurement-review.ris.final-reject');
+
+    Route::post(
+        '/digital-signatures/ris/decide',
+        [AdminController::class, 'decideRis']
+    )->name('digital-signatures.ris.decide');
+
+    Route::post(
+        '/digital-signatures/ris/{ris}/return-purchaser',
+        [AdminController::class, 'returnRisToPurchaser']
+    )->name('digital-signatures.ris.return-purchaser');
+
+    Route::post(
+        '/digital-signatures/ris/{ris}/return-revision',
+        [AdminController::class, 'returnRisForRevision']
+    )->name('digital-signatures.ris.return-revision');
+
+    Route::post(
+        '/digital-signatures/saved-signatures',
+        [AdminController::class, 'storeSavedSignature']
+    )->name('digital-signatures.saved-signatures.store');
+
+    Route::delete(
+        '/digital-signatures/saved-signatures/{signature}',
+        [AdminController::class, 'destroySavedSignature']
+    )->whereNumber('signature')->name('digital-signatures.saved-signatures.destroy');
+};
+
+// =====================================================
 // ADMIN ROUTES
 // =====================================================
 
@@ -106,7 +290,9 @@ Route::get('/admin/login', [AuthenticatedSessionController::class, 'createAdmin'
 Route::middleware(['auth', 'admin'])
     ->prefix('admin')
     ->name('admin.')
-    ->group(function () {
+    ->group(function () use ($schoolAdminModuleRoutes) {
+
+        $schoolAdminModuleRoutes();
 
         // ==========================================
         // DASHBOARD
@@ -157,44 +343,9 @@ Route::middleware(['auth', 'admin'])
         )->name('operations.overview');
 
         Route::get(
-            '/operations/equipment',
-            [\App\Http\Controllers\AdminOperationsController::class, 'equipment']
-        )->name('operations.equipment');
-
-        Route::get(
-            '/operations/equipment/{id}',
-            [\App\Http\Controllers\AdminOperationsController::class, 'showEquipment']
-        )->whereNumber('id')->name('operations.equipment.show');
-
-        Route::get(
             '/operations/building-layout',
             [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayout']
         )->name('operations.building-layout');
-
-        Route::get(
-            '/operations/schedules',
-            [\App\Http\Controllers\AdminOperationsController::class, 'schedules']
-        )->name('operations.schedules');
-
-        Route::get(
-            '/operations/reports',
-            [\App\Http\Controllers\AdminOperationsController::class, 'reports']
-        )->name('operations.reports');
-
-        Route::post(
-            '/operations/reports/{reportId}',
-            [\App\Http\Controllers\AdminOperationsController::class, 'updateReport']
-        )->whereNumber('reportId')->name('operations.reports.update');
-
-        Route::get(
-            '/operations/procurement',
-            [\App\Http\Controllers\AdminOperationsController::class, 'procurement']
-        )->name('operations.procurement');
-
-        Route::get(
-            '/operations/procurement/{risId}/pipeline',
-            [\App\Http\Controllers\AdminOperationsController::class, 'procurementPipeline']
-        )->whereNumber('risId')->name('operations.procurement.pipeline');
 
         Route::get(
             '/operations/back-orders',
@@ -207,23 +358,13 @@ Route::middleware(['auth', 'admin'])
         )->whereNumber(['id', 'index'])->whereIn('kind', ['proof', 'refund', 'replacement'])->name('back-orders.file');
 
         Route::get(
-            '/operations/documents/{type}/{id}',
-            [\App\Http\Controllers\AdminOperationsController::class, 'viewDocument']
-        )->whereNumber('id')->where('type', 'ris|atp|rfc|rr|liq')->name('operations.document');
-
-        Route::get(
             '/operations/movements',
             [\App\Http\Controllers\AdminOperationsController::class, 'movements']
         )->name('operations.movements');
 
         // ==========================================
-        // PROCUREMENT REVIEW
+        // REQUEST FOR CHECK / LIQUIDATION
         // ==========================================
-
-        Route::get(
-            '/procurement-review',
-            [AdminController::class, 'procurementReview']
-        )->name('procurement-review');
 
         Route::get(
             '/request-check',
@@ -257,45 +398,6 @@ Route::middleware(['auth', 'admin'])
         Route::post('/liquidation-reports/{id}/revise', [AdminController::class, 'reviseLiq'])->name('liq.revise');
         Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('liq.export-xlsx');
         Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('liq.export-docx');
-
-        // ==========================================
-        // DIGITAL SIGNATURES
-        // ==========================================
-
-        Route::get(
-            '/digital-signatures/sign-ris',
-            [AdminController::class, 'signRis']
-        )->name('digital-signatures.sign-ris');
-
-        Route::get(
-            '/digital-signatures/history',
-            [AdminController::class, 'signatureHistory']
-        )->name('digital-signatures.history');
-
-        Route::post(
-            '/digital-signatures/ris/decide',
-            [AdminController::class, 'decideRis']
-        )->name('digital-signatures.ris.decide');
-
-        Route::post(
-            '/digital-signatures/ris/{ris}/return-purchaser',
-            [AdminController::class, 'returnRisToPurchaser']
-        )->name('digital-signatures.ris.return-purchaser');
-
-        Route::post(
-            '/digital-signatures/ris/{ris}/return-revision',
-            [AdminController::class, 'returnRisForRevision']
-        )->name('digital-signatures.ris.return-revision');
-
-        Route::post(
-            '/digital-signatures/saved-signatures',
-            [AdminController::class, 'storeSavedSignature']
-        )->name('digital-signatures.saved-signatures.store');
-
-        Route::delete(
-            '/digital-signatures/saved-signatures/{signature}',
-            [AdminController::class, 'destroySavedSignature']
-        )->whereNumber('signature')->name('digital-signatures.saved-signatures.destroy');
 
         // ==========================================
         // NOTIFICATIONS
@@ -454,100 +556,6 @@ Route::middleware(['auth', 'admin'])
         )->name('settings.system-settings');
 
         // ==========================================
-        // PROCUREMENT REVIEW RIS APPROVALS
-        // ==========================================
-
-        Route::get(
-            '/procurement-review/ris',
-            [AdminController::class, 'risApprovals']
-        )->name('procurement-review.ris');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/approve',
-            [AdminController::class, 'approveRis']
-        )->name('procurement-review.ris.approve');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/accept',
-            [AdminController::class, 'acceptRis']
-        )->name('procurement-review.ris.accept');
-
-        Route::post(
-            '/procurement-review/ris/accept-bulk',
-            [AdminController::class, 'bulkAcceptRis']
-        )->name('procurement-review.ris.accept-bulk');
-
-        Route::get(
-            '/procurement-review/ris/{ris}/direct-approve-form',
-            [AdminController::class, 'directApproveForm']
-        )->name('procurement-review.ris.direct-approve-form');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/direct-approve',
-            [AdminController::class, 'directApproveRis']
-        )->name('procurement-review.ris.direct-approve');
-
-        Route::get(
-            '/procurement-review/ris/{ris}/direct-approval-proof',
-            [AdminController::class, 'downloadDirectApprovalProof']
-        )->whereNumber('ris')->name('procurement-review.ris.direct-approval-proof');
-
-        Route::get(
-            '/procurement-review/ris/{ris}/forward-attachment',
-            [AdminController::class, 'downloadForwardAttachment']
-        )->whereNumber('ris')->name('procurement-review.ris.forward-attachment');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/reject',
-            [AdminController::class, 'rejectRis']
-        )->name('procurement-review.ris.reject');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/review',
-            [AdminController::class, 'startRisReview']
-        )->name('procurement-review.ris.review');
-
-        Route::post(
-            '/procurement-review/ris/{ris}/final-reject',
-            [AdminController::class, 'finalRejectRis']
-        )->name('procurement-review.ris.final-reject');
-
-        Route::get(
-            '/procurement-review/ris/{ris}/print',
-            [AdminController::class, 'printRis']
-        )->name('procurement-review.ris.print');
-
-        Route::get(
-            '/ris/attachments/{attachmentId}/download',
-            [RisController::class, 'downloadAttachment']
-        )->name('ris.attachments.download');
-
-        Route::get(
-            '/ris/revisions/{revisionId}/images/{index}',
-            [RisController::class, 'revisionImage']
-        )->whereNumber(['revisionId', 'index'])->name('ris.revision-image');
-
-        Route::get(
-            '/ris/{ris}/details',
-            [AdminController::class, 'risDetails']
-        )->name('ris.details');
-
-        Route::get(
-            '/procurement-review/export-pdf',
-            [AdminController::class, 'exportProcurementRisPdf']
-        )->name('procurement-review.export-pdf');
-
-        Route::get(
-            '/digital-signatures/sign-ris/export-pdf',
-            [AdminController::class, 'exportSignRisPdf']
-        )->name('digital-signatures.sign-ris.export-pdf');
-
-        Route::get(
-            '/digital-signatures/history/export-pdf',
-            [AdminController::class, 'exportSignatureHistoryPdf']
-        )->name('digital-signatures.history.export-pdf');
-
-        // ==========================================
         // QUICK ACCESS MODAL CONTENT (AJAX)
         // ==========================================
 
@@ -583,50 +591,58 @@ Route::middleware(['auth', 'admin'])
 
     });
 
-    Route::get('/admin/users', [AdminController::class, 'users']);
+// =====================================================
+// SCHOOL ADMINISTRATOR ROUTES
+// =====================================================
 
-    Route::get('/admin/users/create', [AdminController::class, 'createUser']);
+Route::middleware(['auth', 'school_admin'])
+    ->prefix('school-admin')
+    ->name('school-admin.')
+    ->group(function () use ($schoolAdminModuleRoutes, $schoolAdminRisActionRoutes) {
 
-    Route::post('/admin/users/store',
-        [AdminController::class, 'storeUser']);
+        Route::get(
+            '/dashboard',
+            [\App\Http\Controllers\SchoolAdminController::class, 'dashboard']
+        )->name('dashboard');
 
-    Route::get('/admin/settings/campus-setup-pin',
-        [AdminController::class, 'campusSetupPin']);
+        Route::get(
+            '/notifications',
+            [\App\Http\Controllers\SchoolAdminController::class, 'notifications']
+        )->name('notifications');
 
-    Route::post('/admin/settings/campus-setup-pin',
-        [AdminController::class, 'updateCampusSetupPin']);
-    // =====================================================
-    // ADDED RIS ADMIN APPROVAL ROUTES
-    // =====================================================
+        Route::get(
+            '/profile',
+            [AccountSettingsController::class, 'profile']
+        )->name('profile');
 
-    Route::get(
-        '/admin/procurement-review',
-        [AdminController::class, 'risApprovals']
-    )->name('admin.procurement-review.index');
+        Route::post(
+            '/profile',
+            [AccountSettingsController::class, 'updateProfile']
+        )->name('profile.update');
 
-    Route::post(
-        '/admin/procurement-review/ris/{risId}/approve',
-        [AdminController::class, 'approveRis']
-    )->name('admin.procurement-review.ris.approve');
+        Route::post(
+            '/profile/picture',
+            [AccountSettingsController::class, 'updateProfilePicture']
+        )->name('profile.picture');
 
-    Route::post(
-        '/admin/procurement-review/ris/{risId}/reject',
-        [AdminController::class, 'rejectRis']
-    )->name('admin.procurement-review.ris.reject');
+        Route::delete(
+            '/profile/picture',
+            [AccountSettingsController::class, 'removeProfilePicture']
+        )->name('profile.picture.remove');
 
-    Route::post(
-        '/admin/procurement-review/ris/{risId}/review',
-        [AdminController::class, 'startRisReview']
-    )->name('admin.procurement-review.ris.review');
+        Route::get(
+            '/security',
+            [AccountSettingsController::class, 'security']
+        )->name('security');
 
-    Route::post(
-        '/admin/procurement-review/ris/{risId}/final-reject',
-        [AdminController::class, 'finalRejectRis']
-    )->name('admin.procurement-review.ris.final-reject');
+        Route::put(
+            '/security/password',
+            [AccountSettingsController::class, 'updatePassword']
+        )->name('security.password');
 
-    // =====================================================
-    // END ADDED RIS ADMIN APPROVAL ROUTES
-    // =====================================================
+        $schoolAdminModuleRoutes();
+        $schoolAdminRisActionRoutes();
+    });
 
 
 

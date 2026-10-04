@@ -58,7 +58,7 @@
 
 <div
     @if($printId) id="{{ $printId }}" @endif
-    class="atp-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-6 pt-4 text-[13px] leading-tight text-black shadow {{ $printClass }}"
+    class="atp-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-[38px] pt-[38px] text-[13px] leading-tight text-black shadow {{ $printClass }}"
 >
     {{-- HEADER --}}
     <div class="relative text-center">

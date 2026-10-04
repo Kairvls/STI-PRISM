@@ -66,7 +66,7 @@
 
         // Fetch the updated content.
         fetch(
-            '{{ route('admin.digital-signatures.history') }}?' +
+            '{{ \App\Support\AdminPortal::route('digital-signatures.history') }}?' +
             params.toString(),
             {
                 headers: {
@@ -110,7 +110,7 @@
 
             // Update URL without reloading the page.
             const url =
-                '{{ route('admin.digital-signatures.history') }}?' +
+                '{{ \App\Support\AdminPortal::route('digital-signatures.history') }}?' +
                 params.toString();
 
             window.history.replaceState(
@@ -330,7 +330,7 @@
         }
 
         iframe.src =
-            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print?ts=${Date.now()}`;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);

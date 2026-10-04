@@ -22,6 +22,7 @@
                 $needsDecision = \App\Support\RisWorkflow::needsSignDecision($ris);
                 $isPresidentRejected = \App\Support\RisWorkflow::canReturnForRevision($ris);
                 $rowDimmed = !$needsDecision && !$awaitingSign && !$isPresidentRejected;
+                $risCanAct = \App\Support\AdminPortal::canActOnRis();
             @endphp
 
             <tr class="transition hover:bg-gray-50/70 {{ $rowDimmed ? 'bg-gray-50/50 text-gray-500' : '' }}">
@@ -105,7 +106,7 @@
                             ])
                         @endif
 
-                        @if($awaitingSign)
+                        @if($awaitingSign && $risCanAct)
                             <button
                                 type="button"
                                 onclick="window.openCoSignModal('{{ $ris->ris_id }}')"
@@ -119,7 +120,7 @@
                             </button>
                         @endif
 
-                        @if($isPresidentRejected)
+                        @if($isPresidentRejected && $risCanAct)
                             <button
                                 type="button"
                                 onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}')"

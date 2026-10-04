@@ -155,6 +155,10 @@ class AccountSettingsController extends Controller
             return 'admin';
         }
 
+        if (request()->routeIs('school-admin.*')) {
+            return 'school-admin';
+        }
+
         if (request()->routeIs('receiving.*')) {
             return 'receiving';
         }
@@ -177,7 +181,7 @@ class AccountSettingsController extends Controller
     private function profileView(): string
     {
         return match ($this->portal()) {
-            'admin' => 'admin.profile.index',
+            'admin', 'school-admin' => 'admin.profile.index',
             'receiving' => 'receiving-officer.profile.index',
             'purchaser' => 'purchaser.profile.index',
             'accounting' => 'accounting.profile.index',
@@ -189,7 +193,7 @@ class AccountSettingsController extends Controller
     private function securityView(): string
     {
         return match ($this->portal()) {
-            'admin' => 'admin.security.index',
+            'admin', 'school-admin' => 'admin.security.index',
             'receiving' => 'receiving-officer.security.index',
             'purchaser' => 'purchaser.security.index',
             'accounting' => 'accounting.security.index',
@@ -202,6 +206,7 @@ class AccountSettingsController extends Controller
     {
         return match ($this->portal()) {
             'admin' => 'admin.profile',
+            'school-admin' => 'school-admin.profile',
             'receiving' => 'receiving.profile',
             'purchaser' => 'purchaser.profile',
             'accounting' => 'accounting.profile',

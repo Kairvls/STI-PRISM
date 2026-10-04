@@ -26,8 +26,10 @@
     ])
 
 
-    @include('admin.procurement-review._direct-approve-modal')
-    @include('admin.digital-signatures._return-revision-modal')
+    @if (\App\Support\AdminPortal::canActOnRis())
+        @include('admin.procurement-review._direct-approve-modal')
+        @include('admin.digital-signatures._return-revision-modal')
+    @endif
     @include('admin.digital-signatures._president-remarks-modal')
 
 </div>
@@ -86,7 +88,7 @@
 
         // Fetch the updated content.
         fetch(
-            '{{ route('admin.digital-signatures.sign-ris') }}?' +
+            '{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris') }}?' +
             params.toString(),
             {
                 headers: {
@@ -134,7 +136,7 @@
 
             // Update URL without reloading the page.
             const url =
-                '{{ route('admin.digital-signatures.sign-ris') }}?' +
+                '{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris') }}?' +
                 params.toString();
 
             window.history.replaceState(
@@ -374,7 +376,7 @@
         }
 
         iframe.src =
-            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print?ts=${Date.now()}`;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);

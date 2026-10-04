@@ -8,10 +8,10 @@
     $isCosign = $mode === 'cosign';
     $isDirect = $mode === 'direct';
     $formAction = $isCosign
-        ? route('admin.digital-signatures.ris.decide')
+        ? \App\Support\AdminPortal::route('digital-signatures.ris.decide')
         : ($isForward
-            ? route('admin.procurement-review.ris.approve', $ris->ris_id)
-            : route('admin.procurement-review.ris.direct-approve', $ris->ris_id));
+            ? \App\Support\AdminPortal::route('procurement-review.ris.approve', $ris->ris_id)
+            : \App\Support\AdminPortal::route('procurement-review.ris.direct-approve', $ris->ris_id));
     $approvedRaw = trim((string) ($ris->ris_approved_by_signature ?? ''));
     $approvedIsImage = $approvedRaw !== '' && str_starts_with($approvedRaw, 'data:image');
     $approvedPrintedName = \App\Support\RisWorkflow::approvedByPrintedName($ris);
@@ -265,7 +265,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            Administrator supporting details
+                            School Administrator supporting details
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
                             Optional note and attachment for the President explaining why this RIS should be approved. Separate from Purchaser supporting documents below.
@@ -414,7 +414,7 @@
                                     maxlength="255"
                                     autocomplete="off"
                                     class="ris-signature-input"
-                                    title="Administrator name for Checked by"
+                                    title="School Administrator name for Checked by"
                                 >
                             </div>
                             <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
@@ -480,7 +480,7 @@
                                 maxlength="255"
                                 autocomplete="off"
                                 class="ris-signature-input"
-                                title="Administrator name for Issued by"
+                                title="School Administrator name for Issued by"
                             >
                         </div>
                         <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
@@ -521,7 +521,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            {{ $isDirect ? 'Administrator signature' : 'Issued by signature' }} <span class="text-red-500">*</span>
+                            {{ $isDirect ? 'School Administrator signature' : 'Issued by signature' }} <span class="text-red-500">*</span>
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
                             @if ($isDirect)
@@ -662,7 +662,7 @@
                         @foreach ($risSupportingDocs as $file)
                             <li>
                                 <a
-                                    href="{{ route('admin.ris.attachments.download', $file->ris_attachment_id) }}"
+                                    href="{{ \App\Support\AdminPortal::route('ris.attachments.download', $file->ris_attachment_id) }}"
                                     target="_blank"
                                     rel="noopener"
                                     class="flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50"
@@ -845,7 +845,7 @@
             class="rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition {{ $isForward ? 'bg-[#0025cc] hover:bg-blue-800' : 'bg-[#0025cc] hover:bg-blue-800' }}"
             title="{{ $isForward ? 'Forward this RIS to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Confirm direct approval, notify President for record, and return to Purchaser') }}"
         >
-            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm Administrator Approval') }}
+            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm School Administrator Approval') }}
         </button>
     </div>
 </form>
@@ -1059,7 +1059,7 @@
             });
         }
 
-        return fetch(@json(route('admin.digital-signatures.saved-signatures.store')), {
+        return fetch(@json(\App\Support\AdminPortal::route('digital-signatures.saved-signatures.store')), {
             method: 'POST',
             headers: headers,
             body: body,
@@ -1078,7 +1078,7 @@
     }
 
     function deleteSavedSignature(id) {
-        return fetch(@json(url('/admin/digital-signatures/saved-signatures')) + '/' + id, {
+        return fetch(@json(\App\Support\AdminPortal::url('digital-signatures/saved-signatures')) + '/' + id, {
             method: 'DELETE',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
