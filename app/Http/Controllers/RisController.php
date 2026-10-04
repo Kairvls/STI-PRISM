@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\AtpRisSuppliers;
 use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReplacementRequestBasket;
@@ -194,6 +195,8 @@ class RisController extends Controller
             ->pluck('authority_purchase_ris_id')
             ->map(fn ($id) => (int) $id)
             ->all();
+        $atpProgress = AtpRisSuppliers::progress($risHasAtp);
+        $atpSupplierBreakdown = AtpRisSuppliers::breakdown($risIds);
 
         $releasedRisIds = DB::table('approval_logs_table')
             ->where('approval_log_reference_type', 'RIS')
@@ -224,7 +227,11 @@ class RisController extends Controller
             $ris->risItems = $itemsByRis->get($ris->ris_id, collect());
             $ris->risAttachments = $attachmentsByRis->get($ris->ris_id, collect());
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
-            $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
+            $progress = $atpProgress[(int) $ris->ris_id] ?? null;
+            $ris->has_atp = $progress !== null && $progress['open'] === 0;
+            $ris->atp_suppliers_total = $progress['total'] ?? 0;
+            $ris->atp_suppliers_open = $progress['open'] ?? 0;
+            $ris->atp_supplier_breakdown = $atpSupplierBreakdown[(int) $ris->ris_id] ?? [];
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
             $ris->can_create_atp = empty($ris->ris_is_archived) && RisWorkflow::isEligibleForAtp($ris);
         }
@@ -276,6 +283,12 @@ class RisController extends Controller
                 ->where('brand_status', 'Active')
                 ->orderBy('brand_name')
                 ->get();
+        $itemCatalog = ($isAjax || !Schema::hasTable('items_table'))
+            ? collect()
+            : DB::table('items_table')
+                ->where('item_status', 'Active')
+                ->orderBy('item_id')
+                ->get(['item_id', 'item_name']);
 
         $supplierIdsOnPage = $risRecords->getCollection()->pluck('ris_supplier_id')->filter()->unique()->values();
         $supplierNames = $this->supplierOptionsForRis(false, $supplierIdsOnPage)->keyBy('supplier_id');
@@ -306,6 +319,7 @@ class RisController extends Controller
             'activeSuppliers',
             'uoms',
             'brands',
+            'itemCatalog',
             'risCopyPrefill',
             'defaultRequestedBy',
             'defaultRequestedByDate',
@@ -453,7 +467,7 @@ class RisController extends Controller
             'ris_items' => [
                 'nullable',
                 'array',
-                'max:8',
+                'max:'.RisWorkflow::MAX_ITEMS,
             ],
 
             'ris_items.*.name_description' => [
@@ -1120,7 +1134,7 @@ public function update(Request $request, $risId)
         'ris_items' => [
             'nullable',
             'array',
-            'max:8',
+            'max:'.RisWorkflow::MAX_ITEMS,
         ],
 
         'ris_items.*.name_description' => [

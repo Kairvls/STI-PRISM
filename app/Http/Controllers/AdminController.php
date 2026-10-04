@@ -2674,7 +2674,7 @@ class AdminController extends Controller
         }
 
         $reportId = (int) ($result['report_id'] ?? 0);
-        $isUrgent = $request->report_urgency_level === 'Urgent';
+        $isUrgent = ($result['urgency'] ?? null) === 'Urgent';
         $merged = (bool) ($result['merged'] ?? false);
 
         if ($reportId > 0 && ! $merged && Schema::hasTable('notifications_table')) {
@@ -2700,7 +2700,8 @@ class AdminController extends Controller
 
         return redirect()
             ->route('admin.reports.make')
-            ->with('success', (string) ($result['message'] ?? 'Report submitted successfully.'));
+            ->with('success', (string) ($result['message'] ?? 'Report submitted successfully.')
+                .(!empty($result['severity']) ? ' Priority: '.$result['severity'].'.' : ''));
     }
 
     private function adminLoggedReportsQuery(int $userId)

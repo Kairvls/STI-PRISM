@@ -35,7 +35,7 @@
             </tr>
         </thead>
         <tbody>
-            @for($row = 0; $row < 8; $row++)
+            @for($row = 0; $row < max(8, count($risItems)); $row++)
                 @php
                     $item = $risItems[$row] ?? null;
                 @endphp

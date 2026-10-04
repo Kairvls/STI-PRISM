@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 class ReplacementRequestBasket
 {
-    public const MAX_ITEMS = 8;
+    public const MAX_ITEMS = RisWorkflow::MAX_ITEMS;
 
     public static function tableExists(): bool
     {
@@ -17,7 +17,7 @@ class ReplacementRequestBasket
 
     /**
      * Attach every unlinked "For Replacement" line on a report into pending
-     * replacement-request baskets (max 8 items each, across reports/days).
+     * replacement-request baskets (max MAX_ITEMS each, across reports/days).
      *
      * @return array<int, int> procurement_request_ids that received items
      */
@@ -384,12 +384,15 @@ class ReplacementRequestBasket
                 '=',
                 'reports_table.report_id'
             )
-            ->leftJoin(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            );
+            ->leftJoin('rooms_table', function ($join) {
+                $join->on(
+                    'rooms_table.room_id',
+                    '=',
+                    ReportItems::hasRoomColumn()
+                        ? DB::raw('COALESCE(report_items_table.report_item_room_id, reports_table.report_room_id)')
+                        : 'reports_table.report_room_id'
+                );
+            });
 
         return $query->select([
             'procurement_request_items_table.procurement_request_item_id',
@@ -415,7 +418,7 @@ class ReplacementRequestBasket
 
     /**
      * Seed the items table from current procurement requests, then pack leftover
-     * For Replacement lines and merge pending baskets into groups of 8.
+     * For Replacement lines and merge pending baskets into groups of MAX_ITEMS.
      */
     public static function backfillExisting(): void
     {

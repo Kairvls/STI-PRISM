@@ -14,6 +14,7 @@ use App\Support\PersonnelDirectory;
 use App\Support\PersonNames;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
+use App\Support\ReportSeverity;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
 use App\Support\SuggestedIssues;
@@ -167,7 +168,7 @@ class MaintenanceController extends Controller
         // =====================================================
         // DAILY REMINDER COUNTS
         // Urgent: pending or overdue
-        // Non-urgent: remind from preferred date, or after 3 days if none
+        // Non-urgent: remind from preferred date, or after 2 days (Medium) / 5 days (Low) if none
         // =====================================================
 
         $attentionCounts = MaintenanceAttentionSummary::counts();
@@ -2620,6 +2621,11 @@ class MaintenanceController extends Controller
                                 'reporters_table.reporter_full_name',
                                 'LIKE',
                                 $search.'%'
+                            )
+                            ->orWhere(
+                                'reports_table.report_reporter_employee_id',
+                                'LIKE',
+                                '%'.$search.'%'
                             );
 
                         if ($ticketId !== null) {
@@ -2656,6 +2662,12 @@ class MaintenanceController extends Controller
             ->when(
                 $request->filled('urgency'),
                 function ($query) use ($request) {
+
+                    if (ReportSeverity::isLevel($request->urgency) && ReportSeverity::hasColumns()) {
+                        $query->where('reports_table.report_severity', $request->urgency);
+
+                        return;
+                    }
 
                     // Match the badge: a stack with any urgent report counts as Urgent.
                     $query->whereRaw(
@@ -2743,6 +2755,11 @@ class MaintenanceController extends Controller
                     THEN 2
                     ELSE 3
                 END"
+            )
+
+            ->when(
+                ReportSeverity::hasColumns(),
+                fn ($query) => $query->orderByRaw(ReportSeverity::orderSql())
             )
 
             ->orderByRaw(
@@ -4031,6 +4048,62 @@ class MaintenanceController extends Controller
     // UPDATE REPORT STATUS
     // MAINTENANCE PERSONNEL
     // =====================================================
+
+    public function updateReportSeverity(Request $request, int $id)
+    {
+        if (!ReportSeverity::hasColumns()) {
+            return back()->with('error', 'Automatic priority is not set up yet. Run the database migrations first.');
+        }
+
+        $validated = $request->validate([
+            'severity' => 'required|in:' . implode(',', ReportSeverity::levels()),
+            'severity_reason' => 'required|string|min:5|max:300',
+        ], [
+            'severity_reason.required' => 'Please give a reason for changing the priority.',
+            'severity_reason.min' => 'Please give a clearer reason (at least 5 characters).',
+        ]);
+
+        $report = DB::table('reports_table')->where('report_id', $id)->first();
+
+        if (!$report) {
+            return back()->with('error', 'Report not found.');
+        }
+
+        if ($report->report_is_archived) {
+            return back()->with('error', 'Archived reports cannot be updated.');
+        }
+
+        if (in_array($report->report_current_status, ['Resolved', 'Rejected'], true)) {
+            return back()->with('error', 'Closed reports keep the priority they had.');
+        }
+
+        $newLevel = $validated['severity'];
+        $oldLevel = ReportSeverity::forReport($report);
+        $reason = trim($validated['severity_reason']);
+        $changedBy = Auth::user()?->user_full_name ?: 'Maintenance';
+
+        if ($newLevel === $oldLevel && $report->report_severity === $newLevel) {
+            return back()->with('error', 'The report is already ' . $newLevel . ' priority.');
+        }
+
+        DB::table('reports_table')->where('report_id', $id)->update([
+            'report_severity' => $newLevel,
+            'report_urgency_level' => ReportSeverity::urgencyFor($newLevel),
+            'report_severity_is_manual' => true,
+            'report_severity_reason' => mb_substr('Changed by ' . $changedBy . ' (was ' . $oldLevel . '): ' . $reason, 0, 500),
+            'report_updated_at' => now(),
+        ]);
+
+        $this->logActivity(
+            'Changed report priority',
+            'Reports',
+            'reports_table',
+            $id,
+            'Changed Report #' . $id . ' priority from ' . $oldLevel . ' to ' . $newLevel . '. Reason: ' . $reason
+        );
+
+        return back()->with('success', 'Priority changed to ' . $newLevel . '.');
+    }
 
     public function updateStatus(Request $request, $id)
     {
@@ -5836,7 +5909,7 @@ class MaintenanceController extends Controller
             };
 
             $reportsBase = DB::table('reports_table')
-                ->where('report_room_id', $roomId)
+                ->where(fn ($q) => ReportGrouping::whereTicketTouchesRoom($q, (int) $roomId))
                 ->when(
                     Schema::hasColumn('reports_table', 'report_is_archived'),
                     fn ($q) => $q->where('report_is_archived', false)
@@ -5928,7 +6001,7 @@ class MaintenanceController extends Controller
                     '=',
                     'reporters_table.reporter_employee_id'
                 )
-                ->where('reports_table.report_room_id', $roomId)
+                ->where(fn ($q) => ReportGrouping::whereTicketTouchesRoom($q, (int) $roomId))
                 ->when(
                     Schema::hasColumn('reports_table', 'report_is_archived'),
                     fn ($q) => $q->where('reports_table.report_is_archived', false)
@@ -7111,6 +7184,7 @@ class MaintenanceController extends Controller
             'issue_template_category_id' => 'required|exists:equipment_categories_table,equipment_category_id',
             'issue_template_name' => 'required|string|max:255',
             'issue_template_component' => 'nullable|string|max:64',
+            'issue_template_severity' => 'nullable|in:' . implode(',', ReportSeverity::levels()),
         ]);
 
         $payload = [
@@ -7121,6 +7195,10 @@ class MaintenanceController extends Controller
 
         if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
             $payload['issue_template_component'] = $validated['issue_template_component'] ?: null;
+        }
+
+        if (ReportSeverity::hasTemplateColumn()) {
+            $payload['issue_template_severity'] = ($validated['issue_template_severity'] ?? null) ?: null;
         }
 
         DB::table('issue_templates_table')->insert($payload);
@@ -7134,6 +7212,7 @@ class MaintenanceController extends Controller
             'issue_template_category_id' => 'required|exists:equipment_categories_table,equipment_category_id',
             'issue_template_name' => 'required|string|max:255',
             'issue_template_component' => 'nullable|string|max:64',
+            'issue_template_severity' => 'nullable|in:' . implode(',', ReportSeverity::levels()),
         ]);
 
         $payload = [
@@ -7143,6 +7222,10 @@ class MaintenanceController extends Controller
 
         if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
             $payload['issue_template_component'] = $validated['issue_template_component'] ?: null;
+        }
+
+        if (ReportSeverity::hasTemplateColumn()) {
+            $payload['issue_template_severity'] = ($validated['issue_template_severity'] ?? null) ?: null;
         }
 
         DB::table('issue_templates_table')
@@ -13866,7 +13949,7 @@ class MaintenanceController extends Controller
         }
 
         $reportId = (int) ($result['report_id'] ?? 0);
-        $isUrgent = $request->report_urgency_level === 'Urgent';
+        $isUrgent = ($result['urgency'] ?? null) === 'Urgent';
         $merged = (bool) ($result['merged'] ?? false);
 
         if ($reportId > 0 && ! $merged) {
@@ -13902,7 +13985,8 @@ class MaintenanceController extends Controller
 
         return redirect()
             ->route('maintenance.reports.log')
-            ->with('success', (string) ($result['message'] ?? 'Report logged successfully.'));
+            ->with('success', (string) ($result['message'] ?? 'Report logged successfully.')
+                .(!empty($result['severity']) ? ' Priority: '.$result['severity'].'.' : ''));
     }
 
     /*

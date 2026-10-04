@@ -63,7 +63,11 @@
             if (from && data.received_from) from.value = data.received_from;
             if (address && data.address) address.value = data.address;
             const rows = data.items || [];
-            for (let i = 0; i < 9; i++) {
+            const rowsRoot = form.querySelector('[data-doc-rows]');
+            const rowTotal = (rowsRoot && window.docRows)
+                ? window.docRows.fit(rowsRoot, rows.length).length
+                : 9;
+            for (let i = 0; i < rowTotal; i++) {
                 const item = rows[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
                 const ordered = form.querySelector('[name=\'items[' + i + '][ordered_qty]\']');

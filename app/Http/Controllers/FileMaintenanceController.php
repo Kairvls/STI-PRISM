@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
+use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemSubCategory;
 use App\Models\Uom;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class FileMaintenanceController extends Controller
 {
-    public const TABS = ['brands', 'uom', 'categories', 'subcategories'];
+    public const TABS = ['brands', 'items', 'uom', 'categories', 'subcategories'];
 
     public function index(Request $request)
     {
@@ -22,6 +25,7 @@ class FileMaintenanceController extends Controller
         $data = [
             'tab' => $tab,
             'brands' => null,
+            'items' => null,
             'uoms' => null,
             'categories' => null,
             'subcategories' => null,
@@ -45,6 +49,40 @@ class FileMaintenanceController extends Controller
                 'total' => Brand::count(),
                 'active' => Brand::where('brand_status', 'Active')->count(),
                 'inactive' => Brand::where('brand_status', 'Inactive')->count(),
+            ];
+        }
+
+        if ($tab === 'items') {
+            $query = Item::query()->select('items_table.*');
+
+            if (Schema::hasTable('requisition_issue_slip_items_table')) {
+                $query->selectSub(
+                    DB::table('requisition_issue_slip_items_table')
+                        ->selectRaw('COUNT(*)')
+                        ->whereRaw('TRIM(requisition_issue_slip_items_table.ris_item_name_description) COLLATE utf8mb4_unicode_ci = items_table.item_name COLLATE utf8mb4_unicode_ci'),
+                    'usage_count'
+                );
+            } else {
+                $query->selectRaw('0 as usage_count');
+            }
+
+            if ($request->filled('search')) {
+                $query->where('item_name', 'LIKE', '%' . $request->search . '%');
+            }
+
+            if ($request->filled('status')) {
+                $query->where('item_status', $request->status);
+            }
+
+            if ($request->query('sort') === 'most_used') {
+                $query->orderByDesc('usage_count');
+            }
+
+            $data['items'] = $query->orderBy('item_id')->paginate(10)->withQueryString();
+            $data['summary'] = [
+                'total' => Item::count(),
+                'active' => Item::where('item_status', 'Active')->count(),
+                'inactive' => Item::where('item_status', 'Inactive')->count(),
             ];
         }
 

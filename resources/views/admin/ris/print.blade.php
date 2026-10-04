@@ -214,7 +214,7 @@
                 </tr>
             </thead>
             <tbody>
-                @for($row = 0; $row < 8; $row++)
+                @for($row = 0; $row < max(8, collect($risItems)->filter()->count()); $row++)
                     @php
                         $item = $risItems[$row] ?? null;
                     @endphp

@@ -107,7 +107,7 @@
                             $moreItemStatus = (string) ($moreItem->report_item_status ?? 'Pending');
                             $moreItemDetail = collect([
                                 ($moreItem->equipment_asset_tag ?? null) ?: ($moreItem->equipment_serial_number ?? null),
-                                $moreItem->report_item_suggested_issue ?? null,
+                                \App\Support\ReportItems::itemIssue($moreItem),
                             ])->filter()->implode(' · ');
                         @endphp
                         <span class="flex items-center justify-between gap-3 px-3 py-1.5">

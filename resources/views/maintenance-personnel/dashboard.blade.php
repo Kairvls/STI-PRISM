@@ -6079,10 +6079,7 @@
                                         ></i>
 
                                         <span>
-                                            {{
-                                                $report->room_name ??
-                                                    "No room assigned"
-                                            }}
+                                            {{ \App\Support\ReportItems::locationLabel($report, "No room assigned") }}
 
                                             @if ($report->floor_level)
                                                 · {{ $report->floor_level }}
@@ -7639,7 +7636,7 @@
                     id="urgentModalDescription"
                     class="rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700"
                 >
-                    No description provided.
+                    No extra details from reporter.
                 </div>
             </div>
 
@@ -9091,7 +9088,7 @@ document.addEventListener(
                 'urgentModalDescription'
             ).textContent =
                 report.description
-                || 'No description provided.';
+                || 'No extra details from reporter.';
 
             
 

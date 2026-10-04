@@ -2,10 +2,9 @@
 $context = $context ?? 'maintenance';
 $isPurchaserUrgent = $context === 'purchaser-urgent';
 $isUrgent = $report->report_urgency_level == "Urgent";
+$severityLevel = \App\Support\ReportSeverity::forReport($report);
 
-$urgencyPill = $isUrgent
-    ? "bg-[#dc2626] text-white"
-    : "bg-neutral-50 text-slate-500 ring-1 ring-slate-200/80";
+$urgencyPill = \App\Support\ReportSeverity::meta($severityLevel)["pill"];
 
 $statusMap = [
     "Pending" => "bg-orange-50 text-orange-700",
@@ -110,13 +109,13 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     @endif
                 </h3>
                 <p class="mt-1 truncate text-sm text-slate-500">
-                    {{ $report->room_name ?? "No assigned room" }}
+                    {{ \App\Support\ReportItems::locationLabel($report) }}
                 </p>
             </div>
 
             <div class="flex shrink-0 flex-col items-end gap-1.5">
-                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $urgencyPill }}">
-                    {{ $report->report_urgency_level }}
+                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $urgencyPill }}" title="{{ $report->report_severity_reason ?? '' }}">
+                    {{ $severityLevel }}
                 </span>
                 @if ((int) ($report->repeat_flagged_count ?? 0) > 0)
                     <button

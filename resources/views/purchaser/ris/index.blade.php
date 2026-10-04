@@ -14,9 +14,15 @@
     $sourceItems = !empty($oldRisItems)
         ? $oldRisItems
         : (($copyPrefill['items'] ?? []) ?: []);
-    $createRowCount = min(8, max(8, count($sourceItems)));
+    $risDefaultRows = 11;
+    $risMaxRows = \App\Support\RisWorkflow::MAX_ITEMS;
+    $sourceItems = array_values($sourceItems);
+    $createRowCount = !empty($oldRisItems)
+        ? min($risMaxRows, count($sourceItems))
+        : min($risMaxRows, max($risDefaultRows, count($sourceItems)));
     for ($i = 0; $i < $createRowCount; $i++) {
         $createItemsInit[] = [
+            '_uid' => 'create-'.$i,
             'name_description' => $sourceItems[$i]['name_description'] ?? '',
             'brand_id' => (string) ($sourceItems[$i]['brand_id'] ?? ''),
             'supplier_id' => (string) ($sourceItems[$i]['supplier_id'] ?? ''),
@@ -37,6 +43,7 @@
             foreach ($prefillLines as $index => $line) {
                 if (! isset($createItemsInit[$index])) {
                     $createItemsInit[$index] = [
+                        '_uid' => 'create-'.$index,
                         'name_description' => '',
                         'brand_id' => '',
                         'supplier_id' => '',
@@ -73,6 +80,8 @@
             ? false
             : ($errors->any() || request()->filled('replacement_request') || $openCreateFromCopy),
         'createItems' => $createItemsInit,
+        'risDefaultRows' => $risDefaultRows,
+        'risMaxRows' => $risMaxRows,
         'purposeText' => $bootPurpose,
         'urgencyLevel' => $bootUrgency,
         'copiedFromRisId' => (int) old('copied_from_ris_id', $copyPrefill['copied_from_ris_id'] ?? 0) ?: null,
@@ -103,6 +112,13 @@
                 'label' => (string) $brand->brand_name,
             ];
         })->values()->all(),
+        'itemOptions' => collect($itemCatalog ?? [])->map(function ($catalogItem) {
+            return [
+                'id' => (string) $catalogItem->item_id,
+                'label' => (string) $catalogItem->item_name,
+            ];
+        })->values()->all(),
+        'itemQuickStoreUrl' => route(($pp ?? 'purchaser').'.items.quick-store'),
         'uomOptions' => collect($uoms ?? [])->map(function ($uom) {
             return [
                 'id' => (string) $uom->uom_id,
@@ -267,6 +283,27 @@
             }
             this.submitRisSending = true;
         },
+        createRowDeleteMode: false,
+        blankCreateItem() {
+            return {
+                _uid: 'create-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                name_description: '',
+                brand_id: '',
+                supplier_id: '',
+                uom_id: '',
+                quantity_requested: '',
+                quantity_issued: '',
+                unit_cost: '',
+            };
+        },
+        addCreateItem() {
+            if (this.createItems.length >= this.risMaxRows) return;
+            this.createItems.push(this.blankCreateItem());
+        },
+        removeCreateItem(index) {
+            if (this.createItems.length <= 1) return;
+            this.createItems.splice(index, 1);
+        },
         createRisFullscreen: false,
         editRisFullscreen: false,
         emptyRisFullscreen: false,
@@ -281,6 +318,8 @@
             }
             this.openRisSelectKey = key;
             this.risSelectQuery = '';
+            this.risNewItemName = '';
+            this.risNewItemError = '';
             this.$nextTick(() => {
                 const el = document.querySelector('[data-ris-select-search=\'' + key + '\']');
                 if (el) {
@@ -310,6 +349,52 @@
                 return options;
             }
             return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
+        },
+        risNewItemName: '',
+        risNewItemSaving: false,
+        risNewItemError: '',
+        pickRisItem(items, index, label) {
+            if (!items || !items[index]) return;
+            items[index].name_description = String(label || '');
+            this.copySplitUom(items, index);
+            this.closeRisSelect();
+        },
+        async addRisCatalogItem(items, index) {
+            if (this.risNewItemSaving) return;
+            const name = String(this.risNewItemName || this.risSelectQuery || '').replace(/\s+/g, ' ').trim();
+            if (!name) {
+                this.risNewItemError = 'Type the new item name first.';
+                return;
+            }
+            this.risNewItemSaving = true;
+            this.risNewItemError = '';
+            try {
+                const res = await fetch(this.itemQuickStoreUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': this.csrfToken(),
+                    },
+                    body: JSON.stringify({ item_name: name }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.id) {
+                    this.risNewItemError = (data.errors && data.errors.item_name && data.errors.item_name[0])
+                        || data.message
+                        || 'Could not add the item.';
+                    return;
+                }
+                if (!this.itemOptions.some((opt) => String(opt.id) === String(data.id))) {
+                    this.itemOptions.push({ id: String(data.id), label: String(data.label) });
+                }
+                this.pickRisItem(items, index, data.label);
+            } catch (e) {
+                this.risNewItemError = 'Could not add the item. Check your connection and try again.';
+            } finally {
+                this.risNewItemSaving = false;
+            }
         },
         createSignSubmitting: false,
         createSignPendingSave: false,
@@ -611,22 +696,12 @@
                 ? data.items
                 : [{ name: data.equipment, quantity: 1 }];
 
-            while (this.createItems.length < 8) {
-                this.createItems.push({
-                    name_description: '',
-                    brand_id: '',
-                    supplier_id: '',
-                    uom_id: '',
-                    quantity_requested: '',
-                    quantity_issued: '',
-                    unit_cost: '',
-                });
-            }
-            if (this.createItems.length > 8) {
-                this.createItems = this.createItems.slice(0, 8);
+            const targetRows = Math.min(this.risMaxRows, Math.max(this.risDefaultRows, lines.length));
+            while (this.createItems.length < targetRows) {
+                this.createItems.push(this.blankCreateItem());
             }
 
-            lines.slice(0, 8).forEach((line, index) => {
+            lines.slice(0, this.risMaxRows).forEach((line, index) => {
                 if (!this.createItems[index]) return;
                 const current = String(this.createItems[index].name_description || '').trim();
                 if (overwrite || !current) {
@@ -1581,17 +1656,17 @@
             opacity: 0;
         }
 
-        .ris-items-table.ris-delete-mode .ris-item-row:hover .ris-row-delete-hit:not(:disabled),
-        .ris-items-table.ris-delete-mode .ris-item-row:hover .ris-row-delete-x {
+        .ris-delete-mode .ris-item-row:hover .ris-row-delete-hit:not(:disabled),
+        .ris-delete-mode .ris-item-row:hover .ris-row-delete-x {
             opacity: 1;
         }
 
-        .ris-items-table.ris-delete-mode .ris-item-row:hover .ris-row-delete-hit:not(:disabled) {
+        .ris-delete-mode .ris-item-row:hover .ris-row-delete-hit:not(:disabled) {
             pointer-events: auto;
         }
 
-        .ris-items-table.ris-delete-mode .ris-item-row:focus-within .ris-row-delete-hit,
-        .ris-items-table.ris-delete-mode .ris-item-row:focus-within .ris-row-delete-x {
+        .ris-delete-mode .ris-item-row:focus-within .ris-row-delete-hit,
+        .ris-delete-mode .ris-item-row:focus-within .ris-row-delete-x {
             opacity: 0;
             pointer-events: none;
         }
@@ -1629,6 +1704,12 @@
             padding: 6px 10px;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .ris-edit-add-row .ris-row-count {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
         }
 
         .ris-edit-add-row button.ris-add-item-btn:disabled {
@@ -2135,7 +2216,7 @@
                             </div>
 
                             <div class="w-full">
-                                <table class="w-full table-fixed border-collapse border border-gray-800">
+                                <table class="w-full table-fixed border-collapse border border-gray-800" :class="{ 'ris-delete-mode': createRowDeleteMode }">
                                     <colgroup>
                                         <col style="width:18%">
                                         <col style="width:10%">
@@ -2162,10 +2243,17 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <template x-for="(item, index) in createItems" :key="index">
-                                            <tr :class="risSplitInfo(createItems, index)?.overflow ? 'bg-red-50' : ''">
+                                        <template x-for="(item, index) in createItems" :key="item._uid || index">
+                                            <tr class="ris-item-row" :class="risSplitInfo(createItems, index)?.overflow ? 'bg-red-50' : ''">
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    <input type="text" x-model="item.name_description" x-bind:name="`ris_items[${index}][name_description]`" x-on:input="copySplitUom(createItems, index)" class="w-full min-w-0 border-0 bg-transparent px-1 py-1.5 text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <span class="ris-row-delete-x" style="width: 555.556%;" aria-hidden="true">
+                                                        <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                                                            <line x1="0" y1="0" x2="100" y2="40" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                            <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                        </svg>
+                                                    </span>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
                                                     <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
@@ -2175,6 +2263,7 @@
                                                         'placeholder' => 'Brand',
                                                         'textAlign' => 'center',
                                                     ])
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2184,6 +2273,7 @@
                                                         'textAlign' => 'center',
                                                         'panelMinWidth' => 'min-w-[7rem]',
                                                     ])
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2194,23 +2284,51 @@
                                                         'panelMinWidth' => 'min-w-[12rem]',
                                                     ])
                                                     <p class="mt-1 px-0.5 text-[9px] leading-snug text-amber-700 sm:px-1 sm:text-[10px]" x-show="supplierWarning(item.supplier_id)" x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"></p>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                             </tr>
                                         </template>
                                     </tbody>
                                 </table>
+
+                                <div class="ris-edit-add-row">
+                                    <div class="ris-delete-mode-toggle" title="Turn on, then click a row to delete it">
+                                        <span :class="!createRowDeleteMode ? 'is-active' : ''">Off</span>
+                                        <button
+                                            type="button"
+                                            class="ris-delete-mode-switch"
+                                            :class="{ 'is-on': createRowDeleteMode }"
+                                            x-on:click="createRowDeleteMode = !createRowDeleteMode"
+                                            :aria-pressed="createRowDeleteMode ? 'true' : 'false'"
+                                            aria-label="Toggle delete row mode"
+                                        ></button>
+                                        <span :class="createRowDeleteMode ? 'is-active' : ''">Delete</span>
+                                    </div>
+                                    <span class="ris-row-count" x-text="createItems.length + ' / ' + risMaxRows + ' rows'"></span>
+                                    <button
+                                        type="button"
+                                        class="ris-add-item-btn"
+                                        x-on:click="addCreateItem()"
+                                        x-bind:disabled="createItems.length >= risMaxRows"
+                                        x-bind:title="createItems.length >= risMaxRows ? ('Maximum of ' + risMaxRows + ' rows') : 'Add item row'"
+                                    >+ Add Item</button>
+                                </div>
                             </div>
 
                             <div class="mt-5">
@@ -2905,14 +3023,20 @@
 
                                     @if($canCreateAtp)
                                         @if(!$ris->has_atp)
+                                            @php
+                                                $atpPartial = ($ris->atp_suppliers_total ?? 0) > 1 && ($ris->atp_suppliers_open ?? 0) < $ris->atp_suppliers_total;
+                                                $atpButtonTitle = $atpPartial
+                                                    ? 'Create ATP ('.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers left)'
+                                                    : 'Create ATP';
+                                            @endphp
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected."
+                                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected.{{ $atpPartial ? ' '.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers on this RIS still need an ATP.' : '' }}"
                                                 data-pur-confirm-title="Create ATP"
                                                 data-pur-confirm-ok="Create ATP"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                title="Create ATP"
-                                                aria-label="Create ATP"
+                                                title="{{ $atpButtonTitle }}"
+                                                aria-label="{{ $atpButtonTitle }}"
                                             >
                                                 <i data-lucide="file-plus" class="h-4 w-4"></i>
                                             </a>
@@ -2986,7 +3110,7 @@
                                                             class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                         >
                                                             <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Pass to co-worker
+                                                            Pass to 
                                                         </button>
                                                     @endif
                                                     <form
@@ -3201,6 +3325,63 @@
                 {{-- MODAL CONTENT --}}
                 <div class="p-6">
 
+                    {{-- ATP PER SUPPLIER (multi-supplier RIS) --}}
+                    @php
+                        $supplierBreakdown = $ris->atp_supplier_breakdown ?? [];
+                        $showSupplierBreakdown = $supplierBreakdown !== []
+                            && (!empty($ris->can_create_atp) || collect($supplierBreakdown)->contains(fn ($g) => $g['atp']));
+                    @endphp
+                    @if($showSupplierBreakdown)
+                        <div class="mb-6 overflow-hidden rounded-lg border border-slate-200">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">Suppliers &amp; ATPs</p>
+                                    <p class="mt-0.5 text-xs text-slate-500">This RIS buys from {{ count($supplierBreakdown) }} suppliers. Each supplier gets its own ATP.</p>
+                                </div>
+                                @if(!empty($ris->can_create_atp) && !$ris->has_atp)
+                                    <span class="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+                                        {{ $ris->atp_suppliers_open ?: count($supplierBreakdown) }} of {{ count($supplierBreakdown) }} still need an ATP
+                                    </span>
+                                @elseif($ris->has_atp)
+                                    <span class="rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-green-200">All suppliers have an ATP</span>
+                                @endif
+                            </div>
+                            <ul class="divide-y divide-slate-100">
+                                @foreach($supplierBreakdown as $group)
+                                    <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-medium text-slate-900">
+                                                <span class="mr-1 text-xs font-normal text-slate-400">{{ $group['position'] }}.</span>
+                                                {{ $group['name'] }}
+                                            </p>
+                                            <p class="mt-0.5 text-xs text-slate-500">{{ $group['items'] }} {{ \Illuminate\Support\Str::plural('item', $group['items']) }}</p>
+                                        </div>
+                                        @if($group['atp'])
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.atp.index', ['view_atp' => $group['atp']->authority_purchase_id]) }}"
+                                                class="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+                                            >
+                                                <i data-lucide="file-check" class="h-3.5 w-3.5"></i>
+                                                {{ $group['atp']->authority_purchase_form_number ?: 'ATP #'.$group['atp']->authority_purchase_id }}
+                                                <span class="font-normal text-green-600">· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
+                                            </a>
+                                        @elseif(!empty($ris->can_create_atp))
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id, 'selected_supplier' => $group['supplier_id']]) }}"
+                                                class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800"
+                                            >
+                                                <i data-lucide="file-plus" class="h-3.5 w-3.5"></i>
+                                                Needs ATP
+                                            </a>
+                                        @else
+                                            <span class="text-xs text-slate-400">No ATP yet</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     {{-- CURRENT MINOR REVISION NOTICE --}}
                     @if($ris->ris_status === 'Minor Revision' && $ris->risRevisions->isNotEmpty())
                         @php
@@ -3265,7 +3446,7 @@
                                     </tr>
                                 </thead>
                             <tbody>
-                                @for($row = 0; $row < 8; $row++)
+                                @for($row = 0; $row < max(8, $ris->risItems->count()); $row++)
                                     @php
                                         $item = $ris->risItems->get($row);
                                     @endphp
@@ -3427,14 +3608,17 @@
                     {{-- CREATE ATP --}}
                     @if(!empty($ris->can_create_atp))
                         @if(!$ris->has_atp)
+                            @php
+                                $atpPartial = ($ris->atp_suppliers_total ?? 0) > 1 && ($ris->atp_suppliers_open ?? 0) < $ris->atp_suppliers_total;
+                            @endphp
                             <a
                                 href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected."
+                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected.{{ $atpPartial ? ' '.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers on this RIS still need an ATP.' : '' }}"
                                 data-pur-confirm-title="Create ATP"
                                 data-pur-confirm-ok="Create ATP"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
-                                Create ATP
+                                {{ $atpPartial ? 'Create ATP ('.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers left)' : 'Create ATP' }}
                             </a>
                         @else
                             <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
@@ -3524,7 +3708,7 @@
                                     </tr>
                                 </thead>
                             <tbody>
-                                @for($row = 0; $row < 8; $row++)
+                                @for($row = 0; $row < max(8, $ris->risItems->count()); $row++)
                                     @php
                                         $item = $ris->risItems->get($row);
                                     @endphp
@@ -3647,7 +3831,7 @@
                     if ($restoreEditItems) {
                         // Keep the exact rows from the last submit attempt (incl. blank slots they added).
                         $editItemsForModal = collect(old('ris_items', []))
-                            ->take(8)
+                            ->take($risMaxRows)
                             ->map(function ($item) use ($blankEditItem) {
                                 return [
                                     'name_description' => $item['name_description'] ?? '',
@@ -3662,9 +3846,9 @@
                             ->values()
                             ->all();
                     } else {
-                        // Always show 8 paper rows (filled items + blank padding).
+                        // Saved items, padded with blank paper rows up to the default count.
                         $editItemsForModal = collect($ris->risItems ?? [])
-                            ->take(8)
+                            ->take($risMaxRows)
                             ->map(function ($item) {
                                 return [
                                     'name_description' => $item->ris_item_name_description ?? '',
@@ -3679,10 +3863,10 @@
                             ->values()
                             ->all();
                     }
-                    while (count($editItemsForModal) < 8) {
+                    $editMinRows = $restoreEditItems ? 1 : $risDefaultRows;
+                    while (count($editItemsForModal) < $editMinRows) {
                         $editItemsForModal[] = $blankEditItem;
                     }
-                    $editItemsForModal = array_slice($editItemsForModal, 0, 8);
                 @endphp
                 <div
                     x-data="{
@@ -3752,15 +3936,12 @@
                         };
                     },
                     addEditItem() {
-                        if (this.editItems.length >= 8) return;
+                        if (this.editItems.length >= this.risMaxRows) return;
                         this.editItems.push(this.blankEditItem());
                     },
                     removeEditItem(index) {
-                        // Keep 8 paper rows: clear the row, then push blanks if needed.
+                        if (this.editItems.length <= 1) return;
                         this.editItems.splice(index, 1);
-                        while (this.editItems.length < 8) {
-                            this.editItems.push(this.blankEditItem());
-                        }
                     },
                     itemTotal(item) {
                         return (Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0);
@@ -3958,7 +4139,10 @@
                                                 >
                                                     <td>
                                                         <div class="ris-edit-item-cell">
-                                                            <input type="text" x-model="item.name_description" x-on:input="copySplitUom(editItems, index)" x-bind:name="`ris_items[${index}][name_description]`" class="ris-cell-input">
+                                                            @include('purchaser.ris._item-select', [
+                                                                'listVar' => 'editItems',
+                                                                'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left',
+                                                            ])
                                                             <p
                                                                 class="mt-1 text-[11px] leading-4"
                                                                 x-show="risSplitInfo(editItems, index)"
@@ -4088,12 +4272,13 @@
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
                                             Undo
                                         </button>
+                                        <span class="ris-row-count" x-text="editItems.length + ' / ' + risMaxRows + ' rows'"></span>
                                         <button
                                             type="button"
                                             class="ris-add-item-btn"
                                             x-on:click="addEditItem()"
-                                            x-bind:disabled="editItems.length >= 8"
-                                            x-bind:title="editItems.length >= 8 ? 'Maximum of 8 items' : 'Add item row'"
+                                            x-bind:disabled="editItems.length >= risMaxRows"
+                                            x-bind:title="editItems.length >= risMaxRows ? ('Maximum of ' + risMaxRows + ' rows') : 'Add item row'"
                                         >+ Add Item</button>
                                     </div>
 

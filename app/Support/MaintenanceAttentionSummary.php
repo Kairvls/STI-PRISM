@@ -256,7 +256,7 @@ class MaintenanceAttentionSummary
             ],
             ['reports.incoming', self::FOCUS_NON_URGENT_PENDING] => [
                 'label' => 'Non-urgent reports needing action',
-                'description' => 'Pending non-urgent reports whose preferred date has arrived, or pending '.ReportGrouping::nonUrgentReminderGraceDays().' days or more without one.',
+                'description' => 'Pending non-urgent reports whose preferred date has arrived, or pending '.ReportGrouping::nonUrgentReminderWindowLabel().' or more without one.',
                 'scope' => 'shared',
             ],
             ['schedules', self::FOCUS_OVERDUE] => [

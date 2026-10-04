@@ -337,66 +337,6 @@
         border-color: #94a3b8;
     }
 
-    .lr-priority-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .lr-priority-option {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        background: #fff;
-        padding: 10px 14px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #334155;
-        cursor: pointer;
-        transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .lr-priority-option:hover {
-        border-color: #cbd5e1;
-    }
-
-    .lr-priority-option.is-active {
-        border-color: #0f172a;
-        background: #f8fafc;
-    }
-
-    .lr-priority-option input {
-        margin: 0;
-        accent-color: #0f172a;
-    }
-
-    .lr-date-input {
-        width: 100%;
-        max-width: 16rem;
-        height: 40px;
-        border-radius: 0.5rem;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        padding: 0 12px;
-        font-size: 0.875rem;
-        color: #0f172a;
-        outline: none;
-        transition: border-color 0.15s ease;
-        color-scheme: light;
-    }
-
-    .lr-date-input:focus {
-        border-color: #94a3b8;
-    }
-
-    .lr-preferred-hint {
-        font-size: 0.75rem;
-        line-height: 1.45;
-        color: #94a3b8;
-    }
-
     .lr-upload-zone {
         position: relative;
         display: block;
@@ -770,13 +710,14 @@
                     </div>
                 </div>
 
+                <p class="mt-2 text-xs text-slate-500">You can switch location to add equipment from other rooms; everything stays on one ticket.</p>
                 <div id="selectedEquipmentList" class="mt-4 space-y-2"></div>
                 <p id="equipmentError" class="mt-1 hidden text-sm text-red-500"></p>
                 <div id="selectedEquipmentInputs"></div>
             </section>
 
             <section class="lr-issue-section overflow-visible rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h2 class="mb-5 text-sm font-medium text-slate-700">Issue & Priority</h2>
+                <h2 class="mb-5 text-sm font-medium text-slate-700">Issue</h2>
 
                 <div class="space-y-5">
                     <div class="lr-field">
@@ -794,69 +735,27 @@
                     <div class="lr-field">
                         <div class="lr-field-label">
                             <label for="problemDescription">Additional details</label>
-                            <span class="lr-field-hint">Optional</span>
+                            <span class="lr-field-hint">For the selected equipment · optional if an issue is picked</span>
                         </div>
                         <textarea
-                            name="report_problem_description"
                             id="problemDescription"
                             rows="3"
-                            placeholder="Add context if needed"
-                            class="lr-textarea"
-                        >{{ old('report_problem_description') }}</textarea>
+                            disabled
+                            placeholder="Select equipment first, then describe its problem"
+                            data-placeholder-ready="Describe this equipment's problem (mention sparks, smoke, or exposed wires if any)"
+                            data-placeholder-idle="Select equipment first, then describe its problem"
+                            class="lr-textarea disabled:cursor-not-allowed disabled:opacity-60"
+                        ></textarea>
                     </div>
 
                     <div class="lr-field">
                         <div class="lr-field-label">
-                            <span>Type of report <span class="text-red-500">*</span></span>
-                        </div>
-                        <div class="lr-priority-row">
-                            <label class="lr-priority-option" id="priorityCardNonUrgent">
-                                <input type="radio" name="report_urgency_level" value="Non-Urgent" @checked(old('report_urgency_level', 'Non-Urgent') === 'Non-Urgent')>
-                                Non-Urgent
-                            </label>
-                            <label class="lr-priority-option" id="priorityCardUrgent">
-                                <input type="radio" name="report_urgency_level" value="Urgent" @checked(old('report_urgency_level') === 'Urgent')>
-                                Urgent
-                            </label>
-                        </div>
-                    </div>
-
-                    <div id="preferredDateWrap" class="lr-field">
-                        <div class="lr-field-label">
-                            <label for="preferredActionDate">Preferred action date</label>
+                            <span>Photos</span>
                             <span class="lr-field-hint">Optional</span>
                         </div>
-                        <input
-                            type="date"
-                            name="report_preferred_action_date"
-                            id="preferredActionDate"
-                            value="{{ old('report_preferred_action_date') }}"
-                            min="{{ \App\Support\ReportGrouping::preferredActionDateMinimum() }}"
-                            class="lr-date-input"
-                        >
-                        <p class="lr-preferred-hint">
-                            Earliest date is 2 days from today.
+                        <p class="text-sm text-slate-500">
+                            Use <strong class="text-[#0025cc]">Add photo</strong> on each equipment in the list above. PNG, JPG, or WEBP up to 10MB each.
                         </p>
-                    </div>
-
-                    <div class="lr-field">
-                        <div class="lr-field-label">
-                            <span>Photo</span>
-                            <span class="lr-field-hint">Optional</span>
-                        </div>
-                        <label for="reportImage" class="lr-upload-zone" id="uploadZone">
-                            <input
-                                type="file"
-                                name="report_uploaded_image"
-                                id="reportImage"
-                                accept="image/jpeg,image/png,image/webp"
-                            >
-                            <button type="button" class="lr-upload-remove" id="removeUploadBtn" aria-label="Remove photo">
-                                Remove
-                            </button>
-                            <p class="lr-upload-copy"><strong>Upload photo</strong> · PNG, JPG, WEBP up to 10MB</p>
-                            <img id="uploadPreview" class="lr-upload-preview" alt="Selected report photo preview">
-                        </label>
                     </div>
                 </div>
             </section>
@@ -898,7 +797,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Reporter</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Equipment</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Logged by</th>
                                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"></th>
@@ -915,9 +814,8 @@
                                             'For Replacement' => 'bg-amber-50 text-amber-700',
                                             default => 'bg-slate-100 text-slate-600',
                                         };
-                                        $urgencyClasses = ($report->report_urgency_level ?? '') === 'Urgent'
-                                            ? 'bg-rose-50 text-rose-700'
-                                            : 'bg-slate-100 text-slate-600';
+                                        $severityLevel = \App\Support\ReportSeverity::forReport($report);
+                                        $urgencyClasses = \App\Support\ReportSeverity::meta($severityLevel)['pill'];
                                         $equipmentLabel = $report->equipment_display
                                             ?? $report->equipment_name
                                             ?? $report->report_unlisted_equipment_name
@@ -943,8 +841,8 @@
                                             {{ $equipmentLabel }}
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $urgencyClasses }}">
-                                                {{ $report->report_urgency_level ?? '—' }}
+                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $urgencyClasses }}" title="{{ $report->report_severity_reason ?? '' }}">
+                                                {{ $severityLevel }}
                                             </span>
                                         </td>
                                         <td class="px-4 py-3">
@@ -1019,14 +917,6 @@
             const suggestedIssuesWrap = document.getElementById('suggestedIssuesWrap');
             const suggestedIssueInput = document.getElementById('suggestedIssueInput');
             const problemDescription = document.getElementById('problemDescription');
-            const preferredDateWrap = document.getElementById('preferredDateWrap');
-            const preferredActionDate = document.getElementById('preferredActionDate');
-            const priorityCardNonUrgent = document.getElementById('priorityCardNonUrgent');
-            const priorityCardUrgent = document.getElementById('priorityCardUrgent');
-            const uploadZone = document.getElementById('uploadZone');
-            const reportImageInput = document.getElementById('reportImage');
-            const uploadPreview = document.getElementById('uploadPreview');
-            const removeUploadBtn = document.getElementById('removeUploadBtn');
             const employeeError = document.getElementById('employeeError');
             const locationError = document.getElementById('locationError');
             const equipmentError = document.getElementById('equipmentError');
@@ -1157,35 +1047,141 @@
                 }
             }
 
-            function getIssueForAdd() {
-                return (suggestedIssueInput.value || '').trim() || (problemDescription.value || '').trim();
+            function getSelectedIssue() {
+                return (suggestedIssueInput.value || '').trim();
+            }
+
+            function getDetailsForAdd() {
+                return (problemDescription.value || '').trim();
+            }
+
+            // Details describe one equipment, so they only open once one is picked.
+            function syncDetailsAvailability() {
+                if (!problemDescription) return;
+                const picked = manualMode
+                    ? !!equipmentManualInput.value.trim()
+                    : !!equipmentSelect.value;
+                if (!picked) problemDescription.value = '';
+                problemDescription.disabled = !picked;
+                problemDescription.placeholder = picked
+                    ? problemDescription.dataset.placeholderReady
+                    : problemDescription.dataset.placeholderIdle;
+            }
+
+            const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+            // One hidden file input per item; it is moved, not recreated, on re-render so the file survives.
+            function ensurePhotoInput(item) {
+                if (item.photoInput) return item.photoInput;
+
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/jpeg,image/png,image/webp';
+                input.className = 'hidden';
+                input.addEventListener('change', function () {
+                    const file = this.files && this.files[0];
+                    if (item.photoUrl) URL.revokeObjectURL(item.photoUrl);
+                    item.photoUrl = null;
+
+                    if (file && file.size > MAX_PHOTO_BYTES) {
+                        this.value = '';
+                        equipmentError.textContent = 'Each photo must be 10MB or smaller.';
+                        equipmentError.classList.remove('hidden');
+                    } else if (file) {
+                        item.photoUrl = URL.createObjectURL(file);
+                    }
+                    renderSelectedItems();
+                });
+
+                item.photoInput = input;
+                return input;
             }
 
             function renderSelectedItems() {
                 selectedEquipmentList.innerHTML = '';
                 selectedEquipmentInputs.innerHTML = '';
+                let manualIndex = 0;
+                const spansRooms = new Set(selectedItems.map(function (item) { return String(item.roomId || ''); })).size > 1;
 
                 selectedItems.forEach(function (item, index) {
                     const row = document.createElement('div');
                     row.className = 'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2';
                     row.innerHTML =
-                        '<div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-800"></p>' +
+                        '<div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-slate-800"></p>' +
                         '<p class="truncate text-xs text-slate-500"></p></div>' +
-                        '<button type="button" class="shrink-0 rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100">Remove</button>';
+                        '<div class="flex shrink-0 items-center gap-1.5" data-photo-slot></div>' +
+                        '<button type="button" data-remove-item class="shrink-0 rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100">Remove</button>';
                     row.querySelector('p:first-child').textContent = item.name;
-                    row.querySelector('p:last-child').textContent = item.issue ? 'Issue: ' + item.issue : 'No issue set';
+                    row.querySelector('p:last-child').textContent = 'Issue: ' + (item.issue || 'Other');
+                    if (item.details) {
+                        const detailsNote = document.createElement('p');
+                        detailsNote.className = 'mt-0.5 line-clamp-2 text-xs italic text-slate-600';
+                        detailsNote.textContent = '“' + item.details + '”';
+                        detailsNote.title = item.details;
+                        row.querySelector('.min-w-0').appendChild(detailsNote);
+                    }
+                    if (spansRooms && item.roomLabel) {
+                        const roomNote = document.createElement('p');
+                        roomNote.className = 'mt-0.5 truncate text-xs font-medium text-[#0025cc]';
+                        roomNote.textContent = item.roomLabel;
+                        row.querySelector('.min-w-0').appendChild(roomNote);
+                    }
                     if (item.openReportTicket) {
                         const openNote = document.createElement('p');
                         openNote.className = 'mt-0.5 truncate text-xs text-slate-500';
                         openNote.textContent = 'Already reported in ' + item.openReportTicket + ' — it will be flagged as priority on the new ticket.';
                         row.querySelector('.min-w-0').appendChild(openNote);
                     }
-                    row.querySelector('button').addEventListener('click', function () {
+
+                    const photoInput = ensurePhotoInput(item);
+                    const photoSlot = row.querySelector('[data-photo-slot]');
+                    if (item.photoUrl) {
+                        const view = document.createElement('a');
+                        view.href = item.photoUrl;
+                        view.target = '_blank';
+                        view.rel = 'noopener';
+                        view.title = 'View photo';
+                        view.className = 'block h-10 w-10 overflow-hidden rounded-lg border border-slate-300 bg-white';
+                        const img = document.createElement('img');
+                        img.src = item.photoUrl;
+                        img.alt = '';
+                        img.className = 'h-full w-full object-cover';
+                        view.appendChild(img);
+
+                        const clear = document.createElement('button');
+                        clear.type = 'button';
+                        clear.title = 'Remove photo';
+                        clear.setAttribute('aria-label', 'Remove photo');
+                        clear.className = 'flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 hover:bg-rose-100 hover:text-rose-600';
+                        clear.innerHTML = '&times;';
+                        clear.addEventListener('click', function () {
+                            photoInput.value = '';
+                            photoInput.dispatchEvent(new Event('change'));
+                        });
+
+                        photoSlot.append(view, clear);
+                    } else {
+                        const add = document.createElement('button');
+                        add.type = 'button';
+                        add.className = 'inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-400 bg-white px-2 py-1 text-[11px] font-bold text-[#0025cc] hover:border-[#0025cc] hover:bg-blue-50';
+                        add.textContent = 'Add photo';
+                        add.addEventListener('click', function () { photoInput.click(); });
+                        photoSlot.appendChild(add);
+                    }
+
+                    row.querySelector('[data-remove-item]').addEventListener('click', function () {
+                        if (item.photoUrl) URL.revokeObjectURL(item.photoUrl);
                         selectedItems.splice(index, 1);
                         renderSelectedItems();
                         rebuildEquipmentSelect();
                     });
                     selectedEquipmentList.appendChild(row);
+
+                    photoInput.name = item.type === 'id'
+                        ? 'report_equipment_images[' + item.id + ']'
+                        : 'report_equipment_manual_images[' + manualIndex + ']';
+                    if (item.type !== 'id') manualIndex += 1;
+                    selectedEquipmentInputs.appendChild(photoInput);
 
                     if (item.type === 'id') {
                         const idInput = document.createElement('input');
@@ -1199,6 +1195,12 @@
                         issueInput.name = 'report_equipment_issues[]';
                         issueInput.value = item.issue || '';
                         selectedEquipmentInputs.appendChild(issueInput);
+
+                        const detailsInput = document.createElement('input');
+                        detailsInput.type = 'hidden';
+                        detailsInput.name = 'report_equipment_details[]';
+                        detailsInput.value = item.details || '';
+                        selectedEquipmentInputs.appendChild(detailsInput);
                     } else {
                         const nameInput = document.createElement('input');
                         nameInput.type = 'hidden';
@@ -1211,6 +1213,18 @@
                         issueInput.name = 'report_equipment_manual_issues[]';
                         issueInput.value = item.issue || '';
                         selectedEquipmentInputs.appendChild(issueInput);
+
+                        const roomInput = document.createElement('input');
+                        roomInput.type = 'hidden';
+                        roomInput.name = 'report_equipment_manual_rooms[]';
+                        roomInput.value = item.roomId || '';
+                        selectedEquipmentInputs.appendChild(roomInput);
+
+                        const detailsInput = document.createElement('input');
+                        detailsInput.type = 'hidden';
+                        detailsInput.name = 'report_equipment_manual_details[]';
+                        detailsInput.value = item.details || '';
+                        selectedEquipmentInputs.appendChild(detailsInput);
                     }
                 });
             }
@@ -1303,6 +1317,7 @@
                     : 'Select equipment';
                 equipmentPickerLabel.textContent = label;
                 equipmentPickerTrigger.classList.toggle('is-placeholder', !equipmentSelect.value);
+                syncDetailsAvailability();
             }
 
             function closeEquipmentPicker() {
@@ -1409,24 +1424,6 @@
                 suggestedIssuesWrap.appendChild(chipsWrap);
             }
 
-            function updatePriorityCards() {
-                document.querySelectorAll('.lr-priority-option').forEach(function (card) {
-                    card.classList.remove('is-active');
-                });
-
-                const checked = document.querySelector('input[name="report_urgency_level"]:checked');
-                if (checked) {
-                    checked.closest('.lr-priority-option')?.classList.add('is-active');
-                }
-            }
-
-            function clearUploadPreview() {
-                if (!reportImageInput || !uploadZone || !uploadPreview) return;
-                reportImageInput.value = '';
-                uploadZone.classList.remove('has-file');
-                uploadPreview.removeAttribute('src');
-            }
-
             function loadSuggestions(equipmentId) {
                 if (!equipmentId) {
                     clearSuggestedIssues();
@@ -1453,18 +1450,6 @@
 
             function loadGenericSuggestions() {
                 renderSuggestedIssues(genericIssueSuggestions);
-            }
-
-            function toggleUrgencyFields() {
-                const urgent = document.querySelector('input[name="report_urgency_level"]:checked')?.value === 'Urgent';
-                preferredDateWrap.classList.toggle('hidden', urgent);
-                if (preferredActionDate) {
-                    preferredActionDate.disabled = urgent;
-                    if (urgent) {
-                        preferredActionDate.value = '';
-                    }
-                }
-                updatePriorityCards();
             }
 
             if (reporterTypeSelect) {
@@ -1573,11 +1558,15 @@
                         clearSuggestedIssues('Select equipment and click Add to load suggested issues.');
                     }
                 }
+                syncDetailsAvailability();
             });
+
+            equipmentManualInput.addEventListener('input', syncDetailsAvailability);
 
             addEquipmentBtn.addEventListener('click', function () {
                 const equipmentId = equipmentSelect.value;
-                const issue = getIssueForAdd();
+                const issue = getSelectedIssue();
+                const details = getDetailsForAdd();
                 const currentRoomId = roomSelect.value;
                 const roomOption = roomSelect.options[roomSelect.selectedIndex];
                 const roomLabel = roomOption
@@ -1613,7 +1602,7 @@
                     return;
                 }
 
-                if (!issue) {
+                if (!issue && !details) {
                     equipmentError.textContent = 'Please select a suggested issue or provide additional details before adding this equipment.';
                     equipmentError.classList.remove('hidden');
                     issueError.classList.remove('hidden');
@@ -1637,19 +1626,23 @@
                     id: equipmentId,
                     name: label,
                     issue: issue,
+                    details: details,
                     openReportTicket: equipmentFromCache?.open_report_ticket_code || '',
                     roomId: String(currentRoomId),
                     roomLabel: roomLabel,
                 });
+                problemDescription.value = '';
                 renderSelectedItems();
                 rebuildEquipmentSelect();
                 equipmentSelect.value = '';
+                syncEquipmentPickerLabel();
                 clearSuggestedIssues();
             });
 
             addManualEquipmentBtn.addEventListener('click', function () {
                 const name = equipmentManualInput.value.trim();
-                const issue = getIssueForAdd();
+                const issue = getSelectedIssue();
+                const details = getDetailsForAdd();
                 const currentRoomId = roomSelect.value;
                 const roomOption = roomSelect.options[roomSelect.selectedIndex];
                 const roomLabel = roomOption
@@ -1679,7 +1672,7 @@
                     return;
                 }
 
-                if (!issue) {
+                if (!issue && !details) {
                     equipmentError.textContent = 'Please select a suggested issue or provide additional details before adding this equipment.';
                     equipmentError.classList.remove('hidden');
                     issueError.classList.remove('hidden');
@@ -1698,44 +1691,17 @@
                     type: 'manual',
                     name: name,
                     issue: issue,
+                    details: details,
                     roomId: String(currentRoomId),
                     roomLabel: roomLabel,
                 });
+                problemDescription.value = '';
                 renderSelectedItems();
                 equipmentManualInput.value = '';
+                syncDetailsAvailability();
                 clearSuggestedIssues();
                 loadGenericSuggestions();
             });
-
-            document.querySelectorAll('input[name="report_urgency_level"]').forEach(function (radio) {
-                radio.addEventListener('change', toggleUrgencyFields);
-            });
-            toggleUrgencyFields();
-
-            if (removeUploadBtn) {
-                removeUploadBtn.addEventListener('click', function (event) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    clearUploadPreview();
-                });
-            }
-
-            if (reportImageInput) {
-                reportImageInput.addEventListener('change', function () {
-                    const file = this.files && this.files[0];
-                    if (!file) {
-                        clearUploadPreview();
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = function (event) {
-                        uploadPreview.src = event.target.result;
-                        uploadZone.classList.add('has-file');
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
 
             walkInReportForm.addEventListener('submit', function (e) {
                 hideFormErrors();
@@ -1773,21 +1739,12 @@
                     }
                 });
 
-                const roomIds = Array.from(new Set(
-                    selectedItems
-                        .map(function (item) { return String(item.roomId || ''); })
-                        .filter(Boolean)
-                ));
+                const firstItemRoomId = selectedItems
+                    .map(function (item) { return String(item.roomId || ''); })
+                    .find(Boolean);
 
-                if (roomIds.length > 1) {
-                    e.preventDefault();
-                    equipmentError.textContent = 'Added equipment spans multiple locations. Remove items from other locations, or submit the campus report form which supports multiple locations.';
-                    equipmentError.classList.remove('hidden');
-                    return;
-                }
-
-                if (roomIds.length === 1) {
-                    roomSelect.value = roomIds[0];
+                if (firstItemRoomId) {
+                    roomSelect.value = firstItemRoomId;
                 }
 
                 if (!roomSelect.value) {
@@ -1820,13 +1777,21 @@
                 }
 
                 const itemsMissingIssue = selectedItems.filter(function (item) {
-                    return !String(item.issue || '').trim();
+                    return !String(item.issue || '').trim() && !String(item.details || '').trim();
                 });
 
                 if (itemsMissingIssue.length > 0) {
                     e.preventDefault();
-                    equipmentError.textContent = 'Each equipment in the list needs a suggested issue. Remove incomplete items and add them again.';
+                    equipmentError.textContent = 'Each equipment in the list needs a suggested issue or details. Remove incomplete items and add them again.';
                     equipmentError.classList.remove('hidden');
+                    return;
+                }
+
+                if (problemDescription.value.trim()) {
+                    e.preventDefault();
+                    equipmentError.textContent = "You wrote details but didn't add that equipment yet. Click Add to include it, or clear the details.";
+                    equipmentError.classList.remove('hidden');
+                    problemDescription.focus();
                     return;
                 }
 

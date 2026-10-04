@@ -209,10 +209,11 @@ class AccountingController extends Controller
                 ->get()
             : collect();
 
-        $atp = DB::table('authority_to_purchase_table')
+        $atps = DB::table('authority_to_purchase_table')
             ->where('authority_purchase_ris_id', $id)
             ->orderByDesc('authority_purchase_id')
-            ->first();
+            ->get();
+        $atp = $atps->first();
 
         $chain = $atp
             ? $this->chainFromAtp((int) $atp->authority_purchase_id)
@@ -228,6 +229,15 @@ class AccountingController extends Controller
                 'rr' => null,
                 'liq' => null,
             ];
+        $chain['atp_siblings'] = $atps->slice(1)
+            ->reject(fn ($row) => (string) ($row->authority_purchase_status ?? '') === 'Rejected')
+            ->map(fn ($row) => [
+                'label' => $row->authority_purchase_form_number ?: ('ATP #' . $row->authority_purchase_id),
+                'url' => '/accounting/authority-to-purchase/' . $row->authority_purchase_id,
+                'status' => $row->authority_purchase_status,
+            ])
+            ->values()
+            ->all();
 
         $history = $this->documentHistory('RIS', (int) $id);
         $backUrl = $atp

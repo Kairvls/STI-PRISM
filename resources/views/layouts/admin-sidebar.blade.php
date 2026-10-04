@@ -203,7 +203,7 @@
                 ['route' => 'purchaser.bo.index', 'match' => 'purchaser/back-orders*', 'label' => 'Back Orders', 'icon' => 'package-x'],
                 ['route' => 'purchaser.liq.index', 'match' => 'purchaser/liquidation-reports*', 'label' => 'Liquidation', 'icon' => 'receipt'],
                 ['route' => 'purchaser.procurement-records.index', 'match' => 'purchaser/procurement-records*', 'label' => 'Procurement Records', 'icon' => 'folder-archive'],                ['route' => 'purchaser.suppliers.index', 'match' => 'purchaser/suppliers*', 'label' => 'Suppliers', 'icon' => 'store'],
-                ['route' => 'purchaser.file-maintenance.index', 'match' => ['purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*'], 'label' => 'File Maintenance', 'icon' => 'database'],
+                ['route' => 'purchaser.file-maintenance.index', 'match' => ['purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/items*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*'], 'label' => 'File Maintenance', 'icon' => 'database'],
             ];
             foreach ($workflowLinks as &$workflowLink) {
                 $workflowLink['active'] = request()->is(...(array) $workflowLink['match']);

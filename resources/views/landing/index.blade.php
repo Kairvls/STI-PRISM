@@ -2558,10 +2558,10 @@
                         <i data-lucide="{{ $card['icon'] }}" class="feature-icon w-7 h-7"></i>
                         <h3 class="font-bold text-lg mb-3" style="color:#1e1b4b;">{{ $card['title'] }}</h3>
                         <p class="text-sm leading-relaxed mb-6" style="color:var(--muted);">{{ $card['copy'] }}</p>
-                        <button type="button" onclick="openReportModal()" class="feature-link inline-flex items-center gap-1.5">
+                        <!--<button type="button" onclick="openReportModal()" class="feature-link inline-flex items-center gap-1.5">
                             View Flow
                             <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </button>
+                        </button>-->
                     </article>
                 @endforeach
             </div>

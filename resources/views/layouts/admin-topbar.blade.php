@@ -43,7 +43,7 @@
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
                 request()->is('purchaser/procurement-records*') => ['Procurement Records', 'Completed procurement packages and their documents.'],
                 request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
-                request()->is('purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*') => ['File Maintenance', 'Brands, units of measure and item categories.'],
+                request()->is('purchaser/file-maintenance*', 'purchaser/brands*', 'purchaser/items*', 'purchaser/uom*', 'purchaser/categories*', 'purchaser/subcategories*') => ['File Maintenance', 'Brands, items, units of measure and item categories.'],
                 request()->is('maintenance/reporters/approvals*') => ['Reporter Approvals', 'Confirm faculty and staff applications before they can report.'],
                 request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
                 request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Official faculty and staff list used to verify reporter applications.'],

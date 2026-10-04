@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
+use App\Support\ReportSeverity;
 use App\Support\RoomCategories;
 use Illuminate\Support\Facades\DB;
 
@@ -88,6 +89,10 @@ class MaintenanceReportService
             ->orderByRaw(
                 "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END"
             )
+            ->when(
+                ReportSeverity::hasColumns(),
+                fn ($q) => $q->orderByRaw(ReportSeverity::orderSql())
+            )
             ->orderByRaw(ReportGrouping::lastReportedSql().' DESC')
             ->orderByDesc('reports_table.report_updated_at')
             ->orderByDesc('reports_table.report_id')
@@ -117,10 +122,21 @@ class MaintenanceReportService
                     ->where('reports_table.report_id', 'LIKE', '%'.$search.'%')
                     ->orWhere('equipment_table.equipment_name', 'LIKE', $search.'%')
                     ->orWhere('rooms_table.room_name', 'LIKE', $search.'%')
-                    ->orWhere('reporters_table.reporter_full_name', 'LIKE', $search.'%');
+                    ->orWhere('reporters_table.reporter_full_name', 'LIKE', $search.'%')
+                    ->orWhere('reports_table.report_reporter_employee_id', 'LIKE', '%'.$search.'%');
 
                 if ($ticketId !== null) {
                     $subQuery->orWhere('reports_table.report_id', $ticketId);
+                }
+
+                if (ReportItems::hasRoomColumn()) {
+                    $subQuery->orWhereExists(function ($rooms) use ($search) {
+                        $rooms->selectRaw('1')
+                            ->from('report_items_table as search_items')
+                            ->join('rooms_table as search_rooms', 'search_rooms.room_id', '=', 'search_items.report_item_room_id')
+                            ->whereColumn('search_items.report_id', 'reports_table.report_id')
+                            ->where('search_rooms.room_name', 'LIKE', $search.'%');
+                    });
                 }
             });
         }
@@ -623,6 +639,8 @@ class MaintenanceReportService
             'ticket_code' => ReportGrouping::ticketCode($report),
             'status' => (string) ($report->report_current_status ?? 'Pending'),
             'urgency' => (string) ($report->report_urgency_level ?? 'Non-Urgent'),
+            'severity' => ReportSeverity::forReport($report),
+            'severity_reason' => $report->report_severity_reason ?? null,
             'room' => (string) ($report->room_name ?? ''),
             'room_id' => isset($report->report_room_id) ? (int) $report->report_room_id : null,
             'equipment_display' => (string) ($report->equipment_display
@@ -669,7 +687,7 @@ class MaintenanceReportService
                 : null,
             'equipment_name' => ReportItems::displayName($item),
             'unlisted_name' => $item->report_item_unlisted_equipment_name ?? null,
-            'issue' => $item->report_item_suggested_issue ?? null,
+            'issue' => ReportItems::itemIssue($item),
             'description' => $item->report_item_problem_description ?? null,
             'status' => (string) ($item->report_item_status ?? 'Pending'),
             'asset_tag' => $item->equipment_asset_tag ?? null,

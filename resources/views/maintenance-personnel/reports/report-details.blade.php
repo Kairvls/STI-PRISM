@@ -251,7 +251,7 @@
                                 class="mt-2 whitespace-pre-line text-sm leading-7 text-gray-600"
                             >{{
                                 $report->report_problem_description
-                                ?? "No description provided."
+                                ?? "No extra details from reporter."
                             }}</p>
                         </div>
 
@@ -296,6 +296,7 @@
 
                                 @php
                                     $detailItems = $reportItems ?? ($report->report_items ?? collect());
+                                    $detailLocations = \App\Support\ReportItems::locationNames(collect($detailItems));
                                 @endphp
 
                                 @if ($detailItems->count() > 1)
@@ -305,9 +306,18 @@
                                                 <p class="text-sm font-semibold text-gray-800">
                                                     {{ \App\Support\ReportItems::displayName($item) }}
                                                 </p>
-                                                @if (!empty($item->report_item_suggested_issue))
+                                                @if (\App\Support\ReportItems::itemIssue($item))
                                                     <p class="mt-0.5 text-xs text-gray-600">
-                                                        Issue: {{ $item->report_item_suggested_issue }}
+                                                        Issue: {{ \App\Support\ReportItems::itemIssue($item) }}
+                                                    </p>
+                                                @endif
+                                                @if (\App\Support\ReportItems::hasPerItemDetails(collect($detailItems)) && trim((string) ($item->report_item_problem_description ?? '')) !== '')
+                                                    <p class="mt-1 whitespace-pre-wrap text-xs italic leading-5 text-gray-700">“{{ trim($item->report_item_problem_description) }}”</p>
+                                                @endif
+                                                @if (count($detailLocations) > 1 && !empty($item->room_name))
+                                                    <p class="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#0037C7]">
+                                                        <i data-lucide="map-pin" class="h-3 w-3 shrink-0"></i>
+                                                        {{ $item->room_name }}
                                                     </p>
                                                 @endif
                                                 <p class="mt-0.5 text-xs text-gray-500">
@@ -369,6 +379,13 @@
                                     }}
                                 </p>
 
+                                @if (count($detailLocations) > 1)
+                                    <p class="mt-1 text-sm font-medium text-[#0037C7]">
+                                        {{ count($detailLocations) }} locations on this ticket:
+                                        {{ implode(', ', $detailLocations) }}
+                                    </p>
+                                @endif
+
                                 <p
                                     class="mt-1 text-sm text-gray-500"
                                 >
@@ -424,47 +441,105 @@
                                     </dd>
                                 </div>
 
-                                <div>
+                                @php
+                                    $severityLevel = \App\Support\ReportSeverity::forReport($report);
+                                    $severityMeta = \App\Support\ReportSeverity::meta($severityLevel);
+                                    $severityReason = trim((string) ($report->report_severity_reason ?? ''));
+                                    $canChangeSeverity = \App\Support\ReportSeverity::hasColumns()
+                                        && empty($report->report_is_archived)
+                                        && !in_array($report->report_current_status, ['Resolved', 'Rejected'], true);
+                                    $severityFormHasErrors = $errors->has('severity') || $errors->has('severity_reason');
+                                @endphp
+
+                                <div class="sm:col-span-2">
                                     <dt class="text-sm text-gray-500">
-                                        Urgency
+                                        Priority
+                                        <span class="text-xs text-gray-400">(set automatically)</span>
                                     </dt>
 
-                                    <!--<dd
-                                        class="mt-1 text-sm font-semibold {{ $report->report_urgency_level === 'Urgent' ? 'text-red-600' : 'text-gray-900' }}"
-                                    >
-                                        {{
-                                            $report->report_urgency_level
-                                            ?? "Unspecified"
-                                        }}
-                                    </dd>-->
-
-                                    {{-- URGENCY --}}
-
-                                        @if ($report->report_urgency_level === "Urgent")
-
-                                            <span
-                                                class="inline-flex items-center gap-1.5 mt-1 -ml-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700"
-                                            >
-                                                <span
-                                                    class="h-1.5 w-1.5 rounded-full bg-red-500"
-                                                ></span>
-
-                                                Urgent
+                                    <dd class="mt-1.5">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $severityMeta['pill'] }}">
+                                                {{ $severityLevel }}
                                             </span>
-
-                                        @else
-
-                                            <span
-                                                class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                                            >
-                                                <span
-                                                    class="h-1.5 w-1.5 rounded-full bg-gray-400"
-                                                ></span>
-
-                                                {{ $report->report_urgency_level ?? "Normal" }}
+                                            <span class="text-sm font-medium text-gray-700">
+                                                {{ $severityMeta['meaning'] }}
                                             </span>
+                                            <span class="text-xs text-gray-400">
+                                                · {{ $severityMeta['target'] }}
+                                            </span>
+                                            @if (!empty($report->report_safety_hazard))
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 ring-1 ring-red-200">
+                                                    <i data-lucide="triangle-alert" class="h-3 w-3"></i>
+                                                    Safety hazard
+                                                </span>
+                                            @endif
+                                            @if (!empty($report->report_severity_is_manual))
+                                                <span class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                                                    Changed by maintenance
+                                                </span>
+                                            @endif
+                                        </div>
 
+                                        @if ($severityReason !== '')
+                                            <p class="mt-1.5 text-xs leading-relaxed text-gray-500">
+                                                <span class="font-semibold text-gray-600">Why:</span>
+                                                {{ $severityReason }}
+                                            </p>
                                         @endif
+
+                                        @if ($canChangeSeverity)
+                                            <details class="group mt-3" @if ($severityFormHasErrors) open @endif>
+                                                <summary class="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                                                    <i data-lucide="pencil" class="h-3 w-3"></i>
+                                                    Change priority
+                                                </summary>
+
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route('maintenance.reports.severity.update', $report->report_id) }}"
+                                                    class="mt-2 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[10rem_1fr_auto] sm:items-start"
+                                                >
+                                                    @csrf
+                                                    <select
+                                                        name="severity"
+                                                        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                                                        required
+                                                    >
+                                                        @foreach (\App\Support\ReportSeverity::levels() as $level)
+                                                            <option value="{{ $level }}" @selected(old('severity', $severityLevel) === $level)>
+                                                                {{ $level }} — {{ \App\Support\ReportSeverity::meta($level)['target'] }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <input
+                                                        type="text"
+                                                        name="severity_reason"
+                                                        value="{{ old('severity_reason') }}"
+                                                        minlength="5"
+                                                        maxlength="300"
+                                                        required
+                                                        placeholder="Reason, e.g. Checked on site, still usable with a spare cable"
+                                                        class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                                                    >
+                                                    <button
+                                                        type="submit"
+                                                        class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    @if ($severityFormHasErrors)
+                                                        <p class="text-xs font-medium text-red-600 sm:col-span-3">
+                                                            {{ $errors->first('severity') ?: $errors->first('severity_reason') }}
+                                                        </p>
+                                                    @endif
+                                                    <p class="text-[11px] text-gray-400 sm:col-span-3">
+                                                        Your name and reason are saved on the report and in the activity log.
+                                                    </p>
+                                                </form>
+                                            </details>
+                                        @endif
+                                    </dd>
                                 </div>
 
                                 @if (!empty($report->report_preferred_action_date))
@@ -494,7 +569,29 @@
                 {{-- EVIDENCE --}}
                 {{-- ================================================= --}}
 
-                @if ($report->report_uploaded_image)
+                @php
+                    $evidencePhotos = collect($detailItems)
+                        ->filter(fn ($item) => !empty($item->report_item_uploaded_image))
+                        ->groupBy('report_item_uploaded_image')
+                        ->map(fn ($items, $path) => [
+                            'path' => $path,
+                            'names' => $items->map(fn ($item) => \App\Support\ReportItems::displayName($item))->implode(', '),
+                        ])
+                        ->values();
+
+                    $itemsWithoutPhoto = $detailItems->count() > 1 && $evidencePhotos->isNotEmpty()
+                        ? collect($detailItems)
+                            ->filter(fn ($item) => empty($item->report_item_uploaded_image))
+                            ->map(fn ($item) => \App\Support\ReportItems::displayName($item))
+                            ->values()
+                        : collect();
+
+                    if ($evidencePhotos->isEmpty() && $report->report_uploaded_image) {
+                        $evidencePhotos = collect([['path' => $report->report_uploaded_image, 'names' => null]]);
+                    }
+                @endphp
+
+                @if ($evidencePhotos->isNotEmpty())
 
                     <section
                         class="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white"
@@ -511,7 +608,7 @@
                                 </h2>
 
                                 <p class="mt-1 text-sm text-gray-500">
-                                    Image attached to this report.
+                                    {{ $evidencePhotos->count() > 1 ? $evidencePhotos->count() . ' photos attached to this report.' : 'Image attached to this report.' }}
                                 </p>
                             </div>
 
@@ -523,18 +620,34 @@
 
                         <div class="p-4">
 
-                            <div
-                                class="overflow-hidden rounded-xl bg-gray-50"
-                            >
-                                <img
-                                    src="{{ asset(
-                                        'storage/'
-                                        . $report->report_uploaded_image
-                                    ) }}"
-                                    alt="Evidence for report #{{ $report->report_id }}"
-                                    class="max-h-[520px] w-full object-contain"
-                                >
+                            <div class="{{ $evidencePhotos->count() > 1 ? 'grid gap-4 sm:grid-cols-2' : '' }}">
+                                @foreach ($evidencePhotos as $photo)
+                                    <figure class="overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                                        <a
+                                            href="{{ asset('storage/' . $photo['path']) }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                        >
+                                            <img
+                                                src="{{ asset('storage/' . $photo['path']) }}"
+                                                alt="Evidence for {{ $photo['names'] ?: 'report #' . $report->report_id }}"
+                                                class="{{ $evidencePhotos->count() > 1 ? 'h-64' : 'max-h-[520px]' }} w-full object-contain"
+                                            >
+                                        </a>
+                                        @if ($photo['names'] && $detailItems->count() > 1)
+                                            <figcaption class="border-t border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-700">
+                                                {{ $photo['names'] }}
+                                            </figcaption>
+                                        @endif
+                                    </figure>
+                                @endforeach
                             </div>
+
+                            @if ($itemsWithoutPhoto->isNotEmpty())
+                                <p class="mt-3 text-xs text-gray-500">
+                                    No photo: {{ $itemsWithoutPhoto->implode(', ') }}
+                                </p>
+                            @endif
 
                         </div>
 

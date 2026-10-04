@@ -245,7 +245,7 @@
                                                 x-on:click="window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'po', id: {{ (int) $order->purchase_order_id }}, label: @js($label.' · '.(int) ($order->atp_count ?? 0).' ATP(s)') } }))"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
                                                 title="Pass to co-worker"
-                                                aria-label="Pass to co-worker"
+                                                aria-label="Pass to"
                                             >
                                                 <i data-lucide="user-round-plus" class="h-4 w-4"></i>
                                             </button>

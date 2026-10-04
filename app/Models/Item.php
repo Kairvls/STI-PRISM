@@ -1,0 +1,16 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Item extends Model
+{
+    protected $table = 'items_table';
+
+    protected $primaryKey = 'item_id';
+
+    public $timestamps = false;
+
+    protected $guarded = [];
+}

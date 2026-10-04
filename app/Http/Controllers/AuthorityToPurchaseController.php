@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\AtpFormNumber;
+use App\Support\AtpRisSuppliers;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -137,6 +138,7 @@ class AuthorityToPurchaseController extends Controller
             ->withQueryString();
 
         $selectedRisId = $request->query('selected_ris');
+        $selectedSupplierId = $request->query('selected_supplier');
         $viewAtpId = $request->query('view_atp');
         $editAtpId = $request->query('edit_atp');
         $spotlightId = (int) ($editAtpId ?: $viewAtpId);
@@ -154,7 +156,9 @@ class AuthorityToPurchaseController extends Controller
 
         $atpSummary = $this->atpStatusSummary();
 
-        $eligibleRis = $this->eligibleRisQuery()->limit(50)->get();
+        $risChoices = $this->buildRisOptions($this->eligibleRisQuery()->limit(200)->get());
+        $risOptions = $risChoices['options'];
+        $risPrefill = $risChoices['prefill'];
         $suppliers = $this->activeSuppliersQuery()->get();
         $uomNames = Schema::hasTable('uom_table')
             ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
@@ -168,10 +172,24 @@ class AuthorityToPurchaseController extends Controller
             ->get()
             ->groupBy('authority_purchase_id');
 
+        $supplierBreakdown = AtpRisSuppliers::breakdown(
+            $atps->getCollection()
+                ->filter(fn ($row) => (int) ($row->authority_purchase_ris_supplier_split ?? 0) === 1)
+                ->pluck('authority_purchase_ris_id')
+        );
+
         $atpHasRfc = RfcAtpLinks::fundedAtpIds($atpIds->all());
         $poFundedAtpIds = PurchaseOrderFunding::poFundedAtpIds($atpIds->all());
 
         foreach ($atps as $atp) {
+            $atp->ris_supplier_position = null;
+            $atp->ris_supplier_total = 0;
+            if ((int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1) {
+                $groups = $supplierBreakdown[(int) $atp->authority_purchase_ris_id] ?? [];
+                $group = collect($groups)->firstWhere('supplier_id', (int) $atp->authority_purchase_supplier_id);
+                $atp->ris_supplier_position = $group['position'] ?? null;
+                $atp->ris_supplier_total = count($groups);
+            }
             $atp->has_rfc = in_array((int) $atp->authority_purchase_id, $atpHasRfc, true);
             $atp->funds_via_po = in_array((int) $atp->authority_purchase_id, $poFundedAtpIds, true);
             $atp->purchase_order_id = PurchaseOrderBasket::poIdForAtp((int) $atp->authority_purchase_id);
@@ -196,7 +214,6 @@ class AuthorityToPurchaseController extends Controller
                 );
         }
 
-        $risPrefill = $this->buildRisPrefill($eligibleRis);
         $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
         $suggestedAtpFormNumber = AtpFormNumber::next();
 
@@ -207,11 +224,12 @@ class AuthorityToPurchaseController extends Controller
                 'atps',
                 'archiveView',
                 'atpSummary',
-                'eligibleRis',
+                'risOptions',
                 'suppliers',
                 'uomNames',
                 'atpItems',
                 'selectedRisId',
+                'selectedSupplierId',
                 'viewAtpId',
                 'editAtpId',
                 'risPrefill',
@@ -225,6 +243,7 @@ class AuthorityToPurchaseController extends Controller
     {
         return ProcurementPortal::redirect('atp.index', array_filter([
             'selected_ris' => $request->query('selected_ris'),
+            'selected_supplier' => $request->query('selected_supplier'),
         ]));
     }
 
@@ -284,6 +303,7 @@ class AuthorityToPurchaseController extends Controller
             ? (int) $validated['authority_purchase_ris_id']
             : null;
 
+        $supplierSplit = false;
         if ($risId) {
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
@@ -293,9 +313,14 @@ class AuthorityToPurchaseController extends Controller
                 return back()->withInput()->with('error', 'Only approved RIS records may be used to create ATP.');
             }
 
-            if ($this->hasBlockingAtpForRis($risId)) {
-                return back()->withInput()->with('error', 'An Authority to Purchase already exists for the selected RIS.');
+            $check = AtpRisSuppliers::checkSupplierForRis(
+                $risId,
+                isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null
+            );
+            if ($check['error']) {
+                return back()->withInput()->with('error', $check['error']);
             }
+            $supplierSplit = $check['split'];
         } elseif (!$isDraft) {
             return back()->withInput()->with('error', 'Select an approved RIS before submitting.');
         }
@@ -306,7 +331,7 @@ class AuthorityToPurchaseController extends Controller
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig, $risId) {
+        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig, $risId, $supplierSplit) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -332,6 +357,9 @@ class AuthorityToPurchaseController extends Controller
             ];
             if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')) {
                 $payload['authority_purchase_received_by_signature'] = $receivedSig;
+            }
+            if (AtpRisSuppliers::hasSplitColumn()) {
+                $payload['authority_purchase_ris_supplier_split'] = $supplierSplit ? 1 : 0;
             }
             if (! $isDraft && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
                 $payload['authority_purchase_assigned_reviewer_id'] = $reviewerId;
@@ -486,6 +514,20 @@ class AuthorityToPurchaseController extends Controller
             throw ValidationException::withMessages([
                 'authority_purchase_received_by_signature' => 'Draw or upload your signature before submitting.',
             ]);
+        }
+
+        if (
+            !empty($atp->authority_purchase_ris_id)
+            && (int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1
+        ) {
+            $check = AtpRisSuppliers::checkSupplierForRis(
+                (int) $atp->authority_purchase_ris_id,
+                isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null,
+                (int) $id
+            );
+            if ($check['error']) {
+                return back()->withInput()->with('error', $check['error']);
+            }
         }
 
         $items = $this->filterItemRows($validated['items'] ?? []);
@@ -784,18 +826,6 @@ class AuthorityToPurchaseController extends Controller
         $query->where('authority_to_purchase_table.authority_purchase_status', $status);
     }
 
-    private function hasBlockingAtpForRis(int $risId): bool
-    {
-        return DB::table('authority_to_purchase_table')
-            ->where('authority_purchase_ris_id', $risId)
-            ->where(function ($q) {
-                $q->whereNull('authority_purchase_is_archived')
-                    ->orWhere('authority_purchase_is_archived', 0);
-            })
-            ->where('authority_purchase_status', '!=', 'Rejected')
-            ->exists();
-    }
-
     private function eligibleRisQuery()
     {
         $query = DB::table('requisition_issue_slip_table')
@@ -827,6 +857,7 @@ class AuthorityToPurchaseController extends Controller
             });
         }
 
+        // A whole-RIS ATP closes the RIS here; per-supplier coverage is checked in buildRisOptions().
         return $query
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -839,7 +870,10 @@ class AuthorityToPurchaseController extends Controller
                         $q->whereNull('authority_purchase_is_archived')
                             ->orWhere('authority_purchase_is_archived', 0);
                     })
-                    ->where('authority_purchase_status', '!=', 'Rejected');
+                    ->where('authority_purchase_status', '!=', 'Rejected')
+                    ->when(AtpRisSuppliers::hasSplitColumn(), function ($q) {
+                        $q->where('authority_purchase_ris_supplier_split', 0);
+                    });
             })
             ->select(
                 'requisition_issue_slip_table.ris_id',
@@ -903,67 +937,78 @@ class AuthorityToPurchaseController extends Controller
         return $summary;
     }
 
-    private function buildRisPrefill($eligibleRis): array
+    /**
+     * One dropdown option per RIS supplier group that still needs an ATP.
+     *
+     * @return array{options: array<int, array<string, mixed>>, prefill: array<string, array<string, mixed>>}
+     */
+    private function buildRisOptions($eligibleRis, int $limit = 50): array
     {
-        $risIds = collect($eligibleRis)->pluck('ris_id')->filter()->values();
+        $eligibleRis = collect($eligibleRis);
+        $groups = AtpRisSuppliers::groups($eligibleRis->pluck('ris_id'));
+        $coverage = AtpRisSuppliers::coverage(array_keys($groups));
+        $supplierNames = AtpRisSuppliers::supplierNames(
+            collect($groups)->flatMap(fn ($info) => array_keys($info['groups']))
+        );
+
+        $options = [];
         $prefill = [];
+        $risCount = 0;
 
         foreach ($eligibleRis as $ris) {
-            $prefill[(string) $ris->ris_id] = [
-                'supplier_id' => $ris->ris_supplier_id ?? null,
-                'items' => [],
-            ];
-        }
+            $risId = (int) $ris->ris_id;
+            $info = $groups[$risId] ?? ['split' => false, 'groups' => [0 => collect()]];
+            $open = AtpRisSuppliers::openGroups($info, $coverage[$risId] ?? null);
+            if ($open === []) {
+                continue;
+            }
+            if (++$risCount > $limit) {
+                break;
+            }
 
-        if ($risIds->isEmpty()) {
-            return $prefill;
-        }
+            $label = RisWorkflow::formNumber($ris);
+            if ($ris->equipment_name || $ris->report_unlisted_equipment_name) {
+                $label .= ' · '.($ris->equipment_name ?? $ris->report_unlisted_equipment_name);
+            } elseif (!empty($ris->ris_purpose_description)) {
+                $label .= ' · '.\Illuminate\Support\Str::limit($ris->ris_purpose_description, 40);
+            }
 
-        $itemsQuery = DB::table('requisition_issue_slip_items_table')
-            ->whereIn('requisition_issue_slip_items_table.ris_id', $risIds)
-            ->orderBy('ris_item_id');
-
-        $select = ['requisition_issue_slip_items_table.*'];
-
-        if (
-            Schema::hasTable('uom_table')
-            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
-        ) {
-            $itemsQuery->leftJoin(
-                'uom_table',
-                'uom_table.uom_id',
-                '=',
-                'requisition_issue_slip_items_table.ris_item_uom_id'
-            );
-            $select[] = 'uom_table.uom_name';
-        }
-
-        $items = $itemsQuery->select($select)->get()->groupBy('ris_id');
-
-        foreach ($items as $risId => $risItems) {
-            $firstSupplier = null;
-            $prefill[(string) $risId]['items'] = $risItems->map(function ($item) use (&$firstSupplier) {
-                $issued = (int) ($item->ris_quantity_issued ?? 0);
-                $requested = (int) ($item->ris_quantity_requested ?? 0);
-                $quantity = $issued > 0 ? $issued : $requested;
-                $lineSupplier = $item->ris_item_supplier_id ?? null;
-                if ($firstSupplier === null && $lineSupplier) {
-                    $firstSupplier = $lineSupplier;
+            foreach ($open as $supplierId => $items) {
+                $key = $risId.':'.$supplierId;
+                $optionLabel = $label;
+                if ($info['split']) {
+                    $count = $items->count();
+                    $optionLabel .= ' — '.($supplierNames[$supplierId] ?? 'Supplier #'.$supplierId)
+                        .' ('.$count.' '.\Illuminate\Support\Str::plural('item', $count).')';
                 }
 
-                return [
-                    'description' => $item->ris_item_name_description,
-                    'quantity' => $quantity > 0 ? $quantity : null,
-                    'unit' => $item->uom_name ?? '',
-                    'unit_price' => $item->ris_unit_cost !== null ? (float) $item->ris_unit_cost : null,
-                    'supplier_id' => $lineSupplier,
+                $options[] = [
+                    'key' => $key,
+                    'ris_id' => $risId,
+                    'supplier_id' => $supplierId ?: null,
+                    'split' => $info['split'],
+                    'label' => $optionLabel,
                 ];
-            })->values()->all();
 
-            $prefill[(string) $risId]['supplier_id'] = $firstSupplier ?: ($prefill[(string) $risId]['supplier_id'] ?? null);
+                $prefill[$key] = [
+                    'supplier_id' => $supplierId ?: ($ris->ris_supplier_id ?? null),
+                    'items' => $items->map(function ($item) {
+                        $issued = (int) ($item->ris_quantity_issued ?? 0);
+                        $requested = (int) ($item->ris_quantity_requested ?? 0);
+                        $quantity = $issued > 0 ? $issued : $requested;
+
+                        return [
+                            'description' => $item->ris_item_name_description,
+                            'quantity' => $quantity > 0 ? $quantity : null,
+                            'unit' => $item->uom_name ?? '',
+                            'unit_price' => $item->ris_unit_cost !== null ? (float) $item->ris_unit_cost : null,
+                        ];
+                    })->values()->all(),
+                ];
+            }
         }
 
-        return $prefill;
+        return ['options' => $options, 'prefill' => $prefill];
     }
 
     private function activeSuppliersQuery()

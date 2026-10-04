@@ -13,7 +13,8 @@
                 request()->is('purchaser/reports/urgent*') => ['Urgent Reports', 'Reports that need immediate purchasing attention.'],
                 request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', 'Review and process equipment replacement requests.'],
                 request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
-                request()->is('purchaser/file-maintenance*') || request()->is('purchaser/brands*') || request()->is('purchaser/uom*') || request()->is('purchaser/categories*') || request()->is('purchaser/subcategories*') => match (request('tab', request()->routeIs('purchaser.uom.*') ? 'uom' : (request()->routeIs('purchaser.categories.*') ? 'categories' : (request()->routeIs('purchaser.subcategories.*') ? 'subcategories' : 'brands')))) {
+                request()->is('purchaser/file-maintenance*') || request()->is('purchaser/brands*') || request()->is('purchaser/items*') || request()->is('purchaser/uom*') || request()->is('purchaser/categories*') || request()->is('purchaser/subcategories*') => match (request('tab', request()->routeIs('purchaser.items.*') ? 'items' : (request()->routeIs('purchaser.uom.*') ? 'uom' : (request()->routeIs('purchaser.categories.*') ? 'categories' : (request()->routeIs('purchaser.subcategories.*') ? 'subcategories' : 'brands'))))) {
+                    'items' => ['Items', 'Item names used in the RIS item column.'],
                     'uom' => ['UOM', 'Units of measure for RIS and purchasing.'],
                     'categories' => ['Categories', 'Procurement item categories.'],
                     'subcategories' => ['Sub Categories', 'Sub categories under a parent category.'],

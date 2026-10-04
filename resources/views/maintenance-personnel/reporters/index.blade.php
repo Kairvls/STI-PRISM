@@ -602,7 +602,7 @@
                                             >
                                                 {{
                                                     $report->report_problem_description
-                                                    ?? 'No description provided'
+                                                    ?? 'No extra details from reporter'
                                                 }}
                                             </p>
 

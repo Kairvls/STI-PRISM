@@ -56,7 +56,17 @@ class DraftHandover
             ->orderBy('user_full_name')
             ->get(['user_id', 'user_role_id', 'user_full_name'])
             ->filter(fn ($user) => RoleAccess::hasRole(PurchaserDocumentAccess::PURCHASER_ROLE_ID, $user))
-            ->map(fn ($user) => ['id' => (int) $user->user_id, 'name' => (string) $user->user_full_name])
+            ->map(function ($user) {
+                $primaryRoleId = (int) ($user->user_role_id ?? 0);
+
+                return [
+                    'id' => (int) $user->user_id,
+                    'name' => (string) $user->user_full_name,
+                    'is_primary' => $primaryRoleId === PurchaserDocumentAccess::PURCHASER_ROLE_ID,
+                    'primary_role_label' => RoleAccess::portalMeta()[$primaryRoleId]['label'] ?? 'User',
+                ];
+            })
+            ->sortBy(fn ($coworker) => [$coworker['is_primary'] ? 0 : 1, $coworker['name']])
             ->values()
             ->all();
     }

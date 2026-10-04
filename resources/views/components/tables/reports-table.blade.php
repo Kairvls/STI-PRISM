@@ -100,7 +100,7 @@
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search ticket code, equipment, room, reporter"
+                        placeholder="Search ticket code, equipment, room, reporter, employee ID"
                         class="h-9 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5"
                     />
                 </div>
@@ -226,26 +226,18 @@
                     >
                         <option value="">All Priorities</option>
 
-                        <option
-                            value="Urgent"
-                            {{
-                                request("urgency") == "Urgent"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Urgent
+                        @foreach (\App\Support\ReportSeverity::levels() as $severityOption)
+                            <option value="{{ $severityOption }}" @selected(request("urgency") === $severityOption)>
+                                {{ $severityOption }}
+                            </option>
+                        @endforeach
+
+                        <option value="Urgent" @selected(request("urgency") === "Urgent")>
+                            Urgent (Critical + High)
                         </option>
 
-                        <option
-                            value="Non-Urgent"
-                            {{
-                                request("urgency") == "Non-Urgent"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Non-Urgent
+                        <option value="Non-Urgent" @selected(request("urgency") === "Non-Urgent")>
+                            Non-Urgent (Medium + Low)
                         </option>
                     </select>
                     <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -516,10 +508,8 @@
             <tbody>
                 @forelse ($reports as $i => $report)
                     @php
-                        $urgencyPill =
-                            $report->report_urgency_level == "Urgent"
-                                ? "bg-[#dc2626] text-white"
-                                : "bg-slate-100 text-slate-600";
+                        $severityLevel = \App\Support\ReportSeverity::forReport($report);
+                        $urgencyPill = \App\Support\ReportSeverity::meta($severityLevel)["pill"];
 
                         $statusMap = [
                             "Pending" => "bg-orange-50 text-orange-700",
@@ -625,15 +615,15 @@
                                         </button>
                                     @endif
                                 </div>
-                                <p class="truncate text-xs text-slate-400" title="{{ $report->room_name }}">
-                                    {{ $report->room_name }}
+                                <p class="truncate text-xs text-slate-400" title="{{ implode(', ', $report->item_location_names ?? []) ?: $report->room_name }}">
+                                    {{ \App\Support\ReportItems::locationLabel($report, '') }}
                                 </p>
                             </div>
                         </td>
 
                         <td class="px-5 py-4">
-                            <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $urgencyPill }}">
-                                {{ $report->report_urgency_level }}
+                            <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $urgencyPill }}" title="{{ $report->report_severity_reason ?? '' }}">
+                                {{ $severityLevel }}
                             </span>
                         </td>
                         <td class="px-5 py-4">
@@ -947,12 +937,14 @@
             "For Replacement" => "bg-orange-50 text-orange-700",
         ];
         $statusPill = $statusMap[$report->report_current_status] ?? "bg-slate-100 text-slate-600";
-        $urgencyPill =
-            $report->report_urgency_level == "Urgent"
-                ? "bg-[#dc2626] text-white"
-                : "bg-slate-100 text-slate-500";
+        $severityLevel = \App\Support\ReportSeverity::forReport($report);
+        $urgencyPill = \App\Support\ReportSeverity::meta($severityLevel)["pill"];
         $historyCount = collect($report->report_timeline ?? $report->equipment_report_history ?? [])->count();
         $viewItems = collect($report->report_items ?? []);
+        $showItemPhotos = $viewItems->count() > 1
+            && $viewItems->contains(fn ($item) => !empty($item->report_item_uploaded_image));
+        $perItemDetails = \App\Support\ReportItems::hasPerItemDetails($viewItems);
+        $itemIssueList = $viewItems->count() > 1 ? \App\Support\ReportItems::issueList($viewItems, $report) : [];
         $equipmentLabel = $report->equipment_display
             ?? $report->equipment_name
             ?? ($report->report_unlisted_equipment_name ?? "Unlisted");
@@ -978,7 +970,7 @@
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-slate-800">Ticket details</h2>
                         <p class="mt-1 text-sm text-slate-500">
-                            Review {{ $equipmentLabel }} in {{ $report->room_name ?? "an unassigned room" }}.
+                            Review {{ $equipmentLabel }} in {{ \App\Support\ReportItems::locationLabel($report, "an unassigned room") }}.
                         </p>
                     </div>
                     <button
@@ -1004,7 +996,7 @@
                                 {{ $report->report_current_status }}
                             </span>
                             <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $urgencyPill }}">
-                                {{ $report->report_urgency_level }}
+                                {{ $severityLevel }} priority
                             </span>
                         </div>
                         <div class="mt-2 space-y-1.5 text-sm text-slate-500">
@@ -1017,7 +1009,7 @@
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                <span class="truncate">{{ $report->room_name ?? "No assigned room" }}</span>
+                                <span class="truncate" title="{{ implode(', ', $report->item_location_names ?? []) }}">{{ \App\Support\ReportItems::locationLabel($report) }}</span>
                             </p>
                             <p class="flex items-center gap-2">
                                 <i data-lucide="hash" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
@@ -1069,8 +1061,17 @@
                                                     {{ \App\Support\ReportItems::displayName($item) }}
                                                 </p>
                                                 <p class="mt-0.5 text-xs text-slate-500">
-                                                    Issue: {{ $item->report_item_suggested_issue ?: ($report->report_suggested_issue ?? "None given") }}
+                                                    Issue: {{ \App\Support\ReportItems::itemIssue($item) ?? ($report->report_suggested_issue ?? "None given") }}
                                                 </p>
+                                                @if ($perItemDetails && !empty(trim((string) ($item->report_item_problem_description ?? ''))))
+                                                    <p class="mt-1 whitespace-pre-wrap text-xs italic leading-5 text-slate-700">“{{ trim($item->report_item_problem_description) }}”</p>
+                                                @endif
+                                                @if ((int) ($report->extra_location_count ?? 0) > 0 && !empty($item->room_name))
+                                                    <p class="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#0037C7]">
+                                                        <i data-lucide="map-pin" class="h-3 w-3 shrink-0"></i>
+                                                        {{ $item->room_name }}
+                                                    </p>
+                                                @endif
                                             </div>
                                             <span class="inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium {{ $itemStatusPill }}">
                                                 {{ $itemStatus }}
@@ -1081,6 +1082,24 @@
                                             'item' => $item,
                                             'compact' => false,
                                         ])
+                                        @if ($showItemPhotos)
+                                            @if (!empty($item->report_item_uploaded_image))
+                                                <button
+                                                    type="button"
+                                                    onclick="window.open('{{ asset('storage/'.$item->report_item_uploaded_image) }}', '_blank')"
+                                                    class="mt-2 block overflow-hidden rounded-lg border border-slate-200"
+                                                    title="Open photo"
+                                                >
+                                                    <img
+                                                        src="{{ asset('storage/'.$item->report_item_uploaded_image) }}"
+                                                        alt="Photo of {{ \App\Support\ReportItems::displayName($item) }}"
+                                                        class="h-20 w-28 object-cover"
+                                                    />
+                                                </button>
+                                            @else
+                                                <p class="mt-2 text-xs text-slate-400">No photo</p>
+                                            @endif
+                                        @endif
                                     </li>
                                 @endforeach
                             </ul>
@@ -1089,10 +1108,24 @@
 
                         <p class="mb-3 text-sm font-medium text-slate-600">Report information</p>
                         <div class="overflow-hidden rounded-xl border border-slate-200">
-                            <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
-                                <span class="text-sm text-slate-500">Issue</span>
-                                <span class="text-right text-sm font-medium text-slate-800">{{ $report->issue_display ?? $report->report_suggested_issue ?? "None given" }}</span>
-                            </div>
+                            @if (count($itemIssueList) > 1)
+                                <div class="border-b border-slate-100 px-4 py-3">
+                                    <p class="text-sm text-slate-500">Issues</p>
+                                    <ul class="mt-1.5 space-y-1">
+                                        @foreach ($itemIssueList as $entry)
+                                            <li class="flex items-baseline justify-between gap-4 text-sm">
+                                                <span class="min-w-0 truncate text-slate-500" title="{{ $entry['name'] }}">{{ $entry['name'] }}</span>
+                                                <span class="shrink-0 text-right font-medium text-slate-800">{{ $entry['issue'] }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
+                                    <span class="text-sm text-slate-500">Issue</span>
+                                    <span class="text-right text-sm font-medium text-slate-800">{{ $report->issue_display ?? $report->report_suggested_issue ?? "None given" }}</span>
+                                </div>
+                            @endif
                             <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
                                 <span class="text-sm text-slate-500">Assigned</span>
                                 <span class="text-right text-sm font-medium text-slate-800">{{ $assignedName }}</span>
@@ -1113,13 +1146,25 @@
                             @endif
                             <div class="px-4 py-3">
                                 <p class="text-sm text-slate-500">What happened</p>
-                                <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-                                    {{ $report->report_problem_description ?? "No description provided." }}
-                                </p>
+                                @if ($perItemDetails && $viewItems->count() > 1)
+                                    @php
+                                        $describedItems = $viewItems->filter(fn ($item) => trim((string) ($item->report_item_problem_description ?? '')) !== '');
+                                    @endphp
+                                    <ul class="mt-1.5 space-y-2">
+                                        @foreach ($describedItems as $item)
+                                            <li class="text-sm leading-6 text-slate-800">
+                                                <span class="font-medium text-slate-600">{{ \App\Support\ReportItems::displayName($item) }}:</span>
+                                                <span class="whitespace-pre-wrap">{{ trim($item->report_item_problem_description) }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 {{ $report->report_problem_description ? 'text-slate-800' : 'text-slate-400' }}">{{ $report->report_problem_description ?? "No extra details from reporter." }}</p>
+                                @endif
                             </div>
                         </div>
 
-                        @if ($report->report_uploaded_image)
+                        @if ($report->report_uploaded_image && ! $showItemPhotos)
                             <button
                                 type="button"
                                 onclick="window.open('{{ asset('storage/'.$report->report_uploaded_image) }}', '_blank')"
@@ -1271,8 +1316,8 @@
                                                 </span>
                                                 <span class="mt-0.5 block text-xs text-gray-500">
                                                     Current: {{ $item->report_item_status }}
-                                                    @if (!empty($item->report_item_suggested_issue))
-                                                        · {{ $item->report_item_suggested_issue }}
+                                                    @if (\App\Support\ReportItems::itemIssue($item))
+                                                        · {{ \App\Support\ReportItems::itemIssue($item) }}
                                                     @endif
                                                 </span>
                                                 @include('components.tables.partials.report-item-equipment-details', [

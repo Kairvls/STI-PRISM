@@ -170,7 +170,7 @@
                             <i data-lucide="user-round-plus" class="h-5 w-5"></i>
                         </div>
                         <div class="min-w-0">
-                            <h3 class="text-lg font-semibold tracking-tight text-gray-950">Pass to co-worker</h3>
+                            <h3 class="text-lg font-semibold tracking-tight text-gray-950">Pass to </h3>
                             <p class="mt-0.5 truncate text-sm text-gray-500" x-text="label"></p>
                         </div>
                     </div>
@@ -185,10 +185,26 @@
                                 <label class="mb-1.5 block text-xs font-medium text-gray-600">Co-worker <span class="text-red-500">*</span></label>
                                 <select name="to_user_id" required class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300">
                                     <option value="">Select a purchaser…</option>
-                                    @foreach($handoverCoworkers as $coworker)
-                                        <option value="{{ $coworker['id'] }}">{{ $coworker['name'] }}</option>
-                                    @endforeach
+                                    @php
+                                        $handoverPrimaryCoworkers = array_filter($handoverCoworkers, fn ($c) => $c['is_primary']);
+                                        $handoverAdditionalCoworkers = array_filter($handoverCoworkers, fn ($c) => ! $c['is_primary']);
+                                    @endphp
+                                    @if($handoverPrimaryCoworkers !== [])
+                                        <optgroup label="Primary Purchaser">
+                                            @foreach($handoverPrimaryCoworkers as $coworker)
+                                                <option value="{{ $coworker['id'] }}">★ {{ $coworker['name'] }} (Primary)</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($handoverAdditionalCoworkers !== [])
+                                        <optgroup label="Purchaser as additional role">
+                                            @foreach($handoverAdditionalCoworkers as $coworker)
+                                                <option value="{{ $coworker['id'] }}">{{ $coworker['name'] }} (Primary: {{ $coworker['primary_role_label'] }})</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
                                 </select>
+                                <p class="mt-1.5 text-[11px] text-gray-500">★ Primary = Purchaser is their main role.</p>
                             </div>
                             <div>
                                 <label class="mb-1.5 block text-xs font-medium text-gray-600">Note (optional)</label>

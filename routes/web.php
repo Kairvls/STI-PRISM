@@ -846,6 +846,11 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
         [MaintenanceController::class, 'updateStatus']
     );
 
+    Route::post(
+        '/maintenance/reports/{id}/severity',
+        [MaintenanceController::class, 'updateReportSeverity']
+    )->whereNumber('id')->name('maintenance.reports.severity.update');
+
     Route::get(
         '/maintenance/reports/log',
         [MaintenanceController::class, 'createWalkInReport']
@@ -931,6 +936,11 @@ Route::post(
     [ReporterController::class, 'storeReport']
 )->name('reports.store');
 
+Route::post(
+    '/report-severity/preview',
+    [ReporterController::class, 'previewSeverity']
+)->middleware('throttle:60,1')->name('reports.severity.preview');
+
 Route::get(
     '/get-equipment/{roomId}',
     [ReporterController::class, 'getEquipmentByRoom']
@@ -940,7 +950,7 @@ Route::get(
 Route::get(
     '/equipment/{qrCode}',
     [MaintenanceController::class, 'equipmentByQr']
-);
+)->middleware('auth');
 
 
 /*

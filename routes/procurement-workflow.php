@@ -11,6 +11,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\DraftHandoverController;
 use App\Http\Controllers\FileMaintenanceController;
 use App\Http\Controllers\ItemCategoryController;
+use App\Http\Controllers\ItemController;
 use App\Http\Controllers\ItemSubCategoryController;
 use App\Http\Controllers\LiquidationReportController;
 use App\Http\Controllers\ProcurementRecordPackageController;
@@ -245,6 +246,14 @@ Route::get('/brands', function () {
 Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
 Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
 Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
+
+Route::get('/items', function () {
+    return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'items']);
+})->name('items.index');
+Route::post('/items', [ItemController::class, 'store'])->name('items.store');
+Route::post('/items/quick-store', [ItemController::class, 'quickStore'])->name('items.quick-store');
+Route::put('/items/{item}', [ItemController::class, 'update'])->name('items.update');
+Route::delete('/items/{item}', [ItemController::class, 'destroy'])->name('items.destroy');
 
 Route::get('/uom', function () {
     return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom']);

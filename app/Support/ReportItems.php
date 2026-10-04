@@ -8,15 +8,24 @@ use Illuminate\Support\Facades\Schema;
 
 class ReportItems
 {
+    private static ?bool $hasRoomColumn = null;
+
     public static function tableExists(): bool
     {
         return Schema::hasTable('report_items_table');
+    }
+
+    public static function hasRoomColumn(): bool
+    {
+        return self::$hasRoomColumn ??= self::tableExists()
+            && Schema::hasColumn('report_items_table', 'report_item_room_id');
     }
 
     /**
      * @param  array<int, array{
      *     equipment_id?: int|null,
      *     unlisted_name?: string|null,
+     *     room_id?: int|null,
      *     suggested_issue?: string|null,
      *     problem_description?: string|null,
      *     uploaded_image?: string|null,
@@ -42,7 +51,7 @@ class ReportItems
                 continue;
             }
 
-            $rows[] = [
+            $row = [
                 'report_id' => $reportId,
                 'report_item_equipment_id' => $equipmentId,
                 'report_item_unlisted_equipment_name' => $unlisted !== '' ? $unlisted : null,
@@ -53,6 +62,13 @@ class ReportItems
                 'report_item_created_at' => $now,
                 'report_item_updated_at' => $now,
             ];
+
+            if (self::hasRoomColumn()) {
+                $roomId = (int) ($item['room_id'] ?? 0);
+                $row['report_item_room_id'] = $roomId > 0 ? $roomId : null;
+            }
+
+            $rows[] = $row;
         }
 
         if ($rows !== []) {
@@ -107,12 +123,23 @@ class ReportItems
         }
 
         if (Schema::hasTable('rooms_table')) {
-            $query->leftJoin(
-                'rooms_table',
-                'equipment_table.equipment_room_id',
-                '=',
-                'rooms_table.room_id'
-            );
+            if (self::hasRoomColumn()) {
+                // Where the item was reported; older rows fall back to the equipment's room.
+                $query->leftJoin('rooms_table', function ($join) {
+                    $join->on(
+                        'rooms_table.room_id',
+                        '=',
+                        DB::raw('COALESCE(report_items_table.report_item_room_id, equipment_table.equipment_room_id)')
+                    );
+                });
+            } else {
+                $query->leftJoin(
+                    'rooms_table',
+                    'equipment_table.equipment_room_id',
+                    '=',
+                    'rooms_table.room_id'
+                );
+            }
         }
 
         $select = [
@@ -186,6 +213,36 @@ class ReportItems
     }
 
     /**
+     * Distinct room names across a ticket's items, in item order.
+     *
+     * @return array<int, string>
+     */
+    public static function locationNames(Collection $items): array
+    {
+        return $items
+            ->map(fn ($item) => trim((string) ($item->room_name ?? '')))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * "Room 318" or "Room 318 +1 more location" for a ticket whose items span rooms.
+     */
+    public static function locationLabel(object $report, string $fallback = 'No assigned room'): string
+    {
+        $primary = trim((string) ($report->room_name ?? ''))
+            ?: (string) (($report->item_location_names ?? [])[0] ?? '')
+            ?: $fallback;
+        $extra = (int) ($report->extra_location_count ?? 0);
+
+        return $extra > 0
+            ? $primary.' +'.$extra.' more '.($extra === 1 ? 'location' : 'locations')
+            : $primary;
+    }
+
+    /**
      * Split "Name +2 more" style labels into primary text + extra count.
      *
      * @return array{primary: string, more: int}
@@ -221,11 +278,7 @@ class ReportItems
             : collect());
 
         $issues = $items
-            ->map(function ($item) {
-                $issue = trim((string) ($item->report_item_suggested_issue ?? ''));
-
-                return $issue !== '' ? $issue : null;
-            })
+            ->map(fn ($item) => self::itemIssue($item))
             ->filter()
             ->unique(fn ($issue) => mb_strtolower($issue))
             ->values();
@@ -249,6 +302,56 @@ class ReportItems
         }
 
         return 'No suggested issue';
+    }
+
+    /**
+     * The item's picked issue; items described only in their details count as "Other".
+     */
+    public static function itemIssue(object $item): ?string
+    {
+        $issue = trim((string) ($item->report_item_suggested_issue ?? ''));
+        if ($issue !== '') {
+            return $issue;
+        }
+
+        return trim((string) ($item->report_item_problem_description ?? '')) !== '' ? 'Other' : null;
+    }
+
+    /**
+     * "Name: issue" per item, for tickets with more than one equipment.
+     *
+     * @return array<int, array{name: string, issue: string}>
+     */
+    public static function issueList(Collection $items, ?object $report = null): array
+    {
+        $fallback = trim((string) ($report->report_suggested_issue ?? '')) ?: 'None given';
+
+        return $items
+            ->map(fn ($item) => [
+                'name' => self::displayName($item),
+                'issue' => self::itemIssue($item) ?? $fallback,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Whether items carry their own details. Older tickets copied one shared
+     * description onto every item, which should still read as one description.
+     */
+    public static function hasPerItemDetails(Collection $items): bool
+    {
+        $details = $items->map(fn ($item) => trim((string) ($item->report_item_problem_description ?? '')));
+
+        if ($details->filter()->isEmpty()) {
+            return false;
+        }
+
+        if ($items->count() === 1) {
+            return true;
+        }
+
+        return ! ($details->every(fn ($text) => $text !== '') && $details->unique()->count() === 1);
     }
 
     /**
@@ -297,6 +400,8 @@ class ReportItems
             $items = collect($report->report_items);
             $report->equipment_display = self::labelForReport($report, $items);
             $report->issue_display = self::issueLabelForReport($report, $items);
+            $report->item_location_names = self::locationNames($items);
+            $report->extra_location_count = max(0, count($report->item_location_names) - 1);
 
             if (
                 empty($report->equipment_name)
@@ -648,6 +753,7 @@ class ReportItems
         self::createForReport((int) $report->report_id, [[
             'equipment_id' => $report->report_equipment_id ?? null,
             'unlisted_name' => $report->report_unlisted_equipment_name ?? null,
+            'room_id' => $report->report_room_id ?? null,
             'suggested_issue' => $report->report_suggested_issue ?? null,
             'problem_description' => $report->report_problem_description ?? null,
             'uploaded_image' => $report->report_uploaded_image ?? null,
@@ -716,6 +822,7 @@ class ReportItems
                 .($report->report_suggested_issue ? ': '.$report->report_suggested_issue : '')
                 .($roomName ? ' in '.$roomName : ''),
             'urgency' => $report->report_urgency_level ?? null,
+            'severity' => ReportSeverity::forReport($report),
             'status_label' => 'Submitted',
             'status_key' => 'Pending',
             'meta' => trim($reporterName.($employeeId ? ' · '.$employeeId : '')),
@@ -754,6 +861,7 @@ class ReportItems
                 'subtitle' => $statusLabel
                     .(! empty($item->report_item_suggested_issue) ? ' · '.$item->report_item_suggested_issue : ''),
                 'urgency' => $report->report_urgency_level ?? null,
+                'severity' => ReportSeverity::forReport($report),
                 'status_label' => $statusLabel,
                 'status_key' => $status,
                 'meta' => null,
@@ -808,6 +916,7 @@ class ReportItems
                         .(! empty($past->room_name) ? ' in '.$past->room_name : '')
                         .' · '.$ticket,
                     'urgency' => $past->report_urgency_level ?? null,
+                    'severity' => ReportSeverity::forReport($past),
                     'status_label' => $statusLabel,
                     'status_key' => $status,
                     'meta' => $past->reporter_full_name ?? null,

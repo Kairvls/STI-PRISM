@@ -668,7 +668,7 @@
 }
 
 .menu-item.active .menu-count {
-    background: #fff;
+    background: #f59e0b;
     color: #0f172a !important;
 }
 

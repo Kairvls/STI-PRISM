@@ -31,6 +31,11 @@ Route::get(
 );
 
 Route::get(
+    '/report-equipment/qr/{qr}',
+    [MobileReportController::class, 'equipmentByQr']
+)->where('qr', '.*')->middleware('throttle:30,1');
+
+Route::get(
 
     '/suggested-issues/{equipmentId}',
 
@@ -50,6 +55,11 @@ Route::get(
     [MobileReportController::class, 'reporter']
 
 );
+
+Route::get(
+    '/reporter/{employeeId}/assigned-equipment',
+    [MobileReportController::class, 'assignedEquipment']
+)->middleware('throttle:30,1');
 
 Route::post(
 

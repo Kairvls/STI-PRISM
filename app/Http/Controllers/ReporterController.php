@@ -9,6 +9,7 @@ use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
+use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -604,6 +605,38 @@ class ReporterController extends Controller
                 'errors' => $result['errors'] ?? null,
             ], fn ($value) => $value !== null)
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PREVIEW AUTOMATIC PRIORITY (same rules as submit)
+    |--------------------------------------------------------------------------
+    */
+
+    public function previewSeverity(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => 'nullable|array|max:'.\App\Support\RisWorkflow::MAX_ITEMS,
+            'items.*.equipment_id' => 'nullable|integer',
+            'items.*.name' => 'nullable|string|max:255',
+            'items.*.issue' => 'nullable|string|max:255',
+            'items.*.room_id' => 'nullable|integer',
+            'description' => 'nullable|string|max:5000',
+        ]);
+
+        $items = collect($validated['items'] ?? [])
+            ->map(fn ($item) => [
+                'equipment_id' => isset($item['equipment_id']) ? (int) $item['equipment_id'] : null,
+                'name' => $item['name'] ?? null,
+                'issue' => $item['issue'] ?? null,
+                'room_id' => isset($item['room_id']) ? (int) $item['room_id'] : null,
+            ])
+            ->values()
+            ->all();
+
+        $assessment = ReportSeverity::assess($items, $validated['description'] ?? null);
+
+        return response()->json($assessment + ReportSeverity::meta($assessment['level']));
     }
 
     /*

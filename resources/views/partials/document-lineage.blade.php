@@ -59,6 +59,18 @@
                         @endif
                     @endforeach
                 </div>
+                @if(!empty($lineage['atp_siblings']))
+                    <p class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+                        <span class="font-semibold text-slate-700">Other ATPs for this RIS:</span>
+                        @foreach($lineage['atp_siblings'] as $sibling)
+                            <a
+                                href="{{ $sibling['url'] }}"
+                                class="rounded-md bg-white px-1.5 py-0.5 font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
+                                @if(!empty($sibling['hint'])) title="{{ $sibling['hint'] }}" @endif
+                            >{{ $sibling['label'] }}</a>
+                        @endforeach
+                    </p>
+                @endif
             @endif
             @if($statusHint)
                 <p class="mt-2 text-xs text-slate-600">

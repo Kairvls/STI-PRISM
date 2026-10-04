@@ -904,6 +904,7 @@ class EquipmentTimeline
         }
 
         $rows = collect();
+        $severityColumn = ReportSeverity::hasColumns() ? ['reports_table.report_severity'] : [];
 
         if (ReportItems::tableExists()) {
             $rows = DB::table('report_items_table')
@@ -925,6 +926,7 @@ class EquipmentTimeline
                     'report_items_table.report_item_resolution_notes as resolution_notes',
                     'report_items_table.report_item_replacement_notes as replacement_notes',
                     'report_items_table.report_item_rejection_notes as rejection_notes',
+                    ...$severityColumn,
                 ]);
         }
 
@@ -947,6 +949,7 @@ class EquipmentTimeline
                 'reports_table.report_resolution_notes as resolution_notes',
                 'reports_table.report_replacement_notes as replacement_notes',
                 'reports_table.report_rejection_notes as rejection_notes',
+                ...$severityColumn,
             ]);
 
         return $rows->merge($legacy)
@@ -1004,13 +1007,14 @@ class EquipmentTimeline
                 'Malfunction reported'.($nth > 1 ? ' · '.self::ordinal($nth).' time' : ''),
                 ($row->issue ?: 'No issue named')
                     .' · '.$ticket
-                    .' · '.$row->report_urgency_level
+                    .' · '.ReportSeverity::forReport($row).' priority'
                     .($row->room_name ? ' · '.$row->room_name : '')
                     .($stillOpenBefore ? ' · Re-reported while '.$stillOpenBefore.' was still not fixed' : ''),
                 [
                     'report_id' => (int) $row->report_id,
                     'status' => $row->status,
                     'urgency' => $row->report_urgency_level,
+                    'severity' => ReportSeverity::forReport($row),
                     'issue' => $row->issue,
                     'actor' => $row->reporter_full_name,
                     'reporter' => $row->reporter_full_name,

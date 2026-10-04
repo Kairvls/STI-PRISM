@@ -472,7 +472,7 @@ class ReceivingReportController extends Controller
             'receiving_report_delivery_date' => ['nullable', 'date'],
             'receiving_report_received_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
-            'items' => ['nullable', 'array', 'max:9'],
+            'items' => ['nullable', 'array', 'max:50'],
             'items.*.quantity' => ['nullable', 'integer', 'min:0', 'max:9999999'],
             'items.*.ordered_qty' => ['nullable', 'integer', 'min:0', 'max:9999999'],
             'items.*.condition' => ['nullable', 'in:ok,short,bad_order'],
@@ -532,7 +532,7 @@ class ReceivingReportController extends Controller
         $hasDamagedColumn = Schema::hasColumn($table, 'receiving_report_item_damaged_qty');
 
         $newIds = [];
-        foreach (array_slice($items, 0, 9) as $row) {
+        foreach (array_slice($items, 0, 50) as $row) {
             if (in_array((int) ($row['item_id'] ?? 0), $verifiedIds, true)) {
                 continue;
             }
@@ -658,7 +658,7 @@ class ReceivingReportController extends Controller
             ? BackOrders::forRoot($rrId)->keyBy('back_order_id')
             : collect();
 
-        foreach (array_values(array_slice($items, 0, 9)) as $index => $row) {
+        foreach (array_values(array_slice($items, 0, 50)) as $index => $row) {
             $line = 'Item '.($index + 1);
             $ordered = $row['ordered_qty'] ?? null;
             $received = $row['quantity'] ?? null;
@@ -766,7 +766,7 @@ class ReceivingReportController extends Controller
         $backOrders = $rrId && BackOrders::supported()
             ? BackOrders::forRoot((int) $rrId)->keyBy('back_order_id')
             : collect();
-        $rows = array_values(array_slice($items, 0, 9));
+        $rows = array_values(array_slice($items, 0, 50));
         foreach ($rows as $index => $row) {
             $qty = (int) ($row['quantity'] ?? 0);
             $backOrder = $backOrders->get((int) ($row['back_order_id'] ?? 0));
@@ -1009,7 +1009,7 @@ class ReceivingReportController extends Controller
             $path = $rfc->authority_purchase_payment_path
                 ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
             $rows = [];
-            foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(10) as $index => $item) {
+            foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(50) as $index => $item) {
                 $rows[] = [
                     'quantity' => $item->atp_quantity,
                     'ordered_qty' => $item->atp_quantity,

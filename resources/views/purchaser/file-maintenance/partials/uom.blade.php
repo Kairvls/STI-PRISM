@@ -97,7 +97,6 @@
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ID</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">UOM</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Description</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
@@ -106,7 +105,6 @@
                 <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse($uoms as $uom)
                         <tr class="transition hover:bg-gray-50/70">
-                            <td class="px-5 py-4 text-gray-500">#{{ $uom->uom_id }}</td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
@@ -141,7 +139,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-6 py-16 text-center">
+                            <td colspan="3" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="ruler" class="h-5 w-5"></i>
                                 </div>

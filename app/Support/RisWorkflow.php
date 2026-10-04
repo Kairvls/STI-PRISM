@@ -20,6 +20,9 @@ class RisWorkflow
     public const URGENCY_URGENT = 'Urgent';
     public const URGENCY_NON_URGENT = 'Non-Urgent';
 
+    /** Item rows allowed on one RIS (also caps replacement-request baskets). */
+    public const MAX_ITEMS = 50;
+
     /** RIS No. pattern: RIS-YYYYMM-0000000 */
     public const FORM_NUMBER_REGEX = '/^RIS-\d{6}-\d{7}$/';
 

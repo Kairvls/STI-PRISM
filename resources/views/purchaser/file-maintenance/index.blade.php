@@ -1,6 +1,7 @@
 @php
     $tabMeta = [
         'brands' => ['title' => 'Brands'],
+        'items' => ['title' => 'Items'],
         'uom' => ['title' => 'UOM'],
         'categories' => ['title' => 'Categories'],
         'subcategories' => ['title' => 'Sub Categories'],
@@ -17,6 +18,8 @@
 
     @if($tab === 'brands')
         @include('purchaser.file-maintenance.partials.brands')
+    @elseif($tab === 'items')
+        @include('purchaser.file-maintenance.partials.items')
     @elseif($tab === 'uom')
         @include('purchaser.file-maintenance.partials.uom')
     @elseif($tab === 'categories')

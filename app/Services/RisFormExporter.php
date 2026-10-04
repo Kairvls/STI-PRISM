@@ -146,9 +146,10 @@ class RisFormExporter
         $sheet->getRowDimension(5)->setRowHeight(18);
         $sheet->getRowDimension(6)->setRowHeight(16);
 
-        // Exactly 8 item rows
+        // At least 8 item rows, more when the RIS has more items
         $startRow = 7;
-        for ($i = 0; $i < 8; $i++) {
+        $itemRowCount = max(8, count($rows));
+        for ($i = 0; $i < $itemRowCount; $i++) {
             $r = $startRow + $i;
             $row = $rows[$i] ?? null;
 
@@ -180,7 +181,7 @@ class RisFormExporter
             $sheet->getRowDimension($r)->setRowHeight(28);
         }
 
-        $purposeRow = $startRow + 8;
+        $purposeRow = $startRow + $itemRowCount;
         $sheet->getRowDimension($purposeRow)->setRowHeight(10);
         $purposeRow++;
 
@@ -392,7 +393,7 @@ class RisFormExporter
         $table->addCell($cols['unit_cost'], ['vMerge' => 'continue']);
         $table->addCell($cols['amount'], ['vMerge' => 'continue']);
 
-        for ($i = 0; $i < 8; $i++) {
+        for ($i = 0, $itemRowCount = max(8, count($rows)); $i < $itemRowCount; $i++) {
             $row = $rows[$i] ?? null;
             $table->addRow(Converter::cmToTwip(1.05));
             $table->addCell($cols['item'], $cellCenter)->addText((string) ($row['item'] ?? ''), $body);
@@ -499,7 +500,7 @@ class RisFormExporter
     }
 
     /**
-     * Normalize up to 8 print rows from RIS items.
+     * Normalize print rows from RIS items.
      *
      * @param  \Illuminate\Support\Collection  $items
      * @return array<int, array{item:string,brand:string,unit:string,supplier:string,requested:int|float|string|null,issued:int|float|string|null,unit_cost:float|string|null,amount:float|string|null}>
@@ -508,7 +509,7 @@ class RisFormExporter
     {
         $rows = [];
 
-        foreach ($items->take(8) as $item) {
+        foreach ($items->take(RisWorkflow::MAX_ITEMS) as $item) {
             $name = trim((string) ($item->ris_item_name_description ?? ''));
             $brand = trim((string) ($item->brand_name ?? ''));
             $uom = trim((string) ($item->uom_name ?? ''));

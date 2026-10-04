@@ -81,9 +81,14 @@
                                         {{ $typeLabel }}
                                     </span>
                                 @endif
-                                @if (!empty($event->urgency))
-                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $event->urgency === 'Urgent' ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-slate-500 ring-1 ring-slate-200/80' }}">
-                                        {{ $event->urgency }}
+                                @if (!empty($event->severity) || !empty($event->urgency))
+                                    @php
+                                        $eventSeverity = \App\Support\ReportSeverity::isLevel($event->severity ?? null)
+                                            ? $event->severity
+                                            : \App\Support\ReportSeverity::fromUrgency($event->urgency ?? null);
+                                    @endphp
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ \App\Support\ReportSeverity::meta($eventSeverity)['soft'] }}">
+                                        {{ $eventSeverity }}
                                     </span>
                                 @endif
                                 @if (!empty($event->status_label))

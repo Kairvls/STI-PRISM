@@ -22,13 +22,28 @@ class DocumentLineage
             $ris ? self::reviewHintForRis($ris) : self::reviewHint(null, null, 'ris')
         );
 
-        $atp = DB::table('authority_to_purchase_table')
+        // A multi-supplier RIS has one ATP per supplier; follow the latest, list the rest.
+        $atps = DB::table('authority_to_purchase_table')
             ->where('authority_purchase_ris_id', $risId)
             ->orderByDesc('authority_purchase_id')
-            ->first();
-        if ($atp) {
-            return self::extendFromAtp($chain, $atp);
+            ->get();
+        $atp = $atps->first();
+        if (!$atp) {
+            return $chain;
         }
+
+        $chain = self::extendFromAtp($chain, $atp);
+        $chain['atp_siblings'] = $atps->slice(1)
+            ->reject(fn ($row) => (string) ($row->authority_purchase_status ?? '') === 'Rejected')
+            ->map(fn ($row) => self::node(
+                'ATP',
+                (int) $row->authority_purchase_id,
+                $row->authority_purchase_form_number ?? ('ATP #'.$row->authority_purchase_id),
+                route('purchaser.atp.index', ['view_atp' => $row->authority_purchase_id]),
+                self::reviewHint(RisWorkflow::atpStatusLabel($row), null, 'atp')
+            ))
+            ->values()
+            ->all();
 
         return $chain;
     }

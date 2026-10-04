@@ -188,10 +188,51 @@ class PurchaserAttentionSummary
         self::whereNotArchived($query, 'requisition_issue_slip_table', 'ris_is_archived');
         PurchaserDocumentAccess::scopeOwned($query, 'ris', 'requisition_issue_slip_table');
 
-        return $query->whereNotExists(function ($sub) {
+        $noAtp = function ($sub) {
             $sub->select(DB::raw(1))
                 ->from('authority_to_purchase_table as ready_atp')
                 ->whereColumn('ready_atp.authority_purchase_ris_id', 'requisition_issue_slip_table.ris_id');
+        };
+
+        if (!AtpRisSuppliers::hasSplitColumn()) {
+            return $query->whereNotExists($noAtp);
+        }
+
+        // Multi-supplier RIS: still ready while any supplier's lines lack a per-supplier ATP.
+        return $query->where(function ($ready) use ($noAtp) {
+            $ready->whereNotExists($noAtp)
+                ->orWhere(function ($partial) {
+                    $partial
+                        ->whereExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('authority_to_purchase_table as split_atp')
+                                ->whereColumn('split_atp.authority_purchase_ris_id', 'requisition_issue_slip_table.ris_id')
+                                ->where('split_atp.authority_purchase_ris_supplier_split', 1);
+                        })
+                        ->whereNotExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('authority_to_purchase_table as whole_atp')
+                                ->whereColumn('whole_atp.authority_purchase_ris_id', 'requisition_issue_slip_table.ris_id')
+                                ->where('whole_atp.authority_purchase_ris_supplier_split', 0)
+                                ->where('whole_atp.authority_purchase_status', '!=', 'Rejected')
+                                ->where(fn ($q) => $q->whereNull('whole_atp.authority_purchase_is_archived')->orWhere('whole_atp.authority_purchase_is_archived', 0));
+                        })
+                        ->whereExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('requisition_issue_slip_items_table as open_item')
+                                ->whereColumn('open_item.ris_id', 'requisition_issue_slip_table.ris_id')
+                                ->whereNotNull('open_item.ris_item_supplier_id')
+                                ->whereNotExists(function ($covered) {
+                                    $covered->select(DB::raw(1))
+                                        ->from('authority_to_purchase_table as covered_atp')
+                                        ->whereColumn('covered_atp.authority_purchase_ris_id', 'requisition_issue_slip_table.ris_id')
+                                        ->whereColumn('covered_atp.authority_purchase_supplier_id', 'open_item.ris_item_supplier_id')
+                                        ->where('covered_atp.authority_purchase_ris_supplier_split', 1)
+                                        ->where('covered_atp.authority_purchase_status', '!=', 'Rejected')
+                                        ->where(fn ($q) => $q->whereNull('covered_atp.authority_purchase_is_archived')->orWhere('covered_atp.authority_purchase_is_archived', 0));
+                                });
+                        });
+                });
         });
     }
 

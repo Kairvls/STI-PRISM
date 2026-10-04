@@ -190,12 +190,15 @@
         @php
             $fmActive = request()->routeIs('purchaser.file-maintenance.*')
                 || request()->routeIs('purchaser.brands.*')
+                || request()->routeIs('purchaser.items.*')
                 || request()->routeIs('purchaser.uom.*')
                 || request()->routeIs('purchaser.categories.*')
                 || request()->routeIs('purchaser.subcategories.*');
             $fmTab = request('tab', 'brands');
             if (request()->routeIs('purchaser.brands.*')) {
                 $fmTab = 'brands';
+            } elseif (request()->routeIs('purchaser.items.*')) {
+                $fmTab = 'items';
             } elseif (request()->routeIs('purchaser.uom.*')) {
                 $fmTab = 'uom';
             } elseif (request()->routeIs('purchaser.categories.*')) {
@@ -205,6 +208,7 @@
             }
             $fmLinks = [
                 'brands' => ['title' => 'Brands', 'icon' => 'tag'],
+                'items' => ['title' => 'Items', 'icon' => 'package'],
                 'uom' => ['title' => 'UOM', 'icon' => 'ruler'],
                 'categories' => ['title' => 'Categories', 'icon' => 'folders'],
                 'subcategories' => ['title' => 'Sub Categories', 'icon' => 'folder-tree'],

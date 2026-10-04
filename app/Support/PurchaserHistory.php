@@ -54,7 +54,9 @@ class PurchaserHistory
         return $query
             ->orderBy('user_full_name')
             ->get()
-            ->map(fn ($user) => self::describeAccount($user));
+            ->map(fn ($user) => self::describeAccount($user))
+            ->sortBy(fn ($account) => [$account->is_primary ? 0 : 1, $account->name])
+            ->values();
     }
 
     public static function findAccount(int $userId): ?object

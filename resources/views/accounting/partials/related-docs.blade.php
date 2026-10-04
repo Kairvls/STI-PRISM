@@ -30,4 +30,15 @@
             </li>
         @endforeach
     </ol>
+    @if (!empty($chain['atp_siblings']))
+        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Other ATPs for this RIS</p>
+        <ul class="mt-1.5 space-y-1">
+            @foreach ($chain['atp_siblings'] as $sibling)
+                <li class="flex items-center justify-between gap-2 text-xs">
+                    <span class="min-w-0 truncate text-slate-700">{{ $sibling['label'] }}</span>
+                    <a href="{{ $sibling['url'] }}" class="acc-link shrink-0 text-[11px]">Open</a>
+                </li>
+            @endforeach
+        </ul>
+    @endif
 </div>

@@ -52,6 +52,25 @@ class ReportGrouping
         return "(SELECT COUNT(*) FROM report_items_table AS stack_items WHERE stack_items.report_id = {$table}.report_id) > 1";
     }
 
+    /**
+     * Ticket's main room is $roomId, or any of its items was reported there.
+     */
+    public static function whereTicketTouchesRoom($query, int $roomId, string $table = 'reports_table')
+    {
+        $query->where($table.'.report_room_id', $roomId);
+
+        if (ReportItems::hasRoomColumn()) {
+            $query->orWhereExists(function ($sub) use ($roomId, $table) {
+                $sub->selectRaw('1')
+                    ->from('report_items_table as room_items')
+                    ->whereColumn('room_items.report_id', $table.'.report_id')
+                    ->where('room_items.report_item_room_id', $roomId);
+            });
+        }
+
+        return $query;
+    }
+
     public static function findOpenReport(int $equipmentId, int $roomId)
     {
         if (ReportItems::tableExists()) {
@@ -63,7 +82,14 @@ class ReportGrouping
                     'reports_table.report_id'
                 )
                 ->where('report_items_table.report_item_equipment_id', $equipmentId)
-                ->where('reports_table.report_room_id', $roomId)
+                ->when(
+                    ReportItems::hasRoomColumn(),
+                    fn ($query) => $query->whereRaw(
+                        'COALESCE(report_items_table.report_item_room_id, reports_table.report_room_id) = ?',
+                        [$roomId]
+                    ),
+                    fn ($query) => $query->where('reports_table.report_room_id', $roomId)
+                )
                 ->whereIn('report_items_table.report_item_status', self::openStatuses())
                 ->where('reports_table.report_is_archived', false)
                 ->orderBy('reports_table.report_submitted_at', 'asc')
@@ -200,7 +226,14 @@ class ReportGrouping
                     '=',
                     'report_items_table.report_id'
                 )
-                ->where('reports_table.report_room_id', $roomId)
+                ->when(
+                    ReportItems::hasRoomColumn(),
+                    fn ($query) => $query->whereRaw(
+                        'COALESCE(report_items_table.report_item_room_id, reports_table.report_room_id) = ?',
+                        [$roomId]
+                    ),
+                    fn ($query) => $query->where('reports_table.report_room_id', $roomId)
+                )
                 ->whereNotNull('report_items_table.report_item_equipment_id')
                 ->whereIn('report_items_table.report_item_status', self::openStatuses())
                 ->where('reports_table.report_is_archived', false)
@@ -408,23 +441,49 @@ class ReportGrouping
 
     public static function applyNonUrgentReminderWindow($query)
     {
-        $undatedDueOn = today()->subDays(self::nonUrgentReminderGraceDays())->toDateString();
+        $submittedPastGrace = function ($q) {
+            if (!ReportSeverity::hasColumns()) {
+                $q->whereDate('reports_table.report_submitted_at', '<=', today()->subDays(self::nonUrgentReminderGraceDays())->toDateString());
+
+                return;
+            }
+
+            $q->where(function ($bySeverity) {
+                $bySeverity->where(function ($low) {
+                    $low->where('reports_table.report_severity', ReportSeverity::LOW)
+                        ->whereDate('reports_table.report_submitted_at', '<=', today()->subDays(ReportSeverity::reminderGraceDays(ReportSeverity::LOW))->toDateString());
+                })->orWhere(function ($other) {
+                    $other->where(fn ($s) => $s->whereNull('reports_table.report_severity')->orWhere('reports_table.report_severity', '!=', ReportSeverity::LOW))
+                        ->whereDate('reports_table.report_submitted_at', '<=', today()->subDays(ReportSeverity::reminderGraceDays(ReportSeverity::MEDIUM))->toDateString());
+                });
+            });
+        };
 
         if (!self::hasPreferredActionDateColumn()) {
-            return $query->whereDate('report_submitted_at', '<=', $undatedDueOn);
+            return $query->where($submittedPastGrace);
         }
 
-        return $query->where(function ($due) use ($undatedDueOn) {
+        return $query->where(function ($due) use ($submittedPastGrace) {
             $due->where(function ($dated) {
                 $dated
-                    ->whereNotNull('report_preferred_action_date')
-                    ->whereDate('report_preferred_action_date', '<=', today());
-            })->orWhere(function ($undated) use ($undatedDueOn) {
+                    ->whereNotNull('reports_table.report_preferred_action_date')
+                    ->whereDate('reports_table.report_preferred_action_date', '<=', today());
+            })->orWhere(function ($undated) use ($submittedPastGrace) {
                 $undated
-                    ->whereNull('report_preferred_action_date')
-                    ->whereDate('report_submitted_at', '<=', $undatedDueOn);
+                    ->whereNull('reports_table.report_preferred_action_date')
+                    ->where($submittedPastGrace);
             });
         });
+    }
+
+    public static function nonUrgentReminderWindowLabel(): string
+    {
+        if (!ReportSeverity::hasColumns()) {
+            return self::nonUrgentReminderGraceDays().' days';
+        }
+
+        return ReportSeverity::reminderGraceDays(ReportSeverity::MEDIUM).' days (Medium) or '
+            .ReportSeverity::reminderGraceDays(ReportSeverity::LOW).' days (Low)';
     }
 
     /**

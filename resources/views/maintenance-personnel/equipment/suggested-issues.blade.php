@@ -130,6 +130,9 @@
                         <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
                             Shows for
                         </th>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Priority
+                        </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
                             Actions
                         </th>
@@ -175,6 +178,24 @@
                                 @endif
                             </td>
 
+                            <td class="px-6 py-4">
+                                @php
+                                    $pinnedSeverity = \App\Support\ReportSeverity::isLevel($issue->issue_template_severity ?? null)
+                                        ? $issue->issue_template_severity
+                                        : null;
+                                    $effectiveSeverity = $pinnedSeverity ?? \App\Support\ReportSeverity::defaultForIssue($issue->issue_template_name);
+                                @endphp
+                                <span
+                                    class="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ \App\Support\ReportSeverity::meta($effectiveSeverity)['pill'] }}"
+                                    title="{{ $pinnedSeverity ? 'Set by maintenance' : 'Decided from the issue name' }}"
+                                >
+                                    {{ $effectiveSeverity }}
+                                </span>
+                                @unless ($pinnedSeverity)
+                                    <span class="ml-1 text-[11px] font-medium text-slate-400">Auto</span>
+                                @endunless
+                            </td>
+
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-center gap-1.5">
                                     <button
@@ -186,7 +207,8 @@
                                             id: '{{ $issue->issue_template_id }}',
                                             name: @js($issue->issue_template_name),
                                             category: '{{ $issue->issue_template_category_id }}',
-                                            component: @js($issue->issue_template_component ?? '')
+                                            component: @js($issue->issue_template_component ?? ''),
+                                            severity: @js($issue->issue_template_severity ?? '')
                                         })"
                                     >
                                         <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
@@ -210,7 +232,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-6 py-16 text-center">
+                            <td colspan="5" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex max-w-sm flex-col items-center">
                                     <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
                                         <i data-lucide="inbox" class="h-5 w-5"></i>
@@ -324,6 +346,8 @@
                             class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         >
                     </div>
+
+                    @include('maintenance-personnel.equipment.partials.issue-severity-select', ['model' => null])
                 </div>
 
                 <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
@@ -430,6 +454,8 @@
                             class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         >
                     </div>
+
+                    @include('maintenance-personnel.equipment.partials.issue-severity-select', ['model' => 'editSeverity'])
                 </div>
 
                 <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
@@ -545,6 +571,7 @@
             editName: '',
             editCategory: '',
             editComponent: '',
+            editSeverity: '',
             deleteId: '',
             deleteName: '',
             deleteCategory: '',
@@ -567,6 +594,7 @@
                 this.editName = issue.name;
                 this.editCategory = String(issue.category ?? '');
                 this.editComponent = issue.component ?? '';
+                this.editSeverity = issue.severity ?? '';
                 this.editOpen = true;
                 this.editSubmitting = false;
                 this.$nextTick(() => {

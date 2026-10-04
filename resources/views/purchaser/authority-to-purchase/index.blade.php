@@ -25,6 +25,7 @@
         modalFullscreen: false,
         selectedAtp: {{ !empty($editAtpId) ? (int) $editAtpId : (!empty($viewAtpId) ? (int) $viewAtpId : 'null') }},
         risPrefill: JSON.parse(document.getElementById('atp-ris-prefill').textContent || '{}'),
+        risSplit: false,
 
         openView(id) {
             this.selectedAtp = id;
@@ -73,8 +74,24 @@
             this.selectedAtp = null;
         },
 
-        applyRisPrefill(risId) {
-            const data = this.risPrefill[String(risId)];
+        syncRisSplit() {
+            const form = this.$refs.createForm;
+            const option = this.$refs.risSelect ? this.$refs.risSelect.selectedOptions[0] : null;
+            this.risSplit = !!(option && option.dataset.split === '1');
+            const supplierSelect = form ? form.querySelector('[name=authority_purchase_supplier_id]') : null;
+            if (supplierSelect) {
+                if (supplierSelect.dataset.baseTitle === undefined) {
+                    supplierSelect.dataset.baseTitle = supplierSelect.title || '';
+                }
+                supplierSelect.style.pointerEvents = this.risSplit ? 'none' : '';
+                supplierSelect.tabIndex = this.risSplit ? -1 : 0;
+                supplierSelect.title = this.risSplit ? 'Set by the selected RIS supplier' : supplierSelect.dataset.baseTitle;
+            }
+        },
+
+        applyRisPrefill(key) {
+            this.syncRisSplit();
+            const data = this.risPrefill[String(key)];
             const form = this.$refs.createForm;
             if (!form || !data) {
                 return;
@@ -84,11 +101,17 @@
                 const supplierSelect = form.querySelector('[name=authority_purchase_supplier_id]');
                 if (supplierSelect) {
                     supplierSelect.value = data.supplier_id;
+                    supplierSelect.dispatchEvent(new Event('change'));
                 }
             }
 
-            for (let i = 0; i < 8; i++) {
-                const item = (data.items && data.items[i]) ? data.items[i] : {};
+            const prefillItems = Array.isArray(data.items) ? data.items : [];
+            const rowsRoot = form.querySelector('[data-doc-rows]');
+            const rowTotal = (rowsRoot && window.docRows)
+                ? window.docRows.fit(rowsRoot, prefillItems.length).length
+                : 8;
+            for (let i = 0; i < rowTotal; i++) {
+                const item = prefillItems[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
                 const desc = form.querySelector('[name=\'items[' + i + '][description]\']');
@@ -130,7 +153,12 @@
         if (createOpen) {
             $nextTick(() => {
                 bindDocSig('atp-create', 'Received by signature');
-                if ('{{ $selectedRisId ?? '' }}') applyRisPrefill('{{ $selectedRisId ?? '' }}');
+                const risOption = $refs.risSelect ? $refs.risSelect.selectedOptions[0] : null;
+                if ({{ old('authority_purchase_ris_id') !== null ? 'true' : 'false' }}) {
+                    syncRisSplit();
+                } else if ('{{ $selectedRisId ?? '' }}' && risOption && risOption.dataset.key) {
+                    applyRisPrefill(risOption.dataset.key);
+                }
             });
         }
         if (editOpen && selectedAtp) {
@@ -351,6 +379,17 @@
                                 @else
                                     {{ $atp->shop_name ?? 'Online supplier' }}
                                 @endif
+                                @if(!empty($atp->ris_supplier_position))
+                                    <p class="mt-1">
+                                        <span
+                                            class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600"
+                                            title="This RIS buys from {{ $atp->ris_supplier_total }} suppliers; each supplier has its own ATP."
+                                        >
+                                            <i data-lucide="split" class="h-3 w-3"></i>
+                                            Supplier {{ $atp->ris_supplier_position }} of {{ $atp->ris_supplier_total }}
+                                        </span>
+                                    </p>
+                                @endif
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">
                                 @if($atp->authority_purchase_date)
@@ -487,7 +526,7 @@
                                                             class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                         >
                                                             <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Pass to co-worker
+                                                            Pass to 
                                                         </button>
                                                     @endif
                                                 @endif
@@ -692,11 +731,31 @@
                     <input type="hidden" name="save_action" value="draft">
 
                     <div class="bg-slate-100 p-3 md:p-5">
-                        @if($eligibleRis->isEmpty())
+                        @if(empty($risOptions))
                             <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                                 No approved RIS is currently available. You can still fill out and save this ATP as a draft, then link an approved RIS later before submitting.
                             </div>
                         @else
+                            @php
+                                $oldRisId = old('authority_purchase_ris_id');
+                                $oldSupplierId = old('authority_purchase_supplier_id');
+                                $selectedRisKey = null;
+                                foreach ($risOptions as $opt) {
+                                    if ($oldRisId !== null) {
+                                        if ((string) $oldRisId === (string) $opt['ris_id']
+                                            && (!$opt['split'] || (string) $oldSupplierId === (string) $opt['supplier_id'])) {
+                                            $selectedRisKey = $opt['key'];
+                                            break;
+                                        }
+                                    } elseif (!empty($selectedRisId) && (string) $selectedRisId === (string) $opt['ris_id']) {
+                                        $selectedRisKey ??= $opt['key'];
+                                        if (empty($selectedSupplierId) || (string) $selectedSupplierId === (string) $opt['supplier_id']) {
+                                            $selectedRisKey = $opt['key'];
+                                            break;
+                                        }
+                                    }
+                                }
+                            @endphp
                             <div class="mb-4">
                                 <label class="text-xs font-medium text-gray-500">
                                     Approved RIS <span class="text-red-500">*</span>
@@ -704,24 +763,23 @@
                                 </label>
                                 <select
                                     name="authority_purchase_ris_id"
-                                    x-on:change="applyRisPrefill($event.target.value)"
+                                    x-ref="risSelect"
+                                    x-on:change="applyRisPrefill($event.target.selectedOptions[0]?.dataset.key || '')"
                                     class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
                                 >
                                     <option value="">Select approved RIS</option>
-                                    @foreach($eligibleRis as $ris)
+                                    @foreach($risOptions as $opt)
                                         <option
-                                            value="{{ $ris->ris_id }}"
-                                            {{ old('authority_purchase_ris_id', $selectedRisId ?? '') == $ris->ris_id ? 'selected' : '' }}
-                                        >
-                                            {{ \App\Support\RisWorkflow::formNumber($ris) }}
-                                            @if($ris->equipment_name || $ris->report_unlisted_equipment_name)
-                                                · {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name }}
-                                            @elseif(!empty($ris->ris_purpose_description))
-                                                · {{ \Illuminate\Support\Str::limit($ris->ris_purpose_description, 40) }}
-                                            @endif
-                                        </option>
+                                            value="{{ $opt['ris_id'] }}"
+                                            data-key="{{ $opt['key'] }}"
+                                            data-split="{{ $opt['split'] ? '1' : '0' }}"
+                                            {{ $selectedRisKey === $opt['key'] ? 'selected' : '' }}
+                                        >{{ $opt['label'] }}</option>
                                     @endforeach
                                 </select>
+                                <p x-show="risSplit" x-cloak class="mt-1.5 text-xs text-slate-500">
+                                    This RIS buys from more than one supplier, so each supplier gets its own ATP. This ATP covers only the selected supplier's lines. Create another ATP for each remaining supplier.
+                                </p>
                             </div>
                         @endif
 
