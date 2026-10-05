@@ -35,7 +35,7 @@
             [
                 'label' => 'Transfers',
                 'value' => number_format($counts['transfers']),
-                'href' => route('admin.operations.movements', ['tab' => 'transfers']),
+                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers']),
                 'active' => $tab === 'transfers',
             ],
             [
@@ -44,13 +44,13 @@
                     ? number_format($counts['borrowing_overdue']).' overdue'
                     : null,
                 'value' => number_format($counts['borrowing_active']),
-                'href' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'active']),
+                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'borrowing', 'filter' => 'active']),
                 'active' => $tab === 'borrowing',
             ],
             [
                 'label' => 'Disposals',
                 'value' => number_format($counts['disposal']),
-                'href' => route('admin.operations.movements', ['tab' => 'disposal']),
+                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'disposal']),
                 'active' => $tab === 'disposal',
             ],
         ],
@@ -88,7 +88,7 @@
                     </button>
                     @if($q !== '' && $q !== null)
                         <a
-                            href="{{ route('admin.operations.movements', ['tab' => $tab, 'filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => $tab, 'filter' => $filter]) }}"
                             class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
@@ -100,14 +100,14 @@
                 @if($tab === 'transfers')
                     @foreach(['all' => 'All', 'recent' => 'Last 30 days'] as $key => $label)
                         <a
-                            href="{{ route('admin.operations.movements', ['tab' => 'transfers', 'filter' => $key, 'q' => $q]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers', 'filter' => $key, 'q' => $q]) }}"
                             class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                         >{{ $label }}</a>
                     @endforeach
                 @elseif($tab === 'borrowing')
                     @foreach(['all' => 'All', 'active' => 'Active', 'Overdue' => 'Overdue', 'Borrowed' => 'Borrowed', 'Returned' => 'Returned'] as $key => $label)
                         <a
-                            href="{{ route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => $key, 'q' => $q]) }}"
+                            href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'borrowing', 'filter' => $key, 'q' => $q]) }}"
                             class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                         >{{ $label }}</a>
                     @endforeach

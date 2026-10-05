@@ -8,7 +8,8 @@
     $today = now()->startOfDay();
     $days = (int) $today->diffInDays($due, false);
     $isOpen = ! in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true);
-    $canManage = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+    $isSchoolAdmin = \App\Support\AdminPortal::isSchoolAdmin();
+    $canManage = ! $isSchoolAdmin && \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
     $conditionTone = [
         'OK' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
         'Malfunctioning' => 'bg-amber-50 text-amber-700 ring-amber-100',
@@ -53,7 +54,7 @@
 
         <div class="flex flex-wrap items-center gap-2">
             <a
-                href="{{ url('/maintenance/semester-inspections') }}"
+                href="{{ url($isSchoolAdmin ? '/school-admin/semester-inspections' : '/maintenance/semester-inspections') }}"
                 class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
             >
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
@@ -200,6 +201,15 @@
                                 <span class="inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">Pending</span>
                             @endif
                             @if ($item->custodian_id)
+                                @if ($isSchoolAdmin)
+                                    <span
+                                        class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-100"
+                                        title="Accountable person"
+                                    >
+                                        <i data-lucide="user-round-check" class="h-3 w-3"></i>
+                                        {{ $item->custodian_name }}
+                                    </span>
+                                @else
                                 <a
                                     href="{{ url('/maintenance/property-assignments/people/'.$item->custodian_id) }}"
                                     class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-100 hover:bg-teal-100"
@@ -208,6 +218,7 @@
                                     <i data-lucide="user-round-check" class="h-3 w-3"></i>
                                     {{ $item->custodian_name }}
                                 </a>
+                                @endif
                                 @if ($item->item_status === 'Inspected' && $item->item_custodian_verified !== null)
                                     @if ($item->item_custodian_verified)
                                         <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-100">Custodian confirmed</span>

@@ -99,7 +99,9 @@
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
                 const partial = parsed.querySelector('#signatureHistoryContent')
                     || parsed.querySelector('#signatureHistoryContentContainer');
-                contentContainer.innerHTML = partial ? partial.innerHTML : html;
+                contentContainer.innerHTML = partial
+                    ? (partial.id === 'signatureHistoryContent' ? partial.outerHTML : partial.innerHTML)
+                    : html;
             }
 
             // Re-bind event listeners after DOM update.

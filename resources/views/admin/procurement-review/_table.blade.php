@@ -4,25 +4,28 @@
 
 @php
     $risCanAct = \App\Support\AdminPortal::canActOnRis();
+    $risAcceptableStatuses = ['Pending', 'Submitted', 'Under Review', 'Resubmitted'];
+    $risPageHasAcceptable = $risCanAct
+        && $risRecords->contains(fn ($ris) => in_array($ris->ris_status, $risAcceptableStatuses, true));
 @endphp
 
 <table class="pur-table w-full min-w-[1020px] table-fixed">
 
     <thead>
         <tr>
-            <th class="w-[4%] text-center">
-                @if ($risCanAct)
+            @if ($risPageHasAcceptable)
+            <th class="w-[4%] !px-0 text-center align-middle">
                 <input
                     type="checkbox"
                     id="risSelectAllPage"
-                    class="h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
+                    class="block mx-auto h-4 w-4 cursor-pointer rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
                     title="Select all acceptable requests on this page"
                     aria-label="Select all acceptable requests on this page"
                     onclick="typeof window.toggleRisSelectAllPage === 'function' && window.toggleRisSelectAllPage(this)"
                 >
-                @endif
             </th>
-            <th class="w-[12%]">RIS Number</th>
+            @endif
+            <th class="{{ $risPageHasAcceptable ? 'w-[12%]' : 'w-[16%]' }} text-left">RIS Number</th>
             <th class="w-[24%]">Equipment</th>
             <th class="w-[14%]">Requested By</th>
             <th class="w-[17%]">Status</th>
@@ -34,15 +37,16 @@
     <tbody>
         @forelse($risRecords as $ris)
             @php
-                $isAcceptable = in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true);
+                $isAcceptable = in_array($ris->ris_status, $risAcceptableStatuses, true);
             @endphp
 
             <tr class="transition hover:bg-gray-50/70 {{ !$isAcceptable ? 'bg-gray-50/50 text-gray-500' : '' }}">
-                <td class="text-center">
-                    @if ($isAcceptable && $risCanAct)
+                @if ($risPageHasAcceptable)
+                <td class="!px-0 text-center align-middle">
+                    @if ($isAcceptable)
                         <input
                             type="checkbox"
-                            class="ris-accept-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
+                            class="ris-accept-checkbox block mx-auto h-4 w-4 cursor-pointer rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
                             value="{{ $ris->ris_id }}"
                             data-ref="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
                             title="Select {{ \App\Support\RisWorkflow::formNumber($ris) }}"
@@ -53,8 +57,9 @@
                         <span class="inline-block h-4 w-4" aria-hidden="true"></span>
                     @endif
                 </td>
+                @endif
 
-                <td>
+                <td class="text-left">
                     <div
                         class="truncate text-sm font-semibold {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-900' }}"
                         title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
@@ -158,7 +163,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="7" class="pur-empty">
+                <td colspan="{{ $risPageHasAcceptable ? 7 : 6 }}" class="pur-empty">
                     @if (($filter ?? 'pending') === 'pending')
                         No pending procurement requests
                     @elseif (($filter ?? '') === 'accepted')

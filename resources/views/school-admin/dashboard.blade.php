@@ -56,11 +56,11 @@
             'alert' => $stats['overdue_schedules'] > 0,
         ],
         [
-            'label' => 'Open reports',
-            'value' => $stats['open_reports'],
-            'meta' => $stats['urgent_reports'].' urgent',
-            'url' => route('school-admin.operations.reports'),
-            'alert' => $stats['urgent_reports'] > 0,
+            'label' => 'Active inspections',
+            'value' => $stats['active_inspections'],
+            'meta' => $stats['overdue_inspections'].' past due',
+            'url' => route('school-admin.semester-inspections.index'),
+            'alert' => $stats['overdue_inspections'] > 0,
         ],
     ];
 
@@ -150,7 +150,7 @@
 
     <div>
         <h2 class="text-base font-semibold text-gray-950">Campus monitoring</h2>
-        <p class="mt-1 text-xs text-gray-400">Equipment, procurement, schedules, and reports across the campus.</p>
+        <p class="mt-1 text-xs text-gray-400">Equipment, procurement, schedules, and inspections across the campus.</p>
     </div>
 
     <div class="pur-card">
@@ -168,32 +168,31 @@
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
+        @php
+            $overdueBorrowsUrl = route('school-admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']);
+        @endphp
         <div class="pur-card">
             <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-                <h3 class="text-sm font-semibold text-gray-950">Urgent equipment reports</h3>
-                <a href="{{ route('school-admin.operations.reports', ['filter' => 'urgent']) }}" class="text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">All {{ $stats['urgent_reports'] }}</a>
+                <h3 class="text-sm font-semibold text-gray-950">Overdue equipment borrows</h3>
+                <a href="{{ $overdueBorrowsUrl }}" class="text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">All {{ $stats['overdue_borrows'] }}</a>
             </div>
             <ul class="divide-y divide-gray-100">
-                @forelse($urgentReports as $row)
+                @forelse($overdueBorrows as $row)
                     @php
-                        $submitted = ! empty($row->report_submitted_at)
-                            ? \Carbon\Carbon::parse($row->report_submitted_at)->startOfDay()
-                            : null;
-                        $age = $submitted ? (int) $submitted->diffInDays(now()->startOfDay()) : null;
-                        $name = $row->equipment_name
-                            ?: ($row->report_unlisted_equipment_name ?: ($row->report_suggested_issue ?: 'Report #'.$row->report_id));
+                        $expected = \Carbon\Carbon::parse($row->borrowing_expected_return_date)->startOfDay();
+                        $days = (int) $expected->diffInDays(now()->startOfDay());
                     @endphp
                     <li>
-                        <a href="{{ route('school-admin.operations.reports', ['filter' => 'urgent']) }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
+                        <a href="{{ $overdueBorrowsUrl }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
                             <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-900">{{ $name }}</p>
-                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->room_name ?: 'No room').' · '.($row->report_current_status ?: 'Open') }}</p>
+                                <p class="text-sm font-semibold text-gray-900">{{ $row->equipment_name ?: 'Equipment' }}</p>
+                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->borrowing_borrower_name ?: 'Unknown borrower').' · Due '.$expected->format('M j') }}</p>
                             </div>
-                            <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $age !== null ? ($age === 0 ? 'Today' : $age.'d open') : 'Urgent' }}</span>
+                            <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $days }}d overdue</span>
                         </a>
                     </li>
                 @empty
-                    <li class="px-5 py-8 text-sm text-gray-400">No urgent open reports.</li>
+                    <li class="px-5 py-8 text-sm text-gray-400">No overdue borrows.</li>
                 @endforelse
             </ul>
         </div>

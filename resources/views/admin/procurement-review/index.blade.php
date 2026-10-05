@@ -114,7 +114,9 @@
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
                 const partial = parsed.querySelector('#risContent')
                     || parsed.querySelector('#risContentContainer');
-                contentContainer.innerHTML = partial ? partial.innerHTML : html;
+                contentContainer.innerHTML = partial
+                    ? (partial.id === 'risContent' ? partial.outerHTML : partial.innerHTML)
+                    : html;
 
                 if (window.Alpine && typeof window.Alpine.initTree === 'function') {
                     window.Alpine.initTree(contentContainer);

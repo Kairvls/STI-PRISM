@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\AdminAttentionSummary;
 use App\Support\ReviewerAssignment;
+use App\Support\SemesterInspections;
 use App\Support\WorkflowNotifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +34,9 @@ class SchoolAdminController extends Controller
             'equipment_total' => 0,
             'needs_maintenance' => 0,
             'for_replacement' => 0,
-            'open_reports' => 0,
-            'urgent_reports' => 0,
+            'active_inspections' => 0,
+            'overdue_inspections' => 0,
+            'overdue_borrows' => 0,
             'overdue_schedules' => 0,
             'signed_30d' => 0,
         ];
@@ -76,11 +78,21 @@ class SchoolAdminController extends Controller
         }
 
         try {
-            if (Schema::hasTable('reports_table')) {
-                $stats['open_reports'] = $this->openReportsQuery(['Pending', 'Processing'])->count();
-                $stats['urgent_reports'] = $this->openReportsQuery(['Pending', 'Processing', 'For Replacement'])
-                    ->where('reports_table.report_urgency_level', 'Urgent')
+            if (SemesterInspections::tablesReady()) {
+                $openCampaigns = DB::table('semester_inspection_campaigns_table')
+                    ->whereIn('campaign_status', ['Active', 'In Progress']);
+                $stats['active_inspections'] = (clone $openCampaigns)->count();
+                $stats['overdue_inspections'] = (clone $openCampaigns)
+                    ->whereDate('campaign_due_date', '<', today())
                     ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('borrowing_records_table')) {
+                $stats['overdue_borrows'] = $this->overdueBorrowsQuery()->count();
             }
         } catch (\Throwable $e) {
             // ignore
@@ -153,28 +165,22 @@ class SchoolAdminController extends Controller
             $awaitingSignList = collect();
         }
 
-        $urgentReports = collect();
+        $overdueBorrows = collect();
         try {
-            if (Schema::hasTable('reports_table')) {
-                $urgentReports = $this->openReportsQuery(['Pending', 'Processing', 'For Replacement'])
-                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
-                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
-                    ->where('reports_table.report_urgency_level', 'Urgent')
+            if (Schema::hasTable('borrowing_records_table')) {
+                $overdueBorrows = $this->overdueBorrowsQuery()
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
                     ->select(
-                        'reports_table.report_id',
-                        'reports_table.report_current_status',
-                        'reports_table.report_suggested_issue',
-                        'reports_table.report_unlisted_equipment_name',
-                        'reports_table.report_submitted_at',
-                        'equipment_table.equipment_name',
-                        'rooms_table.room_name'
+                        'borrowing_records_table.borrowing_borrower_name',
+                        'borrowing_records_table.borrowing_expected_return_date',
+                        'equipment_table.equipment_name'
                     )
-                    ->orderByDesc('reports_table.report_submitted_at')
+                    ->orderBy('borrowing_records_table.borrowing_expected_return_date')
                     ->limit(4)
                     ->get();
             }
         } catch (\Throwable $e) {
-            $urgentReports = collect();
+            $overdueBorrows = collect();
         }
 
         $overdueSchedules = collect();
@@ -203,7 +209,7 @@ class SchoolAdminController extends Controller
             'stats',
             'pendingRisList',
             'awaitingSignList',
-            'urgentReports',
+            'overdueBorrows',
             'overdueSchedules'
         ));
     }
@@ -229,15 +235,16 @@ class SchoolAdminController extends Controller
         }
     }
 
-    private function openReportsQuery(array $statuses)
+    private function overdueBorrowsQuery()
     {
-        return DB::table('reports_table')
-            ->whereIn('reports_table.report_current_status', $statuses)
+        return DB::table('borrowing_records_table')
             ->where(function ($q) {
-                if (Schema::hasColumn('reports_table', 'report_is_archived')) {
-                    $q->where('reports_table.report_is_archived', 0)
-                        ->orWhereNull('reports_table.report_is_archived');
-                }
+                $q->where('borrowing_records_table.borrowing_status', 'Overdue')
+                    ->orWhere(function ($q2) {
+                        $q2->where('borrowing_records_table.borrowing_status', 'Borrowed')
+                            ->whereNotNull('borrowing_records_table.borrowing_expected_return_date')
+                            ->whereDate('borrowing_records_table.borrowing_expected_return_date', '<', today());
+                    });
             });
     }
 

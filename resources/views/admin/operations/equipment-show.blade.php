@@ -83,6 +83,12 @@
                         <i data-lucide="map-pin" class="h-4 w-4"></i>
                         {{ $na($equipment->room_name) }}
                     </span>
+                    @if ($propertyAssignment)
+                        <a href="#property-assignment" class="inline-flex items-center gap-2 text-teal-700 hover:underline">
+                            <i data-lucide="user-round-check" class="h-4 w-4"></i>
+                            {{ $propertyAssignment->custodian_full_name ?? 'Assigned' }}
+                        </a>
+                    @endif
                 </div>
 
                 <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -234,6 +240,11 @@
                     </div>
                 </div>
             </section>
+
+            @include('maintenance-personnel.equipment.partials.lifecycle-sections', [
+                'lifecycleReadOnly' => true,
+                'equipmentViewUrl' => fn ($id) => \App\Support\AdminPortal::route('operations.equipment.show', $id),
+            ])
         </main>
 
         <aside class="space-y-6">
@@ -262,6 +273,8 @@
                     </div>
                 </div>
             </section>
+
+            @include('maintenance-personnel.equipment.partials.property-assignment-panel', ['assignmentReadOnly' => true])
 
             @if (filled($equipment->equipment_image))
                 <section class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">

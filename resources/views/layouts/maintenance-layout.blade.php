@@ -6,14 +6,15 @@
 @section ("main-pad", "px-8 pb-8 pt-5")
 
 @php
-    $adminShell = \App\Support\RoleAccess::adminShell();
+    $schoolAdminShell = \App\Support\AdminPortal::isSchoolAdmin();
+    $adminShell = $schoolAdminShell || \App\Support\RoleAccess::adminShell();
 @endphp
 
 @section ("sidebar")
     @if(\App\Support\ProcurementPortal::needsPurchaserStyles())
         <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
     @endif
-    @include ($adminShell ? "layouts.admin-sidebar" : "layouts.maintenance-sidebar")
+    @include ($schoolAdminShell ? "layouts.school-admin-sidebar" : ($adminShell ? "layouts.admin-sidebar" : "layouts.maintenance-sidebar"))
 
 @endsection
 

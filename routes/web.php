@@ -98,7 +98,7 @@ Route::middleware('auth')->group(function () {
 // =====================================================
 // SHARED ADMINISTRATOR / SCHOOL ADMINISTRATOR MODULES
 // Procurement Requests, Sign RIS, Signature History and the
-// equipment / schedules / reports / procurement monitors.
+// equipment / schedules / movements / procurement monitors.
 // Registered under both /admin (oversight) and /school-admin.
 // =====================================================
 
@@ -115,19 +115,19 @@ $schoolAdminModuleRoutes = function () {
     )->whereNumber('id')->name('operations.equipment.show');
 
     Route::get(
+        '/operations/equipment/{id}/lifecycle',
+        [MaintenanceController::class, 'equipmentLifecycle']
+    )->whereNumber('id')->name('operations.equipment.lifecycle');
+
+    Route::get(
         '/operations/schedules',
         [\App\Http\Controllers\AdminOperationsController::class, 'schedules']
     )->name('operations.schedules');
 
     Route::get(
-        '/operations/reports',
-        [\App\Http\Controllers\AdminOperationsController::class, 'reports']
-    )->name('operations.reports');
-
-    Route::post(
-        '/operations/reports/{reportId}',
-        [\App\Http\Controllers\AdminOperationsController::class, 'updateReport']
-    )->whereNumber('reportId')->name('operations.reports.update');
+        '/operations/movements',
+        [\App\Http\Controllers\AdminOperationsController::class, 'movements']
+    )->name('operations.movements');
 
     Route::get(
         '/operations/procurement',
@@ -358,9 +358,14 @@ Route::middleware(['auth', 'admin'])
         )->whereNumber(['id', 'index'])->whereIn('kind', ['proof', 'refund', 'replacement'])->name('back-orders.file');
 
         Route::get(
-            '/operations/movements',
-            [\App\Http\Controllers\AdminOperationsController::class, 'movements']
-        )->name('operations.movements');
+            '/operations/reports',
+            [\App\Http\Controllers\AdminOperationsController::class, 'reports']
+        )->name('operations.reports');
+
+        Route::post(
+            '/operations/reports/{reportId}',
+            [\App\Http\Controllers\AdminOperationsController::class, 'updateReport']
+        )->whereNumber('reportId')->name('operations.reports.update');
 
         // ==========================================
         // REQUEST FOR CHECK / LIQUIDATION
@@ -639,6 +644,17 @@ Route::middleware(['auth', 'school_admin'])
             '/security/password',
             [AccountSettingsController::class, 'updatePassword']
         )->name('security.password');
+
+        // Semester inspections: monitor only (running a campaign stays with Maintenance)
+        Route::get(
+            '/semester-inspections',
+            [SemesterInspectionController::class, 'index']
+        )->name('semester-inspections.index');
+
+        Route::get(
+            '/semester-inspections/{id}',
+            [SemesterInspectionController::class, 'show']
+        )->whereNumber('id')->name('semester-inspections.show');
 
         $schoolAdminModuleRoutes();
         $schoolAdminRisActionRoutes();

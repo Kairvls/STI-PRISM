@@ -93,6 +93,8 @@
                             $nextDate = $row->maintenance_schedule_next_date
                                 ? \Carbon\Carbon::parse($row->maintenance_schedule_next_date)->format('M j, Y')
                                 : '—';
+                            $placementZone = trim((string) ($row->equipment_placement_zone ?: $row->equipment_current_location ?: ''));
+                            $location = implode(' · ', array_filter([$row->room_name ?? null, $placementZone]));
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td>
@@ -101,8 +103,8 @@
                             </td>
                             <td>
                                 <p class="text-sm font-medium text-gray-700">{{ $row->equipment_name ?: '—' }}</p>
-                                @if(!empty($row->room_name))
-                                    <p class="mt-0.5 text-xs text-gray-400">{{ $row->room_name }}</p>
+                                @if($location !== '')
+                                    <p class="mt-0.5 text-xs text-gray-400">{{ $location }}</p>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap text-sm {{ $isOverdue ? 'font-semibold text-rose-700' : 'text-gray-700' }}">

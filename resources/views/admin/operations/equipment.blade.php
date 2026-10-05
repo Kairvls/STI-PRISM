@@ -28,8 +28,32 @@
         }
     };
 
-    $isAlertCondition = fn ($status) => in_array((string) $status, ['Damaged', 'Critical', 'Under Maintenance'], true);
-    $isAlertInventory = fn ($status) => in_array((string) $status, ['For Replacement', 'Under Maintenance', 'Disposed'], true);
+    $eqImageUrl = function ($path) {
+        if (! filled($path)) {
+            return '';
+        }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
+    };
+
+    $conditionPill = fn ($status) => match ((string) $status) {
+        'Good' => 'bg-emerald-50 text-emerald-700',
+        'Fair' => 'bg-sky-50 text-sky-700',
+        'Damaged', 'Under Maintenance' => 'bg-amber-50 text-amber-700',
+        'Critical', 'Disposed' => 'bg-rose-50 text-rose-700',
+        default => 'bg-slate-100 text-slate-600',
+    };
+    $statusPill = fn ($status) => match ((string) $status) {
+        'Active' => 'bg-emerald-50 text-emerald-700',
+        'Borrowed' => 'bg-sky-50 text-sky-700',
+        'Under Maintenance' => 'bg-amber-50 text-amber-700',
+        'For Replacement' => 'bg-orange-50 text-orange-700',
+        'Disposed' => 'bg-rose-50 text-rose-700',
+        default => 'bg-slate-100 text-slate-600',
+    };
 
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
 @endphp
@@ -117,37 +141,84 @@
                 <thead>
                     <tr>
                         <th>Equipment</th>
-                        <th>Room</th>
+                        <th>Location</th>
                         <th>Condition</th>
-                        <th>Inventory</th>
-                        <th>Warranty</th>
+                        <th>Status</th>
+                        <th>Next maintenance</th>
                         <th class="text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($rows as $row)
+                        @php
+                            $assetPayload = array_merge(
+                                \App\Support\LayoutEquipmentPayload::fromRow($row, $eqImageUrl($row->equipment_image ?? null)),
+                                ['view_url' => \App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id)]
+                            );
+                            $placementZone = trim((string) ($row->equipment_placement_zone ?: $row->equipment_current_location ?: ''));
+                            $isStorageStock = \App\Support\RoomCategories::isStorageType($row->room_type ?? null);
+                        @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td>
-                                <a
-                                    href="{{ \App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id) }}"
-                                    class="font-semibold text-gray-900 transition hover:text-[#0025cc]"
-                                >{{ $row->equipment_name }}</a>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <a
+                                        href="{{ \App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id) }}"
+                                        class="font-semibold text-gray-900 transition hover:text-[#0025cc]"
+                                    >{{ $row->equipment_name }}</a>
+                                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $isStorageStock ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-sky-50 text-sky-700 ring-sky-200' }}">
+                                        {{ $isStorageStock ? 'Stock' : 'Deployed' }}
+                                    </span>
+                                </div>
+                                <p class="mt-0.5 text-xs text-gray-400">{{ $row->equipment_asset_tag ?: 'No Asset Tag' }}</p>
                                 <p class="mt-0.5 text-xs text-gray-400">
                                     {{ $row->equipment_category_name ?: 'Uncategorized' }} · Qty {{ $row->equipment_quantity }}
                                 </p>
                             </td>
-                            <td class="text-sm text-gray-600">{{ $row->room_name ?: '—' }}</td>
-                            <td class="text-sm {{ $isAlertCondition($row->equipment_condition_status) ? 'font-semibold text-amber-700' : 'text-gray-600' }}">
-                                {{ $row->equipment_condition_status ?: '—' }}
+                            <td>
+                                <p class="text-sm {{ filled($row->room_name) ? 'text-gray-600' : 'text-gray-400' }}">{{ $row->room_name ?: 'Unassigned' }}</p>
+                                @if ($placementZone !== '')
+                                    <p class="mt-0.5 text-xs text-gray-400">{{ $placementZone }}</p>
+                                @endif
                             </td>
-                            <td class="text-sm {{ $isAlertInventory($row->equipment_inventory_status) ? 'font-semibold text-amber-700' : 'text-gray-600' }}">
-                                {{ $row->equipment_inventory_status ?: '—' }}
+                            <td>
+                                @if (filled($row->equipment_condition_status))
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $conditionPill($row->equipment_condition_status) }}">
+                                        {{ $row->equipment_condition_status }}
+                                    </span>
+                                @else
+                                    <span class="text-sm text-gray-400">—</span>
+                                @endif
                             </td>
-                            <td class="whitespace-nowrap text-sm text-gray-500">{{ $formatDate($row->equipment_warranty_expiration) }}</td>
+                            <td>
+                                @if (filled($row->equipment_inventory_status))
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusPill($row->equipment_inventory_status) }}">
+                                        {{ $row->equipment_inventory_status }}
+                                    </span>
+                                @else
+                                    <span class="text-sm text-gray-400">—</span>
+                                @endif
+                            </td>
+                            <td class="whitespace-nowrap">
+                                @if (filled($row->next_maintenance_date ?? null))
+                                    @php
+                                        $maintenanceOverdue = \App\Support\EquipmentNextMaintenance::isOverdue($row);
+                                    @endphp
+                                    <a
+                                        href="{{ \App\Support\AdminPortal::route('operations.schedules', ['q' => $row->equipment_name]) }}"
+                                        class="text-sm transition hover:text-[#0025cc] {{ $maintenanceOverdue ? 'font-semibold text-rose-700' : 'text-gray-700' }}"
+                                    >{{ $formatDate($row->next_maintenance_date) }}</a>
+                                    @if ($maintenanceOverdue)
+                                        <span class="ml-1.5 inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Overdue</span>
+                                    @endif
+                                @else
+                                    <span class="text-sm text-gray-400">Not scheduled</span>
+                                @endif
+                            </td>
                             <td class="text-right">
                                 <x-view-action-button
-                                    :href="\App\Support\AdminPortal::route('operations.equipment.show', $row->equipment_id)"
+                                    tag="button"
                                     label="View"
+                                    :onclick="'openEquipmentModal('.json_encode($assetPayload).')'"
                                 />
                             </td>
                         </tr>
@@ -165,4 +236,10 @@
         @endif
     </div>
 </div>
+
+@include('maintenance-personnel.equipment.partials.equipment-asset-drawer', [
+    'assetLifecycleUrl' => \App\Support\AdminPortal::route('operations.equipment.lifecycle', '__ID__'),
+])
+@include('layouts.partials.equipment-layout-icons')
+@include('layouts.partials.equipment-photo-viewer')
 @endsection

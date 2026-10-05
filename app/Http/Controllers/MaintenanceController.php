@@ -24,6 +24,7 @@ use App\Support\EquipmentLifecycle;
 use App\Support\EquipmentAuditPack;
 use App\Support\EquipmentConditionHistory;
 use App\Support\EquipmentMonitoring;
+use App\Support\EquipmentNextMaintenance;
 use App\Support\EquipmentOpenBalance;
 use App\Support\PropertyAssignments;
 use App\Support\ReceivableStockLines;
@@ -5148,6 +5149,8 @@ class MaintenanceController extends Controller
                 'rooms_table.room_type'
 
             );
+
+        EquipmentNextMaintenance::apply($query);
 
 
         /*

@@ -121,7 +121,7 @@
                 ],
                 [
                     'url' => route('admin.operations.equipment'),
-                    'label' => 'Equipment Monitor',
+                    'label' => 'All Equipment',
                     'icon' => 'monitor',
                     'active' => request()->is('admin/operations/equipment*'),
                 ],

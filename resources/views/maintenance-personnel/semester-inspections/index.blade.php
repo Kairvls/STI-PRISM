@@ -5,7 +5,9 @@
 @section('content')
 @php
     $tablesMissing = $tablesMissing ?? false;
-    $canManage = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+    $isSchoolAdmin = \App\Support\AdminPortal::isSchoolAdmin();
+    $canManage = ! $isSchoolAdmin && \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+    $inspectionsUrl = url($isSchoolAdmin ? '/school-admin/semester-inspections' : '/maintenance/semester-inspections');
 @endphp
 
 <div class="space-y-6">
@@ -37,7 +39,7 @@
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                <form method="GET" action="{{ url('/maintenance/semester-inspections') }}" class="flex flex-1 flex-col gap-3 sm:flex-row">
+                <form method="GET" action="{{ $inspectionsUrl }}" class="flex flex-1 flex-col gap-3 sm:flex-row">
                     <div class="relative flex-1">
                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                         <input
@@ -89,7 +91,7 @@
                         ]));
                     @endphp
                     <a
-                        href="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id) }}"
+                        href="{{ $inspectionsUrl.'/'.$campaign->campaign_id }}"
                         class="block px-4 py-4 transition hover:bg-slate-50/80 sm:px-5"
                     >
                         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

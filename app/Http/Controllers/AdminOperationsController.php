@@ -7,7 +7,11 @@ use App\Support\AdminAttentionSummary;
 use App\Support\AdminPortal;
 use App\Support\BuildingLayout3D;
 use App\Support\DocumentLineage;
+use App\Support\EquipmentConditionHistory;
+use App\Support\EquipmentNextMaintenance;
+use App\Support\EquipmentTimeline;
 use App\Support\ProcurementPaymentPath;
+use App\Support\PropertyAssignments;
 use App\Support\RisWorkflow;
 use App\Support\RoomCategories;
 use Illuminate\Http\JsonResponse;
@@ -395,8 +399,11 @@ class AdminOperationsController extends Controller
                 ->select(
                     'equipment_table.*',
                     'rooms_table.room_name',
+                    'rooms_table.room_type',
                     'equipment_categories_table.equipment_category_name'
                 );
+
+            EquipmentNextMaintenance::apply($query);
 
             if ($filter === 'stock') {
                 $query->where('equipment_table.equipment_inventory_status', '!=', 'Disposed')
@@ -430,6 +437,7 @@ class AdminOperationsController extends Controller
                     $builder->where('equipment_table.equipment_name', 'like', $needle)
                         ->orWhere('equipment_table.equipment_asset_tag', 'like', $needle)
                         ->orWhere('equipment_table.equipment_serial_number', 'like', $needle)
+                        ->orWhere('equipment_table.equipment_placement_zone', 'like', $needle)
                         ->orWhere('rooms_table.room_name', 'like', $needle);
                 });
             }
@@ -486,9 +494,27 @@ class AdminOperationsController extends Controller
                 ->with('error', 'Equipment not found.');
         }
 
+        $lifecycle = EquipmentTimeline::forEquipment($id);
+
+        $repairCostTotal = 0.0;
+        if (Schema::hasTable('equipment_maintenance_history_table')
+            && Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_repair_cost')) {
+            $repairCostTotal = (float) DB::table('equipment_maintenance_history_table')
+                ->where('equipment_maintenance_equipment_id', $id)
+                ->sum('equipment_maintenance_repair_cost');
+        }
+
         return view('admin.operations.equipment-show', [
             'equipment' => $equipment,
             'usefulLifeYears' => self::DEFAULT_USEFUL_LIFE_YEARS,
+            'lifecycleProfile' => $lifecycle['equipment'] ?? null,
+            'lifecycleEvents' => collect($lifecycle['events'] ?? []),
+            'lifecycleCounts' => $lifecycle['counts'] ?? [],
+            'reportSummary' => $lifecycle['report_summary'] ?? null,
+            'conditionHistory' => EquipmentConditionHistory::forEquipment($id, 20),
+            'repairCostTotal' => $repairCostTotal,
+            'propertyAssignment' => PropertyAssignments::current($id),
+            'assignmentHistory' => PropertyAssignments::history($id),
         ]);
     }
 
@@ -518,6 +544,8 @@ class AdminOperationsController extends Controller
                 ->select(
                     'maintenance_schedules_table.*',
                     'equipment_table.equipment_name',
+                    'equipment_table.equipment_placement_zone',
+                    'equipment_table.equipment_current_location',
                     'rooms_table.room_name'
                 );
 
@@ -544,6 +572,7 @@ class AdminOperationsController extends Controller
                 $query->where(function ($builder) use ($needle) {
                     $builder->where('maintenance_schedules_table.maintenance_schedule_title', 'like', $needle)
                         ->orWhere('equipment_table.equipment_name', 'like', $needle)
+                        ->orWhere('equipment_table.equipment_placement_zone', 'like', $needle)
                         ->orWhere('rooms_table.room_name', 'like', $needle);
                 });
             }

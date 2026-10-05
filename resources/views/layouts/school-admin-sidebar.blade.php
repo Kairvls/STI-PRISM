@@ -116,13 +116,13 @@
             </a>
 
             <a
-                href="{{ route('school-admin.operations.reports') }}"
-                class="quick-card {{ request()->is('school-admin/operations/reports*') ? 'active' : '' }}"
+                href="{{ route('school-admin.semester-inspections.index') }}"
+                class="quick-card {{ request()->is('school-admin/semester-inspections*') ? 'active' : '' }}"
             >
 
                 <i data-lucide="clipboard-list"></i>
 
-                <span>Reports</span>
+                <span>Inspections</span>
 
             </a>
 
@@ -223,36 +223,43 @@
         </div>
 
         <a
-            href="{{ route('school-admin.operations.equipment') }}"
-            class="menu-item {{ request()->is('school-admin/operations/equipment*') ? 'active' : '' }}"
-        >
-            <i data-lucide="monitor"></i>
-            <span>Equipment Monitor</span>
-        </a>
-
-        <a
             href="{{ route('school-admin.operations.procurement') }}"
             class="menu-item {{ request()->is('school-admin/operations/procurement*') || request()->is('school-admin/operations/documents*') ? 'active' : '' }}"
         >
             <i data-lucide="git-branch"></i>
-            <span>Procurement Monitor</span>
+            <span>Procurement Monitoring</span>
         </a>
 
-        <a
-            href="{{ route('school-admin.operations.schedules') }}"
-            class="menu-item {{ request()->is('school-admin/operations/schedules*') ? 'active' : '' }}"
-        >
-            <i data-lucide="calendar-clock"></i>
-            <span>Schedules Monitor</span>
-        </a>
+        @php
+            $equipmentLinks = [
+                ['url' => route('school-admin.operations.equipment'), 'active' => request()->is('school-admin/operations/equipment*'), 'icon' => 'monitor', 'label' => 'All Equipment'],
+                ['url' => route('school-admin.operations.movements'), 'active' => request()->is('school-admin/operations/movements*'), 'icon' => 'arrow-left-right', 'label' => 'Equipment Movements'],
+                ['url' => route('school-admin.operations.schedules'), 'active' => request()->is('school-admin/operations/schedules*'), 'icon' => 'calendar-clock', 'label' => 'Equipment Schedules'],
+                ['url' => route('school-admin.semester-inspections.index'), 'active' => request()->is('school-admin/semester-inspections*'), 'icon' => 'clipboard-list', 'label' => 'Semester Inspections'],
+            ];
+            $equipmentGroupActive = collect($equipmentLinks)->contains('active', true);
+        @endphp
 
-        <a
-            href="{{ route('school-admin.operations.reports') }}"
-            class="menu-item {{ request()->is('school-admin/operations/reports*') ? 'active' : '' }}"
-        >
-            <i data-lucide="clipboard-list"></i>
-            <span>Equipment Reports</span>
-        </a>
+        <div class="menu-group {{ $equipmentGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $equipmentGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $equipmentGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="radar"></i>
+                <span>Equipment Monitoring</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $equipmentGroupActive) hidden @endif>
+                @foreach($equipmentLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         {{-- ====================================== --}}
         {{-- ACCOUNT --}}

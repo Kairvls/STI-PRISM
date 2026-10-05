@@ -4,7 +4,8 @@
         ->reject(fn ($row) => $current && (int) $row->assignment_id === (int) $current->assignment_id);
     $people = collect($assignablePeople ?? []);
     $returnUrl = $equipmentBack['url'] ?? '';
-    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
+    $readOnly = ($assignmentReadOnly ?? false) || \App\Support\PropertyAssignments::isReadOnly();
+    $linkCustodians = ! \App\Support\AdminPortal::isSchoolAdmin();
     $fieldClass = 'h-10 w-full rounded-xl border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
     $textareaClass = 'w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
 @endphp
@@ -21,9 +22,13 @@
     <div class="space-y-4 p-5">
         @if ($current)
             <div class="rounded-2xl bg-teal-50/60 px-4 py-3 ring-1 ring-teal-100">
-                <a href="{{ url('/maintenance/property-assignments/people/'.$current->assignment_custodian_id) }}" class="text-sm font-semibold text-slate-900 hover:underline">
-                    {{ $current->custodian_full_name ?? 'Unknown person' }}
-                </a>
+                @if ($linkCustodians)
+                    <a href="{{ url('/maintenance/property-assignments/people/'.$current->assignment_custodian_id) }}" class="text-sm font-semibold text-slate-900 hover:underline">
+                        {{ $current->custodian_full_name ?? 'Unknown person' }}
+                    </a>
+                @else
+                    <p class="text-sm font-semibold text-slate-900">{{ $current->custodian_full_name ?? 'Unknown person' }}</p>
+                @endif
                 <p class="mt-0.5 text-xs text-slate-500">
                     {{ implode(' · ', array_filter([$current->custodian_position ?? null, $current->custodian_employee_id ?? null])) ?: '—' }}
                 </p>
@@ -157,7 +162,11 @@
                 <ul class="mt-2 space-y-2">
                     @foreach ($pastAssignments as $past)
                         <li class="text-xs">
-                            <a href="{{ url('/maintenance/property-assignments/people/'.$past->assignment_custodian_id) }}" class="font-semibold text-slate-800 hover:underline">{{ $past->custodian_full_name ?? 'Unknown person' }}</a>
+                            @if ($linkCustodians)
+                                <a href="{{ url('/maintenance/property-assignments/people/'.$past->assignment_custodian_id) }}" class="font-semibold text-slate-800 hover:underline">{{ $past->custodian_full_name ?? 'Unknown person' }}</a>
+                            @else
+                                <p class="font-semibold text-slate-800">{{ $past->custodian_full_name ?? 'Unknown person' }}</p>
+                            @endif
                             <p class="text-slate-500">
                                 {{ $formatDate($past->assignment_issued_at) }} – {{ $formatDate($past->assignment_returned_at) }}
                                 · {{ $past->assignment_status }}

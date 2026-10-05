@@ -121,7 +121,9 @@
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
                 const partial = parsed.querySelector('#signRisContent')
                     || parsed.querySelector('#signRisContentContainer');
-                contentContainer.innerHTML = partial ? partial.innerHTML : html;
+                contentContainer.innerHTML = partial
+                    ? (partial.id === 'signRisContent' ? partial.outerHTML : partial.innerHTML)
+                    : html;
 
                 if (window.lucide && typeof window.lucide.createIcons === 'function') {
                     window.lucide.createIcons();
