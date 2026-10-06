@@ -138,6 +138,8 @@
 
     </style>
 
+    @include('layouts.partials.prism-skeleton')
+
     @stack('styles')
 
 </head>

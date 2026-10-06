@@ -280,11 +280,8 @@
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                <div x-show="loading" class="flex min-h-[240px] items-center justify-center text-sm text-slate-500">
-                    <span class="inline-flex items-center gap-2">
-                        <i data-lucide="loader-circle" class="h-4 w-4 animate-spin"></i>
-                        Loading equipment history...
-                    </span>
+                <div x-show="loading" class="-mx-5 min-h-[240px]">
+                    @include('partials.skeleton', ['skeletonType' => 'detail', 'skeletonRows' => 4, 'skeletonLabel' => 'Loading equipment history'])
                 </div>
 
                 <template x-if="!loading && profile">

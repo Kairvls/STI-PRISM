@@ -2175,7 +2175,7 @@
                     </button>
                     <button type="button" onclick="openLoginModal()"
                             class="btn-blue nav-signin border-0 cursor-pointer hidden lg:inline-flex items-center">
-                        Sign In
+                        Log In
                     </button>
                 @else
                     <a href="{{ route('dashboard') }}"

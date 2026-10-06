@@ -351,7 +351,9 @@
                     </div>
                 </div>
                 <div class="relative min-h-0 flex-1 bg-gray-50">
-                    <div x-show="docLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-gray-500">Loading form…</div>
+                    <div x-show="docLoading" class="absolute inset-0 z-10 overflow-hidden bg-gray-50 py-6">
+                        @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading form'])
+                    </div>
                     <iframe x-ref="docFrame" class="h-full w-full border-0 bg-white" title="Document preview"></iframe>
                 </div>
             </div>
@@ -435,7 +437,9 @@
                     </div>
                 </div>
 
-                <div class="px-5 py-12 text-center text-sm text-gray-400" x-show="pipelineLoading">Loading pipeline…</div>
+                <div x-show="pipelineLoading">
+                    @include('partials.skeleton', ['skeletonType' => 'detail', 'skeletonRows' => 5, 'skeletonLabel' => 'Loading pipeline'])
+                </div>
             </div>
         </div>
     </template>

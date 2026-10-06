@@ -8,24 +8,15 @@
 @php
     $tabLabels = [
         'transfers' => 'Transfer records',
-        'borrowing' => 'Borrowing records',
         'disposal' => 'Disposal records',
     ];
 
     $tabHints = [
         'transfers' => 'Track equipment room-to-room transfers.',
-        'borrowing' => 'Monitor active and historical equipment borrows.',
         'disposal' => 'Review disposed equipment and inventory status.',
     ];
 
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
-
-    $borrowStatusClasses = [
-        'Overdue' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'Borrowed' => 'border-amber-200 bg-amber-50 text-amber-800',
-        'Returned' => 'border-green-200 bg-green-50 text-green-700',
-        'Active' => 'border-blue-200 bg-blue-50 text-blue-700',
-    ];
 @endphp
 
 <div class="admin-page space-y-6">
@@ -37,15 +28,6 @@
                 'value' => number_format($counts['transfers']),
                 'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers']),
                 'active' => $tab === 'transfers',
-            ],
-            [
-                'label' => 'Active borrows',
-                'hint' => ((int) $counts['borrowing_overdue'] > 0)
-                    ? number_format($counts['borrowing_overdue']).' overdue'
-                    : null,
-                'value' => number_format($counts['borrowing_active']),
-                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'borrowing', 'filter' => 'active']),
-                'active' => $tab === 'borrowing',
             ],
             [
                 'label' => 'Disposals',
@@ -95,23 +77,14 @@
                 </form>
             </div>
 
-            @if(in_array($tab, ['transfers', 'borrowing'], true))
+            @if($tab === 'transfers')
             <div class="mt-4 flex flex-wrap items-center gap-2">
-                @if($tab === 'transfers')
-                    @foreach(['all' => 'All', 'recent' => 'Last 30 days'] as $key => $label)
-                        <a
-                            href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers', 'filter' => $key, 'q' => $q]) }}"
-                            class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
-                        >{{ $label }}</a>
-                    @endforeach
-                @elseif($tab === 'borrowing')
-                    @foreach(['all' => 'All', 'active' => 'Active', 'Overdue' => 'Overdue', 'Borrowed' => 'Borrowed', 'Returned' => 'Returned'] as $key => $label)
-                        <a
-                            href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'borrowing', 'filter' => $key, 'q' => $q]) }}"
-                            class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
-                        >{{ $label }}</a>
-                    @endforeach
-                @endif
+                @foreach(['all' => 'All', 'recent' => 'Last 30 days'] as $key => $label)
+                    <a
+                        href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers', 'filter' => $key, 'q' => $q]) }}"
+                        class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
+                    >{{ $label }}</a>
+                @endforeach
             </div>
             @endif
         </div>
@@ -144,62 +117,12 @@
                                 </td>
                                 <td class="text-sm text-gray-600">{{ $row->from_room_name ?: '—' }}</td>
                                 <td class="text-sm text-gray-600">{{ $row->to_room_name ?: '—' }}</td>
-                                <td class="text-sm text-gray-600">{{ \Illuminate\Support\Str::limit($row->remarks, 60) ?: '—' }}</td>
+                                <td class="text-sm text-gray-600">{{ \Illuminate\Support\Str::limit((string) $row->remarks, 60) ?: '—' }}</td>
                                 <td class="whitespace-nowrap text-sm text-gray-500">{{ $when }}</td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="5" class="pur-empty">No transfers found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            @elseif($tab === 'borrowing')
-                <table class="pur-table min-w-[900px]">
-                    <thead>
-                        <tr>
-                            <th>Equipment</th>
-                            <th>Borrower</th>
-                            <th>Expected return</th>
-                            <th>Status</th>
-                            <th>Authorized by</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($rows as $row)
-                            @php
-                                $status = $row->borrowing_status ?: '—';
-                                $badgeClass = $borrowStatusClasses[$status] ?? 'border-gray-200 bg-gray-50 text-gray-600';
-                                $expected = $row->borrowing_expected_return_date
-                                    ? \Carbon\Carbon::parse($row->borrowing_expected_return_date)->format('M j, Y')
-                                    : '—';
-                            @endphp
-                            <tr class="transition hover:bg-gray-50/70">
-                                <td>
-                                    <p class="font-semibold text-gray-900">{{ $row->equipment_name ?: '—' }}</p>
-                                    @if(!empty($row->equipment_asset_tag))
-                                        <p class="mt-0.5 text-xs text-gray-400">{{ $row->equipment_asset_tag }}</p>
-                                    @endif
-                                </td>
-                                <td>
-                                    <p class="text-sm text-gray-700">{{ $row->borrowing_borrower_name ?: '—' }}</p>
-                                    @if(!empty($row->borrowing_borrower_department))
-                                        <p class="mt-0.5 text-xs text-gray-400">{{ $row->borrowing_borrower_department }}</p>
-                                    @endif
-                                </td>
-                                <td class="whitespace-nowrap text-sm {{ $status === 'Overdue' ? 'font-semibold text-rose-700' : 'text-gray-600' }}">
-                                    {{ $expected }}
-                                </td>
-                                <td>
-                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $badgeClass }}">
-                                        {{ $status }}
-                                    </span>
-                                </td>
-                                <td class="text-sm text-gray-600">{{ $row->borrowing_authorized_by ?: '—' }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="pur-empty">No borrowing records found.</td>
                             </tr>
                         @endforelse
                     </tbody>

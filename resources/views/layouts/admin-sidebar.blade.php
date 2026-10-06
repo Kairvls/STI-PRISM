@@ -126,6 +126,12 @@
                     'active' => request()->is('admin/operations/equipment*'),
                 ],
                 [
+                    'url' => route('admin.operations.borrowing'),
+                    'label' => 'Borrowed Equipment',
+                    'icon' => 'hand-helping',
+                    'active' => request()->is('admin/operations/borrowing*'),
+                ],
+                [
                     'url' => route('admin.operations.movements'),
                     'label' => 'Equipment Movements',
                     'icon' => 'arrow-left-right',

@@ -57,7 +57,7 @@
         ],
         [
             'title' => 'Overdue borrows',
-            'url' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']),
+            'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
             'total' => (int) $stats['overdue_borrows'],
             'empty' => 'No overdue borrows.',
             'items' => ($overdueBorrowsPreview ?? collect())->map(function ($row) {
@@ -72,7 +72,7 @@
                     'title' => $row->equipment_name ?: 'Equipment',
                     'meta' => trim(($row->borrowing_borrower_name ?: 'Unknown borrower').($due ? ' · Due '.$due->format('M j') : '')),
                     'badge' => $days !== null ? $days.'d overdue' : 'Overdue',
-                    'url' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']),
+                    'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
                 ];
             }),
         ],
@@ -127,7 +127,7 @@
         [
             'label' => 'Overdue borrows',
             'value' => $stats['overdue_borrows'],
-            'url' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']),
+            'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
             'alert' => (int) $stats['overdue_borrows'] > 0,
         ],
         [
@@ -438,7 +438,9 @@
                     </div>
                 </div>
                 <div class="relative min-h-0 flex-1 bg-gray-50">
-                    <div x-show="docLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-gray-500">Loading form…</div>
+                    <div x-show="docLoading" class="absolute inset-0 z-10 overflow-hidden bg-gray-50 py-6">
+                        @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading form'])
+                    </div>
                     <iframe x-ref="docFrame" class="h-full w-full border-0 bg-white" title="Document preview"></iframe>
                 </div>
             </div>
@@ -497,7 +499,9 @@
                     </div>
                 </div>
 
-                <div class="px-5 py-12 text-center text-sm text-gray-400" x-show="pipelineLoading">Loading pipeline…</div>
+                <div x-show="pipelineLoading">
+                    @include('partials.skeleton', ['skeletonType' => 'detail', 'skeletonRows' => 5, 'skeletonLabel' => 'Loading pipeline'])
+                </div>
             </div>
         </div>
     </template>

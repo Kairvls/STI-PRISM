@@ -78,28 +78,34 @@ class AdminAttentionSummary
      */
     public static function scopeAwaitingCosign($query, string $prefix = '')
     {
+        return $query->where(function ($pending) use ($prefix) {
+            $pending->where($prefix.'ris_status', RisWorkflow::ACCEPTED)
+                ->orWhere(fn ($awaiting) => self::scopeAwaitingIssuedBy($awaiting, $prefix));
+        });
+    }
+
+    /**
+     * President-approved RIS that still need the School Administrator's Issued by signature.
+     */
+    public static function scopeAwaitingIssuedBy($query, string $prefix = '')
+    {
         $status = $prefix.'ris_status';
         $approvedSig = $prefix.'ris_approved_by_signature';
         $issuedSig = $prefix.'ris_issued_by_signature';
 
-        return $query->where(function ($pending) use ($status, $approvedSig, $issuedSig) {
-            $pending->where($status, RisWorkflow::ACCEPTED)
-                ->orWhere(function ($awaiting) use ($status, $approvedSig, $issuedSig) {
-                    $awaiting->where(function ($approved) use ($status, $approvedSig) {
-                        $approved->where(function ($president) use ($status, $approvedSig) {
-                            $president->where($status, RisWorkflow::PRESIDENT_APPROVED)
-                                ->whereNotNull($approvedSig)
-                                ->whereRaw('TRIM('.$approvedSig.') != ""');
-                        })->orWhere(function ($legacy) use ($status, $approvedSig) {
-                            $legacy->where($status, RisWorkflow::APPROVED_LEGACY)
-                                ->whereNotNull($approvedSig)
-                                ->where($approvedSig, 'like', 'data:image%');
-                        });
-                    })->where(function ($unsigned) use ($issuedSig) {
-                        $unsigned->whereNull($issuedSig)
-                            ->orWhereRaw('TRIM('.$issuedSig.') = ""');
-                    });
-                });
+        return $query->where(function ($approved) use ($status, $approvedSig) {
+            $approved->where(function ($president) use ($status, $approvedSig) {
+                $president->where($status, RisWorkflow::PRESIDENT_APPROVED)
+                    ->whereNotNull($approvedSig)
+                    ->whereRaw('TRIM('.$approvedSig.') != ""');
+            })->orWhere(function ($legacy) use ($status, $approvedSig) {
+                $legacy->where($status, RisWorkflow::APPROVED_LEGACY)
+                    ->whereNotNull($approvedSig)
+                    ->where($approvedSig, 'like', 'data:image%');
+            });
+        })->where(function ($unsigned) use ($issuedSig) {
+            $unsigned->whereNull($issuedSig)
+                ->orWhereRaw('TRIM('.$issuedSig.') = ""');
         });
     }
 

@@ -4,6 +4,7 @@
     $closeFn = $closeFn ?? 'closeRisPreviewModal';
     $printFn = $printFn ?? 'printRisPreview';
     $zIndex = $zIndex ?? '50';
+    $footerView = $footerView ?? null;
 @endphp
 
 <div
@@ -85,6 +86,9 @@
                         title="RIS Form Preview"
                     ></iframe>
                 </div>
+                <div class="absolute inset-0 z-10 hidden overflow-hidden bg-slate-100 py-6" data-ris-preview-skeleton>
+                    @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading RIS form'])
+                </div>
             </div>
 
             <div
@@ -94,6 +98,12 @@
                 <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Supporting documents</p>
                 <div class="mt-1 space-y-0.5" data-attachment-list></div>
             </div>
+
+            @if($footerView)
+                <div class="shrink-0 border-t border-gray-200 bg-white px-4 py-3" data-ris-preview-footer>
+                    @include($footerView, ['modalId' => $modalId, 'closeFn' => $closeFn])
+                </div>
+            @endif
         </div>
     </div>
 </div>
@@ -108,7 +118,28 @@
         }
     }
 
+    function watchRisPreviewSkeleton(iframe) {
+        var stage = iframe.closest('.ris-preview-stage');
+        var skeleton = stage ? stage.querySelector('[data-ris-preview-skeleton]') : null;
+        if (!skeleton || iframe.dataset.skeletonWatched === '1') return;
+        iframe.dataset.skeletonWatched = '1';
+
+        var isBlank = function () {
+            var src = iframe.getAttribute('src') || '';
+            return !src || src === 'about:blank';
+        };
+
+        new MutationObserver(function () {
+            skeleton.classList.toggle('hidden', isBlank());
+        }).observe(iframe, { attributes: true, attributeFilter: ['src'] });
+
+        iframe.addEventListener('load', function () {
+            if (!isBlank()) skeleton.classList.add('hidden');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-ris-preview-root] .ris-preview-stage iframe').forEach(watchRisPreviewSkeleton);
         document.querySelectorAll('[id$="PreviewModal"], #risPreviewModal').forEach(mountRisPreviewModal);
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
@@ -130,8 +161,10 @@
     function chromeHeights(panel) {
         var headerEl = panel ? panel.querySelector('[data-ris-preview-header]') : null;
         var attachEl = panel ? panel.querySelector('[id$="-attachments"]') : null;
+        var footerEl = panel ? panel.querySelector('[data-ris-preview-footer]') : null;
         var headerH = headerEl ? headerEl.offsetHeight : 52;
         var attachH = (attachEl && !attachEl.classList.contains('hidden')) ? attachEl.offsetHeight : 0;
+        attachH += footerEl ? footerEl.offsetHeight : 0;
         return { headerH: headerH, attachH: attachH };
     }
 

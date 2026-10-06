@@ -130,6 +130,11 @@ $schoolAdminModuleRoutes = function () {
     )->name('operations.movements');
 
     Route::get(
+        '/operations/borrowing',
+        [\App\Http\Controllers\AdminOperationsController::class, 'borrowing']
+    )->name('operations.borrowing');
+
+    Route::get(
         '/operations/procurement',
         [\App\Http\Controllers\AdminOperationsController::class, 'procurement']
     )->name('operations.procurement');

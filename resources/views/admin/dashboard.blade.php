@@ -798,7 +798,7 @@
         <div class="flex items-start justify-between gap-4">
             <div>
                 <p class="ad-label">People &amp; access</p>
-                <h2 class="mt-1 text-base font-semibold text-slate-900">Who is using PRISM</h2>
+                <h2 class="mt-1 text-base font-semibold text-slate-900">Who is using PaAyo</h2>
             </div>
             <a href="{{ url('/admin/users') }}" class="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900">Manage users →</a>
         </div>

@@ -1086,7 +1086,7 @@
 
         title.textContent = roomName;
         count.textContent = 'Loading…';
-        list.innerHTML = '<p class="px-6 py-8 text-sm text-slate-400">Loading equipment…</p>';
+        list.innerHTML = window.prismSkeleton('list', { rows: 4, label: 'Loading equipment' });
         inventory.href = '/maintenance/equipment/all?room=' + roomId;
 
         modal.classList.remove('hidden');

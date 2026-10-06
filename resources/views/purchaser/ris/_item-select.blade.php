@@ -2,6 +2,7 @@
   RIS item cell: searchable dropdown fed by File Maintenance > Items (itemOptions),
   with an inline box that adds a new item to the catalog and selects it.
   The RIS still stores the item name as text (ris_items[i][name_description]).
+  Rows flagged item._sourceLocked come from the linked replacement request and render read-only.
   Expects Alpine parent scope with: item, index, itemOptions, the list named by $listVar,
   and helpers: toggleRisSelect, isRisSelectOpen, closeRisSelect, filteredRisOptions,
   risSelectQuery, pickRisItem, addRisCatalogItem, risNewItemName, risNewItemSaving, risNewItemError
@@ -18,7 +19,19 @@
         x-bind:name="`{{ $namePrefix }}[${index}][name_description]`"
         x-bind:value="item.name_description"
     >
+    <div
+        x-show="item._sourceLocked"
+        class="{{ $triggerClass }} flex cursor-not-allowed items-center gap-1 text-left text-gray-800"
+        x-bind:title="'From replacement request: ' + String(item.name_description || '').trim()"
+    >
+        <svg class="h-3 w-3 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+        <span class="min-w-0 flex-1 truncate" x-text="String(item.name_description || '').trim()"></span>
+    </div>
     <button
+        x-show="!item._sourceLocked"
         type="button"
         x-on:click.stop="toggleRisSelect('itemOptions-' + index)"
         class="{{ $triggerClass }} flex items-center justify-between gap-0.5 text-left"

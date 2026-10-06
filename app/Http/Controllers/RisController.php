@@ -1100,6 +1100,11 @@ public function update(Request $request, $risId)
     $isSaveOnly =
         $saveAction === 'save';
 
+    $this->lockReplacementLines(
+        $request,
+        $this->replacementSourceForRis($ris->ris_procurement_request_id ?? null)
+    );
+
 
     // =====================================================
     // VALIDATE
@@ -2724,26 +2729,28 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             ]);
         }
 
-        $items = $request->input('ris_items', []);
-        $hasNamedItem = collect($items)->contains(
-            fn ($item) => is_array($item) && filled($item['name_description'] ?? null)
-        );
-        if ($hasNamedItem) {
-            $namedCount = collect($items)->filter(
-                fn ($item) => is_array($item) && filled($item['name_description'] ?? null)
-            )->count();
-            $lines = ReplacementRequestBasket::risPrefillLines($source);
-            if ($namedCount >= count($lines)) {
-                return;
-            }
+        $this->lockReplacementLines($request, $source);
+    }
+
+    /**
+     * Rows copied from a replacement request cannot be renamed or removed:
+     * the first N submitted rows always carry the request's item names.
+     */
+    private function lockReplacementLines(Request $request, ?object $source): void
+    {
+        if (!$source) {
+            return;
         }
 
         $lines = ReplacementRequestBasket::risPrefillLines($source);
-        foreach ($lines as $index => $line) {
+        if (empty($lines)) {
+            return;
+        }
+
+        $items = array_values((array) $request->input('ris_items', []));
+        foreach (array_slice($lines, 0, RisWorkflow::MAX_ITEMS) as $index => $line) {
             $row = is_array($items[$index] ?? null) ? $items[$index] : [];
-            if (!filled($row['name_description'] ?? null)) {
-                $row['name_description'] = $line['name'];
-            }
+            $row['name_description'] = $line['name'];
             if (!filled($row['quantity_requested'] ?? null)) {
                 $row['quantity_requested'] = $line['quantity'] ?? 1;
             }

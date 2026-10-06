@@ -287,6 +287,7 @@
         blankCreateItem() {
             return {
                 _uid: 'create-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                _sourceLocked: false,
                 name_description: '',
                 brand_id: '',
                 supplier_id: '',
@@ -302,6 +303,7 @@
         },
         removeCreateItem(index) {
             if (this.createItems.length <= 1) return;
+            if (this.createItems[index]?._sourceLocked) return;
             this.createItems.splice(index, 1);
         },
         createRisFullscreen: false,
@@ -353,14 +355,19 @@
         risNewItemName: '',
         risNewItemSaving: false,
         risNewItemError: '',
+        autoGrowPurpose(el) {
+            if (!el || (window.CSS && CSS.supports('field-sizing', 'content'))) return;
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        },
         pickRisItem(items, index, label) {
-            if (!items || !items[index]) return;
+            if (!items || !items[index] || items[index]._sourceLocked) return;
             items[index].name_description = String(label || '');
             this.copySplitUom(items, index);
             this.closeRisSelect();
         },
         async addRisCatalogItem(items, index) {
-            if (this.risNewItemSaving) return;
+            if (this.risNewItemSaving || items?.[index]?._sourceLocked) return;
             const name = String(this.risNewItemName || this.risSelectQuery || '').replace(/\s+/g, ' ').trim();
             if (!name) {
                 this.risNewItemError = 'Type the new item name first.';
@@ -690,7 +697,15 @@
         },
         applyReplacementPrefill(overwrite = false) {
             const data = this.selectedReplacementData();
-            if (!data) return;
+            if (!data) {
+                this.createItems.forEach((row) => {
+                    if (!row._sourceLocked) return;
+                    row._sourceLocked = false;
+                    row.name_description = '';
+                    row.quantity_requested = '';
+                });
+                return;
+            }
 
             const lines = Array.isArray(data.items) && data.items.length
                 ? data.items
@@ -701,21 +716,24 @@
                 this.createItems.push(this.blankCreateItem());
             }
 
-            lines.slice(0, this.risMaxRows).forEach((line, index) => {
-                if (!this.createItems[index]) return;
-                const current = String(this.createItems[index].name_description || '').trim();
-                if (overwrite || !current) {
-                    this.createItems[index].name_description = line.name || '';
+            const lockedCount = Math.min(lines.length, this.risMaxRows);
+            lines.slice(0, lockedCount).forEach((line, index) => {
+                const row = this.createItems[index];
+                if (!row) return;
+                row.name_description = line.name || '';
+                if (overwrite || !row.quantity_requested) {
+                    row.quantity_requested = line.quantity || 1;
                 }
-                if (overwrite || !this.createItems[index].quantity_requested) {
-                    this.createItems[index].quantity_requested = line.quantity || 1;
-                }
+                row._sourceLocked = true;
             });
 
-            if (overwrite) {
-                for (let i = lines.length; i < this.createItems.length; i++) {
-                    this.createItems[i].name_description = '';
-                    this.createItems[i].quantity_requested = '';
+            for (let i = lockedCount; i < this.createItems.length; i++) {
+                const row = this.createItems[i];
+                const wasLocked = row._sourceLocked;
+                row._sourceLocked = false;
+                if (overwrite || wasLocked) {
+                    row.name_description = '';
+                    row.quantity_requested = '';
                 }
             }
 
@@ -1782,31 +1800,35 @@
         .ris-purpose-input {
             display: block;
             width: 100%;
-            min-height: 0;
-            height: 72px;
+            min-height: 62px;
+            height: auto;
+            field-sizing: content;
             resize: none;
             padding: 0 4px 0 0;
             font-size: 12px;
             line-height: 31px;
             text-indent: 5.75rem;
             text-align: left;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: normal;
             overflow: hidden;
             border: 0;
             border-radius: 0;
-            background-image:
-                linear-gradient(#1f2937, #1f2937),
-                linear-gradient(#1f2937, #1f2937);
-            background-size: 100% 1px, 100% 1px;
-            background-position: left 30px, left 71px;
-            background-repeat: no-repeat;
+            background-image: repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                transparent 30px,
+                #1f2937 30px,
+                #1f2937 31px
+            );
+            background-attachment: local;
             background-color: transparent;
             outline: none;
             box-shadow: none;
         }
 
         .ris-purpose-display {
-            white-space: pre-wrap;
-            word-break: break-word;
             color: #000;
         }
 
@@ -2252,7 +2274,7 @@
                                                             <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
                                                         </svg>
                                                     </span>
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
                                                     <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
@@ -2263,7 +2285,7 @@
                                                         'placeholder' => 'Brand',
                                                         'textAlign' => 'center',
                                                     ])
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2273,7 +2295,7 @@
                                                         'textAlign' => 'center',
                                                         'panelMinWidth' => 'min-w-[7rem]',
                                                     ])
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2284,23 +2306,23 @@
                                                         'panelMinWidth' => 'min-w-[12rem]',
                                                     ])
                                                     <p class="mt-1 px-0.5 text-[9px] leading-snug text-amber-700 sm:px-1 sm:text-[10px]" x-show="supplierWarning(item.supplier_id)" x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"></p>
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
                                                     <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                             </tr>
                                         </template>
@@ -2334,7 +2356,7 @@
                             <div class="mt-5">
                                 <div class="ris-purpose-lined-wrap">
                                     <label class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></label>
-                                    <textarea name="ris_purpose_description" rows="2" x-model="purposeText" class="ris-purpose-input"></textarea>
+                                    <textarea name="ris_purpose_description" rows="2" x-model="purposeText" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" x-effect="purposeText; $nextTick(() => autoGrowPurpose($el))" class="ris-purpose-input"></textarea>
                                 </div>
                             </div>
 
@@ -2709,7 +2731,10 @@
         </div>
     </div>
 
-    <div id="ris-records-section" class="pur-card">
+    <div id="ris-records-section" class="pur-card relative">
+        <div x-cloak x-show="recordsLoading" class="absolute inset-0 z-20 overflow-hidden rounded-[inherit] bg-white">
+            @include('partials.skeleton', ['skeletonType' => 'table', 'skeletonRows' => 6, 'skeletonLabel' => 'Loading RIS records'])
+        </div>
 
         @if(!empty($attentionFocus))
             <div class="px-5 pt-5">
@@ -3867,6 +3892,23 @@
                     while (count($editItemsForModal) < $editMinRows) {
                         $editItemsForModal[] = $blankEditItem;
                     }
+                    $editSourceRequestId = (int) ($ris->ris_procurement_request_id ?? 0);
+                    $editSourceNames = $editSourceRequestId > 0
+                        ? \App\Support\ReplacementRequestBasket::itemsForRequest($editSourceRequestId)
+                            ->take($risMaxRows)
+                            ->map(fn ($line) => \App\Support\ReplacementRequestBasket::displayName($line))
+                            ->values()
+                            ->all()
+                        : [];
+                    if ($editSourceRequestId > 0 && empty($editSourceNames) && filled($editItemsForModal[0]['name_description'] ?? null)) {
+                        $editSourceNames = [$editItemsForModal[0]['name_description']];
+                    }
+                    foreach ($editSourceNames as $sourceIndex => $sourceName) {
+                        $editItemsForModal[$sourceIndex] = array_merge($editItemsForModal[$sourceIndex] ?? $blankEditItem, [
+                            'name_description' => $sourceName,
+                            '_source_locked' => true,
+                        ]);
+                    }
                 @endphp
                 <div
                     x-data="{
@@ -3874,6 +3916,7 @@
                         @foreach($editItemsForModal as $item)
                             {
                                 _uid: @js('edit-'.(int) $ris->ris_id.'-'.$loop->index.'-'.uniqid()),
+                                _sourceLocked: @js((bool) ($item['_source_locked'] ?? false)),
                                 name_description: @js($item['name_description'] ?? ''),
                                 brand_id: @js((string) ($item['brand_id'] ?? '')),
                                 supplier_id: @js((string) ($item['supplier_id'] ?? '')),
@@ -3926,6 +3969,7 @@
                     blankEditItem() {
                         return {
                             _uid: 'edit-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                            _sourceLocked: false,
                             name_description: '',
                             brand_id: '',
                             supplier_id: '',
@@ -3941,6 +3985,7 @@
                     },
                     removeEditItem(index) {
                         if (this.editItems.length <= 1) return;
+                        if (this.editItems[index]?._sourceLocked) return;
                         this.editItems.splice(index, 1);
                     },
                     itemTotal(item) {
@@ -4166,7 +4211,7 @@
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
                                                             aria-label="Remove item row"
                                                         ></button>
                                                     </td>
@@ -4182,7 +4227,7 @@
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
                                                             tabindex="-1"
                                                             aria-label="Remove item row"
                                                         ></button>
@@ -4200,7 +4245,7 @@
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
                                                             tabindex="-1"
                                                             aria-label="Remove item row"
                                                         ></button>
@@ -4223,26 +4268,26 @@
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
                                                             tabindex="-1"
                                                             aria-label="Remove item row"
                                                         ></button>
                                                     </td>
                                                     <td>
                                                         <input type="number" min="0" max="9999999" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
                                                         <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
                                                         <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
                                                         <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="itemTotal(item).toFixed(2)" class="ris-cell-input cursor-not-allowed bg-gray-50 text-right text-gray-500">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                 </tr>
                                             </template>
@@ -4285,7 +4330,7 @@
                                     <div class="ris-purpose-area">
                                         <div class="ris-purpose-lined-wrap">
                                             <div class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></div>
-                                            <textarea name="ris_purpose_description" rows="2" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
+                                            <textarea name="ris_purpose_description" rows="2" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
                                         </div>
                                     </div>
 

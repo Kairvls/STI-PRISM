@@ -32,7 +32,7 @@
         {{-- SEARCH --}}
         {{-- ====================================== --}}
 
-        <div class="sidebar-search">
+        <!--<div class="sidebar-search">
 
             <div class="sidebar-dropdown">
 
@@ -55,7 +55,7 @@
                     </div>
 
                     <div class="dropdown-item" data-target="procurement-section">
-                        Procurement
+                        RIS Requests
                     </div>
 
                     <div class="dropdown-item" data-target="signature-section">
@@ -74,7 +74,7 @@
 
             </div>
 
-        </div>
+        </div>-->
 
         {{-- ====================================== --}}
         {{-- QUICK ACTIONS --}}
@@ -171,7 +171,7 @@
                 @endif
             </span>
 
-            <span>Procurement Requests</span>
+            <span>RIS Requests</span>
 
         </a>
 
@@ -233,6 +233,7 @@
         @php
             $equipmentLinks = [
                 ['url' => route('school-admin.operations.equipment'), 'active' => request()->is('school-admin/operations/equipment*'), 'icon' => 'monitor', 'label' => 'All Equipment'],
+                ['url' => route('school-admin.operations.borrowing'), 'active' => request()->is('school-admin/operations/borrowing*'), 'icon' => 'hand-helping', 'label' => 'Borrowed Equipment'],
                 ['url' => route('school-admin.operations.movements'), 'active' => request()->is('school-admin/operations/movements*'), 'icon' => 'arrow-left-right', 'label' => 'Equipment Movements'],
                 ['url' => route('school-admin.operations.schedules'), 'active' => request()->is('school-admin/operations/schedules*'), 'icon' => 'calendar-clock', 'label' => 'Equipment Schedules'],
                 ['url' => route('school-admin.semester-inspections.index'), 'active' => request()->is('school-admin/semester-inspections*'), 'icon' => 'clipboard-list', 'label' => 'Semester Inspections'],

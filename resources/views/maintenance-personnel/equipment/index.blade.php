@@ -2418,7 +2418,9 @@
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-4">
-                <p id="stockPendingLoading" class="py-6 text-center text-sm text-slate-400">Loading pending lines…</p>
+                <div id="stockPendingLoading" class="-mx-5">
+                    @include('partials.skeleton', ['skeletonType' => 'list', 'skeletonRows' => 3, 'skeletonLabel' => 'Loading pending lines'])
+                </div>
                 <p id="stockPendingEmpty" class="hidden py-6 text-center text-sm text-slate-400">No pending RR lines to stock.</p>
                 <p id="stockPendingError" class="mb-3 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
                 <ul id="stockPendingList" class="hidden max-h-64 space-y-2 overflow-y-auto"></ul>

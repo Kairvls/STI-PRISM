@@ -265,7 +265,10 @@
             : route(($pp ?? 'purchaser').'.rfc.index', $fundQuery);
     @endphp
 
-    <div id="rfc-records-section" class="pur-card">
+    <div id="rfc-records-section" class="pur-card relative">
+        <div x-cloak x-show="recordsLoading" class="absolute inset-0 z-20 overflow-hidden rounded-[inherit] bg-white">
+            @include('partials.skeleton', ['skeletonType' => 'table', 'skeletonRows' => 6, 'skeletonLabel' => 'Loading RFC records'])
+        </div>
         @if(!empty($attentionFocus))
             <div class="px-5 pt-5">
                 @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $rfcs->total()])

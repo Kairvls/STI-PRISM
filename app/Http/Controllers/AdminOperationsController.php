@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\MaintenanceReportService;
 use App\Support\AdminAttentionSummary;
+use App\Support\AdminPipeline;
 use App\Support\AdminPortal;
 use App\Support\BuildingLayout3D;
 use App\Support\DocumentLineage;
@@ -209,7 +210,7 @@ class AdminOperationsController extends Controller
             [
                 'label' => 'Overdue equipment borrows',
                 'count' => $stats['overdue_borrows'],
-                'url' => route('admin.operations.movements', ['tab' => 'borrowing', 'filter' => 'Overdue']),
+                'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
                 'tone' => 'rose',
             ],
             [
@@ -831,10 +832,20 @@ class AdminOperationsController extends Controller
         return view('procurement-records.document-view', $payload);
     }
 
-    public function movements(Request $request): View
+    public function movements(Request $request): View|RedirectResponse
     {
         $tab = (string) $request->query('tab', 'transfers');
-        if (! in_array($tab, ['transfers', 'borrowing', 'disposal'], true)) {
+
+        if ($tab === 'borrowing') {
+            $legacyFilter = (string) $request->query('filter', 'active');
+
+            return redirect(AdminPortal::route('operations.borrowing', array_filter([
+                'filter' => $legacyFilter === 'Borrowed' ? 'active' : $legacyFilter,
+                'q' => $request->query('q'),
+            ])));
+        }
+
+        if (! in_array($tab, ['transfers', 'disposal'], true)) {
             $tab = 'transfers';
         }
 
@@ -843,33 +854,12 @@ class AdminOperationsController extends Controller
         $rows = $this->emptyPager($request);
         $counts = [
             'transfers' => 0,
-            'borrowing_active' => 0,
-            'borrowing_overdue' => 0,
             'disposal' => 0,
         ];
 
         try {
             if (Schema::hasTable('equipment_transfer_history_table')) {
                 $counts['transfers'] = DB::table('equipment_transfer_history_table')->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (Schema::hasTable('borrowing_records_table')) {
-                DB::table('borrowing_records_table')
-                    ->where('borrowing_status', 'Borrowed')
-                    ->whereNotNull('borrowing_expected_return_date')
-                    ->whereDate('borrowing_expected_return_date', '<', today())
-                    ->update(['borrowing_status' => 'Overdue']);
-
-                $counts['borrowing_active'] = DB::table('borrowing_records_table')
-                    ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
-                    ->count();
-                $counts['borrowing_overdue'] = DB::table('borrowing_records_table')
-                    ->where('borrowing_status', 'Overdue')
-                    ->count();
             }
         } catch (\Throwable $e) {
             // ignore
@@ -912,28 +902,6 @@ class AdminOperationsController extends Controller
             }
 
             $rows = $query->orderByDesc('equipment_transfer_history_table.created_at')->paginate(15)->withQueryString();
-        } elseif ($tab === 'borrowing' && Schema::hasTable('borrowing_records_table')) {
-            $query = DB::table('borrowing_records_table')
-                ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
-                ->select('borrowing_records_table.*', 'equipment_table.equipment_name', 'equipment_table.equipment_asset_tag');
-
-            if ($filter === 'Overdue' || $filter === 'Borrowed' || $filter === 'Returned') {
-                $query->where('borrowing_records_table.borrowing_status', $filter);
-            } elseif ($filter === 'active') {
-                $query->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue']);
-            }
-
-            if ($q !== '') {
-                $needle = '%'.$q.'%';
-                $query->where(function ($builder) use ($needle) {
-                    $builder->where('equipment_table.equipment_name', 'like', $needle)
-                        ->orWhere('borrowing_records_table.borrowing_borrower_name', 'like', $needle)
-                        ->orWhere('borrowing_records_table.borrowing_borrower_department', 'like', $needle)
-                        ->orWhere('borrowing_records_table.borrowing_authorized_by', 'like', $needle);
-                });
-            }
-
-            $rows = $query->orderByDesc('borrowing_records_table.borrowing_created_at')->paginate(15)->withQueryString();
         } elseif ($tab === 'disposal' && Schema::hasTable('disposal_records_table')) {
             $query = DB::table('disposal_records_table')
                 ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'disposal_records_table.disposal_equipment_id')
@@ -968,176 +936,95 @@ class AdminOperationsController extends Controller
         ]);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function buildAdminPipeline(int $risId, bool $withLogs = false): array
+    public function borrowing(Request $request): View
     {
-        try {
-            return $this->buildAdminPipelineInner($risId, $withLogs);
-        } catch (\Throwable $e) {
-            return [
-                'ris_id' => $risId,
-                'stages' => [
-                    'ris' => [
-                        'exists' => true,
-                        'key' => 'ris',
-                        'type' => 'RIS',
-                        'id' => $risId,
-                        'label' => RisWorkflow::formNumber(null, $risId),
-                        'hint' => 'Pipeline unavailable',
-                        'view_url' => AdminPortal::route('operations.document', ['type' => 'ris', 'id' => $risId]),
-                    ],
-                    'atp' => ['exists' => false, 'key' => 'atp', 'type' => 'ATP', 'id' => null, 'label' => 'ATP', 'hint' => null, 'view_url' => null],
-                    'rfc' => ['exists' => false, 'key' => 'rfc', 'type' => 'RFC', 'id' => null, 'label' => 'RFC', 'hint' => null, 'view_url' => null],
-                    'rr' => ['exists' => false, 'key' => 'rr', 'type' => 'RR', 'id' => null, 'label' => 'RR', 'hint' => null, 'view_url' => null],
-                    'liq' => ['exists' => false, 'key' => 'liq', 'type' => 'LIQ', 'id' => null, 'label' => 'LIQ', 'hint' => null, 'view_url' => null],
-                ],
-                'funds' => null,
-                'payment_path' => null,
-                'payment_path_label' => 'Not chosen',
-                'current_stage' => 'ris',
-                'current_hint' => 'Pipeline unavailable',
-                'logs' => [],
-            ];
+        $filters = ['active', 'Overdue', 'due_week', 'Returned', 'all'];
+        $filter = (string) $request->query('filter', 'active');
+        if (! in_array($filter, $filters, true)) {
+            $filter = 'active';
         }
+
+        $q = trim((string) $request->query('q', ''));
+        $rows = $this->emptyPager($request);
+        $counts = [
+            'active' => 0,
+            'overdue' => 0,
+            'due_week' => 0,
+            'returned_30d' => 0,
+        ];
+
+        if (Schema::hasTable('borrowing_records_table')) {
+            try {
+                DB::table('borrowing_records_table')
+                    ->where('borrowing_status', 'Borrowed')
+                    ->whereNotNull('borrowing_expected_return_date')
+                    ->whereDate('borrowing_expected_return_date', '<', today())
+                    ->update(['borrowing_status' => 'Overdue']);
+
+                $base = DB::table('borrowing_records_table');
+                $counts['active'] = (clone $base)->whereIn('borrowing_status', ['Borrowed', 'Overdue'])->count();
+                $counts['overdue'] = (clone $base)->where('borrowing_status', 'Overdue')->count();
+                $counts['due_week'] = (clone $base)
+                    ->where('borrowing_status', 'Borrowed')
+                    ->whereBetween('borrowing_expected_return_date', [today()->toDateString(), today()->addDays(7)->toDateString()])
+                    ->count();
+                $counts['returned_30d'] = (clone $base)
+                    ->where('borrowing_status', 'Returned')
+                    ->whereDate('borrowing_actual_return_date', '>=', today()->subDays(30))
+                    ->count();
+
+                $query = DB::table('borrowing_records_table')
+                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
+                    ->select('borrowing_records_table.*', 'equipment_table.equipment_name', 'equipment_table.equipment_asset_tag');
+
+                match ($filter) {
+                    'active' => $query->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue']),
+                    'Overdue', 'Returned' => $query->where('borrowing_records_table.borrowing_status', $filter),
+                    'due_week' => $query->where('borrowing_records_table.borrowing_status', 'Borrowed')
+                        ->whereBetween('borrowing_records_table.borrowing_expected_return_date', [today()->toDateString(), today()->addDays(7)->toDateString()]),
+                    default => null,
+                };
+
+                if ($q !== '') {
+                    $needle = '%'.$q.'%';
+                    $query->where(function ($builder) use ($needle) {
+                        $builder->where('equipment_table.equipment_name', 'like', $needle)
+                            ->orWhere('equipment_table.equipment_asset_tag', 'like', $needle)
+                            ->orWhere('borrowing_records_table.borrowing_borrower_name', 'like', $needle)
+                            ->orWhere('borrowing_records_table.borrowing_borrower_department', 'like', $needle)
+                            ->orWhere('borrowing_records_table.borrowing_authorized_by', 'like', $needle)
+                            ->orWhere('borrowing_records_table.borrowing_purpose', 'like', $needle)
+                            ->orWhere('borrowing_records_table.borrowing_destination_location', 'like', $needle);
+                    });
+                }
+
+                if ($filter === 'Returned') {
+                    $query->orderByDesc('borrowing_records_table.borrowing_actual_return_date');
+                } else {
+                    $query->orderByRaw("FIELD(borrowing_records_table.borrowing_status, 'Overdue', 'Borrowed', 'Returned')")
+                        ->orderBy('borrowing_records_table.borrowing_expected_return_date');
+                }
+
+                $rows = $query->orderByDesc('borrowing_records_table.borrowing_created_at')->paginate(15)->withQueryString();
+            } catch (\Throwable $e) {
+                // keep empty pager
+            }
+        }
+
+        return view('admin.operations.borrowing', [
+            'filter' => $filter,
+            'q' => $q,
+            'rows' => $rows,
+            'counts' => $counts,
+        ]);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function buildAdminPipelineInner(int $risId, bool $withLogs = false): array
+    private function buildAdminPipeline(int $risId, bool $withLogs = false): array
     {
-        $chain = DocumentLineage::forRis($risId);
-        $stageOrder = ['ris', 'atp', 'rfc', 'rr', 'liq'];
-        $stages = [];
-        $paymentPath = null;
-        $funds = null;
-
-        foreach ($stageOrder as $key) {
-            $node = $chain[$key] ?? null;
-            if (! $node) {
-                $stages[$key] = [
-                    'exists' => false,
-                    'key' => $key,
-                    'type' => strtoupper($key),
-                    'id' => null,
-                    'label' => strtoupper($key),
-                    'hint' => null,
-                    'view_url' => null,
-                ];
-
-                continue;
-            }
-
-            $stages[$key] = [
-                'exists' => true,
-                'key' => $key,
-                'type' => $node['type'] ?? strtoupper($key),
-                'id' => $node['id'] ?? null,
-                'label' => $node['label'] ?? strtoupper($key),
-                'hint' => $node['hint'] ?? null,
-                'view_url' => AdminPortal::route('operations.document', [
-                    'type' => $key,
-                    'id' => $node['id'],
-                ]),
-            ];
-        }
-
-        if (! empty($stages['rfc']['id']) && Schema::hasTable('request_check_table')) {
-            $rfc = DB::table('request_check_table')->where('request_check_id', $stages['rfc']['id'])->first();
-            if ($rfc) {
-                if (! empty($rfc->request_check_funding_type)) {
-                    $paymentPath = $rfc->request_check_funding_type;
-                }
-                $released = ! empty($rfc->request_check_funds_released_at);
-                $funds = [
-                    'exists' => true,
-                    'label' => $released ? 'Funds released' : 'Funds pending',
-                    'status' => $released ? 'Released' : 'Pending',
-                    'released_at' => $rfc->request_check_funds_released_at ?? null,
-                ];
-            }
-        }
-
-        if (! $paymentPath && ! empty($stages['atp']['id']) && Schema::hasTable('authority_to_purchase_table')) {
-            $atp = DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_id', $stages['atp']['id'])
-                ->first();
-            $paymentPath = $atp->authority_purchase_payment_path ?? null;
-        }
-
-        $currentStage = 'ris';
-        foreach ($stageOrder as $key) {
-            if (! empty($stages[$key]['exists'])) {
-                $currentStage = $key;
-            }
-        }
-
-        $logs = [];
-        if ($withLogs && Schema::hasTable('approval_logs_table')) {
-            try {
-                $refIds = collect($stages)
-                    ->filter(fn ($s) => ! empty($s['exists']) && ! empty($s['id']))
-                    ->mapWithKeys(fn ($s) => [strtoupper($s['key']) => (int) $s['id']]);
-
-                $query = DB::table('approval_logs_table')
-                    ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by')
-                    ->select(
-                        'approval_logs_table.*',
-                        'users_table.user_full_name as actor_name'
-                    )
-                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                    ->limit(40);
-
-                $query->where(function ($builder) use ($refIds, $risId) {
-                    $builder->where(function ($q) use ($risId) {
-                        $q->where('approval_log_reference_type', 'RIS')
-                            ->where('approval_log_reference_id', $risId);
-                    });
-                    foreach ($refIds as $type => $id) {
-                        if ($type === 'RIS') {
-                            continue;
-                        }
-                        $aliases = match ($type) {
-                            'ATP' => ['ATP', 'authority_to_purchase'],
-                            'RFC' => ['RFC', 'request_check', 'Request for Check'],
-                            'RR' => ['RR', 'receiving_report', 'Receiving Report'],
-                            'LIQ' => ['LIQ', 'liquidation', 'Liquidation Report'],
-                            default => [$type],
-                        };
-                        $builder->orWhere(function ($q) use ($aliases, $id) {
-                            $q->whereIn('approval_log_reference_type', $aliases)
-                                ->where('approval_log_reference_id', $id);
-                        });
-                    }
-                });
-
-                $logs = $query->get()->map(function ($log) {
-                    return [
-                        'type' => $log->approval_log_reference_type,
-                        'status' => $log->approval_log_approval_status,
-                        'level' => $log->approval_log_level ?? null,
-                        'remarks' => $log->approval_log_approval_remarks,
-                        'actor' => $log->actor_name,
-                        'at' => $log->approval_log_approved_at,
-                    ];
-                })->values()->all();
-            } catch (\Throwable $e) {
-                $logs = [];
-            }
-        }
-
-        return [
-            'ris_id' => $risId,
-            'stages' => $stages,
-            'funds' => $funds,
-            'payment_path' => $paymentPath,
-            'payment_path_label' => ProcurementPaymentPath::label($paymentPath),
-            'current_stage' => $currentStage,
-            'current_hint' => $stages[$currentStage]['hint'] ?? null,
-            'logs' => $logs,
-        ];
+        return AdminPipeline::build($risId, $withLogs);
     }
 
     /**

@@ -82,8 +82,7 @@
             document.getElementById('signRisTableContainer');
 
         if (tableContainer) {
-            tableContainer.innerHTML =
-                '<div class="flex items-center justify-center px-5 py-16"><div class="flex items-center gap-3"><svg class="h-5 w-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-sm text-gray-500">Loading...</span></div></div>';
+            tableContainer.innerHTML = window.prismSkeleton('table', { rows: 6, label: 'Loading RIS to sign' });
         }
 
         // Fetch the updated content.
