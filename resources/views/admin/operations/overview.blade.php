@@ -30,7 +30,7 @@
         [
             'label' => 'Open RIS',
             'value' => $stats['open_ris'],
-            'meta' => '₱'.number_format((float) ($stats['open_ris_amount'] ?? 0), 0).' open · ₱'.number_format((float) ($stats['pending_admin_ris_amount'] ?? 0), 0).' pending review',
+            'meta' => '₱'.number_format((float) ($stats['open_ris_amount'] ?? 0), 2).' open · ₱'.number_format((float) ($stats['pending_admin_ris_amount'] ?? 0), 2).' pending review',
             'url' => route('admin.operations.procurement', ['filter' => 'open']),
         ],
     ];

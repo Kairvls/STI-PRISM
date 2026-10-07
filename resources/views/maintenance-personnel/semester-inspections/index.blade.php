@@ -38,30 +38,56 @@
 
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                <form method="GET" action="{{ $inspectionsUrl }}" class="flex flex-1 flex-col gap-3 sm:flex-row">
-                    <div class="relative flex-1">
+            @php
+                $selectClass = 'h-10 min-w-0 rounded-xl border-0 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10 lg:flex-1';
+            @endphp
+            {{-- Plain CSS so the admin grayscale theme doesn't mute the active-filter highlight. --}}
+            <style>
+                .si-filter-active {
+                    background: #eef2ff !important;
+                    color: #0025cc !important;
+                    font-weight: 600;
+                    box-shadow: inset 0 0 0 1.5px rgba(0, 37, 204, 0.55) !important;
+                }
+            </style>
+            <div class="border-b border-slate-100 p-4 sm:p-5">
+                <form method="GET" action="{{ $inspectionsUrl }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
+                    <div class="relative min-w-0 lg:flex-[1.6]">
                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                         <input
                             type="search"
                             name="search"
                             value="{{ $search ?? '' }}"
                             placeholder="Search title, year, semester"
-                            class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                            class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10 {{ filled($search ?? null) ? 'si-filter-active' : '' }}"
                         >
                     </div>
-                    <select
-                        name="status"
-                        class="h-10 rounded-xl border-0 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                        onchange="this.form.submit()"
-                    >
+                    <select name="status" class="{{ $selectClass }} {{ ($status ?? 'all') !== 'all' ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
                         <option value="all" @selected(($status ?? 'all') === 'all')>All statuses</option>
                         @foreach (['Active', 'In Progress', 'Draft', 'Completed', 'Cancelled'] as $opt)
                             <option value="{{ $opt }}" @selected(($status ?? '') === $opt)>{{ $opt }}</option>
                         @endforeach
                     </select>
-                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                        Filter
+                    <select name="year" class="{{ $selectClass }} {{ filled($academicYear ?? null) ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
+                        <option value="">All school years</option>
+                        @foreach (($academicYears ?? collect()) as $year)
+                            <option value="{{ $year }}" @selected(($academicYear ?? '') === $year)>{{ $year }}</option>
+                        @endforeach
+                    </select>
+                    <select name="semester" class="{{ $selectClass }} {{ filled($semester ?? null) ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
+                        <option value="">All semesters</option>
+                        @foreach (($semesters ?? collect()) as $sem)
+                            <option value="{{ $sem }}" @selected(($semester ?? '') === $sem)>{{ $sem }}</option>
+                        @endforeach
+                    </select>
+                    <select name="due" class="{{ $selectClass }} {{ filled($due ?? null) ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
+                        <option value="">Any due date</option>
+                        <option value="overdue" @selected(($due ?? '') === 'overdue')>Overdue</option>
+                        <option value="week" @selected(($due ?? '') === 'week')>Due within 7 days</option>
+                        <option value="later" @selected(($due ?? '') === 'later')>Due later</option>
+                    </select>
+                    <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                        Apply
                     </button>
                 </form>
             </div>

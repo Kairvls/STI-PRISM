@@ -17,6 +17,10 @@
         </a>
     </div>
 
+    @if(!empty($attentionFocus))
+        @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => count($alerts)])
+    @endif
+
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="divide-y divide-slate-100">
             @forelse ($alerts as $alert)

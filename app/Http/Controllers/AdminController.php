@@ -945,27 +945,6 @@ class AdminController extends Controller
             $urgentReportsList = collect();
         }
 
-        $recentApprovals = collect();
-        try {
-            if (Schema::hasTable('approval_logs_table')) {
-                $recentApprovals = DB::table('approval_logs_table')
-                    ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by')
-                    ->select(
-                        'approval_logs_table.approval_log_reference_type',
-                        'approval_logs_table.approval_log_reference_id',
-                        'approval_logs_table.approval_log_approval_status',
-                        'approval_logs_table.approval_log_approved_at',
-                        'approval_logs_table.approval_log_level',
-                        'users_table.user_full_name as actor_name'
-                    )
-                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                    ->limit(8)
-                    ->get();
-            }
-        } catch (\Throwable $e) {
-            $recentApprovals = collect();
-        }
-
         $attentionTotal = (int) $pendingRis + (int) $forCosigningCount + (int) $amendRis
             + (int) $overview['urgent_reports']
             + (int) $overview['overdue_schedules']
@@ -1137,7 +1116,6 @@ class AdminController extends Controller
             'movementBorrows',
             'movementDisposals',
             'urgentReportsList',
-            'recentApprovals',
             'attentionTotal',
             'lifecycleAlerts',
             'usefulLifeYears',
@@ -1179,6 +1157,7 @@ class AdminController extends Controller
     if ($focusMeta === null) {
         $focus = '';
     }
+    $recordRisId = max(0, (int) $request->query('ris', 0));
 
 
     // =====================================================
@@ -1292,7 +1271,9 @@ class AdminController extends Controller
     // STATUS FILTER
     // =====================================================
 
-    if ($focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW) {
+    if ($recordRisId > 0) {
+        $query->where('requisition_issue_slip_table.ris_id', $recordRisId);
+    } elseif ($focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW) {
         AdminAttentionSummary::scopePendingRis($query, 'requisition_issue_slip_table.');
     } elseif ($focus === AdminAttentionSummary::FOCUS_AMENDMENTS) {
         AdminAttentionSummary::scopeAmendRis($query, 'requisition_issue_slip_table.');
@@ -1305,7 +1286,7 @@ class AdminController extends Controller
     // SEARCH
     // =====================================================
 
-    if ($search !== '') {
+    if ($search !== '' && $recordRisId === 0) {
 
         $query->where(function ($searchQuery) use ($search) {
 
@@ -1365,12 +1346,16 @@ class AdminController extends Controller
             'filter' => $focus === '' ? $filter : null,
             'focus' => $focus !== '' ? $focus : null,
             'search' => $search,
+            'ris' => $recordRisId ?: null,
         ], fn ($value) => $value !== null && $value !== ''));
 
     $this->attachRisSupportingDocuments($risRecords);
 
     $attentionFocus = null;
-    if ($focusMeta !== null) {
+    if ($recordRisId > 0) {
+        $attentionFocus = \App\Support\RecordFocus::ris($recordRisId, AdminPortal::route('procurement-review'));
+        $filter = 'focus';
+    } elseif ($focusMeta !== null) {
         $attentionFocus = $focusMeta + [
             'key' => $focus,
             'clear_url' => AdminPortal::route('procurement-review', array_filter(['search' => $search])),
@@ -1586,8 +1571,15 @@ class AdminController extends Controller
     $allAmount = (clone $baseQuery)->sum('ris_items_sum.ris_calculated_total');
 
     $query = clone $baseQuery;
+    $recordRisId = max(0, (int) $request->query('ris', 0));
 
-    if ($filter === 'pending') {
+    if ($recordRisId > 0) {
+        if (!(clone $baseQuery)->where('requisition_issue_slip_table.ris_id', $recordRisId)->exists()) {
+            return redirect(AdminPortal::route('procurement-review', ['ris' => $recordRisId]));
+        }
+        $query->where('requisition_issue_slip_table.ris_id', $recordRisId);
+        $search = '';
+    } elseif ($filter === 'pending') {
         $query->where($pendingActionQuery);
     } elseif ($filter === 'for_decision') {
         $query->where($acceptedQuery);
@@ -1658,15 +1650,21 @@ class AdminController extends Controller
             'filter' => $filter,
             'focus' => $focus,
             'search' => $search,
+            'ris' => $recordRisId ?: '',
         ], fn ($value) => $value !== ''));
 
     $this->attachRisSupportingDocuments($signableRisRecords);
     $this->attachRisPresidentRemarks($signableRisRecords);
 
-    $attentionFocus = $focusMeta === null ? null : $focusMeta + [
-        'key' => $focus,
-        'clear_url' => AdminPortal::route('digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search])),
-    ];
+    if ($recordRisId > 0) {
+        $attentionFocus = \App\Support\RecordFocus::ris($recordRisId, AdminPortal::route('digital-signatures.sign-ris'));
+        $filter = 'focus';
+    } else {
+        $attentionFocus = $focusMeta === null ? null : $focusMeta + [
+            'key' => $focus,
+            'clear_url' => AdminPortal::route('digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search])),
+        ];
+    }
 
 
     // =====================================================

@@ -72,7 +72,7 @@
         @php
             $focusKey = $attentionFocus['key'] ?? null;
             // Leftover is a subset of the queue, so no card total matches it.
-            $activeCard = $focusKey === 'leftover' ? null : $filter;
+            $activeCard = $focusKey === 'leftover' || (int) request('rr') > 0 ? null : $filter;
         @endphp
         @if(!empty($dateFilter))
             <p class="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/80 px-3.5 py-2 text-xs font-medium text-blue-800">

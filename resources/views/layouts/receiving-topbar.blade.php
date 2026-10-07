@@ -176,7 +176,7 @@
                             };
                         @endphp
                         <a
-                            href="{{ $note->notification_url ?: url('/receiving/notifications') }}"
+                            href="{{ \App\Support\NotificationLinks::openUrl($note) }}"
                             class="flex items-start gap-2.5 border-b border-slate-100 px-4 py-2.5 transition hover:bg-slate-50"
                         >
                             <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $iconStyle }}">

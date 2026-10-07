@@ -167,9 +167,13 @@
                     $whereNow = ($pipeline['current_hint'] ?? null) ?: \App\Support\RisWorkflow::statusLabel($row);
                 @endphp
                 <li>
-                    <a
-                        href="{{ route('school-admin.operations.procurement', ['q' => $row->ris_form_number ?: $formNumber]) }}"
-                        class="grid gap-3 px-5 py-4 transition hover:bg-gray-50/70 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-center md:gap-6"
+                    <button
+                        type="button"
+                        data-ris-id="{{ (int) $row->ris_id }}"
+                        data-ris-label="{{ $row->ris_form_number ?: $formNumber }}"
+                        onclick="window.dispatchEvent(new CustomEvent('open-procurement-pipeline', { detail: { id: Number(this.dataset.risId), label: this.dataset.risLabel } }))"
+                        title="Show where this RIS is in the procurement process"
+                        class="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-gray-50/70 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-center md:gap-6"
                     >
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-gray-900">{{ $formNumber }}</p>
@@ -198,7 +202,7 @@
                                 Now at <span class="font-semibold text-gray-700">{{ $pipelineStageNames[$current] ?? strtoupper($current) }}</span>@if($whereNow) · {{ $whereNow }}@endif
                             </p>
                         </div>
-                    </a>
+                    </button>
                 </li>
             @empty
                 <li class="px-5 py-8 text-sm text-gray-400">No procurement in progress right now.</li>
@@ -222,9 +226,12 @@
                         $days = (int) $expected->diffInDays(now()->startOfDay());
                     @endphp
                     <li>
-                        <a href="{{ $overdueBorrowsUrl }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
+                        <a href="{{ route('school-admin.operations.borrowing', ['filter' => 'Overdue', 'record' => $row->borrowing_record_id]) }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
                             <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-900">{{ $row->equipment_name ?: 'Equipment' }}</p>
+                                <p class="text-sm font-semibold text-gray-900">
+                                    {{ $row->equipment_name ?: 'Equipment' }}
+                                    <span class="ml-1 text-xs font-normal text-gray-400">{{ $row->equipment_asset_tag ?: 'No asset tag' }}</span>
+                                </p>
                                 <p class="mt-0.5 text-xs text-gray-400">{{ ($row->borrowing_borrower_name ?: 'Unknown borrower').' · Due '.$expected->format('M j') }}</p>
                             </div>
                             <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $days }}d overdue</span>
@@ -248,9 +255,14 @@
                         $days = (int) $due->diffInDays(now()->startOfDay());
                     @endphp
                     <li>
-                        <a href="{{ route('school-admin.operations.schedules', ['filter' => 'overdue']) }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
+                        <a href="{{ route('school-admin.operations.schedules', ['filter' => 'overdue', 'record' => $row->maintenance_schedule_id]) }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
                             <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-900">{{ $row->equipment_name ?: ($row->maintenance_schedule_title ?: 'Schedule') }}</p>
+                                <p class="text-sm font-semibold text-gray-900">
+                                    {{ $row->equipment_name ?: ($row->maintenance_schedule_title ?: 'Schedule') }}
+                                    @if($row->equipment_name)
+                                        <span class="ml-1 text-xs font-normal text-gray-400">{{ $row->equipment_asset_tag ?: 'No asset tag' }}</span>
+                                    @endif
+                                </p>
                                 <p class="mt-0.5 text-xs text-gray-400">{{ ($row->room_name ?: 'No room').' · Due '.$due->format('M j') }}</p>
                             </div>
                             <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $days }}d overdue</span>
@@ -272,6 +284,8 @@
     'zIndex' => '11000',
     'footerView' => 'school-admin.partials.dashboard-ris-preview-footer',
 ])
+
+@include('admin.operations.partials.pipeline-drawer')
 
 <script>
 (function () {

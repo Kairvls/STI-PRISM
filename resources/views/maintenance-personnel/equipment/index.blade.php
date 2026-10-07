@@ -113,10 +113,20 @@
             @php
                 $obTotals = $openBalance['totals'] ?? [];
                 $obReports = $openBalance['reports'] ?? [];
+                $obFocusRrId = (int) request('rr');
+                if ($obFocusRrId > 0) {
+                    $obReports = array_values(array_filter($obReports, fn ($r) => (int) $r['receiving_report_id'] === $obFocusRrId));
+                }
                 $obOpen = collect($obReports)
-                    ->mapWithKeys(fn ($r) => [(string) $r['receiving_report_id'] => (int) ($r['totals']['pending_stock'] ?? 0) > 0])
+                    ->mapWithKeys(fn ($r) => [(string) $r['receiving_report_id'] => $obFocusRrId > 0 || (int) ($r['totals']['pending_stock'] ?? 0) > 0])
                     ->all();
             @endphp
+            @if ($obFocusRrId > 0)
+                @include('partials.attention-focus-chip', [
+                    'focus' => \App\Support\RecordFocus::receivingReport($obFocusRrId, url()->current()),
+                    'total' => count($obReports),
+                ])
+            @endif
             @if (!empty($obReports))
                 <div class="rounded-2xl border border-slate-200/80 bg-white">
                     <div class="flex flex-wrap items-end justify-between gap-3 px-5 py-4">

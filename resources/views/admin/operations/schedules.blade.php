@@ -17,12 +17,21 @@
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
 
     $statusClasses = [
-        'Overdue' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'Active' => 'border-blue-200 bg-blue-50 text-blue-700',
-        'Completed' => 'border-green-200 bg-green-50 text-green-700',
-        'Upcoming' => 'border-amber-200 bg-amber-50 text-amber-700',
+        'Overdue' => 'sched-status-overdue',
+        'Active' => 'sched-status-active',
+        'Completed' => 'sched-status-completed',
+        'Upcoming' => 'sched-status-upcoming',
     ];
 @endphp
+
+{{-- Plain CSS colors so the admin grayscale theme (which targets Tailwind color utilities) leaves status badges colored. --}}
+<style>
+    .sched-status { background: #f8fafc; color: #475569; }
+    .sched-status-overdue { background: #fff1f2; color: #be123c; }
+    .sched-status-active { background: #f0f9ff; color: #0369a1; }
+    .sched-status-completed { background: #ecfdf5; color: #047857; }
+    .sched-status-upcoming { background: #fffbeb; color: #b45309; }
+</style>
 
 <div class="admin-page space-y-6">
     <div class="pur-card">
@@ -66,19 +75,29 @@
                 @foreach($filters as $key => $label)
                     <a
                         href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $key, 'q' => $q]) }}"
-                        class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
+                        class="pur-filter-chip {{ $filter === $key && empty($recordId) ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
             </div>
+
+            @if(!empty($recordId))
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-2.5 text-xs text-gray-600">
+                    <span>Showing only the schedule you selected.</span>
+                    <a
+                        href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $filter]) }}"
+                        class="font-semibold text-[#0025cc] hover:underline"
+                    >Show all {{ strtolower($filters[$filter] ?? 'schedules') }} schedules</a>
+                </div>
+            @endif
         </div>
 
         <div class="overflow-x-auto">
             <table class="pur-table min-w-[900px]">
                 <thead>
                     <tr>
-                        <th>Schedule</th>
+                        <th>Schedule Title</th>
                         <th>Equipment</th>
-                        <th>Next date</th>
+                        <th>Next date for maintenance</th>
                         <th>Frequency</th>
                         <th>Status</th>
                     </tr>
@@ -89,7 +108,7 @@
                             $isOverdue = ($row->maintenance_schedule_status === 'Overdue')
                                 || ($row->maintenance_schedule_status === 'Active' && $row->maintenance_schedule_next_date && $row->maintenance_schedule_next_date < now()->toDateString());
                             $displayStatus = $isOverdue ? 'Overdue' : ($row->maintenance_schedule_status ?: '—');
-                            $badgeClass = $statusClasses[$displayStatus] ?? 'border-gray-200 bg-gray-50 text-gray-600';
+                            $badgeClass = $statusClasses[$displayStatus] ?? '';
                             $nextDate = $row->maintenance_schedule_next_date
                                 ? \Carbon\Carbon::parse($row->maintenance_schedule_next_date)->format('M j, Y')
                                 : '—';
@@ -102,17 +121,52 @@
                                 <p class="mt-0.5 text-xs text-gray-400">{{ \Illuminate\Support\Str::limit($row->maintenance_schedule_description, 80) }}</p>
                             </td>
                             <td>
-                                <p class="text-sm font-medium text-gray-700">{{ $row->equipment_name ?: '—' }}</p>
-                                @if($location !== '')
-                                    <p class="mt-0.5 text-xs text-gray-400">{{ $location }}</p>
-                                @endif
+                                <div class="flex items-center gap-3">
+                                    @if(!empty($row->equipment_qr_code))
+                                        <button
+                                            type="button"
+                                            class="shrink-0 rounded-md border border-gray-200 bg-white p-0.5 transition hover:border-gray-400"
+                                            title="Show QR code"
+                                            data-qr-code="{{ $row->equipment_qr_code }}"
+                                            data-qr-name="{{ $row->equipment_name }}"
+                                            data-qr-src="{{ url('/maintenance/equipment/qr-image/'.rawurlencode($row->equipment_qr_code)) }}"
+                                            onclick="window.openScheduleQr(this)"
+                                        >
+                                            <img
+                                                src="{{ url('/maintenance/equipment/qr-image/'.rawurlencode($row->equipment_qr_code)) }}"
+                                                alt="QR code for {{ $row->equipment_name }}"
+                                                loading="lazy"
+                                                class="h-10 w-10 object-contain"
+                                            >
+                                        </button>
+                                    @endif
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-gray-700">{{ $row->equipment_name ?: '—' }}</p>
+                                        @if($location !== '')
+                                            <p class="mt-0.5 text-xs text-gray-400">{{ $location }}</p>
+                                        @endif
+                                        @if(!empty($row->equipment_qr_code))
+                                            <button
+                                                type="button"
+                                                class="mt-0.5 font-mono text-[11px] text-[#0025cc] underline-offset-2 hover:underline"
+                                                title="Show QR code"
+                                                data-qr-code="{{ $row->equipment_qr_code }}"
+                                                data-qr-name="{{ $row->equipment_name }}"
+                                                data-qr-src="{{ url('/maintenance/equipment/qr-image/'.rawurlencode($row->equipment_qr_code)) }}"
+                                                onclick="window.openScheduleQr(this)"
+                                            >{{ $row->equipment_qr_code }}</button>
+                                        @elseif($row->equipment_name)
+                                            <p class="mt-0.5 font-mono text-[11px] text-gray-400">No QR code</p>
+                                        @endif
+                                    </div>
+                                </div>
                             </td>
                             <td class="whitespace-nowrap text-sm {{ $isOverdue ? 'font-semibold text-rose-700' : 'text-gray-700' }}">
                                 {{ $nextDate }}
                             </td>
                             <td class="text-sm text-gray-600">{{ $row->maintenance_schedule_frequency ?: '—' }}</td>
                             <td>
-                                <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $badgeClass }}">
+                                <span class="sched-status {{ $badgeClass }} inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium">
                                     {{ $displayStatus }}
                                 </span>
                             </td>
@@ -131,4 +185,61 @@
         @endif
     </div>
 </div>
+
+<div id="scheduleQrModal" class="fixed inset-0 z-[11000] hidden items-center justify-center bg-gray-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="scheduleQrTitle">
+    <div class="w-full max-w-xs overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="border-b border-gray-100 px-5 py-4">
+            <h3 id="scheduleQrTitle" class="truncate text-sm font-semibold text-gray-950" data-qr-field="name"></h3>
+            <p class="mt-0.5 text-xs text-gray-400">Equipment QR code</p>
+        </div>
+        <div class="flex flex-col items-center px-5 py-5">
+            <div class="rounded-xl border border-gray-200 bg-white p-3">
+                <img data-qr-field="image" alt="" class="h-48 w-48 object-contain">
+            </div>
+            <p class="mt-3 max-w-full break-all text-center font-mono text-xs font-semibold tracking-wide text-gray-700" data-qr-field="code"></p>
+        </div>
+        <div class="flex justify-end border-t border-gray-100 px-5 py-3">
+            <button type="button" class="px-3 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950" onclick="window.closeScheduleQr()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('scheduleQrModal');
+        if (!modal) return;
+
+        let lastTrigger = null;
+
+        window.openScheduleQr = function (button) {
+            const name = button.getAttribute('data-qr-name') || 'Equipment';
+            const image = modal.querySelector('[data-qr-field="image"]');
+            modal.querySelector('[data-qr-field="name"]').textContent = name;
+            modal.querySelector('[data-qr-field="code"]').textContent = button.getAttribute('data-qr-code') || '';
+            image.src = button.getAttribute('data-qr-src') || '';
+            image.alt = 'QR code for ' + name;
+
+            lastTrigger = button;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            modal.querySelector('button').focus();
+        };
+
+        window.closeScheduleQr = function () {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (lastTrigger) lastTrigger.focus();
+        };
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) window.closeScheduleQr();
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) window.closeScheduleQr();
+        });
+    })();
+</script>
 @endsection

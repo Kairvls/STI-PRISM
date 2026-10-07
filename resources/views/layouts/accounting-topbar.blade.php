@@ -225,7 +225,7 @@
                         <!-- ===================================== -->
 
                         <a
-                            href="/accounting/notifications"
+                            href="{{ \App\Support\NotificationLinks::openUrl($notification) }}"
 
                             class="flex w-full
                                 items-start

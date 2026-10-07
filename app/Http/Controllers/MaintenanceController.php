@@ -8731,6 +8731,25 @@ class MaintenanceController extends Controller
                 'rooms_table.room_name'
             );
 
+        $attentionFocus = null;
+        $recordId = max(0, (int) $request->query('record', 0));
+
+        if ($recordId > 0) {
+            $transferredEquipmentId = (int) DB::table('equipment_transfer_history_table')
+                ->where('transfer_id', $recordId)
+                ->value('equipment_id');
+            $query->where('equipment_table.equipment_id', $transferredEquipmentId);
+            foreach (['search', 'category', 'room', 'status'] as $filter) {
+                $request->query->remove($filter);
+            }
+            $equipmentName = trim((string) DB::table('equipment_table')->where('equipment_id', $transferredEquipmentId)->value('equipment_name'));
+            $attentionFocus = \App\Support\RecordFocus::make(
+                $equipmentName !== '' ? $equipmentName : 'Transfer #'.$recordId,
+                url('/maintenance/equipment/transfer'),
+                'transferred equipment'
+            );
+        }
+
 
         // =====================================================
         // SEARCH FILTER
@@ -9135,7 +9154,8 @@ class MaintenanceController extends Controller
                 'totalRooms',
                 'roomsInvolvedPercentage',
 
-                'transferMonthlyTrend'
+                'transferMonthlyTrend',
+                'attentionFocus'
             )
         );
     }
@@ -10023,9 +10043,24 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_name'
             );
 
-        $attentionFocus = $this->reminderFocus($request, 'borrowing', ['status']);
+        $recordId = max(0, (int) $request->query('record', 0));
+        $attentionFocus = null;
 
-        if ($attentionFocus) {
+        if ($recordId > 0) {
+            $record = (clone $query)->where('borrowing_records_table.borrowing_record_id', $recordId)->first();
+            $query->where('borrowing_records_table.borrowing_record_id', $recordId);
+            $request->query->remove('search');
+            $request->query->remove('status');
+            $attentionFocus = \App\Support\RecordFocus::make(
+                $record ? trim(($record->equipment_name ?: 'Equipment').' · '.($record->borrowing_borrower_name ?: 'Borrower')) : 'Borrowing #'.$recordId,
+                url('/maintenance/borrowing'),
+                'borrowing record'
+            );
+        } else {
+            $attentionFocus = $this->reminderFocus($request, 'borrowing', ['status']);
+        }
+
+        if ($attentionFocus && $recordId === 0) {
             MaintenanceAttentionSummary::scopeOverdueBorrowings($query);
         }
 
@@ -11277,10 +11312,25 @@ class MaintenanceController extends Controller
 
         $tableSchedulesQuery = clone $schedulesQuery;
 
-        $attentionFocus = $this->reminderFocus($request, 'schedules', ['status']);
+        $recordId = max(0, (int) $request->query('record', 0));
 
-        if ($attentionFocus) {
-            MaintenanceAttentionSummary::scopeOverdueSchedules($tableSchedulesQuery);
+        if ($recordId > 0) {
+            $record = (clone $schedulesQuery)->where('maintenance_schedules_table.maintenance_schedule_id', $recordId)->first();
+            $tableSchedulesQuery->where('maintenance_schedules_table.maintenance_schedule_id', $recordId);
+            foreach (['search', 'frequency', 'room', 'status'] as $filter) {
+                $request->query->remove($filter);
+            }
+            $attentionFocus = \App\Support\RecordFocus::make(
+                $record ? ($record->maintenance_schedule_title ?: $record->equipment_name ?: 'Schedule #'.$recordId) : 'Schedule #'.$recordId,
+                url('/maintenance/schedules'),
+                'schedule'
+            );
+        } else {
+            $attentionFocus = $this->reminderFocus($request, 'schedules', ['status']);
+
+            if ($attentionFocus) {
+                MaintenanceAttentionSummary::scopeOverdueSchedules($tableSchedulesQuery);
+            }
         }
 
 
@@ -15315,7 +15365,7 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $destination =
-            $notification->notification_url;
+            \App\Support\NotificationLinks::resolve($notification);
 
 
         // =====================================================

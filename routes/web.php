@@ -89,6 +89,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 
+    Route::get('/notifications/{id}/open', [\App\Http\Controllers\NotificationController::class, 'open'])
+        ->whereNumber('id')
+        ->name('notifications.open');
+
 });
 
 

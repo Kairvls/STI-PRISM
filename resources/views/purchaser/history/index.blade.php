@@ -95,13 +95,6 @@
     {{-- ===================================================== --}}
 
     @php
-        $compactPeso = function (float $amount): string {
-            return match (true) {
-                $amount >= 1_000_000 => '₱'.rtrim(rtrim(number_format($amount / 1_000_000, 1), '0'), '.').'M',
-                $amount >= 1_000 => '₱'.rtrim(rtrim(number_format($amount / 1_000, 1), '0'), '.').'K',
-                default => '₱'.number_format($amount),
-            };
-        };
         $deliveredPct = $summary['approved'] > 0 ? round(($summary['delivered'] / $summary['approved']) * 100) : 0;
         $statCards = [
             ['label' => 'Purchases', 'value' => number_format($summary['purchases']), 'icon' => 'shopping-cart', 'tint' => 'bg-blue-50 text-blue-700 ring-blue-100'],
@@ -141,7 +134,7 @@
                     @php $height = $month['amount'] > 0 ? max(8, round(($month['amount'] / $maxMonthly) * 100)) : 4; @endphp
                     <div class="flex flex-1 flex-col items-center gap-1.5" title="{{ $month['label'] }}: {{ $peso($month['amount']) }}">
                         <span class="h-4 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
-                            {{ $month['amount'] > 0 ? $compactPeso($month['amount']) : '' }}
+                            {{ $month['amount'] > 0 ? $peso($month['amount']) : '' }}
                         </span>
                         <div class="relative w-full max-w-[56px] flex-1">
                             <div class="absolute inset-x-0 bottom-0 rounded-md {{ $month['amount'] > 0 ? 'bg-[#0025cc]' : 'bg-slate-100' }}" style="height: {{ $height }}%"></div>

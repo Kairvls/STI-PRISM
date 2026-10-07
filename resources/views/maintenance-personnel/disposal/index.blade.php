@@ -1683,7 +1683,7 @@
                             '<i data-lucide="banknote" class="h-3.5 w-3.5"></i>' +
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Residual value</p>' +
-                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + (data.residual ? ("₱" + displayDisposalValue(data.residual)) : "—") + "</p>" +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + (data.residual && !isNaN(Number(data.residual)) ? ("₱" + Number(data.residual).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (data.residual ? ("₱" + displayDisposalValue(data.residual)) : "—")) + "</p>" +
                     "</div>" +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:col-span-2">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +

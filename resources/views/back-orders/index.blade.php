@@ -74,9 +74,6 @@
         'search' => request('search'),
     ]);
     $filterUrl = fn (array $changes) => route($routePrefix.'.index', array_filter(array_merge($query, $changes)));
-    $pill = fn (bool $active) => $active
-        ? 'border-[#0025cc] bg-[#0025cc] text-white'
-        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
 @endphp
 
 <script type="application/json" id="bo-data">{!! json_encode($boData) !!}</script>
@@ -159,44 +156,50 @@
     ])
 
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        @php
+            $boSelectClass = 'h-9 min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-gray-300 lg:w-44';
+        @endphp
+        {{-- Plain CSS so the admin grayscale theme doesn't mute the active-filter highlight. --}}
+        <style>
+            .bo-filter-active {
+                background: #eef2ff !important;
+                border-color: rgba(0, 37, 204, 0.55) !important;
+                color: #0025cc !important;
+                font-weight: 600;
+            }
+        </style>
         <div class="space-y-3 border-b border-gray-100 px-5 py-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <nav class="flex flex-wrap gap-1.5" aria-label="Back order status">
-                    @foreach($filters as $key => $label)
-                        <a href="{{ $filterUrl(['status' => $key]) }}" class="rounded-lg px-3 py-1.5 text-sm font-medium transition {{ $filter === $key ? 'bg-[#0025cc] text-white' : 'text-gray-600 hover:bg-gray-100' }}">{{ $label }}</a>
-                    @endforeach
-                </nav>
-                <form method="GET" action="{{ route($routePrefix.'.index') }}" class="flex items-center gap-2">
-                    @foreach(array_diff_key($query, ['search' => true]) as $name => $value)
-                        <input type="hidden" name="{{ $name }}" value="{{ $value }}">
-                    @endforeach
-                    <div class="relative">
+            <nav class="flex flex-wrap gap-1.5" aria-label="Back order status">
+                @foreach($filters as $key => $label)
+                    <a href="{{ $filterUrl(['status' => $key]) }}" class="rounded-lg px-3 py-1.5 text-sm font-medium transition {{ $filter === $key ? 'bg-[#0025cc] text-white' : 'text-gray-600 hover:bg-gray-100' }}">{{ $label }}</a>
+                @endforeach
+            </nav>
+            <form method="GET" action="{{ route($routePrefix.'.index') }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
+                @foreach(array_intersect_key($query, ['status' => true, 'rr' => true, 'payment' => true]) as $name => $value)
+                    <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                @endforeach
+                <div class="flex min-w-0 items-center gap-2 lg:flex-1">
+                    <div class="relative min-w-0 flex-1">
                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-                        <input type="search" name="search" value="{{ request('search') }}" placeholder="BO no., article, supplier, RR no." class="h-9 w-64 rounded-lg border border-gray-300 pl-9 pr-3 text-sm">
+                        <input type="search" name="search" value="{{ request('search') }}" placeholder="BO no., article, supplier, RR no." class="h-9 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm {{ filled(request('search')) ? 'bo-filter-active' : '' }}">
                     </div>
-                </form>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="font-medium text-gray-500">Type</span>
-                    <a href="{{ $filterUrl(['type' => null]) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill(!$typeFilter) }}">All</a>
+                    <button type="submit" class="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">Search</button>
+                </div>
+                <select name="type" aria-label="Type" class="{{ $boSelectClass }} {{ $typeFilter ? 'bo-filter-active' : '' }}" onchange="this.form.submit()">
+                    <option value="">All types</option>
                     @foreach(BackOrders::TYPES as $value => $label)
-                        <a href="{{ $filterUrl(['type' => $value]) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($typeFilter === $value) }}">{{ $label }}</a>
+                        <option value="{{ $value }}" @selected($typeFilter === $value)>{{ $label }}</option>
                     @endforeach
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="font-medium text-gray-500">Supplier</span>
-                    <a href="{{ $filterUrl(['supplier' => null]) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill(!$supplierFilter) }}">All</a>
-                    <a href="{{ $filterUrl(['supplier' => 'original']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($supplierFilter === 'original') }}">Original supplier</a>
-                    <a href="{{ $filterUrl(['supplier' => 'new']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($supplierFilter === 'new') }}">New supplier</a>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="font-medium text-gray-500">Payment</span>
-                    <a href="{{ $filterUrl(['payment' => null]) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill(!$paymentFilter) }}">All</a>
-                    <a href="{{ $filterUrl(['payment' => 'rfc']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($paymentFilter === 'rfc') }}">Request for Check</a>
-                    <a href="{{ $filterUrl(['payment' => 'ca']) }}" class="rounded-full border px-2.5 py-1 font-medium {{ $pill($paymentFilter === 'ca') }}">Cash Advance</a>
-                </div>
-            </div>
+                </select>
+                <select name="supplier" aria-label="Supplier" class="{{ $boSelectClass }} {{ $supplierFilter ? 'bo-filter-active' : '' }}" onchange="this.form.submit()">
+                    <option value="">All suppliers</option>
+                    <option value="original" @selected($supplierFilter === 'original')>Original supplier</option>
+                    <option value="new" @selected($supplierFilter === 'new')>New supplier</option>
+                </select>
+                @if($typeFilter || $supplierFilter || filled(request('search')))
+                    <a href="{{ route($routePrefix.'.index', array_filter(['status' => $filter, 'rr' => $rootRrId, 'payment' => $paymentFilter])) }}" class="inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900">Clear</a>
+                @endif
+            </form>
         </div>
 
         @if($rootRrId)

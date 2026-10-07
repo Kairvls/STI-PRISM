@@ -89,6 +89,12 @@
             </div>
 
 
+            @if(!empty($attentionFocus))
+                <div class="px-5 pt-4">
+                    @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $equipment->total()])
+                </div>
+            @endif
+
             {{-- ===================================================== --}}
             {{-- SEARCH AND FILTER BAR --}}
             {{-- ADD BETWEEN HEADER AND TABLE --}}

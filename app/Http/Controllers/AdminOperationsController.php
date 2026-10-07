@@ -531,6 +531,7 @@ class AdminOperationsController extends Controller
     {
         $filter = (string) $request->query('filter', 'all');
         $q = trim((string) $request->query('q', ''));
+        $recordId = max(0, (int) $request->query('record', 0));
         $rows = $this->emptyPager($request);
 
         if (Schema::hasTable('maintenance_schedules_table')) {
@@ -545,12 +546,15 @@ class AdminOperationsController extends Controller
                 ->select(
                     'maintenance_schedules_table.*',
                     'equipment_table.equipment_name',
+                    'equipment_table.equipment_qr_code',
                     'equipment_table.equipment_placement_zone',
                     'equipment_table.equipment_current_location',
                     'rooms_table.room_name'
                 );
 
-            if ($filter === 'overdue') {
+            if ($recordId > 0) {
+                $query->where('maintenance_schedules_table.maintenance_schedule_id', $recordId);
+            } elseif ($filter === 'overdue') {
                 $query->where(function ($builder) {
                     $builder->where('maintenance_schedule_status', 'Overdue')
                         ->orWhere(function ($q2) {
@@ -568,7 +572,7 @@ class AdminOperationsController extends Controller
                 $query->where('maintenance_schedule_status', 'Completed');
             }
 
-            if ($q !== '') {
+            if ($q !== '' && $recordId === 0) {
                 $needle = '%'.$q.'%';
                 $query->where(function ($builder) use ($needle) {
                     $builder->where('maintenance_schedules_table.maintenance_schedule_title', 'like', $needle)
@@ -585,7 +589,7 @@ class AdminOperationsController extends Controller
                 ->withQueryString();
         }
 
-        return view('admin.operations.schedules', compact('rows', 'filter', 'q'));
+        return view('admin.operations.schedules', compact('rows', 'filter', 'q', 'recordId'));
     }
 
     public function reports(Request $request): View
@@ -945,6 +949,7 @@ class AdminOperationsController extends Controller
         }
 
         $q = trim((string) $request->query('q', ''));
+        $recordId = max(0, (int) $request->query('record', 0));
         $rows = $this->emptyPager($request);
         $counts = [
             'active' => 0,
@@ -977,15 +982,19 @@ class AdminOperationsController extends Controller
                     ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
                     ->select('borrowing_records_table.*', 'equipment_table.equipment_name', 'equipment_table.equipment_asset_tag');
 
-                match ($filter) {
-                    'active' => $query->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue']),
-                    'Overdue', 'Returned' => $query->where('borrowing_records_table.borrowing_status', $filter),
-                    'due_week' => $query->where('borrowing_records_table.borrowing_status', 'Borrowed')
-                        ->whereBetween('borrowing_records_table.borrowing_expected_return_date', [today()->toDateString(), today()->addDays(7)->toDateString()]),
-                    default => null,
-                };
+                if ($recordId > 0) {
+                    $query->where('borrowing_records_table.borrowing_record_id', $recordId);
+                } else {
+                    match ($filter) {
+                        'active' => $query->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue']),
+                        'Overdue', 'Returned' => $query->where('borrowing_records_table.borrowing_status', $filter),
+                        'due_week' => $query->where('borrowing_records_table.borrowing_status', 'Borrowed')
+                            ->whereBetween('borrowing_records_table.borrowing_expected_return_date', [today()->toDateString(), today()->addDays(7)->toDateString()]),
+                        default => null,
+                    };
+                }
 
-                if ($q !== '') {
+                if ($q !== '' && $recordId === 0) {
                     $needle = '%'.$q.'%';
                     $query->where(function ($builder) use ($needle) {
                         $builder->where('equipment_table.equipment_name', 'like', $needle)
@@ -1014,6 +1023,7 @@ class AdminOperationsController extends Controller
         return view('admin.operations.borrowing', [
             'filter' => $filter,
             'q' => $q,
+            'recordId' => $recordId,
             'rows' => $rows,
             'counts' => $counts,
         ]);

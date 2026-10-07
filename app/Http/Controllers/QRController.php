@@ -96,6 +96,23 @@ class QRController extends Controller
 
         );
 
+        $attentionFocus = null;
+        $recordRrId = max(0, (int) $request->query('rr', 0));
+
+        if ($recordRrId > 0) {
+            $rrItems = DB::table('receiving_report_items_table')->where('receiving_report_id', $recordRrId);
+            $query->where(function ($q) use ($rrItems) {
+                $q->whereIn('equipment_table.equipment_id', (clone $rrItems)->whereNotNull('receiving_report_item_equipment_id')->select('receiving_report_item_equipment_id'));
+                if (\Illuminate\Support\Facades\Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id')) {
+                    $q->orWhereIn('equipment_table.equipment_receiving_report_item_id', (clone $rrItems)->select('receiving_report_item_id'));
+                }
+            });
+            foreach (['search', 'category', 'room', 'qr_status'] as $filter) {
+                $request->query->remove($filter);
+            }
+            $attentionFocus = \App\Support\RecordFocus::receivingReport($recordRrId, url('/maintenance/equipment/qr-tools'));
+        }
+
 
         // =====================================================
         // SEARCH FILTER
@@ -335,7 +352,8 @@ class QRController extends Controller
                 'notGeneratedQrCodes',
                 'generatedQrPercentage',
                 'notGeneratedQrPercentage',
-                'totalQrScans'
+                'totalQrScans',
+                'attentionFocus'
             )
         );
     }

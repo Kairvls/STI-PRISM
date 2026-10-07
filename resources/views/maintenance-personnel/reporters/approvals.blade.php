@@ -47,6 +47,20 @@
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <nav class="flex gap-1 border-b border-slate-200 px-5 pt-3" aria-label="Application status">
+            @foreach (['pending' => 'Waiting', 'approved' => 'Approved', 'rejected' => 'Declined'] as $tabStatus => $tabLabel)
+                <a
+                    href="{{ url('/maintenance/reporters/approvals?status='.$tabStatus) }}"
+                    class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 pb-2.5 text-sm font-medium transition {{ $status === $tabStatus ? 'border-[#0025cc] text-[#0025cc]' : 'border-transparent text-slate-500 hover:text-slate-900' }}"
+                    @if ($status === $tabStatus) aria-current="page" @endif
+                >
+                    {{ $tabLabel }}
+                    @if ($tabStatus === 'pending' && $pendingCount > 0)
+                        <span class="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">{{ $pendingCount }}</span>
+                    @endif
+                </a>
+            @endforeach
+        </nav>
         <div
             class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
         >

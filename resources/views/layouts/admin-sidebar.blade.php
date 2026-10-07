@@ -32,7 +32,7 @@
         {{-- SEARCH --}}
         {{-- ====================================== --}}
 
-        <div class="sidebar-search">
+        <!--<div class="sidebar-search">
 
             <div class="sidebar-dropdown">
 
@@ -66,10 +66,6 @@
                         User Management
                     </div>
 
-                    <div class="dropdown-item" data-target="reports-section">
-                        Reports
-                    </div>
-
                     <div class="dropdown-item" data-target="settings-section">
                         System
                     </div>
@@ -78,7 +74,7 @@
 
             </div>
 
-        </div>
+        </div>-->
 
         {{-- ====================================== --}}
         {{-- DASHBOARD --}}
@@ -152,6 +148,34 @@
             ];
             $monitoringActive = collect($monitoringLinks)->contains('active', true);
 
+            $reportsSectionActive = request()->is('admin/reports*');
+            $reportLinks = [
+                [
+                    'url' => url('/admin/reports/maintenance-history'),
+                    'label' => 'Maintenance',
+                    'icon' => 'wrench',
+                    'active' => request()->is('admin/reports/maintenance-history*'),
+                ],
+                [
+                    'url' => url('/admin/reports/receiving'),
+                    'label' => 'Receiving',
+                    'icon' => 'package-check',
+                    'active' => request()->is('admin/reports/receiving*'),
+                ],
+                [
+                    'url' => url('/admin/reports/approval-logs'),
+                    'label' => 'Approvals',
+                    'icon' => 'stamp',
+                    'active' => request()->is('admin/reports/approval-logs*', 'admin/reports/audit-logs*'),
+                ],
+                [
+                    'url' => url('/admin/reports/user-login-logs'),
+                    'label' => 'User access',
+                    'icon' => 'shield',
+                    'active' => request()->is('admin/reports/user-login-logs*'),
+                ],
+            ];
+
             $boGroupActive = request()->is('admin/operations/back-orders*');
             $activeBoPayment = $boGroupActive ? request('payment') : null;
             $boLinks = [
@@ -175,7 +199,7 @@
                 aria-expanded="{{ $monitoringActive ? 'true' : 'false' }}"
             >
                 <i data-lucide="radar"></i>
-                <span>Monitoring</span>
+                <span>Equipment Monitoring</span>
                 <i data-lucide="chevron-down" class="menu-group-chevron"></i>
             </button>
             <div class="menu-sub" @if(! $monitoringActive) hidden @endif>
@@ -183,6 +207,30 @@
                     <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
                         <i data-lucide="{{ $link['icon'] }}"></i>
                         <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        <div class="menu-group {{ $reportsSectionActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $reportsSectionActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $reportsSectionActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="file-text"></i>
+                <span>System Reports</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $reportsSectionActive) hidden @endif>
+                @foreach($reportLinks as $reportLink)
+                    <a
+                        href="{{ $reportLink['url'] }}"
+                        class="menu-sub-item {{ $reportLink['active'] ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $reportLink['icon'] }}"></i>
+                        <span>{{ $reportLink['label'] }}</span>
                     </a>
                 @endforeach
             </div>
@@ -203,7 +251,7 @@
             class="menu-item {{ request()->is('admin/operations/procurement*', 'admin/operations/documents*') ? 'active' : '' }}"
         >
             <i data-lucide="git-branch"></i>
-            <span>Procurement Monitor</span>
+            <span>Monitor Procurement</span>
         </a>
 
         <div class="menu-group {{ $boGroupActive ? 'is-open' : '' }}" data-menu-group>
@@ -258,70 +306,6 @@
             <span>Users</span>
 
         </a>
-
-        {{-- ====================================== --}}
-        {{-- REPORTS --}}
-        {{-- ====================================== --}}
-
-        @php
-            $reportsSectionActive = request()->is('admin/reports*');
-            $reportLinks = [
-                [
-                    'url' => url('/admin/reports/maintenance-history'),
-                    'label' => 'Maintenance',
-                    'icon' => 'wrench',
-                    'active' => request()->is('admin/reports/maintenance-history*'),
-                ],
-                [
-                    'url' => url('/admin/reports/receiving'),
-                    'label' => 'Receiving',
-                    'icon' => 'package-check',
-                    'active' => request()->is('admin/reports/receiving*'),
-                ],
-                [
-                    'url' => url('/admin/reports/approval-logs'),
-                    'label' => 'Approvals',
-                    'icon' => 'stamp',
-                    'active' => request()->is('admin/reports/approval-logs*', 'admin/reports/audit-logs*'),
-                ],
-                [
-                    'url' => url('/admin/reports/user-login-logs'),
-                    'label' => 'User access',
-                    'icon' => 'shield',
-                    'active' => request()->is('admin/reports/user-login-logs*'),
-                ],
-            ];
-        @endphp
-
-        <div class="menu-title" id="reports-section">
-
-            REPORTS
-
-        </div>
-
-        <div class="menu-group {{ $reportsSectionActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $reportsSectionActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $reportsSectionActive ? 'true' : 'false' }}"
-            >
-                <i data-lucide="file-text"></i>
-                <span>System Reports</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-            </button>
-            <div class="menu-sub" @if(! $reportsSectionActive) hidden @endif>
-                @foreach($reportLinks as $reportLink)
-                    <a
-                        href="{{ $reportLink['url'] }}"
-                        class="menu-sub-item {{ $reportLink['active'] ? 'active' : '' }}"
-                    >
-                        <i data-lucide="{{ $reportLink['icon'] }}"></i>
-                        <span>{{ $reportLink['label'] }}</span>
-                    </a>
-                @endforeach
-            </div>
-        </div>
 
         {{-- ====================================== --}}
         {{-- SYSTEM --}}

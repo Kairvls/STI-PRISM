@@ -351,7 +351,7 @@
                 </div>
                 <div class="px-1">
                     <dt class="text-[11px] text-slate-400">Value on hold</dt>
-                    <dd class="mt-0.5 truncate text-lg font-semibold tabular-nums text-slate-900" title="{{ $peso($snap['value']) }}">{{ $snap['value'] >= 100000 ? '₱'.number_format($snap['value'] / 1000, 1).'k' : '₱'.number_format($snap['value']) }}</dd>
+                    <dd class="mt-0.5 truncate text-lg font-semibold tabular-nums text-slate-900" title="{{ $peso($snap['value']) }}">{{ $peso($snap['value']) }}</dd>
                 </div>
                 <div>
                     <dt class="text-[11px] text-slate-400">Oldest open</dt>

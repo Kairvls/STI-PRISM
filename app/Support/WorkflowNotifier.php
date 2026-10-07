@@ -94,6 +94,13 @@ class WorkflowNotifier
         });
     }
 
+    public static function roleNameForId(int $roleId): ?string
+    {
+        $name = array_search($roleId, self::ROLE_IDS, true);
+
+        return $name === false ? null : $name;
+    }
+
     public static function userIdsForRole(string $role): array
     {
         $roleId = self::ROLE_IDS[$role] ?? null;

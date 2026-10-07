@@ -588,7 +588,11 @@
                     'flex h-10 w-full items-center px-3.5 text-left text-sm transition hover:bg-slate-50 ' +
                     (option.disabled ? 'cursor-not-allowed text-slate-300 ' : '') +
                     (option.value === select.value && !option.disabled ? 'font-medium text-slate-900' : 'text-slate-600');
-                item.textContent = option.text;
+                const label = document.createElement('span');
+                label.className = 'min-w-0 flex-1 truncate';
+                label.textContent = option.text;
+                item.appendChild(label);
+                item.title = option.text.trim();
                 item.disabled = option.disabled;
                 item.addEventListener('mousedown', function (event) {
                     event.preventDefault();

@@ -220,9 +220,11 @@ class SchoolAdminController extends Controller
                 $overdueBorrows = $this->overdueBorrowsQuery()
                     ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
                     ->select(
+                        'borrowing_records_table.borrowing_record_id',
                         'borrowing_records_table.borrowing_borrower_name',
                         'borrowing_records_table.borrowing_expected_return_date',
-                        'equipment_table.equipment_name'
+                        'equipment_table.equipment_name',
+                        'equipment_table.equipment_asset_tag'
                     )
                     ->orderBy('borrowing_records_table.borrowing_expected_return_date')
                     ->limit(4)
@@ -244,6 +246,7 @@ class SchoolAdminController extends Controller
                         'maintenance_schedules_table.maintenance_schedule_title',
                         'maintenance_schedules_table.maintenance_schedule_next_date',
                         'equipment_table.equipment_name',
+                        'equipment_table.equipment_asset_tag',
                         'rooms_table.room_name'
                     )
                     ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')

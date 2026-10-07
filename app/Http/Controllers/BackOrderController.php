@@ -17,12 +17,12 @@ use Illuminate\Validation\Rule;
 class BackOrderController extends Controller
 {
     private const FILTERS = [
+        'all' => 'All',
         'unresolved' => 'Needs action',
         'waiting_restock' => 'Waiting for restock',
         'refunded' => 'Refunded',
         'receiving' => 'For second count',
         'resolved' => 'Delivered',
-        'all' => 'All',
     ];
 
     /** RR statuses where a replacement row can be added to the same RR. */

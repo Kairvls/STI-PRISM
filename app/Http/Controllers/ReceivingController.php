@@ -97,15 +97,22 @@ class ReceivingController extends Controller
             ]);
         }
 
+        $recordRrId = max(0, (int) $request->query('rr', 0));
         $query = $this->receivingReviewQuery();
         $this->applyRrActiveScope($query);
-        if ($focusKey !== '') {
+        if ($recordRrId > 0) {
+            $query->where('receiving_reports_table.receiving_report_id', $recordRrId);
+            $focusKey = '';
+            $focusOption = null;
+        } elseif ($focusKey !== '') {
             ReceivingAttentionSummary::applyFocus($query, $focusKey);
         } else {
             $this->applyRrStatusFilter($query, $filter);
             $this->applyRrDateFilter($query, $request);
         }
-        $this->applyRrSearch($query, $request);
+        if ($recordRrId === 0) {
+            $this->applyRrSearch($query, $request);
+        }
 
         $sortColumn = 'receiving_reports_table.receiving_report_id';
         foreach (['receiving_report_submitted_at', 'receiving_report_created_at', 'receiving_report_date'] as $column) {
@@ -155,6 +162,9 @@ class ReceivingController extends Controller
             'clear_url' => route('receiving.rr.index', ['status' => $filter]),
             'scope' => $focusOption['scope'],
         ] : null;
+        if ($recordRrId > 0) {
+            $attentionFocus = \App\Support\RecordFocus::receivingReport($recordRrId, route('receiving.rr.index'));
+        }
 
         return view('receiving-officer.receiving-reports.index', compact(
             'reports',

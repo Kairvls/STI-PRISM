@@ -2,9 +2,9 @@
     $awaitingNotifyRis = $awaitingNotifyRis ?? collect();
     $hasRows = $awaitingNotifyRis->isNotEmpty() || $pendingRis->count() > 0;
     $attentionFocus = $attentionFocus ?? null;
-    $attentionFocusTotal = ($attentionFocus['key'] ?? null) === \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY
+    $attentionFocusTotal = $attentionFocus['total'] ?? (($attentionFocus['key'] ?? null) === \App\Support\PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY
         ? $awaitingNotifyRis->count()
-        : $pendingRis->total();
+        : $pendingRis->total());
 @endphp
 
 @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $attentionFocusTotal])

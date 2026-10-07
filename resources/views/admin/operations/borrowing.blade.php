@@ -18,13 +18,21 @@
     ];
 
     $statusClasses = [
-        'Overdue' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'Borrowed' => 'border-amber-200 bg-amber-50 text-amber-800',
-        'Returned' => 'border-green-200 bg-green-50 text-green-700',
+        'Overdue' => 'borrow-status-overdue',
+        'Borrowed' => 'borrow-status-borrowed',
+        'Returned' => 'borrow-status-returned',
     ];
 
     $formatDate = fn ($value) => $value ? \Carbon\Carbon::parse($value)->format('M j, Y') : null;
 @endphp
+
+{{-- Plain CSS colors so the admin grayscale theme (which targets Tailwind color utilities) leaves status badges colored. --}}
+<style>
+    .borrow-status { background: #f8fafc; color: #475569; }
+    .borrow-status-overdue { background: #fff1f2; color: #be123c; }
+    .borrow-status-borrowed { background: #fffbeb; color: #b45309; }
+    .borrow-status-returned { background: #ecfdf5; color: #047857; }
+</style>
 
 <div class="admin-page space-y-6">
     @include('layouts.partials.maintenance-stat-cards', [
@@ -101,10 +109,20 @@
                 @foreach($filterLabels as $key => $label)
                     <a
                         href="{{ \App\Support\AdminPortal::route('operations.borrowing', ['filter' => $key, 'q' => $q !== '' ? $q : null]) }}"
-                        class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
+                        class="pur-filter-chip {{ $filter === $key && ! $recordId ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
             </div>
+
+            @if($recordId)
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-2.5 text-xs text-gray-600">
+                    <span>Showing only the borrow you selected.</span>
+                    <a
+                        href="{{ \App\Support\AdminPortal::route('operations.borrowing', ['filter' => $filter]) }}"
+                        class="font-semibold text-[#0025cc] hover:underline"
+                    >Show all {{ strtolower($filterLabels[$filter] ?? 'borrows') }}</a>
+                </div>
+            @endif
         </div>
 
         <div class="overflow-x-auto">
@@ -123,7 +141,7 @@
                     @forelse($rows as $row)
                         @php
                             $status = $row->borrowing_status ?: 'Borrowed';
-                            $badgeClass = $statusClasses[$status] ?? 'border-gray-200 bg-gray-50 text-gray-600';
+                            $badgeClass = $statusClasses[$status] ?? '';
                             $due = $row->borrowing_expected_return_date
                                 ? \Carbon\Carbon::parse($row->borrowing_expected_return_date)->startOfDay()
                                 : null;
@@ -187,7 +205,7 @@
                             </td>
                             <td class="text-sm text-gray-600">{{ $row->borrowing_authorized_by ?: '—' }}</td>
                             <td>
-                                <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $badgeClass }}">
+                                <span class="borrow-status {{ $badgeClass }} inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium">
                                     {{ $status }}
                                 </span>
                             </td>
@@ -216,7 +234,7 @@
                 <h3 id="borrowDetailTitle" class="truncate text-base font-semibold text-gray-950" data-field="equipment"></h3>
                 <p class="mt-0.5 text-xs text-gray-400" data-field="assetTag"></p>
             </div>
-            <span class="inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium" data-field="status"></span>
+            <span class="borrow-status inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-medium" data-field="status"></span>
         </div>
 
         <dl class="grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-5 text-sm">
@@ -276,7 +294,7 @@
         const modal = document.getElementById('borrowDetailModal');
         if (!modal) return;
 
-        const badgeBase = 'inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium';
+        const badgeBase = 'borrow-status inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-medium';
         let lastTrigger = null;
 
         window.openBorrowDetail = function (row) {
@@ -297,7 +315,7 @@
             });
 
             const badge = modal.querySelector('[data-field="status"]');
-            badge.className = badgeBase + ' ' + (data.statusClass || 'border-gray-200 bg-gray-50 text-gray-600');
+            badge.className = badgeBase + ' ' + (data.statusClass || '');
 
             lastTrigger = row;
             modal.classList.remove('hidden');

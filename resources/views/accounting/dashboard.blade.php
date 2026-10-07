@@ -454,13 +454,6 @@
             return '₱' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        function compactPeso(value) {
-            const n = Number(value);
-            if (n >= 1000000) return '₱' + (n / 1000000).toFixed(1) + 'M';
-            if (n >= 1000) return '₱' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
-            return '₱' + n;
-        }
-
         function barColors() {
             const now = new Date();
             const current = year === now.getFullYear() ? now.getMonth() : -1;
@@ -512,7 +505,7 @@
                             beginAtZero: true,
                             border: { display: false },
                             grid: { color: '#f1f5f9' },
-                            ticks: { color: '#94a3b8', font: { size: 11 }, callback: compactPeso, maxTicksLimit: 5 },
+                            ticks: { color: '#94a3b8', font: { size: 11 }, callback: peso, maxTicksLimit: 5 },
                         },
                     },
                 },

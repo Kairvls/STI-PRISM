@@ -67,7 +67,13 @@ class ReplacementRequestController extends Controller
                 'requisition_issue_slip_table.ris_status'
             );
 
-        if (!$archiveView) {
+        $recordId = max(0, (int) $request->query('record', 0));
+
+        if ($recordId > 0) {
+            $query->where('procurement_requests_table.procurement_request_id', $recordId);
+            $request->query->remove('search');
+            $request->query->remove('status');
+        } elseif (!$archiveView) {
             $query->where('procurement_requests_table.procurement_request_is_archived', false);
         } else {
             $query->where('procurement_requests_table.procurement_request_is_archived', true);
@@ -120,10 +126,16 @@ class ReplacementRequestController extends Controller
             });
         }
 
-        $attentionFocus = $archiveView
+        $attentionFocus = $archiveView || $recordId > 0
             ? null
             : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_REPLACEMENT_PENDING);
-        if ($attentionFocus) {
+        if ($recordId > 0) {
+            $attentionFocus = \App\Support\RecordFocus::make(
+                \App\Support\ReplacementRequestCode::code((clone $query)->first() ?: $recordId),
+                url('/purchaser/procurement/replacement-requests'),
+                'replacement request'
+            );
+        } elseif ($attentionFocus) {
             PurchaserAttentionSummary::scopeReplacementPending($query);
         } elseif ($request->filled('status')) {
             $query->where('procurement_requests_table.procurement_request_status', $request->status);

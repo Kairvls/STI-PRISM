@@ -34,6 +34,12 @@
             </div>
         </div>
 
+        @if(!empty($attentionFocus))
+            <div class="mt-4">
+                @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $records->total()])
+            </div>
+        @endif
+
         <div class="mt-4 overflow-x-auto">
             <table id="directApprovalTable" class="min-w-full">
                 <thead>

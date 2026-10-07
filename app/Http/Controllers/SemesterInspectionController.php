@@ -25,6 +25,15 @@ class SemesterInspectionController extends Controller
 
         $status = $request->get('status', 'all');
         $search = trim((string) $request->get('search', ''));
+        $academicYear = trim((string) $request->get('year', ''));
+        $semester = trim((string) $request->get('semester', ''));
+        $due = (string) $request->get('due', '');
+        if (! in_array($due, ['overdue', 'week', 'later'], true)) {
+            $due = '';
+        }
+
+        $today = today()->toDateString();
+        $soon = now()->addDays(7)->toDateString();
 
         $query = DB::table('semester_inspection_campaigns_table')
             ->leftJoin(
@@ -64,6 +73,39 @@ class SemesterInspectionController extends Controller
             });
         }
 
+        if ($academicYear !== '') {
+            $query->where('campaign_academic_year', $academicYear);
+        }
+
+        if ($semester !== '') {
+            $query->where('campaign_semester', $semester);
+        }
+
+        if ($due === 'overdue') {
+            $query->whereIn('campaign_status', ['Active', 'In Progress'])
+                ->whereDate('campaign_due_date', '<', $today);
+        } elseif ($due === 'week') {
+            $query->whereIn('campaign_status', ['Active', 'In Progress'])
+                ->whereDate('campaign_due_date', '>=', $today)
+                ->whereDate('campaign_due_date', '<=', $soon);
+        } elseif ($due === 'later') {
+            $query->whereDate('campaign_due_date', '>', $soon);
+        }
+
+        $academicYears = DB::table('semester_inspection_campaigns_table')
+            ->whereNotNull('campaign_academic_year')
+            ->where('campaign_academic_year', '!=', '')
+            ->distinct()
+            ->orderByDesc('campaign_academic_year')
+            ->pluck('campaign_academic_year');
+
+        $semesters = DB::table('semester_inspection_campaigns_table')
+            ->whereNotNull('campaign_semester')
+            ->where('campaign_semester', '!=', '')
+            ->distinct()
+            ->orderBy('campaign_semester')
+            ->pluck('campaign_semester');
+
         $campaigns = $query->paginate(12)->withQueryString();
 
         $campaigns->getCollection()->transform(function ($campaign) {
@@ -72,9 +114,6 @@ class SemesterInspectionController extends Controller
 
             return $campaign;
         });
-
-        $today = today()->toDateString();
-        $soon = now()->addDays(7)->toDateString();
 
         $stats = [
             'active' => (int) DB::table('semester_inspection_campaigns_table')
@@ -100,6 +139,11 @@ class SemesterInspectionController extends Controller
             'tablesMissing' => false,
             'status' => $status,
             'search' => $search,
+            'academicYear' => $academicYear,
+            'semester' => $semester,
+            'due' => $due,
+            'academicYears' => $academicYears,
+            'semesters' => $semesters,
         ]);
     }
 
@@ -684,10 +728,23 @@ class SemesterInspectionController extends Controller
     public function replacementSuggestions(Request $request)
     {
         $alerts = EquipmentLifecycle::agingAlerts(100);
+        $attentionFocus = null;
+
+        $equipmentId = max(0, (int) $request->query('equipment', 0));
+        if ($equipmentId > 0) {
+            $alerts = collect($alerts)->filter(fn ($alert) => (int) data_get($alert, 'equipment_id') === $equipmentId)->values();
+            $equipmentName = trim((string) DB::table('equipment_table')->where('equipment_id', $equipmentId)->value('equipment_name'));
+            $attentionFocus = \App\Support\RecordFocus::make(
+                $equipmentName !== '' ? $equipmentName : 'Equipment #'.$equipmentId,
+                $request->url(),
+                'equipment'
+            );
+        }
 
         return view('maintenance-personnel.semester-inspections.replacements', [
             'alerts' => $alerts,
             'defaultYears' => EquipmentLifecycle::DEFAULT_USEFUL_LIFE_YEARS,
+            'attentionFocus' => $attentionFocus,
         ]);
     }
 

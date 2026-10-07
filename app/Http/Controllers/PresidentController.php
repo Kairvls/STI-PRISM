@@ -262,8 +262,10 @@ class PresidentController extends Controller
         // Daily reminder focus: show only the rows counted by that reminder item.
         $focus = (string) $request->query('focus', '');
         $focusMeta = PresidentAttentionSummary::focusMeta($focus);
-        if ($focusMeta === null) {
+        $recordRisId = max(0, (int) $request->query('ris', 0));
+        if ($focusMeta === null || $recordRisId > 0) {
             $focus = '';
+            $focusMeta = null;
         }
 
         $query = DB::table('requisition_issue_slip_table as ris')
@@ -277,10 +279,14 @@ class PresidentController extends Controller
             $query->whereRaw('1 = 0');
         }
 
+        if ($recordRisId > 0) {
+            $query->where('ris.ris_id', $recordRisId);
+        }
+
         // ================================
         // Search filter
         // ================================
-        $search = $request->filled('search') ? (string) $request->search : '';
+        $search = $request->filled('search') && $recordRisId === 0 ? (string) $request->search : '';
         $applySearch = function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
@@ -354,7 +360,9 @@ class PresidentController extends Controller
 
         PresidentAttentionSummary::scopeAwaitingNotify($awaitingQuery, 'ris.');
 
-        if ($focus === PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL) {
+        if ($recordRisId > 0) {
+            $awaitingQuery->where('ris.ris_id', $recordRisId);
+        } elseif ($focus === PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL) {
             $awaitingQuery->whereRaw('1 = 0');
         } elseif ($focus === PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY && $search !== '') {
             $applySearch($awaitingQuery);
@@ -395,6 +403,7 @@ class PresidentController extends Controller
             ])
             ->whereNotNull('ris.ris_requested_by_date')
             ->where('ris.ris_status', '!=', 'Directly Approved')
+            ->when($recordRisId > 0, fn ($q) => $q->where('ris.ris_id', $recordRisId))
             ->groupBy(
                 'ris.ris_id',
                 'ris.ris_form_number',
@@ -447,10 +456,18 @@ class PresidentController extends Controller
             })
         );
 
-        $attentionFocus = $focusMeta === null ? null : $focusMeta + [
-            'key' => $focus,
-            'clear_url' => route('president.approvals', array_filter(['search' => $search])),
-        ];
+        $attentionFocus = $recordRisId > 0
+            ? \App\Support\RecordFocus::ris($recordRisId, route('president.approvals'))
+            : ($focusMeta === null ? null : $focusMeta + [
+                'key' => $focus,
+                'clear_url' => route('president.approvals', array_filter(['search' => $search])),
+            ]);
+        if ($recordRisId > 0) {
+            $attentionFocus['total'] = $pendingRis->total() + $awaitingNotifyRis->count() + $recentRis->total();
+            if ($pendingRis->total() + $awaitingNotifyRis->count() === 0 && $recentRis->total() > 0) {
+                $attentionFocus['description'] = 'This RIS is already decided. It is listed under Recent decisions.';
+            }
+        }
 
         // ================================
         // AJAX response: return JSON with rendered partial
@@ -667,7 +684,10 @@ class PresidentController extends Controller
             ->where('ris.ris_status', RisWorkflow::DIRECTLY_APPROVED)
             ->groupBy($groupBy);
 
-        if ($request->filled('search')) {
+        $recordRisId = max(0, (int) $request->query('ris', 0));
+        if ($recordRisId > 0) {
+            $query->where('ris.ris_id', $recordRisId);
+        } elseif ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search, $hasReason, $hasApprovedBy) {
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
@@ -712,6 +732,9 @@ class PresidentController extends Controller
 
         return view('president.direct-approvals.index', [
             'records' => $records,
+            'attentionFocus' => $recordRisId > 0
+                ? \App\Support\RecordFocus::ris($recordRisId, route('president.direct-approvals'))
+                : null,
         ]);
     }
 
@@ -1557,7 +1580,7 @@ class PresidentController extends Controller
             ]);
         }
 
-        $destination = $notification->notification_url;
+        $destination = \App\Support\NotificationLinks::resolve($notification);
         if (!$destination || !str_starts_with($destination, '/president/')) {
             return redirect('/president/notifications');
         }

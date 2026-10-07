@@ -22,7 +22,7 @@
     overflow-x: hidden;
 
     /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
+    padding: 8px 20px 20px 20px;
 }
     
 
@@ -178,6 +178,10 @@
     padding-left: 0;
 
     transition: all 0.3s ease;
+}
+
+.sidebar-content > .menu-title:first-child {
+    margin-top: 0;
 }
 
     

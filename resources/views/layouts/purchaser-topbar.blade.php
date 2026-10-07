@@ -200,7 +200,7 @@
                         @endphp
 
                         <a
-                            href="{{ $note->notification_url ?: url('/purchaser/notifications') }}"
+                            href="{{ \App\Support\NotificationLinks::openUrl($note) }}"
                             class="flex w-full
                                 items-start
                                 gap-2.5
