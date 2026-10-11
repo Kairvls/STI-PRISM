@@ -167,7 +167,7 @@
                         </span>
                     </div>
                     <div class="flex items-center justify-between gap-4 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Stocked / received</span>
+                        <span class="text-sm text-slate-500">Added / received</span>
                         <span class="inline-flex items-center gap-1.5 text-right text-sm font-medium text-slate-800">
                             <i data-lucide="calendar-clock" class="h-3.5 w-3.5 text-slate-400"></i>
                             <span id="eqAssetModal_acquired_date">—</span>

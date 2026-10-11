@@ -5,7 +5,7 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">Inventory Update</h1>
-        <p class="admin-page-subtitle">Stock created when a receiving report is delivered.</p>
+        <p class="admin-page-subtitle">Equipment added to inventory when a receiving report is delivered.</p>
     </div>
 
     @include('layouts.partials.receiving-query-error')

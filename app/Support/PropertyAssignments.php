@@ -676,7 +676,7 @@ class PropertyAssignments
         $isIndividual = ($equipment->equipment_tracking_mode ?? null) === 'Individual'
             || (int) ($equipment->equipment_quantity ?? 0) === 1;
         if (! $isIndividual) {
-            return 'Only individually tracked items (quantity of 1) can be assigned to a person. Bulk stock stays assigned to the room.';
+            return 'Only individually tracked items (quantity of 1) can be assigned to a person. Bulk items stay assigned to the room.';
         }
 
         if (($equipment->equipment_inventory_status ?? null) === 'Disposed'

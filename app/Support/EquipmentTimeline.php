@@ -596,7 +596,7 @@ class EquipmentTimeline
                 'acquisition',
                 $equipment['acquired_date'] ?: $equipment['created_at'],
                 'Added to inventory',
-                $stockParts ? implode(' · ', $stockParts) : 'Stocked into campus inventory.',
+                $stockParts ? implode(' · ', $stockParts) : 'Added to campus inventory.',
                 [
                     'stocked_by' => $equipment['stocked_by_name'],
                     'tracking_mode' => $equipment['tracking_mode'],

@@ -3,12 +3,14 @@
 namespace App\Support;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 /**
  * How an equipment record entered campus stock, for records that did not come
- * through a Receiving Report line (donations, legacy items, direct purchases).
+ * through a Receiving Report line (donations, old inventory, Head Office transfers).
  * RR-linked records derive supplier / PO / RR from the document chain instead.
  */
 class EquipmentAcquisition
@@ -16,11 +18,9 @@ class EquipmentAcquisition
     public const PROCUREMENT = 'procurement';
 
     public const SOURCES = [
-        'direct_purchase' => 'Direct purchase (outside RIS / PO)',
         'donation' => 'Donation',
-        'legacy' => 'Legacy (existed before PaAyo)',
-        'transfer' => 'Transfer from another branch / office',
-        'found' => 'Found / unrecorded',
+        'legacy' => 'Already owned before PaAyo (old inventory)',
+        'transfer' => 'Transfer from Head Office',
     ];
 
     public const OTHER_SUPPLIER = 'other';
@@ -84,6 +84,73 @@ class EquipmentAcquisition
             ->filter(fn ($row) => filled($row->supplier_name))
             ->sortBy(fn ($row) => mb_strtolower($row->supplier_name))
             ->values();
+    }
+
+    /**
+     * Adds a physical-store supplier by name from Maintenance intake, or returns
+     * the active supplier that already has that name.
+     *
+     * @return object{supplier_id: int, supplier_name: string, existing: bool}
+     */
+    public static function quickAddSupplier(string $name): object
+    {
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+        if ($name === '') {
+            throw ValidationException::withMessages(['name' => 'Type the supplier name first.']);
+        }
+
+        $existing = self::supplierOptions()
+            ->first(fn ($row) => mb_strtolower($row->supplier_name) === mb_strtolower($name));
+        if ($existing) {
+            return (object) ['supplier_id' => (int) $existing->supplier_id, 'supplier_name' => $existing->supplier_name, 'existing' => true];
+        }
+
+        $inactive = Schema::hasTable('physical_suppliers_table')
+            && DB::table('physical_suppliers_table')->whereRaw('LOWER(company_name) = ?', [mb_strtolower($name)])->exists();
+        $inactive = $inactive || (Schema::hasTable('online_suppliers_table')
+            && DB::table('online_suppliers_table')->whereRaw('LOWER(shop_name) = ?', [mb_strtolower($name)])->exists());
+        if ($inactive) {
+            throw ValidationException::withMessages(['name' => $name.' is already in the supplier list but is inactive or blacklisted. Ask the Purchaser to reactivate it.']);
+        }
+
+        $createdAt = now();
+        $payload = [
+            'supplier_store_type' => 'Physical Store',
+            'supplier_is_active' => 1,
+            'supplier_created_at' => $createdAt,
+        ];
+        if (Schema::hasColumn('suppliers_table', 'supplier_is_blacklisted')) {
+            $payload['supplier_is_blacklisted'] = 0;
+        }
+        if (Schema::hasColumn('suppliers_table', 'supplier_code')) {
+            $base = SupplierCode::generate('Physical Store', $name, $createdAt);
+            $code = $base;
+            for ($n = 2; DB::table('suppliers_table')->where('supplier_code', $code)->exists(); $n++) {
+                $code = $base.'-'.str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+            }
+            $payload['supplier_code'] = $code;
+        }
+
+        $supplierId = DB::transaction(function () use ($payload, $name) {
+            $supplierId = (int) DB::table('suppliers_table')->insertGetId($payload);
+            DB::table('physical_suppliers_table')->insert([
+                'supplier_id' => $supplierId,
+                'company_name' => $name,
+            ]);
+            if (Schema::hasTable('supplier_notes_table')) {
+                DB::table('supplier_notes_table')->insert([
+                    'supplier_id' => $supplierId,
+                    'supplier_note_user_id' => Auth::id(),
+                    'supplier_note_type' => 'note',
+                    'supplier_note_body' => 'Added by Maintenance while recording equipment intake. Contact details still need to be filled in.',
+                    'created_at' => now(),
+                ]);
+            }
+
+            return $supplierId;
+        });
+
+        return (object) ['supplier_id' => $supplierId, 'supplier_name' => $name, 'existing' => false];
     }
 
     /**

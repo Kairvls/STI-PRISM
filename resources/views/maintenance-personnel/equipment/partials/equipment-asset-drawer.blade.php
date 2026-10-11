@@ -109,7 +109,7 @@
             if (!el) return;
 
             const isStorage = roomType === @json(\App\Support\RoomCategories::STORAGE_TYPE);
-            el.textContent = isStorage ? 'Stock' : 'Deployed';
+            el.textContent = isStorage ? 'In storage' : 'Deployed';
             el.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium';
             el.classList.add(
                 ...(isStorage

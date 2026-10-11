@@ -50,8 +50,8 @@ class ReceivableStockLines
             $line->remaining_qty = $remaining;
             $line->is_selectable = $remaining > 0;
             $line->status_label = $remaining <= 0
-                ? 'Fully stocked'
-                : ($stocked > 0 ? 'Partial · '.$remaining.' left' : 'Ready to stock');
+                ? 'In inventory'
+                : ($stocked > 0 ? 'Partial · '.$remaining.' left' : 'Ready to add');
 
             $labelParts = array_filter([
                 $line->rr_number,

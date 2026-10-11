@@ -68,7 +68,7 @@
                 request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
                 request()->is('maintenance/equipment/deployed*') => ['Deployed Equipment', 'Equipment currently placed in classrooms, labs and offices.'],
                 request()->is('maintenance/equipment/all*') => ['All Equipment', 'Full equipment register (storage + deployed).'],
-                request()->is('maintenance/equipment/inventory*') => ['Equipment in Stock', 'Equipment still in storage rooms.'],
+                request()->is('maintenance/equipment/inventory*') => ['Inventory', 'Equipment still in storage rooms.'],
                 request()->is('maintenance/equipment/view/*') => [View::yieldContent('title', 'Equipment'), 'Equipment details and history.'],
                 request()->is('maintenance/disposal*') => ['Disposed Equipment', 'Equipment marked for disposal or already disposed.'],
                 request()->is('maintenance/semester-inspections') => ['Semester Inspections', 'Monitor campus-wide equipment checks.'],

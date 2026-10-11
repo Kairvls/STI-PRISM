@@ -1,6 +1,6 @@
 @extends('layouts.maintenance-layout')
 
-@section('title', 'Deployed Stocks')
+@section('title', 'Deployed Equipment')
 
 @section('content')
 @php
@@ -28,8 +28,8 @@
     {{-- Summary cards --}}
     @include('layouts.partials.maintenance-stat-cards', [
         'cards' => [
-            ['label' => 'Rooms with stock', 'hint' => 'Rooms currently holding deployed units', 'value' => number_format($roomsWithStock)],
-            ['label' => 'Total deployed qty', 'hint' => 'Combined quantity across stock groups', 'value' => number_format($totalDeployedQty)],
+            ['label' => 'Rooms with equipment', 'hint' => 'Rooms currently holding deployed units', 'value' => number_format($roomsWithStock)],
+            ['label' => 'Total deployed qty', 'hint' => 'Combined quantity across equipment groups', 'value' => number_format($totalDeployedQty)],
             ['label' => 'On floor', 'hint' => 'Excluding holding / storage staging', 'value' => number_format($onFloorQty)],
         ],
     ])
@@ -40,12 +40,12 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Deployed stock groups</h2>
+                        <h2 class="text-base font-semibold text-gray-950">Deployed equipment</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
                             {{ number_format($groupCount) }}
                         </span>
                     </div>
-                    <p class="mt-1 text-sm text-gray-500">Equipment assigned to classrooms and labs, grouped by stock type.</p>
+                    <p class="mt-1 text-sm text-gray-500">Equipment assigned to classrooms and labs, grouped by equipment type.</p>
                 </div>
 
                 <form
@@ -61,7 +61,7 @@
                             type="search"
                             name="search"
                             value="{{ $filters['search'] }}"
-                            placeholder="Search stocks..."
+                            placeholder="Search equipment..."
                             class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-56"
                         >
                     </div>
@@ -99,7 +99,7 @@
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Room / stock</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Room / equipment</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Brand / model</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Category</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Qty</th>
@@ -223,7 +223,7 @@
                     @empty
                         <tr>
                             <td colspan="8" class="px-5 py-16 text-center">
-                                <p class="text-sm font-semibold text-gray-900">No deployed stocks match your filters</p>
+                                <p class="text-sm font-semibold text-gray-900">No deployed equipment matches your filters</p>
                                 <p class="mt-1 text-sm text-gray-500">Try another room, category, or clear the search.</p>
                                 @if ($hasFilters)
                                     <a

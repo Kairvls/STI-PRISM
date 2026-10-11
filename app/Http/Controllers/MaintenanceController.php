@@ -30,6 +30,7 @@ use App\Support\PropertyAssignments;
 use App\Support\ReceivableStockLines;
 use App\Support\ReceivableStockImporter;
 use App\Support\SemesterInspections;
+use App\Support\StockMovementHistory;
 use App\Models\RoomActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -5301,6 +5302,9 @@ class MaintenanceController extends Controller
             ]
             : null;
 
+        $movementHistory = $isStockPage ? StockMovementHistory::paginate($request) : null;
+        $movementCounts = $isStockPage ? StockMovementHistory::counts() : null;
+
         /*
         |--------------------------------------------------------------------------
         | RETURN VIEW
@@ -5321,6 +5325,8 @@ class MaintenanceController extends Controller
                 'pendingReceivableCount',
                 'openBalance',
                 'monitoring',
+                'movementHistory',
+                'movementCounts',
                 'scope',
                 'isStockPage',
                 'defaultStorageRoomId',
@@ -7688,7 +7694,7 @@ class MaintenanceController extends Controller
         );
 
         if (! empty($result['errors']) && (int) $result['stocked_lines'] === 0) {
-            $message = $result['errors'][0] ?? 'Unable to stock pending RR lines.';
+            $message = $result['errors'][0] ?? 'Unable to add the pending RR lines to inventory.';
             if ($request->expectsJson()) {
                 return response()->json(['ok' => false, 'message' => $message, 'result' => $result], 422);
             }
@@ -7697,16 +7703,16 @@ class MaintenanceController extends Controller
                 ->with('error', $message);
         }
 
-        $message = 'Stocked '.$result['stocked_lines'].' RR line'
+        $message = 'Added '.$result['stocked_lines'].' RR line'
             .($result['stocked_lines'] === 1 ? '' : 's')
-            .' ('.$result['stocked_qty'].' qty) into inventory.';
+            .' ('.$result['stocked_qty'].' qty) to inventory.';
         if (! empty($result['skipped'])) {
             $message .= ' Skipped '.count($result['skipped']).'.';
         }
 
         if (! empty($result['created_ids'])) {
             $this->logActivity(
-                'Stocked from RR',
+                'Added to inventory from RR',
                 'Equipment',
                 'equipment_table',
                 (int) $result['created_ids'][0],
@@ -7808,6 +7814,7 @@ class MaintenanceController extends Controller
             'items.*.equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
 
             'deploy_room_id' => 'nullable|integer|min:1',
+            'items.*.deploy_room_id' => 'nullable|integer|min:0',
 
             'custodian_id' => 'nullable|integer|min:1',
 
@@ -7844,23 +7851,28 @@ class MaintenanceController extends Controller
             } else {
                 if ($rrItemId < 1) {
                     return back()
-                        ->withErrors(['receiving_report_item_id' => 'Select a received RR line as the basis for this stock.'])
+                        ->withErrors(['receiving_report_item_id' => 'Select a received RR line as the basis for this equipment.'])
                         ->withInput();
                 }
 
                 $rrLine = ReceivableStockLines::findPendingItem($rrItemId);
                 if (! $rrLine) {
                     return back()
-                        ->withErrors(['receiving_report_item_id' => 'That RR line is unavailable or already stocked.'])
+                        ->withErrors(['receiving_report_item_id' => 'That RR line is unavailable or already in inventory.'])
                         ->withInput();
                 }
 
                 if ($quantity > (int) $rrLine->quantity) {
                     return back()
                         ->withErrors([
-                            'equipment_quantity' => 'Quantity cannot exceed the remaining qty to stock ('.$rrLine->quantity.') on '.$rrLine->rr_number.'.',
+                            'equipment_quantity' => 'Quantity cannot exceed the quantity still available to add ('.$rrLine->quantity.') on '.$rrLine->rr_number.'.',
                         ])
                         ->withInput();
+                }
+
+                $validated['equipment_condition_status'] = 'Good';
+                foreach ($items as $index => $item) {
+                    $items[$index]['equipment_condition_status'] = 'Good';
                 }
 
                 $supplierId = $rrLine->supplier_id ? (int) $rrLine->supplier_id : null;
@@ -7903,7 +7915,7 @@ class MaintenanceController extends Controller
             } else {
                 return back()
                     ->withErrors([
-                        'equipment_room_id' => 'Select a room, or create a Storage / Stockroom first.',
+                        'equipment_room_id' => 'Select a room, or create a storage room first.',
                     ])
                     ->withInput();
             }
@@ -7923,7 +7935,7 @@ class MaintenanceController extends Controller
             } else {
                 return back()
                     ->withErrors([
-                        'equipment_room_id' => 'Add stock to a Storage / Stockroom room only. Create one first, or use Transfers to deploy later.',
+                        'equipment_room_id' => 'New equipment goes into a storage room first. Create one, or use Transfers to deploy it later.',
                     ])
                     ->withInput();
             }
@@ -7997,6 +8009,11 @@ class MaintenanceController extends Controller
             }
         }
 
+        $itemRooms = collect();
+        if ($deployRoom && $trackingMode === 'Individual' && count($items) > 0) {
+            $itemRooms = \App\Support\RrLineIntake::deployRooms(array_column($items, 'deploy_room_id'));
+        }
+
         $custodianId = (int) ($validated['custodian_id'] ?? 0);
         if ($custodianId > 0) {
             if (! $deployRoom) {
@@ -8012,6 +8029,8 @@ class MaintenanceController extends Controller
         }
 
         $createdIds = [];
+        $createdRooms = [];
+        $deployedRoomNames = [];
 
         // Shared photo applies to Bulk / single Individual units only.
         // Multi Individual units use optional per-row images on step 2.
@@ -8041,8 +8060,11 @@ class MaintenanceController extends Controller
             $supplierId,
             $acquisitionColumns,
             $deployRoom,
+            $itemRooms,
             $custodianId,
-            &$createdIds
+            &$createdIds,
+            &$createdRooms,
+            &$deployedRoomNames
         ) {
 
             $borrowable = $request->has('equipment_is_borrowable');
@@ -8162,6 +8184,7 @@ class MaintenanceController extends Controller
 
                     EquipmentQrCodes::assignIfEligible((int) $equipmentId);
                     $createdIds[] = (int) $equipmentId;
+                    $createdRooms[(int) $equipmentId] = $itemRooms->get((int) ($item['deploy_room_id'] ?? 0)) ?? $deployRoom;
                 }
             }
 
@@ -8202,21 +8225,26 @@ class MaintenanceController extends Controller
                 }
             }
 
-            if ($deployRoom && ! empty($createdIds) && Schema::hasTable('equipment_transfer_history_table')) {
+            if ($deployRoom && ! empty($createdIds)) {
                 $storageRoomId = (int) $validated['equipment_room_id'];
+                $hasTransferHistory = Schema::hasTable('equipment_transfer_history_table');
                 foreach ($createdIds as $newId) {
-                    DB::table('equipment_transfer_history_table')->insert([
-                        'equipment_id' => $newId,
-                        'from_room_id' => $storageRoomId ?: null,
-                        'to_room_id' => (int) $deployRoom->room_id,
-                        'transferred_by' => Auth::id(),
-                        'remarks' => 'Deployed on intake',
-                        'created_at' => now(),
-                    ]);
+                    $toRoom = $createdRooms[$newId] ?? $deployRoom;
+                    if ($hasTransferHistory) {
+                        DB::table('equipment_transfer_history_table')->insert([
+                            'equipment_id' => $newId,
+                            'from_room_id' => $storageRoomId ?: null,
+                            'to_room_id' => (int) $toRoom->room_id,
+                            'transferred_by' => Auth::id(),
+                            'remarks' => 'Deployed on intake',
+                            'created_at' => now(),
+                        ]);
+                    }
+                    DB::table('equipment_table')
+                        ->where('equipment_id', $newId)
+                        ->update(['equipment_room_id' => (int) $toRoom->room_id]);
+                    $deployedRoomNames[] = (string) $toRoom->room_name;
                 }
-                DB::table('equipment_table')
-                    ->whereIn('equipment_id', $createdIds)
-                    ->update(['equipment_room_id' => (int) $deployRoom->room_id]);
             }
 
             if ($custodianId > 0 && ! empty($createdIds)) {
@@ -8237,9 +8265,7 @@ class MaintenanceController extends Controller
             } elseif (filled($acquisitionColumns['equipment_acquisition_source'] ?? null)) {
                 $basisNote = ' Source: '.EquipmentAcquisition::sourceLabel($acquisitionColumns['equipment_acquisition_source']).'.';
             }
-            if ($deployRoom) {
-                $basisNote .= ' Deployed to '.$deployRoom->room_name.'.';
-            }
+            $basisNote .= \App\Support\RrLineIntake::deployNote($deployedRoomNames);
 
             $this->logActivity(
                 'Added equipment',
@@ -8267,9 +8293,7 @@ class MaintenanceController extends Controller
         $message = $count > 1
             ? "{$count} equipment records added successfully."
             : 'Equipment added successfully.';
-        if ($deployRoom) {
-            $message .= ' Deployed to '.$deployRoom->room_name.'.';
-        }
+        $message .= \App\Support\RrLineIntake::deployNote($deployedRoomNames);
         if ($custodianId > 0) {
             $message .= ' Issued to the accountable person.';
         }
@@ -8282,7 +8306,7 @@ class MaintenanceController extends Controller
     public function storeEquipmentBatch(Request $request)
     {
         $data = EquipmentBatchIntake::validate($request->all());
-        $result = EquipmentBatchIntake::store($data);
+        $result = EquipmentBatchIntake::store($data, fn ($file) => $this->storeUploadedEquipmentImage($file));
 
         $roomSummary = collect($result['rooms'])
             ->map(fn ($qty, $room) => $room.' ('.$qty.')')
@@ -8310,6 +8334,51 @@ class MaintenanceController extends Controller
             'message' => $message,
             'redirect' => url('/maintenance/equipment/inventory'),
             'result' => $result,
+        ]);
+    }
+
+    public function quickAddSupplier(Request $request)
+    {
+        $request->validate(['name' => 'required|string|max:255'], [], ['name' => 'supplier name']);
+        $supplier = \App\Support\EquipmentAcquisition::quickAddSupplier((string) $request->input('name'));
+
+        if (! $supplier->existing) {
+            $this->logActivity(
+                'Added supplier',
+                'Supplier',
+                'suppliers_table',
+                $supplier->supplier_id,
+                'Added supplier '.$supplier->supplier_name.' from equipment intake.'
+            );
+        }
+
+        return response()->json([
+            'id' => (string) $supplier->supplier_id,
+            'name' => $supplier->supplier_name,
+            'existing' => $supplier->existing,
+        ]);
+    }
+
+    public function storeEquipmentFromRrLines(Request $request)
+    {
+        $data = \App\Support\RrLineIntake::validate($request->all());
+        $result = \App\Support\RrLineIntake::store($data, fn ($file) => $this->storeUploadedEquipmentImage($file));
+
+        $message = $result['created'].' equipment record'.($result['created'] === 1 ? '' : 's')
+            .' added to inventory from '.$result['lines'].' RR line'.($result['lines'] === 1 ? '' : 's').'.'
+            .\App\Support\RrLineIntake::deployNote($result['deploy_rooms']);
+        if ($result['assigned'] > 0) {
+            $message .= ' '.$result['assigned'].' issued under '.implode(', ', $result['documents']).'.';
+        }
+
+        $this->logActivity('Added equipment', 'Equipment', 'equipment_table', $result['last_id'], $message);
+
+        session()->flash('success', $message);
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'redirect' => url('/maintenance/equipment/inventory'),
         ]);
     }
 
@@ -9466,7 +9535,7 @@ class MaintenanceController extends Controller
         if (RoomCategories::isStorageType($destinationRoom->room_type ?? null)) {
             return back()->with(
                 'error',
-                'Choose a classroom or lab to deploy stock. Storage rooms are for inventory only.'
+                'Choose a classroom or lab to deploy to. Use Transfers between storage rooms instead.'
             );
         }
 

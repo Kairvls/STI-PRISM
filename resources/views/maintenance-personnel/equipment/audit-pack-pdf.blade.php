@@ -41,7 +41,7 @@
         <tr><td><strong>RIS</strong></td><td>{{ $equipment['ris_number'] ?: '—' }}</td></tr>
         <tr><td><strong>RR</strong></td><td>{{ $equipment['receiving_report_number'] ?: '—' }} {{ $equipment['receiving_report_date'] ? '('.$equipment['receiving_report_date'].')' : '' }}</td></tr>
         <tr><td><strong>Received by</strong></td><td>{{ $equipment['received_by'] ?: '—' }}</td></tr>
-        <tr><td><strong>Stocked by</strong></td><td>{{ $equipment['stocked_by_name'] ?: '—' }} {{ $equipment['acquired_date'] ? '· '.$equipment['acquired_date'] : '' }}</td></tr>
+        <tr><td><strong>Added to inventory by</strong></td><td>{{ $equipment['stocked_by_name'] ?: '—' }} {{ $equipment['acquired_date'] ? '· '.$equipment['acquired_date'] : '' }}</td></tr>
     </table>
 
     <h2>Lifecycle timeline</h2>

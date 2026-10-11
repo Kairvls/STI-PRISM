@@ -101,7 +101,7 @@
             </div>
 
             <label class="block">
-                <span class="mb-1 block text-xs font-medium text-slate-500">Home room</span>
+                <span class="mb-1 block text-xs font-medium text-slate-500">Room</span>
                 <select name="custodian_room_id" id="custodian-room" data-searchable="1" data-search-placeholder="Search room…" class="{{ $fieldClass }}">
                     <option value="">Not set</option>
                     @foreach ($rooms as $room)

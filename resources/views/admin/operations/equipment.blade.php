@@ -8,7 +8,7 @@
 @php
     $filters = [
         'all' => 'All',
-        'stock' => 'In stock',
+        'stock' => 'In storage',
         'deployed' => 'Deployed',
         'disposed' => 'Disposed',
         'maintenance' => 'Needs maintenance',
@@ -166,7 +166,7 @@
                                         class="font-semibold text-gray-900 transition hover:text-[#0025cc]"
                                     >{{ $row->equipment_name }}</a>
                                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $isStorageStock ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-sky-50 text-sky-700 ring-sky-200' }}">
-                                        {{ $isStorageStock ? 'Stock' : 'Deployed' }}
+                                        {{ $isStorageStock ? 'In storage' : 'Deployed' }}
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-xs text-gray-400">{{ $row->equipment_asset_tag ?: 'No Asset Tag' }}</p>

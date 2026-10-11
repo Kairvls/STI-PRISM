@@ -20,7 +20,7 @@
                 request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', 'Generate and manage equipment QR codes.'],
                 request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'Full equipment register (storage + deployed).'],
                 request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') => ['Inventory', 'Equipment still in storage rooms.'],
-                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Stocks', 'Equipment currently assigned to classrooms and labs, grouped by stock type.'],
+                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'Equipment currently assigned to classrooms and labs, grouped by equipment type.'],
                 request()->is('maintenance/equipment/categories*') => ['Categories', 'Equipment types and groupings.'],
                 request()->is('maintenance/equipment/suggested-issues*') => ['Suggested Issues', 'Common issues used when filing reports.'],
                 request()->is('maintenance/equipment/transfer*') => ['Transfer', 'Move equipment between rooms.'],

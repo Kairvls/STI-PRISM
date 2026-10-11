@@ -78,7 +78,7 @@
         <div class="eq-modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5" x-show="step === 'source'">
             <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Where it all came from</p>
-                <p class="text-xs text-slate-500">Applies to every item in this batch. For delivered Receiving Report lines, use <span class="font-semibold">Stock all pending</span> instead.</p>
+                <p class="text-xs text-slate-500">Applies to every item in this batch. For delivered Receiving Report lines, use <span class="font-semibold">Add all pending</span> or <span class="font-semibold">Add to inventory</span> instead.</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     @if ($batchAcquisitionReady)
                         <div>
@@ -111,7 +111,7 @@
                         </div>
                     @endif
                     <div>
-                        <label class="{{ $bLabel }}">Stock-in storage room <span class="text-rose-500">*</span></label>
+                        <label class="{{ $bLabel }}">Storage room <span class="text-rose-500">*</span></label>
                         <select x-model="storageRoomId" @change="clearErr('storage_room_id'); retagAll()" class="{{ $bField }}" :class="err('storage_room_id') ? '{{ $bError }}' : ''">
                             <option value="">Select storage room</option>
                             @foreach ($batchStorageRooms as $room)
@@ -229,7 +229,7 @@
                                 </select>
                                 <p class="mt-1.5 text-xs text-slate-400" x-text="line.tracking === 'Individual' && Number(line.quantity) > 1
                                     ? 'Default for every unit. You can send individual units to other rooms on the next step.'
-                                    : 'Stocked in, then transferred here when a room is chosen.'"></p>
+                                    : 'Recorded in the storage room first, then transferred here when a room is chosen.'"></p>
                             </div>
                             <div>
                                 <label class="{{ $bLabel }}">Accountable person</label>
@@ -572,7 +572,7 @@
                         problems['source.acquisition_source'] = 'Select how this batch was acquired.';
                     }
                     if (!String(this.storageRoomId || '')) {
-                        problems['storage_room_id'] = 'Select the storage room for the stock-in.';
+                        problems['storage_room_id'] = 'Select the storage room these items are added to.';
                     }
                 }
                 if (step === 'items') {
@@ -750,7 +750,7 @@
                 if (this.source.acquisition_supplier && supplier) parts.push(supplier);
                 if (this.source.reference_number) parts.push('Ref ' + this.source.reference_number);
                 if (this.source.received_date) parts.push('Received ' + this.source.received_date);
-                parts.push('Stocked in ' + this.roomName('0'));
+                parts.push('In storage at ' + this.roomName('0'));
                 return parts.join(' · ');
             },
             reviewByRoom() {

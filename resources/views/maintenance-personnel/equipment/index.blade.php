@@ -6,7 +6,8 @@
     @php
         $isStockPage = $isStockPage ?? (($scope ?? 'stock') === 'stock');
         $canMaintain = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
-        $selectable = $isStockPage && $canMaintain;
+        $showHistory = $isStockPage && ($movementHistory ?? null) !== null && request('view') === 'history';
+        $selectable = $isStockPage && $canMaintain && ! $showHistory;
         $acquisitionReady = \App\Support\EquipmentAcquisition::ready();
         $acquisitionSuppliers = \App\Support\EquipmentAcquisition::supplierOptions();
         $acquisitionPeople = $isStockPage ? \App\Support\Custodians::assignable() : collect();
@@ -32,7 +33,7 @@
         <!-- PAGE HEADER -->
         @if ($isStockPage)
             <div class="flex flex-wrap items-center justify-end gap-2">
-                @if ($canMaintain)
+                @if ($canMaintain && ! $showHistory)
                 <button
                     type="button"
                     id="inventoryTransferSelectedBtn"
@@ -62,7 +63,7 @@
                     @if (!($defaultStorageRoomId ?? null) || ($pendingReceivableCount ?? 0) < 1) disabled @endif
                 >
                     <i data-lucide="package-plus" class="h-4 w-4"></i>
-                    Stock all pending
+                    Add all pending
                     @if (($pendingReceivableCount ?? 0) > 0)
                         <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white">{{ (int) $pendingReceivableCount }}</span>
                     @endif
@@ -84,20 +85,20 @@
                 >
                     <i data-lucide="plus" class="w-4 h-4"></i>
 
-                    Add to stock
+                    Add to inventory
                 </button>
             </div>
             @if (!($defaultStorageRoomId ?? null))
                 <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Create a room with type <span class="font-semibold">Storage / Stockroom</span> before adding inventory stock.
+                    Create a storage room (room type <span class="font-semibold">Storage / Stockroom</span>) before adding equipment to inventory.
                 </div>
             @endif
             @if (($pendingReceivableCount ?? 0) > 0)
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                     <p>
                         <span class="font-semibold">{{ number_format($pendingReceivableCount) }}</span>
-                        received RR line{{ $pendingReceivableCount === 1 ? '' : 's' }} ready to stock.
-                        Import them in one click, or use <span class="font-semibold">Add to stock</span> for a single line.
+                        received RR line{{ $pendingReceivableCount === 1 ? '' : 's' }} ready to add.
+                        Import them in one click, or use <span class="font-semibold">Add to inventory</span> to pick the lines you want.
                     </p>
                     <button
                         type="button"
@@ -106,333 +107,12 @@
                         @if (!($defaultStorageRoomId ?? null)) disabled @endif
                     >
                         <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
-                        Stock all pending
+                        Add all pending
                     </button>
                 </div>
             @endif
-            @php
-                $obTotals = $openBalance['totals'] ?? [];
-                $obReports = $openBalance['reports'] ?? [];
-                $obFocusRrId = (int) request('rr');
-                if ($obFocusRrId > 0) {
-                    $obReports = array_values(array_filter($obReports, fn ($r) => (int) $r['receiving_report_id'] === $obFocusRrId));
-                }
-                $obOpen = collect($obReports)
-                    ->mapWithKeys(fn ($r) => [(string) $r['receiving_report_id'] => $obFocusRrId > 0 || (int) ($r['totals']['pending_stock'] ?? 0) > 0])
-                    ->all();
-            @endphp
-            @if ($obFocusRrId > 0)
-                @include('partials.attention-focus-chip', [
-                    'focus' => \App\Support\RecordFocus::receivingReport($obFocusRrId, url()->current()),
-                    'total' => count($obReports),
-                ])
-            @endif
-            @if (!empty($obReports))
-                <div class="rounded-2xl border border-slate-200/80 bg-white">
-                    <div class="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
-                        <div class="min-w-0">
-                            <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Open balance</p>
-                            <p class="mt-1 text-sm text-slate-500">RR delivery vs inventory stock</p>
-                        </div>
-                        <p class="text-xs text-slate-400">Ordered → Received → Stocked → Pending</p>
-                    </div>
-
-                    <div class="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-4 sm:divide-x sm:divide-slate-100">
-                        @foreach ([
-                            'ordered' => 'Ordered',
-                            'received' => 'Received',
-                            'stocked' => 'Stocked',
-                            'pending_stock' => 'Pending',
-                        ] as $key => $label)
-                            <div class="px-5 py-4 {{ $loop->index >= 2 ? 'border-t border-slate-100 sm:border-t-0' : '' }}">
-                                <p class="text-xs text-slate-400">{{ $label }}</p>
-                                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
-                                    {{ number_format((int) ($obTotals[$key] ?? 0)) }}
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div
-                        class="monitoring-scroll max-h-[28rem] overflow-y-auto border-t border-slate-100"
-                        x-data="{
-                            openRr: @js((object) $obOpen),
-                            openLine: {},
-                            toggleRr(id) { this.openRr = { ...this.openRr, [id]: !this.openRr[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
-                            toggleLine(id) { this.openLine = { ...this.openLine, [id]: !this.openLine[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
-                        }"
-                    >
-                        <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 border-b border-slate-100 bg-white px-5 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                            <span>Receiving report</span>
-                            <span class="text-right">Recv</span>
-                            <span class="text-right">Stock</span>
-                            <span class="text-right">Pending</span>
-                        </div>
-
-                        <div class="divide-y divide-slate-100 text-sm text-slate-700">
-                            @foreach ($obReports as $report)
-                                @php
-                                    $rrKey = (string) $report['receiving_report_id'];
-                                    $rrTotals = $report['totals'];
-                                    $rrPending = (int) ($rrTotals['pending_stock'] ?? 0);
-                                    $rrLineCount = count($report['lines']);
-                                    $rrPaperwork = implode(' · ', array_filter([
-                                        $report['atp_number'] ?? null,
-                                        !empty($report['dr_no']) ? 'DR '.$report['dr_no'] : null,
-                                        !empty($report['invoice_no']) ? 'Invoice '.$report['invoice_no'] : null,
-                                    ]));
-                                    $rrDate = null;
-                                    if (!empty($report['date'])) {
-                                        try {
-                                            $rrDate = \Illuminate\Support\Carbon::parse($report['date'])->format('M j, Y');
-                                        } catch (\Throwable $e) {
-                                            $rrDate = null;
-                                        }
-                                    }
-                                @endphp
-                                <div>
-                                    <button
-                                        type="button"
-                                        class="grid w-full grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 px-5 py-3 text-left transition hover:bg-slate-50/80"
-                                        :aria-expanded="openRr['{{ $rrKey }}'] ? 'true' : 'false'"
-                                        @click="toggleRr('{{ $rrKey }}')"
-                                    >
-                                        <span class="flex min-w-0 items-start gap-2.5">
-                                            <span class="mt-0.5 inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="openRr['{{ $rrKey }}'] ? 'rotate-90' : ''">
-                                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
-                                            </span>
-                                            <span class="min-w-0">
-                                                <span class="flex flex-wrap items-center gap-2">
-                                                    <span class="font-mono text-[13px] font-semibold text-slate-900">{{ $report['rr_number'] }}</span>
-                                                    @if ($rrPending > 0)
-                                                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{{ $rrPending }} pending</span>
-                                                    @else
-                                                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Fully stocked</span>
-                                                    @endif
-                                                </span>
-                                                <span class="mt-0.5 block truncate text-[11px] text-slate-400">
-                                                    {{ $report['supplier_name'] ?: 'No supplier' }}
-                                                    <span class="text-slate-300">·</span>
-                                                    {{ !empty($report['po_number']) ? 'PO '.$report['po_number'] : 'No PO' }}
-                                                    @if ($rrDate)
-                                                        <span class="text-slate-300">·</span> {{ $rrDate }}
-                                                    @endif
-                                                    <span class="text-slate-300">·</span>
-                                                    {{ $rrLineCount }} {{ \Illuminate\Support\Str::plural('line', $rrLineCount) }}
-                                                    @if ((float) ($report['amount'] ?? 0) > 0)
-                                                        <span class="text-slate-300">·</span> ₱{{ number_format((float) $report['amount'], 2) }}
-                                                    @endif
-                                                </span>
-                                                @if ($rrPaperwork !== '')
-                                                    <span class="mt-0.5 block truncate text-[11px] text-slate-400">{{ $rrPaperwork }}</span>
-                                                @endif
-                                            </span>
-                                        </span>
-                                        <span class="text-right tabular-nums">{{ (int) $rrTotals['received'] }}</span>
-                                        <span class="text-right tabular-nums">{{ (int) $rrTotals['stocked'] }}</span>
-                                        <span class="text-right font-semibold tabular-nums {{ $rrPending > 0 ? 'text-amber-700' : 'text-slate-400' }}">{{ $rrPending }}</span>
-                                    </button>
-
-                                    <div x-show="openRr['{{ $rrKey }}']" x-cloak class="border-t border-slate-100 bg-slate-50/60">
-                                        @foreach ($report['lines'] as $line)
-                                            @php
-                                                $lineId = (int) $line['receiving_report_item_id'];
-                                                $pending = (int) $line['pending_stock'];
-                                                $units = $line['units'] ?? [];
-                                            @endphp
-                                            <div class="border-b border-slate-100 last:border-b-0">
-                                                <div class="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 py-2.5 pl-12 pr-5">
-                                                    <div class="min-w-0">
-                                                        <p class="truncate font-medium text-slate-900">{{ $line['article'] }}</p>
-                                                        @php
-                                                            $lineCost = implode(' · ', array_filter([
-                                                                !empty($line['unit']) ? (int) $line['received'].' '.$line['unit'] : null,
-                                                                $line['unit_cost'] !== null ? '₱'.number_format((float) $line['unit_cost'], 2).' each' : null,
-                                                                $line['amount'] !== null && (int) $line['received'] > 1 ? '₱'.number_format((float) $line['amount'], 2).' total' : null,
-                                                            ]));
-                                                        @endphp
-                                                        @if ($lineCost !== '')
-                                                            <p class="mt-0.5 truncate text-[11px] text-slate-500">{{ $lineCost }}</p>
-                                                        @endif
-                                                        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                                                            <span class="font-mono">L{{ $lineId }}</span>
-                                                            <span>{{ (int) $line['in_storage'] }} in storage · {{ (int) $line['deployed'] }} deployed{{ (int) $line['disposed'] > 0 ? ' · '.(int) $line['disposed'].' disposed' : '' }}</span>
-                                                            @if (!empty($units))
-                                                                <button type="button" class="inline-flex items-center gap-1 font-semibold text-[#0025cc] hover:underline" @click="toggleLine('{{ $lineId }}')">
-                                                                    <span x-text="openLine['{{ $lineId }}'] ? 'Hide equipment' : 'View {{ count($units) }} {{ \Illuminate\Support\Str::plural('record', count($units)) }}'"></span>
-                                                                </button>
-                                                            @endif
-                                                            @if ($pending > 0)
-                                                                <button type="button" class="inline-flex items-center gap-1 font-semibold text-amber-700 hover:underline" onclick="openAddEquipmentModal({{ $lineId }})">
-                                                                    <i data-lucide="package-plus" class="h-3 w-3"></i>
-                                                                    Stock {{ $pending }}
-                                                                </button>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                    <span class="text-right tabular-nums">{{ (int) $line['received'] }}</span>
-                                                    <span class="text-right tabular-nums">{{ (int) $line['stocked'] }}</span>
-                                                    <span class="text-right font-semibold tabular-nums {{ $pending > 0 ? 'text-amber-700' : 'text-slate-400' }}">{{ $pending }}</span>
-                                                </div>
-
-                                                @if (!empty($units))
-                                                    <ul x-show="openLine['{{ $lineId }}']" x-cloak class="mb-2.5 ml-12 mr-5 divide-y divide-slate-100 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                                                        @foreach ($units as $unit)
-                                                            @php
-                                                                $placementClass = match ($unit['placement']) {
-                                                                    'deployed' => 'bg-[#0025cc]/5 text-[#0025cc]',
-                                                                    'disposed' => 'bg-rose-50 text-rose-700',
-                                                                    'unplaced' => 'bg-amber-50 text-amber-700',
-                                                                    default => 'bg-slate-100 text-slate-600',
-                                                                };
-                                                            @endphp
-                                                            <li>
-                                                                <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $unit['equipment_id']) }}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 transition hover:bg-slate-50">
-                                                                    <span class="min-w-0">
-                                                                        <span class="block truncate text-[13px] font-medium text-slate-900">
-                                                                            {{ $unit['name'] }}
-                                                                            @if ((int) $unit['quantity'] > 1)
-                                                                                <span class="font-normal text-slate-400">× {{ (int) $unit['quantity'] }}</span>
-                                                                            @endif
-                                                                        </span>
-                                                                        <span class="mt-0.5 block truncate text-[11px] text-slate-400">
-                                                                            <span class="font-mono">{{ $unit['asset_tag'] ?: 'No asset tag' }}</span>
-                                                                            @if (!empty($unit['serial']))
-                                                                                <span class="text-slate-300">·</span> SN {{ $unit['serial'] }}
-                                                                            @endif
-                                                                            @if (!empty($unit['condition']))
-                                                                                <span class="text-slate-300">·</span> {{ $unit['condition'] }}
-                                                                            @endif
-                                                                        </span>
-                                                                    </span>
-                                                                    <span class="flex shrink-0 items-center gap-2">
-                                                                        <span class="hidden max-w-[10rem] truncate text-[11px] text-slate-500 sm:inline">{{ $unit['room_name'] ?: 'No room' }}</span>
-                                                                        <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize {{ $placementClass }}">{{ $unit['placement'] }}</span>
-                                                                        <i data-lucide="chevron-right" class="h-3.5 w-3.5 text-slate-300"></i>
-                                                                    </span>
-                                                                </a>
-                                                            </li>
-                                                        @endforeach
-                                                    </ul>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            @endif
-            @if (!empty($monitoring))
-                @php
-                    $ghostCount = (int) ($monitoring['ghost_count'] ?? count($monitoring['ghost'] ?? []));
-                    $warrantyCount = (int) ($monitoring['warranty_count'] ?? count($monitoring['warranty'] ?? []));
-                    $assetIdentity = function ($row) {
-                        $tag = trim((string) ($row->equipment_asset_tag ?? ''));
-                        if ($tag !== '') {
-                            return $tag;
-                        }
-                        $serial = trim((string) ($row->equipment_serial_number ?? ''));
-                        if ($serial !== '') {
-                            return 'S/N '.$serial;
-                        }
-
-                        return '#'.(int) ($row->equipment_id ?? 0);
-                    };
-                @endphp
-                <details class="group rounded-2xl border border-slate-200/80 bg-white">
-                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
-                        <div class="min-w-0">
-                            <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Monitoring</p>
-                            <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                                <span>
-                                    <span class="text-slate-400">Unlinked</span>
-                                    <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($ghostCount) }}</span>
-                                </span>
-                                <span class="h-1 w-1 rounded-full bg-slate-300"></span>
-                                <span>
-                                    <span class="text-slate-400">Warranty</span>
-                                    <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($warrantyCount) }}</span>
-                                </span>
-                            </p>
-                        </div>
-                        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition group-open:rotate-180 group-open:bg-slate-50">
-                            <i data-lucide="chevron-down" class="h-4 w-4"></i>
-                        </span>
-                    </summary>
-
-                    <div class="grid gap-0 border-t border-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
-                        <div class="px-5 py-4">
-                            <div class="mb-3 flex items-baseline justify-between gap-3">
-                                <div>
-                                    <p class="text-sm font-semibold text-slate-900">Unlinked assets</p>
-                                    <p class="mt-0.5 text-xs text-slate-400">No RR / PO link</p>
-                                </div>
-                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($ghostCount) }}</p>
-                            </div>
-                            <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
-                                @forelse (($monitoring['ghost'] ?? []) as $g)
-                                    <li>
-                                        <a href="{{ $g->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
-                                            <div class="min-w-0">
-                                                <p class="truncate text-sm font-medium text-slate-900">{{ $g->equipment_name }}</p>
-                                                <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
-                                                    {{ $assetIdentity($g) }}
-                                                    @if (!empty($g->room_name))
-                                                        <span class="font-sans text-slate-300"> · </span>{{ $g->room_name }}
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            <span class="mt-0.5 shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400">#{{ (int) $g->equipment_id }}</span>
-                                        </a>
-                                    </li>
-                                @empty
-                                    <li class="py-6 text-center text-sm text-slate-400">No unlinked assets</li>
-                                @endforelse
-                            </ul>
-                        </div>
-
-                        <div class="border-t border-slate-100 px-5 py-4 sm:border-t-0">
-                            <div class="mb-3 flex items-baseline justify-between gap-3">
-                                <div>
-                                    <p class="text-sm font-semibold text-slate-900">Warranty</p>
-                                    <p class="mt-0.5 text-xs text-slate-400">Within 90 days or expired</p>
-                                </div>
-                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($warrantyCount) }}</p>
-                            </div>
-                            <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
-                                @forelse (($monitoring['warranty'] ?? []) as $w)
-                                    @php
-                                        $expired = (bool) ($w->is_expired ?? ((int) ($w->days_remaining ?? 0) < 0));
-                                        $expiryLabel = ! empty($w->equipment_warranty_expiration)
-                                            ? \Illuminate\Support\Carbon::parse($w->equipment_warranty_expiration)->format('M j, Y')
-                                            : null;
-                                    @endphp
-                                    <li>
-                                        <a href="{{ $w->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
-                                            <div class="min-w-0">
-                                                <p class="truncate text-sm font-medium text-slate-900">{{ $w->equipment_name }}</p>
-                                                <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
-                                                    {{ $assetIdentity($w) }}
-                                                    @if ($expiryLabel)
-                                                        <span class="font-sans text-slate-300"> · </span>
-                                                        <span class="font-sans">{{ $expiryLabel }}</span>
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            <span class="mt-0.5 shrink-0 text-[11px] font-medium {{ $expired ? 'text-rose-600' : 'text-amber-700' }}">
-                                                {{ $w->suggest_action }}
-                                            </span>
-                                        </a>
-                                    </li>
-                                @empty
-                                    <li class="py-6 text-center text-sm text-slate-400">No warranty alerts</li>
-                                @endforelse
-                            </ul>
-                        </div>
-                    </div>
-                </details>
+            @if ((int) request('rr') > 0)
+                @include('maintenance-personnel.equipment.partials.inventory-open-balance')
             @endif
         @endif
 
@@ -446,8 +126,8 @@
             @include('layouts.partials.maintenance-stat-cards', [
                 'cards' => [
                     ['label' => 'Items in storage', 'hint' => $stockMonthlyHint, 'value' => number_format($totalEquipment)],
-                    ['label' => 'Total quantity', 'hint' => 'Combined qty in stockrooms', 'value' => number_format($stockTotalQuantity ?? 0)],
-                    ['label' => 'Stock types', 'hint' => 'Distinct equipment names', 'value' => number_format($stockTypeCount ?? 0)],
+                    ['label' => 'Total quantity', 'hint' => 'Combined quantity in storage rooms', 'value' => number_format($stockTotalQuantity ?? 0)],
+                    ['label' => 'Equipment types', 'hint' => 'Distinct equipment names', 'value' => number_format($stockTypeCount ?? 0)],
                 ],
             ])
         @else
@@ -602,6 +282,43 @@
             </form>
         </div>-->
 
+        @if ($isStockPage && $movementHistory !== null)
+            @php
+                $viewTabs = [
+                    'stock' => [
+                        'label' => 'In storage',
+                        'icon' => 'warehouse',
+                        'count' => $equipment->total(),
+                        'url' => request()->fullUrlWithQuery(['view' => null, 'history' => null, 'history_search' => null, 'history_page' => null]),
+                    ],
+                    'history' => [
+                        'label' => 'Movement history',
+                        'icon' => 'history',
+                        'count' => $movementCounts['all'] ?? 0,
+                        'url' => request()->fullUrlWithQuery(['view' => 'history', 'page' => null]),
+                    ],
+                ];
+                $activeViewTab = $showHistory ? 'history' : 'stock';
+            @endphp
+            <div id="inventory-tables" class="-mb-3 flex scroll-mt-24 items-center">
+                <div class="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Inventory view">
+                    @foreach ($viewTabs as $tabKey => $tab)
+                        <a
+                            href="{{ $tab['url'] }}#inventory-tables"
+                            role="tab"
+                            aria-selected="{{ $activeViewTab === $tabKey ? 'true' : 'false' }}"
+                            class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition {{ $activeViewTab === $tabKey ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
+                        >
+                            <i data-lucide="{{ $tab['icon'] }}" class="h-4 w-4"></i>
+                            {{ $tab['label'] }}
+                            <span class="rounded-full px-1.5 text-[11px] font-semibold {{ $activeViewTab === $tabKey ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-500' }}">{{ number_format($tab['count']) }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if (! $showHistory)
         <!-- EQUIPMENT TABLE -->
         <div
             class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
@@ -627,14 +344,11 @@
 
                     <div class="min-w-0 flex-1">
 
-                        @if ($isStockPage && ! $canMaintain)
-                            <p class="text-sm text-slate-500">
-                                Storage stock only. Transfers, edits and disposal are handled by Maintenance.
-                            </p>
-                        @elseif ($isStockPage)
-                            <p class="text-sm text-slate-500">
-                                Storage stock only. Check items to <span class="font-medium text-slate-800">Transfer selected</span>, use row <span class="font-medium text-slate-800">Transfer to</span>, or <span class="font-medium text-slate-800">Transfer all</span>.
-                            </p>
+                        @if ($isStockPage)
+                            <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
+                                <i data-lucide="warehouse" class="h-4 w-4 text-slate-400"></i>
+                                In storage
+                            </h2>
                         @else
                         <div
                             class="flex items-center gap-1
@@ -1034,7 +748,7 @@
                             </th>
 
                             <th class="px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
-                                {{ $isStockPage ? 'Stocked' : 'Next maintenance' }}
+                                {{ $isStockPage ? 'Added' : 'Next maintenance' }}
                             </th>
 
                             <th class="w-32 px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
@@ -1069,7 +783,7 @@
                                     ?: ''
                                 ));
                                 $isStorageStock = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
-                                $placementLabel = $isStorageStock ? 'Stock' : 'Deployed';
+                                $placementLabel = $isStorageStock ? 'In storage' : 'Deployed';
                                 $placementClass = $isStorageStock
                                     ? 'bg-amber-50 text-amber-700 ring-amber-200'
                                     : 'bg-sky-50 text-sky-700 ring-sky-200';
@@ -1164,9 +878,9 @@
                                             <p class="text-sm text-slate-700">{{ \Carbon\Carbon::parse($stockedAt)->format('M j, Y') }}</p>
                                             <p class="mt-0.5 text-xs {{ $stockedDays > 90 ? 'font-medium text-amber-600' : 'text-slate-400' }}">
                                                 @if ($stockedDays <= 0)
-                                                    Stocked today
+                                                    Added today
                                                 @else
-                                                    {{ $stockedDays }} {{ \Illuminate\Support\Str::plural('day', $stockedDays) }} in stock
+                                                    {{ $stockedDays }} {{ \Illuminate\Support\Str::plural('day', $stockedDays) }} in storage
                                                 @endif
                                             </p>
                                         @else
@@ -1477,6 +1191,176 @@
 
             @endif
         </div>
+        @endif
+
+        @if ($showHistory)
+            @php
+                $historyDirection = (string) request('history', '');
+                $historyTabs = [
+                    '' => ['label' => 'All', 'count' => $movementCounts['all'] ?? 0],
+                    'out' => ['label' => 'Moved out', 'count' => $movementCounts['out'] ?? 0],
+                    'in' => ['label' => 'Returned to storage', 'count' => $movementCounts['in'] ?? 0],
+                    'between' => ['label' => 'Between storage rooms', 'count' => $movementCounts['between'] ?? 0],
+                ];
+                $directionBadge = [
+                    'out' => 'bg-sky-50 text-sky-700 ring-sky-200/70',
+                    'in' => 'bg-emerald-50 text-emerald-700 ring-emerald-200/70',
+                    'between' => 'bg-slate-100 text-slate-600 ring-slate-200',
+                ];
+                $directionIcon = ['out' => 'arrow-up-right', 'in' => 'arrow-down-left', 'between' => 'arrow-left-right'];
+            @endphp
+            <div id="movement-history" class="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div class="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div class="min-w-0">
+                        <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
+                            <i data-lucide="history" class="h-4 w-4 text-slate-400"></i>
+                            Movement history
+                        </h2>
+                    </div>
+                    <form method="GET" action="{{ url()->current() }}#movement-history" class="flex shrink-0 items-center gap-2">
+                        @foreach (request()->except(['history_search', 'history_page']) as $key => $value)
+                            @if (is_scalar($value))
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endif
+                        @endforeach
+                        <div class="relative">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="text"
+                                name="history_search"
+                                value="{{ request('history_search') }}"
+                                placeholder="Search equipment, tag, room, person"
+                                class="h-10 w-64 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                            >
+                        </div>
+                        <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">Search</button>
+                        @if (request()->filled('history_search'))
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['history_search' => null, 'history_page' => null]) }}#movement-history"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                                data-tooltip="Clear search"
+                            ><i data-lucide="x" class="h-4 w-4"></i></a>
+                        @endif
+                    </form>
+                </div>
+
+                <div class="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-slate-100 px-5 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    @foreach ($historyTabs as $tabKey => $tab)
+                        <a
+                            href="{{ request()->fullUrlWithQuery(['history' => $tabKey !== '' ? $tabKey : null, 'history_page' => null]) }}#movement-history"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition {{ $historyDirection === $tabKey ? 'bg-gray-100/80 font-medium text-black' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                        >
+                            {{ $tab['label'] }}
+                            <span class="rounded-full bg-white px-1.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">{{ $tab['count'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="border-b border-slate-200 bg-slate-50/80">
+                            <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                <th class="px-5 py-3">Date</th>
+                                <th class="px-4 py-3">Equipment</th>
+                                <th class="px-4 py-3">Movement</th>
+                                <th class="px-4 py-3">Moved by</th>
+                                <th class="px-4 py-3">Remarks</th>
+                                <th class="px-4 py-3">Now in</th>
+                                <th class="px-4 py-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @forelse ($movementHistory as $move)
+                                @php
+                                    $movedAt = $move->created_at ? \Illuminate\Support\Carbon::parse($move->created_at) : null;
+                                    $movePayload = \App\Support\LayoutEquipmentPayload::fromRow($move, $eqImageUrl($move->equipment_image ?? null));
+                                @endphp
+                                <tr class="align-top transition hover:bg-slate-50/60">
+                                    <td class="whitespace-nowrap px-5 py-3.5">
+                                        @if ($movedAt)
+                                            <p class="text-sm font-medium text-slate-900">{{ $movedAt->format('M j, Y') }}</p>
+                                            <p class="text-xs text-slate-500">{{ $movedAt->format('g:i A') }} · {{ $movedAt->diffForHumans() }}</p>
+                                        @else
+                                            <span class="text-sm text-slate-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3.5">
+                                        <button
+                                            type="button"
+                                            onclick='openEquipmentModal(@json($movePayload))'
+                                            class="text-left text-sm font-semibold text-slate-900 hover:text-[#0025cc] hover:underline"
+                                        >{{ $move->equipment_name }}</button>
+                                        <p class="text-xs text-slate-500">
+                                            {{ $move->equipment_asset_tag ?: 'No asset tag' }}
+                                            @if (($move->equipment_tracking_mode ?? '') === 'Bulk')
+                                                · Bulk · Qty {{ (int) $move->equipment_quantity }}
+                                            @endif
+                                        </p>
+                                    </td>
+                                    <td class="px-4 py-3.5">
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $directionBadge[$move->direction] }}">
+                                            <i data-lucide="{{ $directionIcon[$move->direction] }}" class="h-3 w-3"></i>
+                                            {{ $move->direction_label }}
+                                        </span>
+                                        <p class="mt-1.5 flex flex-wrap items-center gap-1 text-sm text-slate-700">
+                                            <span>{{ $move->from_room_name ?: 'Unknown room' }}</span>
+                                            <i data-lucide="arrow-right" class="h-3.5 w-3.5 text-slate-400"></i>
+                                            <span class="font-medium text-slate-900">{{ $move->to_room_name ?: 'Unknown room' }}</span>
+                                        </p>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-sm text-slate-700">{{ $move->moved_by_name ?: 'System' }}</td>
+                                    <td class="max-w-xs px-4 py-3.5 text-sm text-slate-600">{{ $move->remarks ?: '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3.5">
+                                        <p class="text-sm text-slate-700">{{ $move->current_room_name ?: '—' }}</p>
+                                        @if (in_array($move->equipment_inventory_status, ['Disposed', 'Under Maintenance', 'Borrowed', 'For Replacement'], true))
+                                            <p class="text-xs text-slate-500">{{ $move->equipment_inventory_status }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3.5">
+                                        <div class="flex justify-center">
+                                            <button
+                                                type="button"
+                                                onclick='openEquipmentModal(@json($movePayload))'
+                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-slate-100 px-3 text-xs text-slate-800 shadow-sm transition hover:bg-slate-200 hover:text-gray-600"
+                                                data-tooltip="View equipment"
+                                                aria-label="View equipment details"
+                                            >
+                                                <i data-lucide="eye" class="h-4 w-4"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="px-5 py-10 text-center">
+                                        <i data-lucide="history" class="mx-auto h-6 w-6 text-slate-300"></i>
+                                        <p class="mt-2 text-sm font-medium text-slate-700">
+                                            {{ request()->filled('history_search') || $historyDirection !== '' ? 'No movements match this filter.' : 'No equipment has been moved yet.' }}
+                                        </p>
+                                        <p class="mt-1 text-xs text-slate-500">Transfers out of or back into a storage room are recorded here automatically.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if ($movementHistory->hasPages())
+                    <div class="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p class="text-xs text-slate-500">
+                            Showing <span class="font-semibold text-slate-700">{{ $movementHistory->firstItem() }}</span>
+                            to <span class="font-semibold text-slate-700">{{ $movementHistory->lastItem() }}</span>
+                            of <span class="font-semibold text-slate-700">{{ $movementHistory->total() }}</span> movements
+                        </p>
+                        <div>{{ $movementHistory->links() }}</div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        @if ($isStockPage && (int) request('rr') < 1)
+            @include('maintenance-personnel.equipment.partials.inventory-open-balance')
+        @endif
 
         
     </div>
@@ -1488,7 +1372,7 @@
 
         @include('maintenance-personnel.equipment.partials.equipment-asset-drawer')
     @if ($isStockPage)
-        @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add to stock'])
+        @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add to inventory'])
         @include('maintenance-personnel.equipment.partials.batch-add-wizard')
     @endif
 
@@ -2064,7 +1948,7 @@
             const errorEl = document.getElementById('stockPendingError');
             if (confirmBtn) {
                 confirmBtn.disabled = true;
-                confirmBtn.textContent = 'Stocking…';
+                confirmBtn.textContent = 'Adding…';
             }
             if (errorEl) {
                 errorEl.classList.add('hidden');
@@ -2094,17 +1978,17 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || data.ok === false) {
-                    throw new Error(data.message || 'Stocking failed.');
+                    throw new Error(data.message || 'Could not add the pending lines.');
                 }
                 window.location.href = data.redirect || '/maintenance/equipment/inventory';
             } catch (err) {
                 if (errorEl) {
-                    errorEl.textContent = err.message || 'Stocking failed.';
+                    errorEl.textContent = err.message || 'Could not add the pending lines.';
                     errorEl.classList.remove('hidden');
                 }
                 if (confirmBtn) {
                     confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4"></i> Confirm stock';
+                    confirmBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4"></i> Add to inventory';
                     if (window.lucide) window.lucide.createIcons();
                 }
             }
@@ -2291,7 +2175,7 @@
                     </div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer to room</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Deploy this stock item to a classroom or lab. It lands in Holding until placed on the floor.
+                        Deploy this equipment to a classroom or lab. It lands in Holding until placed on the floor.
                     </p>
                 </div>
                 <button type="button" onclick="closeInventoryTransferToModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -2353,7 +2237,7 @@
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
                         <i data-lucide="boxes" class="h-4 w-4"></i>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer all stock</h2>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer all equipment in storage</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
                         Deploy all
                         <span
@@ -2388,7 +2272,7 @@
 
                     <div>
                         <label for="inventoryTransferAllRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
-                        <textarea id="inventoryTransferAllRemarks" name="remarks" rows="3" placeholder="e.g. Deployed filtered stock to Computer Laboratory 1" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                        <textarea id="inventoryTransferAllRemarks" name="remarks" rows="3" placeholder="e.g. Deployed filtered equipment to Computer Laboratory 1" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
                     </div>
                 </div>
 
@@ -2412,9 +2296,9 @@
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#0025cc]/10 text-[#0025cc]">
                         <i data-lucide="package-plus" class="h-4 w-4"></i>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Stock all pending</h2>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Add all pending</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Import every completed RR line that still needs inventory into the stockroom as Bulk stock (linked to RR / PO).
+                        Adds every completed RR line that isn’t in inventory yet to the storage room, as Bulk records linked to the RR / PO.
                     </p>
                 </div>
                 <button
@@ -2431,11 +2315,11 @@
                 <div id="stockPendingLoading" class="-mx-5">
                     @include('partials.skeleton', ['skeletonType' => 'list', 'skeletonRows' => 3, 'skeletonLabel' => 'Loading pending lines'])
                 </div>
-                <p id="stockPendingEmpty" class="hidden py-6 text-center text-sm text-slate-400">No pending RR lines to stock.</p>
+                <p id="stockPendingEmpty" class="hidden py-6 text-center text-sm text-slate-400">No pending RR lines to add.</p>
                 <p id="stockPendingError" class="mb-3 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
                 <ul id="stockPendingList" class="hidden max-h-64 space-y-2 overflow-y-auto"></ul>
                 <div id="stockPendingMeta" class="mt-3 hidden text-xs text-slate-500">
-                    Destination: <span class="font-semibold text-slate-700">{{ optional(($storageRooms ?? collect())->first())->room_name ?? 'Stock room' }}</span>
+                    Destination: <span class="font-semibold text-slate-700">{{ optional(($storageRooms ?? collect())->first())->room_name ?? 'Storage room' }}</span>
                     · Tracking: <span class="font-semibold text-slate-700">Bulk</span>
                 </div>
             </div>
@@ -2456,7 +2340,7 @@
                     disabled
                 >
                     <i data-lucide="check" class="h-4 w-4"></i>
-                    Confirm stock
+                    Add to inventory
                 </button>
             </div>
         </div>

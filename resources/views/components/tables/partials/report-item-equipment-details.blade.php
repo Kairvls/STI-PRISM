@@ -72,7 +72,7 @@
     $isStorageRoom = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
     $fullProfileRows[] = [
         'label' => 'Placement',
-        'value' => $isStorageRoom ? 'Stock' : 'Deployed',
+        'value' => $isStorageRoom ? 'In storage' : 'Deployed',
     ];
 @endphp
 
@@ -477,11 +477,11 @@
                     ["RIS", p.ris_number || "—"],
                 ]);
 
-                html += section("Delivery & stock", [
+                html += section("Delivery & inventory", [
                     ["Receiving report", joinParts([p.receiving_report_number, p.receiving_report_date ? date(p.receiving_report_date) : null])],
                     ["Condition on delivery", p.receiving_condition || "—"],
                     ["Counted by", p.received_by || "—"],
-                    ["Stocked", joinParts([p.acquired_date ? date(p.acquired_date) : null, p.stocked_by_name ? "by " + p.stocked_by_name : null, p.stock_lot_code ? "Lot " + p.stock_lot_code : null])],
+                    ["Added to inventory", joinParts([p.acquired_date ? date(p.acquired_date) : null, p.stocked_by_name ? "by " + p.stocked_by_name : null, p.stock_lot_code ? "Lot " + p.stock_lot_code : null])],
                     ["Useful life", p.useful_life_years ? p.useful_life_years + " years" : "— (default 5 years)"],
                     ["QR code", joinParts([p.qr_code, p.qr_issued_at ? "issued " + date(p.qr_issued_at) : null])],
                     ["Replacement link", replacement[0], replacement[1]],

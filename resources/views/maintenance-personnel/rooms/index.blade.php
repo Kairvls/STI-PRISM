@@ -923,7 +923,7 @@
                 href="/maintenance/equipment/inventory"
                 class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-blue-800"
             >
-                Open in Inventory
+                Open in All Equipment
             </a>
         </div>
     </div>

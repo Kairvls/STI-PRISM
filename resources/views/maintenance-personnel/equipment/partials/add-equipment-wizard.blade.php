@@ -9,7 +9,7 @@
     $replacementCandidates = ($replacementCandidates ?? collect())->isNotEmpty() ? $replacementCandidates : \App\Support\EquipmentAcquisition::replacementCandidates();
     $eqField = $eqField ?? 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
     $eqLabel = $eqLabel ?? 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
-    $wizardTitle = $wizardTitle ?? 'Add to stock';
+    $wizardTitle = $wizardTitle ?? 'Add to inventory';
     $wizardErrorKeys = [
         'equipment_name', 'equipment_category_id', 'equipment_room_id', 'equipment_quantity',
         'equipment_image', 'equipment_tracking_mode', 'equipment_asset_tag', 'equipment_serial_number',
@@ -24,7 +24,7 @@
         x-show="open"
         x-cloak
         x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
+        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen) { fullscreen = false; } else { close(); } }"
         @if ($errors->hasAny($wizardErrorKeys))
         x-init="
             open = true;
@@ -48,7 +48,7 @@
         class="fixed inset-0 z-50 hidden items-center justify-center overflow-hidden bg-[#0b1220]/70"
         :class="[
             open ? '!flex' : 'hidden',
-            fullscreen && step === 2 ? 'p-0' : 'p-4'
+            fullscreen ? 'p-0' : 'p-4'
         ]"
     >
         <form
@@ -57,7 +57,7 @@
             enctype="multipart/form-data"
             @submit="prepareSubmit($event)"
             class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
-            :class="fullscreen && step === 2
+            :class="fullscreen
                 ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
                 : (step === 2
                     ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
@@ -82,8 +82,6 @@
                 <div class="flex shrink-0 items-center gap-1">
                     <button
                         type="button"
-                        x-show="step === 2"
-                        x-cloak
                         @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
                         class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                         :title="fullscreen ? 'Exit full screen' : 'Full screen'"
@@ -139,12 +137,12 @@
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
-                            <p class="mt-1 text-xs text-slate-500">Delivered RR lines (with PO when linked). Click a ready line to prefill this form.</p>
+                            <p class="mt-1 text-xs text-slate-500">Tick the delivered equipment to add. You can pick several lines, from one or more RRs.</p>
                         </div>
                         <button
                             type="button"
                             class="text-xs font-semibold text-[#0025cc] hover:underline"
-                            @click="intakeBasis = intakeBasis === 'non_procurement' ? 'receiving' : 'non_procurement'; clearError('rr'); clearError('intake_reason')"
+                            @click="setIntakeBasis(intakeBasis === 'non_procurement' ? 'receiving' : 'non_procurement')"
                             x-text="intakeBasis === 'non_procurement' ? 'Use received RR instead' : 'Non-procurement intake…'"
                         ></button>
                     </div>
@@ -153,14 +151,25 @@
                         <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
                             <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Delivered lines (RR / PO)</p>
-                                <button
-                                    type="button"
-                                    class="text-[11px] font-semibold text-[#0025cc] hover:underline"
-                                    @click="loadRrLines()"
-                                    :disabled="rrLoading"
-                                >Refresh</button>
+                                <div class="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        class="text-[11px] font-semibold text-[#0025cc] hover:underline"
+                                        @click="loadRrLines()"
+                                        :disabled="rrLoading"
+                                    >Refresh</button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+                                        @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                                        :title="fullscreen ? 'Exit full screen' : 'View the list full screen'"
+                                    >
+                                        <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-3.5 w-3.5"></i>
+                                        <span x-text="fullscreen ? 'Exit full screen' : 'Full screen'"></span>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="max-h-52 overflow-y-auto">
+                            <div class="overflow-y-auto" :class="fullscreen ? 'max-h-[calc(100dvh-24rem)] min-h-[16rem]' : 'max-h-52'">
                                 <template x-if="rrLoading">
                                     <p class="px-3 py-4 text-xs text-slate-400">Loading delivered lines…</p>
                                 </template>
@@ -170,9 +179,21 @@
                                 <ul class="divide-y divide-slate-100" x-show="!rrLoading && rrGuide.length > 0">
                                     <template x-for="group in rrGroups" :key="group.key">
                                         <li>
+                                            <div class="flex items-center">
+                                            <label class="flex shrink-0 items-center self-stretch pl-3" :class="group.ready > 0 ? 'cursor-pointer' : ''" :title="group.ready > 0 ? 'Select all ready lines on this RR' : ''">
+                                                <input
+                                                    type="checkbox"
+                                                    class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30 disabled:opacity-40"
+                                                    :checked="isRrGroupSelected(group)"
+                                                    x-effect="$el.indeterminate = isRrGroupPartial(group)"
+                                                    :disabled="group.ready === 0"
+                                                    @change="toggleRrGroupSelection(group)"
+                                                    :aria-label="'Select all ready lines on ' + group.rr_number"
+                                                >
+                                            </label>
                                             <button
                                                 type="button"
-                                                class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                                class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
                                                 :aria-expanded="isRrGroupOpen(group) ? 'true' : 'false'"
                                                 @click="toggleRrGroup(group)"
                                             >
@@ -190,21 +211,30 @@
                                                 <span
                                                     class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                                                     :class="group.remaining > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
-                                                    x-text="group.remaining > 0 ? (group.remaining + ' to stock') : 'Fully stocked'"
+                                                    x-text="group.remaining > 0
+                                                        ? (group.remaining + ' equipment quantity available')
+                                                        : 'All equipment in this RR already added'"
                                                 ></span>
                                             </button>
+                                            </div>
                                             <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-slate-50/60">
                                                 <template x-for="line in group.lines" :key="line.id">
                                                     <li>
-                                                        <button
-                                                            type="button"
-                                                            class="flex w-full items-start gap-3 py-2 pl-10 pr-3 text-left transition"
-                                                            :class="String(rrItemId) === String(line.id)
+                                                        <label
+                                                            class="flex w-full items-start gap-3 py-2 pl-3 pr-3 text-left transition"
+                                                            :class="isRrSelected(line)
                                                                 ? 'bg-[#0025cc]/5 ring-inset ring-1 ring-[#0025cc]/20'
-                                                                : (line.is_selectable ? 'hover:bg-white' : 'opacity-70')"
-                                                            :disabled="!line.is_selectable"
-                                                            @click="selectRrLine(line)"
+                                                                : (line.is_selectable ? 'cursor-pointer hover:bg-white' : 'opacity-70')"
                                                         >
+                                                            <input
+                                                                type="checkbox"
+                                                                class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30 disabled:opacity-40"
+                                                                :checked="isRrSelected(line)"
+                                                                :disabled="!line.is_selectable"
+                                                                @change="toggleRrLine(line)"
+                                                                :aria-label="'Select ' + line.article"
+                                                            >
+                                                            <span class="w-4 shrink-0"></span>
                                                             <div class="min-w-0 flex-1">
                                                                 <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
                                                                 <p x-show="rrLineCost(line)" class="mt-0.5 truncate text-[11px] text-slate-500" x-text="rrLineCost(line)"></p>
@@ -213,7 +243,7 @@
                                                                         <span>Ordered <span x-text="line.ordered_qty"></span> · </span>
                                                                     </template>
                                                                     Received <span x-text="line.received_qty || 0"></span>
-                                                                    · Stocked <span x-text="line.stocked_qty || 0"></span>
+                                                                    · In inventory <span x-text="line.stocked_qty || 0"></span>
                                                                     · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-500'" x-text="line.remaining_qty || 0"></span>
                                                                 </p>
                                                             </div>
@@ -223,7 +253,7 @@
                                                                 :class="line.is_selectable ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
                                                                 x-text="line.status_label || (line.is_selectable ? 'Ready' : 'Done')"
                                                             ></span>
-                                                        </button>
+                                                        </label>
                                                     </li>
                                                 </template>
                                             </ul>
@@ -242,50 +272,54 @@
                             <div class="flex min-w-0 flex-1 items-start gap-2.5">
                                 <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
                                 <p x-text="rrGuide.length > 0
-                                    ? 'Nothing left to stock: every delivered RR line above is already fully stocked. New stock appears here after the next Receiving Report is completed.'
-                                    : 'No completed Receiving Reports yet. Stock appears here after receiving finishes the second count on an RR.'"></p>
+                                    ? 'Nothing left to add: every delivered RR line above is already in inventory. New deliveries appear here after the next Receiving Report is completed.'
+                                    : 'No completed Receiving Reports yet. Deliveries appear here after receiving finishes the second count on an RR.'"></p>
                             </div>
                             <button
                                 type="button"
                                 class="inline-flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
-                                @click="intakeBasis = 'non_procurement'; clearError('rr')"
+                                @click="setIntakeBasis('non_procurement')"
                             >Use non-procurement intake</button>
                         </div>
 
                         <div x-show="rrLoading || rrLines.length > 0">
-                            <label for="add_rr_line" class="{{ $eqLabel }}">Selected received line (RR) <span class="text-red-500">*</span></label>
-                            <select
-                                id="add_rr_line"
-                                class="{{ $eqField }}"
-                                :class="errors.rr ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                x-model="rrItemId"
-                                @change="onRrLineChange(); clearError('rr')"
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="{{ $eqLabel }} mb-0">
+                                    Selected equipment <span class="text-red-500">*</span>
+                                    <span x-show="rrSelected.length" x-cloak class="ml-1 font-normal text-slate-500" x-text="'(' + rrSelected.length + ' line' + (rrSelected.length === 1 ? '' : 's') + ' from ' + selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's') + ')'"></span>
+                                </p>
+                                <button
+                                    type="button"
+                                    x-show="rrSelected.length"
+                                    x-cloak
+                                    class="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+                                    @click="clearRrSelection()"
+                                >Clear</button>
+                            </div>
+                            <div
+                                class="mt-1.5 overflow-hidden rounded-xl bg-white ring-1"
+                                :class="errors.rr ? 'ring-2 ring-rose-400' : 'ring-slate-200/80'"
                             >
-                                <option value="">Select from list above…</option>
-                                <template x-for="line in rrLines" :key="'opt-' + line.id">
-                                    <option :value="String(line.id)" x-text="line.label"></option>
-                                </template>
-                            </select>
+                                <p x-show="!rrSelected.length" class="px-3 py-3 text-xs text-slate-400">Nothing selected yet. Tick the equipment in the list above.</p>
+                                <ul x-show="rrSelected.length" x-cloak class="divide-y divide-slate-100 overflow-y-auto" :class="fullscreen ? 'max-h-32' : 'max-h-48'">
+                                    <template x-for="line in selectedRrLines" :key="'sel-' + line.id">
+                                        <li class="flex items-center gap-3 px-3 py-2">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
+                                                <p class="truncate text-[11px] text-slate-500" x-text="[line.rr_number, line.po_number ? ('PO ' + line.po_number) : 'No PO', line.supplier_name, line.purchase_date ? ('Bought ' + line.purchase_date) : null].filter(Boolean).join(' · ')"></p>
+                                            </div>
+                                            <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600" x-text="(line.remaining_qty != null ? line.remaining_qty : line.quantity) + ' quantity available'"></span>
+                                            <button
+                                                type="button"
+                                                class="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                                @click="toggleRrLine(line)"
+                                                :aria-label="'Remove ' + line.article"
+                                            ><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
                             <p x-show="errors.rr" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.rr"></p>
-                        </div>
-
-                        <div
-                            x-show="selectedRrLine"
-                            x-cloak
-                            class="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200/80"
-                        >
-                            <p><span class="font-semibold text-slate-800">RR</span> <span x-text="selectedRrLine?.rr_number || '—'"></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">PO</span> <span x-text="selectedRrLine?.po_number || 'Not linked'"></span>
-                            </p>
-                            <p class="mt-1">
-                                <span class="font-semibold text-slate-800">Supplier</span> <span x-text="selectedRrLine?.supplier_name || '—'"></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">To stock</span> <span x-text="selectedRrLine?.quantity || 0"></span>
-                                <span x-show="selectedRrLine?.received_qty"> / received <span x-text="selectedRrLine?.received_qty"></span></span>
-                                <span class="mx-1 text-slate-300">·</span>
-                                <span class="font-semibold text-slate-800">Bought</span> <span x-text="selectedRrLine?.purchase_date || '—'"></span>
-                            </p>
                         </div>
                     </div>
 
@@ -319,10 +353,13 @@
                                     :disabled="intakeBasis !== 'non_procurement'"
                                     data-searchable="1"
                                     data-search-placeholder="Search suppliers…"
+                                    data-add-url="{{ url('/maintenance/equipment/suppliers/quick-add') }}"
+                                    data-add-label="Add new supplier"
+                                    data-add-placeholder="Supplier name"
                                     class="{{ $eqField }}"
                                 >
                                     <option value="">Not recorded</option>
-                                    <option value="{{ \App\Support\EquipmentAcquisition::OTHER_SUPPLIER }}">Other — type the name</option>
+                                    <option value="{{ \App\Support\EquipmentAcquisition::OTHER_SUPPLIER }}">Other — one-time name (not saved to the list)</option>
                                     @foreach ($acquisitionSuppliers as $supplierOption)
                                         <option value="{{ $supplierOption->supplier_id }}">{{ $supplierOption->supplier_name }}</option>
                                     @endforeach
@@ -374,6 +411,7 @@
                 </div>
                 @endif
                 <div x-show="page === 2" x-cloak>
+                <div x-show="!isMulti()">
                 <div
                     class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
                     x-show="!needsItemStep()"
@@ -517,7 +555,26 @@
                             </div>
                             <div>
                                 <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
-                                <select id="add_equipment_condition" name="equipment_condition_status" x-model="condition" class="{{ $eqField }}">
+                                <div
+                                    x-show="!manualIntake()"
+                                    class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                    title="New deliveries from a Receiving Report are always recorded as Good."
+                                >
+                                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-900">
+                                        <i data-lucide="lock" class="h-3.5 w-3.5 text-slate-400"></i>
+                                        Good
+                                    </span>
+                                    <span class="text-[11px] text-slate-400">New delivery</span>
+                                </div>
+                                <select
+                                    id="add_equipment_condition"
+                                    name="equipment_condition_status"
+                                    x-model="condition"
+                                    x-show="manualIntake()"
+                                    x-cloak
+                                    :disabled="!manualIntake()"
+                                    class="{{ $eqField }}"
+                                >
                                     <option value="Good">Good</option>
                                     <option value="Damaged">Damaged</option>
                                     <option value="Under Maintenance">Under maintenance</option>
@@ -532,7 +589,7 @@
                                 <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                             </div>
                             <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
-                                ? 'One stock record with combined quantity.'
+                                ? 'One record with the combined quantity.'
                                 : 'Creates separate trackable assets (asset tag, serial, QR per unit).'"></p>
                         </div>
                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
@@ -542,6 +599,229 @@
                         </label>
                     </div>
                 </div>
+                @if ($isStockPage)
+                    <button
+                        type="button"
+                        x-show="manualIntake()"
+                        x-cloak
+                        @click="startManualMulti()"
+                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-[#0025cc] transition hover:border-[#0025cc]/50 hover:bg-[#0025cc]/5"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Add another equipment
+                        <span class="font-normal text-slate-400">(e.g. monitor + mouse + keyboard at once)</span>
+                    </button>
+                @endif
+                </div>
+
+                <div x-show="isMulti()" x-cloak class="space-y-4">
+                    <div x-show="isMultiManual()" class="flex items-start gap-2.5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80">
+                        <i data-lucide="layers" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                        <p>
+                            Adding <span class="font-semibold text-slate-900" x-text="multiLines.length + ' different equipment'"></span>
+                            in one go. They share the acquisition details from the first step; set cost, warranty, and lifespan per item on the next page.
+                        </p>
+                    </div>
+                    <div x-show="isMultiRr()" class="flex items-start gap-2.5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80">
+                        <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                        <p>
+                            <span class="font-semibold text-slate-900" x-text="multiLines.length + ' items'"></span>
+                            fetched from
+                            <span class="font-semibold text-slate-900" x-text="selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's')"></span>.
+                            Names come from the RR line; check the category and add brand or model if you have them.
+                            Condition is <span class="font-semibold text-slate-900">Good</span> because these are new deliveries.
+                        </p>
+                    </div>
+                    <template x-for="(row, index) in multiLines" :key="'multi-' + row.id">
+                        <div class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                            <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="'Item ' + (index + 1) + ' of ' + multiLines.length"></p>
+                                    <p x-show="row.source" class="mt-0.5 truncate text-[11px] text-slate-500" x-text="row.source"></p>
+                                </div>
+                                <span x-show="isMultiRr()" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
+                                    <i data-lucide="lock" class="h-3 w-3"></i>
+                                    Good · new
+                                </span>
+                                <div x-show="isMultiManual()" class="flex items-center gap-2">
+                                    <label class="sr-only" :for="'multi_condition_' + row.id">Condition</label>
+                                    <select
+                                        :id="'multi_condition_' + row.id"
+                                        x-model="row.condition"
+                                        class="h-8 rounded-lg border-0 bg-white py-0 pl-2.5 pr-8 text-xs font-medium text-slate-700 ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#0025cc]/30"
+                                    >
+                                        <option value="Good">Good</option>
+                                        <option value="Damaged">Damaged</option>
+                                        <option value="Under Maintenance">Under maintenance</option>
+                                        <option value="Disposed">Disposed</option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        @click="removeManualLine(index)"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 ring-1 ring-slate-200/80 transition hover:bg-rose-50 hover:text-rose-600"
+                                        :aria-label="'Remove ' + (row.name || 'item ' + (index + 1))"
+                                        title="Remove this equipment"
+                                    ><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label class="{{ $eqLabel }}" :for="'multi_name_' + row.id">Equipment name <span class="text-rose-500">*</span></label>
+                                    <input
+                                        :id="'multi_name_' + row.id"
+                                        type="text"
+                                        x-model="row.name"
+                                        @input="clearMultiError(row, 'name'); onMultiNameInput(row)"
+                                        class="{{ $eqField }}"
+                                        :class="multiError(row, 'name') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    />
+                                    <p x-show="multiError(row, 'name')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'name')"></p>
+                                </div>
+                                <div>
+                                    <label class="{{ $eqLabel }}" :for="'multi_category_' + row.id">Category <span class="text-rose-500">*</span></label>
+                                    <select
+                                        :id="'multi_category_' + row.id"
+                                        x-model="row.category"
+                                        @change="row.categoryManual = true; clearMultiError(row, 'category')"
+                                        class="{{ $eqField }}"
+                                        :class="multiError(row, 'category') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    >
+                                        <option value="">Select category</option>
+                                        @foreach ($categories as $category)
+                                            <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <p x-show="multiError(row, 'category')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'category')"></p>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="{{ $eqLabel }}" :for="'multi_brand_' + row.id" x-text="hasPieces(row) ? 'Brand (all pcs)' : 'Brand name'"></label>
+                                        <input :id="'multi_brand_' + row.id" type="text" x-model="row.brand" placeholder="e.g. Logitech" class="{{ $eqField }}" />
+                                    </div>
+                                    <div>
+                                        <label class="{{ $eqLabel }}" :for="'multi_model_' + row.id" x-text="hasPieces(row) ? 'Model (all pcs)' : 'Model'"></label>
+                                        <input :id="'multi_model_' + row.id" type="text" x-model="row.model" placeholder="e.g. B100" class="{{ $eqField }}" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="{{ $eqLabel }}" :for="'multi_qty_' + row.id">Qty <span class="text-red-500">*</span></label>
+                                        <input
+                                            :id="'multi_qty_' + row.id"
+                                            type="number"
+                                            min="1"
+                                            :max="row.max"
+                                            x-model.number="row.quantity"
+                                            @input="clearMultiError(row, 'quantity'); syncPieces(row)"
+                                            class="{{ $eqField }}"
+                                            :class="multiError(row, 'quantity') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        />
+                                        <p x-show="multiError(row, 'quantity')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'quantity')"></p>
+                                        <p x-show="!multiError(row, 'quantity')" class="mt-1.5 text-[11px] text-slate-400" x-text="isMultiManual() ? 'Up to ' + row.max : (row.max + ' left on this RR line')"></p>
+                                    </div>
+                                    <div>
+                                        <p class="{{ $eqLabel }}">Tracking</p>
+                                        <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                                            <button type="button" @click="row.tracking = 'Bulk'" class="flex-1 rounded-lg text-xs font-medium transition" :class="row.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                            <button type="button" @click="row.tracking = 'Individual'; syncPieces(row)" class="flex-1 rounded-lg text-xs font-medium transition" :class="row.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                x-show="row.tracking === 'Individual' && Number(row.quantity) > 1"
+                                x-cloak
+                                data-pieces
+                                class="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200/80"
+                            >
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-slate-900">Brand &amp; model per piece</p>
+                                        <p class="text-[11px] text-slate-500" x-text="row.perPiece
+                                            ? 'Fill only the pieces that differ. Blank fields use the brand and model above.'
+                                            : ('All ' + (Number(row.quantity) || 0) + ' pcs use the brand and model above.')"></p>
+                                    </div>
+                                    <label class="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            x-model="row.perPiece"
+                                            @change="syncPieces(row)"
+                                            class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30"
+                                        >
+                                        Different per piece
+                                    </label>
+                                </div>
+                                <div x-show="hasPieces(row)" x-cloak class="mt-3">
+                                    <div class="mb-2 flex items-center justify-between gap-2">
+                                        <p class="text-[11px] text-slate-400" x-text="(row.pieces || []).length + ' pieces · slide sideways'"></p>
+                                        <div class="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-800"
+                                                @click="scrollPieces($el, -1)"
+                                                aria-label="Previous pieces"
+                                            ><i data-lucide="chevron-left" class="h-4 w-4"></i></button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-800"
+                                                @click="scrollPieces($el, 1)"
+                                                aria-label="Next pieces"
+                                            ><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+                                        </div>
+                                    </div>
+                                    <div data-track class="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-2">
+                                        <template x-for="(piece, pieceIndex) in (row.pieces || [])" :key="row.id + '-pc-' + pieceIndex">
+                                            <div class="w-52 shrink-0 snap-start rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/80">
+                                                <div class="mb-2 flex items-center justify-between gap-2">
+                                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500" x-text="'Pc ' + (pieceIndex + 1) + ' of ' + row.pieces.length"></p>
+                                                    <span
+                                                        class="text-[10px] font-semibold"
+                                                        :class="(piece.brand || piece.model) ? 'text-[#0025cc]' : 'text-slate-400'"
+                                                        x-text="(piece.brand || piece.model) ? 'Custom' : 'Same as all'"
+                                                    ></span>
+                                                </div>
+                                                <label class="sr-only" :for="'pc_brand_' + row.id + '_' + pieceIndex">Brand</label>
+                                                <input
+                                                    :id="'pc_brand_' + row.id + '_' + pieceIndex"
+                                                    type="text"
+                                                    x-model="piece.brand"
+                                                    :placeholder="row.brand || 'Brand'"
+                                                    class="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                                />
+                                                <label class="sr-only" :for="'pc_model_' + row.id + '_' + pieceIndex">Model</label>
+                                                <input
+                                                    :id="'pc_model_' + row.id + '_' + pieceIndex"
+                                                    type="text"
+                                                    x-model="piece.model"
+                                                    :placeholder="row.model || 'Model'"
+                                                    class="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                                />
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                <p class="text-[11px] text-slate-400" x-text="row.tracking === 'Bulk'
+                                    ? 'One record with the combined quantity.'
+                                    : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.')"></p>
+                                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                                    <input type="checkbox" x-model="row.borrowable" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30">
+                                    Can be borrowed
+                                </label>
+                            </div>
+                        </div>
+                    </template>
+                    <button
+                        type="button"
+                        x-show="isMultiManual()"
+                        @click="addManualLine()"
+                        class="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-[#0025cc] transition hover:border-[#0025cc]/50 hover:bg-[#0025cc]/5"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Add another equipment
+                    </button>
+                </div>
                 </div>
 
                 <div x-show="page === 3" x-cloak class="space-y-5">
@@ -549,8 +829,25 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
                         <template x-if="!manualIntake()">
                             <div class="space-y-3">
-                                <p class="text-xs text-slate-500">Taken from the Receiving Report line. Correct it on the RR if something is wrong.</p>
-                                <dl class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <p class="text-xs text-slate-500" x-text="isMulti()
+                                    ? 'Taken from each Receiving Report line. Correct it on the RR if something is wrong.'
+                                    : 'Taken from the Receiving Report line. Correct it on the RR if something is wrong.'"></p>
+                                <div x-show="isMulti()" class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                                    <template x-for="row in multiLines" :key="'buy-' + row.id">
+                                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-900" x-text="row.name || row.article"></p>
+                                                <p class="truncate text-[11px] text-slate-500" x-text="[row.rr_number, row.supplier_name].filter(Boolean).join(' · ')"></p>
+                                            </div>
+                                            <p class="shrink-0 text-xs text-slate-500">
+                                                <span x-text="row.purchase_date || 'No date'"></span>
+                                                <span class="mx-1 text-slate-300">·</span>
+                                                <span class="font-semibold text-slate-900" x-text="formatPeso(row.unit_cost)"></span> each
+                                            </p>
+                                        </div>
+                                    </template>
+                                </div>
+                                <dl x-show="!isMulti()" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                     <div class="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200/80">
                                         <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Purchase date</dt>
                                         <dd class="mt-1 text-sm font-semibold text-slate-900" x-text="purchaseDate || '—'"></dd>
@@ -564,7 +861,7 @@
                                         <dd class="mt-1 truncate text-sm font-semibold text-slate-900" x-text="selectedRrLine?.supplier_name || '—'"></dd>
                                     </div>
                                 </dl>
-                                <p class="text-xs text-slate-400">Stocked date is recorded as today when you save.</p>
+                                <p class="text-xs text-slate-400">The date added to inventory is recorded as today when you save.</p>
                             </div>
                         </template>
                         <div x-show="manualIntake()" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -579,7 +876,7 @@
                                     class="{{ $eqField }}"
                                 />
                             </div>
-                            <div>
+                            <div x-show="!isMultiManual()">
                                 <label for="add_manual_purchase_cost" class="{{ $eqLabel }}" x-text="acqSource === 'donation' ? 'Estimated value per unit (₱)' : 'Cost per unit (₱)'"></label>
                                 <input
                                     id="add_manual_purchase_cost"
@@ -610,11 +907,11 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Warranty &amp; lifespan</p>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <label for="add_warranty_expiration" class="{{ $eqLabel }}">Warranty expiration</label>
+                                <label for="add_warranty_expiration" class="{{ $eqLabel }}" x-text="isMulti() ? 'Warranty expiration (all items)' : 'Warranty expiration'"></label>
                                 <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
                             </div>
                             <div>
-                                <label for="add_useful_life_years" class="{{ $eqLabel }}">Useful lifespan (years)</label>
+                                <label for="add_useful_life_years" class="{{ $eqLabel }}" x-text="isMulti() ? 'Useful lifespan, years (all items)' : 'Useful lifespan (years)'"></label>
                                 <input
                                     id="add_useful_life_years"
                                     type="number"
@@ -629,13 +926,81 @@
                                 <p class="mt-1.5 text-xs text-slate-400">Used for replacement alerts when the equipment nears end of life.</p>
                             </div>
                         </div>
+                        <div x-show="isMulti()" x-cloak class="space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="text-xs text-slate-500">Per item. Leave a field blank to use the value for all items above.</p>
+                                <button type="button" @click="applyWarrantyToAll()" class="text-xs font-semibold text-[#0025cc] hover:underline">Copy to every item</button>
+                            </div>
+                            <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                                <div
+                                    class="hidden gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid"
+                                    :class="isMultiManual() ? 'grid-cols-[minmax(0,1fr)_8rem_11rem_7rem]' : 'grid-cols-[minmax(0,1fr)_11rem_8rem]'"
+                                >
+                                    <span>Item</span>
+                                    <span x-show="isMultiManual()" x-text="acqSource === 'donation' ? 'Value / unit (₱)' : 'Cost / unit (₱)'"></span>
+                                    <span>Warranty expiration</span>
+                                    <span>Lifespan (yrs)</span>
+                                </div>
+                                <template x-for="row in multiLines" :key="'warranty-' + row.id">
+                                    <div
+                                        class="grid grid-cols-1 items-center gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0 sm:gap-3"
+                                        :class="isMultiManual() ? 'sm:grid-cols-[minmax(0,1fr)_8rem_11rem_7rem]' : 'sm:grid-cols-[minmax(0,1fr)_11rem_8rem]'"
+                                    >
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-medium text-slate-900" x-text="row.name || row.article || 'Unnamed item'"></p>
+                                            <p class="truncate text-[11px] text-slate-500" x-text="[row.tracking === 'Bulk' ? 'Bulk · ' + row.quantity : (row.quantity + ' units'), row.rr_number].filter(Boolean).join(' · ')"></p>
+                                        </div>
+                                        <input
+                                            x-show="isMultiManual()"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            x-model="row.cost"
+                                            placeholder="0.00"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            :aria-label="'Cost per unit for ' + (row.name || 'item')"
+                                        />
+                                        <input
+                                            type="date"
+                                            x-model="row.warranty"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            :class="row.warranty ? 'text-slate-900' : 'text-slate-400'"
+                                            :aria-label="'Warranty expiration for ' + (row.name || row.article)"
+                                        />
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            step="1"
+                                            x-model="row.useful_life_years"
+                                            :placeholder="usefulLifeYears ? String(usefulLifeYears) : '5'"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            :aria-label="'Useful lifespan in years for ' + (row.name || row.article)"
+                                        />
+                                    </div>
+                                </template>
+                            </div>
+                            <p class="text-xs text-slate-400">Individually tracked items can still get a different warranty per unit on the Units step.</p>
+                        </div>
                     </div>
                 </div>
 
                 <div x-show="page === 4" x-cloak class="space-y-5">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Where it goes</p>
-                        <div>
+                        @if ($isStockPage)
+                            <div>
+                                <label class="{{ $eqLabel }}">After adding to inventory</label>
+                                <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                                    <button type="button" @click="setPlacement('storage')" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'storage' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Keep in storage</button>
+                                    <button type="button" @click="setPlacement('deploy')" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Deploy to a room now</button>
+                                </div>
+                                <p class="mt-1.5 text-xs text-slate-400" x-text="placement === 'deploy'
+                                    ? ('Recorded in ' + (optionText('add_equipment_room') || 'the storage room') + ' first, then transferred to the room you choose.')
+                                    : 'Stays in storage until you transfer it to a classroom, lab, or office.'"></p>
+                            </div>
+                        @endif
+                        <div x-show="placement !== 'deploy'">
                             <label for="add_equipment_room" class="{{ $eqLabel }}">{{ $isStockPage ? 'Storage room' : 'Room' }} <span class="text-rose-500">*</span></label>
                             <select
                                 id="add_equipment_room"
@@ -659,18 +1024,8 @@
                             <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
                         </div>
                         @if ($isStockPage)
-                            <div>
-                                <label class="{{ $eqLabel }}">After stocking</label>
-                                <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                    <button type="button" @click="placement = 'storage'; deployRoom = ''; custodianId = ''; clearError('deploy'); syncAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'storage' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Keep in storage</button>
-                                    <button type="button" @click="placement = 'deploy'" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Deploy to a room now</button>
-                                </div>
-                                <p class="mt-1.5 text-xs text-slate-400" x-text="placement === 'deploy'
-                                    ? 'Records the stock-in, then a transfer from storage to the room you choose.'
-                                    : 'Stock stays in storage until you transfer it to a classroom, lab, or office.'"></p>
-                            </div>
                             <div x-show="placement === 'deploy'" x-cloak>
-                                <label for="add_deploy_room" class="{{ $eqLabel }}">Deploy to <span class="text-rose-500">*</span></label>
+                                <label for="add_deploy_room" class="{{ $eqLabel }}" x-text="hasUnitsStep() ? 'Deploy to (default room)' : 'Deploy to'"></label>
                                 <select
                                     id="add_deploy_room"
                                     name="deploy_room_id"
@@ -687,7 +1042,8 @@
                                         <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
                                     @endforeach
                                 </select>
-                                <p x-show="errors.deploy" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.deploy"></p>
+                                <p x-show="errors.deploy || errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.deploy || errors.room"></p>
+                                <p x-show="!errors.deploy && !errors.room && hasUnitsStep()" class="mt-1.5 text-xs text-slate-400">Every unit goes here unless you pick another room for it on the Units step, so you can split the equipment across several rooms.</p>
                             </div>
                         @endif
                     </div>
@@ -695,7 +1051,7 @@
                         <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Accountability (optional)</p>
                             <div>
-                                <label for="add_custodian" class="{{ $eqLabel }}">Accountable person</label>
+                                <label for="add_custodian" class="{{ $eqLabel }}" x-text="isMulti() ? 'Accountable person (default for all units)' : 'Accountable person'"></label>
                                 <select
                                     id="add_custodian"
                                     name="custodian_id"
@@ -713,11 +1069,12 @@
                                     @endforeach
                                 </select>
                                 <p x-show="errors.custodian" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.custodian"></p>
-                                <p x-show="!errors.custodian" class="mt-1.5 text-xs text-slate-400" x-text="canAssignPerson()
-                                    ? 'Issues every unit to this person with a property assignment document.'
-                                    : (tracking !== 'Individual' ? 'Only Individual tracking can be assigned to a person.' : 'Choose “Deploy to a room now” to assign a person.')"></p>
+                                <p x-show="!errors.custodian" class="mt-1.5 text-xs text-slate-400" x-text="custodianHint()"></p>
                             </div>
-                            <div>
+                            <p x-show="isMulti()" x-cloak class="text-xs text-slate-500">
+                                Replacement links are set per item from the equipment page.<span x-show="isMultiRr()"> RR lines raised from a replacement request still link automatically.</span>
+                            </p>
+                            <div x-show="!isMulti()">
                                 <label for="add_replaces" class="{{ $eqLabel }}">Replaces equipment</label>
                                 <select
                                     id="add_replaces"
@@ -732,7 +1089,7 @@
                                         <option value="{{ $candidate->equipment_id }}">{{ $candidate->equipment_name }}{{ $candidate->equipment_asset_tag ? ' · '.$candidate->equipment_asset_tag : '' }}{{ $candidate->room_name ? ' · '.$candidate->room_name : '' }}</option>
                                     @endforeach
                                 </select>
-                                <p class="mt-1.5 text-xs text-slate-400">Links the old unit marked “For replacement” to this new one. RR stock from a replacement request links automatically.</p>
+                                <p class="mt-1.5 text-xs text-slate-400">Links the old unit marked “For replacement” to this new one. RR deliveries from a replacement request link automatically.</p>
                             </div>
                         </div>
                     @endif
@@ -740,13 +1097,14 @@
             </div>
 
             <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 2" x-cloak>
+                <div x-show="!isMulti()">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
                     <div class="text-sm text-slate-600">
                         <span class="font-medium text-slate-900" x-text="name"></span>
                         <span class="text-slate-400"> · </span>
                         <span x-text="items.length + ' individually tracked units'"></span>
                         <span class="text-slate-400"> · </span>
-                        <span class="text-slate-500">Optional photo per unit</span>
+                        <span class="text-slate-500" x-text="deploying() ? ('Going to ' + roomCount(items.map((item) => item.deploy_room_id)) + ' room(s)') : 'Optional photo per unit'"></span>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
@@ -757,19 +1115,21 @@
                     <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
                         <colgroup>
                             <col class="w-[3%]">
-                            <col class="w-[14%]">
-                            <col class="w-[22%]">
-                            <col class="w-[14%]">
-                            <col class="w-[12%]">
-                            <col class="w-[12%]">
                             <col class="w-[13%]">
+                            <col class="w-[18%]">
+                            <col class="w-[15%]">
+                            <col class="w-[11%]">
                             <col class="w-[10%]">
+                            <col class="w-[9%]">
+                            <col class="w-[10%]">
+                            <col class="w-[11%]">
                         </colgroup>
                         <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
                                 <th class="px-2 py-2.5">#</th>
                                 <th class="px-2 py-2.5">Photo</th>
                                 <th class="px-2 py-2.5">Asset tag</th>
+                                <th class="px-2 py-2.5">Room</th>
                                 <th class="px-2 py-2.5">Serial</th>
                                 <th class="px-2 py-2.5">Brand</th>
                                 <th class="px-2 py-2.5">Model</th>
@@ -836,6 +1196,21 @@
                                         </div>
                                     </td>
                                     <td class="px-2 py-2">
+                                        <select
+                                            x-show="deploying()"
+                                            :name="'items[' + index + '][deploy_room_id]'"
+                                            x-model="item.deploy_room_id"
+                                            :disabled="!deploying()"
+                                            @change="onItemRoomChange(item)"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                        >
+                                            @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p x-show="!deploying()" class="truncate text-xs text-slate-500" x-text="optionText('add_equipment_room') || 'Storage'"></p>
+                                    </td>
+                                    <td class="px-2 py-2">
                                         <div class="group/eqtip relative min-w-0">
                                             <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
                                             <div
@@ -869,7 +1244,21 @@
                                         </div>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm">
+                                        <div
+                                            x-show="!manualIntake()"
+                                            class="flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700"
+                                            title="New deliveries from a Receiving Report are always recorded as Good."
+                                        >
+                                            <i data-lucide="lock" class="h-3 w-3 shrink-0 text-slate-400"></i>
+                                            Good
+                                        </div>
+                                        <select
+                                            :name="'items[' + index + '][equipment_condition_status]'"
+                                            x-model="item.equipment_condition_status"
+                                            x-show="manualIntake()"
+                                            :disabled="!manualIntake()"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                        >
                                             <option value="Good">Good</option>
                                             <option value="Damaged">Damaged</option>
                                             <option value="Under Maintenance">Under Maintenance</option>
@@ -883,6 +1272,152 @@
                             </template>
                         </tbody>
                     </table>
+                </div>
+                </div>
+
+                <div x-show="isMulti()" x-cloak class="space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+                        <div class="text-sm text-slate-600">
+                            <span class="font-medium text-slate-900" x-text="multiLines.length + ' items'"></span>
+                            <span class="text-slate-400"> · </span>
+                            <span x-text="multiUnitCount() + ' records to create'"></span>
+                            <span class="text-slate-400"> · </span>
+                            <span class="text-slate-500" x-text="deploying() ? ('Going to ' + roomCount(multiUnits().map((unit) => unit.deploy_room_id)) + ' room(s)') : 'Optional photo per unit'"></span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="fillMultiTags(true)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
+                            <button type="button" x-show="deploying()" @click="useDefaultRoomForAll()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Send all to default room</button>
+                            <button type="button" x-show="canAssignPerson()" @click="useDefaultCustodianForAll()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" x-text="custodianId ? 'Assign all to ' + custodianName(custodianId) : 'Clear all assignments'"></button>
+                        </div>
+                    </div>
+                    <template x-for="row in multiLines" :key="'units-' + row.id">
+                        <div class="overflow-hidden rounded-xl ring-1 ring-slate-200">
+                            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-semibold text-slate-900" x-text="row.name || row.article"></p>
+                                    <p class="truncate text-[11px] text-slate-500" x-text="row.source || [row.brand, row.model].filter(Boolean).join(' ') || (isMultiManual() ? row.condition : '')"></p>
+                                </div>
+                                <span
+                                    class="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200"
+                                    x-text="row.tracking === 'Bulk' ? ('Bulk · ' + row.quantity + ' in one record') : (row.quantity + ' individual unit' + (Number(row.quantity) === 1 ? '' : 's'))"
+                                ></span>
+                            </div>
+                            <table class="w-full table-fixed divide-y divide-slate-100 text-left text-sm">
+                                <colgroup>
+                                    <col class="w-[4%]">
+                                    <col class="w-[14%]">
+                                    <col class="w-[21%]">
+                                    <col class="w-[13%]">
+                                    <col class="w-[14%]">
+                                    <col class="w-[17%]">
+                                    <col class="w-[17%]">
+                                </colgroup>
+                                <thead class="bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    <tr>
+                                        <th class="px-2 py-2">#</th>
+                                        <th class="px-2 py-2">Photo</th>
+                                        <th class="px-2 py-2">Asset tag</th>
+                                        <th class="px-2 py-2">Serial</th>
+                                        <th class="px-2 py-2">Warranty</th>
+                                        <th class="px-2 py-2">Room</th>
+                                        <th class="px-2 py-2">Assign to</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <template x-for="(unit, unitIndex) in row.units" :key="row.id + '-' + unitIndex">
+                                        <tr>
+                                            <td class="px-2 py-2 text-slate-400" x-text="unitIndex + 1"></td>
+                                            <td class="px-2 py-2">
+                                                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        x-show="unit._imagePreview"
+                                                        x-cloak
+                                                        @click="openEquipmentPhotoViewer(unit._imagePreview, (unit.asset_tag || row.name || 'Equipment') + ' photo')"
+                                                        class="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                                        aria-label="View unit photo"
+                                                    >
+                                                        <img :src="unit._imagePreview" alt="" class="h-full w-full object-cover">
+                                                    </button>
+                                                    <div x-show="!unit._imagePreview" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-50 ring-1 ring-slate-200">
+                                                        <span
+                                                            class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                                            x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(row.name || '') : ''"
+                                                        ></span>
+                                                    </div>
+                                                    <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                                        <span x-text="unit._imagePreview ? 'Change' : 'Add'"></span>
+                                                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="sr-only" @change="onMultiUnitImage(unit, $event)">
+                                                    </label>
+                                                    <button
+                                                        type="button"
+                                                        x-show="unit._imagePreview"
+                                                        x-cloak
+                                                        @click="clearMultiUnitImage(unit)"
+                                                        class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+                                                    >Remove</button>
+                                                </div>
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input type="text" x-model="unit.asset_tag" @input="unit._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" :title="unit.asset_tag" />
+                                                <p
+                                                    x-show="pieceBrandModel(row, unitIndex)"
+                                                    class="mt-1 truncate text-[11px] text-slate-500"
+                                                    x-text="pieceBrandModel(row, unitIndex)"
+                                                ></p>
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input type="text" x-model="unit.serial" placeholder="Optional" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input
+                                                    type="date"
+                                                    x-model="unit.warranty"
+                                                    @input="unit._warrantyManual = true"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    :aria-label="'Warranty expiration for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                />
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <select
+                                                    x-show="deploying()"
+                                                    x-model="unit.deploy_room_id"
+                                                    @change="onMultiUnitRoomChange(unit)"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                                >
+                                                    @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                        <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <p x-show="!deploying()" class="truncate text-xs text-slate-500" x-text="optionText('add_equipment_room') || 'Storage'"></p>
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <select
+                                                    x-show="unitCanAssign(row)"
+                                                    x-model="unit.custodian_id"
+                                                    @change="unit._custodianManual = true"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                                    :class="unit.custodian_id ? 'text-slate-900' : 'text-slate-400'"
+                                                    :aria-label="'Accountable person for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                >
+                                                    <option value="">No one yet</option>
+                                                    @foreach ($acquisitionPeople as $person)
+                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <p
+                                                    x-show="!unitCanAssign(row)"
+                                                    class="truncate text-xs text-slate-400"
+                                                    :title="unitAssignHint(row)"
+                                                    x-text="unitAssignHint(row)"
+                                                ></p>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
                 </div>
             </div>
 
@@ -951,8 +1486,13 @@
                     type="submit"
                     x-show="step === 3"
                     x-cloak
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
-                    x-text="needsItemStep() ? ('Create ' + items.length + ' assets') : {{ json_encode($wizardTitle) }}"
+                    :disabled="submitting"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                    x-text="submitting
+                        ? 'Saving…'
+                        : (isMulti()
+                            ? ('Add ' + multiLines.length + ' items to inventory')
+                            : (needsItemStep() ? ('Create ' + items.length + ' assets') : {{ json_encode($wizardTitle) }}))"
                 ></button>
             </div>
         </form>
@@ -1005,6 +1545,12 @@
                 rrGuide: [],
                 rrLoading: false,
                 rrExpanded: {},
+                rrSelected: [],
+                rrMultiLines: [],
+                manualLines: [],
+                manualSeq: 0,
+                multiErrors: {},
+                submitting: false,
                 purchaseDate: '',
                 purchaseCost: '',
                 get rrGroups() {
@@ -1075,7 +1621,7 @@
                     if (Object.prototype.hasOwnProperty.call(this.rrExpanded, group.key)) {
                         return this.rrExpanded[group.key];
                     }
-                    return group.ready > 0 || group.lines.some((line) => String(line.id) === String(this.rrItemId));
+                    return group.ready > 0 || group.lines.some((line) => this.isRrSelected(line));
                 },
                 toggleRrGroup(group) {
                     this.rrExpanded = { ...this.rrExpanded, [group.key]: !this.isRrGroupOpen(group) };
@@ -1107,11 +1653,241 @@
                         this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                     }
                 },
+                get selectedRrLines() {
+                    return (this.rrSelected || [])
+                        .map((id) => (this.rrGuide || []).find((line) => String(line.id) === id))
+                        .filter(Boolean);
+                },
+                get selectedRrCount() {
+                    return new Set(this.selectedRrLines.map((line) => String(line.receiving_report_id || line.rr_number))).size;
+                },
+                get multiLines() {
+                    return this.isMultiManual() ? this.manualLines : this.rrMultiLines;
+                },
+                isMultiRr() {
+                    return isStockPage && this.intakeBasis !== 'non_procurement' && (this.rrSelected || []).length > 1;
+                },
+                isMultiManual() {
+                    return isStockPage && this.intakeBasis === 'non_procurement' && (this.manualLines || []).length > 0;
+                },
+                isMulti() {
+                    return this.isMultiRr() || this.isMultiManual();
+                },
+                newManualLine(values = {}) {
+                    this.manualSeq += 1;
+                    return {
+                        id: 'm' + this.manualSeq,
+                        article: '',
+                        source: '',
+                        rr_number: '',
+                        supplier_name: '',
+                        purchase_date: '',
+                        unit_cost: null,
+                        name: '',
+                        category: '',
+                        categoryManual: false,
+                        brand: '',
+                        model: '',
+                        quantity: 1,
+                        max: 200,
+                        tracking: 'Individual',
+                        condition: 'Good',
+                        cost: '',
+                        borrowable: false,
+                        warranty: '',
+                        useful_life_years: '',
+                        perPiece: false,
+                        pieces: [],
+                        ...values,
+                    };
+                },
+                startManualMulti() {
+                    const borrowable = document.getElementById('add_equipment_borrowable');
+                    const first = this.newManualLine({
+                        name: this.name || '',
+                        category: this.category ? String(this.category) : '',
+                        categoryManual: this.categoryManual,
+                        brand: this.brand || '',
+                        model: this.model || '',
+                        quantity: Math.min(200, Math.max(1, Number(this.quantity) || 1)),
+                        tracking: this.tracking,
+                        condition: this.condition || 'Good',
+                        cost: this.purchaseCost || '',
+                        borrowable: !!borrowable?.checked,
+                    });
+                    this.manualLines = [first, this.newManualLine()];
+                    this.clearImage();
+                    this.clearErrors();
+                    this.$nextTick(() => {
+                        document.getElementById('multi_name_' + this.manualLines[1].id)?.focus();
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+                addManualLine() {
+                    const line = this.newManualLine();
+                    this.manualLines = [...this.manualLines, line];
+                    this.$nextTick(() => {
+                        const input = document.getElementById('multi_name_' + line.id);
+                        input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        input?.focus({ preventScroll: true });
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+                removeManualLine(index) {
+                    const removed = this.manualLines[index];
+                    (removed?.units || []).forEach((unit) => {
+                        if (unit._imagePreview) URL.revokeObjectURL(unit._imagePreview);
+                    });
+                    const rest = this.manualLines.filter((_, i) => i !== index);
+                    if (rest.length > 1) {
+                        this.manualLines = rest;
+                        return;
+                    }
+                    const only = rest[0];
+                    this.manualLines = [];
+                    if (!only) return;
+                    this.name = only.name;
+                    this.category = only.category;
+                    this.categoryManual = !!only.categoryManual;
+                    this.brand = only.brand;
+                    this.model = only.model;
+                    this.quantity = Number(only.quantity) || 1;
+                    this.tracking = only.tracking;
+                    this.condition = only.condition || 'Good';
+                    this.purchaseCost = only.cost || '';
+                    const borrowable = document.getElementById('add_equipment_borrowable');
+                    if (borrowable) borrowable.checked = !!only.borrowable;
+                    this.syncAssetTag();
+                },
+                isRrSelected(line) {
+                    return !!line && (this.rrSelected || []).includes(String(line.id));
+                },
+                rrGroupSelectableIds(group) {
+                    return group.lines.filter((line) => line.is_selectable).map((line) => String(line.id));
+                },
+                isRrGroupSelected(group) {
+                    const ids = this.rrGroupSelectableIds(group);
+                    return ids.length > 0 && ids.every((id) => this.rrSelected.includes(id));
+                },
+                isRrGroupPartial(group) {
+                    const ids = this.rrGroupSelectableIds(group);
+                    const picked = ids.filter((id) => this.rrSelected.includes(id)).length;
+                    return picked > 0 && picked < ids.length;
+                },
+                toggleRrLine(line) {
+                    if (!line || !line.is_selectable) return;
+                    const id = String(line.id);
+                    this.rrSelected = this.rrSelected.includes(id)
+                        ? this.rrSelected.filter((value) => value !== id)
+                        : [...this.rrSelected, id];
+                    this.afterRrSelectionChange();
+                },
+                toggleRrGroupSelection(group) {
+                    const ids = this.rrGroupSelectableIds(group);
+                    if (!ids.length) return;
+                    this.rrSelected = this.isRrGroupSelected(group)
+                        ? this.rrSelected.filter((id) => !ids.includes(id))
+                        : [...new Set([...this.rrSelected, ...ids])];
+                    this.afterRrSelectionChange();
+                },
+                clearRrSelection() {
+                    this.rrSelected = [];
+                    this.afterRrSelectionChange();
+                },
                 selectRrLine(line) {
                     if (!line || !line.is_selectable) return;
-                    this.rrItemId = String(line.id);
+                    this.rrSelected = [String(line.id)];
+                    this.afterRrSelectionChange();
+                },
+                afterRrSelectionChange() {
                     this.clearError('rr');
-                    this.onRrLineChange();
+                    this.condition = 'Good';
+                    if (this.rrSelected.length === 1) {
+                        if (String(this.rrItemId) !== this.rrSelected[0]) {
+                            this.rrItemId = this.rrSelected[0];
+                            this.name = '';
+                            this.categoryManual = false;
+                            this.onRrLineChange();
+                        }
+                    } else {
+                        this.rrItemId = '';
+                        this.purchaseDate = '';
+                        this.purchaseCost = '';
+                    }
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                setIntakeBasis(basis) {
+                    this.intakeBasis = basis;
+                    if (basis !== 'non_procurement') {
+                        this.condition = 'Good';
+                    }
+                    this.clearError('rr');
+                    this.clearError('intake_reason');
+                },
+                syncMultiLines() {
+                    const previous = {};
+                    (this.rrMultiLines || []).forEach((row) => { previous[row.id] = row; });
+                    this.rrMultiLines = this.selectedRrLines.map((line) => {
+                        const id = String(line.id);
+                        if (previous[id]) return previous[id];
+                        const article = String(line.article || '').trim();
+                        const remaining = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
+                        const max = Math.min(200, Math.max(1, remaining));
+                        const detected = typeof detectEquipmentCategoryId === 'function' ? detectEquipmentCategoryId(article) : '';
+                        return {
+                            id,
+                            article,
+                            source: [line.rr_number, line.po_number ? ('PO ' + line.po_number) : 'No PO', line.supplier_name].filter(Boolean).join(' · '),
+                            rr_number: line.rr_number || '',
+                            supplier_name: line.supplier_name || '',
+                            purchase_date: line.purchase_date || '',
+                            unit_cost: line.unit_cost,
+                            name: article,
+                            category: detected ? String(detected) : '',
+                            categoryManual: false,
+                            brand: '',
+                            model: '',
+                            quantity: max,
+                            max,
+                            tracking: 'Individual',
+                            borrowable: false,
+                            warranty: '',
+                            useful_life_years: '',
+                            perPiece: false,
+                            pieces: [],
+                        };
+                    });
+                    const ids = this.multiLines.map((row) => row.id);
+                    const errors = {};
+                    Object.keys(this.multiErrors || {}).forEach((id) => {
+                        if (ids.includes(id)) errors[id] = this.multiErrors[id];
+                    });
+                    this.multiErrors = errors;
+                },
+                onMultiNameInput(row) {
+                    if (row.categoryManual || typeof detectEquipmentCategoryId !== 'function') return;
+                    const detected = detectEquipmentCategoryId(row.name);
+                    if (detected) {
+                        row.category = String(detected);
+                        this.clearMultiError(row, 'category');
+                    }
+                },
+                multiError(row, field) {
+                    return (this.multiErrors[row.id] || {})[field] || '';
+                },
+                clearMultiError(row, field) {
+                    const rowErrors = this.multiErrors[row.id];
+                    if (!rowErrors || !rowErrors[field]) return;
+                    const nextRow = { ...rowErrors };
+                    delete nextRow[field];
+                    const next = { ...this.multiErrors };
+                    if (Object.keys(nextRow).length) {
+                        next[row.id] = nextRow;
+                    } else {
+                        delete next[row.id];
+                    }
+                    this.multiErrors = next;
+                    if (!Object.keys(next).length) this.clearError('multi');
                 },
                 onRrLineChange() {
                     const line = this.selectedRrLine;
@@ -1205,7 +1981,214 @@
                     });
                 },
                 needsItemStep() {
-                    return this.tracking === 'Individual' && Number(this.quantity) > 1;
+                    return !this.isMulti() && this.tracking === 'Individual' && Number(this.quantity) > 1;
+                },
+                hasUnitsStep() {
+                    return this.isMulti() || this.needsItemStep();
+                },
+                deploying() {
+                    return isStockPage && this.placement === 'deploy';
+                },
+                setPlacement(placement) {
+                    this.placement = placement;
+                    if (placement === 'storage') {
+                        this.deployRoom = '';
+                        this.custodianId = '';
+                        this.clearError('deploy');
+                    } else if (!String(this.room || '').trim()) {
+                        const first = document.querySelector('#add_equipment_room option:not([value=""])');
+                        if (first) this.room = first.value;
+                    }
+                    this.clearError('room');
+                    this.syncAssetTag();
+                },
+                deployRoomName(roomId) {
+                    const id = String(roomId || '');
+                    if (!id) return '';
+                    const option = document.querySelector('#add_deploy_room option[value="' + id + '"]');
+                    return option ? (option.text || '').trim() : '';
+                },
+                unitRoomName(roomId) {
+                    return this.deploying()
+                        ? this.deployRoomName(roomId || this.deployRoom)
+                        : this.optionText('add_equipment_room');
+                },
+                roomCount(roomIds) {
+                    return new Set((roomIds || []).map((id) => String(id || this.deployRoom || '')).filter(Boolean)).size;
+                },
+                generateTag(roomName, equipmentName) {
+                    const name = String(equipmentName || '').trim();
+                    if (!roomName || !name || typeof window.equipmentAssetTags?.generate !== 'function') return '';
+                    return window.equipmentAssetTags.generate(roomName, name, 1)[0] || '';
+                },
+                fillItemTags(force) {
+                    window.equipmentAssetTags?.resetReserved?.();
+                    (this.items || []).forEach((item) => {
+                        if (item._tagManual && !force) return;
+                        item.equipment_asset_tag = this.generateTag(this.unitRoomName(item.deploy_room_id), this.name);
+                        if (force) item._tagManual = false;
+                    });
+                },
+                onItemRoomChange(item) {
+                    item._roomManual = true;
+                    this.fillItemTags(false);
+                },
+                multiUnits() {
+                    return (this.multiLines || []).flatMap((row) => row.units || []);
+                },
+                multiUnitCount() {
+                    return (this.multiLines || []).reduce((sum, row) => sum + (row.tracking === 'Bulk' ? 1 : (Number(row.quantity) || 0)), 0);
+                },
+                buildMultiUnits() {
+                    const deploying = this.deploying();
+                    this.multiLines.forEach((row) => {
+                        const count = row.tracking === 'Bulk' ? 1 : Math.min(200, Math.max(1, Number(row.quantity) || 1));
+                        const previous = Array.isArray(row.units) ? row.units : [];
+                        previous.slice(count).forEach((unit) => {
+                            if (unit._imagePreview) URL.revokeObjectURL(unit._imagePreview);
+                        });
+                        row.units = Array.from({ length: count }, (_, i) => {
+                            const prev = previous[i] || {};
+                            const roomManual = deploying && !!prev._roomManual;
+                            return {
+                                asset_tag: prev._tagManual ? prev.asset_tag : '',
+                                serial: prev.serial || '',
+                                warranty: prev._warrantyManual ? prev.warranty : (row.warranty || this.warranty || ''),
+                                _warrantyManual: !!prev._warrantyManual,
+                                deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
+                                _roomManual: roomManual,
+                                custodian_id: prev._custodianManual ? prev.custodian_id : String(this.custodianId || ''),
+                                _custodianManual: !!prev._custodianManual,
+                                _tagManual: !!prev._tagManual,
+                                _imageFile: prev._imageFile || null,
+                                _imagePreview: prev._imagePreview || null,
+                            };
+                        });
+                    });
+                    this.fillMultiTags(false);
+                },
+                fillMultiTags(force) {
+                    window.equipmentAssetTags?.resetReserved?.();
+                    (this.multiLines || []).forEach((row) => {
+                        (row.units || []).forEach((unit) => {
+                            if (unit._tagManual && !force) return;
+                            unit.asset_tag = this.generateTag(this.unitRoomName(unit.deploy_room_id), row.name);
+                            if (force) unit._tagManual = false;
+                        });
+                    });
+                },
+                onMultiUnitRoomChange(unit) {
+                    unit._roomManual = true;
+                    this.fillMultiTags(false);
+                },
+                useDefaultRoomForAll() {
+                    this.multiUnits().forEach((unit) => {
+                        unit.deploy_room_id = String(this.deployRoom || '');
+                        unit._roomManual = false;
+                    });
+                    this.fillMultiTags(false);
+                },
+                useDefaultCustodianForAll() {
+                    this.multiUnits().forEach((unit) => {
+                        unit.custodian_id = String(this.custodianId || '');
+                        unit._custodianManual = false;
+                    });
+                },
+                hasPieces(row) {
+                    return !!row.perPiece && row.tracking === 'Individual' && Number(row.quantity) > 1;
+                },
+                syncPieces(row) {
+                    if (!row.perPiece) return;
+                    const count = Math.min(200, Math.max(1, Number(row.quantity) || 1));
+                    const pieces = Array.isArray(row.pieces) ? row.pieces.slice(0, count) : [];
+                    while (pieces.length < count) pieces.push({ brand: '', model: '' });
+                    row.pieces = pieces;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                scrollPieces(el, direction) {
+                    const track = el.closest('[data-pieces]')?.querySelector('[data-track]');
+                    if (track) track.scrollBy({ left: direction * Math.max(220, track.clientWidth * 0.8), behavior: 'smooth' });
+                },
+                pieceValues(row, index) {
+                    const piece = this.hasPieces(row) ? (row.pieces || [])[index] : null;
+                    return {
+                        brand: String((piece && piece.brand) || row.brand || '').trim(),
+                        model: String((piece && piece.model) || row.model || '').trim(),
+                    };
+                },
+                pieceBrandModel(row, index) {
+                    if (!this.hasPieces(row)) return '';
+                    const values = this.pieceValues(row, index);
+                    return [values.brand, values.model].filter(Boolean).join(' · ');
+                },
+                applyWarrantyToAll() {
+                    (this.multiLines || []).forEach((row) => {
+                        row.warranty = this.warranty || '';
+                        row.useful_life_years = this.usefulLifeYears || '';
+                        (row.units || []).forEach((unit) => {
+                            unit.warranty = this.warranty || '';
+                            unit._warrantyManual = false;
+                        });
+                    });
+                },
+                multiWarrantySummary() {
+                    const values = new Set();
+                    (this.multiLines || []).forEach((row) => {
+                        const units = Array.isArray(row.units) && row.units.length ? row.units : [{}];
+                        units.forEach((unit) => values.add(unit.warranty || row.warranty || this.warranty || ''));
+                    });
+                    if (values.size > 1) return 'Varies per item';
+                    return [...values][0] || '—';
+                },
+                multiLifespanSummary() {
+                    const values = new Set((this.multiLines || []).map((row) => String(row.useful_life_years || this.usefulLifeYears || '')));
+                    if (values.size > 1) return 'Varies per item';
+                    const value = [...values][0];
+                    return value ? value + ' years' : 'Default 5 years';
+                },
+                onMultiUnitImage(unit, event) {
+                    const file = event.target.files?.[0] || null;
+                    if (unit._imagePreview) URL.revokeObjectURL(unit._imagePreview);
+                    unit._imageFile = file;
+                    unit._imagePreview = file ? URL.createObjectURL(file) : null;
+                    event.target.value = '';
+                },
+                clearMultiUnitImage(unit) {
+                    if (unit._imagePreview) URL.revokeObjectURL(unit._imagePreview);
+                    unit._imageFile = null;
+                    unit._imagePreview = null;
+                },
+                validateMultiUnits() {
+                    const tags = {};
+                    const serials = {};
+                    for (const row of this.multiLines) {
+                        for (let i = 0; i < (row.units || []).length; i++) {
+                            const unit = row.units[i];
+                            const label = (row.name || row.article) + ' #' + (i + 1);
+                            const tag = String(unit.asset_tag || '').trim().toLowerCase();
+                            const serial = String(unit.serial || '').trim().toLowerCase();
+                            if (tag) {
+                                if (tags[tag]) {
+                                    this.formError = 'Asset tag "' + unit.asset_tag.trim() + '" is used by both ' + tags[tag] + ' and ' + label + '.';
+                                    return false;
+                                }
+                                tags[tag] = label;
+                            }
+                            if (serial) {
+                                if (serials[serial]) {
+                                    this.formError = 'Serial number "' + unit.serial.trim() + '" is used by both ' + serials[serial] + ' and ' + label + '.';
+                                    return false;
+                                }
+                                serials[serial] = label;
+                            }
+                            if (this.deploying() && !String(unit.deploy_room_id || this.deployRoom || '').trim()) {
+                                this.formError = 'Choose a room for ' + label + '.';
+                                return false;
+                            }
+                        }
+                    }
+                    this.formError = '';
+                    return true;
                 },
                 clearError(field) {
                     if (!this.errors[field]) return;
@@ -1222,10 +2205,49 @@
                     return !isStockPage || this.intakeBasis === 'non_procurement';
                 },
                 canAssignPerson() {
-                    return isStockPage
-                        && this.placement === 'deploy'
-                        && this.tracking === 'Individual'
-                        && this.condition !== 'Disposed';
+                    if (!isStockPage || this.placement !== 'deploy') return false;
+                    if (this.isMulti()) return this.multiLines.some((row) => this.unitCanAssign(row));
+                    return this.tracking === 'Individual' && this.condition !== 'Disposed';
+                },
+                unitCanAssign(row) {
+                    return this.deploying()
+                        && row.tracking === 'Individual'
+                        && (!this.isMultiManual() || row.condition !== 'Disposed');
+                },
+                unitAssignHint(row) {
+                    if (!this.deploying()) return 'Stays in storage';
+                    if (row.tracking !== 'Individual') return 'Bulk stays with the room';
+                    if (row.condition === 'Disposed') return 'Disposed items can’t be assigned';
+                    return '';
+                },
+                custodianHint() {
+                    if (this.canAssignPerson()) {
+                        return this.isMulti()
+                            ? 'Every individually tracked unit is issued to this person. Change it per unit on the Units step to split items across several people.'
+                            : 'Issues every unit to this person with a property assignment document.';
+                    }
+                    if (this.placement !== 'deploy') return 'Choose “Deploy to a room now” to assign a person.';
+                    return this.isMulti()
+                        ? 'Only individually tracked items can be assigned to a person. Bulk items stay with the room.'
+                        : (this.tracking !== 'Individual' ? 'Only Individual tracking can be assigned to a person.' : 'Disposed equipment can’t be assigned.');
+                },
+                multiCustodianSummary() {
+                    const counts = {};
+                    this.multiLines.forEach((row) => {
+                        if (!this.unitCanAssign(row)) return;
+                        (row.units || []).forEach((unit) => {
+                            if (!unit.custodian_id) return;
+                            const name = this.custodianName(unit.custodian_id);
+                            counts[name] = (counts[name] || 0) + 1;
+                        });
+                    });
+                    const names = Object.keys(counts);
+                    if (!names.length) return 'No one yet';
+                    return names.map((name) => name + ' (' + counts[name] + ')').join(', ');
+                },
+                custodianName(id) {
+                    const option = document.querySelector('#add_custodian option[value="' + String(id) + '"]');
+                    return option ? option.text.split(' · ')[0].trim() : 'Person #' + id;
                 },
                 wizardSteps() {
                     const steps = [];
@@ -1235,10 +2257,16 @@
                     steps.push(
                         { key: 'p2', label: 'Identity', hint: 'What the equipment is: name, category, brand, model, and how it is tracked.' },
                         { key: 'p3', label: 'Purchase & warranty', hint: 'When it was bought or received, what it cost, and how long it is covered.' },
-                        { key: 'p4', label: 'Placement', hint: 'Where it goes after stocking, who is accountable for it, and what it replaces.' },
+                        { key: 'p4', label: 'Placement', hint: 'Where it goes after it is added to inventory, who is accountable for it, and what it replaces.' },
                     );
-                    if (this.needsItemStep()) {
-                        steps.push({ key: 'units', label: 'Units', hint: 'Unique asset tag, serial number, and optional photo per unit.' });
+                    if (this.hasUnitsStep()) {
+                        steps.push({
+                            key: 'units',
+                            label: 'Units',
+                            hint: this.deploying()
+                                ? 'Asset tag, serial number, optional photo, and the room each unit goes to.'
+                                : 'Unique asset tag, serial number, and optional photo per unit.',
+                        });
                     }
                     steps.push({ key: 'review', label: 'Review', hint: 'Check everything before saving. These fill the equipment page.' });
                     return steps;
@@ -1267,7 +2295,6 @@
                     const target = this.wizardSteps().findIndex((s) => s.key === key);
                     if (target < 0 || target >= this.currentStepIndex()) return;
                     this.clearErrors();
-                    this.fullscreen = false;
                     if (key === 'units') {
                         this.step = 2;
                     } else if (key === 'review') {
@@ -1281,12 +2308,15 @@
                 next() {
                     if (this.step === 1) {
                         if (!this.validatePage(this.page)) return;
+                        if (this.page === 1 && this.isMultiRr()) {
+                            this.syncMultiLines();
+                        }
                         if (this.page < 4) {
                             this.page += 1;
                             this.scrollToTop();
                             return;
                         }
-                        if (this.needsItemStep()) {
+                        if (this.hasUnitsStep()) {
                             this.goToItems();
                             return;
                         }
@@ -1297,8 +2327,7 @@
                         return;
                     }
                     if (this.step === 2) {
-                        if (!this.validateItems()) return;
-                        this.fullscreen = false;
+                        if (!(this.isMulti() ? this.validateMultiUnits() : this.validateItems())) return;
                         this.step = 3;
                         this.scrollToTop();
                     }
@@ -1306,7 +2335,7 @@
                 back() {
                     this.clearErrors();
                     if (this.step === 3) {
-                        if (this.needsItemStep()) {
+                        if (this.hasUnitsStep()) {
                             this.step = 2;
                         } else {
                             this.step = 1;
@@ -1315,7 +2344,6 @@
                     } else if (this.step === 2) {
                         this.step = 1;
                         this.page = 4;
-                        this.fullscreen = false;
                     } else if (this.page > firstPage) {
                         this.page -= 1;
                     } else {
@@ -1334,13 +2362,37 @@
                             if (@json($acquisitionReady) && !String(this.acqSource || '').trim()) {
                                 next.acq_source = 'Select how this equipment was acquired.';
                             }
-                        } else if (!String(this.rrItemId || '').trim()) {
+                        } else if (!(this.rrSelected || []).length) {
                             next.rr = (this.rrLines || []).length === 0
-                                ? 'There is no RR line left to stock. Click “Use non-procurement intake” to add equipment without a Receiving Report.'
-                                : 'Select a received RR line as the basis for this stock.';
+                                ? 'There is no RR line left to add. Click “Use non-procurement intake” to add equipment without a Receiving Report.'
+                                : 'Tick at least one received equipment line from the RR list.';
                         }
                     }
-                    if (page === 2) {
+                    if (page === 2 && this.isMulti()) {
+                        if (this.isMultiRr() && !this.multiLines.length) this.syncMultiLines();
+                        const rowErrors = {};
+                        this.multiLines.forEach((row) => {
+                            const rowError = {};
+                            if (!String(row.name || '').trim()) rowError.name = 'Equipment name is required.';
+                            if (!String(row.category || '').trim()) rowError.category = 'Please select a category.';
+                            const qty = Number(row.quantity);
+                            if (!Number.isInteger(qty) || qty < 1) {
+                                rowError.quantity = 'Quantity must be at least 1.';
+                            } else if (qty > row.max) {
+                                rowError.quantity = this.isMultiManual()
+                                    ? 'Quantity cannot exceed ' + row.max + '.'
+                                    : 'Only ' + row.max + ' left on this RR line.';
+                            }
+                            if (Object.keys(rowError).length) rowErrors[row.id] = rowError;
+                        });
+                        this.multiErrors = rowErrors;
+                        const count = Object.keys(rowErrors).length;
+                        if (count) {
+                            next.multi = count === 1
+                                ? 'Fix the highlighted item before continuing.'
+                                : ('Fix the ' + count + ' highlighted items before continuing.');
+                        }
+                    } else if (page === 2) {
                         if (!String(this.name || '').trim()) {
                             next.name = 'Equipment name is required.';
                         }
@@ -1359,7 +2411,28 @@
                             }
                         }
                     }
+                    if (page === 3) {
+                        const badLife = (value) => {
+                            if (value === '' || value === null || value === undefined) return false;
+                            const years = Number(value);
+                            return !Number.isInteger(years) || years < 1 || years > 50;
+                        };
+                        if (badLife(this.usefulLifeYears)) {
+                            next.useful_life = 'Useful lifespan must be a whole number from 1 to 50 years.';
+                        } else if (this.isMulti()) {
+                            const row = this.multiLines.find((line) => badLife(line.useful_life_years));
+                            if (row) next.useful_life = 'Lifespan for ' + (row.name || row.article) + ' must be a whole number from 1 to 50 years.';
+                        }
+                        if (this.isMultiManual()) {
+                            const row = this.multiLines.find((line) => line.cost !== '' && line.cost !== null && (!Number.isFinite(Number(line.cost)) || Number(line.cost) < 0));
+                            if (row) next.useful_life = 'Cost for ' + (row.name || 'an item') + ' must be zero or more.';
+                        }
+                    }
                     if (page === 4) {
+                        if (this.deploying() && !String(this.room || '').trim()) {
+                            const first = document.querySelector('#add_equipment_room option:not([value=""])');
+                            if (first) this.room = first.value;
+                        }
                         if (!String(this.room || '').trim()) {
                             next.room = 'Please select a room.';
                         }
@@ -1372,7 +2445,8 @@
                 pageForErrors() {
                     const keys = Object.keys(this.errors || {});
                     if (isStockPage && keys.some((k) => ['rr', 'intake_reason', 'acq_source'].includes(k))) return 1;
-                    if (keys.some((k) => ['name', 'category', 'quantity', 'image'].includes(k))) return 2;
+                    if (keys.some((k) => ['name', 'category', 'quantity', 'image', 'multi'].includes(k))) return 2;
+                    if (keys.includes('useful_life')) return 3;
                     if (keys.some((k) => ['room', 'deploy', 'custodian'].includes(k))) return 4;
                     return firstPage;
                 },
@@ -1385,7 +2459,6 @@
                         if (Object.keys(next).length) {
                             this.step = 1;
                             this.page = page;
-                            this.fullscreen = false;
                             return this.applyErrors(next);
                         }
                     }
@@ -1482,6 +2555,14 @@
                     this.receivedDate = todayLocal();
                     this.rrItemId = '';
                     this.rrExpanded = {};
+                    this.rrSelected = [];
+                    this.multiUnits().forEach((unit) => {
+                        if (unit._imagePreview) URL.revokeObjectURL(unit._imagePreview);
+                    });
+                    this.rrMultiLines = [];
+                    this.manualLines = [];
+                    this.multiErrors = {};
+                    this.submitting = false;
                     this.purchaseDate = '';
                     this.purchaseCost = '';
                     this.clearAllItemImages();
@@ -1534,13 +2615,34 @@
                     if (value === '' || value === null || value === undefined || Number.isNaN(Number(value))) return '—';
                     return '₱' + Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 },
+                categoryName(id) {
+                    const option = document.querySelector('#add_equipment_category option[value="' + String(id || '') + '"]');
+                    return option && option.value !== '' ? (option.text || '').trim() : '';
+                },
                 reviewIdentity() {
+                    if (this.isMulti()) {
+                        const rows = this.multiLines.map((row, index) => [
+                            (index + 1) + '. ' + (row.name || row.article || 'Item'),
+                            [
+                                row.quantity + ' · ' + row.tracking,
+                                this.categoryName(row.category),
+                                this.hasPieces(row) ? 'Brand/model per piece' : [row.brand, row.model].filter(Boolean).join(' '),
+                                this.isMultiManual() ? row.condition : '',
+                                row.borrowable ? 'Borrowable' : '',
+                            ]
+                                .filter(Boolean).join(' · '),
+                        ]);
+                        const total = this.multiLines.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+                        rows.push(['Total units', String(total)]);
+                        if (this.isMultiRr()) rows.push(['Condition', 'Good (new delivery)']);
+                        return rows;
+                    }
                     const rows = [
                         ['Name', this.name || '—'],
                         ['Category', this.optionText('add_equipment_category') || '—'],
                         ['Brand / model', [this.brand, this.model].filter(Boolean).join(' · ') || '—'],
                         ['Quantity', this.quantity + ' · ' + this.tracking],
-                        ['Condition', this.condition],
+                        ['Condition', this.manualIntake() ? this.condition : 'Good (new delivery)'],
                         ['Can be borrowed', document.getElementById('add_equipment_borrowable')?.checked ? 'Yes' : 'No'],
                     ];
                     if (this.needsItemStep()) {
@@ -1551,6 +2653,17 @@
                     return rows;
                 },
                 reviewSource() {
+                    if (this.isMultiRr()) {
+                        const lines = this.selectedRrLines;
+                        const unique = (values) => [...new Set(values.filter(Boolean))].join(', ');
+                        return [
+                            ['Acquired via', 'Procurement (Receiving Report)'],
+                            ['Receiving reports', unique(lines.map((line) => line.rr_number)) || '—'],
+                            ['Purchase orders', unique(lines.map((line) => line.po_number)) || 'Not linked'],
+                            ['Suppliers', unique(lines.map((line) => line.supplier_name)) || '—'],
+                            ['RR lines', String(lines.length)],
+                        ];
+                    }
                     if (!this.manualIntake()) {
                         const line = this.selectedRrLine;
                         return [
@@ -1571,10 +2684,27 @@
                     ];
                 },
                 reviewPurchase() {
+                    if (this.isMultiManual()) {
+                        return [
+                            [this.acqSource === 'donation' ? 'Donation date' : 'Purchase date', this.purchaseDate || '—'],
+                            [this.acqSource === 'donation' ? 'Estimated value / unit' : 'Cost / unit', 'Set per item'],
+                            ['Received on', this.receivedDate || '—'],
+                            ['Warranty expiration', this.multiWarrantySummary()],
+                            ['Useful lifespan', this.multiLifespanSummary()],
+                        ];
+                    }
+                    if (this.isMulti()) {
+                        return [
+                            ['Purchase date / cost', 'From each RR line'],
+                            ['Received on', 'Today (date added)'],
+                            ['Warranty expiration', this.multiWarrantySummary()],
+                            ['Useful lifespan', this.multiLifespanSummary()],
+                        ];
+                    }
                     return [
                         [this.acqSource === 'donation' ? 'Donation date' : 'Purchase date', this.purchaseDate || '—'],
                         [this.acqSource === 'donation' ? 'Estimated value / unit' : 'Cost / unit', this.formatPeso(this.purchaseCost)],
-                        ['Received on', this.manualIntake() ? (this.receivedDate || '—') : 'Today (stocked date)'],
+                        ['Received on', this.manualIntake() ? (this.receivedDate || '—') : 'Today (date added)'],
                         ['Warranty expiration', this.warranty || '—'],
                         ['Useful lifespan', this.usefulLifeYears ? this.usefulLifeYears + ' years' : 'Default 5 years'],
                     ];
@@ -1582,11 +2712,29 @@
                 reviewPlacement() {
                     const rows = [[isStockPage ? 'Storage room' : 'Room', this.optionText('add_equipment_room') || '—']];
                     if (isStockPage) {
-                        rows.push(['Deployed to', this.placement === 'deploy' ? (this.optionText('add_deploy_room') || '—') : 'Stays in storage']);
+                        rows.push(['Deployed to', this.deployedToSummary()]);
+                        if (this.isMulti()) {
+                            rows.push(['Accountable person', this.multiCustodianSummary()]);
+                            return rows;
+                        }
                         rows.push(['Accountable person', this.canAssignPerson() ? (this.optionText('add_custodian') || 'No one yet') : 'No one yet']);
                         rows.push(['Replaces', this.optionText('add_replaces') || 'Not a replacement']);
                     }
                     return rows;
+                },
+                deployedToSummary() {
+                    if (!this.deploying()) return 'Stays in storage';
+                    const units = this.isMulti() ? this.multiUnits() : (this.needsItemStep() ? this.items : []);
+                    if (!units.length) return this.optionText('add_deploy_room') || '—';
+                    const counts = {};
+                    units.forEach((unit) => {
+                        const name = this.deployRoomName(unit.deploy_room_id || this.deployRoom) || '—';
+                        counts[name] = (counts[name] || 0) + 1;
+                    });
+                    const names = Object.keys(counts);
+                    return names.length === 1
+                        ? names[0]
+                        : names.map((name) => name + ' (' + counts[name] + ')').join(', ');
                 },
                 shouldAutoAssetTag() {
                     return this.tracking === 'Bulk' || Number(this.quantity) === 1;
@@ -1605,70 +2753,57 @@
                     const tags = window.equipmentAssetTags.generate(roomName, equipmentName, 1);
                     this.assetTag = tags[0] || '';
                 },
-                buildAssetTag(index) {
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-                    if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
-                        return '';
-                    }
-                    window.equipmentAssetTags.resetReserved();
-                    const tags = window.equipmentAssetTags.generate(roomName, equipmentName, index + 1);
-                    return tags[index] || tags[tags.length - 1] || '';
-                },
                 buildItems() {
                     const qty = Math.min(200, Math.max(1, Number(this.quantity) || 1));
                     this.quantity = qty;
                     const previous = this.items || [];
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
+                    const deploying = this.deploying();
 
-                    window.equipmentAssetTags?.resetReserved?.();
-
-                    let generated = [];
-                    if (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function') {
-                        generated = window.equipmentAssetTags.generate(roomName, equipmentName, qty);
-                    }
-
-                    this.items = Array.from({ length: qty }, (_, i) => ({
-                        equipment_asset_tag: previous[i]?._tagManual
-                            ? previous[i].equipment_asset_tag
-                            : (generated[i] || this.buildAssetTag(i)),
-                        equipment_serial_number: previous[i]?.equipment_serial_number ?? '',
-                        equipment_brand_name: this.brand || '',
-                        equipment_model: this.model || '',
-                        equipment_condition_status: this.condition,
-                        equipment_warranty_expiration: this.warranty || '',
-                        _tagManual: previous[i]?._tagManual || false,
-                        _imagePreview: previous[i]?._imagePreview || null,
-                        _imageFile: previous[i]?._imageFile || null,
-                    }));
+                    this.items = Array.from({ length: qty }, (_, i) => {
+                        const prev = previous[i] || {};
+                        const roomManual = deploying && !!prev._roomManual;
+                        return {
+                            equipment_asset_tag: prev._tagManual ? prev.equipment_asset_tag : '',
+                            equipment_serial_number: prev.equipment_serial_number ?? '',
+                            equipment_brand_name: this.brand || '',
+                            equipment_model: this.model || '',
+                            equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
+                            equipment_warranty_expiration: this.warranty || '',
+                            deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
+                            _roomManual: roomManual,
+                            _tagManual: prev._tagManual || false,
+                            _imagePreview: prev._imagePreview || null,
+                            _imageFile: prev._imageFile || null,
+                        };
+                    });
+                    this.fillItemTags(false);
                 },
                 regenerateAssetTags() {
-                    window.equipmentAssetTags?.resetReserved?.();
-                    const roomName = this.selectedRoomName();
-                    const equipmentName = String(this.name || '').trim();
-                    const generated = (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function')
-                        ? window.equipmentAssetTags.generate(roomName, equipmentName, this.items.length)
-                        : [];
-
-                    this.items = this.items.map((item, i) => ({
-                        ...item,
-                        equipment_asset_tag: generated[i] || this.buildAssetTag(i),
-                        _tagManual: false,
-                    }));
+                    this.fillItemTags(true);
                     this.$nextTick(() => this.restoreItemImageInputs());
                 },
                 applyDefaults() {
+                    const deploying = this.deploying();
                     this.items = this.items.map((item) => ({
                         ...item,
                         equipment_brand_name: this.brand || '',
                         equipment_model: this.model || '',
-                        equipment_condition_status: this.condition,
+                        equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
                         equipment_warranty_expiration: this.warranty || '',
+                        deploy_room_id: deploying ? String(this.deployRoom || '') : '',
+                        _roomManual: false,
                     }));
+                    this.fillItemTags(false);
                 },
                 goToItems() {
                     if (!this.validateStep1()) {
+                        return;
+                    }
+                    if (this.isMulti()) {
+                        this.buildMultiUnits();
+                        this.step = 2;
+                        this.clearErrors();
+                        this.scrollToTop();
                         return;
                     }
                     this.clearImage();
@@ -1687,6 +2822,11 @@
                         this.next();
                         return;
                     }
+                    if (this.isMulti()) {
+                        event.preventDefault();
+                        this.submitMulti();
+                        return;
+                    }
                     if (!this.validateStep1()) {
                         event.preventDefault();
                         return;
@@ -1701,6 +2841,125 @@
                     } else {
                         this.syncAssetTag();
                     }
+                },
+                async submitMulti() {
+                    if (this.submitting) return;
+                    if (!this.validateStep1()) return;
+                    if (this.multiLines.some((row) => !Array.isArray(row.units))) this.buildMultiUnits();
+                    if (!this.validateMultiUnits()) {
+                        this.step = 2;
+                        return;
+                    }
+                    const form = this.isMultiManual() ? this.manualBatchForm() : this.rrLinesForm();
+                    const url = this.isMultiManual() ? '/maintenance/equipment/batch-store' : '/maintenance/equipment/store-rr-lines';
+                    const token = document.querySelector('#addEquipmentModal input[name="_token"]')?.value
+                        || document.querySelector('meta[name="csrf-token"]')?.content
+                        || '';
+                    this.submitting = true;
+                    this.formError = '';
+                    try {
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': token,
+                            },
+                            credentials: 'same-origin',
+                            body: form,
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok || data.success === false) {
+                            const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                            this.formError = first || data.message || 'Could not add the equipment. Please try again.';
+                            this.submitting = false;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return;
+                        }
+                        window.location.href = data.redirect || '/maintenance/equipment/inventory';
+                    } catch (e) {
+                        this.formError = 'Network error. Check your connection and try again.';
+                        this.submitting = false;
+                    }
+                },
+                manualBatchForm() {
+                    const deploying = this.deploying();
+                    const form = new FormData();
+                    form.append('storage_room_id', String(this.room));
+                    form.append('source[acquisition_source]', this.acqSource || '');
+                    form.append('source[acquisition_supplier]', this.acqSupplier || '');
+                    form.append('source[supplier_name]', this.acqSupplierName || '');
+                    form.append('source[reference_number]', this.acqReference || '');
+                    form.append('source[notes]', this.intakeReason || '');
+                    if (this.purchaseDate) form.append('source[purchase_date]', this.purchaseDate);
+                    if (this.receivedDate) form.append('source[received_date]', this.receivedDate);
+                    this.multiLines.forEach((row, i) => {
+                        const key = 'lines[' + i + ']';
+                        form.append(key + '[name]', String(row.name || '').trim());
+                        form.append(key + '[category_id]', String(row.category));
+                        form.append(key + '[tracking]', row.tracking);
+                        form.append(key + '[quantity]', String(Number(row.quantity)));
+                        form.append(key + '[condition]', row.condition || 'Good');
+                        form.append(key + '[brand]', String(row.brand || '').trim());
+                        form.append(key + '[model]', String(row.model || '').trim());
+                        if (row.cost !== '' && row.cost !== null && row.cost !== undefined) form.append(key + '[cost]', String(row.cost));
+                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
+                        const warranty = row.warranty || this.warranty;
+                        const life = row.useful_life_years || this.usefulLifeYears;
+                        if (warranty) form.append(key + '[warranty]', warranty);
+                        if (life) form.append(key + '[useful_life_years]', String(life));
+                        row.units.forEach((unit, u) => {
+                            const unitKey = key + '[units][' + u + ']';
+                            form.append(unitKey + '[asset_tag]', String(unit.asset_tag || '').trim());
+                            form.append(unitKey + '[serial]', String(unit.serial || '').trim());
+                            if (this.hasPieces(row)) {
+                                const values = this.pieceValues(row, u);
+                                form.append(unitKey + '[brand]', values.brand);
+                                form.append(unitKey + '[model]', values.model);
+                            }
+                            if (unit.warranty) form.append(unitKey + '[warranty]', unit.warranty);
+                            if (deploying) form.append(unitKey + '[room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
+                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
+                            if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
+                        });
+                    });
+                    return form;
+                },
+                rrLinesForm() {
+                    const deploying = this.deploying();
+                    const form = new FormData();
+                    form.append('storage_room_id', String(this.room));
+                    if (deploying && this.deployRoom) form.append('deploy_room_id', String(this.deployRoom));
+                    if (this.warranty) form.append('warranty', this.warranty);
+                    if (this.usefulLifeYears) form.append('useful_life_years', String(this.usefulLifeYears));
+                    this.multiLines.forEach((row, i) => {
+                        const key = 'lines[' + i + ']';
+                        form.append(key + '[receiving_report_item_id]', String(row.id));
+                        form.append(key + '[name]', String(row.name || '').trim());
+                        form.append(key + '[category_id]', String(row.category));
+                        form.append(key + '[tracking]', row.tracking);
+                        form.append(key + '[quantity]', String(Number(row.quantity)));
+                        form.append(key + '[brand]', String(row.brand || '').trim());
+                        form.append(key + '[model]', String(row.model || '').trim());
+                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
+                        if (row.warranty) form.append(key + '[warranty]', row.warranty);
+                        if (row.useful_life_years) form.append(key + '[useful_life_years]', String(row.useful_life_years));
+                        row.units.forEach((unit, u) => {
+                            const unitKey = key + '[units][' + u + ']';
+                            form.append(unitKey + '[asset_tag]', String(unit.asset_tag || '').trim());
+                            form.append(unitKey + '[serial]', String(unit.serial || '').trim());
+                            if (this.hasPieces(row)) {
+                                const values = this.pieceValues(row, u);
+                                form.append(unitKey + '[brand]', values.brand);
+                                form.append(unitKey + '[model]', values.model);
+                            }
+                            if (unit.warranty) form.append(unitKey + '[warranty]', unit.warranty);
+                            if (deploying) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
+                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
+                            if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
+                        });
+                    });
+                    return form;
                 },
             };
         }

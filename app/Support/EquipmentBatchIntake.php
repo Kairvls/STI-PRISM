@@ -57,6 +57,11 @@ class EquipmentBatchIntake
             'lines.*.units.*.asset_tag' => 'nullable|string|max:255',
             'lines.*.units.*.serial' => 'nullable|string|max:255',
             'lines.*.units.*.room_id' => 'nullable|integer|min:0',
+            'lines.*.units.*.warranty' => 'nullable|date',
+            'lines.*.units.*.custodian_id' => 'nullable|integer|min:0',
+            'lines.*.units.*.brand' => 'nullable|string|max:255',
+            'lines.*.units.*.model' => 'nullable|string|max:255',
+            'lines.*.units.*.image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
         ], [], [
             'storage_room_id' => 'storage room',
             'source.acquisition_source' => 'acquisition source',
@@ -67,6 +72,8 @@ class EquipmentBatchIntake
             'lines.*.cost' => 'cost per unit',
             'lines.*.warranty' => 'warranty expiration',
             'lines.*.useful_life_years' => 'useful lifespan',
+            'lines.*.units.*.warranty' => 'unit warranty expiration',
+            'lines.*.units.*.image' => 'unit photo',
         ]);
 
         return $validator->validate();
@@ -75,7 +82,7 @@ class EquipmentBatchIntake
     /**
      * @return array{created: int, lines: int, assigned: int, documents: array<int, string>, rooms: array<string, int>, last_id: int}
      */
-    public static function store(array $data): array
+    public static function store(array $data, ?callable $storeImage = null): array
     {
         $rooms = DB::table('rooms_table')
             ->when(
@@ -88,7 +95,7 @@ class EquipmentBatchIntake
         $storageRoomId = (int) $data['storage_room_id'];
         $storageRoom = $rooms->get($storageRoomId);
         if (! $storageRoom || ! RoomCategories::isStorageType($storageRoom->room_type ?? null)) {
-            throw ValidationException::withMessages(['storage_room_id' => 'Choose a Storage / Stockroom room for the stock-in.']);
+            throw ValidationException::withMessages(['storage_room_id' => 'Choose the storage room these items are added to.']);
         }
 
         $deployRoom = function (int $roomId, string $errorKey) use ($rooms, $storageRoomId) {
@@ -117,11 +124,13 @@ class EquipmentBatchIntake
             $lineRoom = $deployRoom((int) ($line['destination_room_id'] ?? 0), "lines.$i.destination_room_id");
 
             if ($tracking === 'Bulk') {
-                $units = [[
-                    'asset_tag' => $line['asset_tag'] ?? null,
-                    'serial' => $line['serial'] ?? null,
-                    'room' => $lineRoom,
-                ]];
+                $unit = array_values($line['units'] ?? [])[0] ?? [];
+                $unit['asset_tag'] = self::clean($unit['asset_tag'] ?? null) ?? ($line['asset_tag'] ?? null);
+                $unit['serial'] = self::clean($unit['serial'] ?? null) ?? ($line['serial'] ?? null);
+                $unitRoomId = array_key_exists('room_id', $unit) && $unit['room_id'] !== null
+                    ? (int) $unit['room_id']
+                    : (int) ($lineRoom->room_id ?? 0);
+                $units = [self::unitPlan($line, $unit, $deployRoom($unitRoomId, "lines.$i.units.0.room_id"))];
                 $totalUnits += 1;
             } else {
                 $rawUnits = array_values($line['units'] ?? []);
@@ -139,13 +148,21 @@ class EquipmentBatchIntake
                     $unitRoomId = array_key_exists('room_id', $unit) && $unit['room_id'] !== null
                         ? (int) $unit['room_id']
                         : (int) ($lineRoom->room_id ?? 0);
-                    $units[] = [
-                        'asset_tag' => $unit['asset_tag'] ?? null,
-                        'serial' => $unit['serial'] ?? null,
-                        'room' => $deployRoom($unitRoomId, "lines.$i.units.$u.room_id"),
-                    ];
+                    $units[] = self::unitPlan($line, $unit, $deployRoom($unitRoomId, "lines.$i.units.$u.room_id"));
                 }
                 $totalUnits += count($units);
+            }
+
+            foreach ($units as $u => $unit) {
+                if ($unit['custodian_id'] < 1) {
+                    continue;
+                }
+                if ($tracking !== 'Individual') {
+                    throw ValidationException::withMessages(["lines.$i.units.$u.custodian_id" => 'Bulk items stay with the room. Only individually tracked units can be assigned to a person.']);
+                }
+                if ($unit['room'] === null) {
+                    throw ValidationException::withMessages(["lines.$i.units.$u.custodian_id" => 'Deploy the unit to a room before assigning it to a person.']);
+                }
             }
 
             $custodianId = (int) ($line['custodian_id'] ?? 0);
@@ -181,13 +198,14 @@ class EquipmentBatchIntake
         $acquiredDate = $source['received_date'] ?? now()->toDateString();
         $hasStockedBy = Schema::hasColumn('equipment_table', 'equipment_stocked_by');
         $hasTransfers = Schema::hasTable('equipment_transfer_history_table');
+        $hasImage = $storeImage !== null && Schema::hasColumn('equipment_table', 'equipment_image');
         $userId = Auth::id();
 
         $result = ['created' => 0, 'lines' => count($plan), 'assigned' => 0, 'documents' => [], 'rooms' => [], 'last_id' => 0];
 
         DB::transaction(function () use (
             $plan, $storageRoom, $acquisitionColumns, $purchaseDate, $acquiredDate,
-            $hasStockedBy, $hasTransfers, $userId, &$result
+            $hasStockedBy, $hasTransfers, $hasImage, $storeImage, $userId, &$result
         ) {
             $byCustodian = [];
 
@@ -207,8 +225,8 @@ class EquipmentBatchIntake
                         'equipment_room_id' => (int) $storageRoom->room_id,
                         'equipment_asset_tag' => self::clean($unit['asset_tag']),
                         'equipment_name' => trim((string) $line['name']),
-                        'equipment_brand_name' => self::clean($line['brand'] ?? null),
-                        'equipment_model' => self::clean($line['model'] ?? null),
+                        'equipment_brand_name' => $unit['brand'],
+                        'equipment_model' => $unit['model'],
                         'equipment_serial_number' => self::clean($unit['serial']),
                         'equipment_quantity' => $isBulk ? (int) $line['quantity'] : 1,
                         'equipment_tracking_mode' => $isBulk ? 'Bulk' : 'Individual',
@@ -217,7 +235,7 @@ class EquipmentBatchIntake
                         'equipment_purchase_date' => $purchaseDate,
                         'equipment_acquired_date' => $acquiredDate,
                         'equipment_purchase_cost' => ($line['cost'] ?? '') !== '' ? $line['cost'] : null,
-                        'equipment_warranty_expiration' => $line['warranty'] ?? null,
+                        'equipment_warranty_expiration' => $unit['warranty'],
                         'equipment_useful_life_years' => ($line['useful_life_years'] ?? '') !== '' ? (int) $line['useful_life_years'] : null,
                         'equipment_is_borrowable' => (bool) ($line['borrowable'] ?? false),
                         'equipment_placement_zone' => 'Holding',
@@ -228,6 +246,9 @@ class EquipmentBatchIntake
                     ], $acquisitionColumns);
                     if ($hasStockedBy && $userId) {
                         $payload['equipment_stocked_by'] = $userId;
+                    }
+                    if ($hasImage && $unit['image']) {
+                        $payload['equipment_image'] = $storeImage($unit['image']);
                     }
 
                     $equipmentId = (int) DB::table('equipment_table')->insertGetId($payload);
@@ -249,8 +270,9 @@ class EquipmentBatchIntake
                             ->where('equipment_id', $equipmentId)
                             ->update(['equipment_room_id' => (int) $unit['room']->room_id]);
 
-                        if ($entry['custodian_id'] > 0) {
-                            $byCustodian[$entry['custodian_id']][] = $equipmentId;
+                        $unitCustodian = $unit['custodian_id'] ?: $entry['custodian_id'];
+                        if ($unitCustodian > 0) {
+                            $byCustodian[$unitCustodian][] = $equipmentId;
                         }
                     }
 
@@ -310,6 +332,22 @@ class EquipmentBatchIntake
                 }
             }
         }
+    }
+
+    private static function unitPlan(array $line, array $unit, ?object $room): array
+    {
+        $image = $unit['image'] ?? null;
+
+        return [
+            'asset_tag' => $unit['asset_tag'] ?? null,
+            'serial' => $unit['serial'] ?? null,
+            'brand' => self::clean($unit['brand'] ?? null) ?? self::clean($line['brand'] ?? null),
+            'model' => self::clean($unit['model'] ?? null) ?? self::clean($line['model'] ?? null),
+            'warranty' => self::clean($unit['warranty'] ?? null) ?? self::clean($line['warranty'] ?? null),
+            'image' => $image instanceof \Illuminate\Http\UploadedFile ? $image : null,
+            'room' => $room,
+            'custodian_id' => (int) ($unit['custodian_id'] ?? 0),
+        ];
     }
 
     private static function clean($value): ?string

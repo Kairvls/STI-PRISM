@@ -1545,7 +1545,7 @@
                                                 <button type="button" @click="addForm.tracking = 'Individual'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                                             </div>
                                             <p class="mt-1.5 text-xs text-slate-400" x-text="addForm.tracking === 'Bulk'
-                                                ? 'One stock record with combined quantity.'
+                                                ? 'One record with the combined quantity.'
                                                 : (Number(addForm.quantity) > 1
                                                     ? (Number(addForm.quantity) + ' individual assets will be created (asset tag, serial, QR per unit).')
                                                     : 'Creates a separate trackable asset (asset tag, serial, QR).')"></p>

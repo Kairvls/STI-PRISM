@@ -285,7 +285,7 @@
                     class="menu-sub-item {{ request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') ? 'active' : '' }}"
                 >
                     <i data-lucide="boxes"></i>
-                    <span>Deployed stocks</span>
+                    <span>Deployed equipment</span>
                 </a>
                 <a
                     href="/maintenance/property-assignments"

@@ -412,7 +412,7 @@ class ReceivingController extends Controller
                 ($finalStatus === 'Incomplete' ? 'Items verified; RR is still Incomplete. ' : 'Items delivered. ')
                     .($pendingLines > 0
                         ? $pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for Maintenance inventory.'
-                        : 'No new inventory lines to stock.'),
+                        : 'No new lines to add to inventory.'),
                 Auth::id(),
                 $finalStatus === 'Incomplete' ? 'Incomplete' : 'Delivered'
             );
@@ -448,7 +448,7 @@ class ReceivingController extends Controller
             return back()->with(
                 'success',
                 $pendingLines > 0
-                    ? $sentTo.' Maintenance can now Add to stock from this RR.'
+                    ? $sentTo.' Maintenance can now Add to inventory from this RR.'
                     : $sentTo
             );
         });
@@ -1229,7 +1229,7 @@ class ReceivingController extends Controller
                 (int) $rr->receiving_report_id,
                 ! empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Inventory queued',
-                $pending.' received line'.($pending === 1 ? '' : 's').' ready for Maintenance Add to stock.',
+                $pending.' received line'.($pending === 1 ? '' : 's').' ready for Maintenance Add to inventory.',
                 $officerId,
                 'Delivered'
             );
@@ -1706,9 +1706,9 @@ class ReceivingController extends Controller
         $ref = $rr->receiving_report_form_number ?? ('RR #'.$rr->receiving_report_id);
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_MAINTENANCE,
-            'Received items ready to Add to stock',
+            'Received items ready to Add to inventory',
             $ref.' has '.$pendingLines.' accepted line'.($pendingLines === 1 ? '' : 's')
-                .'. Open Inventory → Add to stock, select the RR line (PO shown as purchase basis), then tag/QR as needed.',
+                .'. Open Inventory → Add to inventory, tick the RR lines to add, then tag/QR as needed.',
             'rr_stock_pending',
             'RR',
             (int) $rr->receiving_report_id,

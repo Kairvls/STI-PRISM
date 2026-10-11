@@ -1155,6 +1155,16 @@ Route::middleware(['auth', 'maintenance:admin'])->group(function () {
         [MaintenanceController::class, 'storeEquipmentBatch']
     );
 
+    Route::post(
+        '/maintenance/equipment/store-rr-lines',
+        [MaintenanceController::class, 'storeEquipmentFromRrLines']
+    );
+
+    Route::post(
+        '/maintenance/equipment/suppliers/quick-add',
+        [MaintenanceController::class, 'quickAddSupplier']
+    );
+
     // Disposed equipment list
     Route::get(
         '/maintenance/disposal',

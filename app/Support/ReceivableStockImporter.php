@@ -38,14 +38,14 @@ class ReceivableStockImporter
         ];
 
         if ($storageRoomId < 1 || ! Schema::hasTable('equipment_table')) {
-            $result['errors'][] = 'A storage / stockroom is required before stocking.';
+            $result['errors'][] = 'Create a storage room before adding equipment to inventory.';
 
             return $result;
         }
 
         $room = DB::table('rooms_table')->where('room_id', $storageRoomId)->first();
         if (! $room || ! RoomCategories::isStorageType($room->room_type ?? null)) {
-            $result['errors'][] = 'Choose a Storage / Stockroom as the destination.';
+            $result['errors'][] = 'Choose a storage room as the destination.';
 
             return $result;
         }
@@ -55,7 +55,7 @@ class ReceivableStockImporter
             : self::defaultCategoryId();
 
         if (! $defaultCategoryId) {
-            $result['errors'][] = 'Create at least one equipment category before stocking.';
+            $result['errors'][] = 'Create at least one equipment category before adding equipment to inventory.';
 
             return $result;
         }
@@ -67,7 +67,7 @@ class ReceivableStockImporter
         }
 
         if ($pending->isEmpty()) {
-            $result['errors'][] = 'No pending RR lines to stock.';
+            $result['errors'][] = 'No pending RR lines to add.';
 
             return $result;
         }
@@ -92,7 +92,7 @@ class ReceivableStockImporter
                     $result['skipped'][] = [
                         'id' => $itemId,
                         'article' => $article,
-                        'reason' => 'Nothing left to stock',
+                        'reason' => 'Nothing left to add',
                     ];
                     continue;
                 }
@@ -103,7 +103,7 @@ class ReceivableStockImporter
                     $result['skipped'][] = [
                         'id' => $itemId,
                         'article' => $article,
-                        'reason' => 'Already stocked',
+                        'reason' => 'Already in inventory',
                     ];
                     continue;
                 }
@@ -112,7 +112,7 @@ class ReceivableStockImporter
                     $result['skipped'][] = [
                         'id' => $itemId,
                         'article' => $article,
-                        'reason' => 'Already stocked',
+                        'reason' => 'Already in inventory',
                     ];
                     continue;
                 }
@@ -295,7 +295,7 @@ class ReceivableStockImporter
         return 'Good';
     }
 
-    private static function resolveReplacedEquipmentIdFromRr(int $receivingReportId): int
+    public static function resolveReplacedEquipmentIdFromRr(int $receivingReportId): int
     {
         if (
             $receivingReportId < 1

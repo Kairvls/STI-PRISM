@@ -48,7 +48,7 @@
             <td class="value">{{ $person->custodian_department ?: '—' }}</td>
         </tr>
         <tr>
-            <td class="label">Home room</td>
+            <td class="label">Room</td>
             <td class="value">{{ $person->home_room_name ?: '—' }}</td>
             <td class="label" style="padding-left: 14px;">Items held</td>
             <td class="value">{{ $items->count() }}</td>

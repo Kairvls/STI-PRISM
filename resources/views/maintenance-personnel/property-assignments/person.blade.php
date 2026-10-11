@@ -15,7 +15,7 @@
         ['Employee ID', $person->custodian_employee_id, 'id-card'],
         ['Position', $person->custodian_position, 'briefcase'],
         ['Department / office', $person->custodian_department, 'building-2'],
-        ['Home room', $person->home_room_name, 'door-open'],
+        ['Room', $person->home_room_name, 'door-open'],
         ['Email', $person->custodian_email_address, 'mail'],
         ['Contact no.', $person->custodian_contact_number, 'phone'],
         ['System account', $person->linked_reporter_name ? $person->linked_reporter_name.' ('.$person->linked_employee_id.')' : 'Not linked', 'link'],

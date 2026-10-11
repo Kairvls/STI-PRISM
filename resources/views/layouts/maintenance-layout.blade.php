@@ -452,6 +452,7 @@
         const ITEM_H = 40;
         const MAX_VISIBLE = 5;
         const SEARCH_H = 48;
+        const ADD_H = 84;
         let panel = null;
         let openSelect = null;
         let uid = 0;
@@ -516,7 +517,7 @@
             }
 
             const rect = select.getBoundingClientRect();
-            const searchH = select.dataset.searchable === '1' ? SEARCH_H : 0;
+            const searchH = (select.dataset.searchable === '1' ? SEARCH_H : 0) + (select.dataset.addUrl ? ADD_H : 0);
             const count = Math.min(select.options.length, MAX_VISIBLE);
             const height = count * ITEM_H + 8 + searchH;
             const width = Math.max(rect.width, 160);
@@ -540,10 +541,12 @@
             select.focus();
 
             const searchable = select.dataset.searchable === '1';
+            const addUrl = select.dataset.addUrl || '';
+            const framed = searchable || addUrl !== '';
 
             panel = document.createElement('div');
             panel.setAttribute('data-mp-select-panel', '1');
-            panel.className = searchable
+            panel.className = framed
                 ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/15'
                 : 'overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-950/15';
             panel.style.position = 'fixed';
@@ -551,15 +554,17 @@
 
             let list = panel;
             let searchInput = null;
-            if (searchable) {
-                const searchWrap = document.createElement('div');
-                searchWrap.className = 'shrink-0 border-b border-slate-100 p-2';
-                searchInput = document.createElement('input');
-                searchInput.type = 'search';
-                searchInput.placeholder = select.dataset.searchPlaceholder || 'Search…';
-                searchInput.className = 'h-8 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
-                searchWrap.appendChild(searchInput);
-                panel.appendChild(searchWrap);
+            if (framed) {
+                if (searchable) {
+                    const searchWrap = document.createElement('div');
+                    searchWrap.className = 'shrink-0 border-b border-slate-100 p-2';
+                    searchInput = document.createElement('input');
+                    searchInput.type = 'search';
+                    searchInput.placeholder = select.dataset.searchPlaceholder || 'Search…';
+                    searchInput.className = 'h-8 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+                    searchWrap.appendChild(searchInput);
+                    panel.appendChild(searchWrap);
+                }
 
                 list = document.createElement('div');
                 list.className = 'min-h-0 flex-1 overflow-y-auto py-1';
@@ -618,7 +623,7 @@
             if (searchInput) {
                 const empty = document.createElement('p');
                 empty.className = 'hidden px-3.5 py-3 text-sm text-slate-400';
-                empty.textContent = 'No matches';
+                empty.textContent = addUrl ? 'No matches. Add it below.' : 'No matches';
                 list.appendChild(empty);
 
                 const filter = function () {
@@ -659,6 +664,10 @@
                 });
             }
 
+            if (addUrl) {
+                panel.appendChild(buildAddFooter(select, addUrl, searchInput));
+            }
+
             document.body.appendChild(panel);
             placePanel(select);
             openSelect = select;
@@ -670,6 +679,102 @@
             panel.addEventListener('wheel', function (event) {
                 event.stopPropagation();
             }, { passive: true });
+        }
+
+        function buildAddFooter(select, addUrl, searchInput) {
+            const defaultPlaceholder = select.dataset.addPlaceholder || 'New name';
+            const footer = document.createElement('div');
+            footer.className = 'shrink-0 border-t border-slate-100 bg-slate-50 p-2';
+
+            const title = document.createElement('p');
+            title.className = 'mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400';
+            title.textContent = select.dataset.addLabel || 'Add new';
+            footer.appendChild(title);
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-1.5';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 255;
+            input.placeholder = defaultPlaceholder;
+            input.className = 'h-8 min-w-0 flex-1 rounded-lg border-0 bg-white px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900/10';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Add';
+            button.className = 'h-8 shrink-0 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60';
+            row.appendChild(input);
+            row.appendChild(button);
+            footer.appendChild(row);
+
+            const error = document.createElement('p');
+            error.className = 'mt-1 hidden px-0.5 text-[11px] text-rose-600';
+            footer.appendChild(error);
+
+            const showError = function (message) {
+                error.textContent = message;
+                error.classList.remove('hidden');
+            };
+
+            const submit = async function () {
+                const name = (input.value || (searchInput ? searchInput.value : '')).trim();
+                if (!name) {
+                    showError('Type the name first.');
+                    input.focus();
+                    return;
+                }
+                error.classList.add('hidden');
+                button.disabled = true;
+                button.textContent = 'Adding…';
+                try {
+                    const res = await fetch(addUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ name: name }),
+                    });
+                    const data = await res.json().catch(function () { return {}; });
+                    if (!res.ok || !data.id) {
+                        const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw new Error(first || data.message || 'Could not add it. Try again.');
+                    }
+                    let option = Array.from(select.options).find(function (opt) { return opt.value === String(data.id); });
+                    if (!option) {
+                        option = new Option(data.name, String(data.id));
+                        select.add(option);
+                    }
+                    select.value = String(data.id);
+                    select.dispatchEvent(new Event('input', { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    closeMpSelect();
+                } catch (e) {
+                    showError(e.message || 'Could not add it. Try again.');
+                    button.disabled = false;
+                    button.textContent = 'Add';
+                }
+            };
+
+            button.addEventListener('click', submit);
+            input.addEventListener('keydown', function (event) {
+                event.stopPropagation();
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submit();
+                } else if (event.key === 'Escape') {
+                    closeMpSelect();
+                }
+            });
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    input.placeholder = searchInput.value.trim() || defaultPlaceholder;
+                });
+            }
+
+            return footer;
         }
 
         function setMpSelectValue(id, value) {
