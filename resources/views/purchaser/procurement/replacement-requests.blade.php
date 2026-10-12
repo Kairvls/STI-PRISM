@@ -644,7 +644,6 @@
                                         <div class="mt-5 rounded-xl border border-gray-200">
                                             <div class="border-b border-gray-100 px-5 py-4">
                                                 <h3 class="text-sm font-semibold text-gray-900">Maintenance Assessment</h3>
-                                                <p class="mt-1 text-xs text-gray-400">Reason and evidence provided for equipment replacement.</p>
                                             </div>
 
                                             <div class="grid gap-5 p-5 md:grid-cols-2">

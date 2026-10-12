@@ -33,7 +33,6 @@
             <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h3 class="text-lg font-semibold text-slate-900">Supplier Information</h3>
-                    <p class="text-sm text-slate-500">Core details and contact information.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
@@ -233,7 +232,6 @@
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h3 class="text-lg font-semibold text-slate-900">Document trail</h3>
-                <p class="text-sm text-slate-500">RIS, ATP, RR, and procurement requests linked to this supplier.</p>
             </div>
             <div class="flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
                 @foreach(['All', 'RIS', 'ATP', 'RR', 'Procurement'] as $tab)

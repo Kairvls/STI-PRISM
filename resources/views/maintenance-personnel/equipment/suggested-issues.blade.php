@@ -59,9 +59,6 @@
         <div class="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-lg font-semibold text-slate-950">Suggested Issues</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Templates shown when reporting equipment problems.
-                </p>
             </div>
 
             <form
@@ -286,9 +283,6 @@
             <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">Add suggested issue</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Create a reusable issue template for reporters.
-                    </p>
                 </div>
                 <button
                     type="button"
@@ -392,9 +386,6 @@
             <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">Edit suggested issue</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Update this issue template.
-                    </p>
                 </div>
                 <button
                     type="button"

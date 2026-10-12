@@ -285,8 +285,6 @@
                 <h2 class="text-base font-semibold text-slate-900">Urgent reports</h2>
                 <a href="{{ route('admin.operations.reports', ['filter' => 'urgent']) }}" class="text-xs font-medium text-slate-500 hover:text-slate-900">All →</a>
             </div>
-            <p class="mt-0.5 text-xs text-slate-500">Open high-priority tickets</p>
-
             <ul class="mt-3 divide-y divide-slate-100">
                 @forelse($urgentReportsList as $report)
                     <li class="flex items-center justify-between gap-3 py-3">
@@ -435,7 +433,6 @@
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h2 class="text-base font-semibold text-slate-900">Equipment movements</h2>
-                <p class="mt-0.5 text-xs text-slate-500">Transfers, borrowing and disposal across campus</p>
             </div>
             <div class="flex flex-wrap items-center gap-1 text-sm">
                 @foreach([

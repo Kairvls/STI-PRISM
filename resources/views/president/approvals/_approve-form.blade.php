@@ -517,7 +517,6 @@
                     </span>
                     <div class="min-w-0 flex-1">
                         <h3 id="paNameSigTitle" class="text-base font-semibold tracking-tight text-slate-900">Save to my list</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-slate-500">Give this signature a short name so it’s easy to reuse later.</p>
                     </div>
                     <button type="button" id="paNameSigClose" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

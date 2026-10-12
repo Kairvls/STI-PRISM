@@ -34,7 +34,6 @@
             <div class="mb-5 flex items-center justify-between">
                 <div>
                     <h3 class="text-lg font-semibold text-slate-900">ATP Information</h3>
-                    <p class="text-sm text-slate-500">Details and current status.</p>
                 </div>
                 @include('accounting.partials.status-badge', [
                     'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),

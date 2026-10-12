@@ -19,7 +19,8 @@ class LrFormNumber
     }
 
     /**
-     * Next LR No. for the current year-month (non-draft rows only).
+     * Next LR No. — the YYYYMM prefix is the current month, but the sequence
+     * continues across months (non-draft rows only).
      */
     public static function next(): string
     {
@@ -34,7 +35,7 @@ class LrFormNumber
 
         $query = DB::table('liquidation_reports_table')
             ->whereNotNull('liquidation_report_form_number')
-            ->where('liquidation_report_form_number', 'like', $prefix.'%');
+            ->where('liquidation_report_form_number', 'like', 'LR-%');
 
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_status')) {
             $query->where(function ($q) {
@@ -44,7 +45,7 @@ class LrFormNumber
         }
 
         foreach ($query->pluck('liquidation_report_form_number') as $formNumber) {
-            if (preg_match('/^LR-'.preg_quote($ym, '/').'-(\d{5})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^LR-\d{6}-(\d{5})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

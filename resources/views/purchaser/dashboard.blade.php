@@ -205,7 +205,6 @@
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
                 <div>
                     <h2 class="text-base font-semibold tracking-tight text-gray-950">Next steps</h2>
-                    <p class="mt-0.5 text-sm text-gray-500">Work that can move forward right now.</p>
                 </div>
                 <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $nextSteps->sum('count') }} open</span>
             </div>
@@ -263,7 +262,6 @@
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
                 <div>
                     <h2 class="text-base font-semibold tracking-tight text-gray-950">Returned to you</h2>
-                    <p class="mt-0.5 text-sm text-gray-500">Fix, resubmit, or follow up back orders.</p>
                 </div>
                 @if($panelCount > 0)
                     <span class="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">{{ $panelCount }}</span>
@@ -338,7 +336,6 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
             <div>
                 <h2 class="text-base font-semibold tracking-tight text-gray-950">My workflow</h2>
-                <p class="mt-0.5 text-sm text-gray-500">Your active documents at each step, from request to liquidation.</p>
             </div>
             <div class="flex flex-wrap items-center gap-3 text-[11px] font-medium text-gray-500">
                 <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-300"></span>Draft</span>
@@ -406,7 +403,6 @@
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
                 <div>
                     <h2 class="text-base font-semibold tracking-tight text-gray-950">Recent activity</h2>
-                    <p class="mt-0.5 text-sm text-gray-500">Your latest documents across the workflow.</p>
                 </div>
                 <a href="{{ route('purchaser.history.index', ['tab' => 'documents']) }}" class="inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline">
                     View all <i data-lucide="arrow-right" class="h-4 w-4"></i>

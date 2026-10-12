@@ -18,24 +18,28 @@
                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                 @endif
             </div>
-            <p class="acc-page-subtitle">Official Request for Check. Funds are collected in person.</p>
+            <p class="acc-page-subtitle">Funds are collected in person.</p>
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved')" class="icon-btn" data-tip="Approve request check" aria-label="Approve request check">
+                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve request check">
                     <i data-lucide="check" class="h-4 w-4"></i>
+                    <span>Approve</span>
                 </button>
-                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Rejected')" class="icon-btn" data-tip="Request revision" aria-label="Request revision">
-                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
+                    <i data-lucide="undo-2" class="h-4 w-4"></i>
+                    <span>Request Revision</span>
                 </button>
             @endif
             @if ($releasable)
-                <button type="button" onclick="document.getElementById('releaseFundsModal').classList.remove('hidden')" class="icon-btn" data-tip="Release funds" aria-label="Release funds">
+                <button type="button" onclick="document.getElementById('releaseFundsModal').classList.remove('hidden')" class="acc-action-btn is-approve" data-tip="Release funds">
                     <i data-lucide="banknote" class="h-4 w-4"></i>
+                    <span>Release Funds</span>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print request check" aria-label="Print request check">
+            <button type="button" class="acc-action-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print request check">
                 <i data-lucide="printer" class="h-4 w-4"></i>
+                <span>Print</span>
             </button>
         </div>
     </div>

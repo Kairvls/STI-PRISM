@@ -295,12 +295,6 @@
 
                                     </h3>
 
-                                    <p class="mt-2 text-sm text-slate-500">
-
-                                        Select the destination room.
-
-                                    </p>
-
                                     <select
 
                                         x-model="transferRoom"

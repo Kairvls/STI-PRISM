@@ -19,7 +19,8 @@ class RrFormNumber
     }
 
     /**
-     * Next RR No. for the current year-month (non-draft rows only).
+     * Next RR No. — the YYYYMM prefix is the current month, but the sequence
+     * continues across months (non-draft rows only).
      */
     public static function next(): string
     {
@@ -34,7 +35,7 @@ class RrFormNumber
 
         $query = DB::table('receiving_reports_table')
             ->whereNotNull('receiving_report_form_number')
-            ->where('receiving_report_form_number', 'like', $prefix.'%');
+            ->where('receiving_report_form_number', 'like', 'RR-%');
 
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_status')) {
             $query->where(function ($q) {
@@ -44,7 +45,7 @@ class RrFormNumber
         }
 
         foreach ($query->pluck('receiving_report_form_number') as $formNumber) {
-            if (preg_match('/^RR-'.preg_quote($ym, '/').'-(\d{7})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^RR-\d{6}-(\d{7})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

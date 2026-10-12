@@ -75,7 +75,6 @@
                             {{ isset($suppliers) ? $suppliers->total() : 0 }}
                         </span>
                     </div>
-                    <p class="mt-1 text-sm text-gray-500">View and manage registered procurement suppliers.</p>
                 </div>
 
                 <form
@@ -642,7 +641,6 @@
                                 <h3 id="add-supplier-title" class="text-lg font-semibold tracking-tight text-gray-950">
                                     Add Supplier
                                 </h3>
-                                <p class="mt-0.5 text-sm text-gray-500">Register a new procurement supplier.</p>
                             </div>
                         </div>
                     </div>
@@ -719,7 +717,6 @@
                                 </div>
                                 <div>
                                     <p class="text-sm font-semibold text-gray-900">Supplier details</p>
-                                    <p class="text-xs text-gray-500">Name and contact information</p>
                                 </div>
                             </div>
 
@@ -816,7 +813,6 @@
                                 </div>
                                 <div>
                                     <p class="text-sm font-semibold text-gray-900">Physical location</p>
-                                    <p class="text-xs text-gray-500">Where this store can be found</p>
                                 </div>
                             </div>
                             <div class="p-4">
@@ -843,7 +839,6 @@
                                 </div>
                                 <div>
                                     <p class="text-sm font-semibold text-gray-900">Online platform</p>
-                                    <p class="text-xs text-gray-500">Where this supplier sells online</p>
                                 </div>
                             </div>
                             <div class="space-y-4 p-4">

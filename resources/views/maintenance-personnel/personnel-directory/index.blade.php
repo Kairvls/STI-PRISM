@@ -126,7 +126,6 @@
             <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h2 class="text-base font-semibold text-slate-900">Faculty and staff</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">The official campus list. Keep it in sync with HR.</p>
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <form method="GET" action="{{ route('maintenance.personnel-directory.index') }}" class="flex gap-2">

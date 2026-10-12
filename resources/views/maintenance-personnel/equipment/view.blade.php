@@ -143,7 +143,6 @@
                     <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
                         <div>
                             <h2 class="text-base font-semibold text-slate-900">Equipment identity</h2>
-                            <p class="mt-1 text-sm text-slate-500">Asset tag, brand, and serial details.</p>
                         </div>
                         <i data-lucide="monitor" class="h-5 w-5 text-slate-400"></i>
                     </div>
@@ -185,7 +184,6 @@
                     <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
                         <div>
                             <h2 class="text-base font-semibold text-slate-900">Location & acquisition</h2>
-                            <p class="mt-1 text-sm text-slate-500">Where it lives and when it was purchased.</p>
                         </div>
                         <i data-lucide="map-pin" class="h-5 w-5 text-slate-400"></i>
                     </div>

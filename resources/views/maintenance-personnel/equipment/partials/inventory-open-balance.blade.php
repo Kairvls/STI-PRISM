@@ -22,7 +22,6 @@
                     <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Open balance</p>
                     <p class="mt-1 text-sm text-slate-500">RR deliveries vs what is already in inventory</p>
                 </div>
-                <p class="text-xs text-slate-400">Ordered → Received → In inventory → Pending</p>
             </div>
 
             <div class="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-4 sm:divide-x sm:divide-slate-100">

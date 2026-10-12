@@ -19,7 +19,7 @@
                 @endif
                 @include('accounting.partials.deadline-badge', ['deadline' => $liq->liquidation_report_submission_deadline ?? null])
             </div>
-            <p class="acc-page-subtitle">Official liquidation form. Approval completes the transaction.</p>
+            <p class="acc-page-subtitle">Approval completes the transaction.</p>
             @if (!empty($liq->liquidation_report_submission_deadline))
                 <p class="mt-1 text-xs font-semibold {{ \Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->startOfDay()->lt(now()->startOfDay()) ? 'text-rose-600' : (\Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->startOfDay()->eq(now()->startOfDay()) ? 'text-amber-600' : 'text-slate-500') }}">
                     Submission deadline: {{ \Carbon\Carbon::parse($liq->liquidation_report_submission_deadline)->format('M d, Y') }}
@@ -28,15 +28,18 @@
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="openDecisionModal('liq', {{ $liq->liquidation_report_id }}, 'Approved')" class="icon-btn" data-tip="Approve liquidation" aria-label="Approve liquidation">
+                <button type="button" onclick="openDecisionModal('liq', {{ $liq->liquidation_report_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve liquidation">
                     <i data-lucide="check" class="h-4 w-4"></i>
+                    <span>Approve</span>
                 </button>
-                <button type="button" onclick="openDecisionModal('liq', {{ $liq->liquidation_report_id }}, 'Rejected')" class="icon-btn" data-tip="Request revision" aria-label="Request revision">
-                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                <button type="button" onclick="openDecisionModal('liq', {{ $liq->liquidation_report_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
+                    <i data-lucide="undo-2" class="h-4 w-4"></i>
+                    <span>Request Revision</span>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print liquidation" aria-label="Print liquidation">
+            <button type="button" class="acc-action-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print liquidation">
                 <i data-lucide="printer" class="h-4 w-4"></i>
+                <span>Print</span>
             </button>
         </div>
     </div>

@@ -41,7 +41,7 @@
         <div class="border-b border-slate-100 px-5 py-4">
             <h2 class="text-base font-semibold text-slate-900">{{ $editing ? 'Edit person' : 'Add a person to the directory' }}</h2>
             <p class="mt-0.5 text-sm text-slate-500">
-                Anyone who can be accountable for school property: office staff, faculty, guards, utility staff. They do not need a system account.
+                They don't need a system account.
             </p>
         </div>
 

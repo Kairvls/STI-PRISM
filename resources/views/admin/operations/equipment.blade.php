@@ -97,7 +97,6 @@
                         <h2 class="text-base font-semibold text-gray-950">Equipment records</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $rowCount }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">Inventory status, replacement needs, and lifecycle alerts.</p>
                 </div>
 
                 <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">

@@ -231,7 +231,6 @@
         <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h2 class="text-base font-semibold text-gray-950">Latest procurement workflow</h2>
-                <p class="mt-1 text-xs text-gray-400">Open any available form in the chain — RIS, ATP, RFC/CA, Receiving, or Liquidation.</p>
             </div>
             <a href="{{ route('admin.operations.procurement') }}" class="text-xs font-semibold text-[#0025cc] transition hover:text-[#001fa8]">Open monitor</a>
         </div>
@@ -339,7 +338,6 @@
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <h2 class="text-base font-semibold text-gray-950">Exceptions</h2>
-            <p class="mt-1 text-xs text-gray-400">Items that usually need Administrator visibility or action.</p>
         </div>
         <div class="divide-y divide-gray-100">
             @forelse($exceptions as $item)
@@ -364,7 +362,6 @@
     <div>
         <div class="mb-3">
             <h2 class="text-base font-semibold text-gray-950">Needs attention</h2>
-            <p class="mt-1 text-xs text-gray-400">Top items with names, location, and how long they’ve been waiting.</p>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
             @foreach($previewPanels as $panel)
@@ -396,7 +393,6 @@
     {{-- Shortcuts --}}
     <div class="pur-card px-5 py-5">
         <h2 class="text-base font-semibold text-gray-950">Shortcuts</h2>
-        <p class="mt-1 text-xs text-gray-400">Jump to common operations views.</p>
         <div class="mt-4 flex flex-wrap gap-2">
             @foreach($shortcuts as $shortcut)
                 <a href="{{ $shortcut['url'] }}" class="pur-filter-chip">

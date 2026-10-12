@@ -111,10 +111,6 @@
                             Borrowing Records
                         </h2>
 
-                        <p class="mt-0.5 text-xs text-slate-400">
-                            Track borrowed equipment and return activity
-                        </p>
-
                     </div>
 
                 </div>
@@ -865,7 +861,6 @@
             <div class="flex items-start justify-between gap-4 px-6 pt-6">
                 <div class="min-w-0">
                     <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
-                    <p class="mt-1 text-sm text-slate-500">Search and add multiple items for one borrower in a single record set.</p>
                 </div>
                 <button
                     type="button"

@@ -74,10 +74,9 @@
                 <input type="hidden" name="equipment_purchase_cost" :value="purchaseCost || ''" :disabled="intakeBasis === 'non_procurement'">
             @endif
 
-            <div class="flex items-start justify-between px-6 pt-6">
+            <div class="flex items-center justify-between px-6 pt-6">
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">{{ $wizardTitle }}</h2>
-                    <p class="mt-1 text-sm text-slate-500" x-text="currentStep().hint"></p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                     <button
@@ -134,10 +133,9 @@
             <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
                 @if ($isStockPage)
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80" x-show="page === 1">
-                    <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
-                            <p class="mt-1 text-xs text-slate-500">Tick the delivered equipment to add. You can pick several lines, from one or more RRs.</p>
                         </div>
                         <button
                             type="button"
@@ -160,12 +158,13 @@
                                     >Refresh</button>
                                     <button
                                         type="button"
-                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
-                                        @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
-                                        :title="fullscreen ? 'Exit full screen' : 'View the list full screen'"
+                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                        @click="toggleAllRrSelection()"
+                                        :disabled="rrLoading || allRrSelectableIds().length === 0"
+                                        :title="isAllRrSelected() ? 'Unselect every ready line' : 'Select every ready line on all RRs'"
                                     >
-                                        <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-3.5 w-3.5"></i>
-                                        <span x-text="fullscreen ? 'Exit full screen' : 'Full screen'"></span>
+                                        <i data-lucide="list-checks" class="h-3.5 w-3.5"></i>
+                                        <span x-text="isAllRrSelected() ? 'Unselect all RR' : 'Select all RR'"></span>
                                     </button>
                                 </div>
                             </div>
@@ -324,7 +323,6 @@
                     </div>
 
                     <div x-show="intakeBasis === 'non_procurement'" x-cloak class="space-y-3">
-                        <p class="text-xs text-slate-500">No Receiving Report for this item, so record where it came from. These fill the Procurement &amp; lifecycle section of the equipment page.</p>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label for="add_acquisition_source" class="{{ $eqLabel }}">How was it acquired? <span class="text-red-500">*</span></label>
@@ -1786,6 +1784,21 @@
                     const ids = this.rrGroupSelectableIds(group);
                     if (!ids.length) return;
                     this.rrSelected = this.isRrGroupSelected(group)
+                        ? this.rrSelected.filter((id) => !ids.includes(id))
+                        : [...new Set([...this.rrSelected, ...ids])];
+                    this.afterRrSelectionChange();
+                },
+                allRrSelectableIds() {
+                    return this.rrGroups.flatMap((group) => this.rrGroupSelectableIds(group));
+                },
+                isAllRrSelected() {
+                    const ids = this.allRrSelectableIds();
+                    return ids.length > 0 && ids.every((id) => this.rrSelected.includes(id));
+                },
+                toggleAllRrSelection() {
+                    const ids = this.allRrSelectableIds();
+                    if (!ids.length) return;
+                    this.rrSelected = this.isAllRrSelected()
                         ? this.rrSelected.filter((id) => !ids.includes(id))
                         : [...new Set([...this.rrSelected, ...ids])];
                     this.afterRrSelectionChange();

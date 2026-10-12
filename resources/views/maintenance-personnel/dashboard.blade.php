@@ -5673,8 +5673,6 @@
                                 <h2 class="dashboard-analytics-title">
                                     Report Status
                                 </h2>
-
-                                <p class="dashboard-analytics-subtitle">Distribution of active maintenance reports</p>
                             </div>
                         </div>
 
@@ -6326,8 +6324,6 @@
                             <h2 class="dashboard-calendar-title">
                                 Maintenance Calendar
                             </h2>
-
-                            <p class="dashboard-calendar-subtitle">Reports and scheduled maintenance</p>
                         </div>
 
                         <div class="dashboard-calendar-header-icon">
@@ -6698,7 +6694,6 @@
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
                 <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
-                <p class="mt-1 text-sm text-slate-500">Search and add multiple QR-tagged equipment in one go.</p>
             </div>
             <button
                 type="button"
@@ -6722,7 +6717,6 @@
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment <span class="text-red-500">*</span></p>
-                            <p class="mt-1 text-sm text-slate-500">Type to search, then add each asset to this schedule batch.</p>
                         </div>
                         <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' selected') : 'None selected'"></p>
                     </div>
@@ -6960,7 +6954,6 @@
             <div class="flex items-start justify-between gap-4 px-6 pt-6">
                 <div class="min-w-0">
                     <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
-                    <p class="mt-1 text-sm text-slate-500">Search and add multiple items for one borrower in a single record set.</p>
                 </div>
                 <button
                     type="button"
@@ -6985,7 +6978,6 @@
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
-                                <p class="mt-1 text-sm text-slate-500">Type to search, then add quantity for each equipment line.</p>
                             </div>
                             <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
                         </div>
@@ -7189,7 +7181,6 @@
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                            <p class="mt-1 text-sm text-slate-500">Optional purpose, destination, and remarks.</p>
                         </div>
                         <div class="space-y-4">
                             <div>
@@ -7274,10 +7265,6 @@
                 >
                     Scan Equipment
                 </h2>
-
-                <p class="mt-1 text-xs text-slate-500">
-                    Point the camera at an equipment QR code.
-                </p>
             </div>
 
             <button
@@ -7860,9 +7847,6 @@
                 >
                     Recent Activity
                 </h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Your latest maintenance actions
-                </p>
             </div>
 
             <button
@@ -12003,7 +11987,7 @@ document.addEventListener(
 
                                     <div class="dashboard-empty-state">
 
-                                        No reports or maintenance schedules
+                                        No maintenance scheduled
                                         for this date.
 
                                     </div>

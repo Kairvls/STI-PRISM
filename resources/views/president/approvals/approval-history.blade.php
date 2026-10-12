@@ -10,7 +10,6 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="min-w-0">
                 <h2 class="text-sm font-semibold text-gray-900">Decision Records</h2>
-                <p class="mt-1 text-xs text-gray-500">A timeline of approval decisions made by the President.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3 flex-1 justify-end min-w-0">

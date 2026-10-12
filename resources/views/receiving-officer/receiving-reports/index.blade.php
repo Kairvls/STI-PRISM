@@ -122,7 +122,6 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 class="text-sm font-semibold text-slate-950">Receiving reports</h3>
-                        <p class="mt-0.5 text-xs text-slate-500">Search and review the current queue.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         @include('admin.partials.view-mode-switcher', [

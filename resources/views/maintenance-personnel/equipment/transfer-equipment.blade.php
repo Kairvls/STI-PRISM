@@ -52,10 +52,6 @@
                             Equipment Management
                         </h2>
 
-                        <p class="mt-0.5 text-xs text-slate-400">
-                            Move equipment between rooms and review transfer logs
-                        </p>
-
                     </div>
 
                 </div>
@@ -910,9 +906,6 @@
                     <h2 class="text-lg font-semibold tracking-tight text-slate-950">
                         Transfer equipment
                     </h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Move this item to another room and optionally add remarks.
-                    </p>
                 </div>
 
                 <button

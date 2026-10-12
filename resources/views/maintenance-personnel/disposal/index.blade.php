@@ -79,10 +79,6 @@
                             Disposal Records
                         </h2>
 
-                        <p class="mt-0.5 text-xs text-slate-400">
-                            Track disposed equipment and disposal information
-                        </p>
-
                     </div>
 
                 </div>
@@ -1090,10 +1086,6 @@
                 >
                     Dispose equipment
                 </h2>
-
-                <p class="mt-2 text-sm leading-6 text-slate-500">
-                    Record equipment that is no longer available for normal use.
-                </p>
             </div>
 
             <!-- CLOSE BUTTON -->

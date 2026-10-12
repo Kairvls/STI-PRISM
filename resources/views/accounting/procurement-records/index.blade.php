@@ -11,7 +11,7 @@
     <div class="pr-hero">
         <p class="pr-hero-kicker">Transactions</p>
         <h1 class="pr-hero-title">Compiled Records</h1>
-        <p class="pr-hero-sub">Review purchaser-submitted document checklists and forward to President for records.</p>
+        <p class="pr-hero-sub">Checked packages are forwarded to the President for records.</p>
     </div>
 
     <div class="pr-surface">

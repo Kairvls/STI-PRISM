@@ -14,9 +14,6 @@
                 </div>
                 <div>
                     <h3 class="text-base font-semibold text-slate-950">Change password</h3>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Use a strong password you do not reuse on other accounts.
-                    </p>
                 </div>
             </div>
         </div>

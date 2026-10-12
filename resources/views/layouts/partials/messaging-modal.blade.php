@@ -396,27 +396,53 @@
                             pointer-events-none
                             absolute
                             inset-0
-                            z-20
+                            z-40
                             hidden
-                            items-center
-                            justify-center
+                            flex-col
+                            justify-end
+                            gap-3
+                            overflow-hidden
                             bg-white
+                            px-5
+                            py-6
                         "
                         aria-hidden="true"
                     >
-                        <div
-                            class="
-                                h-9
-                                w-9
-                                animate-spin
-                                rounded-full
-                                border-[3px]
-                                border-gray-200
-                                border-t-gray-800
-                            "
-                            role="status"
-                            aria-label="Loading messages"
-                        ></div>
+                        <div class="flex animate-pulse flex-col gap-3" role="status" aria-label="Loading messages">
+                            <div class="mx-auto h-3 w-24 rounded-full bg-gray-100"></div>
+
+                            <div class="flex items-end gap-2">
+                                <div class="h-7 w-7 shrink-0 rounded-full bg-gray-200"></div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="h-9 w-48 rounded-2xl rounded-bl-sm bg-gray-200"></div>
+                                    <div class="h-9 w-32 rounded-2xl rounded-bl-sm bg-gray-200"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col items-end gap-1.5">
+                                <div class="h-9 w-56 rounded-2xl rounded-br-sm bg-gray-200"></div>
+                                <div class="h-9 w-36 rounded-2xl rounded-br-sm bg-gray-200"></div>
+                            </div>
+
+                            <div class="flex items-end gap-2">
+                                <div class="h-7 w-7 shrink-0 rounded-full bg-gray-200"></div>
+                                <div class="h-16 w-52 rounded-2xl rounded-bl-sm bg-gray-200"></div>
+                            </div>
+
+                            <div class="flex flex-col items-end gap-1.5">
+                                <div class="h-9 w-40 rounded-2xl rounded-br-sm bg-gray-200"></div>
+                            </div>
+
+                            <div class="flex items-end gap-2">
+                                <div class="h-7 w-7 shrink-0 rounded-full bg-gray-200"></div>
+                                <div class="h-9 w-44 rounded-2xl rounded-bl-sm bg-gray-200"></div>
+                            </div>
+
+                            <div class="flex flex-col items-end gap-1.5">
+                                <div class="h-9 w-28 rounded-2xl rounded-br-sm bg-gray-200"></div>
+                                <div class="h-9 w-48 rounded-2xl rounded-br-sm bg-gray-200"></div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- ===================================================== --}}
@@ -2401,14 +2427,14 @@
                         id="createGroupChatSubmit"
                         class="
                             rounded-lg
-                            bg-gray-900
+                            bg-[#0025cc]
                             px-4
                             py-2
                             text-sm
                             font-semibold
                             text-white
                             transition
-                            hover:bg-gray-800
+                            hover:bg-blue-800
                             disabled:cursor-not-allowed
                             disabled:opacity-50
                         "
@@ -2619,6 +2645,8 @@
         let selectedAttachments = [];
         let attachmentsUploading = 0;
         let isSendingMessage = false;
+        let isSendingMessageParts = false;
+        let lastMessageSendSucceeded = false;
         let replyingToMessage = null;
         let editingMessageRow = null;
         let activeRealtimeConversationId = null;
@@ -13799,7 +13827,7 @@ if (!isGroup) {
                                                     flex-col
 
                                                     ${isOwn
-                                                        ? 'self-end rounded-2xl rounded-br-sm bg-gray-900 text-white'
+                                                        ? 'self-end rounded-2xl rounded-br-sm bg-[#0025cc] text-white'
                                                         : 'self-start rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'
                                                     }
 
@@ -13845,7 +13873,7 @@ if (!isGroup) {
                                                     w-fit
                                                     max-w-full
                                                     ${hasText ? 'mt-1' : ''}
-                                                    ${isOwn ? 'self-end' : 'self-start'}
+                                                    ${isOwn ? 'self-end attachments-own' : 'self-start'}
                                                 "
                                                 data-tooltip="${escapeHtml(fullTime)}"
                                             >
@@ -14501,6 +14529,8 @@ if (!isGroup) {
             lucideCreateIcons(banner);
         }
 
+        let pinNoticeRestoreToken = 0;
+
         async function restorePinSystemNotice() {
 
             const container =
@@ -14519,11 +14549,8 @@ if (!isGroup) {
                 return;
             }
 
-            container
-                .querySelectorAll('.pin-system-notice')
-                .forEach(notice => {
-                    notice.remove();
-                });
+            const restoreToken = ++pinNoticeRestoreToken;
+            const conversationId = currentConversationId;
 
             try {
 
@@ -14548,7 +14575,20 @@ if (!isGroup) {
                         ? result.data
                         : [];
 
+                if (
+                    restoreToken !== pinNoticeRestoreToken ||
+                    String(conversationId) !== String(currentConversationId)
+                ) {
+                    return;
+                }
+
                 updatePinnedHeaderBar(messages);
+
+                container
+                    .querySelectorAll('.pin-system-notice')
+                    .forEach(notice => {
+                        notice.remove();
+                    });
 
                 const persisted = readPersistedPinNotices(
                     currentConversationId
@@ -15279,10 +15319,30 @@ if (!isGroup) {
                     pinNoticeStorageKey(conversationId)
                 );
                 const list = JSON.parse(raw || '[]');
-                return Array.isArray(list) ? list : [];
+                return Array.isArray(list) ? dedupePinNoticeEvents(list) : [];
             } catch (error) {
                 return [];
             }
+        }
+
+        function dedupePinNoticeEvents(events) {
+            const lastAtByKey = new Map();
+
+            return events.filter(event => {
+                const key = [
+                    event?.kind === 'unpinned' ? 'unpinned' : 'pinned',
+                    String(event?.afterMessageId || ''),
+                ].join('|');
+                const at = Number(event?.at || 0);
+                const previousAt = lastAtByKey.get(key);
+
+                if (previousAt !== undefined && Math.abs(at - previousAt) <= PIN_NOTICE_WINDOW_MS) {
+                    return false;
+                }
+
+                lastAtByKey.set(key, at);
+                return true;
+            });
         }
 
         function getMessageRowBeforeNode(node) {
@@ -15320,7 +15380,7 @@ if (!isGroup) {
 
             localStorage.setItem(
                 pinNoticeStorageKey(currentConversationId),
-                JSON.stringify(events)
+                JSON.stringify(dedupePinNoticeEvents(events))
             );
         }
 
@@ -19176,11 +19236,77 @@ if (!isGroup) {
             });
         }
 
+        // Images stay together as one gallery message; every other file and
+        // the typed text become separate messages so each one can be
+        // reacted to, replied to and unsent on its own.
+        function buildOutgoingMessageParts(content, attachments) {
+            const images = attachments.filter(isImageAttachment);
+            const files = attachments.filter(attachment => !isImageAttachment(attachment));
+
+            if (!files.length) {
+                return [{ content, attachments }];
+            }
+
+            const parts = [];
+
+            if (images.length) {
+                parts.push({ content: '', attachments: images });
+            }
+
+            files.forEach(file => parts.push({ content: '', attachments: [file] }));
+
+            if (content) {
+                parts.push({ content, attachments: [] });
+            }
+
+            return parts;
+        }
+
+        async function sendOutgoingMessageParts(parts) {
+            const input = document.getElementById('modalMessageInput');
+
+            isSendingMessageParts = true;
+
+            try {
+                for (let index = 0; index < parts.length; index++) {
+                    const part = parts[index];
+
+                    if (input) {
+                        input.value = part.content;
+                    }
+                    selectedAttachments = part.attachments.slice();
+                    lastMessageSendSucceeded = false;
+
+                    await sendModalMessage({
+                        preventDefault() {},
+                        stopPropagation() {},
+                        isMessagePart: true
+                    });
+
+                    if (!lastMessageSendSucceeded) {
+                        const remaining = parts.slice(index + 1);
+                        selectedAttachments = selectedAttachments.concat(
+                            ...remaining.map(item => item.attachments)
+                        );
+                        const remainingText = remaining.map(item => item.content).filter(Boolean).join('\n');
+                        if (input && remainingText) {
+                            input.value = [input.value, remainingText].filter(Boolean).join('\n');
+                        }
+                        renderSelectedAttachments();
+                        break;
+                    }
+                }
+            } finally {
+                isSendingMessageParts = false;
+                updateComposerActionButton();
+            }
+        }
+
         async function sendModalMessage(e) {
             e.preventDefault();
             e.stopPropagation();
 
-            if (isSendingMessage) {
+            if (isSendingMessage || (isSendingMessageParts && !e.isMessagePart)) {
                 return;
             }
 
@@ -19216,6 +19342,15 @@ if (!isGroup) {
 
             const form = document.getElementById('modalMessageForm');
             if (!form) return;
+
+            if (!e.isMessagePart) {
+                const parts = buildOutgoingMessageParts(content, outgoingAttachments);
+
+                if (parts.length > 1) {
+                    await sendOutgoingMessageParts(parts);
+                    return;
+                }
+            }
 
             isSendingMessage = true;
 
@@ -19270,7 +19405,7 @@ if (!isGroup) {
                                             max-w-full
                                             rounded-2xl
                                             rounded-br-md
-                                            bg-gray-900
+                                            bg-[#0025cc]
                                             px-4
                                             py-2.5
                                             text-white
@@ -19294,7 +19429,7 @@ if (!isGroup) {
                         ${
                             hasAttachments
                                 ? `
-                                    <div class="${hasContent ? 'mt-1.5' : ''}">
+                                    <div class="attachments-own ${hasContent ? 'mt-1.5' : ''}">
                                         ${attachmentPreview}
                                     </div>
                                 `
@@ -19484,6 +19619,7 @@ if (!isGroup) {
 
                 forceScrollThreadToBottom();
                 scheduleLoadModalConversations();
+                lastMessageSendSucceeded = true;
             } else {
                 const temp = document.getElementById(tempId);
                 if (temp) temp.remove();
@@ -19944,6 +20080,9 @@ if (!isGroup) {
                 html += `
                     <div
                         class="
+                            message-attachment-files
+                            flex
+                            flex-col
                             ${images.length ? 'mt-1.5' : ''}
                             space-y-1.5
                         "
@@ -22013,7 +22152,7 @@ if (!isGroup) {
                                 border
                                 ${
                                     isSelected
-                                        ? 'border-gray-900 bg-gray-900 text-white'
+                                        ? 'border-gray-900 bg-[#0025cc] text-white'
                                         : 'border-gray-300 bg-white text-transparent'
                                 }
                             "
@@ -24535,6 +24674,37 @@ if (!isGroup) {
 
     #modalAttachmentPreview:not(.hidden) {
         animation: fadeInUp 0.25s ease-out both;
+    }
+
+    .attachments-own > div {
+        margin-left: auto;
+    }
+
+    .attachments-own .message-attachment-files {
+        align-items: flex-end;
+    }
+
+    #modalAttachmentItems {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar {
+        height: 5px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 999px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
     }
 
     #modalAttachmentPreview .h-1.rounded-full {

@@ -3,7 +3,6 @@
 @endphp
 <div class="acc-panel">
     <h3 class="acc-panel-title">Related documents</h3>
-    <p class="acc-panel-sub">Transaction chain</p>
     <ol class="mt-3 space-y-1.5">
         @foreach (['ris' => 'RIS', 'atp' => 'ATP', 'rfc' => 'Request Check', 'funds' => 'Funds', 'rr' => 'Receiving Report', 'liq' => 'Liquidation'] as $key => $title)
             @php

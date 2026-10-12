@@ -19,7 +19,8 @@ class RfcFormNumber
     }
 
     /**
-     * Next RFC No. for the current year-month (non-draft rows only).
+     * Next RFC No. — the YYYYMM prefix is the current month, but the sequence
+     * continues across months (non-draft rows only).
      */
     public static function next(): string
     {
@@ -34,7 +35,7 @@ class RfcFormNumber
 
         $query = DB::table('request_check_table')
             ->whereNotNull('request_check_form_number')
-            ->where('request_check_form_number', 'like', $prefix.'%');
+            ->where('request_check_form_number', 'like', 'RFC-%');
 
         if (Schema::hasColumn('request_check_table', 'request_check_status')) {
             $query->where(function ($q) {
@@ -44,7 +45,7 @@ class RfcFormNumber
         }
 
         foreach ($query->pluck('request_check_form_number') as $formNumber) {
-            if (preg_match('/^RFC-'.preg_quote($ym, '/').'-(\d{5})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^RFC-\d{6}-(\d{5})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

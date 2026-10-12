@@ -222,7 +222,6 @@
         <div class="acx-card flex flex-col">
             <div class="px-6 pt-6">
                 <h2 class="acx-h text-base font-semibold">Liquidation deadlines</h2>
-                <p class="mt-0.5 text-xs text-slate-500">Reports pending your review</p>
             </div>
 
             <div class="mt-4 grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100">
@@ -366,7 +365,6 @@
         <div class="acx-card flex flex-col">
             <div class="px-6 pt-6">
                 <h2 class="acx-h text-base font-semibold">Document status</h2>
-                <p class="mt-0.5 text-xs text-slate-500">Everything Accounting has handled</p>
             </div>
             <table class="mt-4 w-full text-sm">
                 <thead>
@@ -394,7 +392,6 @@
             <div class="flex items-baseline justify-between px-6 pt-6">
                 <div>
                     <h2 class="acx-h text-base font-semibold">Recent decisions</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">Latest approvals and releases</p>
                 </div>
                 <a href="{{ url('/accounting/history') }}" class="text-xs font-medium text-slate-500 hover:text-[#0025cc]">History →</a>
             </div>

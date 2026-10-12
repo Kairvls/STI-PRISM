@@ -19,7 +19,6 @@
     <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
         <div>
             <h2 class="text-base font-semibold text-slate-900">Procurement & lifecycle</h2>
-            <p class="mt-1 text-sm text-slate-500">Bought, delivered, added to inventory, deployed, and disposed — with dates and actors.</p>
         </div>
         <i data-lucide="git-branch" class="h-5 w-5 text-slate-400"></i>
     </div>
@@ -154,7 +153,6 @@
     <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
         <div>
             <h2 class="text-base font-semibold text-slate-900">Lifecycle timeline</h2>
-            <p class="mt-1 text-sm text-slate-500">Order → receive → add to inventory → deploy → borrow → repair → dispose.</p>
         </div>
         <i data-lucide="history" class="h-5 w-5 text-slate-400"></i>
     </div>

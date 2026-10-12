@@ -7,7 +7,7 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">System Reports</h1>
-        <p class="admin-page-subtitle">Read-only summaries. Filter by date and print. These pages do not approve, inspect, or edit records.</p>
+        <p class="admin-page-subtitle">Read-only summaries.</p>
     </div>
 
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'hub'])

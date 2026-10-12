@@ -101,7 +101,6 @@
                         <h2 class="text-base font-semibold text-gray-950">Brand Records</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $brands->total() }}</span>
                     </div>
-                    <p class="mt-1 text-sm text-gray-500">Search and manage registered brands.</p>
                 </div>
                 <form method="GET" action="{{ route(($pp ?? 'purchaser').'.file-maintenance.index') }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <input type="hidden" name="tab" value="brands">

@@ -10,7 +10,7 @@
             <div class="min-w-0">
                 <h2 class="text-sm font-semibold text-gray-900">Direct Approvals by Administrator</h2>
                 <p class="mt-1 text-xs text-gray-500">
-                    These bypassed presidential signing. Use this module for oversight and audit only.
+                    Approved without presidential signing. For oversight and audit only.
                 </p>
             </div>
 

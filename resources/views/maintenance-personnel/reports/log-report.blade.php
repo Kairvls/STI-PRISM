@@ -709,8 +709,6 @@
                         </div>
                     </div>
                 </div>
-
-                <p class="mt-2 text-xs text-slate-500">You can switch location to add equipment from other rooms; everything stays on one ticket.</p>
                 <div id="selectedEquipmentList" class="mt-4 space-y-2"></div>
                 <p id="equipmentError" class="mt-1 hidden text-sm text-red-500"></p>
                 <div id="selectedEquipmentInputs"></div>

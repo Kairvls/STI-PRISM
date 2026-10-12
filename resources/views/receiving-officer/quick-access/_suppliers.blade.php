@@ -4,7 +4,7 @@
             <div class="flex flex-col gap-3">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p class="text-sm text-gray-500">Read-only vendor list from delivered items. Purchaser owns add/edit.</p>
+                        <p class="text-sm text-gray-500">Read-only. Purchaser owns add/edit.</p>
                         <a href="/receiving/supplier-records" class="text-xs font-semibold text-sky-600">Open full page</a>
                     </div>
                     <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ ($rows ?? collect())->count() }} total</span>

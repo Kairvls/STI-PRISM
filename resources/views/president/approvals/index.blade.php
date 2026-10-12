@@ -7,7 +7,6 @@
 <div class="ris-workspace pm-page">
     <header class="ris-page-header">
         <div class="min-w-0 hidden sm:block">
-            <p class="text-sm leading-6 text-gray-500">Review forwarded RIS documents. Approve to sign, then notify Administrator when ready.</p>
         </div>
         <div class="awaiting-indicator" data-tip="RIS currently waiting for your review" id="awaitingIndicator">
             <span class="awaiting-label">Awaiting review</span>

@@ -413,9 +413,6 @@
                     <h2 class="text-sm font-semibold text-slate-900">
                         Room Directory
                     </h2>
-                    <p class="mt-0.5 text-xs text-slate-400">
-                        Manage rooms, floors, and assigned equipment
-                    </p>
                 </div>
             </div>
 
@@ -678,7 +675,6 @@
                 </div>
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Add rooms</h2>
-                    <p class="mt-1 text-sm text-slate-500">Add one or many rooms — each row keeps its own name, floor, type, and status.</p>
                 </div>
             </div>
             <button type="button" onclick="closeAddRoomModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -845,7 +841,6 @@
                 </div>
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Edit room</h2>
-                    <p class="mt-1 text-sm text-slate-500">Update the name, floor, or type.</p>
                 </div>
             </div>
             <button type="button" onclick="closeEditRoomModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">

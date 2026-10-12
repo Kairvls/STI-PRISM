@@ -14,7 +14,6 @@
     <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
             <h2 class="text-sm font-semibold text-slate-900">Accountable person</h2>
-            <p class="mt-0.5 text-xs text-slate-500">Who is responsible for this item.</p>
         </div>
         <i data-lucide="user-round-check" class="h-4 w-4 text-slate-400"></i>
     </div>

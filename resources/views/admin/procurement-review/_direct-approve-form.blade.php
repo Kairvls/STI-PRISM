@@ -648,9 +648,6 @@
                         <h4 class="text-sm font-semibold text-slate-900">
                             Supporting documents
                         </h4>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Files the Purchaser attached to this RIS. Open any file to review before you confirm.
-                        </p>
                     </div>
                     <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                         {{ $risSupportingDocs->count() }} file{{ $risSupportingDocs->count() === 1 ? '' : 's' }}
@@ -765,7 +762,6 @@
                                 </span>
                                 <div class="min-w-0 flex-1">
                                     <h3 id="adminDaNameSigTitle" class="text-base font-semibold tracking-tight text-slate-900">Save to my list</h3>
-                                    <p class="mt-1 text-sm leading-relaxed text-slate-500">Give this signature a short name so it’s easy to reuse later.</p>
                                 </div>
                                 <button type="button" id="adminDaNameSigClose" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

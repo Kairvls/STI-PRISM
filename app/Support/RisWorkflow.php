@@ -115,7 +115,10 @@ class RisWorkflow
         return is_string($value) && (bool) preg_match(self::FORM_NUMBER_REGEX, trim($value));
     }
 
-    /** Next RIS No. for the current year-month (submitted / non-draft only). */
+    /**
+     * Next RIS No. — the YYYYMM prefix is the current month, but the sequence
+     * continues across months (submitted / non-draft only).
+     */
     public static function nextFormNumber(): string
     {
         $ym = now()->format('Ym');
@@ -126,14 +129,14 @@ class RisWorkflow
             && Schema::hasColumn('requisition_issue_slip_table', 'ris_form_number')) {
             $query = DB::table('requisition_issue_slip_table')
                 ->whereNotNull('ris_form_number')
-                ->where('ris_form_number', 'like', $prefix.'%')
+                ->where('ris_form_number', 'like', 'RIS-%')
                 ->where(function ($q) {
                     $q->whereNull('ris_status')
                         ->orWhere('ris_status', '!=', 'Draft');
                 });
 
             foreach ($query->pluck('ris_form_number') as $formNumber) {
-                if (preg_match('/^RIS-'.preg_quote($ym, '/').'-(\d{7})$/', (string) $formNumber, $matches)) {
+                if (preg_match('/^RIS-\d{6}-(\d{7})$/', (string) $formNumber, $matches)) {
                     $max = max($max, (int) $matches[1]);
                 }
             }

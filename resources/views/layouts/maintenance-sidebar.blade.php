@@ -132,7 +132,7 @@
             class="menu-item {{ request()->is('maintenance/reports') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="file-text"></i>
-            <span>Reports</span>
+            <span>Equipment Reports</span>
             @if ($todayReportsCount > 0)
                 <span class="menu-count">{{ $todayReportsCount }}</span>
             @endif
@@ -156,7 +156,7 @@
             class="menu-item {{ request()->is('maintenance/schedules*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="calendar-days"></i>
-            <span>Schedules</span>
+            <span>Maintenance Schedule</span>
         </a>
 
         <div class="menu-title" id="manage-section">MANAGE</div>
@@ -173,7 +173,7 @@
                 aria-expanded="{{ $peopleActive ? 'true' : 'false' }}"
             >
                 <i class="h-5 w-5" data-lucide="users"></i>
-                <span>People</span>
+                <span>Reporter Management</span>
                 <span class="menu-group-trail">
                     @if ($pendingReporterApprovals > 0)
                         <span class="menu-count">{{ $pendingReporterApprovals }}</span>
@@ -187,7 +187,7 @@
                     class="menu-sub-item {{ request()->is('maintenance/reporters') ? 'active' : '' }}"
                 >
                     <i data-lucide="users"></i>
-                    <span>Reporters</span>
+                    <span>Equipment Reporters</span>
                 </a>
                 <a
                     href="{{ url('/maintenance/reporters/approvals?status=pending') }}"

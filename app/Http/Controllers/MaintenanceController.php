@@ -1150,65 +1150,6 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // REPORTS FOR CURRENT MONTH
-        // =====================================================
-
-        $calendarReports = DB::table('reports_table')
-
-            ->leftJoin(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-
-            ->leftJoin(
-                'equipment_table',
-                'reports_table.report_equipment_id',
-                '=',
-                'equipment_table.equipment_id'
-            )
-
-            ->whereBetween(
-                'reports_table.report_submitted_at',
-                [
-                    $calendarStartDate,
-                    $calendarEndDate,
-                ]
-            )
-
-            ->where(
-                'reports_table.report_is_archived',
-                false
-            )
-
-            ->select(
-
-                'reports_table.report_id',
-
-                'reports_table.report_submitted_at',
-
-                'reports_table.report_urgency_level',
-
-                'reports_table.report_current_status',
-
-                'reports_table.report_unlisted_equipment_name',
-
-                'rooms_table.room_name',
-
-                'equipment_table.equipment_name'
-
-            )
-
-            ->orderBy(
-                'reports_table.report_submitted_at',
-                'asc'
-            )
-
-            ->get();
-
-
-        // =====================================================
         // MAINTENANCE SCHEDULES FOR CURRENT MONTH
         // =====================================================
 
@@ -1277,68 +1218,6 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $calendarEvents = collect();
-
-
-        // =====================================================
-        // ADD REPORT EVENTS
-        // =====================================================
-
-        foreach ($calendarReports as $report) {
-
-            $equipmentName =
-                $report->equipment_name
-                ??
-                $report->report_unlisted_equipment_name
-                ??
-                'Unlisted Equipment';
-
-
-            $calendarEvents->push([
-
-                'id' =>
-                    $report->report_id,
-
-                'type' =>
-                    'report',
-
-                'date' =>
-                    \Carbon\Carbon::parse(
-                        $report->report_submitted_at
-                    )->format('Y-m-d'),
-
-                'time' =>
-                    \Carbon\Carbon::parse(
-                        $report->report_submitted_at
-                    )->format('H:i'),
-
-                'title' =>
-                    $report->report_urgency_level === 'Urgent'
-                        ? 'Urgent Report'
-                        : 'Report Submitted',
-
-                'description' =>
-                    $equipmentName,
-
-                'location' =>
-                    $report->room_name
-                    ?? 'Unknown Room',
-
-                'urgent' =>
-                    $report->report_urgency_level === 'Urgent',
-
-                'status' =>
-                    $report->report_current_status,
-
-                'url' =>
-                    url(
-                        '/maintenance/reports/details/'
-                        .
-                        $report->report_id
-                    ),
-
-            ]);
-
-        }
 
 
         // =====================================================

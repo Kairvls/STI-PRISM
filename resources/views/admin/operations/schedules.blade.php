@@ -42,7 +42,6 @@
                         <h2 class="text-base font-semibold text-gray-950">Schedule records</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $rowCount }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">Monitor overdue and upcoming equipment maintenance schedules.</p>
                 </div>
 
                 <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">

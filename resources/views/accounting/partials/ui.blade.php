@@ -486,6 +486,62 @@
         height: 1.3rem;
     }
 
+    /* Labelled action buttons on review pages */
+    .acc-actions .acc-action-btn {
+        height: 2.6rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0 0.95rem;
+        border-radius: 0.8rem;
+        border: 1px solid var(--acc-border);
+        background: #fff;
+        color: #334155;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
+    }
+
+    .acc-actions .acc-action-btn:hover {
+        background: #f8fafc;
+        color: var(--acc-ink);
+        border-color: #cbd5e1;
+    }
+
+    .acc-actions .acc-action-btn:active { transform: scale(0.97); }
+
+    .acc-actions .acc-action-btn svg {
+        width: 1.1rem;
+        height: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .acc-actions .acc-action-btn.is-approve {
+        background: #0025cc;
+        border-color: #0025cc;
+        color: #fff;
+    }
+
+    .acc-actions .acc-action-btn.is-approve:hover {
+        background: #001da3;
+        border-color: #001da3;
+        color: #fff;
+    }
+
+    .acc-actions .acc-action-btn.is-revise {
+        background: #fff7ed;
+        border-color: #fed7aa;
+        color: #c2410c;
+    }
+
+    .acc-actions .acc-action-btn.is-revise:hover {
+        background: #ffedd5;
+        border-color: #fdba74;
+        color: #9a3412;
+    }
+
     /* Slightly larger back arrow button */
     .acc-back {
         width: 2.4rem;

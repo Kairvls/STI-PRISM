@@ -56,9 +56,6 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">Equipment History</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Track full equipment lifecycle — purchases, transfers, maintenance, reports, and disposal.
-                    </p>
                 </div>
             </div>
 
@@ -311,7 +308,6 @@
                             <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
                                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timeline filters</p>
-                                    <p class="mt-1 text-sm text-slate-500">Refine events shown below.</p>
                                 </div>
                                 <div class="flex flex-wrap items-end gap-2">
                                     <div>

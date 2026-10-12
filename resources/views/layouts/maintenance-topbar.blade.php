@@ -6,37 +6,37 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('maintenance/dashboard') => ['Dashboard', 'Overview of maintenance activity and workload.'],
-                request()->is('maintenance/reports/urgent') => ['Urgent Reports', 'Reports that need immediate attention.'],
-                request()->is('maintenance/reports/pending') => ['Pending Reports', 'Reports waiting for review and action.'],
-                request()->is('maintenance/reports/today') => ["Today's Reports", 'Reports submitted today.'],
-                request()->is('maintenance/reports*') => ['Reports', 'View and manage maintenance reports.'],
-                request()->is('maintenance/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                request()->is('maintenance/reporters/approvals*') => ['Reporters Approval', 'Confirm faculty and staff applications before they can report.'],
-                request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
-                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Official faculty and staff list used to verify reporter applications.'],
-                request()->is('maintenance/infrastructure*') => ['Building Layout', 'Campus buildings and floor layouts.'],
-                request()->is('maintenance/rooms*') => ['Rooms', 'Rooms and assigned equipment.'],
-                request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', 'Generate and manage equipment QR codes.'],
-                request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'Full equipment register (storage + deployed).'],
+                request()->is('maintenance/dashboard') => ['Dashboard', ''],
+                request()->is('maintenance/reports/urgent') => ['Urgent Reports', ''],
+                request()->is('maintenance/reports/pending') => ['Pending Reports', ''],
+                request()->is('maintenance/reports/today') => ["Today's Reports", ''],
+                request()->is('maintenance/reports*') => ['Reports', ''],
+                request()->is('maintenance/notifications*') => ['Alerts', ''],
+                request()->is('maintenance/reporters/approvals*') => ['Reporters Approval', 'Approve applications before they can report.'],
+                request()->is('maintenance/reporters*') => ['Reporters', ''],
+                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Used to verify reporter applications.'],
+                request()->is('maintenance/infrastructure*') => ['Building Layout', ''],
+                request()->is('maintenance/rooms*') => ['Rooms', ''],
+                request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', ''],
+                request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'Storage and deployed equipment.'],
                 request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') => ['Inventory', 'Equipment still in storage rooms.'],
-                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'Equipment currently assigned to classrooms and labs, grouped by equipment type.'],
-                request()->is('maintenance/equipment/categories*') => ['Categories', 'Equipment types and groupings.'],
+                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'Equipment in classrooms and labs.'],
+                request()->is('maintenance/equipment/categories*') => ['Categories', ''],
                 request()->is('maintenance/equipment/suggested-issues*') => ['Suggested Issues', 'Common issues used when filing reports.'],
-                request()->is('maintenance/equipment/transfer*') => ['Transfer', 'Move equipment between rooms.'],
-                request()->is('maintenance/equipment/history*') => ['Equipment History', 'Past activity for equipment records.'],
-                request()->is('maintenance/borrowing*') => ['Borrowing', 'Borrowed equipment and return status.'],
+                request()->is('maintenance/equipment/transfer*') => ['Transfer', ''],
+                request()->is('maintenance/equipment/history*') => ['Equipment History', ''],
+                request()->is('maintenance/borrowing*') => ['Borrowing', ''],
                 request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
-                request()->is('maintenance/property-assignments') => ['Property Assignment', 'Who is accountable for each item, by person or office.'],
-                request()->is('maintenance/schedules*') => ['Schedules', 'Planned maintenance work.'],
-                request()->is('maintenance/disposal*') => ['Disposal', 'Items marked for disposal.'],
-                request()->is('maintenance/semester-inspections/create') => ['New Campaign', 'Check equipment at STI College Ormoc.'],
+                request()->is('maintenance/property-assignments') => ['Property Assignment', ''],
+                request()->is('maintenance/schedules*') => ['Schedules', ''],
+                request()->is('maintenance/disposal*') => ['Disposal', ''],
+                request()->is('maintenance/semester-inspections/create') => ['New Campaign', ''],
                 request()->is('maintenance/semester-inspections/*') => [View::yieldContent('title', 'Campaign'), 'Semester inspection walkthrough.'],
-                request()->is('maintenance/semester-inspections') => ['Semester Inspections', 'STI College Ormoc · campus equipment checks'],
+                request()->is('maintenance/semester-inspections') => ['Semester Inspections', ''],
                 request()->is('maintenance/replacement-suggestions*') => ['Replacement Suggestions', 'Assets near or past their useful lifespan.'],
-                request()->is('maintenance/settings/profile*') => ['Profile Settings', 'Update your account information.'],
-                request()->is('maintenance/settings/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PaAyo'), 'Maintenance Personnel'],
+                request()->is('maintenance/settings/profile*') => ['Profile Settings', ''],
+                request()->is('maintenance/settings/security*') => ['Security Settings', ''],
+                default => [View::yieldContent('title', 'PaAyo'), ''],
             };
         @endphp
 
@@ -44,9 +44,11 @@
             <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-sm text-slate-500">
-                {{ $moduleHeading[1] }}
-            </p>
+            @if ($moduleHeading[1] !== '')
+                <p class="mt-0.5 truncate text-sm text-slate-500">
+                    {{ $moduleHeading[1] }}
+                </p>
+            @endif
         </div>
     </div>
 

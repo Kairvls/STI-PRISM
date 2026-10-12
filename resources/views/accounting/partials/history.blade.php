@@ -1,6 +1,5 @@
 <div class="acc-panel">
     <h3 class="acc-panel-title">Workflow history</h3>
-    <p class="acc-panel-sub">Accounting actions on this record</p>
     <div class="mt-3 space-y-2.5">
         @forelse ($history as $event)
             @php

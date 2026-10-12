@@ -72,7 +72,7 @@
                 <h1 class="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                     {{ $equipment->equipment_name }}
                 </h1>
-                <p class="mt-1 text-sm text-slate-500">Read-only asset record. Day-to-day edits stay with Maintenance.</p>
+                <p class="mt-1 text-sm text-slate-500">Read-only. Edits stay with Maintenance.</p>
 
                 <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
                     <span class="inline-flex items-center gap-2">
@@ -129,7 +129,6 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                     <div>
                         <h2 class="text-base font-semibold text-slate-900">Equipment identity</h2>
-                        <p class="mt-1 text-sm text-slate-500">Asset tag, brand, and serial details.</p>
                     </div>
                     <i data-lucide="monitor" class="h-5 w-5 text-slate-400"></i>
                 </div>
@@ -171,7 +170,6 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                     <div>
                         <h2 class="text-base font-semibold text-slate-900">Location & acquisition</h2>
-                        <p class="mt-1 text-sm text-slate-500">Where it lives and when it was purchased.</p>
                     </div>
                     <i data-lucide="map-pin" class="h-5 w-5 text-slate-400"></i>
                 </div>

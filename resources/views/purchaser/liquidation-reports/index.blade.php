@@ -413,7 +413,6 @@
                         </div>
                         <div>
                             <h3 id="liq-empty-title" class="text-lg font-semibold text-gray-950">Print Empty LR</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Original blank Liquidation Report format.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
@@ -516,7 +515,6 @@
                         </div>
                         <div>
                             <h3 id="liq-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Liquidation Report</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Select a completed Receiving Report.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">

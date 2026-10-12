@@ -144,7 +144,6 @@
                     <h3 class="mt-5 text-2xl font-extrabold">
                         Define the campus structure
                     </h3>
-                    <p class="mt-2 text-sm text-slate-500">Start with the building that will contain the monitored floors.</p>
                 </div>
                 <label
                     class="mx-auto block max-w-xl text-xs font-bold text-slate-700"

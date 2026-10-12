@@ -350,131 +350,66 @@
                                 In storage
                             </h2>
                         @else
-                        <div
-                            class="flex items-center gap-1
-                                overflow-x-auto whitespace-nowrap
-                                [scrollbar-width:none]
-                                [&::-webkit-scrollbar]:hidden"
-                        >
+                        @php
+                            $statusOptions = [
+                                '' => 'All Status',
+                                'Active' => 'Active',
+                                'Under Maintenance' => 'Maintenance',
+                                'Borrowed' => 'Borrowed',
+                                'For Replacement' => 'For Replacement',
+                                'Disposed' => 'Disposed',
+                            ];
+                        @endphp
 
-                            {{-- ALL --}}
+                        <div class="relative w-48">
 
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => null,
-                                    'page' => null,
-                                ]) }}"
+                            <i
+                                data-lucide="list-filter"
 
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        !request()->filled('status')
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
+                                class="pointer-events-none absolute
+                                    left-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
+
+                            <select
+                                aria-label="Filter by status"
+                                data-searchable="1"
+                                data-search-placeholder="Search status…"
+                                onchange="if (this.value) window.location.href = this.value"
+
+                                class="h-10 w-full appearance-none
+                                    rounded-lg border border-slate-200
+                                    bg-white pl-10 pr-9
+                                    text-sm font-medium text-slate-700
+                                    outline-none transition
+                                    focus:border-slate-400
+                                    focus:ring-2 focus:ring-slate-100"
                             >
-                                All
-                            </a>
 
+                                @foreach ($statusOptions as $statusValue => $statusLabel)
 
-                            {{-- ACTIVE --}}
+                                    <option
+                                        value="{{ request()->fullUrlWithQuery([
+                                            'status' => $statusValue === '' ? null : $statusValue,
+                                            'page' => null,
+                                        ]) }}"
 
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => 'Active',
-                                    'page' => null,
-                                ]) }}"
+                                        @selected((string) request('status', '') === $statusValue)
+                                    >
+                                        {{ $statusLabel }}
+                                    </option>
 
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        request('status') === 'Active'
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
-                            >
-                                Active
-                            </a>
+                                @endforeach
 
+                            </select>
 
-                            {{-- MAINTENANCE --}}
+                            <i
+                                data-lucide="chevron-down"
 
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => 'Under Maintenance',
-                                    'page' => null,
-                                ]) }}"
-
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        request('status') === 'Under Maintenance'
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
-                            >
-                                Maintenance
-                            </a>
-
-
-                            {{-- BORROWED --}}
-
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => 'Borrowed',
-                                    'page' => null,
-                                ]) }}"
-
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        request('status') === 'Borrowed'
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
-                            >
-                                Borrowed
-                            </a>
-
-
-                            {{-- FOR REPLACEMENT --}}
-
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => 'For Replacement',
-                                    'page' => null,
-                                ]) }}"
-
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        request('status') === 'For Replacement'
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
-                            >
-                                For Replacement
-                            </a>
-
-
-                            {{-- DISPOSED --}}
-
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'status' => 'Disposed',
-                                    'page' => null,
-                                ]) }}"
-
-                                class="shrink-0 rounded-lg px-3 py-2
-                                    text-sm transition
-                                    {{
-                                        request('status') === 'Disposed'
-                                            ? 'bg-gray-100/80 font-medium text-black'
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                    }}"
-                            >
-                                Disposed
-                            </a>
+                                class="pointer-events-none absolute
+                                    right-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
 
                         </div>
                         @endif
@@ -554,6 +489,8 @@
 
                             <select
                                 name="category"
+                                data-searchable="1"
+                                data-search-placeholder="Search category…"
 
                                 class="h-10 w-40 appearance-none
                                     rounded-lg border border-slate-200
@@ -605,8 +542,10 @@
 
                             <select
                                 name="room"
+                                data-searchable="1"
+                                data-search-placeholder="Search room…"
 
-                                class="h-10 w-36 appearance-none
+                                class="h-10 w-52 appearance-none
                                     rounded-lg border border-slate-200
                                     bg-white pl-3 pr-9
                                     text-sm text-slate-600
@@ -1385,7 +1324,6 @@
             <div class="flex items-start justify-between px-6 pt-6">
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Edit equipment</h2>
-                    <p class="mt-1 text-sm text-slate-500">Identity on the left, status on the right.</p>
                 </div>
                 <button type="button" onclick="closeEditEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>

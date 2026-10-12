@@ -6,16 +6,16 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('president/dashboard') => ['Dashboard', 'Overview of RIS decisions and workload.'],
-                request()->is('president/direct-approvals*') => ['Administrator Direct Approvals', 'View RIS records Administrator approved directly, with reason and proof.'],
-                request()->is('president/approvals/history*') => ['Approval History', 'Past presidential decisions on RIS documents.'],
+                request()->is('president/dashboard') => ['Dashboard', ''],
+                request()->is('president/direct-approvals*') => ['Administrator Direct Approvals', ''],
+                request()->is('president/approvals/history*') => ['Approval History', ''],
                 request()->is('president/approvals*') => ['RIS Approvals', 'Review, sign, and notify Administrator when ready.'],
-                request()->is('president/reports/monthly-summary*') => ['Reports & Summary', 'Monthly decision trends and totals.'],
+                request()->is('president/reports/monthly-summary*') => ['Reports & Summary', ''],
                 request()->is('president/reports*') => ['Decision History', 'Approved and rejected RIS decisions.'],
-                request()->is('president/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                request()->is('president/profile*') => ['Profile Settings', 'Update your President account details.'],
-                request()->is('president/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PaAyo'), 'President Panel'],
+                request()->is('president/notifications*') => ['Alerts', ''],
+                request()->is('president/profile*') => ['Profile Settings', ''],
+                request()->is('president/security*') => ['Security Settings', ''],
+                default => [View::yieldContent('title', 'PaAyo'), ''],
             };
         @endphp
 
@@ -23,9 +23,11 @@
             <h1 class="truncate text-[20px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[22px]">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
-                {{ $moduleHeading[1] }}
-            </p>
+            @if ($moduleHeading[1] !== '')
+                <p class="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
+                    {{ $moduleHeading[1] }}
+                </p>
+            @endif
         </div>
     </div>
 

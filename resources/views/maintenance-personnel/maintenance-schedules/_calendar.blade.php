@@ -311,9 +311,6 @@
             <p class="text-2xl font-semibold tracking-tight">
                 {{ number_format($overdueMaintenance ?? 0) }} Overdue {{ \Illuminate\Support\Str::plural('Schedule', (int) ($overdueMaintenance ?? 0)) }}
             </p>
-            <p class="mt-1 max-w-md text-sm text-slate-500">
-                Review upcoming work and keep preventive maintenance on schedule.
-            </p>
             <div class="mt-6 flex flex-wrap gap-2.5">
                 <button
                     type="button"
@@ -719,7 +716,7 @@
                             Location
                         </th>
 
-                        <th class="px-5 py-3">
+                        <th class="schedule-col-extra px-5 py-3">
                             QR Code
                         </th>
 
@@ -815,7 +812,7 @@
 
                                         <p
                                             class="schedule-equipment-name max-w-[220px] truncate
-                                                text-sm font-semibold
+                                                text-[15px] font-semibold
                                                 text-slate-800"
                                         >
                                             {{
@@ -824,7 +821,7 @@
                                             }}
                                         </p>
 
-                                        <p class="schedule-equipment-meta mt-0.5 max-w-[220px] truncate text-[11px] text-slate-400">
+                                        <p class="schedule-equipment-meta mt-0.5 max-w-[220px] truncate text-xs text-slate-400">
                                             {{ $equipmentIdentifier ?: 'No asset tag or serial' }}
                                         </p>
 
@@ -850,32 +847,33 @@
 
 
                             {{-- ===================================== --}}
-                            {{-- QR CODE --}}
+                            {{-- QR CODE (EXPANDED VIEW ONLY) --}}
                             {{-- ===================================== --}}
 
-                            <td class="px-5 py-4">
+                            <td class="schedule-col-extra px-5 py-4">
                                 @if ($rowQrCode !== "")
                                     <button
                                         type="button"
                                         onclick="openScheduleQrModal(@js($rowQrImage), @js($rowQrCode), @js($schedule->equipment_name ?? 'Equipment'))"
-                                        class="schedule-qr-btn flex items-center gap-2.5 rounded-lg text-left transition hover:bg-slate-50"
+                                        class="schedule-qr-btn flex items-center gap-2 rounded-lg text-left transition hover:bg-slate-50"
                                         data-tooltip="{{ $rowQrCode }}"
+                                        aria-label="View QR code {{ $rowQrCode }}"
                                     >
                                         <img
                                             src="{{ $rowQrImage }}"
                                             alt="QR code for {{ $schedule->equipment_name ?? 'equipment' }}"
-                                            class="schedule-qr-img h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1"
+                                            class="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-white object-contain p-0.5"
                                         />
-                                        <span class="schedule-qr-text min-w-0 truncate font-mono text-[11px] text-slate-500">
+                                        <span class="schedule-qr-text min-w-0 max-w-[13ch] truncate font-mono text-xs text-slate-500">
                                             {{ $rowQrCode }}
                                         </span>
                                     </button>
                                 @else
                                     <div class="schedule-qr-btn flex items-center gap-2 text-slate-400">
-                                        <span class="schedule-qr-empty flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
                                             <i data-lucide="qr-code" class="h-4 w-4"></i>
                                         </span>
-                                        <span class="schedule-qr-text text-[11px]">No QR</span>
+                                        <span class="text-xs">No QR</span>
                                     </div>
                                 @endif
                             </td>
@@ -886,7 +884,7 @@
                                 <span
                                     class="schedule-frequency-badge inline-flex rounded-md
                                         bg-slate-100 px-2 py-1
-                                        text-[11px] font-medium
+                                        text-xs font-medium
                                         text-slate-600"
                                 >
                                     {{
@@ -907,12 +905,12 @@
 
                                     <i
                                         data-lucide="calendar-clock"
-                                        class="h-3.5 w-3.5 text-slate-400"
+                                        class="h-4 w-4 text-slate-400"
                                     ></i>
 
                                     <span
                                         class="whitespace-nowrap
-                                            text-xs font-medium text-slate-700"
+                                            text-sm font-medium text-slate-700"
                                     >
                                         {{
                                             $schedule->maintenance_schedule_next_date
@@ -933,7 +931,7 @@
                             {{-- ===================================== --}}
 
                             <td class="px-5 py-4">
-                                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
+                                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
                                     {{ $rowStatus }}
                                 </span>
                             </td>
@@ -1367,7 +1365,6 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-sm font-semibold text-slate-900">Maintenance Calendar</h3>
-                    <p class="mt-0.5 text-xs text-slate-400">Reports and scheduled maintenance</p>
                 </div>
                 <button
                     type="button"
@@ -1405,7 +1402,7 @@
 
             <div class="mt-4 border-t border-slate-100 pt-3">
                 <template x-if="selectedEvents().length === 0">
-                    <p class="text-xs leading-5 text-slate-400">No reports or maintenance schedules for this date.</p>
+                    <p class="text-xs leading-5 text-slate-400">No maintenance scheduled for this date.</p>
                 </template>
                 <div class="space-y-1" x-show="selectedEvents().length > 0">
                     <template x-for="item in selectedEvents().slice(0, 2)" :key="item.id">
@@ -1909,23 +1906,19 @@
     }
     .schedule-list-table:not(.is-wide) th:nth-child(1),
     .schedule-list-table:not(.is-wide) td:nth-child(1) {
-        width: 24%;
+        width: 36%;
     }
     .schedule-list-table:not(.is-wide) th:nth-child(2),
     .schedule-list-table:not(.is-wide) td:nth-child(2) {
-        width: 14%;
-    }
-    .schedule-list-table:not(.is-wide) th:nth-child(3),
-    .schedule-list-table:not(.is-wide) td:nth-child(3) {
-        width: 22%;
+        width: 21%;
     }
     .schedule-list-table:not(.is-wide) th:nth-child(5),
     .schedule-list-table:not(.is-wide) td:nth-child(5) {
-        width: 14%;
+        width: 20%;
     }
     .schedule-list-table:not(.is-wide) th:nth-child(6),
     .schedule-list-table:not(.is-wide) td:nth-child(6) {
-        width: 11%;
+        width: 15%;
     }
     .schedule-list-table:not(.is-wide) th:nth-child(7),
     .schedule-list-table:not(.is-wide) td:nth-child(7) {
@@ -1936,15 +1929,6 @@
     .schedule-list-table:not(.is-wide) .schedule-equipment-name,
     .schedule-list-table:not(.is-wide) .schedule-equipment-meta,
     .schedule-list-table:not(.is-wide) .schedule-room-text {
-        max-width: 100%;
-    }
-    .schedule-list-table:not(.is-wide) .schedule-qr-text {
-        min-width: 0;
-        max-width: 100%;
-        flex: 1 1 0%;
-    }
-    .schedule-list-table:not(.is-wide) .schedule-qr-btn {
-        min-width: 0;
         max-width: 100%;
     }
     .schedule-list-table.is-wide {
@@ -1960,33 +1944,37 @@
     }
     .schedule-list-table.is-wide th:nth-child(1),
     .schedule-list-table.is-wide td:nth-child(1) {
-        width: 22%;
+        width: 29%;
     }
     .schedule-list-table.is-wide th:nth-child(2),
     .schedule-list-table.is-wide td:nth-child(2) {
-        width: 11%;
+        width: 14%;
     }
     .schedule-list-table.is-wide th:nth-child(3),
     .schedule-list-table.is-wide td:nth-child(3) {
-        width: 22%;
+        width: 15%;
     }
     .schedule-list-table.is-wide th:nth-child(4),
     .schedule-list-table.is-wide td:nth-child(4) {
-        width: 10%;
+        width: 11%;
     }
     .schedule-list-table.is-wide th:nth-child(5),
     .schedule-list-table.is-wide td:nth-child(5) {
-        width: 13%;
+        width: 14%;
     }
     .schedule-list-table.is-wide th:nth-child(6),
     .schedule-list-table.is-wide td:nth-child(6) {
-        width: 10%;
+        width: 12%;
     }
     .schedule-list-table.is-wide th:nth-child(7),
     .schedule-list-table.is-wide td:nth-child(7) {
         width: 3rem;
         padding-left: 0.375rem;
         padding-right: 0.375rem;
+    }
+    .schedule-list-table.is-wide .schedule-qr-btn {
+        min-width: 0;
+        max-width: 100%;
     }
     .schedule-list-table.is-wide .schedule-equipment-icon {
         height: 2rem;
@@ -1995,23 +1983,6 @@
     .schedule-list-table.is-wide .schedule-equipment-name,
     .schedule-list-table.is-wide .schedule-equipment-meta,
     .schedule-list-table.is-wide .schedule-room-text {
-        max-width: 100%;
-    }
-    .schedule-list-table.is-wide .schedule-qr-text {
-        display: block;
-        min-width: 0;
-        max-width: 100%;
-        flex: 1 1 0%;
-    }
-    .schedule-list-table.is-wide .schedule-qr-img,
-    .schedule-list-table.is-wide .schedule-qr-empty {
-        height: 2.25rem;
-        width: 2.25rem;
-        flex-shrink: 0;
-    }
-    .schedule-list-table.is-wide .schedule-qr-btn {
-        gap: 0.5rem;
-        min-width: 0;
         max-width: 100%;
     }
     .schedule-list-table.is-wide .schedule-frequency-badge {

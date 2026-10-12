@@ -7,7 +7,6 @@
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Decisions</h1>
-        <p class="mt-1 text-sm leading-6 text-gray-500">View all approved and rejected RIS decisions.</p>
     </div>
 </div>
 
@@ -73,7 +72,6 @@
     <div class="flex items-center justify-between gap-4">
         <div>
             <h2 class="text-sm font-semibold text-gray-900">Decision List</h2>
-            <p class="mt-1 text-xs text-gray-500">A timeline of approved and rejected RIS decisions.</p>
         </div>
         <div class="text-right">
             <p class="text-xs font-semibold text-gray-600">Showing</p>

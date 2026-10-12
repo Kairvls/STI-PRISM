@@ -198,7 +198,6 @@
         <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200/80" onclick="event.stopPropagation()">
             <div class="border-b border-slate-100 px-5 pb-3 pt-4">
                 <h3 class="text-base font-semibold text-slate-900">Save to my list</h3>
-                <p class="mt-1 text-sm text-slate-500">Give this signature a short name so it’s easy to reuse later.</p>
             </div>
             <div class="space-y-3 px-5 py-4">
                 <div class="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5">

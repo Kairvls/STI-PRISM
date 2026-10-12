@@ -29,7 +29,6 @@
                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                 @endif
             </div>
-            <p class="acc-page-subtitle">Purchaser ATP form. Actions stay outside the document.</p>
             @if ($poLabel)
                 <p class="mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-900">
                     <i data-lucide="shopping-bag" class="h-3.5 w-3.5"></i>
@@ -43,15 +42,20 @@
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved')" class="icon-btn" data-tip="Approve ATP" aria-label="Approve ATP">
+                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve ATP">
                     <i data-lucide="check" class="h-4 w-4"></i>
+                    <span>Approve</span>
                 </button>
-                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Rejected')" class="icon-btn" data-tip="Request revision" aria-label="Request revision">
-                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                    <span>Return for Revision</span>
                 </button>
             @endif
-            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'portrait', sheetId: 'acc-print-sheet' })" data-tip="Print ATP" aria-label="Print ATP">
+            <button type="button" class="acc-action-btn" onclick="window.accountingPrintForm({ page: 'portrait', sheetId: 'acc-print-sheet' })" data-tip="Print ATP">
                 <i data-lucide="printer" class="h-4 w-4"></i>
+                <span>Print</span>
             </button>
         </div>
     </div>

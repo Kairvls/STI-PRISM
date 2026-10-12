@@ -11,7 +11,7 @@
     <div class="pr-hero">
         <p class="pr-hero-kicker">Decision Reports</p>
         <h1 class="pr-hero-title">Compiled Records</h1>
-        <p class="pr-hero-sub">Records forwarded by Accounting for presidential archive and reference.</p>
+        <p class="pr-hero-sub">Forwarded by Accounting for reference.</p>
     </div>
 
     <div class="pr-surface">

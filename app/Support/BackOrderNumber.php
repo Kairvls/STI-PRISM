@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Back order "No." values: BO-RFC-YYYYMM-00001 (Request for Check) or BO-CA-YYYYMM-00001 (Cash Advance).
- * Each prefix has its own monthly sequence.
+ * Each prefix (RFC / CA) has its own sequence that continues across months.
  */
 class BackOrderNumber
 {
@@ -32,9 +32,10 @@ class BackOrderNumber
     public static function next(?string $paymentPath, ?\DateTimeInterface $date = null): string
     {
         $prefix = self::prefix($paymentPath, $date);
+        $codePrefix = 'BO-'.self::code($paymentPath).'-';
         $max = 0;
-        foreach (DB::table(BackOrders::TABLE)->where('back_order_number', 'like', $prefix.'%')->pluck('back_order_number') as $number) {
-            if (preg_match('/^'.preg_quote($prefix, '/').'(\d{5})$/', (string) $number, $m)) {
+        foreach (DB::table(BackOrders::TABLE)->where('back_order_number', 'like', $codePrefix.'%')->pluck('back_order_number') as $number) {
+            if (preg_match('/^'.preg_quote($codePrefix, '/').'\d{6}-(\d{5})$/', (string) $number, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

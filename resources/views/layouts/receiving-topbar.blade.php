@@ -6,19 +6,19 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('receiving/dashboard') => ['Dashboard', 'Overview of receiving activity and deliveries.'],
-                request()->is('receiving/reports*') => ['Receiving Reports', 'Review and process receiving reports.'],
-                request()->is('receiving/delivered-items*') => ['Delivered Items', 'Track items already received.'],
+                request()->is('receiving/dashboard') => ['Dashboard', ''],
+                request()->is('receiving/reports*') => ['Receiving Reports', ''],
+                request()->is('receiving/delivered-items*') => ['Delivered Items', ''],
                 request()->is('receiving/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Short or damaged items paid through Request for Check.'],
                 request()->is('receiving/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
-                request()->is('receiving/back-orders*') => ['Back Orders', 'Items delivered short or damaged and how the Purchaser is resolving them.'],
-                request()->is('receiving/supplier-records*') => ['Supplier Records', 'Supplier delivery and receiving records.'],
-                request()->is('receiving/history*') => ['History', 'Past receiving activity and completed records.'],
-                request()->is('receiving/logs*') => ['Logs', 'Receiving activity logs.'],
-                request()->is('receiving/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
-                request()->is('receiving/profile*') => ['Profile Settings', 'Update your Receiving Officer account details.'],
-                request()->is('receiving/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PaAyo'), 'Receiving Officer'],
+                request()->is('receiving/back-orders*') => ['Back Orders', 'Items delivered short or damaged.'],
+                request()->is('receiving/supplier-records*') => ['Supplier Records', ''],
+                request()->is('receiving/history*') => ['History', ''],
+                request()->is('receiving/logs*') => ['Logs', ''],
+                request()->is('receiving/notifications*') => ['Notifications', ''],
+                request()->is('receiving/profile*') => ['Profile Settings', ''],
+                request()->is('receiving/security*') => ['Security Settings', ''],
+                default => [View::yieldContent('title', 'PaAyo'), ''],
             };
 
             $unreadCount = 0;
@@ -46,9 +46,11 @@
             <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-sm text-slate-500">
-                {{ $moduleHeading[1] }}
-            </p>
+            @if ($moduleHeading[1] !== '')
+                <p class="mt-0.5 truncate text-sm text-slate-500">
+                    {{ $moduleHeading[1] }}
+                </p>
+            @endif
         </div>
     </div>
 

@@ -1493,7 +1493,6 @@
                                     <div class="flex items-start justify-between gap-2">
                                         <div>
                                             <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Equipment</p>
-                                            <p class="mt-1 text-sm text-slate-500">Select a group, then an asset.</p>
                                         </div>
                                         <span
                                             class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"

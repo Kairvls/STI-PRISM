@@ -50,7 +50,6 @@
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-slate-900">Inbox</h2>
-                <p class="mt-1 text-xs text-slate-500">Updates and status changes for presidential review.</p>
             </div>
             <p class="text-xs font-medium text-slate-500">{{ ($notifications ?? collect())->count() }} shown</p>
         </div>

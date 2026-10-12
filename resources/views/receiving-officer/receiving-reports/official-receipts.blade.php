@@ -16,7 +16,6 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900">Official receipts</h2>
-                        <p class="mt-1 text-xs text-gray-500">Receipt numbers captured during inspection.</p>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
                         @include('admin.partials.view-mode-switcher', [

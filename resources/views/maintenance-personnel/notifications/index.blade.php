@@ -175,7 +175,6 @@
                     >
                         <div class="mb-4">
                             <h3 class="text-sm font-semibold text-slate-900">Select period</h3>
-                            <p class="mt-1 text-xs text-slate-400">View alerts from a specific period.</p>
                         </div>
 
                         @php $popoverField = 'h-9 min-w-0 flex-1 rounded-lg border-0 bg-slate-50 px-3 text-xs text-slate-700 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10'; @endphp

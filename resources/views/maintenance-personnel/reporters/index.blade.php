@@ -146,7 +146,6 @@
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">
                     Reporters
                 </h1>
-                <p class="text-sm text-slate-500">Manage directory records and system contact profiles</p>
             </div>
             <button
                 onclick="openCreateModal()"
@@ -1819,10 +1818,6 @@
                     <h2 class="mt-4 text-lg font-semibold text-slate-900">
                         {{ $importSkipped > 0 ? 'Import finished with issues' : 'Import complete' }}
                     </h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Review what was added and what was skipped.
-                    </p>
-
                     <div class="mt-5 grid grid-cols-2 gap-3">
                         <div class="rounded-xl bg-emerald-50 px-4 py-3">
                             <p class="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Added</p>
@@ -1968,7 +1963,7 @@
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
                     <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Add reporter</h2>
-                    <p class="mt-1 text-sm text-slate-500">Fill in the employee details. Choose type first so the employee ID uses OMC + 5 digits + F/S. Middle name, email, and contact are optional.</p>
+                    <p class="mt-1 text-sm text-slate-500">Employee ID format: OMC + 5 digits + F/S.</p>
                 </div>
                 <button type="button" onclick="closeCreateModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -2074,7 +2069,7 @@
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
                     <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Edit profile</h2>
-                    <p class="mt-1 text-sm text-slate-500">Update employee details. Type drives the F/S suffix on the employee ID. Middle name, email, and contact are optional.</p>
+                    <p class="mt-1 text-sm text-slate-500">Employee ID format: OMC + 5 digits + F/S.</p>
                 </div>
                 <button type="button" onclick="closeEditModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>

@@ -715,7 +715,6 @@
                         </div>
                         <div>
                             <h3 id="atp-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Authority to Purchase</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Select an approved RIS to generate an ATP.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
@@ -1087,9 +1086,6 @@
                         <h3 id="atp-empty-title" class="text-lg font-semibold text-gray-900">
                             Print Empty ATP
                         </h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            Original blank Authority to Purchase format.
-                        </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')

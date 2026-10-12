@@ -11,7 +11,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-slate-950">Vendor lookup</h2>
-                        <p class="mt-0.5 text-xs text-slate-500">Contact details for deliveries you have delivered. Add or edit suppliers as Purchaser.</p>
+                        <p class="mt-0.5 text-xs text-slate-500">Read-only. Add or edit suppliers as Purchaser.</p>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
                         @include('admin.partials.view-mode-switcher', [

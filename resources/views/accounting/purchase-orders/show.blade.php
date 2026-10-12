@@ -38,7 +38,6 @@
     <div class="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
             <p class="text-sm font-semibold text-slate-800">Linked ATPs</p>
-            <p class="text-xs text-slate-500">Expand an ATP to see its items, or open the full ATP form.</p>
         </div>
         <div class="divide-y divide-slate-100">
             @forelse($linked as $atp)

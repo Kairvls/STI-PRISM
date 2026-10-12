@@ -80,11 +80,12 @@
                 <h1 class="acc-page-title">{{ \App\Support\RisWorkflow::formNumber($ris) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::statusLabel($ris)])
             </div>
-            <p class="acc-page-subtitle">Approved RIS and supporting documents. Read-only for Accounting review.</p>
+            <p class="acc-page-subtitle">Read-only for Accounting.</p>
         </div>
         <div class="acc-actions">
-            <button type="button" class="icon-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print RIS" aria-label="Print RIS">
+            <button type="button" class="acc-action-btn" onclick="window.accountingPrintForm({ page: 'landscape', sheetId: 'acc-print-sheet' })" data-tip="Print RIS">
                 <i data-lucide="printer" class="h-4 w-4"></i>
+                <span>Print</span>
             </button>
         </div>
     </div>

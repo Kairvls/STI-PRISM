@@ -488,7 +488,6 @@
                         </div>
                         <div>
                             <h3 id="rr-create-title" class="text-lg font-semibold tracking-tight text-slate-900">Create Receiving Report</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Select an approved Request for Check.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
@@ -796,7 +795,6 @@
                         </div>
                         <div>
                             <h3 id="rr-empty-title" class="text-lg font-semibold text-gray-950">Print Empty RR</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">Original blank Receiving Report format.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">

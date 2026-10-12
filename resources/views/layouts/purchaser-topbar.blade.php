@@ -6,32 +6,32 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('purchaser/profile*') => ['Profile Settings', 'Update your Purchaser account details.'],
-                request()->is('purchaser/security*') => ['Security Settings', 'Manage your password and account security.'],
-                request()->is('purchaser/dashboard') => ['Dashboard', 'Overview of purchasing activity and workload.'],
-                request()->is('purchaser/notifications*') => ['Notifications', 'Recent activity requiring your attention.'],
-                request()->is('purchaser/reports/urgent*') => ['Urgent Reports', 'Reports that need immediate purchasing attention.'],
-                request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', 'Review and process equipment replacement requests.'],
-                request()->is('purchaser/suppliers*') => ['Suppliers', 'Manage supplier records and status.'],
+                request()->is('purchaser/profile*') => ['Profile Settings', ''],
+                request()->is('purchaser/security*') => ['Security Settings', ''],
+                request()->is('purchaser/dashboard') => ['Dashboard', ''],
+                request()->is('purchaser/notifications*') => ['Notifications', ''],
+                request()->is('purchaser/reports/urgent*') => ['Urgent Reports', ''],
+                request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', ''],
+                request()->is('purchaser/suppliers*') => ['Suppliers', ''],
                 request()->is('purchaser/file-maintenance*') || request()->is('purchaser/brands*') || request()->is('purchaser/items*') || request()->is('purchaser/uom*') || request()->is('purchaser/categories*') || request()->is('purchaser/subcategories*') => match (request('tab', request()->routeIs('purchaser.items.*') ? 'items' : (request()->routeIs('purchaser.uom.*') ? 'uom' : (request()->routeIs('purchaser.categories.*') ? 'categories' : (request()->routeIs('purchaser.subcategories.*') ? 'subcategories' : 'brands'))))) {
                     'items' => ['Items', 'Item names used in the RIS item column.'],
-                    'uom' => ['UOM', 'Units of measure for RIS and purchasing.'],
-                    'categories' => ['Categories', 'Procurement item categories.'],
-                    'subcategories' => ['Sub Categories', 'Sub categories under a parent category.'],
-                    default => ['Brands', 'Brand records used across purchasing.'],
+                    'uom' => ['UOM', 'Units of measure.'],
+                    'categories' => ['Categories', ''],
+                    'subcategories' => ['Sub Categories', ''],
+                    default => ['Brands', ''],
                 },
-                request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slip documents.'],
-                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare and track ATP documents.'],
+                request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slips.'],
+                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', ''],
                 request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
-                request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', 'Cash Advance documents and status.'],
-                request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', 'Request for Check documents and status.'],
-                request()->is('purchaser/request-check*') => ['Request Fund', 'Request for Check and Cash Advance documents and status.'],
-                request()->is('purchaser/receiving-reports*') => ['Receiving Reports', 'Record and manage goods received.'],
-                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Short or damaged items paid through Request for Check.'],
-                request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Short or damaged items paid through Cash Advance.'],
-                request()->is('purchaser/back-orders*') => ['Back Orders', 'Follow up items delivered short or damaged.'],
-                request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', 'Track liquidation and related documents.'],
-                default => [View::yieldContent('title', 'PaAyo'), 'Purchaser'],
+                request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', ''],
+                request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', ''],
+                request()->is('purchaser/request-check*') => ['Request Fund', ''],
+                request()->is('purchaser/receiving-reports*') => ['Receiving Reports', ''],
+                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Items delivered short or damaged.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Items delivered short or damaged.'],
+                request()->is('purchaser/back-orders*') => ['Back Orders', 'Items delivered short or damaged.'],
+                request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', ''],
+                default => [View::yieldContent('title', 'PaAyo'), ''],
             };
 
             $unreadCount = 0;
@@ -62,9 +62,11 @@
             <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900" style="font-family: Outfit, sans-serif;">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-sm text-slate-500">
-                {{ $moduleHeading[1] }}
-            </p>
+            @if ($moduleHeading[1] !== '')
+                <p class="mt-0.5 truncate text-sm text-slate-500">
+                    {{ $moduleHeading[1] }}
+                </p>
+            @endif
         </div>
     </div>
 

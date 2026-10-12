@@ -366,7 +366,8 @@ class PurchaseOrderBasket
     }
 
     /**
-     * Next PO No. for the current year-month on submit: PO-YYYYMM-00001
+     * Next PO No. on submit: PO-YYYYMM-00001. The YYYYMM prefix is the current
+     * month, but the sequence continues across months.
      */
     public static function allocateNumberOnSubmit(): string
     {
@@ -377,10 +378,10 @@ class PurchaseOrderBasket
         foreach (
             DB::table('purchase_orders_table')
                 ->whereNotNull('purchase_order_number')
-                ->where('purchase_order_number', 'like', $prefix.'%')
+                ->where('purchase_order_number', 'like', 'PO-%')
                 ->pluck('purchase_order_number') as $number
         ) {
-            if (preg_match('/^PO-'.preg_quote($ym, '/').'-(\d{5})$/', (string) $number, $m)) {
+            if (preg_match('/^PO-\d{6}-(\d{5})$/', (string) $number, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

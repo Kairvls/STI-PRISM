@@ -21,7 +21,6 @@
 
 <div class="acc-page fade-in space-y-6">
     <div>
-        <p class="text-sm leading-6 text-gray-500">Accounting alerts from the topbar bell.</p>
     </div>
 
     @include('layouts.partials.maintenance-stat-cards', [

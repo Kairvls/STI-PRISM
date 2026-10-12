@@ -11,7 +11,6 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-slate-950">Delivered items</h2>
-                        <p class="mt-0.5 text-xs text-slate-500">Items already received into inventory.</p>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
                         @include('admin.partials.view-mode-switcher', [

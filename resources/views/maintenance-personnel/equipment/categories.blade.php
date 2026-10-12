@@ -71,12 +71,6 @@
                     Categories
                 </h2>
 
-                <p
-                    class="mt-1 text-sm text-slate-500"
-                >
-                    Manage equipment classification records.
-                </p>
-
             </div>
 
 
@@ -560,12 +554,6 @@
                         Add Category
                     </h2>
 
-                    <p
-                        class="mt-1 text-sm text-slate-500"
-                    >
-                        Create a new category for equipment records.
-                    </p>
-
                 </div>
 
 
@@ -754,12 +742,6 @@
                     >
                         Edit Category
                     </h2>
-
-                    <p
-                        class="mt-1 text-sm text-slate-500"
-                    >
-                        Update the selected equipment category.
-                    </p>
 
                 </div>
 

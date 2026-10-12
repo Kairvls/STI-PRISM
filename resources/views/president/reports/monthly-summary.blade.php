@@ -134,7 +134,6 @@
     <div class="mt-6 pm-card slide-up" style="animation-delay: 0.3s">
         <div class="p-5 pb-3">
             <h2 class="text-sm font-semibold text-gray-900">Weekly Breakdown</h2>
-            <p class="mt-1 text-xs text-gray-500">Detailed performance metrics per week.</p>
         </div>
         <div class="overflow-x-auto">
             <table id="weeklyBreakdownTable" class="min-w-full">
@@ -244,7 +243,6 @@
     <div class="mt-6 pm-card slide-up" style="animation-delay: 0.35s">
         <div class="p-5 pb-3">
             <h2 class="text-sm font-semibold text-gray-900">Monthly Breakdown</h2>
-            <p class="mt-1 text-xs text-gray-500">Detailed performance metrics per month.</p>
         </div>
         <div class="overflow-x-auto">
             <table id="monthlyBreakdownTable" class="min-w-full">

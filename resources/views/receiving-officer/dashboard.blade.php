@@ -158,7 +158,6 @@
             <div>
                 <p class="rod-label">Back-order board</p>
                 <h2 class="mt-1.5 text-lg font-semibold text-slate-900">Where every missing or damaged item stands</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Lines move left to right until the replacement passes your second count.</p>
             </div>
             <div class="flex flex-wrap items-center gap-1 text-sm">
                 <a href="{{ route('receiving.back-orders.index', ['type' => 'short']) }}" class="rounded-md px-2.5 py-1.5 text-slate-600 hover:bg-slate-100">

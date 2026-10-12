@@ -1055,9 +1055,6 @@
                             Print Empty RIS
                         </h3>
 
-                        <p class="mt-1 text-sm text-gray-500">
-                            Original blank Requisition and Issue Slip format.
-                        </p>
                     </div>
 
                     <div class="flex shrink-0 items-center gap-1">
@@ -2670,7 +2667,6 @@
         <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80" x-on:click.stop>
             <div class="border-b border-slate-100 px-5 pb-3 pt-4">
                 <h3 class="text-base font-semibold tracking-tight text-slate-900">Save to my list</h3>
-                <p class="mt-1 text-sm leading-relaxed text-slate-500">Give this signature a short name so it’s easy to reuse later.</p>
             </div>
             <div class="space-y-3 px-5 py-4">
                 <div class="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5">
@@ -3281,7 +3277,6 @@
                             @include('partials.ris-urgency-badge', ['urgent' => \App\Support\RisWorkflow::urgencyLabel($ris) === 'Urgent'])
                         </div>
 
-                        <p class="mt-2 text-sm text-gray-500">Requisition and Issue Slip</p>
                         @if(!empty($ris->supplier_display_name))
                             <p class="mt-1 text-sm text-gray-500">Supplier: {{ $ris->supplier_display_name }}</p>
                         @endif
@@ -3591,7 +3586,6 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Revision History</h4>
-                                    <p class="mt-1 text-xs text-gray-400">Previous correction requests for this RIS.</p>
                                 </div>
                                 <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
                                     {{ $ris->risRevisions->count() }} {{ $ris->risRevisions->count() === 1 ? 'Revision' : 'Revisions' }}

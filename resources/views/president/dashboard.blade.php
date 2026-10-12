@@ -134,7 +134,6 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-bold text-gray-900">Needs Your Attention</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Actions that keep the approval workflow moving</p>
             </div>
         </div>
         <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
@@ -175,7 +174,6 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-bold text-gray-900">Recently Approved RIS</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Your latest approvals</p>
             </div>
             <a href="/president/reports/approved" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all approved RIS">
                 View all

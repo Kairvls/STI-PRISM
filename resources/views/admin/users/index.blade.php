@@ -469,7 +469,6 @@
                         <h2 class="text-base font-semibold text-gray-950">User accounts</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $totalUsers }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">Create accounts and assign primary and additional roles.</p>
                 </div>
 
                 <button type="button" onclick="openCreateUserModal()" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
@@ -803,7 +802,6 @@
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3>Create User Account</h3>
-                        <p class="mt-0.5 text-sm font-normal text-gray-500">Add a new user to the system</p>
                     </div>
                     <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeCreateUserModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

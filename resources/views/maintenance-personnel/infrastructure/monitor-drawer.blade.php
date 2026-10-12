@@ -1602,7 +1602,6 @@
                                 @endphp
                                 <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
                                     <summary class="cursor-pointer text-sm font-medium text-slate-700">Acquisition &amp; accountability (optional)</summary>
-                                    <p class="mt-2 text-xs text-slate-400">Where it came from, what it cost, and who is accountable. These fill the Procurement &amp; lifecycle section of the equipment page.</p>
                                     @if ($drawerAcquisitionReady)
                                         <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                             <div>
@@ -1961,10 +1960,6 @@
                                         Edit Room
                                     </h2>
 
-
-                                    <p class="mt-0.5 text-xs text-slate-500">
-                                        Modify room details and environment configuration.
-                                    </p>
 
                                 </div>
 
@@ -2718,10 +2713,6 @@
                                     Equipment List
                                 </h3>
 
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Search and filter equipment in this room.
-                                </p>
-
                             </div>
 
                             <div
@@ -3415,10 +3406,6 @@
                                                 Equipment Information
                                             </h4>
 
-                                            <p class="mt-0.5 text-xs text-slate-500">
-                                                Full identity, status, location, and acquisition details.
-                                            </p>
-
                                         </div>
 
 
@@ -3699,10 +3686,6 @@
                                             <h4 class="text-sm font-semibold text-slate-900">
                                                 Edit Equipment
                                             </h4>
-
-                                            <p class="mt-0.5 text-xs text-slate-500">
-                                                Update equipment information and placement.
-                                            </p>
 
                                         </div>
 
@@ -4168,10 +4151,6 @@
                                             <h4 class="text-sm font-semibold text-slate-900">
                                                 Transfer Equipment
                                             </h4>
-
-                                            <p class="mt-0.5 text-xs text-slate-500">
-                                                Move this equipment to another room.
-                                            </p>
 
                                         </div>
 
@@ -4757,10 +4736,6 @@
                                     Report Volume
                                 </h3>
 
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Reports recorded for this room.
-                                </p>
-
                             </div>
 
 
@@ -4872,10 +4847,6 @@
                             <h3 class="text-sm font-semibold text-slate-900">
                                 Frequent Problems
                             </h3>
-
-                            <p class="mt-0.5 text-xs text-slate-500">
-                                Issues reported repeatedly in this room.
-                            </p>
 
                         </div>
 
@@ -5073,10 +5044,6 @@
                                 <h3 class="text-sm font-semibold text-slate-900">
                                     Upcoming Maintenance
                                 </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Scheduled maintenance activities for this room.
-                                </p>
 
                             </div>
 
@@ -5384,10 +5351,6 @@
                                 <h3 class="text-sm font-semibold text-slate-900">
                                     Room Activity
                                 </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Recent changes and events recorded for this room.
-                                </p>
 
                             </div>
 

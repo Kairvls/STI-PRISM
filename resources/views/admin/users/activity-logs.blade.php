@@ -7,7 +7,6 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">User Activity Logs</h1>
-        <p class="admin-page-subtitle">Recent approvals and sign-in activity across the system.</p>
     </div>
 
     <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">

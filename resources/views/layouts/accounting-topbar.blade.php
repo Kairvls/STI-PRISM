@@ -6,16 +6,16 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('accounting/dashboard') => ['Dashboard', 'Overview of Accounting workload and queues.'],
-                request()->is('accounting/authority-to-purchase*') => ['Authority to Purchase', 'Review ATP submitted by Purchaser.'],
-                request()->is('accounting/purchase-orders*') => ['Purchase Orders', 'Review bundled ATPs submitted by Purchaser.'],
-                request()->is('accounting/request-check*') => ['Request Checks', 'Review RFCs and release funds.'],
-                request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents.'],
-                request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', 'Processed Accounting records.'],
-                request()->is('accounting/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                request()->is('accounting/profile*') => ['Profile Settings', 'Update your Accounting account details.'],
-                request()->is('accounting/security*') => ['Security Settings', 'Manage your password and account security.'],
-                default => [View::yieldContent('title', 'PaAyo'), 'Accounting'],
+                request()->is('accounting/dashboard') => ['Dashboard', ''],
+                request()->is('accounting/authority-to-purchase*') => ['Authority to Purchase', ''],
+                request()->is('accounting/purchase-orders*') => ['Purchase Orders', ''],
+                request()->is('accounting/request-check*') => ['Request Checks', ''],
+                request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', ''],
+                request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', ''],
+                request()->is('accounting/notifications*') => ['Alerts', ''],
+                request()->is('accounting/profile*') => ['Profile Settings', ''],
+                request()->is('accounting/security*') => ['Security Settings', ''],
+                default => [View::yieldContent('title', 'PaAyo'), ''],
             };
 
             $headerUnreadCount = $headerUnreadCount ?? 0;
@@ -26,9 +26,11 @@
             <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-sm text-slate-500">
-                {{ $moduleHeading[1] }}
-            </p>
+            @if ($moduleHeading[1] !== '')
+                <p class="mt-0.5 truncate text-sm text-slate-500">
+                    {{ $moduleHeading[1] }}
+                </p>
+            @endif
         </div>
     </div>
 

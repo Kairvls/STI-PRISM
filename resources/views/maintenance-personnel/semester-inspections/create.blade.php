@@ -92,8 +92,6 @@
 
         <div class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Scope <span class="text-red-500">*</span></p>
-            <p class="mt-1 text-xs text-slate-500">STI College Ormoc — choose how much of the school to include.</p>
-
             <div class="mt-3 grid grid-cols-1 gap-3 {{ $showBuildingScope ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
                 <label class="flex cursor-pointer items-center gap-3 rounded-xl bg-white px-3 py-3 ring-1 ring-slate-200/80 has-[:checked]:ring-[#0025cc]/40">
                     <input

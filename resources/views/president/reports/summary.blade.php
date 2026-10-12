@@ -7,7 +7,6 @@
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Reports & Summary</h1>
-        <p class="mt-1 text-sm leading-6 text-gray-500">Weekly and monthly procurement statistics.</p>
     </div>
 </div>
 

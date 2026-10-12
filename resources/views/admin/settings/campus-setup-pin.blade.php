@@ -7,7 +7,7 @@
 <div class="admin-page mx-auto max-w-3xl space-y-6">
     <div>
         <h1 class="admin-page-title">System Settings</h1>
-        <p class="admin-page-subtitle">Campus setup unlock PIN. Other product settings stay in their own modules.</p>
+        <p class="admin-page-subtitle">Campus setup unlock PIN.</p>
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -83,11 +83,7 @@
                 >
             </label>
 
-            <div class="flex items-center justify-between gap-3">
-                <p class="text-xs text-slate-500">
-                    Tip: choose a PIN that only branch staff know.
-                </p>
-
+            <div class="flex items-center justify-end gap-3">
                 <button
                     type="submit"
                     class="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition"
