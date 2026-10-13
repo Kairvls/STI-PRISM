@@ -77,6 +77,19 @@
                         </span>
                     @endif
                 </a>
+                @if (($pinsReady ?? false) && ($activeReportersWithoutPin ?? 0) > 0)
+                    <button
+                        type="button"
+                        onclick="openBulkPinModal()"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-[13px] font-semibold text-[#0025cc] transition hover:bg-blue-100"
+                    >
+                        <i data-lucide="key-round" class="h-4 w-4"></i>
+                        Generate missing PINs
+                        <span class="inline-flex min-w-[20px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[11px] font-bold text-white">
+                            {{ $activeReportersWithoutPin }}
+                        </span>
+                    </button>
+                @endif
                 <button
                     type="button"
                     onclick="openImportModal()"
@@ -1218,7 +1231,7 @@
                                 Employee ID
                             </th>
 
-                            <th class="w-[30%] px-5 py-3 text-left">
+                            <th class="w-[27%] px-5 py-3 text-left">
                                 Reporter
                             </th>
 
@@ -1234,7 +1247,7 @@
                                 Status
                             </th>
 
-                            <th class="w-[21%] px-5 py-3 text-center">
+                            <th class="w-[24%] px-5 py-3 text-center">
                                 Actions
                             </th>
                         </tr>
@@ -1428,6 +1441,13 @@
 
                                     </span>
 
+                                    @if (($pinsReady ?? false) && strtolower($reporterStatus) === 'active' && blank($reporter->reporter_pin_hash ?? null))
+                                        <span class="mt-1.5 flex w-fit items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                                            <i data-lucide="key-round" class="h-3 w-3"></i>
+                                            No PIN
+                                        </span>
+                                    @endif
+
                                 </td>
 
 
@@ -1546,6 +1566,25 @@
                                                 ></i>
 
                                             </button>
+
+                                            @if ($pinsReady ?? false)
+                                                <button
+                                                    type="button"
+                                                    onclick="openPinModal(
+                                                        @js($reporter->reporter_id),
+                                                        @js($reporter->reporter_full_name),
+                                                        @js($reporter->reporter_employee_id),
+                                                        @js($reporter->reporter_email_address),
+                                                        @js(filled($reporter->reporter_pin_hash ?? null)),
+                                                        @js($reporter->reporter_pin_set_at ? \Illuminate\Support\Carbon::parse($reporter->reporter_pin_set_at)->format('M j, Y g:i A') : null)
+                                                    )"
+                                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0025cc] ring-1 ring-inset ring-blue-200 transition hover:bg-blue-100 active:scale-95"
+                                                    data-tooltip="{{ filled($reporter->reporter_pin_hash ?? null) ? 'Reset PIN' : 'Create PIN' }}"
+                                                    aria-label="{{ filled($reporter->reporter_pin_hash ?? null) ? 'Reset PIN' : 'Create PIN' }}"
+                                                >
+                                                    <i data-lucide="key-round" class="h-3.5 w-3.5"></i>
+                                                </button>
+                                            @endif
 
                                         @endif
 
@@ -1828,6 +1867,12 @@
                             <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $importSkipped }}</p>
                         </div>
                     </div>
+
+                    @if ($importCreated > 0 && ($pinsReady ?? false))
+                        <p class="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-[#0025cc]">
+                            Imported reporters don't have a PIN yet. Use <strong>Generate missing PINs</strong> to create and email their PINs.
+                        </p>
+                    @endif
 
                     @if (count($importErrors) > 0)
                         <div class="mt-5 max-h-52 overflow-y-auto rounded-xl border border-slate-200">
@@ -2323,6 +2368,116 @@
 
     </div>
 
+    {{-- ===================================================== --}}
+    {{-- REPORTER PIN MODAL --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="pinModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <form
+            id="pinForm"
+            method="POST"
+            action=""
+            novalidate
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+        >
+            @csrf
+
+            <div class="flex items-start justify-between px-6 pb-4 pt-6">
+                <div>
+                    <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporting PIN</p>
+                    <h2 id="pinModalTitle" class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Create PIN</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        <span id="pinModalName"></span> &middot; <span id="pinModalEmployee" class="font-mono"></span>
+                    </p>
+                </div>
+                <button type="button" onclick="closePinModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 px-6 pb-2">
+                <p id="pinModalStatus" class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/70"></p>
+
+                <div class="space-y-2">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 px-4 py-3 has-[:checked]:border-[#0025cc] has-[:checked]:bg-blue-50/50">
+                        <input type="radio" name="mode" value="generate" checked class="mt-0.5 text-[#0025cc]" onchange="syncPinMode()">
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-800">Generate a random PIN</span>
+                            <span class="block text-xs text-slate-500">Recommended. The system picks 6 digits that are hard to guess.</span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 px-4 py-3 has-[:checked]:border-[#0025cc] has-[:checked]:bg-blue-50/50">
+                        <input type="radio" name="mode" value="manual" class="mt-0.5 text-[#0025cc]" onchange="syncPinMode()">
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-800">Type a PIN</span>
+                            <span class="block text-xs text-slate-500">Use when the reporter asked for a specific PIN.</span>
+                        </span>
+                    </label>
+                </div>
+
+                <div id="pinManualWrap" class="hidden">
+                    <label for="pinManualInput" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">New PIN</label>
+                    <input
+                        id="pinManualInput"
+                        name="pin"
+                        type="text"
+                        inputmode="numeric"
+                        maxlength="6"
+                        autocomplete="off"
+                        placeholder="6 digits"
+                        class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-center font-mono text-lg tracking-[0.4em] text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                    />
+                    <p class="mt-1.5 text-xs text-slate-400">No repeated or sequential digits like 111111 or 123456.</p>
+                </div>
+
+                <label id="pinEmailWrap" class="flex items-start gap-3 text-sm text-slate-600">
+                    <input type="hidden" name="send_email" value="0">
+                    <input id="pinSendEmail" type="checkbox" name="send_email" value="1" checked class="mt-0.5 rounded border-slate-300">
+                    <span id="pinEmailLabel">Email the PIN to the reporter</span>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" onclick="closePinModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                <button type="submit" id="pinSubmitBtn" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Save PIN</button>
+            </div>
+        </form>
+    </div>
+
+    <div
+        id="bulkPinModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <form
+            method="POST"
+            action="{{ route('maintenance.reporters.pins.generate-missing') }}"
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+            onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').textContent = 'Generating…';"
+        >
+            @csrf
+            <div class="px-6 pb-5 pt-6">
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc]">
+                    <i data-lucide="key-round" class="h-5 w-5"></i>
+                </div>
+                <h2 class="mt-4 text-base font-semibold text-slate-900">Generate missing PINs?</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-500">
+                    {{ $activeReportersWithoutPin ?? 0 }} active {{ \Illuminate\Support\Str::plural('reporter', $activeReportersWithoutPin ?? 0) }}
+                    can't make reports yet because they have no PIN. Each one gets a random 6-digit PIN by email.
+                    PINs for reporters without an email are shown once on the next screen so you can hand them over.
+                </p>
+            </div>
+            <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/70 px-6 py-4">
+                <button type="button" onclick="closeBulkPinModal()" class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Cancel</button>
+                <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">Generate PINs</button>
+            </div>
+        </form>
+    </div>
+
+    @include('maintenance-personnel.reporters.partials.pin-result')
+
     <div
         id="deleteModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -2628,6 +2783,86 @@
             deleteModal.classList.add("flex");
         }
 
+        const pinModal = document.getElementById("pinModal");
+        const bulkPinModal = document.getElementById("bulkPinModal");
+
+        function openPinModal(id, name, employeeId, email, hasPin, pinSetAt) {
+            const form = document.getElementById("pinForm");
+            form.reset();
+            form.action = `/maintenance/reporters/${id}/pin`;
+
+            document.getElementById("pinModalTitle").textContent = hasPin ? "Reset PIN" : "Create PIN";
+            document.getElementById("pinModalName").textContent = name || "—";
+            document.getElementById("pinModalEmployee").textContent = employeeId || "—";
+            document.getElementById("pinModalStatus").textContent = hasPin
+                ? `This reporter already has a PIN${pinSetAt ? " (set " + pinSetAt + ")" : ""}. Saving replaces it, and the old PIN stops working right away.`
+                : "This reporter has no PIN yet, so they can't make reports until you create one.";
+
+            const emailBox = document.getElementById("pinSendEmail");
+            const emailLabel = document.getElementById("pinEmailLabel");
+            emailBox.disabled = !email;
+            emailBox.checked = !!email;
+            emailLabel.textContent = email
+                ? `Email the PIN to ${email}`
+                : "No email on file. You'll see the PIN once after saving so you can hand it over.";
+
+            syncPinMode();
+            pinModal.classList.remove("hidden");
+            pinModal.classList.add("flex");
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closePinModal() {
+            pinModal.classList.add("hidden");
+            pinModal.classList.remove("flex");
+        }
+
+        function syncPinMode() {
+            const manual = document.querySelector('#pinForm input[name="mode"]:checked')?.value === "manual";
+            const input = document.getElementById("pinManualInput");
+            document.getElementById("pinManualWrap").classList.toggle("hidden", !manual);
+            input.disabled = !manual;
+            if (manual) input.focus();
+        }
+
+        function openBulkPinModal() {
+            bulkPinModal.classList.remove("hidden");
+            bulkPinModal.classList.add("flex");
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeBulkPinModal() {
+            bulkPinModal.classList.add("hidden");
+            bulkPinModal.classList.remove("flex");
+        }
+
+        document.getElementById("pinManualInput").addEventListener("input", function () {
+            this.value = this.value.replace(/\D/g, "").slice(0, 6);
+        });
+
+        document.getElementById("pinForm").addEventListener("submit", function (event) {
+            const manual = this.querySelector('input[name="mode"]:checked')?.value === "manual";
+            const pin = document.getElementById("pinManualInput").value;
+            if (manual && !/^\d{6}$/.test(pin)) {
+                event.preventDefault();
+                const input = document.getElementById("pinManualInput");
+                input.setCustomValidity("Enter exactly 6 digits.");
+                input.reportValidity();
+                input.addEventListener("input", () => input.setCustomValidity(""), { once: true });
+                return;
+            }
+            document.getElementById("pinSubmitBtn").disabled = true;
+        });
+
+        [pinModal, bulkPinModal].forEach((modal) => {
+            modal?.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    modal.classList.add("hidden");
+                    modal.classList.remove("flex");
+                }
+            });
+        });
+
         
     </script>
 
@@ -2841,6 +3076,8 @@
 
                 closeReporterStatusModal();
                 closeImportModal();
+                closePinModal();
+                closeBulkPinModal();
 
             }
 

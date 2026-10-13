@@ -48,13 +48,28 @@ Route::get(
     [MobileReportController::class, 'globalSuggestedIssues']
 );
 
+Route::post(
+    '/reporter/verify',
+    [MobileReportController::class, 'verifyReporter']
+)->middleware('throttle:20,1');
+
+Route::post(
+    '/reporter/logout',
+    [MobileReportController::class, 'logoutReporter']
+);
+
+Route::post(
+    '/reporter/forgot-pin',
+    [MobileReportController::class, 'forgotPin']
+)->middleware('throttle:10,1');
+
 Route::get(
 
     '/reporter/{employeeId}',
 
     [MobileReportController::class, 'reporter']
 
-);
+)->middleware('throttle:60,1');
 
 Route::get(
     '/reporter/{employeeId}/assigned-equipment',

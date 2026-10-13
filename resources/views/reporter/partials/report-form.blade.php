@@ -3211,13 +3211,332 @@
     .rf-tour-popover .rf-tour-skip:hover {
         color: #475569;
     }
+
+    /* ── Phase 1: employee ID + PIN gate ── */
+    #reportForm[hidden],
+    #reporterGate[hidden],
+    #reporterGate [hidden] {
+        display: none !important;
+    }
+
+    .rf-gate {
+        width: 100%;
+        max-width: 440px;
+        margin: 0 auto;
+    }
+
+    .rf-gate-card {
+        position: relative;
+        background:
+            radial-gradient(ellipse 80% 60% at 0% 0%, rgba(199, 216, 255, .42), transparent 60%),
+            #ffffff;
+        border: 1px solid rgba(255, 255, 255, .95);
+        border-radius: 28px;
+        box-shadow: 0 32px 80px rgba(15, 23, 42, 0.14);
+        padding: 30px 28px 26px;
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    }
+
+    .rf-gate-close {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e8ecf4;
+        color: #6b7280;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .rf-gate-close:hover {
+        color: #1a1a2e;
+        background: #f3f6ff;
+        border-color: #dbe3ff;
+    }
+
+    .rf-gate-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #1a1a2e;
+        line-height: 1.15;
+    }
+
+    .rf-gate-sub {
+        margin-top: 6px;
+        color: #6b7280;
+        font-size: 0.86rem;
+        line-height: 1.5;
+    }
+
+    .rf-gate-pin.rf-input {
+        text-align: center;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: 0.55em;
+        padding-left: calc(48px + 0.55em) !important;
+        padding-right: 48px !important;
+    }
+
+    .rf-gate-pin.rf-input::placeholder {
+        letter-spacing: 0.55em;
+        color: #c5cad6;
+    }
+
+    .rf-gate-pin.rf-input.is-error {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+    }
+
+    .rf-gate-pin::-ms-reveal,
+    .rf-gate-pin::-ms-clear {
+        display: none;
+    }
+
+    .rf-gate-pin-wrap {
+        position: relative;
+    }
+
+    .rf-gate-pin-toggle {
+        position: absolute;
+        top: 50%;
+        right: 6px;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        color: #8a93a6;
+        transition: color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .rf-gate-pin-toggle:hover {
+        color: #374151;
+        background: #f3f5f9;
+    }
+
+    .rf-gate-pin-toggle:focus-visible {
+        outline: 2px solid #0025cc;
+        outline-offset: 1px;
+    }
+
+    .rf-gate-msg {
+        display: none;
+        margin-top: 12px;
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+
+    .rf-gate-msg.is-error {
+        display: block;
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    .rf-gate-msg.is-info {
+        display: block;
+        background: #f3f6ff;
+        color: #1e3a8a;
+    }
+
+    .rf-gate-msg.is-warn {
+        display: block;
+        background: #fffbeb;
+        color: #92400e;
+    }
+
+    .rf-gate-link {
+        border: 0;
+        background: none;
+        padding: 0;
+        color: #0025cc;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .rf-gate-link:hover {
+        text-decoration: underline;
+    }
+
+    .rf-gate-note {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid #eef1f6;
+        color: #9aa1b5;
+        font-size: 0.76rem;
+        line-height: 1.5;
+    }
+
+    .rf-gate .rf-submit-btn:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    .rf-verified-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 8px;
+        font-size: 0.78rem;
+    }
+
+    .rf-verified-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: #15803d;
+        font-weight: 700;
+    }
+
+    #reportModal .rf-employee-id-input.rf-input[readonly] {
+        background: #f8f9fd;
+        color: #1a1a2e;
+        cursor: default;
+    }
+
+    @media (max-width: 767px) {
+        .rf-gate {
+            max-width: 100%;
+        }
+
+        .rf-gate-card {
+            min-height: 100dvh;
+            border-radius: 0;
+            padding: 28px 22px calc(26px + env(safe-area-inset-bottom));
+        }
+    }
 </style>
+
+@php
+    $pinReporter = \App\Support\ReporterPins::ready()
+        ? \App\Support\ReporterPins::sessionReporter(request(), false)
+        : null;
+@endphp
+
+<div id="reporterGate" class="rf-gate" @if ($pinReporter) hidden @endif>
+    <div class="rf-gate-card">
+        <button type="button" class="rf-gate-close" onclick="closeReportModal()" aria-label="Close">
+            <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+
+        <div class="rf-header-icon mb-4 flex items-center justify-center">
+            <i data-lucide="shield-check" class="h-5 w-5"></i>
+        </div>
+        {{-- VERIFY --}}
+        <form id="reporterGateForm" novalidate>
+            <h2 class="rf-gate-title">Verify it's you</h2>
+
+            <div class="mt-6">
+                <label class="rf-label" for="gateEmployeeId">Employee ID</label>
+                <div class="rf-employee-id-wrap">
+                    <span class="rf-employee-id-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" focusable="false">
+                            <circle cx="9" cy="13" r="1.25"/>
+                            <path d="m20.77 8.58-.92 2.01c.09.46.15.93.15 1.41 0 4.41-3.59 8-8 8s-8-3.59-8-8c0-.05.01-.1 0-.14 2.6-.98 4.69-2.99 5.74-5.55A10 10 0 0 0 17.5 10c.45 0 .89-.04 1.33-.1l-.6-1.32-.88-1.93-1.93-.88-2.79-1.27 2.79-1.27.71-.32A9.86 9.86 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-1.47-.33-2.87-.9-4.13l-.33.71z"/>
+                            <circle cx="15" cy="13" r="1.25"/>
+                            <path d="M20.6 5.6 19.5 8l-1.1-2.4L16 4.5l2.4-1.1L19.5 1l1.1 2.4L23 4.5z"/>
+                        </svg>
+                    </span>
+                    <input
+                        type="text"
+                        id="gateEmployeeId"
+                        placeholder="OMC00127F"
+                        class="rf-input rf-employee-id-input"
+                        autocomplete="username"
+                        autocapitalize="characters"
+                        spellcheck="false"
+                        maxlength="20"
+                        required
+                    />
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <label class="rf-label" for="gatePin">PIN</label>
+                    <button type="button" class="rf-gate-link mb-2" id="gateForgotLink">Forgot PIN?</button>
+                </div>
+                <div class="rf-gate-pin-wrap">
+                    <input
+                        type="password"
+                        id="gatePin"
+                        inputmode="numeric"
+                        autocomplete="current-password"
+                        maxlength="6"
+                        placeholder="••••••"
+                        class="rf-input rf-gate-pin"
+                        required
+                    />
+                    <button type="button" id="gatePinToggle" class="rf-gate-pin-toggle" aria-label="Show PIN" title="Show PIN" aria-pressed="false">
+                        <span data-pin-icon="show"><i data-lucide="eye" class="h-5 w-5"></i></span>
+                        <span data-pin-icon="hide" hidden><i data-lucide="eye-off" class="h-5 w-5"></i></span>
+                    </button>
+                </div>
+            </div>
+
+            <p id="gateMessage" class="rf-gate-msg" role="alert"></p>
+
+            <button type="submit" id="gateSubmitBtn" class="rf-submit-btn mt-6 inline-flex w-full items-center justify-center gap-2">
+                <span id="gateSubmitText">Continue</span>
+                <i data-lucide="arrow-right" class="h-4 w-4"></i>
+            </button>
+
+            <p class="rf-gate-note">No PIN yet? Check your email or ask the maintenance office.</p>
+        </form>
+
+        {{-- FORGOT PIN --}}
+        <form id="reporterForgotForm" novalidate hidden>
+            <h2 class="rf-gate-title">Forgot your PIN?</h2>
+            <p class="rf-gate-sub">We'll email you a link to set a new PIN.</p>
+
+            <div class="mt-6">
+                <label class="rf-label" for="forgotEmployeeId">Employee ID</label>
+                <input
+                    type="text"
+                    id="forgotEmployeeId"
+                    placeholder="OMC00127F"
+                    class="rf-input"
+                    autocapitalize="characters"
+                    spellcheck="false"
+                    maxlength="20"
+                    required
+                />
+            </div>
+
+            <p id="forgotMessage" class="rf-gate-msg" role="status"></p>
+
+            <button type="submit" id="forgotSubmitBtn" class="rf-submit-btn mt-6 inline-flex w-full items-center justify-center gap-2">
+                <span id="forgotSubmitText">Send reset link</span>
+            </button>
+
+            <div class="mt-4 text-center">
+                <button type="button" class="rf-gate-link" id="forgotBackLink">Back to verify</button>
+            </div>
+
+            <p class="rf-gate-note">No email on file? Ask the maintenance office to reset your PIN.</p>
+        </form>
+    </div>
+</div>
 
 <form
     method="POST"
     action="/store-report"
     enctype="multipart/form-data"
     id="reportForm"
+    @unless ($pinReporter) hidden @endunless
+    data-verified-employee-id="{{ $pinReporter->reporter_employee_id ?? '' }}"
 >
     @csrf
 
@@ -3340,14 +3659,23 @@
                                 type="text"
                                 id="employeeIdInput"
                                 name="report_reporter_employee_id"
-                                value="{{ old('report_reporter_employee_id') }}"
+                                value="{{ $pinReporter->reporter_employee_id ?? '' }}"
                                 placeholder="EMPLOYEE ID"
                                 class="rf-input details-textarea rf-employee-id-input"
                                 autocomplete="off"
                                 autocapitalize="characters"
                                 spellcheck="false"
+                                readonly
                                 required
                             />
+                        </div>
+
+                        <div class="rf-verified-row">
+                            <span class="rf-verified-tag">
+                                <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
+                                Verified with PIN
+                            </span>
+                            <button type="button" class="rf-gate-link" id="reporterSwitchBtn">Not you? Switch reporter</button>
                         </div>
 
                         {{-- EMPLOYEE ERROR --}}
@@ -7834,6 +8162,19 @@ toggleRoomBtn.addEventListener('click', function () {
                     ? await response.json().catch(() => ({}))
                     : {};
 
+                if (data.pin_required) {
+                    await paayoSwal({
+                        tone: "error",
+                        title: "Verify again",
+                        text: String(data.message || "Enter your employee ID and PIN again."),
+                        confirmText: "OK",
+                    });
+                    if (typeof window.reporterGateReset === "function") {
+                        window.reporterGateReset();
+                    }
+                    return;
+                }
+
                 if (!response.ok || data.success !== true) {
                     const validationMessage =
                         data.message ||
@@ -7880,6 +8221,9 @@ toggleRoomBtn.addEventListener('click', function () {
                 reporterVerified = false;
                 clearSuggestedIssue();
                 showIssuePlaceholder();
+                if (typeof window.reporterGateReset === "function") {
+                    window.reporterGateReset();
+                }
                 if (typeof closeReportModal === "function") {
                     closeReportModal();
                 }
@@ -7895,4 +8239,275 @@ toggleRoomBtn.addEventListener('click', function () {
                 });
             }
         });
+</script>
+
+<script>
+    /* ─────────────────────────────────────────────────────────
+   PHASE 1 (employee ID + PIN) → PHASE 2 (report form)
+───────────────────────────────────────────────────────── */
+    document.addEventListener("DOMContentLoaded", function () {
+        const gate = document.getElementById("reporterGate");
+        const reportForm = document.getElementById("reportForm");
+        if (!gate || !reportForm) return;
+
+        const verifyForm = document.getElementById("reporterGateForm");
+        const forgotForm = document.getElementById("reporterForgotForm");
+        const gateId = document.getElementById("gateEmployeeId");
+        const gatePin = document.getElementById("gatePin");
+        const gateMessage = document.getElementById("gateMessage");
+        const gateSubmitBtn = document.getElementById("gateSubmitBtn");
+        const gateSubmitText = document.getElementById("gateSubmitText");
+        const forgotId = document.getElementById("forgotEmployeeId");
+        const forgotMessage = document.getElementById("forgotMessage");
+        const forgotSubmitBtn = document.getElementById("forgotSubmitBtn");
+        const forgotSubmitText = document.getElementById("forgotSubmitText");
+        const employeeInput = document.getElementById("employeeIdInput");
+        const switchBtn = document.getElementById("reporterSwitchBtn");
+        const reportModalEl = document.getElementById("reportModal");
+
+        const csrfToken = () => reportForm.querySelector('input[name="_token"]')?.value || "";
+
+        async function postJson(url, body) {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": csrfToken(),
+                },
+                credentials: "same-origin",
+                body: JSON.stringify(body || {}),
+            });
+            const data = await response.json().catch(() => ({}));
+            return { ok: response.ok, status: response.status, data };
+        }
+
+        function errorText(result, fallback) {
+            if (result.status === 419) {
+                return "This page expired. Refresh the page and try again.";
+            }
+            const data = result.data || {};
+            return data.message
+                || (data.errors ? Object.values(data.errors).flat()[0] : "")
+                || fallback;
+        }
+
+        function setMessage(el, text, tone) {
+            el.className = "rf-gate-msg" + (text ? " is-" + (tone || "error") : "");
+            el.textContent = text || "";
+        }
+
+        function refreshIcons() {
+            if (typeof lucide !== "undefined") lucide.createIcons();
+        }
+
+        const pinToggle = document.getElementById("gatePinToggle");
+        const pinWrap = gatePin.closest(".rf-gate-pin-wrap");
+
+        const PIN_SHAKE_FRAMES = Array.from({ length: 25 }, (_, i) => {
+            const t = i / 24;
+            return { transform: `translateX(${(Math.sin(t * Math.PI * 6) * 10 * (1 - t)).toFixed(2)}px)` };
+        });
+
+        function shakePin() {
+            gatePin.classList.add("is-error");
+            if (navigator.vibrate) navigator.vibrate(40);
+            if (!pinWrap.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+            pinWrap.animate(PIN_SHAKE_FRAMES, { duration: 420, easing: "linear" });
+        }
+
+        function setPinVisible(visible) {
+            gatePin.type = visible ? "text" : "password";
+            const label = visible ? "Hide PIN" : "Show PIN";
+            pinToggle.setAttribute("aria-label", label);
+            pinToggle.title = label;
+            pinToggle.setAttribute("aria-pressed", visible ? "true" : "false");
+            pinToggle.querySelector('[data-pin-icon="show"]').hidden = visible;
+            pinToggle.querySelector('[data-pin-icon="hide"]').hidden = !visible;
+        }
+
+        pinToggle.addEventListener("mousedown", (e) => e.preventDefault());
+        pinToggle.addEventListener("click", function () {
+            setPinVisible(gatePin.type === "password");
+            gatePin.focus();
+            const end = gatePin.value.length;
+            gatePin.setSelectionRange(end, end);
+        });
+
+        function showVerifyStep() {
+            forgotForm.hidden = true;
+            verifyForm.hidden = false;
+        }
+
+        function showPhase1(clearId) {
+            reportForm.hidden = true;
+            gate.hidden = false;
+            showVerifyStep();
+            gatePin.value = "";
+            gatePin.classList.remove("is-error");
+            setPinVisible(false);
+            setMessage(gateMessage, "");
+            setMessage(forgotMessage, "");
+            if (clearId) gateId.value = "";
+            if (employeeInput && employeeInput.value !== "") {
+                employeeInput.value = "";
+                employeeInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            refreshIcons();
+        }
+
+        function enterPhase2(employeeId) {
+            gate.hidden = true;
+            reportForm.hidden = false;
+            gatePin.value = "";
+            setPinVisible(false);
+            setMessage(gateMessage, "");
+            if (employeeInput) {
+                employeeInput.value = employeeId;
+                employeeInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            refreshIcons();
+        }
+
+        window.reporterGateReset = function () {
+            postJson("/reporter/exit").catch(() => {});
+            showPhase1(true);
+        };
+
+        gateId.addEventListener("input", function () {
+            this.value = this.value.toUpperCase().replace(/\s+/g, "");
+            gatePin.classList.remove("is-error");
+            setMessage(gateMessage, "");
+        });
+
+        gatePin.addEventListener("input", function () {
+            this.value = this.value.replace(/\D/g, "").slice(0, 6);
+            this.classList.remove("is-error");
+            setMessage(gateMessage, "");
+        });
+
+        forgotId.addEventListener("input", function () {
+            this.value = this.value.toUpperCase().replace(/\s+/g, "");
+        });
+
+        verifyForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            const employeeId = gateId.value.trim();
+            const pin = gatePin.value.trim();
+
+            if (!employeeId) {
+                setMessage(gateMessage, "Enter your employee ID.");
+                gateId.focus();
+                return;
+            }
+            if (!/^\d{6}$/.test(pin)) {
+                setMessage(gateMessage, "Enter your 6-digit PIN.");
+                shakePin();
+                gatePin.focus();
+                return;
+            }
+
+            gateSubmitBtn.disabled = true;
+            gateSubmitText.textContent = "Checking…";
+            try {
+                const result = await postJson("/reporter/verify", { employee_id: employeeId, pin: pin });
+                if (result.ok && result.data.success) {
+                    enterPhase2(result.data.reporter_employee_id);
+                    return;
+                }
+                const code = result.data && result.data.code;
+                setMessage(
+                    gateMessage,
+                    errorText(result, "Could not verify. Please try again."),
+                    code === "pending" ? "warn" : "error",
+                );
+                gatePin.value = "";
+                if (code === "incorrect" || code === "locked") shakePin();
+                gatePin.focus();
+            } catch (_) {
+                setMessage(gateMessage, "Network error. Check your connection and try again.");
+            } finally {
+                gateSubmitBtn.disabled = false;
+                gateSubmitText.textContent = "Continue";
+            }
+        });
+
+        document.getElementById("gateForgotLink").addEventListener("click", function () {
+            verifyForm.hidden = true;
+            forgotForm.hidden = false;
+            forgotId.value = gateId.value.trim();
+            setMessage(forgotMessage, "");
+            forgotId.focus();
+        });
+
+        document.getElementById("forgotBackLink").addEventListener("click", function () {
+            if (!gateId.value.trim()) gateId.value = forgotId.value.trim();
+            showVerifyStep();
+            (gateId.value ? gatePin : gateId).focus();
+        });
+
+        forgotForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            const employeeId = forgotId.value.trim();
+            if (!employeeId) {
+                setMessage(forgotMessage, "Enter your employee ID.");
+                forgotId.focus();
+                return;
+            }
+
+            forgotSubmitBtn.disabled = true;
+            forgotSubmitText.textContent = "Sending…";
+            try {
+                const result = await postJson("/reporter/pin/forgot", { employee_id: employeeId });
+                setMessage(
+                    forgotMessage,
+                    result.ok ? result.data.message : errorText(result, "Could not send the link. Please try again."),
+                    result.ok ? "info" : "error",
+                );
+            } catch (_) {
+                setMessage(forgotMessage, "Network error. Check your connection and try again.");
+            } finally {
+                forgotSubmitBtn.disabled = false;
+                forgotSubmitText.textContent = "Send reset link";
+            }
+        });
+
+        if (switchBtn) {
+            switchBtn.addEventListener("click", function () {
+                window.reporterGateReset();
+            });
+        }
+
+        // The verified session can expire while the page sits open, so re-check it on every open.
+        async function onModalOpen() {
+            if (!reportForm.hidden) {
+                try {
+                    const response = await fetch("/reporter/session", {
+                        headers: { Accept: "application/json" },
+                        credentials: "same-origin",
+                    });
+                    const data = await response.json();
+                    if (!data || !data.success) showPhase1(false);
+                } catch (_) {}
+                return;
+            }
+            if (window.matchMedia("(min-width: 768px)").matches) {
+                setTimeout(() => (gateId.value ? gatePin : gateId).focus(), 80);
+            }
+        }
+
+        if (reportModalEl) {
+            let wasHidden = reportModalEl.classList.contains("hidden");
+            new MutationObserver(function () {
+                const hidden = reportModalEl.classList.contains("hidden");
+                if (wasHidden && !hidden) onModalOpen();
+                wasHidden = hidden;
+            }).observe(reportModalEl, { attributes: true, attributeFilter: ["class"] });
+        }
+
+        if (!reportForm.hidden && reportForm.dataset.verifiedEmployeeId) {
+            enterPhase2(reportForm.dataset.verifiedEmployeeId);
+        }
+    });
 </script>

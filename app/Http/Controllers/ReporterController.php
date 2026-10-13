@@ -9,6 +9,7 @@ use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
+use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
@@ -590,7 +591,26 @@ class ReporterController extends Controller
 
     public function storeReport(Request $request, ReportSubmissionService $reports)
     {
+        $reporter = ReporterPins::sessionReporter($request);
+
+        if (! $reporter) {
+            return $this->reportStoreResponse(
+                $request,
+                false,
+                'Your reporter verification expired. Enter your employee ID and PIN again.',
+                401,
+                ['pin_required' => true]
+            );
+        }
+
+        // The verified session decides who is reporting, never the form field.
+        $request->merge(['report_reporter_employee_id' => $reporter->reporter_employee_id]);
+
         $result = $reports->submit($request);
+
+        if ($result['success'] ?? false) {
+            ReporterPins::endSession($request);
+        }
 
         return $this->reportStoreResponse(
             $request,
@@ -683,62 +703,187 @@ class ReporterController extends Controller
 
     // =====================================================
     // GET REPORTER INFORMATION
-    // CHECK IF REPORTER EXISTS AND RETURN ACCOUNT STATUS
+    // PUBLIC VISITORS ONLY GET THE REPORTER THEY VERIFIED IN PHASE 1;
+    // SIGNED-IN STAFF (WALK-IN LOGGING) CAN LOOK UP ANY EMPLOYEE ID
     // =====================================================
 
-    public function getReporter($employeeId)
+    public function getReporter(Request $request, $employeeId)
     {
-        // =====================================================
-        // FIND REPORTER HERE
-        // =====================================================
+        if (! $request->user()) {
+            $reporter = ReporterPins::sessionMatches($request, (string) $employeeId);
 
-        $reporter = DB::table('reporters_table')
-            ->where(
-                'reporter_employee_id',
-                $employeeId
-            )
-            ->first();
-
-
-        // =====================================================
-        // REPORTER DOES NOT EXIST
-        // =====================================================
-
-        if (!$reporter) {
-            $pending = ReporterApprovals::pendingByEmployeeId((string) $employeeId);
-
-            if ($pending) {
-                return response()->json([
-                    'reporter_full_name' => $pending->full_name,
-                    'reporter_status' => 'Pending Approval',
-                ]);
-            }
-
-            return response()->json(null);
-
+            return response()->json($reporter ? [
+                'reporter_full_name' => $reporter->reporter_full_name,
+                'reporter_status' => $reporter->reporter_status,
+            ] : null);
         }
 
+        $reporter = DB::table('reporters_table')
+            ->where('reporter_employee_id', $employeeId)
+            ->first();
 
-        // =====================================================
-        // RETURN REPORTER INFORMATION HERE
-        // INCLUDING REPORTER STATUS
-        // =====================================================
+        if (! $reporter) {
+            $pending = ReporterApprovals::pendingByEmployeeId((string) $employeeId);
+
+            return response()->json($pending ? [
+                'reporter_full_name' => $pending->full_name,
+                'reporter_status' => 'Pending Approval',
+            ] : null);
+        }
 
         return response()->json([
-
-            'reporter_full_name'
-                => $reporter->reporter_full_name,
-
-            'reporter_status'
-                => $reporter->reporter_status,
-
+            'reporter_full_name' => $reporter->reporter_full_name,
+            'reporter_status' => $reporter->reporter_status,
         ]);
     }
-    public function getAssignedEquipment($employeeId)
+
+    public function getAssignedEquipment(Request $request, $employeeId)
     {
+        if (! $request->user() && ! ReporterPins::sessionMatches($request, (string) $employeeId)) {
+            return response()->json([]);
+        }
+
         return response()->json(
             PropertyAssignments::reportableForEmployee((string) $employeeId)
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PHASE 1: VERIFY EMPLOYEE ID + PIN
+    |--------------------------------------------------------------------------
+    */
+
+    public function verifyPin(Request $request)
+    {
+        $request->validate([
+            'employee_id' => ['required', 'string', 'max:20'],
+            'pin' => ['required', 'string', 'max:12'],
+        ]);
+
+        if (! ReporterPins::ready()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reporter PINs are not set up yet. Please contact the maintenance office.',
+            ], 503);
+        }
+
+        $result = ReporterPins::verify($request->employee_id, $request->pin, (string) $request->ip());
+
+        if (! $result['ok']) {
+            return response()->json([
+                'success' => false,
+                'code' => $result['code'] ?? null,
+                'message' => $result['message'],
+                'retry_after' => $result['retry_after'] ?? null,
+            ], $result['status']);
+        }
+
+        // New session ID without rotating the CSRF token the open report form still uses.
+        $request->session()->migrate(true);
+        ReporterPins::startSession($request, $result['reporter']);
+
+        return response()->json($this->pinSessionPayload($result['reporter']));
+    }
+
+    public function pinSession(Request $request)
+    {
+        $reporter = ReporterPins::sessionReporter($request);
+
+        return response()->json($reporter
+            ? $this->pinSessionPayload($reporter)
+            : ['success' => false]);
+    }
+
+    public function exitPin(Request $request)
+    {
+        ReporterPins::endSession($request);
+
+        return response()->json(['success' => true]);
+    }
+
+    private function pinSessionPayload(object $reporter): array
+    {
+        return [
+            'success' => true,
+            'reporter_employee_id' => $reporter->reporter_employee_id,
+            'reporter_full_name' => $reporter->reporter_full_name,
+            'reporter_status' => $reporter->reporter_status,
+            'idle_minutes' => ReporterPins::SESSION_IDLE_MINUTES,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORGOT PIN
+    | Same answer for every employee ID so the response never reveals who exists.
+    |--------------------------------------------------------------------------
+    */
+
+    public function forgotPin(Request $request)
+    {
+        $request->validate([
+            'employee_id' => ['required', 'string', 'max:20'],
+        ]);
+
+        $key = 'reporter-pin-forgot:'.sha1(ReporterPins::normalizeEmployeeId($request->employee_id));
+
+        if (! RateLimiter::tooManyAttempts($key, 3)) {
+            RateLimiter::hit($key, 15 * 60);
+            ReporterPins::sendResetLink($request->employee_id);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
+                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the maintenance office to reset your PIN.',
+        ]);
+    }
+
+    public function showPinReset(string $token)
+    {
+        $reset = ReporterPins::findReset($token);
+
+        if (! $reset) {
+            return redirect('/')
+                ->with('success', 'That PIN reset link is invalid, already used, or expired. Choose Forgot PIN again to get a new one.')
+                ->with('success_title', 'Link expired');
+        }
+
+        return view('landing.reset-reporter-pin', [
+            'token' => $token,
+            'reporterName' => $reset->reporter_full_name,
+            'employeeId' => $reset->reporter_employee_id,
+        ]);
+    }
+
+    public function completePinReset(Request $request, string $token)
+    {
+        $reset = ReporterPins::findReset($token);
+
+        if (! $reset) {
+            return redirect('/')
+                ->with('success', 'That PIN reset link is invalid, already used, or expired. Choose Forgot PIN again to get a new one.')
+                ->with('success_title', 'Link expired');
+        }
+
+        $request->validate([
+            'pin' => ['required', 'digits:'.ReporterPins::LENGTH, 'confirmed'],
+        ], [
+            'pin.digits' => 'PIN must be exactly '.ReporterPins::LENGTH.' digits.',
+            'pin.confirmed' => 'The two PINs do not match.',
+        ]);
+
+        if ($reason = ReporterPins::weaknessReason($request->pin)) {
+            return back()->withErrors(['pin' => $reason]);
+        }
+
+        ReporterPins::completeReset($reset, $request->pin);
+
+        return redirect('/')
+            ->with('success', 'Your new PIN is saved. Use it with your employee ID '.$reset->reporter_employee_id.' when you make a report.')
+            ->with('success_title', 'PIN updated')
+            ->with('open_report', true);
     }
 
     // REPORTCONTROLLER.PHP

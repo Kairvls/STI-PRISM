@@ -978,6 +978,36 @@ Route::post(
 )->name('reports.store');
 
 Route::post(
+    '/reporter/verify',
+    [ReporterController::class, 'verifyPin']
+)->middleware('throttle:20,1')->name('reporter.pin.verify');
+
+Route::get(
+    '/reporter/session',
+    [ReporterController::class, 'pinSession']
+)->name('reporter.pin.session');
+
+Route::post(
+    '/reporter/exit',
+    [ReporterController::class, 'exitPin']
+)->name('reporter.pin.exit');
+
+Route::post(
+    '/reporter/pin/forgot',
+    [ReporterController::class, 'forgotPin']
+)->middleware('throttle:10,1')->name('reporter.pin.forgot');
+
+Route::get(
+    '/reporter/pin/reset/{token}',
+    [ReporterController::class, 'showPinReset']
+)->name('reporter.pin.reset');
+
+Route::post(
+    '/reporter/pin/reset/{token}',
+    [ReporterController::class, 'completePinReset']
+)->middleware('throttle:10,1')->name('reporter.pin.reset.complete');
+
+Route::post(
     '/report-severity/preview',
     [ReporterController::class, 'previewSeverity']
 )->middleware('throttle:60,1')->name('reports.severity.preview');
@@ -1006,7 +1036,7 @@ Route::get(
 
     [ReporterController::class, 'getReporter']
 
-);
+)->middleware('throttle:60,1');
 
 Route::get(
     '/get-reporter/{employeeId}/assigned-equipment',
@@ -1097,6 +1127,16 @@ Route::middleware(['auth', 'maintenance:admin'])->group(function () {
         '/maintenance/reporters/{id}/reactivate',
         [MaintenanceController::class, 'reactivateReporter']
     )->name('maintenance.reporters.reactivate');
+
+    Route::post(
+        '/maintenance/reporters/{id}/pin',
+        [MaintenanceController::class, 'setReporterPin']
+    )->whereNumber('id')->name('maintenance.reporters.pin');
+
+    Route::post(
+        '/maintenance/reporters/pins/generate-missing',
+        [MaintenanceController::class, 'generateMissingReporterPins']
+    )->name('maintenance.reporters.pins.generate-missing');
 
     Route::get(
         '/maintenance/reporters/{id}/history',

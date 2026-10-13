@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
+use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
@@ -185,8 +187,12 @@ class MobileReportController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function assignedEquipment(string $employeeId)
+    public function assignedEquipment(Request $request, string $employeeId)
     {
+        if (! $this->tokenReporterFor($request, $employeeId)) {
+            return $this->pinRequiredResponse();
+        }
+
         $equipmentIds = PropertyAssignments::reportableForEmployee($employeeId)
             ->pluck('equipment_id')
             ->map(fn ($id) => (int) $id)
@@ -330,18 +336,117 @@ class MobileReportController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function reporter($employeeId)
+    public function reporter(Request $request, $employeeId)
     {
-        $reporter = DB::table('reporters_table')
+        $reporter = $this->tokenReporterFor($request, (string) $employeeId);
 
-            ->where(
-                'reporter_employee_id',
-                $employeeId
-            )
+        if (! $reporter) {
+            return $this->pinRequiredResponse();
+        }
 
-            ->first();
+        return response()->json($this->reporterPayload($reporter));
+    }
 
-        return response()->json($reporter);
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY EMPLOYEE ID + PIN
+    | Returns a short-lived token the app sends as X-Reporter-Token.
+    |--------------------------------------------------------------------------
+    */
+
+    public function verifyReporter(Request $request)
+    {
+        $request->validate([
+            'employee_id' => ['required', 'string', 'max:20'],
+            'pin' => ['required', 'string', 'max:12'],
+        ]);
+
+        if (! ReporterPins::ready()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reporter PINs are not set up yet. Please contact the maintenance office.',
+            ], 503);
+        }
+
+        $result = ReporterPins::verify($request->employee_id, $request->pin, (string) $request->ip());
+
+        if (! $result['ok']) {
+            return response()->json([
+                'success' => false,
+                'code' => $result['code'] ?? null,
+                'message' => $result['message'],
+                'retry_after' => $result['retry_after'] ?? null,
+            ], $result['status']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'token' => ReporterPins::issueApiToken($result['reporter']),
+            'expires_in' => ReporterPins::API_TOKEN_MINUTES * 60,
+            'reporter' => $this->reporterPayload($result['reporter']),
+        ]);
+    }
+
+    public function logoutReporter(Request $request)
+    {
+        ReporterPins::revokeApiToken(ReporterPins::apiTokenFromRequest($request));
+
+        return response()->json(['success' => true]);
+    }
+
+    public function forgotPin(Request $request)
+    {
+        $request->validate([
+            'employee_id' => ['required', 'string', 'max:20'],
+        ]);
+
+        $key = 'reporter-pin-forgot:'.sha1(ReporterPins::normalizeEmployeeId($request->employee_id));
+
+        if (! RateLimiter::tooManyAttempts($key, 3)) {
+            RateLimiter::hit($key, 15 * 60);
+            ReporterPins::sendResetLink($request->employee_id);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
+                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the maintenance office to reset your PIN.',
+        ]);
+    }
+
+    private function tokenReporterFor(Request $request, string $employeeId): ?object
+    {
+        $reporter = ReporterPins::apiReporter($request);
+
+        if (! $reporter) {
+            return null;
+        }
+
+        return ReporterPins::normalizeEmployeeId($reporter->reporter_employee_id) === ReporterPins::normalizeEmployeeId($employeeId)
+            ? $reporter
+            : null;
+    }
+
+    private function pinRequiredResponse()
+    {
+        return response()->json([
+            'success' => false,
+            'pin_required' => true,
+            'message' => 'Verify your employee ID and PIN first.',
+        ], 401);
+    }
+
+    private function reporterPayload(object $reporter): array
+    {
+        return [
+            'reporter_id' => $reporter->reporter_id,
+            'reporter_employee_id' => $reporter->reporter_employee_id,
+            'reporter_full_name' => $reporter->reporter_full_name,
+            'reporter_email_address' => $reporter->reporter_email_address,
+            'reporter_contact_number' => $reporter->reporter_contact_number,
+            'reporter_employment_type' => $reporter->reporter_employment_type ?? null,
+            'reporter_status' => $reporter->reporter_status,
+        ];
     }
 
     /*
@@ -352,6 +457,15 @@ class MobileReportController extends Controller
 
     public function submitReport(Request $request)
     {
+        $tokenReporter = ReporterPins::apiReporter($request);
+
+        if (! $tokenReporter) {
+            return $this->pinRequiredResponse();
+        }
+
+        // The verified token decides who is reporting, never the request body.
+        $request->merge(['employee_id' => $tokenReporter->reporter_employee_id]);
+
         /*
         |--------------------------------------------------------------------------
         | VALIDATION

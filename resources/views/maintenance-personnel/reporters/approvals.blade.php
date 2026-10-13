@@ -653,4 +653,6 @@
         });
     </script>
 
+    @include('maintenance-personnel.reporters.partials.pin-result')
+
 @endsection

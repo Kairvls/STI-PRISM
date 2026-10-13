@@ -14,6 +14,7 @@ use App\Support\PersonnelDirectory;
 use App\Support\PersonNames;
 use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
+use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
@@ -13304,6 +13305,14 @@ class MaintenanceController extends Controller
 
         $pendingReporterApprovals = ReporterApprovals::pendingCount();
 
+        $pinsReady = ReporterPins::ready();
+        $activeReportersWithoutPin = $pinsReady
+            ? DB::table('reporters_table')
+                ->where('reporter_status', 'Active')
+                ->where(fn ($q) => $q->whereNull('reporter_pin_hash')->orWhere('reporter_pin_hash', ''))
+                ->count()
+            : 0;
+
         return compact(
             'totalReporters',
             'reportersWithEmail',
@@ -13314,8 +13323,120 @@ class MaintenanceController extends Controller
             'emailCoveragePercentage',
             'contactCoveragePercentage',
             'reporterMonthlyTrend',
-            'pendingReporterApprovals'
+            'pendingReporterApprovals',
+            'pinsReady',
+            'activeReportersWithoutPin'
         );
+    }
+
+    // =====================================================
+    // REPORTER PIN
+    // GENERATE OR SET A 6-DIGIT PIN; THE PLAIN PIN IS SHOWN ONCE
+    // =====================================================
+
+    public function setReporterPin(Request $request, $id)
+    {
+        $request->validate([
+            'mode' => 'required|in:generate,manual',
+            'pin' => 'nullable|required_if:mode,manual|digits:'.ReporterPins::LENGTH,
+            'send_email' => 'nullable|boolean',
+        ], [
+            'pin.required_if' => 'Enter the 6-digit PIN you want to set.',
+            'pin.digits' => 'PIN must be exactly '.ReporterPins::LENGTH.' digits.',
+        ]);
+
+        if (! ReporterPins::ready()) {
+            return back()->with('error', 'Reporter PINs are not set up yet. Run the database migration first.');
+        }
+
+        $reporter = ReporterPins::findReporterById((int) $id);
+
+        if (! $reporter) {
+            return back()->with('error', 'Reporter not found.');
+        }
+
+        if ($request->mode === 'manual' && ($reason = ReporterPins::weaknessReason((string) $request->pin))) {
+            return back()->with('error', $reason);
+        }
+
+        $hadPin = ReporterPins::hasPin($reporter);
+        $pin = ReporterPins::assign((int) $reporter->reporter_id, $request->mode === 'manual' ? (string) $request->pin : null);
+        $emailed = $request->boolean('send_email') && ReporterPins::emailPin($reporter, $pin, ! $hadPin);
+
+        return back()
+            ->with('success', $hadPin ? 'Reporter PIN changed.' : 'Reporter PIN created.')
+            ->with('reporter_pin_result', $this->reporterPinResult($reporter, $pin, $emailed));
+    }
+
+    public function generateMissingReporterPins()
+    {
+        if (! ReporterPins::ready()) {
+            return back()->with('error', 'Reporter PINs are not set up yet. Run the database migration first.');
+        }
+
+        set_time_limit(0);
+
+        $reporters = DB::table('reporters_table')
+            ->where('reporter_status', 'Active')
+            ->where(fn ($q) => $q->whereNull('reporter_pin_hash')->orWhere('reporter_pin_hash', ''))
+            ->orderBy('reporter_full_name')
+            ->get();
+
+        if ($reporters->isEmpty()) {
+            return back()->with('success', 'Every active reporter already has a PIN.');
+        }
+
+        $emailed = 0;
+        $handOver = [];
+
+        foreach ($reporters as $reporter) {
+            $pin = ReporterPins::assign((int) $reporter->reporter_id);
+
+            if (ReporterPins::emailPin($reporter, $pin)) {
+                $emailed++;
+            } else {
+                $handOver[] = $this->reporterPinResult($reporter, $pin, false);
+            }
+        }
+
+        return back()
+            ->with('success', 'Created PINs for '.$reporters->count().' '.\Illuminate\Support\Str::plural('reporter', $reporters->count()).'.')
+            ->with('reporter_pin_bulk_result', [
+                'total' => $reporters->count(),
+                'emailed' => $emailed,
+                'hand_over' => $handOver,
+            ]);
+    }
+
+    private function reporterPinResult(object $reporter, string $pin, bool $emailed): array
+    {
+        return [
+            'name' => $reporter->reporter_full_name,
+            'employee_id' => $reporter->reporter_employee_id,
+            'email' => $reporter->reporter_email_address,
+            'pin' => $pin,
+            'emailed' => $emailed,
+        ];
+    }
+
+    /**
+     * Gives a newly added reporter a PIN and emails it; the result is flashed so it can be shown once.
+     */
+    private function issuePinForNewReporter(int $reporterId): ?array
+    {
+        if (! ReporterPins::ready()) {
+            return null;
+        }
+
+        $reporter = ReporterPins::findReporterById($reporterId);
+
+        if (! $reporter) {
+            return null;
+        }
+
+        $pin = ReporterPins::assign($reporterId);
+
+        return $this->reporterPinResult($reporter, $pin, ReporterPins::emailPin($reporter, $pin));
     }
 
 
@@ -14281,18 +14402,28 @@ class MaintenanceController extends Controller
             'updated_at' => now(),
         ] + $this->reporterDirectoryColumns($directoryCheck, $verified ? null : $overrideReason);
 
-        DB::transaction(function () use ($payload, $id, $review) {
-            DB::table('reporters_table')->insert($payload);
+        $reporterId = DB::transaction(function () use ($payload, $id, $review) {
+            $reporterId = DB::table('reporters_table')->insertGetId($payload, 'reporter_id');
 
             ReporterApprovals::query()
                 ->where('id', $id)
                 ->update($review);
+
+            return $reporterId;
         });
+
+        $pinResult = $this->issuePinForNewReporter((int) $reporterId);
+        $pinNote = $pinResult === null
+            ? ''
+            : ($pinResult['emailed']
+                ? ' Their reporting PIN was emailed to them.'
+                : ' Their PIN could not be emailed, so hand it to them in person.');
 
         return redirect('/maintenance/reporters/approvals')
             ->with('success', $payload['reporter_full_name'].($verified
                 ? ' was verified against the personnel directory and added to the reporters list.'
-                : ' was added to the reporters list. Your override reason was recorded.'));
+                : ' was added to the reporters list. Your override reason was recorded.').$pinNote)
+            ->with('reporter_pin_result', $pinResult);
     }
 
     public function rejectReporterApplication(Request $request, $id)
@@ -16193,9 +16324,11 @@ class MaintenanceController extends Controller
             $payload['reporter_employment_type'] = trim($request->type);
         }
 
-        DB::table('reporters_table')->insert($payload);
+        $reporterId = DB::table('reporters_table')->insertGetId($payload, 'reporter_id');
 
-        return back()->with('success', 'Reporter added successfully.');
+        return back()
+            ->with('success', 'Reporter added successfully.')
+            ->with('reporter_pin_result', $this->issuePinForNewReporter((int) $reporterId));
     }
 
     public function downloadReporterTemplate()
