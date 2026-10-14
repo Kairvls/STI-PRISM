@@ -15,7 +15,9 @@ use App\Support\EquipmentQrCodes;
 use App\Support\LayoutEquipmentPayload;
 use App\Support\PropertyAssignments;
 use App\Support\EquipmentAcquisition;
+use App\Support\RoleAccess;
 use App\Support\RoomCategories;
+use App\Support\TransferLocks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -208,7 +210,7 @@ class InfrastructureController extends Controller
             $requestedFloorId = (int) ($rooms->firstWhere('room_id', $requestedRoomId)->room_floor_id ?? 0);
         }
 
-        return view('maintenance-personnel.infrastructure.monitor', [
+        return view('admin.infrastructure.monitor', [
             'buildings' => Building::query()->orderBy('building_name')->get(),
             'floors' => $floors,
             'rooms' => $rooms,
@@ -675,7 +677,7 @@ class InfrastructureController extends Controller
 
         });
 
-        return redirect()->route('maintenance.infrastructure.index')
+        return redirect()->route('admin.infrastructure.index')
             ->with('success', 'Campus setup saved successfully.');
     }
 
@@ -1075,6 +1077,10 @@ class InfrastructureController extends Controller
 
         if ((int) $oldRoom === $destinationRoomId) {
             return;
+        }
+
+        if ($locked = TransferLocks::reason($equipment)) {
+            throw ValidationException::withMessages(['transfers' => [$locked]]);
         }
 
         $equipment->update([
@@ -1817,9 +1823,6 @@ class InfrastructureController extends Controller
 
     private function canManageCampusSetup(): bool
     {
-        $roleId = (int) optional(Auth::user())->user_role_id;
-
-        // Treat maintenance personnel as setup admins for campus wizard actions.
-        return in_array($roleId, [1, 2], true);
+        return RoleAccess::isAdmin(Auth::user());
     }
 }

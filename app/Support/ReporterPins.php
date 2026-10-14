@@ -171,15 +171,6 @@ class ReporterPins
 
         $reporter = self::findReporter($id);
 
-        if (! $reporter && ReporterApprovals::pendingByEmployeeId($id)) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'code' => 'pending',
-                'message' => 'This employee ID is still waiting for maintenance approval. You will receive your PIN by email once you are approved.',
-            ];
-        }
-
         $matches = self::hasPin($reporter)
             && preg_match('/^\d{'.self::LENGTH.'}$/', $pin)
             && Hash::check($pin, $reporter->reporter_pin_hash);
@@ -218,7 +209,7 @@ class ReporterPins
                 'ok' => false,
                 'status' => 403,
                 'code' => 'inactive',
-                'message' => 'This reporter account is inactive and cannot submit maintenance reports. Please contact the maintenance office.',
+                'message' => 'This reporter account is inactive and cannot submit maintenance reports. Please contact the system administrator.',
             ];
         }
 

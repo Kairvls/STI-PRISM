@@ -110,10 +110,10 @@
                     'active' => request()->is('admin/operations/building-layout*'),
                 ],
                 [
-                    'url' => route('maintenance.property-assignments.index'),
+                    'url' => route('admin.property-assignments.index'),
                     'label' => 'Property Assignment',
                     'icon' => 'clipboard-signature',
-                    'active' => request()->is('maintenance/property-assignments*'),
+                    'active' => request()->is('admin/property-assignments*', 'maintenance/property-assignments*'),
                 ],
                 [
                     'url' => route('admin.operations.equipment'),
@@ -122,10 +122,10 @@
                     'active' => request()->is('admin/operations/equipment*'),
                 ],
                 [
-                    'url' => route('admin.operations.borrowing'),
-                    'label' => 'Borrowed Equipment',
+                    'url' => route('admin.borrowing.index'),
+                    'label' => 'Borrowing',
                     'icon' => 'hand-helping',
-                    'active' => request()->is('admin/operations/borrowing*'),
+                    'active' => request()->is('admin/borrowing*', 'admin/operations/borrowing*'),
                 ],
                 [
                     'url' => route('admin.operations.movements'),
@@ -138,12 +138,6 @@
                     'label' => 'Equipment Schedules',
                     'icon' => 'calendar-clock',
                     'active' => request()->is('admin/operations/schedules*'),
-                ],
-                [
-                    'url' => route('maintenance.semester-inspections.index'),
-                    'label' => 'Semester Inspections',
-                    'icon' => 'clipboard-check',
-                    'active' => request()->is('maintenance/semester-inspections*', 'maintenance/replacement-suggestions*'),
                 ],
             ];
             $monitoringActive = collect($monitoringLinks)->contains('active', true);
@@ -237,6 +231,188 @@
         </div>
 
         {{-- ====================================== --}}
+        {{-- FACILITIES --}}
+        {{-- ====================================== --}}
+
+        @php
+            $facilityLinks = [
+                [
+                    'url' => route('admin.infrastructure.index'),
+                    'label' => 'Rooms Layout',
+                    'icon' => 'map',
+                    'active' => request()->is('admin/infrastructure*'),
+                ],
+                [
+                    'url' => route('admin.rooms.index'),
+                    'label' => 'Rooms',
+                    'icon' => 'door-open',
+                    'active' => request()->is('admin/rooms*'),
+                ],
+                [
+                    'url' => route('admin.departments.index'),
+                    'label' => 'Departments',
+                    'icon' => 'network',
+                    'active' => request()->is('admin/departments*'),
+                ],
+            ];
+            $facilitiesActive = collect($facilityLinks)->contains('active', true);
+        @endphp
+
+        <div class="menu-title" id="facilities-section">
+
+            FACILITIES
+
+        </div>
+
+        <div class="menu-group {{ $facilitiesActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $facilitiesActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $facilitiesActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="building-2"></i>
+                <span>Location</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if(! $facilitiesActive) hidden @endif>
+                @foreach($facilityLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        <a
+            href="{{ route('admin.equipment-all.index') }}"
+            class="menu-item {{ request()->is('admin/equipment/all*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="layers"></i>
+
+            <span>All Equipment</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.inventory.index') }}"
+            class="menu-item {{ request()->is('admin/inventory') || (request()->is('admin/inventory/*') && ! request()->is('admin/inventory/transfer-requests*', 'admin/inventory/deployed*')) ? 'active' : '' }}"
+        >
+
+            <i data-lucide="package"></i>
+
+            <span>Inventory of Equipment</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.inventory.deployed') }}"
+            class="menu-item {{ request()->is('admin/inventory/deployed*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="boxes"></i>
+
+            <span>Deployed Equipment</span>
+
+        </a>
+
+        @php
+            $pendingTransferApprovals = \App\Support\TransferRequests::pendingCount();
+        @endphp
+        <a
+            href="{{ route('admin.inventory.transfer-requests') }}"
+            class="menu-item {{ request()->is('admin/inventory/transfer-requests*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="shield-check"></i>
+
+            <span>Transfer Approvals</span>
+
+            @if ($pendingTransferApprovals > 0)
+                <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $pendingTransferApprovals }}</span>
+            @endif
+
+        </a>
+
+        @php
+            $pendingDisposalApprovals = \App\Support\DisposalRequests::pendingCount();
+        @endphp
+        <a
+            href="{{ route('admin.disposal.index') }}"
+            class="menu-item {{ request()->is('admin/disposal*') ? 'active' : '' }}"
+            @if ($pendingDisposalApprovals > 0) title="{{ $pendingDisposalApprovals }} disposal request(s) waiting for approval" @endif
+        >
+
+            <i data-lucide="trash-2"></i>
+
+            <span>Disposal</span>
+
+            @if ($pendingDisposalApprovals > 0)
+                <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $pendingDisposalApprovals }}</span>
+            @endif
+
+        </a>
+
+        <a
+            href="{{ route('admin.qr-tools.index') }}"
+            class="menu-item {{ request()->is('admin/qr-tools*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="qr-code"></i>
+
+            <span>Property Tagging</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.equipment-categories.index') }}"
+            class="menu-item {{ request()->is('admin/equipment/categories*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="tags"></i>
+
+            <span>Classification</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.suggested-issues.index') }}"
+            class="menu-item {{ request()->is('admin/equipment/suggested-issues*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="list-checks"></i>
+
+            <span>Suggested Issues</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.equipment-history.index') }}"
+            class="menu-item {{ request()->is('admin/equipment/history*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="history"></i>
+
+            <span>Equipment History</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.schedules.index') }}"
+            class="menu-item {{ request()->is('admin/schedules*', 'admin/semester-inspections*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="calendar-days"></i>
+
+            <span>Maintenance Schedule</span>
+
+        </a>
+
+        
+
+        {{-- ====================================== --}}
         {{-- PROCUREMENT --}}
         {{-- ====================================== --}}
 
@@ -304,6 +480,17 @@
             <i data-lucide="users"></i>
 
             <span>Users</span>
+
+        </a>
+
+        <a
+            href="{{ route('admin.reporters.index') }}"
+            class="menu-item {{ request()->is('admin/reporters*') ? 'active' : '' }}"
+        >
+
+            <i data-lucide="contact"></i>
+
+            <span>Equipment Reporters</span>
 
         </a>
 

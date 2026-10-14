@@ -204,7 +204,7 @@ class ReportSeverity
     }
 
     /**
-     * @param  array<int, array{equipment_id?: int|null, name?: string|null, issue?: string|null, room_id?: int|null}>  $items
+     * @param  array<int, array{equipment_id?: int|null, name?: string|null, issue?: string|null, room_id?: int|null, checks?: array}>  $items
      * @return array{level: string, urgency: string, reason: string, safety_hazard: bool}
      */
     public static function assess(array $items, ?string $description = null): array
@@ -220,6 +220,19 @@ class ReportSeverity
         $roomTypes = $roomIds->isEmpty()
             ? collect()
             : DB::table('rooms_table')->whereIn('room_id', $roomIds->all())->pluck('room_type', 'room_id');
+
+        foreach ($items as $item) {
+            $danger = IssueChecks::safetyAnswer($item['checks'] ?? []);
+            if ($danger !== null) {
+                return [
+                    'level' => self::CRITICAL,
+                    'urgency' => self::urgencyFor(self::CRITICAL),
+                    'reason' => mb_substr('Reporter answered "'.IssueChecks::answerLabel($danger['answer']).'" to "'
+                        .rtrim($danger['question'], '?').'?", which is a safety hazard.', 0, 500),
+                    'safety_hazard' => true,
+                ];
+            }
+        }
 
         $hazardWord = null;
         foreach ($items as $item) {
@@ -258,11 +271,19 @@ class ReportSeverity
                     : $name.' has no standard issue selected, so it starts at '.$level.'.',
             ];
 
+            // The reporter's quick-check answers know more than the issue name does.
+            $checks = $item['checks'] ?? [];
+            $fromAnswers = IssueChecks::levelFromAnswers($checks);
+            if ($fromAnswers !== null) {
+                $level = $fromAnswers['level'];
+                $reasons[] = $fromAnswers['reason'];
+            }
+
             // Impact can raise an item by one step at most, and never to Critical.
             $boosted = false;
             $teachingRoom = in_array(strtolower($roomType), self::TEACHING_ROOM_TYPES, true);
 
-            if ($level === self::MEDIUM && $teachingRoom && in_array($component, self::ROOM_DISPLAY_COMPONENTS, true)) {
+            if ($fromAnswers === null && $level === self::MEDIUM && $teachingRoom && in_array($component, self::ROOM_DISPLAY_COMPONENTS, true)) {
                 $level = self::HIGH;
                 $boosted = true;
                 $reasons[] = 'It is the room display in a '.strtolower($roomType).', so the whole class is affected.';
@@ -278,6 +299,11 @@ class ReportSeverity
             if (str_contains(strtolower($roomType), 'storage') && $level !== self::LOW) {
                 $level = self::lower($level);
                 $reasons[] = 'It is in a storage room, so nobody is using it right now.';
+            }
+
+            $tried = IssueChecks::triedCount($checks);
+            if ($tried > 0) {
+                $reasons[] = 'The reporter already tried '.$tried.' quick check'.($tried === 1 ? '' : 's').'.';
             }
 
             if ($best === null || self::rank($level) > self::rank($best['level'])) {

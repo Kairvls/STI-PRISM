@@ -9,7 +9,8 @@
     $days = (int) $today->diffInDays($due, false);
     $isOpen = ! in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true);
     $isSchoolAdmin = \App\Support\AdminPortal::isSchoolAdmin();
-    $canManage = ! $isSchoolAdmin && \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+    $canManage = \App\Support\SchedulePortal::canManageSemester();
+    $campaignUrl = \App\Support\SchedulePortal::semesterUrl('/'.$campaign->campaign_id);
     $conditionTone = [
         'OK' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
         'Malfunctioning' => 'bg-amber-50 text-amber-700 ring-amber-100',
@@ -54,20 +55,20 @@
 
         <div class="flex flex-wrap items-center gap-2">
             <a
-                href="{{ url($isSchoolAdmin ? '/school-admin/semester-inspections' : '/maintenance/semester-inspections') }}"
+                href="{{ \App\Support\SchedulePortal::semesterUrl() }}"
                 class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
             >
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 Back
             </a>
             @if ($canManage && $campaign->campaign_status === 'Draft')
-                <form action="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id.'/activate') }}" method="POST">
+                <form action="{{ $campaignUrl }}/activate" method="POST">
                     @csrf
                     <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white">Activate</button>
                 </form>
             @endif
             @if ($canManage && $isOpen)
-                <form action="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id.'/complete') }}" method="POST"
+                <form action="{{ $campaignUrl }}/complete" method="POST"
                     onsubmit="return confirm(@json($progress['pending'] > 0 ? 'Force-complete with '.$progress['pending'].' pending item(s)?' : 'Mark this campaign complete?'))">
                     @csrf
                     @if ($progress['pending'] > 0)
@@ -77,7 +78,7 @@
                         Complete
                     </button>
                 </form>
-                <form action="{{ url('/maintenance/semester-inspections/'.$campaign->campaign_id.'/cancel') }}" method="POST"
+                <form action="{{ $campaignUrl }}/cancel" method="POST"
                     onsubmit="return confirm('Cancel this campaign?')">
                     @csrf
                     <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800">
@@ -241,7 +242,7 @@
                                     </span>
                                 @else
                                 <a
-                                    href="{{ url('/maintenance/property-assignments/people/'.$item->custodian_id) }}"
+                                    href="{{ url(\App\Support\SchedulePortal::base().'/property-assignments/people/'.$item->custodian_id) }}"
                                     class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100 hover:bg-teal-100"
                                     title="Accountable person"
                                 >
@@ -360,7 +361,7 @@
                     </button>
                 </div>
 
-                <form :action="'/maintenance/semester-inspections/{{ $campaign->campaign_id }}/inspect/' + current.itemId" method="POST" enctype="multipart/form-data" class="space-y-4 px-6 py-5">
+                <form :action="@js($campaignUrl.'/inspect/') + current.itemId" method="POST" enctype="multipart/form-data" class="space-y-4 px-6 py-5">
                     @csrf
                     <div>
                         <label class="mb-1.5 block text-sm text-slate-600">Condition <span class="text-red-500">*</span></label>

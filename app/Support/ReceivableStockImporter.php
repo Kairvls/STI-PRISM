@@ -297,38 +297,6 @@ class ReceivableStockImporter
 
     public static function resolveReplacedEquipmentIdFromRr(int $receivingReportId): int
     {
-        if (
-            $receivingReportId < 1
-            || ! Schema::hasTable('receiving_reports_table')
-            || ! Schema::hasTable('procurement_request_items_table')
-        ) {
-            return 0;
-        }
-
-        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $receivingReportId)->first();
-        if (! $rr) {
-            return 0;
-        }
-
-        $procurementRequestId = (int) ($rr->receiving_report_procurement_request_id ?? 0);
-        if ($procurementRequestId < 1 && Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')) {
-            $risId = (int) ($rr->receiving_report_ris_id ?? 0);
-            if ($risId > 0 && Schema::hasTable('requisition_issue_slip_table')) {
-                $procurementRequestId = (int) DB::table('requisition_issue_slip_table')
-                    ->where('ris_id', $risId)
-                    ->value('ris_procurement_request_id');
-            }
-        }
-
-        if ($procurementRequestId < 1) {
-            return 0;
-        }
-
-        return (int) DB::table('procurement_request_items_table')
-            ->where('procurement_request_id', $procurementRequestId)
-            ->whereNotNull('equipment_id')
-            ->where('equipment_id', '>', 0)
-            ->orderBy('procurement_request_item_id')
-            ->value('equipment_id');
+        return ReplacementDeliveries::replacedEquipmentIdForRr($receivingReportId);
     }
 }

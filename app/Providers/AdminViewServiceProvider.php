@@ -26,6 +26,14 @@ class AdminViewServiceProvider extends ServiceProvider
 
                 // RIS work is the School Administrator's; the Administrator portal only monitors it.
                 if (! AdminPortal::canActOnRis()) {
+                    if (! AdminPortal::isSchoolAdmin()) {
+                        try {
+                            $attentionTotal = AdminAttentionSummary::overdueBorrows();
+                        } catch (\Throwable $e) {
+                            // Keep zero if the query fails.
+                        }
+                    }
+
                     $view->with(compact(
                         'adminSidebarPendingRis',
                         'adminSidebarAwaitingCosign',

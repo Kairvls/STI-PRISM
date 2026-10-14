@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use ZipArchive;
 
 class ReporterImport
@@ -14,9 +15,12 @@ class ReporterImport
         'first_name' => 'First name',
         'middle_name' => 'Middle name',
         'last_name' => 'Last name',
+        'department' => 'Department',
         'email_address' => 'Email address',
         'contact_number' => 'Contact number',
     ];
+
+    public const EMPLOYEE_ID_PATTERN = '/^OMC\d{5}[FS]$/';
 
     public static function headerAliases(): array
     {
@@ -25,9 +29,131 @@ class ReporterImport
             'first_name' => ['first_name', 'first name', 'firstname', 'given name', 'givenname'],
             'middle_name' => ['middle_name', 'middle name', 'middlename', 'mi', 'middle initial'],
             'last_name' => ['last_name', 'last name', 'lastname', 'surname', 'family name'],
-            'type' => ['type', 'employment type', 'employment', 'employee type', 'status type'],
-            'email_address' => ['email_address', 'email address', 'email', 'e-mail', 'mail'],
-            'contact_number' => ['contact_number', 'contact number', 'contact', 'phone', 'phone number', 'mobile', 'cellphone'],
+            'type' => ['type', 'employment type', 'employment', 'employee type', 'status type', 'category', 'faculty staff', 'position type'],
+            'department' => ['department', 'dept', 'office', 'department office', 'unit'],
+            'email_address' => ['email_address', 'email address', 'email', 'e mail', 'mail', 'institutional email', 'school email'],
+            'contact_number' => ['contact_number', 'contact number', 'contact', 'contact no', 'phone', 'phone number', 'mobile', 'mobile number', 'cellphone'],
+        ];
+    }
+
+    /**
+     * Checks every row of an uploaded file against the same rules as adding one reporter.
+     * Rows with an error are skipped on import; unknown departments are saved as blank.
+     *
+     * @param  array<int, array<int, string>>  $rows  first row is the header
+     * @param  array<string, mixed>  $mapping  field => column index
+     * @return array{rows: array<int, array<string, mixed>>, ready: int, skipped: int, unknown_departments: array<int, string>}
+     */
+    public static function plan(array $rows, array $mapping): array
+    {
+        $cell = function (array $row, string $field) use ($mapping): string {
+            $index = $mapping[$field] ?? '';
+
+            return ($index === '' || $index === null) ? '' : trim((string) ($row[(int) $index] ?? ''));
+        };
+
+        $departments = Departments::tableReady()
+            ? DB::table('departments_table')->get(['department_id', 'department_name'])
+                ->mapWithKeys(fn ($d) => [Str::lower(trim($d->department_name)) => (int) $d->department_id])
+                ->all()
+            : [];
+
+        $takenNumbers = [];
+        $takenEmails = [];
+        foreach (DB::table('reporters_table')->get(['reporter_employee_id', 'reporter_email_address']) as $reporter) {
+            if ($number = ReporterApprovals::employeeNumber((string) $reporter->reporter_employee_id)) {
+                $takenNumbers[$number] = true;
+            }
+            $email = strtolower(trim((string) $reporter->reporter_email_address));
+            if ($email !== '') {
+                $takenEmails[$email] = true;
+            }
+        }
+
+        $seenNumbers = [];
+        $seenEmails = [];
+        $unknownDepartments = [];
+        $planned = [];
+
+        foreach (array_slice($rows, 1) as $offset => $row) {
+            if (collect($row)->filter(fn ($value) => trim((string) $value) !== '')->isEmpty()) {
+                continue;
+            }
+
+            $line = $offset + 2;
+            $employeeId = strtoupper(preg_replace('/\s+/', '', $cell($row, 'employee_id')));
+            $first = PersonNames::clean($cell($row, 'first_name'));
+            $middle = PersonNames::clean($cell($row, 'middle_name'));
+            $last = PersonNames::clean($cell($row, 'last_name'));
+            $rawType = $cell($row, 'type');
+            $email = strtolower($cell($row, 'email_address'));
+            $contact = preg_replace('/\D+/', '', self::normalizeContact($cell($row, 'contact_number')));
+            $departmentName = $cell($row, 'department');
+            $departmentId = $departmentName !== '' ? ($departments[Str::lower($departmentName)] ?? null) : null;
+
+            $suffixType = match (substr($employeeId, -1)) {
+                'F' => 'Faculty',
+                'S' => 'Staff',
+                default => null,
+            };
+            $lowerType = Str::lower($rawType);
+            $type = match (true) {
+                $lowerType === '' => $suffixType,
+                str_starts_with($lowerType, 'fac') => 'Faculty',
+                str_starts_with($lowerType, 'staff'), str_starts_with($lowerType, 'non') => 'Staff',
+                default => null,
+            };
+            $number = ReporterApprovals::employeeNumber($employeeId);
+            $badName = collect([$first, $middle, $last])
+                ->first(fn ($value) => ! PersonNames::valid($value) || mb_strlen($value) > 100);
+
+            $error = match (true) {
+                $first === '' || $last === '' => 'First and last name are required.',
+                $badName !== null => 'Name "'.$badName.'" can only use letters, spaces, hyphens, apostrophes and periods.',
+                $employeeId === '' => 'Employee ID is missing.',
+                ! preg_match(self::EMPLOYEE_ID_PATTERN, $employeeId) => 'Employee ID "'.$employeeId.'" should look like OMC00127F or OMC00127S.',
+                $type === null => 'Type "'.$rawType.'" should be Faculty or Staff.',
+                $type !== $suffixType => 'Type is '.$type.' but '.$employeeId.' ends with '.substr($employeeId, -1).'.',
+                isset($takenNumbers[$number]) => 'Employee number '.$employeeId.' is already a reporter.',
+                isset($seenNumbers[$number]) => 'Employee number '.$employeeId.' already appears on row '.$seenNumbers[$number].'.',
+                $email === '' => 'Email address is required.',
+                ! filter_var($email, FILTER_VALIDATE_EMAIL) => '"'.$email.'" is not a valid email.',
+                isset($takenEmails[$email]) => 'Email '.$email.' is already used by another reporter.',
+                isset($seenEmails[$email]) => 'Email '.$email.' already appears on row '.$seenEmails[$email].'.',
+                $contact !== '' && strlen($contact) !== 11 => 'Contact number must have exactly 11 digits.',
+                default => null,
+            };
+
+            if ($error === null) {
+                $seenNumbers[$number] = $line;
+                $seenEmails[$email] = $line;
+                if ($departmentName !== '' && $departmentId === null) {
+                    $unknownDepartments[$departmentName] = true;
+                }
+            }
+
+            $planned[] = [
+                'line' => $line,
+                'employee_id' => $employeeId,
+                'first_name' => $first,
+                'middle_name' => $middle,
+                'last_name' => $last,
+                'type' => $type ?? $rawType,
+                'department' => $departmentName,
+                'department_id' => $departmentId,
+                'email_address' => $email,
+                'contact_number' => $contact,
+                'error' => $error,
+            ];
+        }
+
+        $skipped = collect($planned)->whereNotNull('error')->count();
+
+        return [
+            'rows' => $planned,
+            'ready' => count($planned) - $skipped,
+            'skipped' => $skipped,
+            'unknown_departments' => array_keys($unknownDepartments),
         ];
     }
 
@@ -185,26 +311,6 @@ class ReporterImport
         return max(0, $index - 1);
     }
 
-    public static function nextEmployeeIds(int $count): array
-    {
-        $existing = DB::table('reporters_table')->pluck('reporter_employee_id');
-        $max = 0;
-
-        foreach ($existing as $id) {
-            if (preg_match('/(\d+)/', (string) $id, $match)) {
-                $max = max($max, (int) $match[1]);
-            }
-        }
-
-        $ids = [];
-
-        for ($i = 1; $i <= $count; $i++) {
-            $ids[] = 'OMC'.str_pad((string) ($max + $i), 5, '0', STR_PAD_LEFT).'F';
-        }
-
-        return $ids;
-    }
-
     public static function composeFullName(string $first, string $middle, string $last): string
     {
         return trim(preg_replace('/\s+/', ' ', $first.' '.$middle.' '.$last));
@@ -234,6 +340,11 @@ class ReporterImport
     public static function hasTypeColumn(): bool
     {
         return Schema::hasColumn('reporters_table', 'reporter_employment_type');
+    }
+
+    public static function hasDepartmentColumn(): bool
+    {
+        return Schema::hasColumn('reporters_table', 'reporter_department_id');
     }
 
     public static function hasNameColumns(): bool

@@ -12,27 +12,21 @@
                 request()->is('maintenance/reports/today') => ["Today's Reports", ''],
                 request()->is('maintenance/reports*') => ['Reports', ''],
                 request()->is('maintenance/notifications*') => ['Alerts', ''],
-                request()->is('maintenance/reporters/approvals*') => ['Reporters Approval', 'Approve applications before they can report.'],
-                request()->is('maintenance/reporters*') => ['Reporters', ''],
-                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Used to verify reporter applications.'],
-                request()->is('maintenance/infrastructure*') => ['Building Layout', ''],
-                request()->is('maintenance/rooms*') => ['Rooms', ''],
-                request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', ''],
-                request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'Storage and deployed equipment.'],
-                request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') => ['Inventory', 'Equipment still in storage rooms.'],
-                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'Equipment in classrooms and labs.'],
-                request()->is('maintenance/equipment/categories*') => ['Categories', ''],
-                request()->is('maintenance/equipment/suggested-issues*') => ['Suggested Issues', 'Common issues used when filing reports.'],
-                request()->is('maintenance/equipment/transfer*') => ['Transfer', ''],
+                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Faculty and staff reporters and their report records.'],
+                request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'View storage and deployed equipment.'],
+                request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') => ['Inventory', 'Transfer storage stock to a room, person or department.'],
+                request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'View, transfer and track equipment in classrooms, labs and offices.'],
+                request()->is('maintenance/equipment/transfer-requests*') => ['Transfer Requests', 'Transfers waiting for, or decided by, the Administrator.'],
                 request()->is('maintenance/equipment/history*') => ['Equipment History', ''],
-                request()->is('maintenance/borrowing*') => ['Borrowing', ''],
                 request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
                 request()->is('maintenance/property-assignments') => ['Property Assignment', ''],
-                request()->is('maintenance/schedules*') => ['Schedules', ''],
-                request()->is('maintenance/disposal*') => ['Disposal', ''],
-                request()->is('maintenance/semester-inspections/create') => ['New Campaign', ''],
-                request()->is('maintenance/semester-inspections/*') => [View::yieldContent('title', 'Campaign'), 'Semester inspection walkthrough.'],
-                request()->is('maintenance/semester-inspections') => ['Semester Inspections', ''],
+                request()->is('maintenance/schedules/rooms*') => ['Maintenance Schedule', 'Room inspections: recurring checks of a whole room.'],
+                request()->is('maintenance/schedules/today') => ["Today's Schedules", ''],
+                request()->is('maintenance/schedules*') => ['Maintenance Schedule', 'Equipment maintenance: per-asset schedules.'],
+                request()->is('maintenance/disposal/requests*') => ['Disposal', 'Disposals waiting for, or decided by, the Administrator.'],
+                request()->is('maintenance/disposal*') => ['Disposal', 'View disposed equipment and its records.'],
+                request()->is('maintenance/semester-inspections/*') => [View::yieldContent('title', 'Campaign'), 'Maintenance Schedule · Semestral inspection walkthrough.'],
+                request()->is('maintenance/semester-inspections') => ['Maintenance Schedule', 'Semestral inspections: campus-wide equipment campaigns.'],
                 request()->is('maintenance/replacement-suggestions*') => ['Replacement Suggestions', 'Assets near or past their useful lifespan.'],
                 request()->is('maintenance/settings/profile*') => ['Profile Settings', ''],
                 request()->is('maintenance/settings/security*') => ['Security Settings', ''],
@@ -190,7 +184,7 @@
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-[11px] leading-4 text-slate-500">
-                                    Open the daily summary of urgent reports, schedules, and overdue borrows.
+                                    Open the daily summary of urgent reports and overdue schedules.
                                 </p>
                             </div>
                         </button>

@@ -830,7 +830,7 @@
                 this.saving = true;
                 this.formError = '';
                 try {
-                    const response = await fetch('/maintenance/equipment/batch-store', {
+                    const response = await fetch('/admin/inventory/batch-store', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -866,7 +866,7 @@
                         else line.units.forEach((unit) => tags.push(unit.asset_tag));
                     });
                     window.equipmentAssetTags?.register?.(tags.filter(Boolean));
-                    window.location.href = body.redirect || '/maintenance/equipment/inventory';
+                    window.location.href = body.redirect || '/admin/inventory';
                 } catch (e) {
                     this.formError = 'Unable to save this batch. Check your connection and try again.';
                     this.refreshIcons();

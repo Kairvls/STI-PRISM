@@ -88,6 +88,12 @@
                             <i data-lucide="map-pin" class="h-4 w-4"></i>
                             {{ $na($equipment->room_name) }}
                         </span>
+                        @if (! empty($equipment->equipment_department_name))
+                            <span class="inline-flex items-center gap-2">
+                                <i data-lucide="network" class="h-4 w-4"></i>
+                                {{ $equipment->equipment_department_name }}
+                            </span>
+                        @endif
                         @if ($propertyAssignment)
                             <a href="#property-assignment" class="inline-flex items-center gap-2 text-teal-700 hover:underline">
                                 <i data-lucide="user-round-check" class="h-4 w-4"></i>
@@ -195,6 +201,13 @@
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Room</p>
                             </div>
                             <p class="font-semibold text-slate-900">{{ $na($equipment->room_name) }}</p>
+                        </div>
+                        <div>
+                            <div class="mb-3 flex items-center gap-2">
+                                <i data-lucide="network" class="h-4 w-4 text-slate-400"></i>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Department</p>
+                            </div>
+                            <p class="font-semibold text-slate-900">{{ $na($equipment->equipment_department_name ?? null) }}</p>
                         </div>
                         <div>
                             <div class="mb-3 flex items-center gap-2">

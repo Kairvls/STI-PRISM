@@ -23,16 +23,22 @@ class PropertyAssignments
     ];
 
     /**
-     * Maintenance owns property assignment; an Administrator viewing it from the admin portal only monitors.
+     * The module runs under /maintenance/property-assignments and /admin/property-assignments;
+     * links stay in the portal the user is browsing.
      */
-    public static function isReadOnly(): bool
+    public static function route(string $name, mixed $parameters = []): string
     {
-        return RoleAccess::adminShell();
+        return route((self::inAdminPortal() ? 'admin.' : 'maintenance.').'property-assignments.'.$name, $parameters);
     }
 
-    public static function assertCanManage(): void
+    public static function url(string $path = ''): string
     {
-        abort_if(self::isReadOnly(), 403, 'Property assignment is managed by Maintenance. The Administrator portal is view only.');
+        return url((self::inAdminPortal() ? '/admin' : '/maintenance').'/property-assignments'.$path);
+    }
+
+    private static function inAdminPortal(): bool
+    {
+        return request()->is('admin/*');
     }
 
     public static function tableReady(): bool
@@ -350,7 +356,7 @@ class PropertyAssignments
                         'position' => $row->custodian_position,
                         'document_no' => $row->assignment_document_no,
                         'since' => $row->assignment_issued_at,
-                        'person_url' => url('/maintenance/property-assignments/people/'.$row->assignment_custodian_id),
+                        'person_url' => self::url('/people/'.$row->assignment_custodian_id),
                     ];
                 });
         }

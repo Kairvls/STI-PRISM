@@ -2,8 +2,27 @@
 
 @section ("content")
     @php
-        $canMaintain = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+        $canMaintain = request()->is('admin/*');
+        $disposedOnly = $disposedOnly ?? false;
+        $disposalUrl = url($canMaintain ? '/admin/disposal' : ($disposedOnly ? '/school-admin/disposal' : '/maintenance/disposal'));
     @endphp
+
+    @unless ($disposedOnly)
+    <div class="mb-6">
+        @include('maintenance-personnel.disposal.partials.tabs')
+    </div>
+    @endunless
+
+    @unless ($canMaintain)
+    <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <i data-lucide="eye" class="h-4 w-4 shrink-0 text-slate-400"></i>
+        @if ($disposedOnly)
+            View only. Equipment that has been permanently disposed.
+        @else
+            View only. Disposals you request from Deployed Equipment wait for the Administrator's approval under My requests.
+        @endif
+    </div>
+    @endunless
 
     @if ($canMaintain)
     <div
@@ -27,6 +46,15 @@
             : (($disposalMonthlyPercentage > 0 ? '+' : '') . number_format($disposalMonthlyPercentage, 2) . '% vs last month');
     @endphp
     <div class="mb-6 mt-6">
+        @if ($disposedOnly)
+        @include('layouts.partials.maintenance-stat-cards', [
+            'cards' => [
+                ['label' => 'Disposed Equipment', 'hint' => 'Permanently disposed', 'value' => number_format($disposedOnlyStats['total'] ?? 0)],
+                ['label' => 'Disposed This Month', 'hint' => now()->format('F Y'), 'value' => number_format($disposedOnlyStats['thisMonth'] ?? 0)],
+                ['label' => 'Purchase Value Written Off', 'hint' => 'Total purchase cost of disposed items', 'value' => '₱'.number_format($disposedOnlyStats['writtenOff'] ?? 0, 2)],
+            ],
+        ])
+        @else
         @include('layouts.partials.maintenance-stat-cards', [
             'cards' => [
                 ['label' => 'Total Disposal Records', 'hint' => $disposalMonthlyHint, 'value' => number_format($totalDisposalRecords)],
@@ -34,20 +62,10 @@
                 ['label' => 'Disposed Equipment', 'hint' => number_format($disposedEquipmentPercentage, 2) . '% of all equipment', 'value' => number_format($disposedEquipment)],
             ],
         ])
+        @endif
     </div>
 
     <div class="rounded-3xl bg-white">
-        <!--<div class="mb-6 flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-black">Disposal Records</h1>
-
-            <button
-                onclick="openDisposeModal()"
-                class="rounded-xl bg-red-600 px-5 py-3 text-white hover:bg-red-700"
-            >
-                Dispose Equipment
-            </button>
-        </div>-->
-
         {{-- ========================================================= --}}
         {{-- DISPOSAL RECORDS TABLE --}}
         {{-- ========================================================= --}}
@@ -130,7 +148,7 @@
                             type="search"
                             name="search"
                             value="{{ request('search') }}"
-                            placeholder="Search equipment, category, reason, or disposal area..."
+                            placeholder="Search equipment, asset tag, serial, category, reason, or area..."
 
                             class="h-9 w-full rounded-lg
                                 border border-slate-200
@@ -199,7 +217,7 @@
                     {{-- CONDITION FILTER --}}
                     {{-- ================================================= --}}
 
-                    <div class="relative">
+                    <div class="relative {{ $disposedOnly ? 'hidden' : '' }}">
 
                         <select
                             name="condition"
@@ -382,11 +400,12 @@
 
                     @endif
 
+                    @if ($canMaintain)
                     <div class="hidden h-6 w-px bg-slate-200 xl:block"></div>
 
                     <div class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1">
                         <a
-                            href="{{ url('/maintenance/disposal') }}?archive=0"
+                            href="{{ $disposalUrl }}?archive=0"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ empty($showArchive)
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -396,7 +415,7 @@
                             Active
                         </a>
                         <a
-                            href="{{ url('/maintenance/disposal') }}?archive=1"
+                            href="{{ $disposalUrl }}?archive=1"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ !empty($showArchive)
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -406,6 +425,7 @@
                             Archive
                         </a>
                     </div>
+                    @endif
 
                 </div>
 
@@ -419,7 +439,7 @@
 
             <div class="overflow-x-auto">
 
-                <table class="w-full min-w-[1150px] text-left">
+                <table class="w-full min-w-[1100px] text-left">
 
                     {{-- ================================================= --}}
                     {{-- TABLE HEADER --}}
@@ -437,7 +457,7 @@
                             </th>
 
                             <th class="px-5 py-3">
-                                Category
+                                Purchased
                             </th>
 
                             <th class="px-5 py-3">
@@ -521,6 +541,25 @@
 
                                 $isFinallyDisposed =
                                     $conditionStatus === 'Disposed';
+
+                                $brandModel = collect([$record->equipment_brand_name ?? null, $record->equipment_model ?? null])
+                                    ->filter(fn ($v) => filled($v))
+                                    ->implode(' · ');
+
+                                $fmtDate = fn ($v) => filled($v) ? \Carbon\Carbon::parse($v)->format('M d, Y') : '';
+
+                                $purchaseDate = $fmtDate($record->equipment_purchase_date ?? null);
+                                $acquiredDate = $fmtDate($record->equipment_acquired_date ?? null);
+
+                                $ageFrom = $record->equipment_purchase_date ?? $record->equipment_acquired_date ?? null;
+                                $ageAtDisposal = '';
+                                if (filled($ageFrom) && filled($record->disposal_disposed_at)) {
+                                    $ageAtDisposal = \Carbon\Carbon::parse($ageFrom)
+                                        ->diffForHumans(\Carbon\Carbon::parse($record->disposal_disposed_at), [
+                                            'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE,
+                                            'parts' => 2,
+                                        ]);
+                                }
                             @endphp
 
 
@@ -563,6 +602,25 @@
                                                 {{ $record->equipment_name }}
                                             </p>
 
+                                            @if ($brandModel !== '')
+                                                <p class="mt-0.5 max-w-[260px] truncate text-xs text-slate-500" data-tooltip="{{ $brandModel }}">
+                                                    {{ $brandModel }}
+                                                </p>
+                                            @endif
+
+                                            @php
+                                                $assetTag = filled($record->equipment_asset_tag ?? null) ? $record->equipment_asset_tag : '—';
+                                                $serial = filled($record->equipment_serial_number ?? null) ? $record->equipment_serial_number : '—';
+                                            @endphp
+                                            <p
+                                                class="mt-1 max-w-[260px] truncate font-mono text-[11px] text-slate-500"
+                                                data-tooltip="Asset tag: {{ $assetTag }} · Serial: {{ $serial }}"
+                                            >
+                                                <span class="font-semibold text-slate-700">{{ $assetTag }}</span>
+                                                <span class="text-slate-300">·</span>
+                                                SN: {{ $serial }}
+                                            </p>
+
 
                                             <p
                                                 class="mt-0.5 text-[11px]
@@ -584,26 +642,24 @@
 
                                 </td>
 
-
-
                                 {{-- ===================================== --}}
-                                {{-- CATEGORY --}}
+                                {{-- PURCHASED --}}
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <span
-                                        class="inline-flex rounded-md
-                                            bg-slate-100 px-2 py-1
-                                            text-[11px] font-medium
-                                            text-slate-600"
-                                    >
-                                        {{
-                                            $record->equipment_category_name
-                                                ?? "Uncategorized"
-                                        }}
-                                    </span>
-
+                                    <p class="whitespace-nowrap text-xs font-medium text-slate-700">
+                                        {{ $purchaseDate !== '' ? $purchaseDate : ($acquiredDate !== '' ? 'Acquired '.$acquiredDate : '—') }}
+                                    </p>
+                                    <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">
+                                        @if (isset($record->equipment_purchase_cost) && $record->equipment_purchase_cost !== null && $record->equipment_purchase_cost !== '')
+                                            ₱{{ number_format((float) $record->equipment_purchase_cost, 2) }}
+                                        @else
+                                            No cost recorded
+                                        @endif
+                                        @if ($ageAtDisposal !== '')
+                                            · {{ $ageAtDisposal }} old
+                                        @endif
+                                    </p>
                                 </td>
 
 
@@ -786,6 +842,31 @@
                                                 'location' => (string) ($record->disposal_area_location ?? ''),
                                                 'date' => (string) ($record->disposal_disposed_at ?? ''),
                                                 'inventoryStatus' => (string) ($record->equipment_inventory_status ?? ''),
+                                                'disposedBy' => (string) ($record->disposed_by_name ?? ''),
+                                                'assetTag' => (string) ($record->equipment_asset_tag ?? ''),
+                                                'serial' => (string) ($record->equipment_serial_number ?? ''),
+                                                'brand' => (string) ($record->equipment_brand_name ?? ''),
+                                                'model' => (string) ($record->equipment_model ?? ''),
+                                                'quantity' => (string) ($record->equipment_quantity ?? ''),
+                                                'room' => (string) ($record->room_name ?? $record->equipment_current_location ?? ''),
+                                                'department' => (string) ($record->department_name ?? ''),
+                                                'purchaseDate' => $purchaseDate,
+                                                'purchaseCost' => isset($record->equipment_purchase_cost) && $record->equipment_purchase_cost !== null && $record->equipment_purchase_cost !== ''
+                                                    ? number_format((float) $record->equipment_purchase_cost, 2, '.', '')
+                                                    : '',
+                                                'acquiredDate' => $acquiredDate,
+                                                'source' => (string) ($record->equipment_acquisition_source ?? ''),
+                                                'supplier' => (string) ($record->equipment_supplier_name ?? ''),
+                                                'reference' => (string) ($record->equipment_reference_number ?? ''),
+                                                'warranty' => $fmtDate($record->equipment_warranty_expiration ?? null),
+                                                'usefulLife' => ! empty($record->equipment_useful_life_years) ? (int) $record->equipment_useful_life_years.' years' : '',
+                                                'age' => $ageAtDisposal,
+                                                'qrCode' => (string) ($record->equipment_qr_code ?? ''),
+                                                'image' => filled($record->equipment_image ?? null) ? asset('storage/'.$record->equipment_image) : '',
+                                                'profileUrl' => ! $record->disposal_equipment_id ? '' : ($disposedOnly
+                                                    ? route('school-admin.operations.equipment.show', $record->disposal_equipment_id)
+                                                    : url('/maintenance/equipment/view/'.$record->disposal_equipment_id)),
+                                                'equipmentId' => (int) ($record->disposal_equipment_id ?? 0),
                                             ], JSON_UNESCAPED_UNICODE)) }}"
                                             class="flex h-9 w-9 items-center
                                                 justify-center rounded-xl
@@ -809,7 +890,7 @@
                                         {{-- ================================= --}}
 
                                         @if ($canMaintain && !empty($showArchive))
-                                            <form method="POST" action="/maintenance/disposal/unarchive" class="inline">
+                                            <form method="POST" action="{{ $disposalUrl }}/unarchive" class="inline">
                                                 @csrf
                                                 <input type="hidden" name="disposal_id" value="{{ (int) $record->disposal_record_id }}" />
                                                 <button
@@ -846,7 +927,7 @@
                             <tr>
 
                                 <td
-                                    colspan="7"
+                                    colspan="6"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -895,7 +976,7 @@
 
                                                     : (!empty($showArchive)
                                                         ? 'Archive is empty'
-                                                        : 'No disposal records yet')
+                                                        : ($disposedOnly ? 'No disposed equipment yet' : 'No disposal records yet'))
                                             }}
 
                                         </h3>
@@ -917,7 +998,9 @@
 
                                                     : (!empty($showArchive)
                                                         ? 'Finalized disposals you archive will appear here.'
-                                                        : 'Equipment moved to disposal will appear here with its reason, location, and disposal date.')
+                                                        : ($disposedOnly
+                                                            ? 'Equipment appears here once its disposal is finalized.'
+                                                            : 'Equipment moved to disposal will appear here with its reason, location, and disposal date.'))
                                             }}
 
                                         </p>
@@ -1057,6 +1140,7 @@
         </section>
     </div>
 
+    @if ($canMaintain)
     <!-- DISPOSE MODAL -->
 
     <div
@@ -1102,7 +1186,7 @@
         <!-- ===================================== -->
         <!-- DISPOSAL FORM -->
         <!-- ===================================== -->
-        <form action="/maintenance/disposal/store" method="POST">
+        <form action="{{ $disposalUrl }}/store" method="POST" onsubmit="return validateDisposeSelection(this)">
             @csrf
 
             <!-- ===================================== -->
@@ -1115,29 +1199,51 @@
                     <!-- EQUIPMENT -->
                     <!-- ===================================== -->
                     <div>
-                        <label
-                            for="disposeEquipment"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Equipment <span class="text-red-500">*</span>
-                        </label>
+                        <div class="mb-2 flex items-center justify-between gap-4">
+                            <label
+                                for="disposeEquipmentSearch"
+                                class="block text-sm font-medium text-slate-700"
+                            >
+                                Equipment <span class="text-red-500">*</span>
+                            </label>
+                            <span id="disposeEquipmentCount" class="text-xs font-medium text-slate-400">None selected</span>
+                        </div>
 
-                        <select
-                            id="disposeEquipment"
-                            name="equipment_id"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        <input
+                            id="disposeEquipmentSearch"
+                            type="search"
+                            placeholder="Search name, asset tag or room..."
+                            oninput="filterDisposeEquipment(this.value)"
+                            class="mb-2 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         >
-                            <option value="">
-                                Select equipment
-                            </option>
 
-                            @foreach ($equipment as $item)
-                                <option value="{{ $item->equipment_id }}">
-                                    {{ $item->equipment_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div id="disposeEquipmentList" class="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
+                            @forelse ($equipment as $item)
+                                <label
+                                    class="dispose-equipment-option flex cursor-pointer items-start gap-3 px-3.5 py-2.5 text-sm transition hover:bg-slate-50"
+                                    data-search="{{ strtolower($item->equipment_name.' '.($item->equipment_asset_tag ?? '').' '.($item->equipment_serial_number ?? '').' '.($item->equipment_room_label ?? '')) }}"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        name="equipment_ids[]"
+                                        value="{{ $item->equipment_id }}"
+                                        onchange="syncDisposeEquipmentCount()"
+                                        class="mt-0.5 h-4 w-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                                    >
+                                    <span class="min-w-0">
+                                        <span class="block truncate font-medium text-slate-900">{{ $item->equipment_name }}</span>
+                                        <span class="block truncate text-xs text-slate-500">
+                                            {{ $item->equipment_asset_tag ?: 'No asset tag' }}
+                                            · {{ $item->equipment_room_label ?: 'No room' }}
+                                            · {{ $item->equipment_inventory_status ?: '—' }}
+                                        </span>
+                                    </span>
+                                </label>
+                            @empty
+                                <p class="px-3.5 py-6 text-center text-sm text-slate-500">No equipment available to dispose.</p>
+                            @endforelse
+                            <p id="disposeEquipmentEmpty" class="hidden px-3.5 py-6 text-center text-sm text-slate-500">No equipment matches your search.</p>
+                        </div>
                     </div>
 
                     <!-- ===================================== -->
@@ -1270,6 +1376,7 @@
         </form>
     </div>
 </div>
+    @endif
 
     <!-- ===================================================== -->
     <!-- VIEW DISPOSAL MODAL -->
@@ -1282,7 +1389,7 @@
         onclick="if (event.target === this) closeViewModal()"
     >
         <div
-            class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
+            class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="viewDisposalTitle"
@@ -1331,6 +1438,14 @@
 
             {{-- Footer --}}
             <div class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+                <a
+                    id="viewDisposalProfileLink"
+                    href="#"
+                    class="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                    <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
+                    Open full profile
+                </a>
                 <button
                     type="button"
                     onclick="closeViewModal()"
@@ -1342,6 +1457,7 @@
         </div>
     </div>
 
+    @if ($canMaintain)
     <!-- ===================================================== -->
     <!-- RESTORE VALIDATION MODAL -->
     <!-- ===================================================== -->
@@ -1388,7 +1504,7 @@
                 </button>
             </div>
 
-            <form action="/maintenance/disposal/restore" method="POST">
+            <form action="{{ $disposalUrl }}/restore" method="POST">
                 @csrf
                 <input type="hidden" id="restoreDisposalId" name="disposal_id" value="" />
 
@@ -1459,7 +1575,7 @@
                 </button>
             </div>
 
-            <form action="/maintenance/disposal/confirm" method="POST">
+            <form action="{{ $disposalUrl }}/confirm" method="POST">
                 @csrf
                 <input type="hidden" id="finalizeDisposeId" name="disposal_id" value="" />
 
@@ -1514,7 +1630,7 @@
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
-            <form action="/maintenance/disposal/archive" method="POST">
+            <form action="{{ $disposalUrl }}/archive" method="POST">
                 @csrf
                 <input type="hidden" id="archiveDisposalId" name="disposal_id" />
                 <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
@@ -1535,11 +1651,48 @@
             </form>
         </div>
     </div>
+    @endif
 
     <script>
         function openDisposeModal() {
+            document.querySelectorAll('#disposeEquipmentList input[type="checkbox"]').forEach(function (box) {
+                box.checked = false;
+            });
+            var search = document.getElementById("disposeEquipmentSearch");
+            if (search) {
+                search.value = "";
+                filterDisposeEquipment("");
+            }
+            syncDisposeEquipmentCount();
             document.getElementById("disposeModal").classList.remove("hidden");
             document.getElementById("disposeModal").classList.add("flex");
+        }
+
+        function filterDisposeEquipment(term) {
+            var needle = String(term || "").trim().toLowerCase();
+            var shown = 0;
+            document.querySelectorAll(".dispose-equipment-option").forEach(function (option) {
+                var match = needle === "" || (option.dataset.search || "").indexOf(needle) !== -1;
+                option.classList.toggle("hidden", !match);
+                option.classList.toggle("flex", match);
+                if (match) shown++;
+            });
+            var empty = document.getElementById("disposeEquipmentEmpty");
+            if (empty) empty.classList.toggle("hidden", shown > 0 || document.querySelectorAll(".dispose-equipment-option").length === 0);
+        }
+
+        function syncDisposeEquipmentCount() {
+            var total = document.querySelectorAll('#disposeEquipmentList input[type="checkbox"]:checked').length;
+            var label = document.getElementById("disposeEquipmentCount");
+            if (label) label.textContent = total === 0 ? "None selected" : total + " selected";
+        }
+
+        function validateDisposeSelection(form) {
+            if (form.querySelectorAll('#disposeEquipmentList input[type="checkbox"]:checked').length > 0) {
+                return true;
+            }
+            alert("Select at least one piece of equipment to dispose.");
+            return false;
         }
 
         function closeDisposeModal() {
@@ -1638,6 +1791,70 @@
                     ? "Queued for disposal - not fully written off yet."
                     : "This asset has been recorded as disposed.";
 
+            function sectionTitle(text) {
+                return '<p class="mt-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">' + text + "</p>";
+            }
+
+            function field(label, value, options) {
+                options = options || {};
+                return (
+                    '<div class="' + (options.wide ? "sm:col-span-2 " : "") + 'min-w-0">' +
+                        '<dt class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">' + label + "</dt>" +
+                        '<dd class="mt-1 break-words text-sm font-semibold text-slate-900' + (options.mono ? " font-mono" : "") + '">' +
+                            (options.html !== undefined ? options.html : displayDisposalValue(value)) +
+                        "</dd>" +
+                    "</div>"
+                );
+            }
+
+            function peso(value) {
+                var number = Number(value);
+                return value !== "" && value != null && !isNaN(number)
+                    ? "₱" + number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : "—";
+            }
+
+            var photoHtml = data.image
+                ? '<img src="' + escapeDisposalHtml(data.image) + '" alt="" class="h-24 w-24 shrink-0 rounded-xl border border-slate-200 object-cover" />'
+                : '<div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-slate-300"><i data-lucide="image-off" class="h-6 w-6"></i></div>';
+
+            var qrHtml = data.qrCode
+                ? '<img src="' + escapeDisposalHtml(@js(url('/maintenance/equipment/qr-image')) + "/" + encodeURIComponent(data.qrCode)) + '" alt="QR" class="h-24 w-24 shrink-0 rounded-xl border border-slate-200 bg-white p-1.5" />'
+                : "";
+
+            var profileHtml =
+                sectionTitle("Equipment profile") +
+                '<div class="mt-2 flex gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">' +
+                    photoHtml +
+                    '<dl class="grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">' +
+                        field("Asset tag", data.assetTag, { mono: true }) +
+                        field("Serial number", data.serial, { mono: true }) +
+                        field("Brand", data.brand) +
+                        field("Model", data.model) +
+                    "</dl>" +
+                    qrHtml +
+                "</div>" +
+                '<dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-slate-200/80 p-4 sm:grid-cols-3">' +
+                    field("Category", data.category || "Uncategorized") +
+                    field("Quantity", data.quantity) +
+                    field("Last room", data.room) +
+                    field("Department", data.department) +
+                    field("QR code", data.qrCode, { mono: true }) +
+                "</dl>" +
+                sectionTitle("Purchase &amp; acquisition") +
+                '<dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-slate-200/80 p-4 sm:grid-cols-3">' +
+                    field("Purchase date", data.purchaseDate) +
+                    field("Purchase cost", null, { html: peso(data.purchaseCost) }) +
+                    field("Acquired date", data.acquiredDate) +
+                    field("Source", data.source) +
+                    field("Supplier", data.supplier) +
+                    field("Reference no.", data.reference, { mono: true }) +
+                    field("Warranty until", data.warranty) +
+                    field("Useful life", data.usefulLife) +
+                    field("Age at disposal", data.age) +
+                "</dl>" +
+                sectionTitle("Disposal record");
+
             detailsEl.innerHTML =
                 '<div class="flex flex-wrap items-center gap-2">' +
                     '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ' + statusClass + '">' +
@@ -1648,7 +1865,8 @@
                         "Condition · " + displayDisposalValue(conditionLabel) +
                     "</span>" +
                 "</div>" +
-                '<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">' +
+                profileHtml +
+                '<div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">' +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
                             '<i data-lucide="layers" class="h-3.5 w-3.5"></i>' +
@@ -1677,12 +1895,19 @@
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Residual value</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + (data.residual && !isNaN(Number(data.residual)) ? ("₱" + Number(data.residual).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (data.residual ? ("₱" + displayDisposalValue(data.residual)) : "—")) + "</p>" +
                     "</div>" +
-                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:col-span-2">' +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
                             '<i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>' +
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed date</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + formattedDate + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="user-round" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed by</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.disposedBy) + "</p>" +
                     "</div>" +
                 "</div>" +
                 '<div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">' +
@@ -1693,7 +1918,18 @@
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposal reason</p>' +
                     "</div>" +
                     '<p class="whitespace-pre-wrap text-sm leading-6 text-slate-700">' + displayDisposalValue(data.reason, "No reason provided.") + "</p>" +
-                "</div>";
+                "</div>" +
+                sectionTitle("Lifecycle timeline") +
+                '<div id="viewDisposalTimeline" class="mt-2 rounded-2xl border border-slate-200/80 p-4"></div>';
+
+            loadDisposalTimeline(data.equipmentId);
+
+            var profileLink = document.getElementById("viewDisposalProfileLink");
+            if (profileLink) {
+                profileLink.href = data.profileUrl || "#";
+                profileLink.classList.toggle("hidden", !data.profileUrl);
+                profileLink.classList.toggle("inline-flex", !!data.profileUrl);
+            }
 
             modalEl.classList.remove("hidden");
             modalEl.classList.add("flex");
@@ -1708,6 +1944,145 @@
             if (window.lucide) {
                 window.lucide.createIcons();
             }
+        }
+
+        var DISPOSAL_TIMELINE_VISIBLE = 5;
+        var disposalTimelineRequest = 0;
+        var disposalTimelineColors = {
+            acquisition: "bg-indigo-500",
+            created: "bg-slate-400",
+            qr: "bg-sky-500",
+            transfer: "bg-violet-500",
+            borrow: "bg-cyan-500",
+            condition: "bg-amber-500",
+            maintenance: "bg-orange-500",
+            report: "bg-rose-500",
+            disposal: "bg-rose-700",
+            assignment: "bg-teal-500",
+        };
+
+        function formatTimelineDate(value) {
+            if (!value) return "—";
+            var parsed = new Date(String(value).replace(" ", "T"));
+            if (Number.isNaN(parsed.getTime())) return escapeDisposalHtml(value);
+            return escapeDisposalHtml(parsed.toLocaleString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+            }));
+        }
+
+        function timelineEventHtml(event, isLast) {
+            var meta = event.meta || {};
+            var dot = typeof meta.dot === "string" && meta.dot.indexOf("bg-") === 0
+                ? meta.dot
+                : (disposalTimelineColors[event.type] || "bg-slate-400");
+            var actor = meta.actor || meta.transferred_by || meta.borrower || "";
+
+            return (
+                '<div class="relative flex gap-3 ' + (isLast ? "" : "pb-4") + '">' +
+                    (isLast ? "" : '<span class="absolute bottom-0 left-[6px] top-4 w-px bg-slate-200"></span>') +
+                    '<span class="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full ring-4 ring-white ' + dot + '"></span>' +
+                    '<div class="min-w-0 flex-1">' +
+                        '<div class="flex flex-wrap items-center gap-2">' +
+                            '<p class="text-sm font-semibold text-slate-900">' + displayDisposalValue(event.title, "Event") + "</p>" +
+                            '<span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">' +
+                                displayDisposalValue(event.type_label || event.type) +
+                            "</span>" +
+                        "</div>" +
+                        '<p class="mt-0.5 text-xs text-slate-400">' +
+                            formatTimelineDate(event.occurred_at) +
+                            (actor ? " · " + escapeDisposalHtml(actor) : "") +
+                        "</p>" +
+                        (event.description
+                            ? '<p class="mt-1 text-[13px] leading-5 text-slate-600">' + escapeDisposalHtml(event.description) + "</p>"
+                            : "") +
+                    "</div>" +
+                "</div>"
+            );
+        }
+
+        function renderDisposalTimeline(container, events) {
+            if (!events.length) {
+                container.innerHTML = '<p class="py-3 text-center text-sm text-slate-400">No lifecycle events recorded yet.</p>';
+                return;
+            }
+
+            var latest = events.slice(0, DISPOSAL_TIMELINE_VISIBLE);
+            var older = events.slice(DISPOSAL_TIMELINE_VISIBLE);
+
+            var html = latest.map(function (event, index) {
+                return timelineEventHtml(event, index === latest.length - 1 && !older.length);
+            }).join("");
+
+            if (older.length) {
+                html +=
+                    '<div id="viewDisposalTimelineOlder" class="hidden pt-4">' +
+                        older.map(function (event, index) {
+                            return timelineEventHtml(event, index === older.length - 1);
+                        }).join("") +
+                    "</div>" +
+                    '<button type="button" id="viewDisposalTimelineToggle" ' +
+                        'class="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900" ' +
+                        'data-count="' + older.length + '">' +
+                        '<i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>' +
+                        '<span>Show ' + older.length + ' older ' + (older.length === 1 ? "event" : "events") + "</span>" +
+                    "</button>";
+            }
+
+            container.innerHTML = html;
+
+            var toggle = document.getElementById("viewDisposalTimelineToggle");
+            var olderEl = document.getElementById("viewDisposalTimelineOlder");
+            if (toggle && olderEl) {
+                toggle.addEventListener("click", function () {
+                    var opening = olderEl.classList.contains("hidden");
+                    var count = Number(toggle.getAttribute("data-count"));
+                    olderEl.classList.toggle("hidden", !opening);
+                    toggle.innerHTML =
+                        '<i data-lucide="' + (opening ? "chevron-up" : "chevron-down") + '" class="h-3.5 w-3.5"></i>' +
+                        "<span>" + (opening ? "Hide older events" : "Show " + count + " older " + (count === 1 ? "event" : "events")) + "</span>";
+                    if (window.lucide) window.lucide.createIcons();
+                });
+            }
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function loadDisposalTimeline(equipmentId) {
+            var container = document.getElementById("viewDisposalTimeline");
+            if (!container) return;
+
+            if (!equipmentId) {
+                container.innerHTML = '<p class="py-3 text-center text-sm text-slate-400">No equipment record linked to this disposal.</p>';
+                return;
+            }
+
+            var requestId = ++disposalTimelineRequest;
+            container.innerHTML =
+                '<div class="flex items-center justify-center gap-2 py-4 text-sm text-slate-400">' +
+                    '<i data-lucide="loader-circle" class="h-4 w-4 animate-spin"></i> Loading timeline…' +
+                "</div>";
+            if (window.lucide) window.lucide.createIcons();
+
+            fetch(@js(url('/maintenance/equipment/timeline')) + "/" + encodeURIComponent(equipmentId), {
+                headers: { Accept: "application/json" },
+                credentials: "same-origin",
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error("HTTP " + response.status);
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (requestId !== disposalTimelineRequest) return;
+                    renderDisposalTimeline(container, Array.isArray(payload.events) ? payload.events : []);
+                })
+                .catch(function () {
+                    if (requestId !== disposalTimelineRequest) return;
+                    container.innerHTML = '<p class="py-3 text-center text-sm text-rose-500">Could not load the lifecycle timeline.</p>';
+                });
         }
 
         function closeViewModal() {

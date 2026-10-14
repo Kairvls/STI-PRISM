@@ -864,6 +864,200 @@
         color: #475569;
     }
 
+    #rfCheckOverlay [hidden] {
+        display: none !important;
+    }
+
+    .rf-check-kicker {
+        margin-bottom: 2px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #0025cc;
+    }
+
+    .rf-check-progress {
+        display: flex;
+        gap: 6px;
+        margin: 2px 0 16px;
+    }
+
+    .rf-check-progress span {
+        flex: 1;
+        height: 4px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        transition: background-color 0.2s ease;
+    }
+
+    .rf-check-progress span.is-done {
+        background: #0025cc;
+    }
+
+    .rf-check-progress span.is-current {
+        background: rgba(0, 37, 204, 0.35);
+    }
+
+    .rf-check-count {
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    .rf-check-question {
+        margin-top: 6px;
+        font-family: "Outfit", sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.3;
+        color: #0f172a;
+    }
+
+    .rf-check-hint {
+        margin-top: 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        border: 1px solid #eef1f6;
+        border-radius: 14px;
+        background: #f8fafc;
+        padding: 10px 12px;
+        font-size: 13px;
+        line-height: 1.45;
+        color: #475569;
+    }
+
+    .rf-check-hint svg {
+        flex-shrink: 0;
+        margin-top: 1px;
+        color: #d97706;
+    }
+
+    .rf-check-actions {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .rf-check-btn {
+        display: inline-flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 14px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 700;
+        transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .rf-check-btn:active {
+        transform: scale(0.98);
+    }
+
+    .rf-check-btn.is-primary {
+        background: #0025cc;
+        color: #fff;
+    }
+
+    .rf-check-btn.is-primary:hover {
+        background: #001db3;
+    }
+
+    .rf-check-btn.is-fixed {
+        border: 1px solid #bbf7d0;
+        background: #f0fdf4;
+        color: #15803d;
+    }
+
+    .rf-check-btn.is-fixed:hover {
+        background: #dcfce7;
+    }
+
+    .rf-check-btn.is-plain {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #0f172a;
+    }
+
+    .rf-check-btn.is-plain:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+    }
+
+    .rf-check-btn.is-danger {
+        background: #dc2626;
+        color: #fff;
+    }
+
+    .rf-check-btn.is-danger:hover {
+        background: #b91c1c;
+    }
+
+    .rf-check-foot {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    .rf-check-link {
+        flex-shrink: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #0025cc;
+    }
+
+    .rf-check-result {
+        padding: 6px 4px 2px;
+        text-align: center;
+    }
+
+    .rf-check-result-icon {
+        margin: 0 auto 12px;
+        display: flex;
+        height: 56px;
+        width: 56px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+    }
+
+    .rf-check-result.is-fixed .rf-check-result-icon {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+
+    .rf-check-result.is-danger .rf-check-result-icon {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .rf-check-result-title {
+        font-family: "Outfit", sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .rf-check-result-text {
+        margin-top: 6px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #475569;
+    }
+
+    .rf-check-result .rf-check-btn {
+        margin-top: 18px;
+        width: 100%;
+    }
+
     .rf-qr-stage {
         position: relative;
         overflow: hidden;
@@ -2136,12 +2330,15 @@
         }
 
         #reportModal .rf-details-block {
-            flex: 1 1 auto;
+            flex: 1 0 auto;
             min-height: 140px;
             display: flex;
             flex-direction: column;
-            padding-bottom: 32px;
             box-sizing: border-box;
+        }
+
+        #reportModal .rf-add-block {
+            padding-bottom: 32px;
         }
 
         #reportModal .rf-details-field {
@@ -2232,6 +2429,49 @@
             background: transparent !important;
             padding-top: 0 !important;
         }
+    }
+
+    #reportModal .rf-add-equip-btn {
+        width: 100%;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1.5px solid #c7d2fe;
+        border-radius: 16px;
+        background: #eef2ff;
+        color: #0025cc;
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+    }
+
+    #reportModal .rf-add-equip-btn:hover {
+        background: #e0e7ff;
+        border-color: #0025cc;
+    }
+
+    #reportModal .rf-add-equip-btn:active {
+        transform: scale(0.99);
+    }
+
+    /* Still clickable so the reporter is told what's missing. */
+    #reportModal .rf-add-equip-btn.is-waiting {
+        opacity: 0.45;
+    }
+
+    #reportModal .rf-add-equip-btn.hidden {
+        display: none !important;
+    }
+
+    #reportModal .rf-add-hint {
+        margin: 8px 0 0;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
     }
 
     @media (max-width: 767px) {
@@ -2466,78 +2706,6 @@
         #reportModal .rf-loc-equip-card #equipmentManualInput {
             color: #0f172a !important;
             font-weight: 600 !important;
-        }
-
-        #reportModal .rf-loc-equip-actions {
-            display: flex !important;
-            align-items: stretch;
-            gap: 10px;
-            margin-bottom: 12px !important;
-        }
-
-        #reportModal .rf-unlisted-toggle {
-            flex: 1 1 auto;
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            min-height: 48px;
-            padding: 0 14px;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            background: #fff;
-            color: #0f172a;
-            font-size: 12px !important;
-            font-weight: 700;
-            text-align: left;
-            cursor: pointer;
-        }
-
-        #reportModal .rf-unlisted-switch {
-            position: relative;
-            width: 40px;
-            height: 24px;
-            flex-shrink: 0;
-            border-radius: 999px;
-            background: #e5e7eb;
-            transition: background 0.15s ease;
-        }
-
-        #reportModal .rf-unlisted-switch::after {
-            content: "";
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 18px;
-            height: 18px;
-            border-radius: 999px;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
-            transition: transform 0.15s ease;
-        }
-
-        #reportModal .rf-unlisted-toggle.is-on .rf-unlisted-switch {
-            background: #0025cc;
-        }
-
-        #reportModal .rf-unlisted-toggle.is-on .rf-unlisted-switch::after {
-            transform: translateX(16px);
-        }
-
-        #reportModal .rf-add-equip-btn {
-            flex: 0 0 auto !important;
-            min-width: 88px !important;
-            width: auto !important;
-            min-height: 48px;
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            white-space: nowrap;
-        }
-
-        #reportModal .rf-add-equip-btn.hidden {
-            display: none !important;
         }
 
         #reportModal .rf-equip-instruction {
@@ -2780,23 +2948,6 @@
             display: none !important;
         }
 
-        #reportModal .rf-loc-equip-actions {
-            display: none !important;
-        }
-
-        #reportModal .rf-unlisted-toggle {
-            display: none !important;
-        }
-
-        #reportModal .rf-unlisted-link {
-            font-size: 11px;
-            font-weight: 700;
-            color: #0037c7;
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-
         #reportModal #selectedEquipmentList,
         #reportModal #selectedEquipmentInputs,
         #reportModal .rf-equip-instruction,
@@ -2809,10 +2960,6 @@
             background: transparent;
             font-size: 11px !important;
             color: #94a3b8 !important;
-        }
-
-        #reportModal .rf-add-equip-btn {
-            min-width: 72px;
         }
 
         #reportModal .rf-details-head {
@@ -3383,27 +3530,53 @@
         cursor: wait;
     }
 
-    .rf-verified-row {
+    .rf-reporter-card {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 10px;
-        margin-top: 8px;
-        font-size: 0.78rem;
+        width: 100%;
+        padding: 10px 6px 10px 12px;
+        border-radius: 12px;
+        background: #f3f6ff;
     }
 
-    .rf-verified-tag {
+    .rf-reporter-card-icon {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        color: #15803d;
-        font-weight: 700;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: #ecfdf5;
+        color: #059669;
     }
 
-    #reportModal .rf-employee-id-input.rf-input[readonly] {
-        background: #f8f9fd;
+    .rf-reporter-card-name {
+        margin: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.3;
         color: #1a1a2e;
-        cursor: default;
+    }
+
+    .rf-reporter-card-sub {
+        margin: 2px 0 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 12px;
+        font-weight: 500;
+        color: #6b7280;
+    }
+
+    .rf-reporter-card-switch {
+        flex-shrink: 0;
+        padding: 4px 6px;
+        font-size: 12.5px;
     }
 
     @media (max-width: 767px) {
@@ -3493,7 +3666,7 @@
                 <i data-lucide="arrow-right" class="h-4 w-4"></i>
             </button>
 
-            <p class="rf-gate-note">No PIN yet? Check your email or ask the maintenance office.</p>
+            <p class="rf-gate-note">No PIN yet? Check your email or ask the system administrator.</p>
         </form>
 
         {{-- FORGOT PIN --}}
@@ -3525,7 +3698,7 @@
                 <button type="button" class="rf-gate-link" id="forgotBackLink">Back to verify</button>
             </div>
 
-            <p class="rf-gate-note">No email on file? Ask the maintenance office to reset your PIN.</p>
+            <p class="rf-gate-note">No email on file? Ask the system administrator to reset your PIN.</p>
         </form>
     </div>
 </div>
@@ -3612,8 +3785,6 @@
                                     margin-top: 3px;
                                 "
                             >
-                                Report room, facility, or equipment concerns.
-                                <span class="rf-tour-sep" aria-hidden="true">·</span>
                                 <button type="button" class="rf-tour-link" data-report-tour-start>
                                     <i data-lucide="circle-help" class="h-3.5 w-3.5"></i>
                                     How to report
@@ -3641,41 +3812,28 @@
                         </button>
                     </div>
 
-                    {{-- EMPLOYEE ID --}}
+                    {{-- VERIFIED REPORTER: one row, same as the mobile app --}}
+                    @php
+                        $cardEmployeeId = $pinReporter->reporter_employee_id ?? '';
+                        $cardName = trim((string) ($pinReporter->reporter_full_name ?? ''));
+                    @endphp
                     <div class="mb-5">
-                        <label class="rf-label rf-mobile-section-title" for="employeeIdInput">Employee ID <span class="text-red-500">*</span></label>
+                        <input
+                            type="hidden"
+                            id="employeeIdInput"
+                            name="report_reporter_employee_id"
+                            value="{{ $cardEmployeeId }}"
+                        />
 
-                        <div class="rf-employee-id-wrap">
-                            <span class="rf-employee-id-icon" aria-hidden="true">
-                                {{-- Material Icons filled: face_retouching_natural (PRISM mobile) --}}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" focusable="false">
-                                    <circle cx="9" cy="13" r="1.25"/>
-                                    <path d="m20.77 8.58-.92 2.01c.09.46.15.93.15 1.41 0 4.41-3.59 8-8 8s-8-3.59-8-8c0-.05.01-.1 0-.14 2.6-.98 4.69-2.99 5.74-5.55A10 10 0 0 0 17.5 10c.45 0 .89-.04 1.33-.1l-.6-1.32-.88-1.93-1.93-.88-2.79-1.27 2.79-1.27.71-.32A9.86 9.86 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-1.47-.33-2.87-.9-4.13l-.33.71z"/>
-                                    <circle cx="15" cy="13" r="1.25"/>
-                                    <path d="M20.6 5.6 19.5 8l-1.1-2.4L16 4.5l2.4-1.1L19.5 1l1.1 2.4L23 4.5z"/>
-                                </svg>
+                        <div id="rfReporterCard" class="rf-reporter-card" data-employee-id="{{ $cardEmployeeId }}" data-name="{{ $cardName }}">
+                            <span class="rf-reporter-card-icon" aria-hidden="true">
+                                <i data-lucide="shield-check" class="h-5 w-5"></i>
                             </span>
-                            <input
-                                type="text"
-                                id="employeeIdInput"
-                                name="report_reporter_employee_id"
-                                value="{{ $pinReporter->reporter_employee_id ?? '' }}"
-                                placeholder="EMPLOYEE ID"
-                                class="rf-input details-textarea rf-employee-id-input"
-                                autocomplete="off"
-                                autocapitalize="characters"
-                                spellcheck="false"
-                                readonly
-                                required
-                            />
-                        </div>
-
-                        <div class="rf-verified-row">
-                            <span class="rf-verified-tag">
-                                <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
-                                Verified with PIN
-                            </span>
-                            <button type="button" class="rf-gate-link" id="reporterSwitchBtn">Not you? Switch reporter</button>
+                            <div class="min-w-0 flex-1">
+                                <p id="rfReporterCardName" class="rf-reporter-card-name">{{ $cardName !== '' ? $cardName : $cardEmployeeId }}</p>
+                                <p id="rfReporterCardSub" class="rf-reporter-card-sub">{{ $cardName !== '' ? $cardEmployeeId.' · ' : '' }}Verified with PIN</p>
+                            </div>
+                            <button type="button" class="rf-gate-link rf-reporter-card-switch" id="reporterSwitchBtn">Switch</button>
                         </div>
 
                         {{-- EMPLOYEE ERROR --}}
@@ -3692,30 +3850,8 @@
                     </div>
 
                     {{-- REPORTER INFO BOX --}}
-                    <div id="reporterInfoBox" class="reporter-box mb-5 hidden">
-                        <p
-                            style="
-                                font-size: 11px;
-                                color: #2947f0;
-                                text-transform: uppercase;
-                                letter-spacing: 0.08em;
-                                margin-bottom: 6px;
-                            "
-                        >Reporter Verified</p>
-
-                        <p
-                            id="reporterName"
-                            style="
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                                font-family: &quot;Outfit&quot;, sans-serif;
-                                color: #3c3c3f;
-                                font-size: 1rem;
-                            "
-                        ></p>
-
-                        <div id="assignedEquipmentBox" class="mt-3 hidden border-t border-slate-200/70 pt-3">
+                    <div id="reporterInfoBox" class="hidden">
+                        <div id="assignedEquipmentBox" class="mb-5 hidden rounded-xl bg-[#f3f6ff] px-3 py-3">
                             <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                                 Equipment assigned to you
                                 <span class="normal-case tracking-normal font-normal text-slate-400">· tap one to report it</span>
@@ -3758,7 +3894,7 @@
                                 </p>
 
                                 <p class="mt-2 text-xs text-red-500">
-                                    Please contact the maintenance office if you
+                                    Please contact the system administrator if you
                                     believe this is a mistake.
                                 </p>
 
@@ -3866,13 +4002,6 @@
                             <div class="rf-equip-block min-w-0">
                                 <div class="mb-2 hidden items-center justify-between md:flex">
                                     <label class="rf-label" style="margin-bottom: 0">Equipment <span class="text-red-500">*</span></label>
-                                    <button
-                                        type="button"
-                                        id="toggleEquipmentInputDesktop"
-                                        class="rf-unlisted-link"
-                                    >
-                                        Equipment not listed?
-                                    </button>
                                 </div>
 
                                 <div class="rf-equip-field-row flex items-stretch gap-2">
@@ -3922,38 +4051,8 @@
                                             </div>
                                         </div>
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        id="addEquipmentBtn"
-                                        class="rf-add-equip-btn shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                        style="height: 48px; min-width: 72px"
-                                    >
-                                        <span class="rf-add-equip-label">Add</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        id="addManualEquipmentBtn"
-                                        class="rf-add-equip-btn hidden shrink-0 rounded-2xl bg-[#0025cc] px-4 text-xs font-bold text-white transition hover:bg-[#001fad]"
-                                        style="height: 48px; min-width: 72px"
-                                    >
-                                        <span class="rf-add-equip-label">Add</span>
-                                    </button>
                                 </div>
                             </div>
-                        </div>
-
-                        {{-- Mobile: Equipment not listed toggle --}}
-                        <div class="rf-loc-equip-actions mb-3 flex items-stretch gap-2 md:hidden">
-                            <button
-                                type="button"
-                                id="toggleEquipmentInput"
-                                class="rf-unlisted-toggle"
-                                aria-pressed="false"
-                            >
-                                <span>Equipment not listed</span>
-                                <span class="rf-unlisted-switch" aria-hidden="true"></span>
-                            </button>
                         </div>
 
                         <div
@@ -3961,8 +4060,6 @@
                             class="mb-3 flex flex-col gap-2"
                         ></div>
                         <div id="selectedEquipmentInputs"></div>
-
-                        <p id="equipmentError" class="mt-1 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
                     </div>
 
                     {{-- SUGGESTED ISSUES --}}
@@ -4123,6 +4220,32 @@
                             "
                         >Please select a suggested issue or provide additional details.</p>
                     </div>
+
+                    {{-- ADD TO REPORT: last step for each item, after its issue and details --}}
+                    <div class="rf-add-block mt-4">
+                        <p id="equipmentError" class="mb-2 hidden text-[14px] text-red-500">Please add at least one equipment.</p>
+
+                        <button
+                            type="button"
+                            id="addEquipmentBtn"
+                            class="rf-add-equip-btn is-waiting"
+                            aria-disabled="true"
+                        >
+                            <i data-lucide="plus" class="h-4 w-4" aria-hidden="true"></i>
+                            <span class="rf-add-equip-label">Add to report</span>
+                        </button>
+                        <button
+                            type="button"
+                            id="addManualEquipmentBtn"
+                            class="rf-add-equip-btn is-waiting hidden"
+                            aria-disabled="true"
+                        >
+                            <i data-lucide="plus" class="h-4 w-4" aria-hidden="true"></i>
+                            <span class="rf-add-equip-label">Add to report</span>
+                        </button>
+
+                        <p id="rfAddHint" class="rf-add-hint">Pick the equipment first.</p>
+                    </div>
                 </div>
                 {{-- This is the single, correct closing tag for the LEFT PANEL grid column --}}
 
@@ -4189,7 +4312,7 @@
                             <span id="rfAsideEquipmentCount" class="rf-aside-eq-count">0</span>
                         </div>
                         <p id="rfAsideEquipmentEmpty" class="rf-aside-eq-empty">
-                            No equipment added yet. Pick a location and equipment, then tap <strong>Add</strong>.
+                            No equipment added yet. Pick a location, equipment, and issue, then tap <strong>Add to report</strong>.
                         </p>
                         <div id="rfAsideEquipmentSlot"></div>
                     </div>
@@ -4305,6 +4428,51 @@
     <div class="rf-dropdown-list" id="rfDropdownList"></div>
 </div>
 <div id="rfOptionTip" class="rf-option-tip" hidden></div>
+
+{{-- QUICK CHECKS (after picking a suggested issue, before the item is added) --}}
+<div id="rfCheckOverlay" class="rf-qr-overlay" hidden>
+    <div class="rf-qr-sheet" role="dialog" aria-modal="true" aria-labelledby="rfCheckTitle">
+        <div class="rf-qr-head">
+            <div class="min-w-0">
+                <p class="rf-check-kicker">Quick checks</p>
+                <p class="rf-qr-title" id="rfCheckTitle">Let's try a few things first</p>
+                <p class="rf-qr-sub" id="rfCheckSub"></p>
+            </div>
+            <button type="button" class="rf-qr-close" id="rfCheckClose" aria-label="Cancel quick checks">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+        <div id="rfCheckStep">
+            <div class="rf-check-progress" id="rfCheckProgress" aria-hidden="true"></div>
+            <p class="rf-check-count" id="rfCheckCount"></p>
+            <p class="rf-check-question" id="rfCheckQuestion"></p>
+            <p class="rf-check-hint" id="rfCheckHint" hidden>
+                <i data-lucide="lightbulb" class="h-4 w-4"></i>
+                <span id="rfCheckHintText"></span>
+            </p>
+            <div class="rf-check-actions" id="rfCheckActions"></div>
+            <div class="rf-check-foot">
+                <button type="button" class="rf-check-link" id="rfCheckBack">Back</button>
+                <span>If one fixes it, you won't need to report.</span>
+            </div>
+        </div>
+
+        <div class="rf-check-result is-fixed" id="rfCheckFixed" hidden>
+            <div class="rf-check-result-icon"><i data-lucide="check" class="h-7 w-7"></i></div>
+            <p class="rf-check-result-title">Great, it works now</p>
+            <p class="rf-check-result-text">No report needed for this equipment. Thanks for checking first.</p>
+            <button type="button" class="rf-check-btn is-primary" id="rfCheckFixedDone">Done</button>
+        </div>
+
+        <div class="rf-check-result is-danger" id="rfCheckDanger" hidden>
+            <div class="rf-check-result-icon"><i data-lucide="triangle-alert" class="h-7 w-7"></i></div>
+            <p class="rf-check-result-title">Report this right away</p>
+            <p class="rf-check-result-text" id="rfCheckDangerText"></p>
+            <button type="button" class="rf-check-btn is-danger" id="rfCheckDangerAdd">Add to report</button>
+        </div>
+    </div>
+</div>
 
 {{-- QR SCANNER SHEET (reporter scan-to-fill) --}}
 <div id="rfQrOverlay" class="rf-qr-overlay" hidden>
@@ -5148,29 +5316,6 @@ toggleRoomBtn.addEventListener('click', function () {
         "selectedEquipmentInputs",
     );
 
-    // Phones show the Add buttons beside the "Equipment not listed" toggle instead of inside the equipment card.
-    (function placeEquipmentAddButtons() {
-        const fieldRow = document.querySelector("#reportModal .rf-equip-field-row");
-        const mobileActions = document.querySelector("#reportModal .rf-loc-equip-actions");
-        if (!fieldRow || !mobileActions || !window.matchMedia) return;
-
-        const mobileQuery = window.matchMedia("(max-width: 767px)");
-        const buttons = [addEquipmentBtn, addManualEquipmentBtn].filter(Boolean);
-        const place = () => {
-            const target = mobileQuery.matches ? mobileActions : fieldRow;
-            buttons.forEach((btn) => {
-                if (btn.parentElement !== target) target.appendChild(btn);
-            });
-        };
-
-        place();
-        if (mobileQuery.addEventListener) {
-            mobileQuery.addEventListener("change", place);
-        } else if (mobileQuery.addListener) {
-            mobileQuery.addListener(place);
-        }
-    })();
-
     // Desktop shows the added equipment in the right column; smaller screens keep it under the picker.
     (function placeSelectedEquipmentList() {
         const asideSlot = document.getElementById("rfAsideEquipmentSlot");
@@ -5215,6 +5360,37 @@ toggleRoomBtn.addEventListener('click', function () {
     let equipmentManualMode = false;
     let lastSelectedEquipment = "";
 
+    // "Add to report" looks ready once the item has equipment plus an issue or details.
+    function syncAddButtonState() {
+        const picked = equipmentManualMode
+            ? !!(equipmentManualInput && equipmentManualInput.value.trim())
+            : !!(equipmentSelect && equipmentSelect.value);
+        const described = !!getSelectedSuggestedIssue() || !!getAdditionalDetails();
+        const ready = picked && described;
+
+        [addEquipmentBtn, addManualEquipmentBtn].forEach(function (btn) {
+            if (!btn) return;
+            btn.classList.toggle("is-waiting", !ready);
+            btn.setAttribute("aria-disabled", ready ? "false" : "true");
+        });
+
+        const hint = document.getElementById("rfAddHint");
+        if (hint) {
+            hint.textContent = picked
+                ? "Pick a suggested issue or describe the problem."
+                : "Pick the equipment first.";
+            hint.classList.toggle("hidden", ready);
+        }
+    }
+
+    ["input", "change", "click"].forEach(function (type) {
+        document.addEventListener(type, function (event) {
+            if (event.target.closest && event.target.closest("#reportModal")) {
+                setTimeout(syncAddButtonState, 0);
+            }
+        });
+    });
+
     /** @type {Array<{type: 'id'|'manual', id?: string, name: string, issue: string, details?: string, roomId?: string, roomLabel?: string, openReportTicket?: string}>} */
     let selectedEquipmentItems = [];
 
@@ -5240,6 +5416,7 @@ toggleRoomBtn.addEventListener('click', function () {
         if (addManualEquipmentBtn) {
             addManualEquipmentBtn.classList.toggle("hidden", !equipmentManualMode);
         }
+        syncAddButtonState();
         if (toggleEquipmentBtn) {
             toggleEquipmentBtn.classList.toggle("is-on", equipmentManualMode);
             toggleEquipmentBtn.setAttribute(
@@ -5566,6 +5743,13 @@ toggleRoomBtn.addEventListener('click', function () {
                 detailsNote.setAttribute("title", item.details);
                 row.querySelector("[data-eq-issue]").after(detailsNote);
             }
+            const triedChecks = (item.checks || []).filter((entry) => entry.answer === "not_fixed").length;
+            if (triedChecks > 0) {
+                const checksNote = document.createElement("p");
+                checksNote.className = "mt-0.5 truncate text-[11px] text-slate-500";
+                checksNote.textContent = "Tried " + triedChecks + " quick check" + (triedChecks === 1 ? "" : "s") + " first";
+                row.querySelector(".min-w-0").appendChild(checksNote);
+            }
             if (multiRoom && item.roomLabel) {
                 const roomNote = document.createElement("p");
                 roomNote.className = "mt-0.5 truncate text-[11px] text-slate-400";
@@ -5603,6 +5787,12 @@ toggleRoomBtn.addEventListener('click', function () {
                 detailsInput.name = "report_equipment_details[]";
                 detailsInput.value = item.details || "";
                 selectedEquipmentInputs.appendChild(detailsInput);
+
+                const checksInput = document.createElement("input");
+                checksInput.type = "hidden";
+                checksInput.name = "report_equipment_checks[]";
+                checksInput.value = item.checks && item.checks.length ? JSON.stringify(item.checks) : "";
+                selectedEquipmentInputs.appendChild(checksInput);
             } else {
                 const nameInput = document.createElement("input");
                 nameInput.type = "hidden";
@@ -5669,7 +5859,187 @@ toggleRoomBtn.addEventListener('click', function () {
         syncAsideEquipmentSummary();
     }
 
-    function addListedEquipment() {
+    async function fetchIssueChecks(equipmentId, issue) {
+        try {
+            const response = await fetch(
+                `/get-issue-checks/${encodeURIComponent(equipmentId)}?issue=${encodeURIComponent(issue)}`,
+                { headers: { Accept: "application/json" }, credentials: "same-origin" },
+            );
+            if (!response.ok) return [];
+            const data = await response.json();
+            return Array.isArray(data.checks) ? data.checks : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    /**
+     * Walks the reporter through an issue's quick checks.
+     * Resolves { status: "done" | "fixed" | "cancelled", answers: [{ id, answer }] }.
+     */
+    const reportQuickChecks = (function () {
+        const overlay = document.getElementById("rfCheckOverlay");
+        if (!overlay) return null;
+
+        const els = {
+            sub: document.getElementById("rfCheckSub"),
+            step: document.getElementById("rfCheckStep"),
+            progress: document.getElementById("rfCheckProgress"),
+            count: document.getElementById("rfCheckCount"),
+            question: document.getElementById("rfCheckQuestion"),
+            hint: document.getElementById("rfCheckHint"),
+            hintText: document.getElementById("rfCheckHintText"),
+            actions: document.getElementById("rfCheckActions"),
+            back: document.getElementById("rfCheckBack"),
+            fixed: document.getElementById("rfCheckFixed"),
+            danger: document.getElementById("rfCheckDanger"),
+            dangerText: document.getElementById("rfCheckDangerText"),
+        };
+        let state = null;
+
+        function csrfToken() {
+            return document.querySelector('#reportForm input[name="_token"]')?.value || "";
+        }
+
+        function showPanel(panel) {
+            els.step.hidden = panel !== "step";
+            els.fixed.hidden = panel !== "fixed";
+            els.danger.hidden = panel !== "danger";
+        }
+
+        function render() {
+            const check = state.checks[state.index];
+            showPanel("step");
+
+            els.progress.innerHTML = state.checks
+                .map((_, i) => `<span class="${i < state.index ? "is-done" : i === state.index ? "is-current" : ""}"></span>`)
+                .join("");
+            els.count.textContent = `Step ${state.index + 1} of ${state.checks.length}`;
+            els.question.textContent = check.question;
+            els.hint.hidden = !check.hint;
+            els.hintText.textContent = check.hint || "";
+            els.back.style.visibility = state.index === 0 ? "hidden" : "";
+
+            const buttons = check.kind === "question"
+                ? [["Yes", "yes", "is-plain"], ["No", "no", "is-plain"]]
+                : [["That fixed it", "fixed", "is-fixed"], ["Still not working", "not_fixed", "is-primary"]];
+
+            els.actions.innerHTML = "";
+            buttons.forEach(([label, answer, tone]) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "rf-check-btn " + tone;
+                button.textContent = label;
+                button.addEventListener("click", () => answer_(answer));
+                els.actions.appendChild(button);
+            });
+            els.actions.querySelector("button:last-child")?.focus({ preventScroll: true });
+        }
+
+        function answer_(answer) {
+            const check = state.checks[state.index];
+            state.answers[state.index] = { id: check.id, answer: answer };
+
+            if (answer === "fixed") {
+                fetch("/reporter/self-fixed", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": csrfToken(),
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ equipment_id: state.equipmentId, check_id: check.id }),
+                }).catch(() => {});
+                showPanel("fixed");
+                document.getElementById("rfCheckFixedDone").focus({ preventScroll: true });
+                return;
+            }
+
+            if (check.safety && answer === "yes") {
+                els.dangerText.textContent = (check.hint ? check.hint + " " : "")
+                    + "Maintenance will get this report as Critical.";
+                showPanel("danger");
+                document.getElementById("rfCheckDangerAdd").focus({ preventScroll: true });
+                return;
+            }
+
+            if (state.index + 1 < state.checks.length) {
+                state.index += 1;
+                render();
+                return;
+            }
+
+            finish("done");
+        }
+
+        function finish(status) {
+            if (!state) return;
+            const answers = state.answers.slice(0, state.index + 1).filter(Boolean);
+            const resolve = state.resolve;
+            state = null;
+            overlay.hidden = true;
+            document.removeEventListener("keydown", onKeydown, true);
+            resolve({ status: status, answers: status === "cancelled" ? [] : answers });
+        }
+
+        function onKeydown(e) {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                finish("cancelled");
+            }
+        }
+
+        document.getElementById("rfCheckClose").addEventListener("click", () => finish("cancelled"));
+        document.getElementById("rfCheckFixedDone").addEventListener("click", () => finish("fixed"));
+        document.getElementById("rfCheckDangerAdd").addEventListener("click", () => finish("done"));
+        els.back.addEventListener("click", () => {
+            if (!state || state.index === 0) return;
+            state.index -= 1;
+            render();
+        });
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) finish("cancelled");
+        });
+
+        return {
+            open(context) {
+                return new Promise((resolve) => {
+                    state = {
+                        equipmentId: context.equipmentId,
+                        checks: context.checks,
+                        index: 0,
+                        answers: [],
+                        resolve: resolve,
+                    };
+                    els.sub.textContent = context.name + " · " + context.issue;
+                    overlay.hidden = false;
+                    document.addEventListener("keydown", onKeydown, true);
+                    if (window.lucide) window.lucide.createIcons();
+                    render();
+                });
+            },
+        };
+    })();
+
+    function resetListedEquipmentPicker() {
+        clearProblemDescription();
+        renderSelectedEquipment();
+        rebuildEquipmentSelect();
+        lastSelectedEquipment = "";
+        equipmentSelect.value = "";
+        syncEquipmentSelectTrigger();
+        clearSuggestedIssue();
+        showIssuePlaceholder();
+        syncAddButtonState();
+    }
+
+    let addingListedEquipment = false;
+
+    async function addListedEquipment() {
+        if (addingListedEquipment) return;
+
         const equipmentId = equipmentSelect.value;
         const option = equipmentSelect.options[equipmentSelect.selectedIndex];
         const equipmentName = option ? option.textContent.trim() : "";
@@ -5693,7 +6063,7 @@ toggleRoomBtn.addEventListener('click', function () {
         if (!equipmentId) {
             const err = document.getElementById("equipmentError");
             err.classList.remove("hidden");
-            err.innerText = "Please select equipment, then a suggested issue or additional details, then Add.";
+            err.innerText = "Please select equipment, then a suggested issue or additional details, then Add to report.";
             setSelectTriggerBorder(equipmentSelect, "#dc2626");
             return;
         }
@@ -5721,26 +6091,45 @@ toggleRoomBtn.addEventListener('click', function () {
             return String(equipment.equipment_id || "") === String(equipmentId);
         });
         const openReportTicket = equipmentFromCache?.open_report_ticket_code || "";
+        const itemName = equipmentName || `Equipment #${equipmentId}`;
+
+        let checkAnswers = [];
+        if (selectedIssue && reportQuickChecks) {
+            addingListedEquipment = true;
+            try {
+                const checks = await fetchIssueChecks(equipmentId, selectedIssue);
+                if (checks.length) {
+                    const outcome = await reportQuickChecks.open({
+                        equipmentId: equipmentId,
+                        name: itemName,
+                        issue: selectedIssue,
+                        checks: checks,
+                    });
+                    if (outcome.status === "cancelled") return;
+                    if (outcome.status === "fixed") {
+                        resetListedEquipmentPicker();
+                        return;
+                    }
+                    checkAnswers = outcome.answers;
+                }
+            } finally {
+                addingListedEquipment = false;
+            }
+        }
 
         selectedEquipmentItems.push({
             type: "id",
             id: String(equipmentId),
-            name: equipmentName || `Equipment #${equipmentId}`,
+            name: itemName,
             issue: selectedIssue,
             details: details,
+            checks: checkAnswers,
             openReportTicket: openReportTicket,
             roomId: roomMeta.roomId,
             roomLabel: roomMeta.roomLabel,
         });
 
-        clearProblemDescription();
-        renderSelectedEquipment();
-        rebuildEquipmentSelect();
-        lastSelectedEquipment = "";
-        equipmentSelect.value = "";
-        syncEquipmentSelectTrigger();
-        clearSuggestedIssue();
-        showIssuePlaceholder();
+        resetListedEquipmentPicker();
     }
 
     function addManualEquipment() {
@@ -5806,6 +6195,7 @@ toggleRoomBtn.addEventListener('click', function () {
         syncDetailsAvailability();
         clearSuggestedIssue();
         loadGenericSuggestions();
+        syncAddButtonState();
     }
 
     if (addEquipmentBtn) {
@@ -6140,7 +6530,9 @@ toggleRoomBtn.addEventListener('click', function () {
 
         equipmentManualInput.disabled = locked;
 
-        toggleEquipmentBtn.disabled = locked;
+        if (toggleEquipmentBtn) {
+            toggleEquipmentBtn.disabled = locked;
+        }
         if (toggleEquipmentBtnDesktop) {
             toggleEquipmentBtnDesktop.disabled = locked;
         }
@@ -6914,6 +7306,19 @@ toggleRoomBtn.addEventListener('click', function () {
             document.getElementById("submitReportBtn");
 
 
+        function setReporterCard(employeeId, name) {
+            const card = document.getElementById("rfReporterCard");
+            const nameEl = document.getElementById("rfReporterCardName");
+            const subEl = document.getElementById("rfReporterCardSub");
+            if (!card || !nameEl || !subEl) return;
+
+            const fullName = String(name || "").trim();
+            card.dataset.employeeId = employeeId;
+            card.dataset.name = fullName;
+            nameEl.textContent = fullName || employeeId;
+            subEl.textContent = fullName ? employeeId + " · Verified with PIN" : "Verified with PIN";
+        }
+
         // =====================================================
         // EMPLOYEE LIVE LOOKUP
         // ONLY INACTIVE REPORTERS LOCK THE FORM
@@ -6932,6 +7337,11 @@ toggleRoomBtn.addEventListener('click', function () {
             }
 
             const id = this.value.trim();
+
+            const card = document.getElementById("rfReporterCard");
+            if (card && card.dataset.employeeId !== id) {
+                setReporterCard(id, "");
+            }
 
 
             // =====================================================
@@ -7081,33 +7491,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     employeeError.style.display = "none";
 
 
-                    document.getElementById("reporterName").innerHTML = `
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="#1877F2"
-                            flex-shrink="0">
-
-                            <circle
-                                cx="12"
-                                cy="12"
-                                r="12">
-                            </circle>
-
-                            <path
-                                d="M10.2 15.3L6.9 12l1.4-1.4 1.9 1.9 5.5-5.5 1.4 1.4z"
-                                fill="white">
-                            </path>
-
-                        </svg>
-
-                        <span>
-                            ${data.reporter_full_name}
-                        </span>
-                    `;
+                    setReporterCard(id, data.reporter_full_name);
 
 
                     // KEEP FORM UNLOCKED
@@ -7308,8 +7692,8 @@ toggleRoomBtn.addEventListener('click', function () {
                 employeeError.style.display = "block";
                 employeeInput.classList.add("is-error");
                 employeeInput.style.borderColor = "";
-                (scrollTarget || employeeInput).scrollIntoView({ behavior: "smooth", block: "center" });
-                if (!scrollTarget) employeeInput.focus({ preventScroll: true });
+                (scrollTarget || document.getElementById("rfReporterCard") || employeeInput)
+                    .scrollIntoView({ behavior: "smooth", block: "center" });
             }
 
             function showReporterStateError() {
@@ -7601,7 +7985,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     tries += 1;
                     if (String(equipSelect.value) === equipmentId) {
                         clearInterval(timer);
-                        showNotice("Filled from QR: " + label + ". Pick an issue or add details, then tap Add.", false);
+                        showNotice("Filled from QR: " + label + ". Pick an issue or add details, then tap Add to report.", false);
                         if (navigator.vibrate) navigator.vibrate(60);
                     } else if (tries >= 50) {
                         clearInterval(timer);
@@ -7804,9 +8188,9 @@ toggleRoomBtn.addEventListener('click', function () {
 
             const defs = [
                 {
-                    targets: [".rf-employee-id-wrap"],
-                    title: "Employee ID",
-                    text: "Start with your Employee ID. Your name appears once it's recognized.",
+                    targets: ["#rfReporterCard"],
+                    title: "You're verified",
+                    text: "Your employee ID was confirmed with your PIN. Not you? Tap Switch.",
                     tip: true,
                 },
                 {
@@ -7826,12 +8210,6 @@ toggleRoomBtn.addEventListener('click', function () {
                     text: "Pick the location, then the equipment. You can switch rooms anytime and your list is kept.",
                 },
                 {
-                    targets: ["#toggleEquipmentInputDesktop", "#toggleEquipmentInput"],
-                    optional: true,
-                    title: "Not in the list?",
-                    text: "Turn this on and type the equipment name yourself.",
-                },
-                {
                     targets: [".rf-issues-block"],
                     title: "Suggested issues",
                     text: "Pick the problem that matches. Suggestions appear after you choose equipment.",
@@ -7843,8 +8221,8 @@ toggleRoomBtn.addEventListener('click', function () {
                 },
                 {
                     targets: ["#addEquipmentBtn", "#addManualEquipmentBtn"],
-                    title: "Add it to your list",
-                    text: "Saves the equipment with its issue and details. Repeat for each item, even from other rooms.",
+                    title: "Add it to your report",
+                    text: "Saves the equipment with its issue and details. You may be asked a few quick checks first. Repeat for each item, even from other rooms.",
                 },
                 {
                     targets: desktop ? ["#rfAsideEquipmentPanel"] : (listHasItems ? ["#selectedEquipmentList"] : []),
@@ -8107,7 +8485,7 @@ toggleRoomBtn.addEventListener('click', function () {
                 employeeError.style.display = "block";
                 employeeInput.classList.add("is-error");
                 employeeInput.style.borderColor = "";
-                employeeInput.focus();
+                document.getElementById("rfReporterCard")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 return;
             }
 

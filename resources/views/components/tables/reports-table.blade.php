@@ -1078,6 +1078,7 @@
                                             </span>
                                         </div>
                                         @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
+                                        @include('components.tables.partials.report-item-checks', ['item' => $item])
                                         @include('components.tables.partials.report-item-equipment-details', [
                                             'item' => $item,
                                             'compact' => false,

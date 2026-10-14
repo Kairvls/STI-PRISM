@@ -57,7 +57,7 @@
         ],
         [
             'title' => 'Overdue borrows',
-            'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
+            'url' => route('admin.borrowing.index', ['status' => 'Overdue']),
             'total' => (int) $stats['overdue_borrows'],
             'empty' => 'No overdue borrows.',
             'items' => ($overdueBorrowsPreview ?? collect())->map(function ($row) {
@@ -72,7 +72,7 @@
                     'title' => $row->equipment_name ?: 'Equipment',
                     'meta' => trim(($row->borrowing_borrower_name ?: 'Unknown borrower').($due ? ' · Due '.$due->format('M j') : '')),
                     'badge' => $days !== null ? $days.'d overdue' : 'Overdue',
-                    'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
+                    'url' => route('admin.borrowing.index', ['status' => 'Overdue']),
                 ];
             }),
         ],
@@ -127,7 +127,7 @@
         [
             'label' => 'Overdue borrows',
             'value' => $stats['overdue_borrows'],
-            'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
+            'url' => route('admin.borrowing.index', ['status' => 'Overdue']),
             'alert' => (int) $stats['overdue_borrows'] > 0,
         ],
         [

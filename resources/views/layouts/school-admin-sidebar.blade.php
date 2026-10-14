@@ -237,6 +237,8 @@
                 ['url' => route('school-admin.operations.movements'), 'active' => request()->is('school-admin/operations/movements*'), 'icon' => 'arrow-left-right', 'label' => 'Equipment Movements'],
                 ['url' => route('school-admin.operations.schedules'), 'active' => request()->is('school-admin/operations/schedules*'), 'icon' => 'calendar-clock', 'label' => 'Equipment Schedules'],
                 ['url' => route('school-admin.semester-inspections.index'), 'active' => request()->is('school-admin/semester-inspections*'), 'icon' => 'clipboard-list', 'label' => 'Semester Inspections'],
+                ['url' => route('school-admin.equipment-history.index'), 'active' => request()->is('school-admin/equipment/history*'), 'icon' => 'history', 'label' => 'Equipment History'],
+                ['url' => route('school-admin.disposal.index'), 'active' => request()->is('school-admin/disposal*'), 'icon' => 'trash-2', 'label' => 'Disposed Equipment'],
             ];
             $equipmentGroupActive = collect($equipmentLinks)->contains('active', true);
         @endphp

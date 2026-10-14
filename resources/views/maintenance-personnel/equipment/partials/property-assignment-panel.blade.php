@@ -4,7 +4,7 @@
         ->reject(fn ($row) => $current && (int) $row->assignment_id === (int) $current->assignment_id);
     $people = collect($assignablePeople ?? []);
     $returnUrl = $equipmentBack['url'] ?? '';
-    $readOnly = ($assignmentReadOnly ?? false) || \App\Support\PropertyAssignments::isReadOnly();
+    $readOnly = $assignmentReadOnly ?? false;
     $linkCustodians = ! \App\Support\AdminPortal::isSchoolAdmin();
     $fieldClass = 'h-10 w-full rounded-xl border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
     $textareaClass = 'w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
@@ -22,7 +22,7 @@
         @if ($current)
             <div class="rounded-2xl bg-teal-50/60 px-4 py-3 ring-1 ring-teal-100">
                 @if ($linkCustodians)
-                    <a href="{{ url('/maintenance/property-assignments/people/'.$current->assignment_custodian_id) }}" class="text-sm font-semibold text-slate-900 hover:underline">
+                    <a href="{{ \App\Support\PropertyAssignments::url('/people/'.$current->assignment_custodian_id) }}" class="text-sm font-semibold text-slate-900 hover:underline">
                         {{ $current->custodian_full_name ?? 'Unknown person' }}
                     </a>
                 @else
@@ -73,7 +73,7 @@
                     </span>
                     <i data-lucide="chevron-down" class="h-4 w-4 transition group-open:rotate-180"></i>
                 </summary>
-                <form method="POST" action="{{ route('maintenance.property-assignments.return', $current->assignment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
+                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('return', $current->assignment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
                     @csrf
                     <input type="hidden" name="return" value="{{ $returnUrl }}">
                     <label class="block">
@@ -110,7 +110,7 @@
         @elseif ($people->isEmpty())
             <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
                 No one is in the people directory yet.
-                <a href="{{ route('maintenance.property-assignments.people.create') }}" class="font-semibold text-[#0025cc] hover:underline">Add a person</a>
+                <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="font-semibold text-[#0025cc] hover:underline">Add a person</a>
                 first.
             </p>
         @else
@@ -122,13 +122,13 @@
                     </span>
                     <i data-lucide="chevron-down" class="h-4 w-4 transition group-open:rotate-180"></i>
                 </summary>
-                <form method="POST" action="{{ route('maintenance.property-assignments.store', $equipment->equipment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
+                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('store', $equipment->equipment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
                     @csrf
                     <input type="hidden" name="return" value="{{ $returnUrl }}">
                     <label class="block">
                         <span class="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
                             <span>Person <span class="text-red-500">*</span></span>
-                            <a href="{{ route('maintenance.property-assignments.people.create') }}" class="font-semibold text-[#0025cc] hover:underline">+ Add person</a>
+                            <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="font-semibold text-[#0025cc] hover:underline">+ Add person</a>
                         </span>
                         <select name="custodian_id" required data-searchable="1" data-search-placeholder="Search name, position, or ID…" class="{{ $fieldClass }}">
                             <option value="" disabled selected>Select a person</option>
@@ -162,7 +162,7 @@
                     @foreach ($pastAssignments as $past)
                         <li class="text-xs">
                             @if ($linkCustodians)
-                                <a href="{{ url('/maintenance/property-assignments/people/'.$past->assignment_custodian_id) }}" class="font-semibold text-slate-800 hover:underline">{{ $past->custodian_full_name ?? 'Unknown person' }}</a>
+                                <a href="{{ \App\Support\PropertyAssignments::url('/people/'.$past->assignment_custodian_id) }}" class="font-semibold text-slate-800 hover:underline">{{ $past->custodian_full_name ?? 'Unknown person' }}</a>
                             @else
                                 <p class="font-semibold text-slate-800">{{ $past->custodian_full_name ?? 'Unknown person' }}</p>
                             @endif

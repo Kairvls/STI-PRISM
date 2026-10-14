@@ -33,7 +33,7 @@
     $stats = [
         ['label' => 'Urgent reports', 'value' => $urgentReports, 'note' => ($overview['open_reports'] ?? 0).' open in total', 'href' => route('admin.operations.reports', ['filter' => 'urgent'])],
         ['label' => 'Overdue schedules', 'value' => $overdueSchedules, 'note' => 'Maintenance past due', 'href' => route('admin.operations.schedules', ['filter' => 'overdue'])],
-        ['label' => 'Overdue borrows', 'value' => $overdueBorrows, 'note' => 'Equipment not returned on time', 'href' => route('admin.operations.borrowing', ['filter' => 'Overdue'])],
+        ['label' => 'Overdue borrows', 'value' => $overdueBorrows, 'note' => 'Equipment not returned on time', 'href' => route('admin.borrowing.index', ['status' => 'Overdue'])],
         ['label' => 'Open back orders', 'value' => $openBackOrderRrs, 'note' => 'Deliveries with missing or damaged items', 'href' => route('admin.back-orders.index')],
     ];
 

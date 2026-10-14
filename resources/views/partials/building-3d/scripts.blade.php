@@ -1398,7 +1398,7 @@
                 if (roomDetailsPropertyRow && roomDetailsProperty) {
                     const propertyText = formatRoomProperty(room);
                     roomDetailsProperty.textContent = propertyText;
-                    roomDetailsProperty.href = `/maintenance/property-assignments/rooms/${encodeURIComponent(room.roomId)}`;
+                    roomDetailsProperty.href = `${@json(\App\Support\PropertyAssignments::url('/rooms'))}/${encodeURIComponent(room.roomId)}`;
                     roomDetailsPropertyRow.hidden = propertyText === "";
                 }
 
@@ -5897,7 +5897,7 @@
                     params.set("floor", String(floorId));
                 }
 
-                window.location.href = `/maintenance/infrastructure?${params.toString()}`;
+                window.location.href = `/admin/infrastructure?${params.toString()}`;
             }
 
             roomDetailsView?.addEventListener("click", () => {

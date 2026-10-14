@@ -46,7 +46,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                 $attentionUrgentReports = 0;
                 $attentionNonUrgentReports = 0;
                 $attentionOverdueSchedules = 0;
-                $attentionOverdueBorrows = 0;
                 $attentionTotal = 0;
 
 
@@ -63,7 +62,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                             'attentionUrgentReports',
                             'attentionNonUrgentReports',
                             'attentionOverdueSchedules',
-                            'attentionOverdueBorrows',
                             'attentionTotal'
                         )
                     );
@@ -212,7 +210,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                     $attentionUrgentReports = $attention['urgentReportsNeedingAction'];
                     $attentionNonUrgentReports = $attention['nonUrgentReportsNeedingAction'];
                     $attentionOverdueSchedules = $attention['overdueMaintenance'];
-                    $attentionOverdueBorrows = $attention['overdueBorrowings'];
                     $attentionTotal = $attention['attentionTotal'];
                 } catch (\Throwable $e) {
                     // Keep defaults if attention queries fail.
@@ -230,7 +227,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                         'attentionUrgentReports',
                         'attentionNonUrgentReports',
                         'attentionOverdueSchedules',
-                        'attentionOverdueBorrows',
                         'attentionTotal'
                     )
                 );
@@ -247,7 +243,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                         'attentionUrgentReports' => 0,
                         'attentionNonUrgentReports' => 0,
                         'attentionOverdueSchedules' => 0,
-                        'attentionOverdueBorrows' => 0,
                         'attentionTotal' => 0,
                     ]);
 
@@ -260,7 +255,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                         'attentionUrgentReports' => $attention['urgentReportsNeedingAction'],
                         'attentionNonUrgentReports' => $attention['nonUrgentReportsNeedingAction'],
                         'attentionOverdueSchedules' => $attention['overdueMaintenance'],
-                        'attentionOverdueBorrows' => $attention['overdueBorrowings'],
                         'attentionTotal' => $attention['attentionTotal'],
                     ]);
                 } catch (\Throwable $e) {
@@ -268,7 +262,6 @@ class MaintenanceViewServiceProvider extends ServiceProvider
                         'attentionUrgentReports' => 0,
                         'attentionNonUrgentReports' => 0,
                         'attentionOverdueSchedules' => 0,
-                        'attentionOverdueBorrows' => 0,
                         'attentionTotal' => 0,
                     ]);
                 }

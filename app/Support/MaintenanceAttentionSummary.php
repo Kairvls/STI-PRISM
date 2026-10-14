@@ -24,7 +24,6 @@ class MaintenanceAttentionSummary
      *     urgentReportsNeedingAction: int,
      *     nonUrgentReportsNeedingAction: int,
      *     overdueMaintenance: int,
-     *     overdueBorrowings: int,
      *     attentionTotal: int
      * }
      */
@@ -49,19 +48,13 @@ class MaintenanceAttentionSummary
             DB::table('maintenance_schedules_table')
         )->count();
 
-        $overdueBorrowings = (int) self::scopeOverdueBorrowings(
-            DB::table('borrowing_records_table')
-        )->count();
-
         return self::$cached[$userId] = [
             'urgentReportsNeedingAction' => $urgentReportsNeedingAction,
             'nonUrgentReportsNeedingAction' => $nonUrgentReportsNeedingAction,
             'overdueMaintenance' => $overdueMaintenance,
-            'overdueBorrowings' => $overdueBorrowings,
             'attentionTotal' => $urgentReportsNeedingAction
                 + $nonUrgentReportsNeedingAction
-                + $overdueMaintenance
-                + $overdueBorrowings,
+                + $overdueMaintenance,
         ];
     }
 

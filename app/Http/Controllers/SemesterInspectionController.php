@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\EquipmentLifecycle;
 use App\Support\PropertyAssignments;
+use App\Support\SchedulePortal;
 use App\Support\SemesterInspections;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -144,10 +145,19 @@ class SemesterInspectionController extends Controller
             'due' => $due,
             'academicYears' => $academicYears,
             'semesters' => $semesters,
+            'campaignForm' => SchedulePortal::canManageSemester() ? $this->campaignFormData() : null,
         ]);
     }
 
     public function create()
+    {
+        return redirect()->to(SchedulePortal::semesterUrl('?create=1'));
+    }
+
+    /**
+     * @return array{buildings: \Illuminate\Support\Collection, floors: \Illuminate\Support\Collection, semesters: array, defaultAcademicYear: string}
+     */
+    private function campaignFormData(): array
     {
         $buildings = Schema::hasTable('buildings_table')
             ? DB::table('buildings_table')->orderBy('building_name')->get()
@@ -170,12 +180,12 @@ class SemesterInspectionController extends Controller
         $year = (int) now()->format('Y');
         $defaultAcademicYear = $year.'-'.($year + 1);
 
-        return view('maintenance-personnel.semester-inspections.create', [
+        return [
             'buildings' => $buildings,
             'floors' => $floors,
             'semesters' => SemesterInspections::SEMESTERS,
             'defaultAcademicYear' => $defaultAcademicYear,
-        ]);
+        ];
     }
 
     public function store(Request $request)
@@ -291,7 +301,7 @@ class SemesterInspectionController extends Controller
         });
 
         return redirect()
-            ->to('/maintenance/semester-inspections/'.$campaignId)
+            ->to(SchedulePortal::semesterUrl('/'.$campaignId))
             ->with('success', 'Semester inspection campaign created with '.count($equipmentIds).' equipment item(s).');
     }
 
@@ -634,7 +644,7 @@ class SemesterInspectionController extends Controller
         ]);
 
         return redirect()
-            ->to('/maintenance/semester-inspections/'.$id)
+            ->to(SchedulePortal::semesterUrl('/'.$id))
             ->with('success', 'Semester inspection campaign marked complete.');
     }
 

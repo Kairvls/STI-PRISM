@@ -52,15 +52,15 @@ class EquipmentViewReturn
         $path = strtolower(parse_url($url, PHP_URL_PATH) ?? '');
 
         return match (true) {
-            str_contains($path, '/equipment/inventory') => 'Inventory',
+            str_contains($path, '/equipment/deployed'), str_contains($path, '/admin/inventory/deployed') => 'Deployed Equipment',
+            str_contains($path, '/equipment/inventory'), str_contains($path, '/admin/inventory') => 'Inventory',
             str_contains($path, '/equipment/all') => 'All Equipment',
-            str_contains($path, '/equipment/deployed') => 'Deployed Stocks',
             str_contains($path, '/equipment/categories') => 'Categories',
             str_contains($path, '/equipment/suggested-issues') => 'Suggested Issues',
-            str_contains($path, '/equipment/qr-tools') => 'QR Tools',
+            str_contains($path, '/qr-tools') => 'QR Tools',
             str_contains($path, '/equipment/history') => 'Equipment History',
-            str_contains($path, '/infrastructure/monitor') => 'Building Layout',
-            str_contains($path, '/infrastructure/campus-wizard') => 'Building Layout',
+            str_contains($path, '/infrastructure') => 'Building Layout',
+            str_contains($path, '/departments') => 'Departments',
             str_contains($path, '/property-assignments') => 'Property Assignment',
             str_contains($path, '/rooms') => 'Rooms',
             str_contains($path, '/reports') => 'Reports',
@@ -77,7 +77,7 @@ class EquipmentViewReturn
 
         $appRoot = rtrim(url('/'), '/');
 
-        return str_starts_with($url, $appRoot.'/maintenance');
+        return str_starts_with($url, $appRoot.'/maintenance') || str_starts_with($url, $appRoot.'/admin');
     }
 
     private static function isEquipmentViewUrl(string $url): bool

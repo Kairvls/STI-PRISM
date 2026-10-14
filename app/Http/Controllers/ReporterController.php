@@ -3,22 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportSubmissionService;
-use App\Support\PersonNames;
+use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
-use App\Support\ReporterApprovals;
-use App\Support\ReporterImport;
 use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 
 class ReporterController extends Controller
 {
@@ -723,12 +718,7 @@ class ReporterController extends Controller
             ->first();
 
         if (! $reporter) {
-            $pending = ReporterApprovals::pendingByEmployeeId((string) $employeeId);
-
-            return response()->json($pending ? [
-                'reporter_full_name' => $pending->full_name,
-                'reporter_status' => 'Pending Approval',
-            ] : null);
+            return response()->json(null);
         }
 
         return response()->json([
@@ -764,7 +754,7 @@ class ReporterController extends Controller
         if (! ReporterPins::ready()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Reporter PINs are not set up yet. Please contact the maintenance office.',
+                'message' => 'Reporter PINs are not set up yet. Please contact the system administrator.',
             ], 503);
         }
 
@@ -836,7 +826,7 @@ class ReporterController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
-                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the maintenance office to reset your PIN.',
+                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the system administrator to reset your PIN.',
         ]);
     }
 
@@ -910,363 +900,44 @@ class ReporterController extends Controller
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | START REPORTER REGISTRATION
-    | Faculty / staff enter an email on the landing page. We send a
-    | one-time form link so they can prove they own that inbox.
-    |--------------------------------------------------------------------------
-    */
-
-    public function startRegistration(Request $request)
+    /** Quick checks for the suggested issue the reporter picked on this equipment. */
+    public function getIssueChecks(Request $request, $equipmentId)
     {
-        if (! Schema::hasTable('reporter_registration_invites')) {
-            $message = 'Reporter registration is not available yet. Please try again after setup.';
+        $equipment = DB::table('equipment_table')->where('equipment_id', $equipmentId)->first();
 
-            return $request->expectsJson()
-                ? response()->json(['message' => $message], 503)
-                : back()->withErrors(['email' => $message])->withInput();
+        return response()->json([
+            'checks' => $equipment ? IssueChecks::payloadsFor($equipment, (string) $request->query('issue', '')) : [],
+        ]);
+    }
+
+    /** "That fixed it": no report is filed, but maintenance can see which checks solve problems. */
+    public function selfFixed(Request $request)
+    {
+        $reporter = ReporterPins::ready() ? ReporterPins::sessionReporter($request) : null;
+
+        if (! $reporter) {
+            return response()->json([
+                'success' => false,
+                'pin_required' => true,
+                'message' => 'Your reporter verification expired. Enter your employee ID and PIN again.',
+            ], 401);
         }
 
         $validated = $request->validate([
-            'email' => ['required', 'email:rfc', 'max:255'],
+            'equipment_id' => ['required', 'integer'],
+            'check_id' => ['required', 'integer'],
         ]);
 
-        $email = strtolower(trim($validated['email']));
+        $equipment = DB::table('equipment_table')->where('equipment_id', $validated['equipment_id'])->first();
 
-        $lock = $this->reporterRegistrationLock($email);
-
-        if ($lock['blocked']) {
-            return $this->reporterRegistrationLockedResponse($request, $lock['retry_after']);
+        if (! $equipment || ! IssueChecks::recordSelfFix($equipment, (int) $validated['check_id'], $reporter, 'web')) {
+            return response()->json(['success' => false, 'message' => 'That check was not found.'], 422);
         }
 
-        RateLimiter::hit($this->reporterRegistrationAttemptKey($email), 5 * 60);
-        $attempts = RateLimiter::attempts($this->reporterRegistrationAttemptKey($email));
-
-        if ($attempts > 5) {
-            $retryAfter = $this->lockReporterRegistration($email);
-
-            return $this->reporterRegistrationLockedResponse($request, $retryAfter);
-        }
-
-        $justLocked = $attempts >= 5;
-        $retryAfter = $justLocked ? $this->lockReporterRegistration($email) : 0;
-
-        if (! $this->isAcceptableReporterEmail($email)) {
-            $message = 'Use a real email you can open, such as Gmail or your work address.';
-            $payload = $this->withRegistrationLock(['message' => $message], $justLocked, $retryAfter);
-
-            return $request->expectsJson()
-                ? response()->json($payload, 422)
-                : back()->withErrors(['email' => $message])->withInput();
-        }
-
-        $existing = DB::table('reporters_table')
-            ->whereRaw('LOWER(reporter_email_address) = ?', [$email])
-            ->first();
-
-            if ($existing) {
-            $message = strtolower((string) $existing->reporter_status) === 'inactive'
-                ? 'This email is already registered but inactive. Please contact maintenance personnel.'
-                : 'This email is already registered. Use Make Report with your employee ID.';
-
-            $payload = $this->withRegistrationLock([
-                'message' => $message,
-                'already_registered' => true,
-            ], $justLocked, $retryAfter);
-
-            return $request->expectsJson()
-                ? response()->json($payload)
-                : back()->with('success', $message)->with('success_title', 'Already registered');
-        }
-
-        $pending = ReporterApprovals::pendingByEmail($email);
-
-        if ($pending) {
-            $message = 'This email already has an application waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.';
-            $payload = $this->withRegistrationLock([
-                'message' => $message,
-                'pending_approval' => true,
-            ], $justLocked, $retryAfter);
-
-            return $request->expectsJson()
-                ? response()->json($payload)
-                : back()->with('success', $message)->with('success_title', 'Waiting for approval');
-        }
-
-        $plainToken = Str::random(64);
-        $tokenHash = hash('sha256', $plainToken);
-
-        DB::table('reporter_registration_invites')
-            ->where('email', $email)
-            ->whereNull('completed_at')
-            ->delete();
-
-        DB::table('reporter_registration_invites')->insert([
-            'email' => $email,
-            'token_hash' => $tokenHash,
-            'expires_at' => now()->addHours(24),
-            'created_at' => now(),
+        return response()->json([
+            'success' => true,
+            'message' => 'Glad it works now. No report was sent.',
         ]);
-
-        $appUrl = rtrim((string) config('app.url'), '/');
-        URL::forceRootUrl($appUrl);
-        $registerUrl = $appUrl.'/register-reporter/'.$plainToken;
-        $mailSent = false;
-
-        if ($this->mailerIsConfigured()) {
-            try {
-                Mail::send('emails.reporter-registration', [
-                    'email' => $email,
-                    'registerUrl' => $registerUrl,
-                ], function ($message) use ($email) {
-                    $message->to($email)->subject('Add your PaAyo reporter details');
-                });
-                $mailSent = true;
-            } catch (\Throwable $e) {
-                report($e);
-            }
-        }
-
-        if ($mailSent) {
-            $payload = [
-                'message' => 'Check your inbox. We sent a registration form to '.$email.'.',
-            ];
-        } else {
-            $payload = [
-                'message' => 'We created your registration form. Open it to finish your profile. Email sending is not set up yet (add a Gmail App Password in .env to deliver the link to your inbox).',
-                'register_url' => $registerUrl,
-            ];
-        }
-
-        if ($justLocked) {
-            $payload = $this->withRegistrationLock($payload, true, $retryAfter);
-        }
-
-        return $request->expectsJson()
-            ? response()->json($payload)
-            : back()->with('success', $payload['message'])
-                ->with('success_title', $mailSent ? 'Check your email' : 'Continue registration')
-                ->with('register_url', $payload['register_url'] ?? null);
-    }
-
-    public function showRegistrationForm(string $token)
-    {
-        $invite = $this->findValidInvite($token);
-
-        if (! $invite) {
-            return redirect('/')->with('success', 'That registration link is invalid or has expired. Enter your email again to get a new one.')
-                ->with('success_title', 'Link expired');
-        }
-
-        return view('landing.register-reporter', [
-            'token' => $token,
-            'email' => $invite->email,
-        ]);
-    }
-
-    public function completeRegistration(Request $request, string $token)
-    {
-        $invite = $this->findValidInvite($token);
-
-        if (! $invite) {
-            return redirect('/')->with('success', 'That registration link is invalid or has expired. Enter your email again to get a new one.')
-                ->with('success_title', 'Link expired');
-        }
-
-        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
-
-        $request->validate([
-            'employee_id' => ['required', 'string', 'regex:/^OMC[0-9]{5}[FS]$/'],
-            'first_name' => PersonNames::rules(),
-            'middle_name' => PersonNames::rules(false),
-            'last_name' => PersonNames::rules(),
-            'type' => ['required', 'in:Faculty,Staff'],
-            'contact' => ['required', 'regex:/^09[0-9]{9}$/'],
-        ], [
-            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
-        ]);
-
-        $employeeId = strtoupper(trim($request->employee_id));
-        $expectedSuffix = $request->type === 'Staff' ? 'S' : 'F';
-
-        if (! str_ends_with($employeeId, $expectedSuffix)) {
-            return back()->withErrors([
-                'employee_id' => $request->type === 'Staff'
-                    ? 'Staff employee IDs must end with S (example: OMC00127S).'
-                    : 'Faculty employee IDs must end with F (example: OMC00127F).',
-            ])->withInput();
-        }
-
-        $idTaken = ReporterApprovals::registeredByEmployeeNumber($employeeId);
-
-        if ($idTaken) {
-            return back()->withErrors(['employee_id' => 'That employee number is already registered (Faculty or Staff).'])->withInput();
-        }
-
-        $emailTaken = DB::table('reporters_table')
-            ->whereRaw('LOWER(reporter_email_address) = ?', [strtolower($invite->email)])
-            ->exists();
-
-        if ($emailTaken) {
-            return redirect('/')->with('success', 'This email is already registered. Use Make Report with your employee ID.')
-                ->with('success_title', 'Already registered');
-        }
-
-        if (! ReporterApprovals::hasTable()) {
-            return back()->withErrors(['employee_id' => 'Reporter approval is not available yet. Please try again after setup.'])->withInput();
-        }
-
-        $pendingEmail = ReporterApprovals::pendingByEmail($invite->email);
-
-        if ($pendingEmail) {
-            return redirect('/')->with('success', 'Your application is already waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.')
-                ->with('success_title', 'Waiting for approval');
-        }
-
-        $pendingEmployeeId = ReporterApprovals::pendingByEmployeeNumber($employeeId);
-
-        if ($pendingEmployeeId) {
-            return back()->withErrors(['employee_id' => 'That employee number already has an application waiting for approval.'])->withInput();
-        }
-
-        $first = trim($request->first_name);
-        $middle = trim((string) $request->middle_name);
-        $last = trim($request->last_name);
-
-        ReporterApprovals::query()->insert([
-            'employee_id' => $employeeId,
-            'first_name' => $first,
-            'middle_name' => $middle !== '' ? $middle : null,
-            'last_name' => $last,
-            'full_name' => ReporterImport::composeFullName($first, $middle, $last),
-            'email' => $invite->email,
-            'contact' => $request->contact,
-            'employment_type' => $request->type,
-            'status' => ReporterApprovals::STATUS_PENDING,
-            'invite_id' => $invite->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('reporter_registration_invites')
-            ->where('id', $invite->id)
-            ->update(['completed_at' => now()]);
-
-        return redirect('/')->with('success', 'Your application was sent to maintenance personnel. You can submit reports with your employee ID after they confirm you are faculty or staff.')
-            ->with('success_title', 'Waiting for approval');
-    }
-
-    protected function findValidInvite(string $token)
-    {
-        if (! Schema::hasTable('reporter_registration_invites')) {
-            return null;
-        }
-
-        return DB::table('reporter_registration_invites')
-            ->where('token_hash', hash('sha256', $token))
-            ->whereNull('completed_at')
-            ->where('expires_at', '>', now())
-            ->first();
-    }
-
-    protected function isAcceptableReporterEmail(string $email): bool
-    {
-        $blocked = [
-            'mailinator.com',
-            'tempmail.com',
-            'temp-mail.org',
-            '10minutemail.com',
-            'guerrillamail.com',
-            'trashmail.com',
-            'yopmail.com',
-            'sharklasers.com',
-        ];
-
-        $domain = strtolower((string) substr(strrchr($email, '@'), 1));
-
-        return $domain !== '' && ! in_array($domain, $blocked, true);
-    }
-
-    protected function mailerIsConfigured(): bool
-    {
-        $mailer = (string) config('mail.default');
-
-        if (in_array($mailer, ['log', 'array'], true)) {
-            return true;
-        }
-
-        return filled(config('mail.mailers.smtp.username'))
-            && filled(config('mail.mailers.smtp.password'))
-            && filled(config('mail.from.address'));
-    }
-
-    protected function reporterRegistrationAttemptKey(string $email): string
-    {
-        return 'reporter-register-attempts:'.$email;
-    }
-
-    protected function reporterRegistrationBlockKey(string $email): string
-    {
-        return 'reporter-register-block:'.$email;
-    }
-
-    protected function reporterRegistrationLock(string $email): array
-    {
-        $blockKey = $this->reporterRegistrationBlockKey($email);
-
-        if (RateLimiter::tooManyAttempts($blockKey, 1)) {
-            return [
-                'blocked' => true,
-                'retry_after' => RateLimiter::availableIn($blockKey),
-            ];
-        }
-
-        return ['blocked' => false, 'retry_after' => 0];
-    }
-
-    protected function lockReporterRegistration(string $email): int
-    {
-        $blockKey = $this->reporterRegistrationBlockKey($email);
-        RateLimiter::clear($blockKey);
-        RateLimiter::hit($blockKey, 15 * 60);
-
-        return RateLimiter::availableIn($blockKey);
-    }
-
-    protected function reporterRegistrationLockMessage(int $seconds): string
-    {
-        $minutes = max(1, (int) ceil($seconds / 60));
-
-        return 'Too many attempts for this email. Submit is paused for '.$minutes.' minute'.($minutes === 1 ? '' : 's').'. Please try again later.';
-    }
-
-    protected function withRegistrationLock(array $payload, bool $justLocked, int $retryAfter): array
-    {
-        if (! $justLocked) {
-            return $payload;
-        }
-
-        $payload['locked'] = true;
-        $payload['retry_after'] = $retryAfter;
-        $payload['lock_message'] = $this->reporterRegistrationLockMessage($retryAfter);
-
-        return $payload;
-    }
-
-    protected function reporterRegistrationLockedResponse(Request $request, int $retryAfter)
-    {
-        $message = $this->reporterRegistrationLockMessage($retryAfter);
-        $payload = [
-            'message' => $message,
-            'locked' => true,
-            'retry_after' => $retryAfter,
-            'lock_message' => $message,
-        ];
-
-        return $request->expectsJson()
-            ? response()->json($payload, 429)
-            : back()->withErrors(['email' => $message])->withInput();
     }
 
     private function formatEquipmentIdentifier(object $row): string

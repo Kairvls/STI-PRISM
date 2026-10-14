@@ -210,7 +210,7 @@ class AdminOperationsController extends Controller
             [
                 'label' => 'Overdue equipment borrows',
                 'count' => $stats['overdue_borrows'],
-                'url' => route('admin.operations.borrowing', ['filter' => 'Overdue']),
+                'url' => route('admin.borrowing.index', ['status' => 'Overdue']),
                 'tone' => 'rose',
             ],
             [
@@ -940,8 +940,18 @@ class AdminOperationsController extends Controller
         ]);
     }
 
-    public function borrowing(Request $request): View
+    public function borrowing(Request $request): View|RedirectResponse
     {
+        if (! AdminPortal::isSchoolAdmin()) {
+            $filter = (string) $request->query('filter', '');
+
+            return redirect()->route('admin.borrowing.index', array_filter([
+                'status' => in_array($filter, ['Overdue', 'Returned'], true) ? $filter : null,
+                'search' => $request->query('q'),
+                'record' => $request->query('record'),
+            ]));
+        }
+
         $filters = ['active', 'Overdue', 'due_week', 'Returned', 'all'];
         $filter = (string) $request->query('filter', 'active');
         if (! in_array($filter, $filters, true)) {

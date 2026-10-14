@@ -35,11 +35,21 @@ class NotificationLinks
             'liq' => self::liq($role, $id),
             'rr' => self::rr($role, $stored, $id),
             'proc' => self::replacement($role, $id),
-            'borrowing_record' => self::maintenanceOrAdmin($role, $stored, 'borrowing', 'operations/borrowing', $id),
+            'borrowing_record' => $role === WorkflowNotifier::ROLE_SCHOOL_ADMIN
+                ? '/school-admin/operations/borrowing?record='.$id
+                : '/admin/borrowing?record='.$id,
             'maintenance_schedule' => self::maintenanceOrAdmin($role, $stored, 'schedules', 'operations/schedules', $id),
-            'equipment_transfer' => str_starts_with($stored, '/maintenance/')
-                ? '/maintenance/equipment/transfer?record='.$id
-                : null,
+            'equipment_transfer' => match (true) {
+                $role === WorkflowNotifier::ROLE_ADMIN => '/admin/inventory/deployed?record='.$id,
+                str_starts_with($stored, '/maintenance/') => '/maintenance/equipment/deployed?record='.$id,
+                default => null,
+            },
+            'equipment_transfer_request' => $role === WorkflowNotifier::ROLE_ADMIN
+                ? '/admin/inventory/transfer-requests?status=Pending'
+                : '/maintenance/equipment/transfer-requests?status=all',
+            'equipment_disposal_request' => $role === WorkflowNotifier::ROLE_ADMIN
+                ? '/admin/disposal/requests?status=Pending'
+                : '/maintenance/disposal/requests?status=all',
             'equipment' => str_contains($stored, 'replacement-suggestions')
                 ? self::withQuery($stored, ['equipment' => $id])
                 : null,
@@ -135,11 +145,17 @@ class NotificationLinks
         }
 
         if ($role === WorkflowNotifier::ROLE_MAINTENANCE) {
+            if (str_contains($stored, 'inventory') || str_contains($stored, 'qr-tools')) {
+                return '/maintenance/equipment/inventory?rr='.$id;
+            }
+        }
+
+        if ($role === WorkflowNotifier::ROLE_ADMIN) {
             if (str_contains($stored, 'qr-tools')) {
-                return '/maintenance/equipment/qr-tools?rr='.$id;
+                return '/admin/qr-tools?rr='.$id;
             }
             if (str_contains($stored, 'inventory')) {
-                return '/maintenance/equipment/inventory?rr='.$id;
+                return '/admin/inventory?rr='.$id;
             }
         }
 

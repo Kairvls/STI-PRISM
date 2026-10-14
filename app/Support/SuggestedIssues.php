@@ -161,12 +161,19 @@ class SuggestedIssues
 
     public static function namesForEquipment(object $equipment)
     {
+        return self::templatesQuery($equipment)
+            ->orderBy('issue_template_name')
+            ->pluck('issue_template_name');
+    }
+
+    /** Suggested issues that apply to this equipment (its category, narrowed to its component). */
+    public static function templatesQuery(object $equipment)
+    {
         $query = DB::table('issue_templates_table')
-            ->where('issue_template_category_id', $equipment->equipment_category_id)
-            ->orderBy('issue_template_name');
+            ->where('issue_template_category_id', $equipment->equipment_category_id);
 
         if (!Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
-            return $query->pluck('issue_template_name');
+            return $query;
         }
 
         $component = self::detectComponent($equipment->equipment_name ?? '');
@@ -181,7 +188,7 @@ class SuggestedIssues
             });
         }
 
-        return $query->pluck('issue_template_name');
+        return $query;
     }
 
     public static function defaultIssues(): array

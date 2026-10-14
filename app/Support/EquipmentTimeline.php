@@ -807,6 +807,8 @@ class EquipmentTimeline
             $select[] = 'transfer_user.user_full_name as transferred_by_name';
         }
 
+        array_push($select, ...TransferDestinations::join($query));
+
         return $query
             ->where('equipment_transfer_history_table.equipment_id', $equipmentId)
             ->orderByDesc('equipment_transfer_history_table.created_at')
@@ -816,7 +818,8 @@ class EquipmentTimeline
                 $from = $row->from_room_name ?: 'Unassigned';
                 $to = $row->to_room_name ?: 'Unassigned';
                 $by = trim((string) ($row->transferred_by_name ?? ''));
-                $detail = $from.' → '.$to;
+                $handedTo = TransferDestinations::label($row);
+                $detail = $from.' → '.$to.($handedTo ? ' ('.$handedTo.')' : '');
                 if ($by !== '') {
                     $detail .= ' · By: '.$by;
                 }
@@ -833,6 +836,7 @@ class EquipmentTimeline
                         'transfer_id' => (int) $row->transfer_id,
                         'from_room' => $from,
                         'to_room' => $to,
+                        'handed_to' => $handedTo,
                         'transferred_by' => $by !== '' ? $by : null,
                         'remarks' => $row->remarks,
                     ]

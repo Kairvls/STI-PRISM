@@ -3,227 +3,164 @@
 namespace App\Http\Controllers;
 
 use App\Support\Departments;
-use App\Support\PersonnelDirectory;
-use App\Support\PersonNames;
-use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
+use App\Support\RoleAccess;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
+/**
+ * Read-only view of faculty and staff reporters and the reports they filed.
+ * Reporters are added and edited in Equipment Reporters.
+ */
 class PersonnelDirectoryController extends Controller
 {
+    public const STATUSES = ['Active', 'Inactive'];
+
+    public const TYPES = ['Faculty', 'Staff'];
+
+    public const OPEN_REPORT_STATUSES = ['Pending', 'Processing', 'For Replacement'];
+
+    public const REPORT_STATUSES = ['Pending', 'Processing', 'For Replacement', 'Resolved', 'Rejected'];
+
     public function index(Request $request)
     {
-        $tableReady = PersonnelDirectory::tableReady();
-        $search = trim((string) $request->query('search', ''));
-        $status = array_key_exists((string) $request->query('status'), PersonnelDirectory::FILTERS)
-            ? (string) $request->query('status')
-            : 'all';
-        $type = in_array($request->query('type'), PersonnelDirectory::TYPES, true) ? (string) $request->query('type') : '';
+        $hasDepartment = ReporterImport::hasDepartmentColumn() && Departments::tableReady();
+        $hasType = ReporterImport::hasTypeColumn();
 
-        $people = $tableReady ? PersonnelDirectory::summary($search, $status, $type) : null;
+        if ($request->filled('reporter')) {
+            return $this->records($request, (int) $request->query('reporter'), $hasDepartment);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $status = in_array($request->query('status'), self::STATUSES, true) ? (string) $request->query('status') : '';
+        $type = $hasType && in_array($request->query('type'), self::TYPES, true) ? (string) $request->query('type') : '';
+        $departmentId = $hasDepartment ? (int) $request->query('department', 0) : 0;
+
+        $query = $this->reportersQuery($hasDepartment);
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('r.reporter_employee_id', 'LIKE', $like)
+                    ->orWhere('r.reporter_full_name', 'LIKE', $like)
+                    ->orWhere('r.reporter_email_address', 'LIKE', $like)
+                    ->orWhere('r.reporter_contact_number', 'LIKE', $like);
+            });
+        }
+
+        $query
+            ->when($status !== '', fn ($q) => $q->where('r.reporter_status', $status))
+            ->when($type !== '', fn ($q) => $q->where('r.reporter_employment_type', $type))
+            ->when($departmentId > 0, fn ($q) => $q->where('r.reporter_department_id', $departmentId));
+
+        $people = $query
+            ->orderByRaw(ReporterImport::hasNameColumns()
+                ? 'COALESCE(r.reporter_last_name, r.reporter_full_name), r.reporter_first_name'
+                : 'r.reporter_full_name')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('maintenance-personnel.personnel-directory.index', [
-            'tableReady' => $tableReady,
             'people' => $people,
-            'reporterStatuses' => $people ? $this->reporterStatuses($people->getCollection()) : [],
-            'stats' => $tableReady ? PersonnelDirectory::stats() : null,
-            'departments' => Departments::tableReady()
-                ? DB::table('departments_table')->orderBy('department_name')->get(['department_id', 'department_name', 'department_is_archived'])
+            'stats' => $this->stats($hasType),
+            'departments' => $hasDepartment
+                ? DB::table('departments_table')->orderBy('department_name')->get(['department_id', 'department_name'])
                 : collect(),
+            'hasDepartment' => $hasDepartment,
+            'hasType' => $hasType,
             'search' => $search,
             'status' => $status,
             'type' => $type,
+            'departmentId' => $departmentId,
         ]);
     }
 
-    public function store(Request $request)
+    private function records(Request $request, int $reporterId, bool $hasDepartment)
     {
-        $data = $this->validatePerson($request);
+        $reporter = $this->reportersQuery($hasDepartment)->where('r.reporter_id', $reporterId)->first();
 
-        if ($duplicate = $this->holdForDuplicateName($request, $data)) {
-            return $duplicate;
+        if (! $reporter) {
+            return redirect()
+                ->route('maintenance.personnel-directory.index')
+                ->with('error', 'Reporter not found.');
         }
 
-        $result = PersonnelDirectory::save($data, null, Auth::id());
+        $recordStatus = in_array($request->query('record_status'), self::REPORT_STATUSES, true)
+            ? (string) $request->query('record_status')
+            : '';
 
-        return back()->with('success', $this->savedMessage($data, $result['deactivated'], 'was added to the directory.'));
-    }
+        $records = DB::table('reports_table')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            ->where('reports_table.report_reporter_employee_id', $reporter->reporter_employee_id)
+            ->when($recordStatus !== '', fn ($q) => $q->where('reports_table.report_current_status', $recordStatus))
+            ->select(
+                'reports_table.report_id',
+                'reports_table.report_submitted_at',
+                'reports_table.report_current_status',
+                'reports_table.report_urgency_level',
+                'reports_table.report_suggested_issue',
+                'reports_table.report_problem_description',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'rooms_table.room_name'
+            )
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->paginate(10, ['*'], 'records_page')
+            ->withQueryString();
 
-    public function update(Request $request, int $personnel)
-    {
-        $current = PersonnelDirectory::find($personnel);
-        abort_unless($current, 404, 'Person not found.');
-        $data = $this->validatePerson($request, $personnel);
-
-        if ($duplicate = $this->holdForDuplicateName($request, $data, $current)) {
-            return $duplicate;
-        }
-
-        $result = PersonnelDirectory::save($data, $personnel, Auth::id());
-
-        return back()->with('success', $this->savedMessage($data, $result['deactivated'], 'was updated.'));
-    }
-
-    public function destroy(int $personnel)
-    {
-        $person = PersonnelDirectory::find($personnel);
-        abort_unless($person, 404, 'Person not found.');
-        PersonnelDirectory::delete($personnel);
-
-        return back()->with('success', PersonnelDirectory::fullName($person).' was removed from the directory.');
-    }
-
-    public function template()
-    {
-        $callback = function () {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_values(PersonnelDirectory::IMPORT_FIELDS));
-            fputcsv($handle, ['OMC00127F', 'Juan', 'Santos', 'Dela Cruz', 'Faculty', 'Academic Affairs', 'juan.delacruz@ormoc.sti.edu.ph', "\t09171234567", 'Active']);
-            fputcsv($handle, ['OMC00128S', 'Maria', '', 'Reyes', 'Staff', 'Registrar', 'maria.reyes@ormoc.sti.edu.ph', "\t09179876543", 'Active']);
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="personnel-directory-template.csv"',
+        return view('maintenance-personnel.personnel-directory.records', [
+            'reporter' => $reporter,
+            'records' => $records,
+            'recordStatus' => $recordStatus,
+            'canOpenReports' => RoleAccess::hasRole(RoleAccess::MAINTENANCE, $request->user()),
         ]);
     }
 
-    public function import(Request $request)
+    private function reportersQuery(bool $hasDepartment)
     {
-        $request->validateWithBag('personnelImport', [
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx', 'max:5120'],
-            'mark_missing_separated' => ['nullable', 'boolean'],
-        ], [
-            'file.required' => 'Choose a CSV or Excel (.xlsx) file.',
-            'file.mimes' => 'Upload a CSV or Excel (.xlsx) file.',
-        ]);
+        $openStatuses = "'".implode("','", self::OPEN_REPORT_STATUSES)."'";
 
-        $file = $request->file('file');
-        $rows = ReporterImport::parseFile($file->getRealPath(), $file->getClientOriginalName());
-        $result = PersonnelDirectory::import($rows, $request->boolean('mark_missing_separated'), Auth::id());
+        $counts = DB::table('reports_table')
+            ->whereNotNull('report_reporter_employee_id')
+            ->groupBy('report_reporter_employee_id')
+            ->select(
+                'report_reporter_employee_id',
+                DB::raw('COUNT(*) as reports_total'),
+                DB::raw("SUM(CASE WHEN report_current_status IN ({$openStatuses}) THEN 1 ELSE 0 END) as reports_open"),
+                DB::raw("SUM(CASE WHEN report_current_status = 'Resolved' THEN 1 ELSE 0 END) as reports_resolved"),
+                DB::raw('MAX(report_submitted_at) as last_reported_at')
+            );
 
-        if (! $result['ok']) {
-            throw ValidationException::withMessages(['file' => $result['message']])->errorBag('personnelImport');
-        }
-
-        $parts = [];
-        foreach (['created' => 'added', 'updated' => 'updated', 'unchanged' => 'unchanged', 'separated' => 'marked Separated'] as $key => $label) {
-            if ($result[$key] > 0) {
-                $parts[] = number_format($result[$key]).' '.$label;
-            }
-        }
-        $message = 'Directory upload finished: '.($parts !== [] ? implode(', ', $parts) : 'nothing to change').'.';
-        if ($result['deactivated'] > 0) {
-            $message .= ' '.$result['deactivated'].' reporter '.($result['deactivated'] === 1 ? 'account was' : 'accounts were').' set to Inactive.';
-        }
-
-        return back()
-            ->with('success', $message)
-            ->with('personnel_import_result', $result);
+        return DB::table('reporters_table as r')
+            ->leftJoinSub($counts, 'rc', 'rc.report_reporter_employee_id', '=', 'r.reporter_employee_id')
+            ->when($hasDepartment, fn ($q) => $q->leftJoin('departments_table as d', 'd.department_id', '=', 'r.reporter_department_id'))
+            ->select(
+                'r.*',
+                DB::raw('COALESCE(rc.reports_total, 0) as reports_total'),
+                DB::raw('COALESCE(rc.reports_open, 0) as reports_open'),
+                DB::raw('COALESCE(rc.reports_resolved, 0) as reports_resolved'),
+                'rc.last_reported_at'
+            )
+            ->when($hasDepartment, fn ($q) => $q->addSelect('d.department_name'));
     }
 
     /**
-     * Same first + last name as another entry: reopen the form with the matches until confirmed.
+     * @return array{total:int, active:int, faculty:int, staff:int, inactive:int, reports:int}
      */
-    private function holdForDuplicateName(Request $request, array $data, ?object $current = null)
+    private function stats(bool $hasType): array
     {
-        if ($request->boolean('confirm_duplicate')) {
-            return null;
-        }
+        $active = fn () => DB::table('reporters_table')->where('reporter_status', 'Active');
 
-        $key = fn ($first, $last) => PersonNames::matchKey($first).'|'.PersonNames::matchKey($last);
-        if ($current && $key($current->personnel_first_name, $current->personnel_last_name) === $key($data['first_name'], $data['last_name'])) {
-            return null;
-        }
-
-        $matches = PersonnelDirectory::sameNamePeople($data['first_name'], $data['last_name'], $current?->personnel_id);
-
-        return $matches === []
-            ? null
-            : back()->withInput()->with('personnel_duplicates', $matches);
-    }
-
-    private function validatePerson(Request $request, ?int $personnelId = null): array
-    {
-        PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
-
-        $request->merge([
-            'employee_id' => PersonnelDirectory::normalizeEmployeeId($request->input('employee_id')),
-            'email' => strtolower(trim((string) $request->input('email'))),
-        ]);
-
-        $data = $request->validateWithBag('personnel', [
-            'employee_id' => [
-                'required', 'string', 'max:50', 'regex:'.PersonnelDirectory::EMPLOYEE_ID_PATTERN,
-                Rule::unique(PersonnelDirectory::TABLE, 'personnel_employee_id')->ignore($personnelId, 'personnel_id'),
-            ],
-            'first_name' => PersonNames::rules(),
-            'middle_name' => PersonNames::rules(false),
-            'last_name' => PersonNames::rules(),
-            'type' => ['required', Rule::in(PersonnelDirectory::TYPES)],
-            'department_id' => ['nullable', 'integer', Rule::exists('departments_table', 'department_id')],
-            'email' => ['nullable', 'email', 'max:255'],
-            'contact' => ['nullable', 'string', 'max:50'],
-            'status' => ['required', Rule::in(PersonnelDirectory::STATUSES)],
-        ], [
-            'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
-            'employee_id.unique' => 'That employee ID is already in the directory.',
-        ]);
-
-        $errors = [];
-        if (PersonnelDirectory::typeFromEmployeeId($data['employee_id']) !== $data['type']) {
-            $errors['type'] = $data['type'] === 'Staff'
-                ? 'Staff employee IDs end with S.'
-                : 'Faculty employee IDs end with F.';
-        }
-        if ($taken = PersonnelDirectory::numberTaken($data['employee_id'], $personnelId)) {
-            $errors['employee_id'] = 'Employee number already belongs to '.PersonnelDirectory::fullName($taken).' ('.$taken->personnel_employee_id.').';
-        }
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors)->errorBag('personnel');
-        }
-
-        return $data;
-    }
-
-    /**
-     * Reporter account status per employee number for the listed people.
-     *
-     * @return array<string, string>
-     */
-    private function reporterStatuses($people): array
-    {
-        $numbers = collect($people)->pluck('personnel_employee_number')->filter()->unique()->values();
-        if ($numbers->isEmpty()) {
-            return [];
-        }
-
-        $statuses = [];
-        DB::table('reporters_table')
-            ->whereNotNull('reporter_employee_id')
-            ->get(['reporter_employee_id', 'reporter_status'])
-            ->each(function ($reporter) use ($numbers, &$statuses) {
-                $number = ReporterApprovals::employeeNumber((string) $reporter->reporter_employee_id);
-                if ($number && $numbers->contains($number) && ($statuses[$number] ?? null) !== 'Active') {
-                    $statuses[$number] = (string) $reporter->reporter_status;
-                }
-            });
-
-        return $statuses;
-    }
-
-    private function savedMessage(array $data, int $deactivated, string $suffix): string
-    {
-        $message = trim($data['first_name'].' '.$data['last_name']).' '.$suffix;
-        if ($deactivated > 0) {
-            $message .= ' Their reporter account was set to Inactive because they are Separated.';
-        }
-
-        return $message;
+        return [
+            'total' => DB::table('reporters_table')->count(),
+            'active' => $active()->count(),
+            'faculty' => $hasType ? $active()->where('reporter_employment_type', 'Faculty')->count() : 0,
+            'staff' => $hasType ? $active()->where('reporter_employment_type', 'Staff')->count() : 0,
+            'inactive' => DB::table('reporters_table')->where('reporter_status', '!=', 'Active')->count(),
+            'reports' => DB::table('reports_table')
+                ->whereIn('report_reporter_employee_id', DB::table('reporters_table')->select('reporter_employee_id'))
+                ->count(),
+        ];
     }
 }

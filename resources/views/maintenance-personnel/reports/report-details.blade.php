@@ -327,6 +327,7 @@
                                                     @endif
                                                 </p>
                                                 @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
+                                                @include('components.tables.partials.report-item-checks', ['item' => $item])
                                                 @include('components.tables.partials.report-item-equipment-details', [
                                                     'item' => $item,
                                                     'compact' => false,
@@ -346,6 +347,10 @@
                                         }}
                                     </p>
 
+                                @endif
+
+                                @if ($detailItems->count() === 1)
+                                    @include('components.tables.partials.report-item-checks', ['item' => $detailItems->first()])
                                 @endif
 
                             </div>

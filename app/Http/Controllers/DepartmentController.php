@@ -16,7 +16,7 @@ class DepartmentController extends Controller
             ? (string) $request->query('filter')
             : 'active';
 
-        return view('maintenance-personnel.departments.index', [
+        return view('admin.departments.index', [
             'departments' => Departments::summary($search, $filter),
             'stats' => Departments::stats(),
             'search' => $search,

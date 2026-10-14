@@ -52,7 +52,7 @@
         ]"
     >
         <form
-            action="/maintenance/equipment/store"
+            action="/admin/inventory/store"
             method="POST"
             enctype="multipart/form-data"
             @submit="prepareSubmit($event)"
@@ -351,7 +351,7 @@
                                     :disabled="intakeBasis !== 'non_procurement'"
                                     data-searchable="1"
                                     data-search-placeholder="Search suppliers…"
-                                    data-add-url="{{ url('/maintenance/equipment/suppliers/quick-add') }}"
+                                    data-add-url="{{ url('/admin/inventory/suppliers/quick-add') }}"
                                     data-add-label="Add new supplier"
                                     data-add-placeholder="Supplier name"
                                     class="{{ $eqField }}"
@@ -1636,7 +1636,7 @@
                     if (!isStockPage) return;
                     this.rrLoading = true;
                     try {
-                        const res = await fetch('/maintenance/equipment/receivable-lines', {
+                        const res = await fetch('/admin/inventory/receivable-lines', {
                             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                             credentials: 'same-origin',
                         });
@@ -2864,7 +2864,7 @@
                         return;
                     }
                     const form = this.isMultiManual() ? this.manualBatchForm() : this.rrLinesForm();
-                    const url = this.isMultiManual() ? '/maintenance/equipment/batch-store' : '/maintenance/equipment/store-rr-lines';
+                    const url = this.isMultiManual() ? '/admin/inventory/batch-store' : '/admin/inventory/store-rr-lines';
                     const token = document.querySelector('#addEquipmentModal input[name="_token"]')?.value
                         || document.querySelector('meta[name="csrf-token"]')?.content
                         || '';
@@ -2889,7 +2889,7 @@
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return;
                         }
-                        window.location.href = data.redirect || '/maintenance/equipment/inventory';
+                        window.location.href = data.redirect || '/admin/inventory';
                     } catch (e) {
                         this.formError = 'Network error. Check your connection and try again.';
                         this.submitting = false;

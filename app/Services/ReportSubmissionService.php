@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Support\IssueChecks;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
-use App\Support\ReporterApprovals;
 use App\Support\ReportSeverity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +42,9 @@ class ReportSubmissionService
             'report_equipment_manual_rooms.*' => 'nullable|integer',
             'report_equipment_details' => 'nullable|array',
             'report_equipment_details.*' => 'nullable|string|max:2000',
+            // Quick-check answers (JSON), parallel to report_equipment_ids.
+            'report_equipment_checks' => 'nullable|array',
+            'report_equipment_checks.*' => 'nullable|string|max:5000',
             'report_equipment_manual_details' => 'nullable|array',
             'report_equipment_manual_details.*' => 'nullable|string|max:2000',
             'report_problem_description' => 'nullable|string',
@@ -71,9 +74,11 @@ class ReportSubmissionService
 
         $equipmentIssuesById = [];
         $equipmentDetailsById = [];
+        $equipmentChecksById = [];
         $rawEquipmentIds = collect($request->input('report_equipment_ids', []));
         $rawEquipmentIssues = collect($request->input('report_equipment_issues', []));
         $rawEquipmentDetails = collect($request->input('report_equipment_details', []));
+        $rawEquipmentChecks = collect($request->input('report_equipment_checks', []));
         foreach ($rawEquipmentIds as $index => $rawId) {
             $equipmentId = (int) $rawId;
             if ($equipmentId <= 0) {
@@ -81,6 +86,7 @@ class ReportSubmissionService
             }
             $equipmentIssuesById[$equipmentId] = trim((string) ($rawEquipmentIssues[$index] ?? ''));
             $equipmentDetailsById[$equipmentId] = trim((string) ($rawEquipmentDetails[$index] ?? ''));
+            $equipmentChecksById[$equipmentId] = IssueChecks::normalizeAnswers($rawEquipmentChecks[$index] ?? null);
         }
 
         // Older clients send one description for the whole report instead of per item.
@@ -166,17 +172,6 @@ class ReportSubmissionService
             ->first();
 
         if (! $reporter) {
-            $pending = ReporterApprovals::pendingByEmployeeId(
-                (string) $request->report_reporter_employee_id
-            );
-
-            if ($pending) {
-                return $this->fail(
-                    'This reporter application is still waiting for maintenance approval. You can log reports after they are confirmed as faculty or staff.',
-                    ['report_reporter_employee_id' => 'Reporter is still pending approval.']
-                );
-            }
-
             return $this->fail(
                 'Employee ID not recognized.',
                 ['report_reporter_employee_id' => 'Employee ID not recognized.']
@@ -272,6 +267,7 @@ class ReportSubmissionService
                 'equipment_id' => (int) $equipmentId,
                 'issue' => $itemIssueFor($equipmentIssuesById[$equipmentId] ?? '', $details),
                 'room_id' => $equipmentRoomIds[$equipmentId],
+                'checks' => $equipmentChecksById[$equipmentId] ?? [],
             ];
             if ($details !== '') {
                 $detailEntries[] = [(string) ($validEquipment->get($equipmentId)->equipment_name ?? 'Equipment'), $details];
@@ -388,6 +384,7 @@ class ReportSubmissionService
                 'suggested_issue' => $itemIssue !== '' ? $itemIssue : null,
                 'problem_description' => $itemDetails !== '' ? $itemDetails : null,
                 'uploaded_image' => $equipmentImagePaths[$equipmentId] ?? null,
+                'checks' => $equipmentChecksById[$equipmentId] ?? [],
             ];
         }
 

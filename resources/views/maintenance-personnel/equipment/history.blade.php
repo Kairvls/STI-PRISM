@@ -61,7 +61,7 @@
 
             <form
                 method="GET"
-                action="{{ url('/maintenance/equipment/history') }}"
+                action="{{ $historyUrl }}"
                 class="mt-5 space-y-4"
             >
                 <div class="flex flex-wrap items-end gap-3">
@@ -112,7 +112,7 @@
 
                     @if ($hasActiveFilters)
                         <a
-                            href="{{ url('/maintenance/equipment/history') }}"
+                            href="{{ $historyUrl }}"
                             class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                         >
                             Clear
@@ -293,9 +293,9 @@
                                     </div>
                                 </template>
                             </div>
-                            <div class="mt-4" x-show="profile?.view_url">
+                            <div class="mt-4" x-show="profileUrl()">
                                 <a
-                                    :href="profile?.view_url"
+                                    :href="profileUrl()"
                                     class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline"
                                 >
                                     Open full equipment profile
@@ -413,6 +413,14 @@
             pageDateFrom: @js(request('date_from')),
             pageDateTo: @js(request('date_to')),
             pageTypes: @js($selectedTypeValues),
+            profileUrlBase: @js($profileUrlBase ?? null),
+
+            profileUrl() {
+                if (!this.profile) return null;
+                if (this.profileUrlBase && this.profile.id) return `${this.profileUrlBase}/${this.profile.id}`;
+
+                return this.profile.view_url || null;
+            },
 
             init() {
                 if (window.lucide) window.lucide.createIcons();

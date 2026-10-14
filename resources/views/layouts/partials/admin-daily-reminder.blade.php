@@ -1,10 +1,13 @@
 @php
-    $attention = \App\Support\AdminAttentionSummary::counts();
+    $risActionable = \App\Support\AdminPortal::canActOnRis();
+    $attention = $risActionable ? \App\Support\AdminAttentionSummary::counts() : [];
     $pendingRis = (int) ($attention['pendingRis'] ?? 0);
     $awaitingCosign = (int) ($attention['awaitingCosign'] ?? 0);
     $amendRis = (int) ($attention['amendRis'] ?? 0);
-    $attentionTotal = (int) ($attention['attentionTotal'] ?? 0);
-    $showDailyReminder = $attentionTotal > 0 && \App\Support\AdminPortal::canActOnRis();
+    $overdueBorrows = \App\Support\AdminPortal::isSchoolAdmin() ? 0 : \App\Support\AdminAttentionSummary::overdueBorrows();
+    $attentionTotal = (int) ($attention['attentionTotal'] ?? 0) + $overdueBorrows;
+    $showDailyReminder = $attentionTotal > 0;
+    $overdueBorrowsUrl = $overdueBorrows > 0 ? route('admin.borrowing.index', ['focus' => \App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE]) : null;
     $pendingRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
     $awaitingCosignUrl = \App\Support\AdminPortal::route('digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);
     $amendRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]);
@@ -108,6 +111,26 @@
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500"></i>
                     </a>
                 @endif
+
+                @if ($overdueBorrows > 0)
+                    <a
+                        href="{{ $overdueBorrowsUrl }}"
+                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
+                    >
+                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
+                            <i data-lucide="clipboard-x" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ $overdueBorrows }} overdue {{ \Illuminate\Support\Str::plural('borrow', $overdueBorrows) }}
+                            </p>
+                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
+                                Equipment was due back and has not been returned.
+                            </p>
+                        </div>
+                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-400"></i>
+                    </a>
+                @endif
             </div>
 
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
@@ -139,6 +162,13 @@
                         class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
                         View amendments
+                    </a>
+                @elseif ($overdueBorrows > 0)
+                    <a
+                        href="{{ $overdueBorrowsUrl }}"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
+                    >
+                        View overdue borrows
                     </a>
                 @endif
             </div>

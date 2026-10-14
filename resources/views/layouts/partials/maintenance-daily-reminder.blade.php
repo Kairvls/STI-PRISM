@@ -2,18 +2,15 @@
     $urgentReportsNeedingAction = (int) ($attentionUrgentReports ?? 0);
     $nonUrgentReportsNeedingAction = (int) ($attentionNonUrgentReports ?? 0);
     $overdueMaintenance = (int) ($attentionOverdueSchedules ?? 0);
-    $overdueBorrowings = (int) ($attentionOverdueBorrows ?? 0);
     $attentionTotal = (int) ($attentionTotal ?? (
         $urgentReportsNeedingAction
         + $nonUrgentReportsNeedingAction
         + $overdueMaintenance
-        + $overdueBorrowings
     ));
     $showDailyReminder = $attentionTotal > 0;
     $urgentFocusUrl = url('/maintenance/reports/urgent?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_URGENT_ACTION);
     $nonUrgentFocusUrl = url('/maintenance/reports/incoming?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_NON_URGENT_PENDING);
     $schedulesFocusUrl = url('/maintenance/schedules?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE);
-    $borrowingFocusUrl = url('/maintenance/borrowing?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE);
 @endphp
 
 @if ($showDailyReminder)
@@ -114,26 +111,6 @@
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-orange-400"></i>
                     </a>
                 @endif
-
-                @if ($overdueBorrowings > 0)
-                    <a
-                        href="{{ $borrowingFocusUrl }}"
-                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
-                    >
-                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
-                            <i data-lucide="clipboard-x" class="h-5 w-5"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-slate-900">
-                                {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('borrow', $overdueBorrowings) }}
-                            </p>
-                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Equipment was due back and has not been returned.
-                            </p>
-                        </div>
-                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-400"></i>
-                    </a>
-                @endif
             </div>
 
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
@@ -165,13 +142,6 @@
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         View schedules
-                    </a>
-                @elseif ($overdueBorrowings > 0)
-                    <a
-                        href="{{ $borrowingFocusUrl }}"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-                    >
-                        View overdue borrows
                     </a>
                 @endif
             </div>

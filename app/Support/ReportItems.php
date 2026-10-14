@@ -29,7 +29,8 @@ class ReportItems
      *     suggested_issue?: string|null,
      *     problem_description?: string|null,
      *     uploaded_image?: string|null,
-     *     status?: string|null
+     *     status?: string|null,
+     *     checks?: array
      * }>  $items
      */
     public static function createForReport(int $reportId, array $items, string $defaultStatus = 'Pending'): void
@@ -66,6 +67,10 @@ class ReportItems
             if (self::hasRoomColumn()) {
                 $roomId = (int) ($item['room_id'] ?? 0);
                 $row['report_item_room_id'] = $roomId > 0 ? $roomId : null;
+            }
+
+            if (IssueChecks::itemColumnReady()) {
+                $row['report_item_checks'] = IssueChecks::encodeForStorage($item['checks'] ?? []);
             }
 
             $rows[] = $row;

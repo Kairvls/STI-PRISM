@@ -60,6 +60,8 @@ class Custodians
                 'person.custodian_employee_id',
                 'person.custodian_full_name',
                 'person.custodian_position',
+                'person.custodian_room_id',
+                'person.custodian_department_id',
                 self::departmentNameColumn(),
             ]);
     }
@@ -130,7 +132,7 @@ class Custodians
                 'position' => $person->custodian_position,
                 'status' => $person->custodian_status,
                 'items' => self::activeItemCount((int) $person->custodian_id),
-                'url' => route('maintenance.property-assignments.person', $person->custodian_id),
+                'url' => PropertyAssignments::route('person', $person->custodian_id),
             ])
             ->all();
     }

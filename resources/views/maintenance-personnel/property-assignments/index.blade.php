@@ -14,7 +14,6 @@
         'On Leave' => 'bg-sky-50 text-sky-700 ring-sky-100',
         'Inactive' => 'bg-slate-100 text-slate-600 ring-slate-200',
     ];
-    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
 @endphp
 
 <div class="space-y-6">
@@ -36,7 +35,7 @@
                 <div class="inline-flex rounded-xl bg-slate-100 p-1">
                     @foreach ($tabs as $key => $tab)
                         <a
-                            href="{{ url('/maintenance/property-assignments?view='.$key) }}"
+                            href="{{ \App\Support\PropertyAssignments::url('?view='.$key) }}"
                             class="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition {{ $view === $key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
                         >
                             <i data-lucide="{{ $tab['icon'] }}" class="h-4 w-4"></i>
@@ -46,7 +45,7 @@
                 </div>
 
                 <div class="flex flex-1 flex-col gap-3 sm:flex-row lg:max-w-2xl lg:justify-end">
-                    <form method="GET" action="{{ url('/maintenance/property-assignments') }}" class="flex flex-1 gap-3 lg:max-w-md">
+                    <form method="GET" action="{{ \App\Support\PropertyAssignments::url() }}" class="flex flex-1 gap-3 lg:max-w-md">
                         <input type="hidden" name="view" value="{{ $view }}">
                         @if ($view === 'people' && $filter !== 'all')
                             <input type="hidden" name="filter" value="{{ $filter }}">
@@ -70,9 +69,9 @@
                         </button>
                     </form>
 
-                    @if ($view === 'people' && ! $readOnly)
+                    @if ($view === 'people')
                         <a
-                            href="{{ route('maintenance.property-assignments.people.create') }}"
+                            href="{{ \App\Support\PropertyAssignments::route('people.create') }}"
                             class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                         >
                             <i data-lucide="user-plus" class="h-4 w-4"></i>
@@ -87,7 +86,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         @foreach (\App\Support\PropertyAssignments::PEOPLE_FILTERS as $key => $label)
                             <a
-                                href="{{ url('/maintenance/property-assignments?'.http_build_query(array_filter(['view' => 'people', 'filter' => $key === 'all' ? null : $key, 'department' => $departmentId, 'search' => $search ?: null]))) }}"
+                                href="{{ \App\Support\PropertyAssignments::url('?'.http_build_query(array_filter(['view' => 'people', 'filter' => $key === 'all' ? null : $key, 'department' => $departmentId, 'search' => $search ?: null]))) }}"
                                 class="inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ring-1 transition {{ $filter === $key ? 'bg-slate-100 text-slate-900 ring-slate-300' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50' }}"
                             >
                                 {{ $label }}
@@ -95,7 +94,7 @@
                         @endforeach
 
                         @if ($departments->isNotEmpty())
-                            <form method="GET" action="{{ url('/maintenance/property-assignments') }}">
+                            <form method="GET" action="{{ \App\Support\PropertyAssignments::url() }}">
                                 <input type="hidden" name="view" value="people">
                                 @if ($filter !== 'all')
                                     <input type="hidden" name="filter" value="{{ $filter }}">
@@ -121,8 +120,8 @@
                         @endif
                     </div>
 
-                    @if ($unlinkedReporters > 0 && ! $readOnly)
-                        <form method="POST" action="{{ route('maintenance.property-assignments.people.import') }}" class="flex items-center gap-2 text-xs text-slate-500">
+                    @if ($unlinkedReporters > 0)
+                        <form method="POST" action="{{ \App\Support\PropertyAssignments::route('people.import') }}" class="flex items-center gap-2 text-xs text-slate-500">
                             @csrf
                             <span>{{ $unlinkedReporters }} faculty/staff {{ \Illuminate\Support\Str::plural('account', $unlinkedReporters) }} not in the directory</span>
                             <button type="submit" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-slate-700 hover:bg-slate-50">
@@ -150,7 +149,7 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($rows as $row)
-                                    @php $personUrl = route('maintenance.property-assignments.person', $row->custodian_id); @endphp
+                                    @php $personUrl = \App\Support\PropertyAssignments::route('person', $row->custodian_id); @endphp
                                     <tr class="cursor-pointer align-top transition hover:bg-slate-50/80" onclick="window.location='{{ $personUrl }}'">
                                         <td class="px-5 py-3">
                                             <a href="{{ $personUrl }}" class="font-semibold text-slate-950 hover:underline">{{ $row->custodian_full_name }}</a>
@@ -205,26 +204,20 @@
                         <p class="mt-4 text-sm font-semibold text-slate-900">
                             {{ $search !== '' || $filter !== 'all' || $departmentId ? 'No one matches this search or filter' : 'The people directory is empty' }}
                         </p>
-                        @if ($readOnly)
-                            <p class="mt-1 text-sm text-slate-500">
-                                Maintenance adds people and assigns property. This view is read only.
-                            </p>
-                        @else
-                            <p class="mt-1 text-sm text-slate-500">
-                                Add anyone who can be accountable for property, even people without a system account.
-                            </p>
-                            <a href="{{ route('maintenance.property-assignments.people.create') }}" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
-                                <i data-lucide="user-plus" class="h-4 w-4"></i>
-                                Add person
-                            </a>
-                        @endif
+                        <p class="mt-1 text-sm text-slate-500">
+                            Add anyone who can be accountable for property, even people without a system account.
+                        </p>
+                        <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
+                            <i data-lucide="user-plus" class="h-4 w-4"></i>
+                            Add person
+                        </a>
                     </div>
                 @endif
             @else
                 <div class="divide-y divide-slate-100">
                     @forelse ($rows as $row)
                         <a
-                            href="{{ url('/maintenance/property-assignments/rooms/'.$row->room_id) }}"
+                            href="{{ \App\Support\PropertyAssignments::url('/rooms/'.$row->room_id) }}"
                             class="flex flex-col gap-2 px-4 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                         >
                             <div class="min-w-0">

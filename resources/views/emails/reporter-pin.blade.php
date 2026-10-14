@@ -33,7 +33,7 @@
                                 Open PaAyo
                             </a>
                             <p style="margin:22px 0 0;font-size:12px;line-height:1.6;color:#9aa3b5;">
-                                If you did not expect this email, contact the maintenance office so they can reset your PIN.
+                                If you did not expect this email, contact the system administrator so they can reset your PIN.
                             </p>
                         </td>
                     </tr>

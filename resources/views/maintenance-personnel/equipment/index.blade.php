@@ -6,11 +6,23 @@
     @php
         $isStockPage = $isStockPage ?? (($scope ?? 'stock') === 'stock');
         $canMaintain = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
+        $inAdminPortal = request()->is('admin/*');
+        // The Administrator adds, edits and disposes; Maintenance only transfers stock out and views the full register.
+        $canManage = $inAdminPortal;
+        $canTransfer = $isStockPage && ($inAdminPortal || $canMaintain);
+        $equipmentActionBase = $inAdminPortal ? '/admin/inventory' : '/maintenance/equipment';
+        $disposeAction = $inAdminPortal ? '/admin/inventory/dispose' : '/maintenance/disposal/store';
         $showHistory = $isStockPage && ($movementHistory ?? null) !== null && request('view') === 'history';
-        $selectable = $isStockPage && $canMaintain && ! $showHistory;
+        $selectable = $canTransfer && ! $showHistory;
         $acquisitionReady = \App\Support\EquipmentAcquisition::ready();
         $acquisitionSuppliers = \App\Support\EquipmentAcquisition::supplierOptions();
         $acquisitionPeople = $isStockPage ? \App\Support\Custodians::assignable() : collect();
+        $transferNeedsApproval = $canTransfer && \App\Support\TransferRequests::requiresApproval();
+        $pendingTransferIds = $canTransfer ? \App\Support\TransferRequests::pendingEquipmentIds() : [];
+        $pendingTransferCount = $canTransfer ? \App\Support\TransferRequests::pendingCount() : 0;
+        $transferRequestsUrl = $inAdminPortal ? '/admin/inventory/transfer-requests' : '/maintenance/equipment/transfer-requests';
+        $transferPeople = $canTransfer ? $acquisitionPeople : collect();
+        $transferDepartments = $canTransfer ? \App\Support\Departments::options() : collect();
         $replacementCandidates = $isStockPage ? \App\Support\EquipmentAcquisition::replacementCandidates() : collect();
         $eqImageUrl = function ($path) {
             if (!filled($path)) {
@@ -33,7 +45,19 @@
         <!-- PAGE HEADER -->
         @if ($isStockPage)
             <div class="flex flex-wrap items-center justify-end gap-2">
-                @if ($canMaintain && ! $showHistory)
+                @if ($canTransfer)
+                <a
+                    href="{{ $transferRequestsUrl }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    <i data-lucide="shield-check" class="h-4 w-4"></i>
+                    Transfer requests
+                    @if ($pendingTransferCount > 0)
+                        <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
+                    @endif
+                </a>
+                @endif
+                @if ($canTransfer && ! $showHistory)
                 <button
                     type="button"
                     id="inventoryTransferSelectedBtn"
@@ -45,16 +69,30 @@
                     Transfer selected
                     <span id="inventoryTransferSelectedCount" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">0</span>
                 </button>
+                @if ($canManage)
+                <button
+                    type="button"
+                    id="inventoryDisposeSelectedBtn"
+                    onclick="openInventoryDisposeSelectedModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled
+                >
+                    <i data-lucide="archive-x" class="h-4 w-4"></i>
+                    Dispose selected
+                    <span id="inventoryDisposeSelectedCount" class="rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-bold text-rose-700">0</span>
+                </button>
+                @endif
                 <button
                     type="button"
                     onclick="openInventoryTransferAllModal()"
                     class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     @if (empty($stockTransferIds ?? [])) disabled @endif
                 >
-                    <i data-lucide="move" class="h-4 w-4"></i>
+                    <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
                     Transfer all
                 </button>
                 @endif
+                @if ($canManage)
                 <button
                     type="button"
                     id="stockPendingBtn"
@@ -87,13 +125,26 @@
 
                     Add to inventory
                 </button>
+                @endif
             </div>
-            @if (!($defaultStorageRoomId ?? null))
+            @if (! $canManage)
+                <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                    <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                    <p>
+                        Transfer stock to a room, a person or a department from here.
+                        @if ($transferNeedsApproval)
+                            Each transfer is sent to the Administrator for approval first.
+                        @endif
+                        Adding, editing and disposing inventory items is done by the Administrator.
+                    </p>
+                </div>
+            @endif
+            @if ($canManage && !($defaultStorageRoomId ?? null))
                 <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     Create a storage room (room type <span class="font-semibold">Storage / Stockroom</span>) before adding equipment to inventory.
                 </div>
             @endif
-            @if (($pendingReceivableCount ?? 0) > 0)
+            @if ($canManage && ($pendingReceivableCount ?? 0) > 0)
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                     <p>
                         <span class="font-semibold">{{ number_format($pendingReceivableCount) }}</span>
@@ -111,9 +162,14 @@
                     </button>
                 </div>
             @endif
-            @if ((int) request('rr') > 0)
+            @if ($canManage && (int) request('rr') > 0)
                 @include('maintenance-personnel.equipment.partials.inventory-open-balance')
             @endif
+        @elseif (! $canManage)
+            <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                <p>View only. Editing and disposing equipment is done by the Administrator.</p>
+            </div>
         @endif
 
         <!-- DASHBOARD CARDS -->
@@ -730,6 +786,15 @@
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
                                 @if ($selectable)
                                     <td class="px-4 py-4 text-center">
+                                        @if (isset($pendingTransferIds[(int) $item->equipment_id]))
+                                            <input
+                                                type="checkbox"
+                                                class="h-4 w-4 cursor-not-allowed rounded border-slate-200 opacity-40"
+                                                disabled
+                                                aria-label="{{ $item->equipment_name }} is awaiting transfer approval"
+                                                data-tooltip="Awaiting transfer approval"
+                                            />
+                                        @else
                                         <input
                                             type="checkbox"
                                             class="inventory-stock-checkbox h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
@@ -738,6 +803,7 @@
                                             onchange="syncInventoryTransferSelection()"
                                             aria-label="Select {{ $item->equipment_name }}"
                                         />
+                                        @endif
                                     </td>
                                 @endif
                                 <td class="px-6 py-4">
@@ -830,14 +896,16 @@
                                             $maintenanceOverdue = \App\Support\EquipmentNextMaintenance::isOverdue($item);
                                         @endphp
                                         <a
-                                            href="{{ url('/maintenance/schedules').'?'.http_build_query(['search' => $item->equipment_name]) }}"
+                                            href="{{ $inAdminPortal
+                                                ? url('/admin/operations/schedules').'?'.http_build_query(['q' => $item->equipment_name])
+                                                : url('/maintenance/schedules').'?'.http_build_query(['search' => $item->equipment_name]) }}"
                                             class="text-sm transition hover:text-[#0025cc] {{ $maintenanceOverdue ? 'font-semibold text-rose-700' : 'text-slate-700' }}"
                                         >{{ \Carbon\Carbon::parse($item->next_maintenance_date)->format('M j, Y') }}</a>
                                         @if ($maintenanceOverdue)
                                             <span class="ml-1.5 inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Overdue</span>
                                         @endif
                                     @else
-                                        <span class="text-sm text-slate-400">Not scheduled</span>
+                                        <span class="text-sm text-slate-400">No scheduled</span>
                                     @endif
                                 </td>
 
@@ -854,7 +922,16 @@
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
 
-                                        @if ($isStockPage && $canMaintain)
+                                        @if ($canTransfer && isset($pendingTransferIds[(int) $item->equipment_id]))
+                                            <a
+                                                href="{{ $transferRequestsUrl }}"
+                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-amber-50 px-3 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-100"
+                                                data-tooltip="A transfer for this item is waiting for the Administrator"
+                                            >
+                                                <i data-lucide="clock" class="h-4 w-4"></i>
+                                                Awaiting approval
+                                            </a>
+                                        @elseif ($canTransfer)
                                             <button
                                                 type="button"
                                                 onclick="openInventoryTransferToModal(
@@ -864,14 +941,14 @@
                                                     {{ json_encode($item->equipment_asset_tag ?? '') }}
                                                 )"
                                                 class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-sky-50 px-3 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
-                                                data-tooltip="Transfer to room"
-                                                aria-label="Transfer to room"
+                                                data-tooltip="Transfer"
+                                                aria-label="Transfer"
                                             >
-                                                <i data-lucide="move" class="h-4 w-4"></i>
+                                                <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
                                             </button>
                                         @endif
 
-                                        @if ($canMaintain)
+                                        @if ($canManage)
                                         <button
                                             type="button"
                                             onclick="openEditEquipmentModal(
@@ -1297,7 +1374,7 @@
             </div>
         @endif
 
-        @if ($isStockPage && (int) request('rr') < 1)
+        @if ($isStockPage && $canManage && (int) request('rr') < 1)
             @include('maintenance-personnel.equipment.partials.inventory-open-balance')
         @endif
 
@@ -1310,11 +1387,12 @@
     @endphp
 
         @include('maintenance-personnel.equipment.partials.equipment-asset-drawer')
-    @if ($isStockPage)
+    @if ($isStockPage && $canManage)
         @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add to inventory'])
         @include('maintenance-personnel.equipment.partials.batch-add-wizard')
     @endif
 
+    @if ($canManage)
     <div
         id="editEquipmentModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -1559,6 +1637,7 @@
             </div>
         </form>
     </div>
+    @endif
 
 
 
@@ -1585,7 +1664,7 @@
             acquisition
         ) {
             document.getElementById("editEquipmentForm").action =
-                "/maintenance/equipment/update/" + id;
+                @json($equipmentActionBase.'/update/') + id;
 
             document.getElementById("edit_equipment_name").value = name;
 
@@ -1777,11 +1856,48 @@
         }
 
         function openInventoryDisposeModal(equipmentId, equipmentName, roomName) {
+            document.getElementById("inventoryDisposeIds").innerHTML = "";
             document.getElementById("inventoryDisposeEquipmentId").value = equipmentId;
+            document.getElementById("inventoryDisposeTitle").textContent = "Dispose equipment";
             document.getElementById("inventoryDisposeEquipmentName").textContent = equipmentName || "Equipment";
             document.getElementById("inventoryDisposeLocation").value = roomName || "";
             document.getElementById("inventoryDisposeReason").value = "";
+            showInventoryDisposeModal();
+        }
 
+        function openInventoryDisposeSelectedModal() {
+            const boxes = Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'));
+            if (!boxes.length) return;
+
+            const container = document.getElementById("inventoryDisposeIds");
+            container.innerHTML = "";
+            boxes.forEach((box) => {
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "equipment_ids[]";
+                input.value = box.value;
+                container.appendChild(input);
+            });
+
+            const list = document.createElement("ul");
+            list.className = "space-y-1";
+            boxes.forEach((box) => {
+                const item = document.createElement("li");
+                item.textContent = box.dataset.name || "Item";
+                list.appendChild(item);
+            });
+
+            document.getElementById("inventoryDisposeEquipmentId").value = "";
+            document.getElementById("inventoryDisposeTitle").textContent = "Dispose " + boxes.length + (boxes.length === 1 ? " item" : " items");
+            const nameBox = document.getElementById("inventoryDisposeEquipmentName");
+            nameBox.innerHTML = "";
+            nameBox.appendChild(list);
+            document.getElementById("inventoryDisposeLocation").value = "";
+            document.getElementById("inventoryDisposeReason").value = "";
+            showInventoryDisposeModal();
+        }
+
+        function showInventoryDisposeModal() {
             const modal = document.getElementById("inventoryDisposeModal");
             modal.classList.remove("hidden");
             modal.classList.add("flex");
@@ -1824,7 +1940,7 @@
             modal.classList.add('flex');
             if (window.lucide) window.lucide.createIcons();
 
-            fetch('/maintenance/equipment/receivable-lines', {
+            fetch('/admin/inventory/receivable-lines', {
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
             })
@@ -1903,7 +2019,7 @@
             };
 
             try {
-                const res = await fetch('/maintenance/equipment/stock-pending', {
+                const res = await fetch('/admin/inventory/stock-pending', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -1918,7 +2034,7 @@
                 if (!res.ok || data.ok === false) {
                     throw new Error(data.message || 'Could not add the pending lines.');
                 }
-                window.location.href = data.redirect || '/maintenance/equipment/inventory';
+                window.location.href = data.redirect || '/admin/inventory';
             } catch (err) {
                 if (errorEl) {
                     errorEl.textContent = err.message || 'Could not add the pending lines.';
@@ -1937,7 +2053,7 @@
             document.getElementById("inventoryTransferEquipmentName").textContent = equipmentName || "Equipment";
             document.getElementById("inventoryTransferCurrentRoom").textContent = roomName || "—";
             document.getElementById("inventoryTransferAssetTag").textContent = assetTag || "No asset tag";
-            document.getElementById("inventoryTransferRoomId").value = "";
+            resetInventoryTransferDestination("inventoryTransfer");
             document.getElementById("inventoryTransferRemarks").value = "";
 
             const modal = document.getElementById("inventoryTransferToModal");
@@ -1956,7 +2072,7 @@
             const count = Number(document.getElementById("inventoryTransferAllCount")?.dataset.count || 0);
             if (!count) return;
 
-            document.getElementById("inventoryTransferAllRoomId").value = "";
+            resetInventoryTransferDestination("inventoryTransferAll");
             document.getElementById("inventoryTransferAllRemarks").value = "";
 
             const modal = document.getElementById("inventoryTransferAllModal");
@@ -1986,6 +2102,11 @@
 
             if (countEl) countEl.textContent = String(selected.length);
             if (btn) btn.disabled = selected.length === 0;
+
+            const disposeCount = document.getElementById('inventoryDisposeSelectedCount');
+            const disposeBtn = document.getElementById('inventoryDisposeSelectedBtn');
+            if (disposeCount) disposeCount.textContent = String(selected.length);
+            if (disposeBtn) disposeBtn.disabled = selected.length === 0;
 
             if (selectAll && boxes.length) {
                 selectAll.checked = selected.length === boxes.length;
@@ -2028,7 +2149,7 @@
                 summary.textContent = names.join(', ') + extra;
             }
 
-            document.getElementById('inventoryTransferSelectedRoomId').value = '';
+            resetInventoryTransferDestination('inventoryTransferSelected');
             document.getElementById('inventoryTransferSelectedRemarks').value = '';
 
             const modal = document.getElementById('inventoryTransferSelectedModal');
@@ -2063,7 +2184,7 @@
                     <p class="mt-2 text-sm leading-6 text-slate-500">
                         Deploy
                         <span id="inventoryTransferSelectedModalCount" class="font-semibold text-slate-800">0</span>
-                        selected item(s) to one classroom or lab. Then select another set for a different room.
+                        selected item(s) to one room, person or department. Then select another set for a different destination.
                     </p>
                     <p id="inventoryTransferSelectedSummary" class="mt-2 text-xs text-slate-400"></p>
                 </div>
@@ -2072,20 +2193,12 @@
                 </button>
             </div>
 
-            <form action="/maintenance/equipment/transfer-batch" method="POST">
+            <form action="{{ $equipmentActionBase }}/transfer-batch" method="POST">
                 @csrf
                 <div id="inventoryTransferSelectedIds"></div>
 
-                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
-                    <div>
-                        <label for="inventoryTransferSelectedRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
-                        <select id="inventoryTransferSelectedRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
-                            <option value="">Select classroom / lab</option>
-                            @foreach (($deployRooms ?? collect()) as $room)
-                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                <div class="max-h-[60vh] overflow-y-auto border-y border-slate-100 px-6 py-5 space-y-5">
+                    @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', ['prefix' => 'inventoryTransferSelected'])
 
                     <div>
                         <label for="inventoryTransferSelectedRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
@@ -2095,7 +2208,7 @@
 
                 <div class="flex items-center justify-end gap-2 px-6 py-4">
                     <button type="button" onclick="closeInventoryTransferSelectedModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer selected</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer selected' }}</button>
                 </div>
             </form>
         </div>
@@ -2111,9 +2224,9 @@
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
                         <i data-lucide="move" class="h-4 w-4"></i>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer to room</h2>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer equipment</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Deploy this equipment to a classroom or lab. It lands in Holding until placed on the floor.
+                        Send this item to a room, a person or a department. It lands in Holding until placed on the floor.
                     </p>
                 </div>
                 <button type="button" onclick="closeInventoryTransferToModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -2121,11 +2234,11 @@
                 </button>
             </div>
 
-            <form action="/maintenance/equipment/transfer" method="POST">
+            <form action="{{ $equipmentActionBase }}/transfer" method="POST">
                 @csrf
                 <input type="hidden" name="equipment_id" id="inventoryTransferEquipmentId" value="" />
 
-                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
+                <div class="max-h-[60vh] overflow-y-auto border-y border-slate-100 px-6 py-5 space-y-5">
                     <div class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60">
                         <div class="flex items-center justify-between gap-6 px-4 py-3.5">
                             <span class="shrink-0 text-sm text-slate-500">Equipment</span>
@@ -2141,15 +2254,7 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label for="inventoryTransferRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
-                        <select id="inventoryTransferRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
-                            <option value="">Select classroom / lab</option>
-                            @foreach (($deployRooms ?? collect()) as $room)
-                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', ['prefix' => 'inventoryTransfer'])
 
                     <div>
                         <label for="inventoryTransferRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
@@ -2159,7 +2264,7 @@
 
                 <div class="flex items-center justify-end gap-2 px-6 py-4">
                     <button type="button" onclick="closeInventoryTransferToModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}</button>
                 </div>
             </form>
         </div>
@@ -2183,7 +2288,7 @@
                             data-count="{{ count($stockTransferIds ?? []) }}"
                             class="font-semibold text-slate-800"
                         >{{ number_format(count($stockTransferIds ?? [])) }}</span>
-                        filtered storage item(s) to one classroom or lab.
+                        filtered storage item(s) to one room, person or department.
                     </p>
                 </div>
                 <button type="button" onclick="closeInventoryTransferAllModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -2191,22 +2296,14 @@
                 </button>
             </div>
 
-            <form action="/maintenance/equipment/transfer-batch" method="POST">
+            <form action="{{ $equipmentActionBase }}/transfer-batch" method="POST">
                 @csrf
                 @foreach (($stockTransferIds ?? []) as $transferId)
                     <input type="hidden" name="equipment_ids[]" value="{{ $transferId }}" />
                 @endforeach
 
-                <div class="border-y border-slate-100 px-6 py-5 space-y-5">
-                    <div>
-                        <label for="inventoryTransferAllRoomId" class="mb-2 block text-sm font-medium text-slate-700">Destination room <span class="text-red-500">*</span></label>
-                        <select id="inventoryTransferAllRoomId" name="room_id" required class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
-                            <option value="">Select classroom / lab</option>
-                            @foreach (($deployRooms ?? collect()) as $room)
-                                <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                <div class="max-h-[60vh] overflow-y-auto border-y border-slate-100 px-6 py-5 space-y-5">
+                    @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', ['prefix' => 'inventoryTransferAll'])
 
                     <div>
                         <label for="inventoryTransferAllRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
@@ -2216,7 +2313,7 @@
 
                 <div class="flex items-center justify-end gap-2 px-6 py-4">
                     <button type="button" onclick="closeInventoryTransferAllModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Transfer all</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer all' }}</button>
                 </div>
             </form>
         </div>
@@ -2284,6 +2381,7 @@
         </div>
     </div>
 
+    @if ($canManage)
     <div
         id="inventoryDisposeModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -2294,11 +2392,11 @@
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                         <i data-lucide="archive-x" class="h-4 w-4"></i>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                    <h2 id="inventoryDisposeTitle" class="text-lg font-semibold tracking-tight text-slate-950">
                         Dispose equipment
                     </h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Move this item from inventory into the Disposal module. This is permanent until restored from Disposal.
+                        Move from inventory into the Disposal module. This is permanent until restored from Disposal.
                     </p>
                 </div>
                 <button
@@ -2311,15 +2409,16 @@
                 </button>
             </div>
 
-            <form action="/maintenance/disposal/store" method="POST">
+            <form action="{{ $disposeAction }}" method="POST">
                 @csrf
                 <input type="hidden" name="equipment_id" id="inventoryDisposeEquipmentId" value="" />
+                <div id="inventoryDisposeIds"></div>
 
                 <div class="border-y border-slate-100 px-6 py-5">
                     <div class="space-y-5">
                         <div>
                             <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
-                            <p id="inventoryDisposeEquipmentName" class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></p>
+                            <div id="inventoryDisposeEquipmentName" class="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></div>
                         </div>
 
                         <div>
@@ -2402,6 +2501,7 @@
             </form>
         </div>
     </div>
+    @endif
 
     @include('layouts.partials.equipment-layout-icons')
     @include('layouts.partials.equipment-asset-tag')

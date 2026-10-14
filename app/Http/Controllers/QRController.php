@@ -110,7 +110,7 @@ class QRController extends Controller
             foreach (['search', 'category', 'room', 'qr_status'] as $filter) {
                 $request->query->remove($filter);
             }
-            $attentionFocus = \App\Support\RecordFocus::receivingReport($recordRrId, url('/maintenance/equipment/qr-tools'));
+            $attentionFocus = \App\Support\RecordFocus::receivingReport($recordRrId, route('admin.qr-tools.index'));
         }
 
 
@@ -340,7 +340,7 @@ class QRController extends Controller
         // =====================================================
 
         return view(
-            'maintenance-personnel.equipment.qr-code-generator',
+            'admin.qr-tools.index',
 
             compact(
                 'equipment',
@@ -673,7 +673,7 @@ class QRController extends Controller
         abort_if(!$equipment, 404);
 
         return view(
-            'maintenance-personnel.equipment.qr-label-print',
+            'admin.qr-tools.label-print',
             [
                 'equipments' => collect([$equipment]),
             ]
@@ -708,7 +708,7 @@ class QRController extends Controller
             ->values();
 
         return view(
-            'maintenance-personnel.equipment.qr-label-print',
+            'admin.qr-tools.label-print',
             [
                 'equipments' => $ordered,
             ]
@@ -865,7 +865,7 @@ class QRController extends Controller
 
         $pdf = Pdf::loadView(
 
-            'maintenance-personnel.equipment.qr-label-pdf',
+            'admin.qr-tools.label-pdf',
 
             compact(
                 'equipment',

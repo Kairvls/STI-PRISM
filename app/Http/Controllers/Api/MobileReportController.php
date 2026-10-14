@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
@@ -289,29 +290,64 @@ class MobileReportController extends Controller
 
         }
 
-        $query = DB::table('issue_templates_table')
-            ->where('issue_template_category_id', $equipment->equipment_category_id)
-            ->orderBy('issue_template_name');
-
-        if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
-            $component = SuggestedIssues::detectComponent($equipment->equipment_name ?? '');
-
-            if ($component) {
-                $query->where('issue_template_component', $component);
-            } else {
-                $query->where(function ($inner) {
-                    $inner
-                        ->whereNull('issue_template_component')
-                        ->orWhere('issue_template_component', '');
-                });
-            }
-        }
-
-        $issues = $query
+        $issues = SuggestedIssues::templatesQuery($equipment)
+            ->orderBy('issue_template_name')
             ->select('issue_template_id', 'issue_template_name')
             ->get();
 
-        return response()->json($issues);
+        $checksByTemplate = IssueChecks::payloadsForTemplates(
+            $issues->pluck('issue_template_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        return response()->json($issues->map(fn ($issue) => [
+            'issue_template_id' => $issue->issue_template_id,
+            'issue_template_name' => $issue->issue_template_name,
+            'checks' => $checksByTemplate[(int) $issue->issue_template_id] ?? [],
+        ])->values());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | QUICK CHECKS
+    | Simple things the reporter tries before the item goes on a report.
+    |--------------------------------------------------------------------------
+    */
+
+    public function issueChecks(Request $request, $equipmentId)
+    {
+        $equipment = DB::table('equipment_table')->where('equipment_id', $equipmentId)->first();
+
+        return response()->json([
+            'checks' => $equipment ? IssueChecks::payloadsFor($equipment, (string) $request->query('issue', '')) : [],
+        ]);
+    }
+
+    public function selfFixed(Request $request)
+    {
+        $reporter = ReporterPins::apiReporter($request);
+
+        if (! $reporter) {
+            return $this->pinRequiredResponse();
+        }
+
+        $request->validate([
+            'equipment_id' => ['required', 'integer'],
+            'check_id' => ['required', 'integer'],
+        ]);
+
+        $equipment = DB::table('equipment_table')->where('equipment_id', $request->equipment_id)->first();
+
+        if (! $equipment || ! IssueChecks::recordSelfFix($equipment, (int) $request->check_id, $reporter, 'mobile')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That check was not found.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Glad it works now. No report was sent.',
+        ]);
     }
 
     public function globalSuggestedIssues()
@@ -364,7 +400,7 @@ class MobileReportController extends Controller
         if (! ReporterPins::ready()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Reporter PINs are not set up yet. Please contact the maintenance office.',
+                'message' => 'Reporter PINs are not set up yet. Please contact the system administrator.',
             ], 503);
         }
 
@@ -410,7 +446,7 @@ class MobileReportController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
-                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the maintenance office to reset your PIN.',
+                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the system administrator to reset your PIN.',
         ]);
     }
 
@@ -507,6 +543,9 @@ class MobileReportController extends Controller
 
             'manual_equipment_details.*' => 'nullable|string|max:2000',
 
+            // Quick-check answers, parallel to equipment_ids: JSON string or list of {id, answer}.
+            'equipment_checks' => 'nullable|array',
+
             // Parallel to manual_equipment_names; items may come from different rooms.
             'manual_equipment_rooms' => 'nullable|array',
 
@@ -537,6 +576,7 @@ class MobileReportController extends Controller
         $rawEquipmentIds = collect($request->input('equipment_ids', []));
         $rawEquipmentIssues = collect($request->input('equipment_issues', []));
         $rawEquipmentDetails = collect($request->input('equipment_details', []));
+        $rawEquipmentChecks = collect($request->input('equipment_checks', []));
 
         $equipmentIds = $rawEquipmentIds
             ->when(
@@ -550,6 +590,7 @@ class MobileReportController extends Controller
 
         $equipmentIssuesById = [];
         $equipmentDetailsById = [];
+        $equipmentChecksById = [];
         foreach ($rawEquipmentIds as $index => $rawId) {
             $equipmentId = (int) $rawId;
             if ($equipmentId <= 0) {
@@ -557,6 +598,7 @@ class MobileReportController extends Controller
             }
             $equipmentIssuesById[$equipmentId] = trim((string) ($rawEquipmentIssues[$index] ?? ''));
             $equipmentDetailsById[$equipmentId] = trim((string) ($rawEquipmentDetails[$index] ?? ''));
+            $equipmentChecksById[$equipmentId] = IssueChecks::normalizeAnswers($rawEquipmentChecks[$index] ?? null);
         }
 
         $manualNames = collect($request->input('manual_equipment_names', []))
@@ -812,6 +854,7 @@ class MobileReportController extends Controller
                 'equipment_id' => (int) $equipmentId,
                 'issue' => $resolveItemIssue($equipmentIssuesById[$equipmentId] ?? '', $details),
                 'room_id' => $equipmentRoomIds[$equipmentId],
+                'checks' => $equipmentChecksById[$equipmentId] ?? [],
             ];
             if ($details !== '') {
                 $detailEntries[] = [(string) ($validEquipment->get($equipmentId)->equipment_name ?? 'Equipment'), $details];
@@ -936,6 +979,7 @@ class MobileReportController extends Controller
                 'problem_description' => $itemDetails !== '' ? $itemDetails : null,
                 'uploaded_image' => $equipmentPhotoPaths[$equipmentId] ?? null,
                 'room_id' => $equipmentRoomIds[$equipmentId],
+                'checks' => $equipmentChecksById[$equipmentId] ?? [],
             ];
         }
 

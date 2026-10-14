@@ -56,6 +56,18 @@ class AdminAttentionSummary
     }
 
     /**
+     * Borrowed equipment past its expected return date (Borrowing is handled in the Administrator portal).
+     */
+    public static function overdueBorrows(): int
+    {
+        if (! Schema::hasTable('borrowing_records_table')) {
+            return 0;
+        }
+
+        return (int) MaintenanceAttentionSummary::scopeOverdueBorrowings(DB::table('borrowing_records_table'))->count();
+    }
+
+    /**
      * Submitted / resubmitted RIS waiting for Administrator accept (Procurement Review).
      */
     public static function scopePendingRis($query, string $prefix = '')

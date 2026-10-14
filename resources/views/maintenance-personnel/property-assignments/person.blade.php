@@ -21,12 +21,11 @@
         ['System account', $person->linked_reporter_name ? $person->linked_reporter_name.' ('.$person->linked_employee_id.')' : 'Not linked', 'link'],
         ['In directory since', $formatDate($person->custodian_created_at), 'calendar'],
     ];
-    $readOnly = \App\Support\PropertyAssignments::isReadOnly();
 @endphp
 
 <div class="space-y-6">
     <div class="flex items-center gap-2 text-sm text-slate-400">
-        <a href="{{ url('/maintenance/property-assignments') }}" class="transition hover:text-slate-700">Property Assignment</a>
+        <a href="{{ \App\Support\PropertyAssignments::url() }}" class="transition hover:text-slate-700">Property Assignment</a>
         <i data-lucide="chevron-right" class="h-4 w-4"></i>
         <span class="font-medium text-slate-600">{{ $person->custodian_full_name }}</span>
     </div>
@@ -52,17 +51,15 @@
             </div>
 
             <div class="flex shrink-0 flex-wrap gap-2">
-                @unless ($readOnly)
-                    <a
-                        href="{{ route('maintenance.property-assignments.people.edit', $person->custodian_id) }}"
-                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                        <i data-lucide="pencil" class="h-4 w-4"></i>
-                        Edit details
-                    </a>
-                @endunless
                 <a
-                    href="{{ route('maintenance.property-assignments.person.form', $person->custodian_id) }}"
+                    href="{{ \App\Support\PropertyAssignments::route('people.edit', $person->custodian_id) }}"
+                    class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                    Edit details
+                </a>
+                <a
+                    href="{{ \App\Support\PropertyAssignments::route('person.form', $person->custodian_id) }}"
                     target="_blank"
                     rel="noopener"
                     class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
@@ -90,7 +87,7 @@
         @endif
     </section>
 
-    @if (! $canReceive && ! $readOnly)
+    @if (! $canReceive)
         <p class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
             This person is marked <strong>{{ $person->custodian_status }}</strong>, so new items cannot be assigned to them. Change the status under Edit details to assign again.
         </p>
@@ -100,7 +97,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
                 <h2 class="text-base font-semibold text-slate-900">Currently accountable for</h2>
-                <p class="mt-0.5 text-sm text-slate-500">{{ $readOnly ? 'Items this person must return before clearance.' : 'Open an item to transfer or return it.' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">Open an item to transfer or return it.</p>
             </div>
             <i data-lucide="package" class="h-5 w-5 text-slate-400"></i>
         </div>
@@ -134,7 +131,7 @@
                                 </td>
                                 <td class="px-5 py-3 text-slate-700">
                                     @if ($item->current_room_id)
-                                        <a href="{{ url('/maintenance/property-assignments/rooms/'.$item->current_room_id) }}" class="hover:underline">{{ $item->current_room_name }}</a>
+                                        <a href="{{ \App\Support\PropertyAssignments::url('/rooms/'.$item->current_room_id) }}" class="hover:underline">{{ $item->current_room_name }}</a>
                                     @else
                                         —
                                     @endif
@@ -158,7 +155,7 @@
         @endif
     </section>
 
-    @if ($canReceive && ! $readOnly)
+    @if ($canReceive)
         @php
             $addOpen = ! $holdsProperty || $itemSearch !== '' || $itemRoomId || old('equipment_ids');
         @endphp

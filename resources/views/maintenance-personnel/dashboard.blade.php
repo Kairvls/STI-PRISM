@@ -4970,38 +4970,6 @@
                 class="dashboard-toolbar-actions ml-auto flex items-center gap-2"
             >
                 {{-- ===================================================== --}}
-                {{-- ADD EQUIPMENT --}}
-                {{-- ===================================================== --}}
-
-                {{-- ===================================================== --}}
-                {{-- ADD EQUIPMENT --}}
-                {{-- ===================================================== --}}
-
-                <button type="button" class="button" onclick="openAddEquipmentModal()">
-                    <span class="fold"></span>
-
-                    <div class="points_wrapper">
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                    </div>
-
-                    <span class="inner"
-                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
-                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
-                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
-                        </svg>Equipment</span
-                    >
-                </button>
-
-                {{-- ===================================================== --}}
                 {{-- ADD SCHEDULE --}}
                 {{-- ===================================================== --}}
 
@@ -5015,23 +4983,6 @@
                     </span>
 
                     <span>Schedule</span>
-                </button>
-
-
-                {{-- ===================================================== --}}
-                {{-- ADD BORROWING --}}
-                {{-- ===================================================== --}}
-
-                <button
-                    type="button"
-                    class="dashboard-quick-action"
-                    onclick="openBorrowModal()"
-                >
-                    <span class="dashboard-quick-action-icon">
-                        <i data-lucide="clipboard-plus" class="h-4 w-4"></i>
-                    </span>
-
-                    <span>Borrowing</span>
                 </button>
             </div>
         </div>-->
@@ -5294,20 +5245,6 @@
                                                 <div class="eq-stats-menu-desc">View borrowed equipment</div>
                                             </div>
                                         </a>
-
-                                        <a
-                                            href="{{ url('/maintenance/equipment/categories') }}"
-                                            class="eq-stats-menu-item"
-                                            role="menuitem"
-                                        >
-                                            <div class="eq-stats-menu-icon">
-                                                <i data-lucide="tags" class="h-3.5 w-3.5"></i>
-                                            </div>
-                                            <div>
-                                                <div class="eq-stats-menu-title">Equipment Categories</div>
-                                                <div class="eq-stats-menu-desc">Manage categories</div>
-                                            </div>
-                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -5442,7 +5379,6 @@
                                                 <a href="{{ url('/maintenance/equipment/inventory') }}">All equipment</a>
                                                 <a href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}">Borrowed</a>
                                                 <a href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}">Under maintenance</a>
-                                                <a href="{{ url('/maintenance/equipment/categories') }}">Categories</a>
                                             </div>
                                         </div>
                                     </div>
@@ -5628,7 +5564,6 @@
                         ['label' => 'All equipment', 'href' => url('/maintenance/equipment/inventory')],
                         ['label' => 'Borrowed', 'href' => url('/maintenance/equipment/inventory?status=Borrowed')],
                         ['label' => 'Under maintenance', 'href' => url('/maintenance/equipment/inventory?status=Under Maintenance')],
-                        ['label' => 'Categories', 'href' => url('/maintenance/equipment/categories')],
                     ],
                 ])
 
@@ -5715,15 +5650,6 @@
                                     <i data-lucide="maximize-2" class="h-3.5 w-3.5"></i>
                                 </a>
 
-                                <a
-                                    href="{{ url('/maintenance/equipment/categories') }}"
-                                    class="equipment-statistic-tool"
-                                    aria-label="Manage equipment categories"
-                                    title="Manage categories"
-                                >
-                                    <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
-                                </a>
-
                                 <button
                                     type="button"
                                     class="equipment-statistic-tool"
@@ -5807,30 +5733,6 @@
                         >
                     </button>-->
 
-                    <button
-                        type="button"
-                        class="dashboard-quick-action"
-                        onclick="openAddEquipmentModal()"
-                    >
-                        <span class="dashboard-quick-action-icon">
-                            <i data-lucide="plus" class="h-4 w-4"></i>
-                        </span>
-
-                        <span>Equipment</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="dashboard-quick-action"
-                        onclick="openBatchAddEquipmentModal()"
-                    >
-                        <span class="dashboard-quick-action-icon">
-                            <i data-lucide="layers" class="h-4 w-4"></i>
-                        </span>
-
-                        <span>Batch add</span>
-                    </button>
-
                     {{-- ===================================================== --}}
                     {{-- ADD SCHEDULE --}}
                     {{-- ===================================================== --}}
@@ -5845,23 +5747,6 @@
                         </span>
 
                         <span>Schedule</span>
-                    </button>
-
-
-                    {{-- ===================================================== --}}
-                    {{-- ADD BORROWING --}}
-                    {{-- ===================================================== --}}
-
-                    <button
-                        type="button"
-                        class="dashboard-quick-action"
-                        onclick="openBorrowModal()"
-                    >
-                        <span class="dashboard-quick-action-icon">
-                            <i data-lucide="clipboard-plus" class="h-4 w-4"></i>
-                        </span>
-
-                        <span>Borrowing</span>
                     </button>
 
                     <a
@@ -6679,8 +6564,6 @@
         </div>
     </div>
 
-    @include('maintenance-personnel.equipment.partials.add-equipment-wizard', ['isStockPage' => true, 'wizardTitle' => 'Add equipment'])
-    @include('maintenance-personnel.equipment.partials.batch-add-wizard')
 
 
 <div
@@ -6939,307 +6822,6 @@
     </div>
 </div>
 
-    <!-- ===================================================== -->
-    <!-- BORROW MODAL -->
-    <!-- ===================================================== -->
-
-    <div
-        id="borrowModal"
-        x-data="borrowEquipmentCart(@js($borrowableEquipmentJson ?? []))"
-        x-cloak
-        class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
-        @keydown.escape.window="if (!$el.classList.contains('hidden')) closeBorrowModal()"
-    >
-        <div class="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-            <div class="flex items-start justify-between gap-4 px-6 pt-6">
-                <div class="min-w-0">
-                    <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
-                </div>
-                <button
-                    type="button"
-                    onclick="closeBorrowModal()"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                    aria-label="Close modal"
-                >
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-
-            <form
-                method="POST"
-                action="/maintenance/borrowing/store"
-                class="flex min-h-0 flex-1 flex-col"
-                @submit="prepareSubmit($event)"
-            >
-                @csrf
-
-                <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
-                            </div>
-                            <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
-                        </div>
-
-                        <div class="relative" @click.outside="open = false">
-                            <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
-                            <div class="flex gap-2">
-                                <div class="relative min-w-0 flex-1">
-                                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                                    <input
-                                        type="text"
-                                        x-model="query"
-                                        @focus="open = true"
-                                        @input="open = true"
-                                        @keydown.arrow-down.prevent="move(1)"
-                                        @keydown.arrow-up.prevent="move(-1)"
-                                        @keydown.enter.prevent="selectHighlighted()"
-                                        placeholder="Search by name, room, or asset tag"
-                                        class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                        autocomplete="off"
-                                    >
-                                </div>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    :max="selected?.available || 1"
-                                    x-model.number="addQty"
-                                    class="h-11 w-24 rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                    title="Quantity to add"
-                                >
-                                <button
-                                    type="button"
-                                    @click="addSelected()"
-                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
-                                >
-                                    Add
-                                </button>
-                            </div>
-
-                            <div
-                                x-show="open"
-                                x-cloak
-                                class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
-                            >
-                                <div class="max-h-64 overflow-y-auto py-1">
-                                    <template x-if="filtered.length === 0">
-                                        <p class="px-3 py-4 text-sm text-slate-400">No matching borrowable equipment.</p>
-                                    </template>
-                                    <template x-for="(item, index) in filtered" :key="item.id">
-                                        <button
-                                            type="button"
-                                            @click="choose(item)"
-                                            class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
-                                            :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
-                                        >
-                                            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                                                <i data-lucide="package" class="h-4 w-4"></i>
-                                            </span>
-                                            <span class="min-w-0 flex-1">
-                                                <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
-                                                <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
-                                            </span>
-                                            <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="item.available + ' avail'"></span>
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
-                            <p x-show="selected" x-cloak class="mt-2 text-xs text-slate-500">
-                                Selected: <span class="font-medium text-slate-800" x-text="selected?.name"></span>
-                                <span x-text="' · up to ' + (selected?.available || 0) + ' available'"></span>
-                            </p>
-                            <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
-                        </div>
-
-                        <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                            <template x-if="cart.length === 0">
-                                <div class="px-4 py-8 text-center">
-                                    <p class="text-sm font-medium text-slate-700">Cart is empty</p>
-                                    <p class="mt-1 text-xs text-slate-400">Add chairs, tables, and other items here before creating the borrow.</p>
-                                </div>
-                            </template>
-                            <template x-if="cart.length > 0">
-                                <div class="divide-y divide-slate-100">
-                                    <template x-for="(line, index) in cart" :key="line.id">
-                                        <div class="flex flex-wrap items-center gap-3 px-4 py-3">
-                                            <input type="hidden" :name="'items[' + index + '][equipment_id]'" :value="line.id">
-                                            <input type="hidden" :name="'items[' + index + '][condition]'" :value="line.condition || ''">
-                                            <div class="min-w-0 flex-1">
-                                                <p class="truncate text-sm font-medium text-slate-900" x-text="line.name"></p>
-                                                <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <label class="sr-only" :for="'cart-qty-' + line.id">Quantity</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    :max="line.available"
-                                                    :id="'cart-qty-' + line.id"
-                                                    :name="'items[' + index + '][quantity]'"
-                                                    x-model.number="line.quantity"
-                                                    @change="clampLine(line)"
-                                                    class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm"
-                                                >
-                                                <span class="text-xs text-slate-400" x-text="'/' + line.available"></span>
-                                                <button
-                                                    type="button"
-                                                    @click="removeLine(index)"
-                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
-                                                    aria-label="Remove item"
-                                                >
-                                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                        <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
-                    </div>
-
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
-                            <p class="mt-1 text-sm text-slate-500">Shared across every item in this borrow.</p>
-                        </div>
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <label for="borrowerName" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrower name <span class="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    id="borrowerName"
-                                    type="text"
-                                    name="borrowing_borrower_name"
-                                    placeholder="Enter borrower name"
-                                    required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                            <div>
-                                <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
-                                    Department <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <input
-                                    id="borrowDepartment"
-                                    type="text"
-                                    name="borrowing_borrower_department"
-                                    placeholder="Enter department"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label for="borrowAuthorizedBy" class="mb-1.5 block text-sm text-slate-600">
-                                    Authorized by <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <input
-                                    id="borrowAuthorizedBy"
-                                    type="text"
-                                    name="borrowing_authorized_by"
-                                    placeholder="Enter authorizing personnel"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
-                            <p class="mt-1 text-sm text-slate-500">One borrow / return window for the whole cart.</p>
-                        </div>
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrow date <span class="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    id="borrowDate"
-                                    type="date"
-                                    name="borrowing_date"
-                                    required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                            <div>
-                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
-                                    Expected return <span class="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    id="borrowExpectedReturn"
-                                    type="date"
-                                    name="borrowing_expected_return_date"
-                                    required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                        </div>
-                        <div class="space-y-4">
-                            <div>
-                                <label for="borrowPurpose" class="mb-1.5 block text-sm text-slate-600">
-                                    Purpose <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <textarea
-                                    id="borrowPurpose"
-                                    name="borrowing_purpose"
-                                    rows="2"
-                                    placeholder="Describe why the equipment is being borrowed"
-                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                ></textarea>
-                            </div>
-                            <div>
-                                <label for="borrowDestination" class="mb-1.5 block text-sm text-slate-600">
-                                    Destination <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <input
-                                    id="borrowDestination"
-                                    type="text"
-                                    name="borrowing_destination_location"
-                                    placeholder="Enter destination location"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                            <div>
-                                <label for="borrowRemarks" class="mb-1.5 block text-sm text-slate-600">
-                                    Remarks <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <textarea
-                                    id="borrowRemarks"
-                                    name="borrowing_remarks"
-                                    rows="2"
-                                    placeholder="Add any additional notes"
-                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                ></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
-                    <button
-                        type="button"
-                        onclick="closeBorrowModal()"
-                        class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
-                        x-text="cart.length ? ('Create borrow · ' + cart.length + ' line' + (cart.length === 1 ? '' : 's')) : 'Create borrowing record'"
-                    ></button>
-                </div>
-            </form>
-        </div>
-    </div>
 
 {{-- ===================================================== --}}
 {{-- EQUIPMENT QR SCANNER MODAL --}}
@@ -9705,169 +9287,6 @@ function closeScheduleModal() {
 }
 
 
-function borrowEquipmentCart(catalog) {
-    return {
-        catalog: Array.isArray(catalog) ? catalog : [],
-        query: '',
-        open: false,
-        highlight: 0,
-        selected: null,
-        addQty: 1,
-        cart: [],
-        pickerError: '',
-        cartError: '',
-        get filtered() {
-            const q = String(this.query || '').trim().toLowerCase();
-            const selectedIds = new Set(this.cart.map((line) => line.id));
-            return this.catalog
-                .filter((item) => item.available > 0)
-                .filter((item) => {
-                    if (!q) return true;
-                    return [item.name, item.room, item.assetTag]
-                        .join(' ')
-                        .toLowerCase()
-                        .includes(q);
-                })
-                .slice(0, 40);
-        },
-        get totalQty() {
-            return this.cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
-        },
-        meta(item) {
-            const bits = [];
-            if (item.room) bits.push(item.room);
-            if (item.assetTag) bits.push(item.assetTag);
-            bits.push((item.tracking || 'Individual') + ' · ' + item.available + ' available');
-            return bits.join(' · ');
-        },
-        reset() {
-            this.query = '';
-            this.open = false;
-            this.highlight = 0;
-            this.selected = null;
-            this.addQty = 1;
-            this.cart = [];
-            this.pickerError = '';
-            this.cartError = '';
-        },
-        choose(item) {
-            this.selected = item;
-            this.query = item.name;
-            this.open = false;
-            this.addQty = 1;
-            this.pickerError = '';
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        move(delta) {
-            if (!this.filtered.length) return;
-            this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
-        },
-        selectHighlighted() {
-            if (!this.filtered.length) return;
-            this.choose(this.filtered[this.highlight] || this.filtered[0]);
-        },
-        addSelected() {
-            this.pickerError = '';
-            if (!this.selected) {
-                this.pickerError = 'Search and select an equipment item first.';
-                return;
-            }
-            const qty = Math.max(1, Number(this.addQty) || 1);
-            if (qty > this.selected.available) {
-                this.pickerError = 'Only ' + this.selected.available + ' available for this item.';
-                return;
-            }
-            const existing = this.cart.find((line) => line.id === this.selected.id);
-            if (existing) {
-                const next = existing.quantity + qty;
-                if (next > existing.available) {
-                    this.pickerError = 'Cart would exceed available quantity (' + existing.available + ').';
-                    return;
-                }
-                existing.quantity = next;
-            } else {
-                this.cart.push({
-                    id: this.selected.id,
-                    name: this.selected.name,
-                    room: this.selected.room,
-                    assetTag: this.selected.assetTag,
-                    tracking: this.selected.tracking,
-                    available: this.selected.available,
-                    quantity: qty,
-                    condition: '',
-                });
-            }
-            this.selected = null;
-            this.query = '';
-            this.addQty = 1;
-            this.cartError = '';
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        clampLine(line) {
-            let qty = Number(line.quantity) || 1;
-            if (qty < 1) qty = 1;
-            if (qty > line.available) qty = line.available;
-            line.quantity = qty;
-        },
-        removeLine(index) {
-            this.cart.splice(index, 1);
-            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-        },
-        prepareSubmit(event) {
-            this.cartError = '';
-            if (!this.cart.length) {
-                event.preventDefault();
-                this.cartError = 'Add at least one equipment item to the cart.';
-                return;
-            }
-            for (const line of this.cart) {
-                this.clampLine(line);
-                if (line.quantity > line.available) {
-                    event.preventDefault();
-                    this.cartError = line.name + ' exceeds available quantity.';
-                    return;
-                }
-            }
-        },
-    };
-}
-
-window.borrowEquipmentCart = borrowEquipmentCart;
-
-
-// =====================================================
-// BORROW MODAL (matches Borrowing module)
-// =====================================================
-
-function openBorrowModal() {
-    const modal = document.getElementById('borrowModal');
-    if (!modal) {
-        console.error('Borrow modal not found.');
-        return;
-    }
-    if (modal._x_dataStack?.[0]?.reset) {
-        modal._x_dataStack[0].reset();
-    }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    document.body.style.overflow = 'hidden';
-    if (window.lucide) window.lucide.createIcons();
-}
-
-function closeBorrowModal() {
-    const modal = document.getElementById('borrowModal');
-    if (!modal) {
-        return;
-    }
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    document.body.style.overflow = '';
-    if (modal._x_dataStack?.[0]?.reset) {
-        modal._x_dataStack[0].reset();
-    }
-}
-
-
 // =====================================================
 // CLOSE MODALS WHEN CLICKING OUTSIDE
 // =====================================================
@@ -9877,11 +9296,6 @@ document.addEventListener('click', function (event) {
     const addEquipmentModal = document.getElementById('addEquipmentModal');
     if (addEquipmentModal && event.target === addEquipmentModal) {
         closeAddEquipmentModal();
-    }
-
-    const borrowModal = document.getElementById('borrowModal');
-    if (borrowModal && event.target === borrowModal) {
-        closeBorrowModal();
     }
 
     const scheduleModal = document.getElementById('scheduleModal');
@@ -9926,7 +9340,7 @@ document.addEventListener('keydown', function (event) {
         return;
     }
 
-    // addEquipmentModal / borrowModal / scheduleModal Escape handled by Alpine
+    // addEquipmentModal / scheduleModal Escape handled by Alpine
     document.body.style.overflow = '';
 
 });
@@ -9962,7 +9376,9 @@ document.addEventListener(
 
 
 
-    @include('partials.building-3d.scripts')
+    @include('partials.building-3d.scripts', [
+        'building3DRoomViewUrl' => url('/maintenance/property-assignments/rooms/__ROOM__'),
+    ])
 
 
 

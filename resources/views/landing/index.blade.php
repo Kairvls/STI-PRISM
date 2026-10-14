@@ -1913,8 +1913,6 @@
             }
 
             .hero-copy .hero-lead,
-            .hero-copy .hero-register-form,
-            .hero-copy .hero-register-note,
             .hero-copy .hero-cta-row,
             .hero-copy .hero-trust {
                 width: 100%;
@@ -2262,31 +2260,6 @@
                         PaAyo centralizes procurement, inventory, and maintenance monitoring with mobile damage reporting and QR tracking for STI College Ormoc.
                     </p>
 
-                    <form id="reporterRegisterForm" method="POST" action="{{ route('reporter.register.start') }}" class="hero-register-form flex flex-col sm:flex-row gap-3 mb-2 max-w-lg w-full">
-                        @csrf
-                        <input type="email"
-                               id="reporterRegisterEmail"
-                               name="email"
-                               required
-                               maxlength="255"
-                               placeholder="Enter your email to start reporting"
-                               class="flex-1 min-w-0 px-5 py-3.5 rounded-[10px] text-sm outline-none"
-                               style="background:#fff; border:1px solid var(--line); box-shadow:0 8px 24px rgba(15,23,42,.06); color:var(--ink);">
-                        <button type="submit" id="reporterRegisterSubmit"
-                                class="btn-dark px-8 py-3.5 text-sm shrink-0 border-0 cursor-pointer inline-flex items-center justify-center gap-2 min-w-[118px]">
-                            <svg id="reporterRegisterSpinner" class="hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".25"></circle>
-                                <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
-                            </svg>
-                            <i data-lucide="send" id="reporterRegisterSubmitIcon" class="h-4 w-4" aria-hidden="true"></i>
-                            <span id="reporterRegisterSubmitLabel">Submit</span>
-                        </button>
-                    </form>
-                    <p id="reporterRegisterLockMsg" class="hero-register-note hidden text-xs mb-3 max-w-lg w-full font-semibold" style="color:#dc2626;"></p>
-                    <p class="hero-register-note text-xs mb-4 max-w-lg w-full" style="color:var(--muted);">
-                        First time reporting? Enter a real email you can open. We’ll send a form for you to fill up your employee ID, name, type, and contact. This is not a login account.
-                    </p>
-
                     <div class="hero-cta-row flex flex-wrap gap-3 mb-6">
                         @guest
                         <button type="button" onclick="openReportModal()"
@@ -2312,10 +2285,6 @@
                     @endguest
 
                     <div class="hero-trust flex flex-wrap gap-6 text-sm font-medium justify-center lg:justify-start" style="color:var(--ink);">
-                        <span class="inline-flex items-center gap-2">
-                            <i data-lucide="check-circle-2" class="w-5 h-5" style="color:var(--blue);"></i>
-                            Free Register
-                        </span>
                         <span class="inline-flex items-center gap-2">
                             <i data-lucide="check-circle-2" class="w-5 h-5" style="color:var(--blue);"></i>
                             Great Service
@@ -3186,168 +3155,6 @@
             });
         }
 
-        const reporterRegisterForm = document.getElementById('reporterRegisterForm');
-        if (reporterRegisterForm) {
-            const submitBtn = document.getElementById('reporterRegisterSubmit');
-            const submitLabel = document.getElementById('reporterRegisterSubmitLabel');
-            const spinner = document.getElementById('reporterRegisterSpinner');
-            const emailInput = document.getElementById('reporterRegisterEmail');
-            const lockMsg = document.getElementById('reporterRegisterLockMsg');
-            const lockStoreKey = 'paayo-reg-lock';
-            let lockTimer = null;
-
-            const formatWait = (seconds) => {
-                const total = Math.max(0, seconds);
-                const m = Math.floor(total / 60);
-                const s = total % 60;
-                return m + ':' + String(s).padStart(2, '0');
-            };
-
-            const readLock = () => {
-                try {
-                    return JSON.parse(sessionStorage.getItem(lockStoreKey) || 'null');
-                } catch (err) {
-                    return null;
-                }
-            };
-
-            const writeLock = (email, retryAfter) => {
-                sessionStorage.setItem(lockStoreKey, JSON.stringify({
-                    email: (email || '').trim().toLowerCase(),
-                    until: Date.now() + (Math.max(1, retryAfter) * 1000),
-                }));
-            };
-
-            const clearLock = () => sessionStorage.removeItem(lockStoreKey);
-
-            const setLoading = (loading) => {
-                submitBtn.disabled = loading;
-                spinner.classList.toggle('hidden', !loading);
-                const submitIcon = document.getElementById('reporterRegisterSubmitIcon');
-                if (submitIcon) submitIcon.classList.toggle('hidden', loading);
-                submitLabel.textContent = loading ? 'Sending' : 'Submit';
-            };
-
-            const applyLockUi = () => {
-                const lock = readLock();
-                const email = (emailInput.value || '').trim().toLowerCase();
-                const remaining = lock ? Math.ceil((lock.until - Date.now()) / 1000) : 0;
-                const active = lock && lock.email === email && remaining > 0;
-
-                if (lockTimer) {
-                    clearInterval(lockTimer);
-                    lockTimer = null;
-                }
-
-                if (!active) {
-                    if (lock && remaining <= 0) clearLock();
-                    submitBtn.classList.remove('hidden');
-                    lockMsg.classList.add('hidden');
-                    lockMsg.textContent = '';
-                    return false;
-                }
-
-                submitBtn.classList.add('hidden');
-                lockMsg.classList.remove('hidden');
-                const tick = () => {
-                    const current = readLock();
-                    if (!current) {
-                        applyLockUi();
-                        return;
-                    }
-                    const left = Math.ceil((current.until - Date.now()) / 1000);
-                    if (left <= 0) {
-                        clearLock();
-                        applyLockUi();
-                        return;
-                    }
-                    lockMsg.textContent = 'Too many attempts for this email. Submit is paused. Try again in ' + formatWait(left) + '.';
-                };
-                tick();
-                lockTimer = setInterval(tick, 1000);
-                return true;
-            };
-
-            emailInput.addEventListener('input', applyLockUi);
-            applyLockUi();
-
-            reporterRegisterForm.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                if (applyLockUi()) return;
-
-                setLoading(true);
-                try {
-                    const response = await fetch(reporterRegisterForm.action, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: new FormData(reporterRegisterForm),
-                    });
-                    const data = await response.json().catch(() => ({}));
-                    const email = (emailInput.value || '').trim().toLowerCase();
-
-                    if (data.locked) {
-                        writeLock(email, data.retry_after || 15 * 60);
-                        applyLockUi();
-                    }
-
-                    if (response.status === 429) {
-                        paayoSwal({
-                            title: 'Too many attempts',
-                            text: data.lock_message || data.message || 'Please wait before trying this email again.',
-                            tone: 'warning',
-                        });
-                        return;
-                    }
-
-                    const message = (data.errors && data.errors.email && data.errors.email[0])
-                        || data.message
-                        || (response.ok
-                            ? 'Check your inbox for the registration form.'
-                            : 'Please enter a valid email address.');
-                    const title = response.ok
-                        ? (data.already_registered
-                            ? 'Already registered'
-                            : (data.pending_approval
-                                ? 'Waiting for approval'
-                                : (data.register_url ? 'Continue registration' : 'Check your email')))
-                        : 'Check your details';
-                    paayoSwal({
-                        title: title,
-                        text: message,
-                        confirmText: data.register_url
-                            ? 'Open form'
-                            : (response.ok && data.already_registered ? 'Make Report' : 'OK'),
-                        tone: response.ok
-                            ? ((data.already_registered || data.pending_approval) ? 'info' : 'success')
-                            : 'error',
-                    }).then((result) => {
-                        if (!result.isConfirmed) return;
-                        if (data.register_url) {
-                            window.location.href = data.register_url;
-                            return;
-                        }
-                        if (data.already_registered) {
-                            openReportModal();
-                        }
-                    });
-                    if (response.ok && !data.already_registered && !data.pending_approval && !data.locked) {
-                        reporterRegisterForm.reset();
-                        applyLockUi();
-                    }
-                } catch (err) {
-                    paayoSwal({
-                        title: 'Could not send',
-                        text: 'We could not send the email right now. Please try again.',
-                        tone: 'error',
-                    });
-                } finally {
-                    setLoading(false);
-                }
-            });
-        }
         const sections = document.querySelectorAll('section[id]');
         const navLinks = document.querySelectorAll('.nav-link, .mobile-nav-link[data-mobile-nav]');
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

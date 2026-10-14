@@ -86,21 +86,6 @@
 
 
             {{-- ===================================== --}}
-            {{-- QR CODE TOOLS --}}
-            {{-- ===================================== --}}
-
-            <a
-                href="/maintenance/equipment/qr-tools"
-                class="quick-card
-                    {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }}"
-            >
-                <i data-lucide="qr-code"></i>
-
-                <span>QR Tools</span>
-            </a>
-
-
-            {{-- ===================================== --}}
             {{-- TODAY'S REPORTS --}}
             {{-- ===================================== --}}
 
@@ -153,111 +138,31 @@
         </a>
         <a
             href="/maintenance/schedules"
-            class="menu-item {{ request()->is('maintenance/schedules*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/schedules*', 'maintenance/semester-inspections*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="calendar-days"></i>
             <span>Maintenance Schedule</span>
         </a>
 
         <div class="menu-title" id="manage-section">MANAGE</div>
-        @php
-            $pendingReporterApprovals = \App\Support\ReporterApprovals::pendingCount();
-            $peopleActive = request()->is('maintenance/reporters*')
-                || request()->is('maintenance/personnel-directory*');
-        @endphp
-        <div class="menu-group {{ $peopleActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $peopleActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $peopleActive ? 'true' : 'false' }}"
-            >
-                <i class="h-5 w-5" data-lucide="users"></i>
-                <span>Reporter Management</span>
-                <span class="menu-group-trail">
-                    @if ($pendingReporterApprovals > 0)
-                        <span class="menu-count">{{ $pendingReporterApprovals }}</span>
-                    @endif
-                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-                </span>
-            </button>
-            <div class="menu-sub" @if (! $peopleActive) hidden @endif>
-                <a
-                    href="/maintenance/reporters"
-                    class="menu-sub-item {{ request()->is('maintenance/reporters') ? 'active' : '' }}"
-                >
-                    <i data-lucide="users"></i>
-                    <span>Equipment Reporters</span>
-                </a>
-                <a
-                    href="{{ url('/maintenance/reporters/approvals?status=pending') }}"
-                    class="menu-sub-item {{ request()->is('maintenance/reporters/approvals*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="user-check"></i>
-                    <span>Reporter approvals</span>
-                    @if ($pendingReporterApprovals > 0)
-                        <span class="menu-count">{{ $pendingReporterApprovals }}</span>
-                    @endif
-                </a>
-                <a
-                    href="/maintenance/personnel-directory"
-                    class="menu-sub-item {{ request()->is('maintenance/personnel-directory*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="book-user"></i>
-                    <span>Personnel directory</span>
-                </a>
-            </div>
-        </div>
-
-        @php
-            $facilitiesActive = request()->is('maintenance/infrastructure*')
-                || request()->is('maintenance/rooms*')
-                || request()->is('maintenance/departments*');
-        @endphp
-        <div class="menu-group {{ $facilitiesActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $facilitiesActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $facilitiesActive ? 'true' : 'false' }}"
-            >
-                <i class="h-5 w-5" data-lucide="building-2"></i>
-                <span>Facilities</span>
-                <span class="menu-group-trail">
-                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-                </span>
-            </button>
-            <div class="menu-sub" @if (! $facilitiesActive) hidden @endif>
-                <a
-                    href="/maintenance/infrastructure"
-                    class="menu-sub-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="map"></i>
-                    <span>Building rooms layout</span>
-                </a>
-                <a
-                    href="/maintenance/rooms"
-                    class="menu-sub-item {{ request()->is('maintenance/rooms*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="door-open"></i>
-                    <span>Rooms</span>
-                </a>
-                <a
-                    href="/maintenance/departments"
-                    class="menu-sub-item {{ request()->is('maintenance/departments*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="network"></i>
-                    <span>Departments</span>
-                </a>
-            </div>
-        </div>
+        <a
+            href="/maintenance/personnel-directory"
+            class="menu-item {{ request()->is('maintenance/personnel-directory*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="book-user"></i>
+            <span>Personnel directory</span>
+        </a>
 
         @php
             $equipmentActive = request()->is('maintenance/equipment/inventory')
                 || request()->is('maintenance/equipment/inventory/*')
                 || request()->is('maintenance/equipment/deployed')
                 || request()->is('maintenance/equipment/deployed/*')
-                || request()->is('maintenance/property-assignments*');
+                || request()->is('maintenance/equipment/transfer-requests*')
+                || request()->is('maintenance/property-assignments*')
+                || request()->is('maintenance/replacement-suggestions*')
+                || request()->is('maintenance/disposal*')
+                || request()->is('maintenance/equipment/history*');
         @endphp
         <div class="menu-group {{ $equipmentActive ? 'is-open' : '' }}" data-menu-group>
             <button
@@ -278,131 +183,55 @@
                     class="menu-sub-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }}"
                 >
                     <i data-lucide="package"></i>
-                    <span>Inventory</span>
+                    <span>Inventory of Equipment</span>
                 </a>
+                
                 <a
                     href="/maintenance/equipment/deployed"
                     class="menu-sub-item {{ request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') ? 'active' : '' }}"
                 >
                     <i data-lucide="boxes"></i>
-                    <span>Deployed equipment</span>
+                    <span>Deployed Equipment</span>
                 </a>
+
+                <a
+                    href="/maintenance/equipment/transfer-requests"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/transfer-requests*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="shield-check"></i>
+                    <span>Transfer Requests</span>
+                </a>
+
                 <a
                     href="/maintenance/property-assignments"
                     class="menu-sub-item {{ request()->is('maintenance/property-assignments*') ? 'active' : '' }}"
                 >
-                    <i data-lucide="user-round-check"></i>
-                    <span>Property assignment</span>
+                    <i data-lucide="user-round-check"></i>  
+                    <span>Property Assignments</span>
                 </a>
-            </div>
-        </div>
 
-        @php
-            $equipmentToolsActive = request()->is('maintenance/equipment/transfer*')
-                || request()->is('maintenance/borrowing*')
-                || request()->is('maintenance/equipment/qr-tools*')
-                || request()->is('maintenance/equipment/categories*')
-                || request()->is('maintenance/equipment/suggested-issues*')
-                || request()->is('maintenance/equipment/history');
-        @endphp
-        <div class="menu-group {{ $equipmentToolsActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $equipmentToolsActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $equipmentToolsActive ? 'true' : 'false' }}"
-            >
-                <i class="h-5 w-5" data-lucide="wrench"></i>
-                <span>Equipment tools</span>
-                <span class="menu-group-trail">
-                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-                </span>
-            </button>
-            <div class="menu-sub" @if (! $equipmentToolsActive) hidden @endif>
-                <a
-                    href="/maintenance/equipment/transfer"
-                    class="menu-sub-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="move"></i>
-                    <span>Transfers</span>
-                </a>
-                <a
-                    href="/maintenance/borrowing"
-                    class="menu-sub-item {{ request()->is('maintenance/borrowing*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="clipboard-check"></i>
-                    <span>Borrowing</span>
-                </a>
-                <a
-                    href="/maintenance/equipment/qr-tools"
-                    class="menu-sub-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="qr-code"></i>
-                    <span>QR Tools</span>
-                </a>
-                <a
-                    href="/maintenance/equipment/categories"
-                    class="menu-sub-item {{ request()->is('maintenance/equipment/categories*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="tags"></i>
-                    <span>Categories</span>
-                </a>
-                <a
-                    href="/maintenance/equipment/suggested-issues"
-                    class="menu-sub-item {{ request()->is('maintenance/equipment/suggested-issues*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="list-checks"></i>
-                    <span>Suggested Issues</span>
-                </a>
-                <a
-                    href="/maintenance/equipment/history"
-                    class="menu-sub-item {{ request()->is('maintenance/equipment/history') ? 'active' : '' }}"
-                >
-                    <i data-lucide="history"></i>
-                    <span>History</span>
-                </a>
-            </div>
-        </div>
-
-        @php
-            $maintenanceActive = request()->is('maintenance/semester-inspections*')
-                || request()->is('maintenance/replacement-suggestions*')
-                || request()->is('maintenance/disposal*');
-        @endphp
-        <div class="menu-group {{ $maintenanceActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $maintenanceActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $maintenanceActive ? 'true' : 'false' }}"
-            >
-                <i class="h-5 w-5" data-lucide="calendar-cog"></i>
-                <span>Maintenance</span>
-                <span class="menu-group-trail">
-                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-                </span>
-            </button>
-            <div class="menu-sub" @if (! $maintenanceActive) hidden @endif>
-                <a
-                    href="/maintenance/semester-inspections"
-                    class="menu-sub-item {{ request()->is('maintenance/semester-inspections*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="clipboard-list"></i>
-                    <span>Semester inspections</span>
-                </a>
-                <a
+                <!--<a
                     href="/maintenance/replacement-suggestions"
                     class="menu-sub-item {{ request()->is('maintenance/replacement-suggestions*') ? 'active' : '' }}"
                 >
                     <i data-lucide="hourglass"></i>
                     <span>Replacement suggestions</span>
-                </a>
+                </a>-->
+
                 <a
                     href="/maintenance/disposal"
                     class="menu-sub-item {{ request()->is('maintenance/disposal*') ? 'active' : '' }}"
                 >
                     <i data-lucide="trash-2"></i>
                     <span>Disposal</span>
+                </a>
+
+                <a
+                    href="/maintenance/equipment/history"
+                    class="menu-sub-item {{ request()->is('maintenance/equipment/history*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="history"></i>
+                    <span>Equipment History</span>
                 </a>
             </div>
         </div>

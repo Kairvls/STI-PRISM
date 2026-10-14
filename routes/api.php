@@ -48,6 +48,16 @@ Route::get(
     [MobileReportController::class, 'globalSuggestedIssues']
 );
 
+Route::get(
+    '/issue-checks/{equipmentId}',
+    [MobileReportController::class, 'issueChecks']
+)->whereNumber('equipmentId')->middleware('throttle:60,1');
+
+Route::post(
+    '/report-checks/self-fixed',
+    [MobileReportController::class, 'selfFixed']
+)->middleware('throttle:20,1');
+
 Route::post(
     '/reporter/verify',
     [MobileReportController::class, 'verifyReporter']

@@ -6,20 +6,22 @@
 @php
     $tablesMissing = $tablesMissing ?? false;
     $isSchoolAdmin = \App\Support\AdminPortal::isSchoolAdmin();
-    $canManage = ! $isSchoolAdmin && \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE);
-    $inspectionsUrl = url($isSchoolAdmin ? '/school-admin/semester-inspections' : '/maintenance/semester-inspections');
+    $canManage = \App\Support\SchedulePortal::canManageSemester();
+    $inspectionsUrl = \App\Support\SchedulePortal::semesterUrl();
 @endphp
 
 <div class="space-y-6">
     @if ($canManage)
+    @include('maintenance-personnel.maintenance-schedules.partials.type-tabs')
     <div class="flex justify-end">
-        <a
-            href="{{ url('/maintenance/semester-inspections/create') }}"
+        <button
+            type="button"
+            onclick="window.dispatchEvent(new CustomEvent('open-create-campaign'))"
             class="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
         >
             <i data-lucide="plus" class="h-4 w-4"></i>
             New campaign
-        </a>
+        </button>
     </div>
     @endif
 
@@ -163,13 +165,14 @@
                         <p class="mt-4 text-sm font-semibold text-slate-900">No semester inspections yet</p>
                         @if ($canManage)
                         <p class="mt-1 text-sm text-slate-500">Create a campaign to check all school equipment for the semester.</p>
-                        <a
-                            href="{{ url('/maintenance/semester-inspections/create') }}"
+                        <button
+                            type="button"
+                            onclick="window.dispatchEvent(new CustomEvent('open-create-campaign'))"
                             class="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white"
                         >
                             <i data-lucide="plus" class="h-4 w-4"></i>
                             Create campaign
-                        </a>
+                        </button>
                         @else
                         <p class="mt-1 text-sm text-slate-500">Campaigns started by Maintenance will appear here.</p>
                         @endif
@@ -185,4 +188,8 @@
         </div>
     @endif
 </div>
+
+@if ($canManage && ! $tablesMissing && ! empty($campaignForm))
+    @include('maintenance-personnel.semester-inspections.partials.create-campaign-modal')
+@endif
 @endsection

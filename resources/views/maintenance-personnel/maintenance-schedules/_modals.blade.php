@@ -22,7 +22,7 @@
         </div>
 
         <form
-            action="/maintenance/schedules/store"
+            action="{{ \App\Support\SchedulePortal::schedulesUrl('/store') }}"
             method="POST"
             class="flex min-h-0 flex-1 flex-col"
             @submit="prepareSubmit($event)"
@@ -447,7 +447,7 @@
         </div>
 
         <form
-            action="/maintenance/schedules/complete"
+            action="{{ \App\Support\SchedulePortal::schedulesUrl('/complete') }}"
             method="POST"
             enctype="multipart/form-data"
             class="flex min-h-0 flex-1 flex-col"
@@ -636,7 +636,7 @@
             </button>
         </div>
 
-        <form action="/maintenance/schedules/reschedule" method="POST">
+        <form action="{{ \App\Support\SchedulePortal::schedulesUrl('/reschedule') }}" method="POST">
             @csrf
             <input type="hidden" id="rescheduleScheduleId" name="schedule_id" />
 
@@ -703,7 +703,7 @@
             </button>
         </div>
 
-        <form action="/maintenance/schedules/delete" method="POST">
+        <form action="{{ \App\Support\SchedulePortal::schedulesUrl('/delete') }}" method="POST">
             @csrf
             @method('DELETE')
             <input type="hidden" id="deleteScheduleId" name="schedule_id" />

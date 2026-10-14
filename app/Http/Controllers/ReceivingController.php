@@ -20,6 +20,7 @@ use App\Support\DocumentRevisionNotes;
 use App\Support\DocumentUrgency;
 use App\Support\RisRevisionImages;
 use App\Support\BackOrders;
+use App\Support\ReplacementDeliveries;
 use App\Exceptions\RevisionImageUploadException;
 use Illuminate\Http\RedirectResponse;
 
@@ -401,9 +402,13 @@ class ReceivingController extends Controller
 
             $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first() ?? $rr;
             $this->fillRisReceivedBy($rr, $name);
+            $countedItemIds = Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_damaged_qty')
+                ? array_keys($inspection)
+                : null;
+            $replacementNotified = ReplacementDeliveries::notifyDelivered($rr, $countedItemIds, $finalStatus === 'Incomplete');
             // Stock is created by Maintenance from completed RR lines (Add to stock),
             // so inventory stays tied to what was actually received — not free-form adds.
-            $pendingLines = $this->queueReceivingLinesForMaintenanceStock($rr, Auth::id());
+            $pendingLines = $this->queueReceivingLinesForMaintenanceStock($rr, Auth::id(), ! $replacementNotified);
             $atpId = !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null;
             $this->writeLog(
                 (int) $rr->receiving_report_id,
@@ -411,7 +416,7 @@ class ReceivingController extends Controller
                 'Second count completed',
                 ($finalStatus === 'Incomplete' ? 'Items verified; RR is still Incomplete. ' : 'Items delivered. ')
                     .($pendingLines > 0
-                        ? $pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for Maintenance inventory.'
+                        ? $pendingLines.' line'.($pendingLines === 1 ? '' : 's').' queued for the Administrator to add to inventory.'
                         : 'No new lines to add to inventory.'),
                 Auth::id(),
                 $finalStatus === 'Incomplete' ? 'Incomplete' : 'Delivered'
@@ -448,7 +453,7 @@ class ReceivingController extends Controller
             return back()->with(
                 'success',
                 $pendingLines > 0
-                    ? $sentTo.' Maintenance can now Add to inventory from this RR.'
+                    ? $sentTo.' The Administrator can now Add to inventory from this RR.'
                     : $sentTo
             );
         });
@@ -1195,7 +1200,7 @@ class ReceivingController extends Controller
      * Queue accepted RR lines for Maintenance "Add to stock" (no auto-insert).
      * Returns how many lines still need inventory.
      */
-    private function queueReceivingLinesForMaintenanceStock(object $rr, $officerId): int
+    private function queueReceivingLinesForMaintenanceStock(object $rr, $officerId, bool $notifyAdmin = true): int
     {
         if (! Schema::hasTable('receiving_report_items_table')) {
             return 0;
@@ -1229,11 +1234,13 @@ class ReceivingController extends Controller
                 (int) $rr->receiving_report_id,
                 ! empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
                 'Inventory queued',
-                $pending.' received line'.($pending === 1 ? '' : 's').' ready for Maintenance Add to inventory.',
+                $pending.' received line'.($pending === 1 ? '' : 's').' ready for the Administrator to add to inventory.',
                 $officerId,
                 'Delivered'
             );
-            $this->notifyMaintenancePendingStock($rr, $pending);
+            if ($notifyAdmin) {
+                $this->notifyAdminPendingStock($rr, $pending);
+            }
         }
 
         return $pending;
@@ -1701,24 +1708,24 @@ class ReceivingController extends Controller
         return (int) $roomId;
     }
 
-    private function notifyMaintenancePendingStock(object $rr, int $pendingLines): void
+    private function notifyAdminPendingStock(object $rr, int $pendingLines): void
     {
         $ref = $rr->receiving_report_form_number ?? ('RR #'.$rr->receiving_report_id);
         WorkflowNotifier::toRole(
-            WorkflowNotifier::ROLE_MAINTENANCE,
+            WorkflowNotifier::ROLE_ADMIN,
             'Received items ready to Add to inventory',
             $ref.' has '.$pendingLines.' accepted line'.($pendingLines === 1 ? '' : 's')
                 .'. Open Inventory → Add to inventory, tick the RR lines to add, then tag/QR as needed.',
             'rr_stock_pending',
             'RR',
             (int) $rr->receiving_report_id,
-            '/maintenance/equipment/inventory'
+            '/admin/inventory'
         );
     }
 
     private function notifyMaintenanceUntaggedStock(object $rr, int $created): void
     {
-        $this->notifyMaintenancePendingStock($rr, $created);
+        $this->notifyAdminPendingStock($rr, $created);
     }
 
     public function storeSavedSignature(Request $request)

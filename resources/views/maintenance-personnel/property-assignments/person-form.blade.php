@@ -17,10 +17,10 @@
 
 <div class="mx-auto max-w-3xl space-y-6">
     <div class="flex items-center gap-2 text-sm text-slate-400">
-        <a href="{{ url('/maintenance/property-assignments') }}" class="transition hover:text-slate-700">Property Assignment</a>
+        <a href="{{ \App\Support\PropertyAssignments::url() }}" class="transition hover:text-slate-700">Property Assignment</a>
         <i data-lucide="chevron-right" class="h-4 w-4"></i>
         @if ($editing)
-            <a href="{{ route('maintenance.property-assignments.person', $person->custodian_id) }}" class="transition hover:text-slate-700">{{ $person->custodian_full_name }}</a>
+            <a href="{{ \App\Support\PropertyAssignments::route('person', $person->custodian_id) }}" class="transition hover:text-slate-700">{{ $person->custodian_full_name }}</a>
             <i data-lucide="chevron-right" class="h-4 w-4"></i>
             <span class="font-medium text-slate-600">Edit</span>
         @else
@@ -30,7 +30,7 @@
 
     <form
         method="POST"
-        action="{{ $editing ? route('maintenance.property-assignments.people.update', $person->custodian_id) : route('maintenance.property-assignments.people.store') }}"
+        action="{{ $editing ? \App\Support\PropertyAssignments::route('people.update', $person->custodian_id) : \App\Support\PropertyAssignments::route('people.store') }}"
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
     >
         @csrf
@@ -87,7 +87,9 @@
             <div class="block">
                 <label for="custodian-department" class="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
                     Department / office
-                    <a href="{{ route('maintenance.departments.index') }}" target="_blank" rel="noopener" class="font-semibold text-[#0025cc] hover:underline">Manage</a>
+                    @if (\App\Support\RoleAccess::isAdmin())
+                        <a href="{{ route('admin.departments.index') }}" target="_blank" rel="noopener" class="font-semibold text-[#0025cc] hover:underline">Manage</a>
+                    @endif
                 </label>
                 <select name="custodian_department_id" id="custodian-department" data-searchable="1" data-search-placeholder="Search department…" class="{{ $fieldClass }} @error('custodian_department_id') {{ $errorClass }} @enderror">
                     <option value="">Not set</option>
@@ -160,7 +162,7 @@
 
         <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-4">
             <a
-                href="{{ $editing ? route('maintenance.property-assignments.person', $person->custodian_id) : url('/maintenance/property-assignments') }}"
+                href="{{ $editing ? \App\Support\PropertyAssignments::route('person', $person->custodian_id) : \App\Support\PropertyAssignments::url() }}"
                 class="inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
                 Cancel
