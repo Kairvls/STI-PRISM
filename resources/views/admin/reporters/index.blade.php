@@ -353,7 +353,7 @@
                                 transition hover:bg-blue-800"
                         >
                             <i
-                                data-lucide="sliders-horizontal"
+                                data-lucide="filter"
                                 class="h-4 w-4"
                             ></i>
 
@@ -3574,13 +3574,16 @@
 
     </script>
 
-    @if (session('reporter_duplicates'))
-        <template id="reporterDuplicateWarning">
-            @include('partials.duplicate-name-warning', ['matches' => session('reporter_duplicates'), 'noun' => 'reporter', 'wrapperClass' => ''])
-        </template>
+    @if (session('reporter_duplicates') || session('reporter_form_mode'))
+        @if (session('reporter_duplicates'))
+            <template id="reporterDuplicateWarning">
+                @include('partials.duplicate-name-warning', ['matches' => session('reporter_duplicates'), 'noun' => 'reporter', 'wrapperClass' => ''])
+            </template>
+        @endif
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const mode = @js(session('reporter_duplicate_mode', 'create'));
+                const mode = @js(session('reporter_duplicate_mode') ?? session('reporter_form_mode', 'create'));
+                const emailError = @js($errors->first('email'));
                 const old = @js([
                     'reporter_id' => old('reporter_id'),
                     'employee_id' => old('employee_id'),
@@ -3615,6 +3618,21 @@
                 if (slot && template) {
                     slot.appendChild(template.content.cloneNode(true));
                     if (window.lucide) lucide.createIcons();
+                }
+
+                const emailInput = form?.querySelector('[name="email"]');
+                if (emailInput && emailError) {
+                    emailInput.classList.add('border-rose-400', 'ring-2', 'ring-rose-100');
+                    const message = document.createElement('p');
+                    message.className = 'mt-1.5 text-xs font-medium text-rose-600';
+                    message.dataset.emailError = '1';
+                    message.textContent = emailError;
+                    emailInput.insertAdjacentElement('afterend', message);
+                    emailInput.focus();
+                    emailInput.addEventListener('input', () => {
+                        emailInput.classList.remove('border-rose-400', 'ring-2', 'ring-rose-100');
+                        message.remove();
+                    }, { once: true });
                 }
             });
         </script>

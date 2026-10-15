@@ -1,9 +1,9 @@
 <div id="sidebar">
     <div class="sidebar-header p-5">
         <div class="logo-icon">
-            <img src="{{ asset('image/STI.png') }}" alt="" />
+            <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="" />
         </div>
-        <div>
+        <div>   
             <h2>PaAyo</h2>
             <span>{{ \App\Support\RoleAccess::sidebarPortalLabel('president') }}</span>
         </div>
@@ -161,7 +161,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: #FFF200;
         display: flex;
         align-items: center;
         justify-content: center;

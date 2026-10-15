@@ -21,9 +21,9 @@
     @endif
 
     <div>
-        <span class="mb-2 block text-sm font-medium text-slate-700">Transfer to</span>
+        <span class="mb-2 block text-sm font-medium text-slate-700">Transfer type</span>
         <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-            @foreach (['room' => ['door-open', 'Room'], 'person' => ['user-round', 'Person'], 'department' => ['network', 'Department']] as $type => [$icon, $label])
+            @foreach (['room' => ['door-open', 'Room only'], 'person' => ['user-round', 'Issue to person'], 'department' => ['network', 'Charge to department']] as $type => [$icon, $label])
                 <label class="cursor-pointer">
                     <input
                         type="radio"
@@ -33,13 +33,14 @@
                         @checked($type === 'room')
                         onchange="inventoryTransferDestinationChanged('{{ $prefix }}')"
                     />
-                    <span class="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 transition peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm">
-                        <i data-lucide="{{ $icon }}" class="h-3.5 w-3.5"></i>
+                    <span class="flex h-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-xs font-semibold leading-4 text-slate-500 transition peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm">
+                        <i data-lucide="{{ $icon }}" class="h-3.5 w-3.5 shrink-0"></i>
                         {{ $label }}
                     </span>
                 </label>
             @endforeach
         </div>
+        <p id="{{ $prefix }}TypeHint" class="mt-1.5 text-xs text-slate-400">Moves the item to another room. Who owns it does not change.</p>
     </div>
 
     <div id="{{ $prefix }}PersonField" class="hidden">
@@ -74,7 +75,7 @@
                 <option value="{{ $department->department_id }}">{{ $department->department_name }}</option>
             @endforeach
         </select>
-        <p class="mt-1.5 text-xs text-slate-400">The item is tagged to this department and placed in the room below.</p>
+        <p class="mt-1.5 text-xs text-slate-400">A department is an office, not a place, so the item still goes to the room below.</p>
     </div>
 
     <div>
@@ -113,7 +114,16 @@
 
         const roomLabel = document.getElementById(prefix + 'RoomLabel');
         if (roomLabel) {
-            roomLabel.textContent = type === 'room' ? 'Destination room' : 'Room where it will be used';
+            roomLabel.textContent = type === 'room' ? 'Destination room' : 'Place it in (room)';
+        }
+
+        const hint = document.getElementById(prefix + 'TypeHint');
+        if (hint) {
+            hint.textContent = {
+                room: 'Moves the item to another room. Who owns it does not change.',
+                person: 'Moves the item and makes this person accountable for it.',
+                department: 'Moves the item and charges it to an office for accountability.',
+            }[type];
         }
     }
 

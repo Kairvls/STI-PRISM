@@ -8,7 +8,7 @@
     <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
-                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Equipment Maintenance</h2>
                 <p class="mt-1 text-sm text-slate-500">Search and add multiple QR-tagged equipment in one go.</p>
             </div>
             <button
@@ -121,7 +121,7 @@
                 </div>
 
                 <div>
-                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title <span class="text-red-500">*</span></label>
+                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Schedule Name <span class="text-slate-400">(Title)</span> <span class="text-red-500">*</span></label>
                     <input
                         id="scheduleTitle"
                         type="text"
@@ -262,7 +262,7 @@
     aria-hidden="true"
 >
     <div
-        class="absolute inset-0 bg-[#0b1220]/50 backdrop-blur-[1px] transition-opacity"
+        class="absolute inset-0 bg-gray-950/40 transition-opacity"
         onclick="closeViewModal()"
     ></div>
 

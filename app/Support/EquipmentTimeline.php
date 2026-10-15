@@ -22,6 +22,25 @@ class EquipmentTimeline
             'borrow' => 'Borrowing',
             'condition' => 'Condition',
             'assignment' => 'Property Assignment',
+            'replacement' => 'Replacement',
+        ];
+    }
+
+    /**
+     * Lifecycle stages in the order an item goes through them, used to filter the timeline.
+     */
+    public static function stages(): array
+    {
+        return [
+            'purchase' => 'Purchased',
+            'received' => 'Received',
+            'inventory' => 'Inventory',
+            'assigned' => 'Room / person',
+            'borrowed' => 'Borrowed',
+            'repair' => 'Reports & repairs',
+            'for_replacement' => 'For replacement',
+            'replacement' => 'New replacement',
+            'disposal' => 'Disposed',
         ];
     }
 
@@ -83,7 +102,12 @@ class EquipmentTimeline
             $events = $events->merge(self::disposalEvents($equipmentId));
         }
 
+        if (self::typeEnabled($types, 'replacement')) {
+            $events = $events->merge(self::replacementEvents($equipmentId, $equipment));
+        }
+
         $events = self::filterEvents($events, $from, $to)
+            ->map(fn (array $event) => self::withStage($event))
             ->sortByDesc(fn ($event) => $event['occurred_at'])
             ->values();
 
@@ -92,10 +116,17 @@ class EquipmentTimeline
             ->map(fn (Collection $group) => $group->count())
             ->all();
 
+        $stageCounts = collect(self::stages())
+            ->map(fn ($label, $stage) => $events->where('stage', $stage)->count())
+            ->filter()
+            ->all();
+
         return [
             'equipment' => $equipment,
             'events' => $events->all(),
             'counts' => $counts,
+            'stages' => self::stages(),
+            'stage_counts' => $stageCounts,
             'report_summary' => self::reportSummary($equipmentId),
         ];
     }
@@ -171,6 +202,14 @@ class EquipmentTimeline
 
             self::applyDateBounds($query, 'disposal_disposed_at', $fromDate, $toDate);
             $ids = $ids->merge($query->pluck('equipment_id'));
+        }
+
+        if (self::typeEnabled($types, 'replacement') && ReplacementStock::tableReady()) {
+            foreach (['replacement_log_replaced_equipment_id', 'replacement_log_replacement_equipment_id'] as $column) {
+                $query = DB::table(ReplacementStock::TABLE)->whereNotNull($column)->select($column.' as equipment_id');
+                self::applyDateBounds($query, 'replacement_log_performed_at', $fromDate, $toDate);
+                $ids = $ids->merge($query->pluck('equipment_id'));
+            }
         }
 
         if (self::typeEnabled($types, 'assignment') && PropertyAssignments::tableReady()) {
@@ -636,43 +675,60 @@ class EquipmentTimeline
             return collect();
         }
 
-        return DB::table('borrowing_records_table')
-            ->where('borrowing_equipment_id', $equipmentId)
-            ->orderByDesc('borrowing_created_at')
+        $hasReturnColumns = Schema::hasColumn('borrowing_records_table', 'borrowing_returned_to_room_id');
+
+        return DB::table('borrowing_records_table as b')
+            ->when($hasReturnColumns, function ($query) {
+                $query->leftJoin('rooms_table as from_room', 'from_room.room_id', '=', 'b.borrowing_from_room_id')
+                    ->leftJoin('rooms_table as back_room', 'back_room.room_id', '=', 'b.borrowing_returned_to_room_id')
+                    ->addSelect('from_room.room_name as from_room_name', 'back_room.room_name as returned_to_room_name');
+            })
+            ->addSelect('b.*')
+            ->where('b.borrowing_equipment_id', $equipmentId)
+            ->orderByDesc('b.borrowing_created_at')
             ->get()
             ->flatMap(function ($row) {
                 $events = collect();
                 $borrower = trim((string) ($row->borrowing_borrower_name ?? 'Borrower'));
                 $dept = trim((string) ($row->borrowing_borrower_department ?? ''));
+                $stillOut = in_array($row->borrowing_status, ['Borrowed', 'Overdue'], true);
                 $events->push(self::makeEvent(
                     'borrow',
                     $row->borrowing_date ?: $row->borrowing_created_at,
-                    'Borrowed',
+                    $row->borrowing_status === 'Overdue' ? 'Borrowed · overdue, not returned yet' : 'Borrowed',
                     implode(' · ', array_filter([
                         $borrower,
                         $dept !== '' ? $dept : null,
+                        (int) ($row->borrowing_quantity ?? 1) > 1 ? 'Qty '.(int) $row->borrowing_quantity : null,
+                        ! empty($row->from_room_name) ? 'Taken from '.$row->from_room_name : null,
                         $row->borrowing_expected_return_date ? 'Due '.$row->borrowing_expected_return_date : null,
                         $row->borrowing_destination_location ? 'To '.$row->borrowing_destination_location : null,
+                        $stillOut ? 'Off campus' : null,
                     ])),
                     [
                         'borrower' => $borrower,
                         'expected_return' => $row->borrowing_expected_return_date,
                         'status' => $row->borrowing_status,
+                        'dot' => $row->borrowing_status === 'Overdue' ? 'bg-rose-500' : 'bg-cyan-500',
                     ]
                 ));
 
                 if (! empty($row->borrowing_actual_return_date)) {
+                    $condition = $row->borrowing_return_condition ?? null;
                     $events->push(self::makeEvent(
                         'borrow',
                         $row->borrowing_actual_return_date,
                         'Returned from borrow',
                         implode(' · ', array_filter([
                             $borrower,
-                            $row->borrowing_equipment_condition ? 'Condition: '.$row->borrowing_equipment_condition : null,
+                            $condition ? 'Condition: '.$condition : null,
+                            ! empty($row->returned_to_room_name) ? 'Back to '.$row->returned_to_room_name : null,
+                            $row->borrowing_return_remarks ?? null,
                         ])),
                         [
                             'borrower' => $borrower,
-                            'condition' => $row->borrowing_equipment_condition,
+                            'condition' => $condition,
+                            'dot' => 'bg-emerald-500',
                         ]
                     ));
                 }
@@ -792,6 +848,7 @@ class EquipmentTimeline
             'equipment_transfer_history_table.created_at',
             'from_room.room_name as from_room_name',
             'to_room.room_name as to_room_name',
+            'to_room.room_type as to_room_type',
         ];
 
         if (
@@ -826,14 +883,16 @@ class EquipmentTimeline
                 if (! empty($row->remarks)) {
                     $detail .= ' · '.$row->remarks;
                 }
+                $toStorage = RoomCategories::isStorageType($row->to_room_type ?? null);
 
                 return self::makeEvent(
                     'transfer',
                     $row->created_at,
-                    'Deployed / moved',
+                    $toStorage ? 'Moved to storage' : 'Deployed to '.$to,
                     $detail,
                     [
                         'transfer_id' => (int) $row->transfer_id,
+                        'to_storage' => $toStorage,
                         'from_room' => $from,
                         'to_room' => $to,
                         'handed_to' => $handedTo,
@@ -1119,6 +1178,106 @@ class EquipmentTimeline
                     ]
                 );
             });
+    }
+
+    private static function replacementEvents(int $equipmentId, array $equipment): Collection
+    {
+        $logs = ReplacementStock::forEquipment($equipmentId);
+
+        $linkEvents = collect();
+        $loggedPairs = $logs
+            ->map(fn ($row) => (int) $row->replacement_log_replaced_equipment_id.'-'.(int) $row->replacement_log_replacement_equipment_id)
+            ->all();
+        $linkedUnit = fn (int $id) => DB::table('equipment_table')
+            ->where('equipment_id', $id)
+            ->first(['equipment_id', 'equipment_name', 'equipment_asset_tag']);
+
+        if (! empty($equipment['replaces_id']) && ! in_array($equipment['replaces_id'].'-'.$equipmentId, $loggedPairs, true)) {
+            $old = $linkedUnit((int) $equipment['replaces_id']);
+            $linkEvents->push(self::makeEvent(
+                'replacement',
+                $equipment['acquired_date'] ?: $equipment['created_at'],
+                'Acquired as a replacement',
+                'Replaces '.trim(($old->equipment_asset_tag ?? 'ID #'.$equipment['replaces_id']).' · '.($old->equipment_name ?? '')),
+                ['replaced_equipment_id' => (int) $equipment['replaces_id']]
+            ));
+        }
+
+        if (! empty($equipment['replaced_by_id']) && ! in_array($equipmentId.'-'.$equipment['replaced_by_id'], $loggedPairs, true)) {
+            $new = $linkedUnit((int) $equipment['replaced_by_id']);
+            $linkEvents->push(self::makeEvent(
+                'replacement',
+                DB::table('equipment_table')->where('equipment_id', $equipment['replaced_by_id'])->value('equipment_created_at'),
+                'Replaced by new equipment',
+                'Replaced by '.trim(($new->equipment_asset_tag ?? 'ID #'.$equipment['replaced_by_id']).' · '.($new->equipment_name ?? '')),
+                ['replacement_equipment_id' => (int) $equipment['replaced_by_id']]
+            ));
+        }
+
+        return $logs->map(function ($row) use ($equipmentId) {
+            $isSwap = $row->replacement_log_fulfillment_type === ReplacementStock::STOCK_SWAP;
+            $tag = fn (?string $assetTag, $id) => $assetTag ?: ($id ? 'ID #'.$id : null);
+            $replacedTag = $tag($row->replacement_log_replaced_asset_tag, $row->replacement_log_replaced_equipment_id);
+            $replacementTag = $tag($row->replacement_log_replacement_asset_tag, $row->replacement_log_replacement_equipment_id);
+            $isNewUnit = (int) $row->replacement_log_replacement_equipment_id === $equipmentId;
+
+            if ($isNewUnit) {
+                $title = 'Deployed as a stock replacement';
+                $lead = 'Replaces '.trim(($replacedTag ? $replacedTag.' · ' : '').$row->replacement_log_replaced_label);
+            } elseif ($isSwap) {
+                $title = 'Replaced from inventory stock';
+                $lead = 'Replaced by '.trim(($replacementTag ? $replacementTag.' · ' : '').$row->replacement_log_replacement_label);
+            } else {
+                $title = 'Sent for procurement replacement';
+                $lead = $row->replacement_log_stock_was_available
+                    ? 'Stock was available, but a procurement request was chosen instead'
+                    : 'No matching stock in storage';
+            }
+
+            $parts = array_filter([
+                $lead,
+                $row->replacement_log_report_id ? 'Report #'.$row->replacement_log_report_id : null,
+                $row->performed_by_name ? 'By: '.$row->performed_by_name : null,
+            ]);
+
+            return self::makeEvent('replacement', $row->replacement_log_performed_at, $title, implode(' · ', $parts), [
+                'fulfillment_type' => $row->replacement_log_fulfillment_type,
+                'replaced_equipment_id' => $row->replacement_log_replaced_equipment_id,
+                'replacement_equipment_id' => $row->replacement_log_replacement_equipment_id,
+                'report_id' => $row->replacement_log_report_id,
+                'performed_by' => $row->performed_by_name,
+            ]);
+        })->merge($linkEvents);
+    }
+
+    private static function withStage(array $event): array
+    {
+        $title = (string) ($event['title'] ?? '');
+
+        $stage = match ($event['type'] ?? '') {
+            'acquisition' => match ($title) {
+                'Delivered / received' => 'received',
+                'Added to inventory' => 'inventory',
+                default => 'purchase',
+            },
+            'created', 'qr' => 'inventory',
+            'transfer' => ! empty($event['meta']['to_storage']) ? 'inventory' : 'assigned',
+            'assignment' => 'assigned',
+            'borrow' => 'borrowed',
+            'report' => ($event['meta']['status'] ?? null) === 'For Replacement' && $title === 'Needs replacement'
+                ? 'for_replacement'
+                : 'repair',
+            'replacement' => ($event['meta']['fulfillment_type'] ?? null) === ReplacementStock::PROCUREMENT
+                ? 'for_replacement'
+                : 'replacement',
+            'disposal' => 'disposal',
+            default => 'repair',
+        };
+
+        $event['stage'] = $stage;
+        $event['stage_label'] = self::stages()[$stage];
+
+        return $event;
     }
 
     private static function makeEvent(

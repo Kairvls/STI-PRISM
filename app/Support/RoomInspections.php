@@ -36,14 +36,13 @@ class RoomInspections
     public const CHECK_NA = 'N/A';
 
     public const DEFAULT_CHECKLIST = [
-        'Lighting',
-        'Electrical outlets and wiring',
-        'Air conditioning / ventilation',
-        'Doors, locks and windows',
-        'Ceiling, walls and floor',
-        'Furniture (chairs, tables, boards)',
-        'Cleanliness',
-        'Fire safety (extinguisher, exits)',
+        'Furniture & Fixtures',
+        'Audio-Visual Equipment',
+        'Lighting & Fixtures',
+        'Air Conditioning',
+        'Computer Equipment',
+        'Network Assets',
+        'Other',
     ];
 
     public static function ready(): bool

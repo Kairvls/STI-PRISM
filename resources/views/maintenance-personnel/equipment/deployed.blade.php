@@ -19,6 +19,7 @@
     $hasFilters = filled($filters['search'] ?? null)
         || filled($filters['room'] ?? null)
         || filled($filters['category'] ?? null)
+        || filled($filters['department'] ?? null)
         || filled($filters['status'] ?? null);
 
     $equipmentTotal = $equipment->total();
@@ -145,6 +146,20 @@
                 </div>
             @endif
 
+            @if (($onLoanOffCampus ?? 0) > 0)
+                <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs text-sky-800">
+                    <i data-lucide="hand-helping" class="h-4 w-4 shrink-0"></i>
+                    <span>
+                        {{ $onLoanOffCampus }} item{{ $onLoanOffCampus === 1 ? ' is' : 's are' }} out on loan and not counted here, since borrowed equipment is off campus.
+                        When returned, it goes back to storage (Inventory).
+                    </span>
+                    <a href="{{ $deployedUrl }}?status=Borrowed" class="font-semibold underline-offset-2 hover:underline">Show on-loan items</a>
+                    @if (! empty($borrowingUrl))
+                        <a href="{{ $borrowingUrl }}" class="font-semibold underline-offset-2 hover:underline">Open Borrowing</a>
+                    @endif
+                </div>
+            @endif
+
             <form
                 method="GET"
                 action="{{ $deployedUrl }}"
@@ -180,6 +195,17 @@
                         </option>
                     @endforeach
                 </select>
+
+                @if (($transferDepartments ?? collect())->isNotEmpty())
+                    <select name="department" class="{{ $selectClass }}" title="Office the equipment is charged to">
+                        <option value="">All departments</option>
+                        @foreach ($transferDepartments as $department)
+                            <option value="{{ $department->department_id }}" @selected((string) ($filters['department'] ?? '') === (string) $department->department_id)>
+                                {{ $department->department_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                @endif
 
                 <select name="status" class="{{ $selectClass }}">
                     <option value="">All status</option>

@@ -76,7 +76,7 @@
                         <h2 class="text-base font-semibold text-gray-950">Borrowing records</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $rowCount }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">View only. Maintenance records borrows and returns.</p>
+                    <p class="mt-1 text-xs text-gray-400">View only. The Administrator records borrows and returns. Newest on top.</p>
                 </div>
 
                 <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
@@ -162,33 +162,44 @@
                             }
 
                             $detail = [
-                                'equipment' => $row->equipment_name ?: 'Equipment',
+                                'id' => $row->borrowing_record_id,
+                                'equipmentId' => $row->borrowing_equipment_id,
+                                'equipment' => $row->equipment_name,
                                 'assetTag' => $row->equipment_asset_tag,
-                                'status' => $status,
-                                'statusClass' => $badgeClass,
                                 'borrower' => $row->borrowing_borrower_name,
                                 'department' => $row->borrowing_borrower_department,
                                 'quantity' => $row->borrowing_quantity,
-                                'condition' => $row->borrowing_equipment_condition,
-                                'borrowedOn' => $formatDate($row->borrowing_date),
-                                'dueBack' => $formatDate($row->borrowing_expected_return_date),
-                                'returnedOn' => $formatDate($row->borrowing_actual_return_date),
-                                'destination' => $row->borrowing_destination_location,
-                                'authorizedBy' => $row->borrowing_authorized_by,
+                                'borrowDate' => $row->borrowing_date,
+                                'expectedReturn' => $row->borrowing_expected_return_date,
+                                'actualReturn' => $row->borrowing_actual_return_date,
                                 'purpose' => $row->borrowing_purpose,
+                                'destination' => $row->borrowing_destination_location,
+                                'authorized' => $row->borrowing_authorized_by,
                                 'remarks' => $row->borrowing_remarks,
+                                'status' => $status,
+                                'conditionOut' => $row->borrowing_equipment_condition,
+                                'fromRoom' => $row->borrowed_from_room_name ?? null,
+                                'returnedTo' => $row->returned_to_room_name ?? null,
+                                'returnCondition' => $row->borrowing_return_condition ?? null,
+                                'returnRemarks' => $row->borrowing_return_remarks ?? null,
+                                'returnedBy' => $row->returned_by_name ?? null,
                             ];
                         @endphp
                         <tr
                             class="cursor-pointer transition hover:bg-gray-50/70"
                             tabindex="0"
                             data-borrow-detail='@json($detail)'
-                            onclick="window.openBorrowDetail(this)"
-                            onkeydown="if (event.key === 'Enter') window.openBorrowDetail(this)"
+                            onclick="viewBorrowing(JSON.parse(this.dataset.borrowDetail))"
+                            onkeydown="if (event.key === 'Enter') viewBorrowing(JSON.parse(this.dataset.borrowDetail))"
                         >
                             <td>
                                 <p class="font-semibold text-gray-900">{{ $row->equipment_name ?: '—' }}</p>
-                                <p class="mt-0.5 text-xs text-gray-400">{{ $row->equipment_asset_tag ?: 'No asset tag' }}</p>
+                                <p class="mt-0.5 text-xs text-gray-400">
+                                    {{ $row->equipment_asset_tag ?: 'No asset tag' }}
+                                    @if(!empty($row->borrowed_from_room_name))
+                                        · from {{ $row->borrowed_from_room_name }}
+                                    @endif
+                                </p>
                             </td>
                             <td>
                                 <p class="text-sm text-gray-700">{{ $row->borrowing_borrower_name ?: '—' }}</p>
@@ -227,115 +238,8 @@
     </div>
 </div>
 
-<div id="borrowDetailModal" class="fixed inset-0 z-[11000] hidden items-center justify-center bg-gray-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="borrowDetailTitle">
-    <div class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
-            <div class="min-w-0">
-                <h3 id="borrowDetailTitle" class="truncate text-base font-semibold text-gray-950" data-field="equipment"></h3>
-                <p class="mt-0.5 text-xs text-gray-400" data-field="assetTag"></p>
-            </div>
-            <span class="borrow-status inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-medium" data-field="status"></span>
-        </div>
-
-        <dl class="grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-5 text-sm">
-            <div>
-                <dt class="text-xs text-gray-400">Borrower</dt>
-                <dd class="mt-0.5 font-medium text-gray-900" data-field="borrower"></dd>
-                <dd class="text-xs text-gray-500" data-field="department"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Authorized by</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="authorizedBy"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Borrowed on</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="borrowedOn"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Due back</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="dueBack"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Returned on</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="returnedOn"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Taken to</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="destination"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Quantity</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="quantity"></dd>
-            </div>
-            <div>
-                <dt class="text-xs text-gray-400">Condition when borrowed</dt>
-                <dd class="mt-0.5 text-gray-700" data-field="condition"></dd>
-            </div>
-            <div class="col-span-2">
-                <dt class="text-xs text-gray-400">Purpose</dt>
-                <dd class="mt-0.5 whitespace-pre-line text-gray-700" data-field="purpose"></dd>
-            </div>
-            <div class="col-span-2">
-                <dt class="text-xs text-gray-400">Remarks</dt>
-                <dd class="mt-0.5 whitespace-pre-line text-gray-700" data-field="remarks"></dd>
-            </div>
-        </dl>
-
-        <div class="flex justify-end border-t border-gray-100 px-5 py-3">
-            <button type="button" class="px-3 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950" onclick="window.closeBorrowDetail()">
-                Close
-            </button>
-        </div>
-    </div>
-</div>
-
-<script>
-    (function () {
-        const modal = document.getElementById('borrowDetailModal');
-        if (!modal) return;
-
-        const badgeBase = 'borrow-status inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[11px] font-medium';
-        let lastTrigger = null;
-
-        window.openBorrowDetail = function (row) {
-            let data = {};
-            try {
-                data = JSON.parse(row.getAttribute('data-borrow-detail') || '{}');
-            } catch (e) {
-                return;
-            }
-
-            modal.querySelectorAll('[data-field]').forEach(function (el) {
-                const key = el.getAttribute('data-field');
-                const value = data[key];
-                const emptyText = { assetTag: 'No asset tag', department: '' };
-                el.textContent = (value === null || value === undefined || value === '')
-                    ? (key in emptyText ? emptyText[key] : '—')
-                    : (key === 'assetTag' ? 'Asset tag: ' + value : String(value));
-            });
-
-            const badge = modal.querySelector('[data-field="status"]');
-            badge.className = badgeBase + ' ' + (data.statusClass || '');
-
-            lastTrigger = row;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            modal.querySelector('button').focus();
-        };
-
-        window.closeBorrowDetail = function () {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            if (lastTrigger) lastTrigger.focus();
-        };
-
-        modal.addEventListener('click', function (event) {
-            if (event.target === modal) window.closeBorrowDetail();
-        });
-
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.classList.contains('hidden')) window.closeBorrowDetail();
-        });
-    })();
-</script>
+@include('admin.borrowing.partials.details-drawer', [
+    'borrowReadOnly' => true,
+    'borrowProfileUrl' => \App\Support\AdminPortal::route('operations.equipment.show', '__ID__'),
+])
 @endsection

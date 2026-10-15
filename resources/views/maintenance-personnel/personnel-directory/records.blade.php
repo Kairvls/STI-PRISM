@@ -86,12 +86,12 @@
                     <thead class="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         <tr>
                             <th class="px-5 py-3">Report</th>
-                            <th class="px-5 py-3">Submitted</th>
+                            <th class="px-5 py-3">Issue</th>
                             <th class="px-5 py-3">Equipment</th>
                             <th class="px-5 py-3">Room</th>
-                            <th class="px-5 py-3">Issue</th>
                             <th class="px-5 py-3">Urgency</th>
                             <th class="px-5 py-3">Status</th>
+                            <th class="px-5 py-3">Submitted</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -107,12 +107,10 @@
                                         <span class="text-slate-900">#{{ $record->report_id }}</span>
                                     @endif
                                 </td>
-                                <td class="whitespace-nowrap px-5 py-3 text-slate-600">
-                                    {{ $record->report_submitted_at ? \Illuminate\Support\Carbon::parse($record->report_submitted_at)->format('M j, Y g:i A') : '—' }}
-                                </td>
+                                <td class="max-w-xs px-5 py-3 text-slate-600">{{ $issue ? \Illuminate\Support\Str::limit($issue, 90) : '—' }}</td>
                                 <td class="px-5 py-3 text-slate-900">{{ $record->equipment_name ?? $record->report_unlisted_equipment_name ?? '—' }}</td>
                                 <td class="px-5 py-3 text-slate-600">{{ $record->room_name ?: '—' }}</td>
-                                <td class="max-w-xs px-5 py-3 text-slate-600">{{ $issue ? \Illuminate\Support\Str::limit($issue, 90) : '—' }}</td>
+                                
                                 <td class="px-5 py-3">
                                     @if ($record->report_urgency_level)
                                         <span class="rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $record->report_urgency_level === 'Urgent' ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $record->report_urgency_level }}</span>
@@ -122,6 +120,9 @@
                                 </td>
                                 <td class="px-5 py-3">
                                     <span class="whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $statusClass[$record->report_current_status] ?? 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $record->report_current_status }}</span>
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-3 text-slate-600">
+                                    {{ $record->report_submitted_at ? \Illuminate\Support\Carbon::parse($record->report_submitted_at)->format('M j, Y g:i A') : '—' }}
                                 </td>
                             </tr>
                         @endforeach

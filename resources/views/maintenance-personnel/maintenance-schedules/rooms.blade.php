@@ -62,7 +62,7 @@
                     class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
-                    Schedule room inspection
+                    New schedule
                 </button>
             </div>
 
@@ -282,8 +282,9 @@
             <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div>
-                        <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule room inspection</h2>
-                        <p class="mt-1 text-sm text-slate-500">Pick one or more rooms. Each room gets its own recurring schedule.</p>
+                        <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Room Inspection</h2>
+                        <!--<p class="mt-1 text-sm text-slate-500">Pick one or more rooms. Each room gets its own recurring schedule.</p>-->
+                        <p class="mt-1 text-sm text-slate-500">Pick one or more rooms.</p>
                     </div>
                     <button type="button" @click="closeAll()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
@@ -322,7 +323,7 @@
                         </div>
 
                         <div>
-                            <label for="roomInspectionTitle" class="mb-1.5 block text-sm text-slate-600">Title <span class="text-red-500">*</span></label>
+                            <label for="roomInspectionTitle" class="mb-1.5 block text-sm text-slate-600">Schedule Name <span class="text-slate-400">(Title)</span> <span class="text-red-500">*</span></label>
                             <input id="roomInspectionTitle" type="text" name="title" value="Room inspection" required maxlength="255" class="{{ $fieldClass }}">
                         </div>
 
@@ -342,9 +343,9 @@
                         </div>
 
                         <div>
-                            <label for="roomInspectionChecklist" class="mb-1.5 block text-sm text-slate-600">Checklist <span class="text-slate-400">(one item per line)</span></label>
+                            <label for="roomInspectionChecklist" class="mb-1.5 block text-sm text-slate-600">Checklist <!--<span class="text-slate-400">(one item per line)</span>--></label>
                             <textarea id="roomInspectionChecklist" name="checklist" rows="8" class="{{ $areaClass }}">{{ implode("\n", RoomInspections::DEFAULT_CHECKLIST) }}</textarea>
-                            <p class="mt-1.5 text-xs text-slate-400">Each item is marked Pass, Issue or N/A when the room is inspected.</p>
+                            <!--<p class="mt-1.5 text-xs text-slate-400">Each item is marked Pass, Issue or N/A when the room is inspected.</p>-->
                         </div>
 
                         <div>

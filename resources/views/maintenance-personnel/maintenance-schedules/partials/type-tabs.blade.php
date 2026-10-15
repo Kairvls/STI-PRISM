@@ -16,7 +16,7 @@
         [
             'key' => 'room',
             'label' => 'Room',
-            'hint' => 'Whole-room inspections',
+            'hint' => 'Per-room inspections',
             'icon' => 'door-open',
             'url' => \App\Support\SchedulePortal::schedulesUrl('/rooms'),
             'active' => request()->is('maintenance/schedules/rooms*', 'admin/schedules/rooms*'),
@@ -25,7 +25,7 @@
         [
             'key' => 'semestral',
             'label' => 'Semestral',
-            'hint' => 'Campus-wide campaigns',
+            'hint' => 'Campus-wide inspections',
             'icon' => 'clipboard-list',
             'url' => \App\Support\SchedulePortal::semesterUrl(),
             'active' => request()->is('maintenance/semester-inspections*', 'admin/semester-inspections*'),

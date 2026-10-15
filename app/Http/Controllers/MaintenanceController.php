@@ -13,6 +13,7 @@ use App\Support\IssueChecks;
 use App\Support\MaintenanceAttentionSummary;
 use App\Support\ReportGrouping;
 use App\Support\ReplacementRequestBasket;
+use App\Support\ReplacementStock;
 use App\Support\ReportItems;
 use App\Support\PersonNames;
 use App\Support\ReporterApprovals;
@@ -3974,6 +3975,12 @@ class MaintenanceController extends Controller
             'report_item_ids.*' =>
                 'integer',
 
+            'replacement_choice' =>
+                'nullable|array',
+
+            'replacement_choice.*' =>
+                'nullable|string|max:20',
+
         ]);
 
 
@@ -4405,6 +4412,24 @@ class MaintenanceController extends Controller
                         ->unique()
                         ->values();
 
+                    $stockStep = $this->fulfillReplacementFromStock(
+                        $request,
+                        $report,
+                        $allItems,
+                        $selectedItemIds,
+                        (int) $personnelId,
+                        $imagePath
+                    );
+
+                    if ($stockStep['response']) {
+                        return $stockStep['response'];
+                    }
+
+                    if ($stockStep['swapped'] !== []) {
+                        $allItems = ReportItems::forReport((int) $id);
+                        $selectedItemIds = collect(array_keys($stockStep['procurement']));
+                    }
+
                     $partialReplacement = $allItems->count() > 1 && $selectedItemIds->isNotEmpty();
 
                     if ($partialReplacement) {
@@ -4537,14 +4562,22 @@ class MaintenanceController extends Controller
                         (int) $personnelId
                     );
 
+                    $this->logProcurementReplacements((int) $id, $stockStep['procurement'], $request->remarks);
+
+                    $message = $partialReplacement
+                        ? 'Selected equipment submitted for replacement. Other items on this report can still be resolved separately.'
+                        : 'Report submitted for replacement successfully.';
+
+                    if ($stockStep['swapped'] !== []) {
+                        $message = 'Swapped in from inventory stock: '.implode(' ', $stockStep['swapped'])
+                            .' The rest was sent to the Purchaser as a procurement request.';
+                    }
 
                     return back()
 
                         ->with(
                             'success',
-                            $partialReplacement
-                                ? 'Selected equipment submitted for replacement. Other items on this report can still be resolved separately.'
-                                : 'Report submitted for replacement successfully.'
+                            $message
                         );
 
                 }
@@ -4568,6 +4601,379 @@ class MaintenanceController extends Controller
         }
 
         return $response;
+    }
+
+    public function replacementLog(Request $request)
+    {
+        $type = in_array($request->query('type'), [ReplacementStock::STOCK_SWAP, ReplacementStock::PROCUREMENT], true)
+            ? $request->query('type')
+            : null;
+        $search = trim((string) $request->query('search', ''));
+
+        $counts = ReplacementStock::tableReady()
+            ? DB::table(ReplacementStock::TABLE)
+                ->selectRaw('replacement_log_fulfillment_type as type, COUNT(*) as total')
+                ->groupBy('replacement_log_fulfillment_type')
+                ->pluck('total', 'type')
+                ->all()
+            : [];
+
+        $logs = ReplacementStock::tableReady()
+            ? DB::table(ReplacementStock::TABLE.' as l')
+                ->leftJoin('users_table as u', 'u.user_id', '=', 'l.replacement_log_performed_by')
+                ->leftJoin('rooms_table as from_room', 'from_room.room_id', '=', 'l.replacement_log_from_room_id')
+                ->leftJoin('rooms_table as to_room', 'to_room.room_id', '=', 'l.replacement_log_to_room_id')
+                ->when($type, fn ($q) => $q->where('l.replacement_log_fulfillment_type', $type))
+                ->when($search !== '', function ($q) use ($search) {
+                    $like = '%'.$search.'%';
+                    $q->where(function ($w) use ($like, $search) {
+                        $w->where('l.replacement_log_replaced_label', 'like', $like)
+                            ->orWhere('l.replacement_log_replaced_asset_tag', 'like', $like)
+                            ->orWhere('l.replacement_log_replacement_label', 'like', $like)
+                            ->orWhere('l.replacement_log_replacement_asset_tag', 'like', $like)
+                            ->orWhere('u.user_full_name', 'like', $like);
+                        if (ctype_digit(ltrim($search, '#'))) {
+                            $w->orWhere('l.replacement_log_report_id', (int) ltrim($search, '#'));
+                        }
+                    });
+                })
+                ->orderByDesc('l.replacement_log_performed_at')
+                ->orderByDesc('l.replacement_log_id')
+                ->select(
+                    'l.*',
+                    'u.user_full_name as performed_by_name',
+                    'from_room.room_name as from_room_name',
+                    'to_room.room_name as to_room_name'
+                )
+                ->paginate(20)
+                ->withQueryString()
+            : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
+
+        return view('maintenance-personnel.equipment.replacement-log', compact('logs', 'counts', 'type', 'search'));
+    }
+
+    /**
+     * Stockroom units that could replace the report items about to be sent "For Replacement".
+     */
+    public function replacementStock(Request $request, $id)
+    {
+        $report = DB::table('reports_table')->where('report_id', $id)->first();
+        if (! $report || $report->report_is_archived) {
+            return response()->json(['message' => 'Report not found.'], 404);
+        }
+
+        ReportItems::ensureLegacyItem($report);
+
+        $selected = collect((array) $request->input('item_ids', []))
+            ->map(fn ($itemId) => (int) $itemId)
+            ->filter()
+            ->all();
+
+        $items = ReportItems::forReport((int) $id)
+            ->filter(fn ($item) => in_array($item->report_item_status, ReportItems::openStatuses(), true))
+            ->when($selected !== [], fn ($items) => $items->whereIn('report_item_id', $selected))
+            ->values();
+
+        return response()->json(ReplacementStock::summary($items));
+    }
+
+    /**
+     * Swaps stock units in for the items the user picked them for. Items with stock but no
+     * decision are refused; the rest are returned for the procurement flow.
+     *
+     * @return array{response: mixed, swapped: array<int, string>, procurement: array<int, bool>}
+     */
+    private function fulfillReplacementFromStock(
+        Request $request,
+        object $report,
+        \Illuminate\Support\Collection $allItems,
+        \Illuminate\Support\Collection $selectedItemIds,
+        int $personnelId,
+        ?string $imagePath
+    ): array {
+        $result = ['response' => null, 'swapped' => [], 'procurement' => []];
+
+        if ($allItems->isEmpty()) {
+            return $result;
+        }
+
+        $targets = ($allItems->count() > 1 && $selectedItemIds->isNotEmpty())
+            ? $allItems->whereIn('report_item_id', $selectedItemIds->all())
+            : $allItems;
+        $targets = $targets
+            ->filter(fn ($item) => in_array($item->report_item_status, ReportItems::openStatuses(), true))
+            ->values();
+
+        $choices = (array) $request->input('replacement_choice', []);
+        $swaps = [];
+        $usedUnits = [];
+
+        foreach ($targets as $item) {
+            $itemId = (int) $item->report_item_id;
+            $candidateIds = ReplacementStock::candidateIdsFor($item);
+            $choice = trim((string) ($choices[$itemId] ?? ''));
+            $name = ReportItems::displayName($item);
+
+            if ($candidateIds === []) {
+                $result['procurement'][$itemId] = false;
+                continue;
+            }
+
+            if ($choice === '') {
+                $result['response'] = back()->with(
+                    'error',
+                    'The inventory still has stock for '.$name.'. Pick a stock unit to swap in, or choose to proceed with a procurement request.'
+                );
+
+                return $result;
+            }
+
+            if ($choice === 'procurement') {
+                $result['procurement'][$itemId] = true;
+                continue;
+            }
+
+            $unitId = (int) $choice;
+            if (! in_array($unitId, $candidateIds, true) || isset($usedUnits[$unitId])) {
+                $result['response'] = back()->with(
+                    'error',
+                    'The stock unit picked for '.$name.' is no longer available. Check the stock again.'
+                );
+
+                return $result;
+            }
+
+            $usedUnits[$unitId] = true;
+            $swaps[] = [$item, $unitId];
+        }
+
+        if ($swaps === []) {
+            return $result;
+        }
+
+        try {
+            DB::transaction(function () use ($request, $report, $allItems, $swaps, $personnelId, $imagePath, &$result) {
+                foreach ($swaps as [$item, $unitId]) {
+                    $note = $this->swapInStockUnit($request, $report, $item, $unitId, $personnelId);
+                    $resolution = trim($note.' '.trim((string) $request->remarks));
+
+                    if ($allItems->count() > 1) {
+                        ReportItems::updateItem((int) $item->report_item_id, 'Resolved', [
+                            'report_item_resolution_notes' => $resolution,
+                            'report_item_resolution_image' => $imagePath,
+                        ]);
+                    } else {
+                        $this->applyReportStatusUpdate($report->report_id, $report, [
+                            'report_current_status' => 'Resolved',
+                            'report_resolution_notes' => $resolution,
+                            'report_resolution_image' => $imagePath,
+                            'report_updated_at' => now(),
+                        ]);
+                    }
+
+                    $result['swapped'][] = $note;
+                }
+            });
+        } catch (\RuntimeException $e) {
+            $result['swapped'] = [];
+            $result['response'] = back()->with('error', $e->getMessage());
+
+            return $result;
+        }
+
+        $this->logActivity(
+            'Replaced equipment from inventory stock',
+            'Reports',
+            'reports_table',
+            (int) $report->report_id,
+            'Report #'.$report->report_id.': '.implode(' ', $result['swapped'])
+        );
+
+        if ($result['procurement'] === []) {
+            $result['response'] = back()->with(
+                'success',
+                'Replaced from inventory stock. No procurement request was needed. '.implode(' ', $result['swapped'])
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Deploys a stock unit where the reported unit was, sends the reported unit to the
+     * stockroom as For Replacement, carries over its custodian, and logs the mapping.
+     * Must run inside a transaction; throws RuntimeException when the swap cannot happen.
+     */
+    private function swapInStockUnit(Request $request, object $report, object $item, int $unitId, int $personnelId): string
+    {
+        $noDestination = ['type' => null, 'department_id' => null, 'custodian_id' => null, 'label' => null, 'error' => null];
+        $name = ReportItems::displayName($item);
+
+        $unit = DB::table('equipment_table')->where('equipment_id', $unitId)->lockForUpdate()->first();
+        $storageRoom = $unit ? DB::table('rooms_table')->where('room_id', $unit->equipment_room_id)->first() : null;
+        if (! $unit || ! $storageRoom || ! RoomCategories::isStorageType($storageRoom->room_type ?? null)) {
+            throw new \RuntimeException('The stock unit picked for '.$name.' is no longer in storage. Check the stock again.');
+        }
+
+        $replacedId = (int) ($item->report_item_equipment_id ?? 0);
+        $replaced = $replacedId > 0
+            ? DB::table('equipment_table')->where('equipment_id', $replacedId)->lockForUpdate()->first()
+            : null;
+
+        $targetRoomId = (int) ($replaced->equipment_room_id ?? 0)
+            ?: (int) ($item->report_item_room_id ?? 0)
+            ?: (int) ($report->report_room_id ?? 0);
+        $targetRoom = $targetRoomId > 0 ? DB::table('rooms_table')->where('room_id', $targetRoomId)->first() : null;
+
+        if (! $targetRoom) {
+            throw new \RuntimeException($name.' has no room on file, so the stock unit has nowhere to go. Proceed with a procurement request instead.');
+        }
+        if (RoomCategories::isStorageType($targetRoom->room_type ?? null)) {
+            throw new \RuntimeException($name.' is already in storage. Proceed with a procurement request instead.');
+        }
+
+        $unitTag = $unit->equipment_asset_tag ?: 'ID #'.$unit->equipment_id;
+        $replacedTag = $replaced ? ($replaced->equipment_asset_tag ?: 'ID #'.$replaced->equipment_id) : null;
+
+        $this->recordInventoryTransfer(
+            $request,
+            $unit,
+            $storageRoom,
+            $targetRoom,
+            $noDestination,
+            false,
+            'Stock swap for Report #'.$report->report_id.($replacedTag ? ': replaces '.$replacedTag.'.' : '.'),
+            $personnelId,
+            $personnelId
+        );
+
+        $unitUpdate = [
+            'equipment_inventory_status' => 'Active',
+            'equipment_replaces_id' => $replaced->equipment_id ?? null,
+        ];
+
+        $replacedIsSingle = $replaced
+            && (($replaced->equipment_tracking_mode ?? null) === 'Individual' || (int) ($replaced->equipment_quantity ?? 1) <= 1);
+
+        if ($replaced && (int) $replaced->equipment_room_id === (int) $targetRoom->room_id) {
+            $unitUpdate += [
+                'equipment_department_id' => $replaced->equipment_department_id,
+                'equipment_placement_zone' => $replaced->equipment_placement_zone,
+                'equipment_current_location' => $replaced->equipment_current_location,
+                'equipment_position_x' => $replaced->equipment_position_x,
+                'equipment_position_y' => $replaced->equipment_position_y,
+                'equipment_rotation' => $replaced->equipment_rotation,
+            ];
+
+            if ($replacedIsSingle) {
+                $unitUpdate += [
+                    'workstation_slot_id' => $replaced->workstation_slot_id,
+                    'workstation_id' => $replaced->workstation_id,
+                    'workstation_template_slot_id' => $replaced->workstation_template_slot_id,
+                ];
+            }
+        }
+
+        DB::table('equipment_table')->where('equipment_id', $unit->equipment_id)->update($unitUpdate);
+
+        $custodianNote = '';
+
+        if ($replacedIsSingle) {
+            $assignment = PropertyAssignments::current((int) $replaced->equipment_id);
+
+            DB::table('equipment_table')
+                ->where('equipment_id', $replaced->equipment_id)
+                ->update([
+                    'equipment_replaced_by_id' => $unit->equipment_id,
+                    'workstation_slot_id' => null,
+                    'workstation_id' => null,
+                    'workstation_template_slot_id' => null,
+                ]);
+
+            $this->recordInventoryTransfer(
+                $request,
+                DB::table('equipment_table')->where('equipment_id', $replaced->equipment_id)->first(),
+                $targetRoom,
+                $storageRoom,
+                $noDestination,
+                false,
+                'Swapped out for '.$unitTag.' (Report #'.$report->report_id.'). Waiting for disposal.',
+                $personnelId,
+                $personnelId
+            );
+
+            ReportGrouping::markEquipmentForReplacement((int) $replaced->equipment_id);
+
+            if ($assignment) {
+                PropertyAssignments::returnAssignment(
+                    (int) $assignment->assignment_id,
+                    'Damaged',
+                    'Swapped out for '.$unitTag.' (Report #'.$report->report_id.').'
+                );
+
+                try {
+                    PropertyAssignments::issue((int) $unit->equipment_id, (int) $assignment->assignment_custodian_id, [
+                        'notes' => 'Replacement for '.$replacedTag.' (Report #'.$report->report_id.').',
+                    ]);
+                    $custodianNote = ' Issued to '.($assignment->custodian_full_name ?? 'the same person').'.';
+                } catch (\RuntimeException $e) {
+                    $custodianNote = ' Not re-issued to '.($assignment->custodian_full_name ?? 'the previous holder').': '.$e->getMessage();
+                }
+            }
+        }
+
+        ReplacementStock::log([
+            'replacement_log_report_id' => $report->report_id,
+            'replacement_log_report_item_id' => $item->report_item_id,
+            'replacement_log_replaced_equipment_id' => $replaced->equipment_id ?? null,
+            'replacement_log_replaced_label' => ReplacementStock::label($replaced, $name),
+            'replacement_log_replaced_asset_tag' => $replaced->equipment_asset_tag ?? null,
+            'replacement_log_replacement_equipment_id' => $unit->equipment_id,
+            'replacement_log_replacement_label' => ReplacementStock::label($unit),
+            'replacement_log_replacement_asset_tag' => $unit->equipment_asset_tag,
+            'replacement_log_fulfillment_type' => ReplacementStock::STOCK_SWAP,
+            'replacement_log_stock_was_available' => true,
+            'replacement_log_from_room_id' => $storageRoom->room_id,
+            'replacement_log_to_room_id' => $targetRoom->room_id,
+            'replacement_log_notes' => $request->remarks,
+            'replacement_log_performed_by' => $personnelId,
+        ]);
+
+        return $name.($replacedTag ? ' ('.$replacedTag.')' : '').' replaced with '.$unitTag
+            .' from '.$storageRoom->room_name.'.'.$custodianNote;
+    }
+
+    /**
+     * @param  array<int, bool>  $items  report item id => whether stock was available (manual override)
+     */
+    private function logProcurementReplacements(int $reportId, array $items, ?string $remarks): void
+    {
+        foreach ($items as $itemId => $stockWasAvailable) {
+            $item = DB::table('report_items_table')->where('report_item_id', $itemId)->first();
+            if (! $item || $item->report_item_status !== 'For Replacement') {
+                continue;
+            }
+
+            $equipment = ! empty($item->report_item_equipment_id)
+                ? DB::table('equipment_table')->where('equipment_id', $item->report_item_equipment_id)->first()
+                : null;
+
+            ReplacementStock::log([
+                'replacement_log_report_id' => $reportId,
+                'replacement_log_report_item_id' => $itemId,
+                'replacement_log_replaced_equipment_id' => $equipment->equipment_id ?? null,
+                'replacement_log_replaced_label' => ReplacementStock::label($equipment, $item->report_item_unlisted_equipment_name ?: 'Unlisted equipment'),
+                'replacement_log_replaced_asset_tag' => $equipment->equipment_asset_tag ?? null,
+                'replacement_log_fulfillment_type' => ReplacementStock::PROCUREMENT,
+                'replacement_log_stock_was_available' => $stockWasAvailable,
+                'replacement_log_procurement_request_id' => DB::table('procurement_request_items_table')
+                    ->where('report_item_id', $itemId)
+                    ->orderByDesc('procurement_request_item_id')
+                    ->value('procurement_request_id'),
+                'replacement_log_to_room_id' => $item->report_item_room_id ?? ($equipment->equipment_room_id ?? null),
+                'replacement_log_notes' => $remarks,
+            ]);
+        }
     }
 
     public function archiveReport($id)
@@ -4678,7 +5084,7 @@ class MaintenanceController extends Controller
 
         if ($isStockPage) {
             $liveStockQuery = $storageJoin(DB::table('equipment_table'))
-                ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed']);
+                ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed', TransferLocks::BORROWED]);
 
             $totalEquipment = (clone $liveStockQuery)->count();
             $stockTotalQuantity = (int) (clone $liveStockQuery)
@@ -5075,9 +5481,10 @@ class MaintenanceController extends Controller
         */
 
         if ($isStockPage) {
+            // Borrowed stock is off campus until it is returned.
             $query->whereNotIn(
                 'equipment_table.equipment_inventory_status',
-                ['Disposed']
+                ['Disposed', TransferLocks::BORROWED]
             )->where(
                 'rooms_table.room_type',
                 $storageType
@@ -5244,7 +5651,7 @@ class MaintenanceController extends Controller
             $focusEquipmentId = (int) DB::table('equipment_transfer_history_table')
                 ->where('transfer_id', $transferRecordId)
                 ->value('equipment_id');
-            foreach (['search', 'category', 'room', 'status', 'on_floor'] as $filter) {
+            foreach (['search', 'category', 'room', 'department', 'status', 'on_floor'] as $filter) {
                 $request->query->remove($filter);
             }
             // The item may have been moved back to storage since.
@@ -5266,6 +5673,13 @@ class MaintenanceController extends Controller
 
         $hasDepartment = Schema::hasColumn('equipment_table', 'equipment_department_id')
             && Schema::hasTable('departments_table');
+        $departmentFilter = $hasDepartment && $request->filled('department')
+            ? (int) $request->department
+            : 0;
+        if ($departmentFilter > 0) {
+            // A department owns equipment wherever it sits, including storage.
+            $includeStorage = true;
+        }
 
         $base = DB::table('equipment_table')
             ->leftJoin(
@@ -5287,8 +5701,19 @@ class MaintenanceController extends Controller
             $base->where('equipment_table.equipment_id', $focusEquipmentId);
         }
 
+        $onLoanOffCampus = (clone $base)
+            ->where('equipment_table.equipment_inventory_status', TransferLocks::BORROWED)
+            ->where(function ($query) {
+                $query->whereNull('rooms_table.room_type')
+                    ->orWhere('rooms_table.room_type', '!=', RoomCategories::STORAGE_TYPE);
+            })
+            ->count();
+
         if ($request->filled('status')) {
             $base->where('equipment_table.equipment_inventory_status', $request->status);
+        } elseif ($focusEquipmentId === 0) {
+            // Borrowed items are off campus, so they are not counted as deployed.
+            $base->where('equipment_table.equipment_inventory_status', '!=', TransferLocks::BORROWED);
         }
 
         if (! $includeStorage) {
@@ -5304,6 +5729,10 @@ class MaintenanceController extends Controller
 
         if ($request->filled('category')) {
             $base->where('equipment_table.equipment_category_id', $request->category);
+        }
+
+        if ($departmentFilter > 0) {
+            $base->where('equipment_table.equipment_department_id', $departmentFilter);
         }
 
         if ($request->filled('search')) {
@@ -5399,10 +5828,13 @@ class MaintenanceController extends Controller
             'transferDepartments' => Departments::options(),
             'attentionFocus' => $attentionFocus,
             'deployedUrl' => $deployedUrl,
+            'onLoanOffCampus' => $request->filled('status') ? 0 : $onLoanOffCampus,
+            'borrowingUrl' => RoleAccess::isAdmin(Auth::user()) ? route('admin.borrowing.index') : null,
             'filters' => [
                 'search' => $request->get('search', ''),
                 'room' => $request->get('room', ''),
                 'category' => $request->get('category', ''),
+                'department' => $departmentFilter ?: '',
                 'status' => $request->get('status', ''),
                 'on_floor' => $request->boolean('on_floor'),
                 'include_storage' => $includeStorage,
@@ -9447,6 +9879,9 @@ class MaintenanceController extends Controller
             'transfers' => $transfers->values(),
             'maintenance' => $maintenance->values(),
             'procurement' => $timeline['equipment'] ?? null,
+            'events' => $timeline['events'] ?? [],
+            'stages' => $timeline['stages'] ?? [],
+            'stage_counts' => $timeline['stage_counts'] ?? [],
         ]);
     }
 
@@ -9670,9 +10105,19 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_id'
             )
 
+            ->leftJoin('rooms_table as borrow_from_room', 'borrow_from_room.room_id', '=', 'borrowing_records_table.borrowing_from_room_id')
+            ->leftJoin('rooms_table as borrow_return_room', 'borrow_return_room.room_id', '=', 'borrowing_records_table.borrowing_returned_to_room_id')
+            ->leftJoin('users_table as borrow_returned_by', 'borrow_returned_by.user_id', '=', 'borrowing_records_table.borrowing_returned_by')
             ->select(
                 'borrowing_records_table.*',
-                'equipment_table.equipment_name'
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_tracking_mode',
+                'borrow_from_room.room_name as borrowed_from_room_name',
+                'borrow_return_room.room_name as returned_to_room_name',
+                'borrow_returned_by.user_full_name as returned_by_name'
             );
 
         $recordId = max(0, (int) $request->query('record', 0));
@@ -10116,7 +10561,16 @@ class MaintenanceController extends Controller
                 'borrowingMonthlyTrend',
 
                 'attentionFocus'
-            )
+            ) + [
+                'returnStorageRooms' => DB::table('rooms_table')
+                    ->where('room_type', RoomCategories::STORAGE_TYPE)
+                    ->when(
+                        Schema::hasColumn('rooms_table', 'room_is_archived'),
+                        fn ($query) => $query->where(fn ($q) => $q->whereNull('room_is_archived')->orWhere('room_is_archived', false))
+                    )
+                    ->orderBy('room_name')
+                    ->get(['room_id', 'room_name']),
+            ]
         );
     }
 
@@ -10210,6 +10664,7 @@ class MaintenanceController extends Controller
 
                     $borrowingId = DB::table('borrowing_records_table')->insertGetId([
                         'borrowing_equipment_id' => $equipment->equipment_id,
+                        'borrowing_from_room_id' => $equipment->equipment_room_id,
                         'borrowing_borrower_name' => $validated['borrowing_borrower_name'],
                         'borrowing_borrower_department' => $validated['borrowing_borrower_department'] ?? null,
                         'borrowing_quantity' => (int) $line['quantity'],
@@ -10295,6 +10750,13 @@ class MaintenanceController extends Controller
 
     public function returnEquipment(Request $request)
     {
+        $request->validate([
+            'borrowing_record_id' => 'required|integer',
+            'return_condition' => 'required|in:Good,Damaged,For Repair',
+            'remarks' => 'nullable|string|max:1000',
+            'return_room_id' => 'nullable|integer',
+        ]);
+
         // =====================================================
         // FIND BORROWING RECORD
         // =====================================================
@@ -10349,6 +10811,9 @@ class MaintenanceController extends Controller
             ->first();
 
 
+        $storageRoom = $this->borrowReturnStorageRoom((int) $request->input('return_room_id', 0));
+        $returnMessage = 'Equipment returned successfully.';
+
         // =====================================================
         // START TRANSACTION
         // =====================================================
@@ -10356,30 +10821,10 @@ class MaintenanceController extends Controller
         DB::transaction(function () use (
             $request,
             $record,
-            $equipment
+            $equipment,
+            $storageRoom,
+            &$returnMessage
         ) {
-
-            // =================================================
-            // UPDATE BORROWING RECORD
-            // =================================================
-
-            DB::table('borrowing_records_table')
-
-                ->where(
-                    'borrowing_record_id',
-                    $record->borrowing_record_id
-                )
-
-                ->update([
-
-                    'borrowing_status'
-                        => 'Returned',
-
-                    'borrowing_actual_return_date'
-                        => now(),
-
-                ]);
-
 
             // =================================================
             // UPDATE EQUIPMENT STATUS
@@ -10407,6 +10852,77 @@ class MaintenanceController extends Controller
                 'borrow_return',
                 'Condition on return from borrow'
             );
+
+            // =================================================
+            // SEND THE RETURNED ITEM TO STORAGE (INVENTORY)
+            //
+            // A bulk row that still has units in a room stays
+            // there: its returned units rejoin the same row.
+            // =================================================
+
+            $currentRoom = $equipment
+                ? DB::table('rooms_table')->where('room_id', $equipment->equipment_room_id)->first()
+                : null;
+            $isSingle = $equipment && (($equipment->equipment_tracking_mode ?? 'Individual') !== 'Bulk' || $stock <= 1);
+            $wholeRowWasOut = $equipment && ($equipment->equipment_inventory_status ?? '') === 'Borrowed';
+            $alreadyInStorage = $currentRoom && RoomCategories::isStorageType($currentRoom->room_type ?? null);
+
+            $returnedToRoomId = $equipment->equipment_room_id ?? null;
+
+            if ($storageRoom && ! $alreadyInStorage && $remainingOnLoan === 0 && ($isSingle || $wholeRowWasOut)) {
+                $assignment = PropertyAssignments::current((int) $record->borrowing_equipment_id);
+                if ($assignment) {
+                    PropertyAssignments::returnAssignment(
+                        (int) $assignment->assignment_id,
+                        $request->return_condition === 'Good' ? 'Good' : 'Damaged',
+                        'Returned to storage after borrowing.'
+                    );
+                }
+
+                DB::table('equipment_table')
+                    ->where('equipment_id', $record->borrowing_equipment_id)
+                    ->update([
+                        'workstation_slot_id' => null,
+                        'workstation_id' => null,
+                        'workstation_template_slot_id' => null,
+                    ]);
+
+                $this->recordInventoryTransfer(
+                    $request,
+                    DB::table('equipment_table')->where('equipment_id', $record->borrowing_equipment_id)->first(),
+                    $currentRoom,
+                    $storageRoom,
+                    ['type' => null, 'department_id' => null, 'custodian_id' => null, 'label' => null, 'error' => null],
+                    false,
+                    'Returned from borrowing by '.$record->borrowing_borrower_name.'.',
+                    Auth::id(),
+                    Auth::id()
+                );
+
+                $returnedToRoomId = $storageRoom->room_id;
+                $returnMessage = 'Equipment returned and moved to '.$storageRoom->room_name.' (Inventory).'
+                    .($assignment ? ' Its assignment to '.($assignment->custodian_full_name ?? 'a person').' was closed.' : '');
+            } elseif ($alreadyInStorage) {
+                $returnMessage = 'Equipment returned to '.$currentRoom->room_name.' (Inventory).';
+            } elseif ($currentRoom && ! $isSingle) {
+                $returnMessage = 'Equipment returned. The units rejoined '.($equipment->equipment_name ?? 'the item')
+                    .' in '.$currentRoom->room_name.' because other units of it are still there.';
+            }
+
+            // =================================================
+            // UPDATE BORROWING RECORD
+            // =================================================
+
+            DB::table('borrowing_records_table')
+                ->where('borrowing_record_id', $record->borrowing_record_id)
+                ->update([
+                    'borrowing_status' => 'Returned',
+                    'borrowing_actual_return_date' => now(),
+                    'borrowing_return_condition' => $request->return_condition,
+                    'borrowing_return_remarks' => $request->input('remarks'),
+                    'borrowing_returned_by' => Auth::id(),
+                    'borrowing_returned_to_room_id' => $returnedToRoomId,
+                ]);
 
             // =================================================
             // CREATE NOTIFICATION
@@ -10505,8 +11021,25 @@ class MaintenanceController extends Controller
 
         return back()->with(
             'success',
-            'Equipment returned successfully.'
+            $returnMessage
         );
+    }
+
+    /**
+     * Storage room picked on the return form, or the first active storage room.
+     */
+    private function borrowReturnStorageRoom(int $roomId): ?object
+    {
+        $rooms = DB::table('rooms_table')
+            ->where('room_type', RoomCategories::STORAGE_TYPE)
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where(fn ($q) => $q->whereNull('room_is_archived')->orWhere('room_is_archived', false))
+            )
+            ->orderBy('room_name')
+            ->get();
+
+        return ($roomId > 0 ? $rooms->firstWhere('room_id', $roomId) : null) ?? $rooms->first();
     }
 
 
@@ -14117,6 +14650,10 @@ class MaintenanceController extends Controller
             );
         }
 
+        if ($emailTaken = $this->holdReporterForTakenEmail($request, (int) $request->reporter_id)) {
+            return $emailTaken;
+        }
+
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
@@ -14128,7 +14665,7 @@ class MaintenanceController extends Controller
         $payload = [
             'reporter_employee_id' => $employeeId,
             'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
-            'reporter_email_address' => $request->email ?: null,
+            'reporter_email_address' => $request->email ? trim($request->email) : null,
             'reporter_contact_number' => $request->contact ?: null,
         ];
 
@@ -15607,6 +16144,42 @@ class MaintenanceController extends Controller
             : back()->withInput()->with('reporter_duplicates', $matches)->with('reporter_duplicate_mode', $reporterId ? 'edit' : 'create');
     }
 
+    /**
+     * Send the form back when another reporter already uses this email (case-insensitive).
+     */
+    private function holdReporterForTakenEmail(Request $request, ?int $reporterId = null)
+    {
+        $email = strtolower(trim((string) $request->email));
+        if ($email === '') {
+            return null;
+        }
+
+        if ($reporterId) {
+            $current = strtolower(trim((string) DB::table('reporters_table')->where('reporter_id', $reporterId)->value('reporter_email_address')));
+            if ($current === $email) {
+                return null;
+            }
+        }
+
+        $owner = DB::table('reporters_table')
+            ->whereRaw('LOWER(TRIM(reporter_email_address)) = ?', [$email])
+            ->when($reporterId, fn ($q) => $q->where('reporter_id', '!=', $reporterId))
+            ->first(['reporter_full_name', 'reporter_employee_id']);
+
+        if (! $owner) {
+            return null;
+        }
+
+        return back()
+            ->withInput()
+            ->withErrors([
+                'email' => 'This email is already used by '.($owner->reporter_full_name ?: 'another reporter')
+                    .($owner->reporter_employee_id ? ' ('.$owner->reporter_employee_id.')' : '')
+                    .'. Every reporter needs a different email.',
+            ])
+            ->with('reporter_form_mode', $reporterId ? 'edit' : 'create');
+    }
+
     public function storeReporter(Request $request)
     {
         PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
@@ -15679,6 +16252,10 @@ class MaintenanceController extends Controller
             );
         }
 
+        if ($emailTaken = $this->holdReporterForTakenEmail($request)) {
+            return $emailTaken;
+        }
+
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
@@ -15692,7 +16269,7 @@ class MaintenanceController extends Controller
         $payload = [
             'reporter_employee_id' => $employeeId,
             'reporter_full_name' => $fullName,
-            'reporter_email_address' => $request->email ?: null,
+            'reporter_email_address' => $request->email ? trim($request->email) : null,
             'reporter_contact_number' => $request->contact ?: null,
             'reporter_status' => 'Active',
             'reporter_created_at' => now(),

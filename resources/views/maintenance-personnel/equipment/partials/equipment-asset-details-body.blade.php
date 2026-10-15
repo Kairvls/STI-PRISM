@@ -214,12 +214,22 @@
         </div>
 
         <div id="eqAssetModal_panel_lifecycle" class="eq-asset-panel hidden space-y-4">
-            <h4 class="text-sm font-semibold text-slate-900">Lifecycle</h4>
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div id="eqAssetModal_lifecycle_loading" class="hidden px-4 py-6 text-center text-sm text-slate-400">Loading history…</div>
-                <div id="eqAssetModal_lifecycle_content" class="hidden divide-y divide-slate-100"></div>
-                <p id="eqAssetModal_lifecycle_empty" class="hidden px-4 py-6 text-center text-sm text-slate-400">Lifecycle history unavailable.</p>
+            <div class="flex items-center justify-between gap-3">
+                <h4 class="text-sm font-semibold text-slate-900">Lifecycle timeline</h4>
+                <span id="eqAssetModal_lifecycle_note" class="text-[11px] text-slate-400"></span>
             </div>
+            <div id="eqAssetModal_lifecycle_loading" class="hidden rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">Loading history…</div>
+            <div id="eqAssetModal_lifecycle_content" class="hidden space-y-4">
+                <div id="eqAssetModal_lifecycle_stages" class="flex flex-wrap gap-1.5"></div>
+                <div id="eqAssetModal_lifecycle_timeline"></div>
+                <button id="eqAssetModal_lifecycle_more" type="button" onclick="toggleEquipmentLifecycle()" class="hidden items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline">
+                    <span id="eqAssetModal_lifecycle_more_icon" class="inline-flex transition-transform">
+                        <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                    </span>
+                    <span id="eqAssetModal_lifecycle_more_label">Show older events</span>
+                </button>
+            </div>
+            <p id="eqAssetModal_lifecycle_empty" class="hidden rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">Lifecycle history unavailable.</p>
         </div>
 
         <div id="eqAssetModal_panel_activity" class="eq-asset-panel hidden space-y-4">

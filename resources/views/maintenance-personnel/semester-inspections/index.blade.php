@@ -20,7 +20,7 @@
             class="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
         >
             <i data-lucide="plus" class="h-4 w-4"></i>
-            New campaign
+            New schedule
         </button>
     </div>
     @endif

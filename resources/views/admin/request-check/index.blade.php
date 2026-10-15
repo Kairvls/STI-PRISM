@@ -66,17 +66,17 @@
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}</td>
-                        <td class="px-4 py-4">{{ $rfc->request_check_status }}</td>
+                        <td class="px-4 py-4">@include('partials.status-pill', ['status' => $rfc->request_check_status])</td>
                         <td class="px-4 py-4">
                             <div class="flex flex-wrap gap-2">
-                                <button type="button" @click="openView({{ $rfc->request_check_id }}); fetch('{{ route('admin.rfc.start-review', $rfc->request_check_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">View</button>
+                                <button type="button" @click="openView({{ $rfc->request_check_id }}); fetch('{{ route('admin.rfc.start-review', $rfc->request_check_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">View</button>
                                 @if($reviewable)
                                     <form method="POST" action="{{ route('admin.rfc.approve', $rfc->request_check_id) }}">
                                         @csrf
-                                        <button type="submit" onclick="return confirm('Approve and sign as Administrator?')" class="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">Approve</button>
+                                        <button type="submit" onclick="return confirm('Approve and sign as Administrator?')" class="rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#001da3]">Approve</button>
                                     </form>
-                                    <button type="button" @click="openRevise({{ $rfc->request_check_id }})" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700">Revise</button>
-                                    <button type="button" @click="openReject({{ $rfc->request_check_id }})" class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-700">Reject</button>
+                                    <button type="button" @click="openRevise({{ $rfc->request_check_id }})" class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 transition hover:bg-orange-100">Revise</button>
+                                    <button type="button" @click="openReject({{ $rfc->request_check_id }})" class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50">Reject</button>
                                 @endif
                             </div>
                         </td>
@@ -118,7 +118,7 @@
             <textarea name="remarks" required class="mt-1.5 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
             <div class="mt-4 flex justify-end gap-2">
                 <button type="button" @click="reviseOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white">Send back</button>
+                <button type="submit" class="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700">Send back</button>
             </div>
         </form>
     </div>
@@ -131,7 +131,7 @@
             <textarea name="remarks" required class="mt-1.5 w-full rounded-lg border border-gray-300 p-3 text-sm" rows="4"></textarea>
             <div class="mt-4 flex justify-end gap-2">
                 <button type="button" @click="rejectOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">Reject</button>
+                <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">Reject</button>
             </div>
         </form>
     </div>

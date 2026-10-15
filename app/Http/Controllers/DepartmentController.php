@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\Departments;
+use App\Support\PropertyAssignments;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RuntimeException;
@@ -22,6 +23,51 @@ class DepartmentController extends Controller
             'search' => $search,
             'filter' => $filter,
             'tableReady' => Departments::tableReady(),
+        ]);
+    }
+
+    public function show(int $department)
+    {
+        $row = $this->findDepartment($department);
+        ['people' => $people, 'equipment' => $equipment] = Departments::members($department);
+
+        return response()->json([
+            'department' => [
+                'id' => (int) $row->department_id,
+                'name' => $row->department_name,
+                'description' => $row->department_description,
+                'archived' => (bool) $row->department_is_archived,
+            ],
+            'people' => $people->map(fn ($person) => [
+                'id' => (int) $person->custodian_id,
+                'name' => $person->custodian_full_name,
+                'employee_id' => $person->custodian_employee_id,
+                'position' => $person->custodian_position,
+                'email' => $person->custodian_email_address,
+                'contact' => $person->custodian_contact_number,
+                'status' => $person->custodian_status ?: 'Active',
+                'room' => $person->room_name,
+                'held_count' => (int) $person->held_count,
+                'profile_url' => PropertyAssignments::route('person', $person->custodian_id),
+            ])->values(),
+            'equipment' => $equipment->map(fn ($item) => [
+                'id' => (int) $item->equipment_id,
+                'name' => $item->equipment_name,
+                'asset_tag' => $item->equipment_asset_tag,
+                'brand_model' => trim(($item->equipment_brand_name ?? '').' '.($item->equipment_model ?? '')) ?: null,
+                'serial' => $item->equipment_serial_number,
+                'quantity' => (int) ($item->equipment_quantity ?: 1),
+                'category' => $item->equipment_category_name,
+                'room' => $item->room_name,
+                'condition' => $item->equipment_condition_status,
+                'status' => $item->equipment_inventory_status,
+                'image_url' => $item->equipment_image ? asset('storage/'.$item->equipment_image) : null,
+                'charged' => (int) $item->equipment_department_id === $department,
+                'holder' => $item->holder_name,
+                'holder_in_department' => $item->holder_id !== null && (int) $item->holder_department_id === $department,
+                'issued_at' => $item->assignment_issued_at,
+                'profile_url' => url('/maintenance/equipment/view/'.$item->equipment_id),
+            ])->values(),
         ]);
     }
 

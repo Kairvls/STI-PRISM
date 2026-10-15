@@ -31,7 +31,7 @@
     <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div>
-                <h2 class="text-xl font-semibold tracking-tight text-slate-900">New semester campaign</h2>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Semestral Inspection</h2>
                 <p class="mt-1 text-sm text-slate-500">Every active equipment in the chosen scope is added to the inspection checklist.</p>
             </div>
             <button type="button" @click="open = false" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -44,7 +44,7 @@
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="sm:col-span-2">
-                        <label for="campaignTitle" class="mb-1.5 block text-sm text-slate-600">Campaign title <span class="text-red-500">*</span></label>
+                        <label for="campaignTitle" class="mb-1.5 block text-sm text-slate-600">Schedule name <span class="text-slate-400">(Title)</span> <span class="text-red-500">*</span></label>
                         <input
                             id="campaignTitle"
                             type="text"
@@ -97,7 +97,7 @@
                     <div class="mt-3 grid grid-cols-1 gap-3 {{ $showBuildingScope ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
                         <label class="flex cursor-pointer items-center gap-3 rounded-xl bg-white px-3 py-3 ring-1 ring-slate-200/80 has-[:checked]:ring-[#0025cc]/40">
                             <input type="radio" name="campaign_scope_type" value="campus" x-model="scope" class="text-[#0025cc]">
-                            <span class="text-sm font-medium text-slate-800">Entire campus</span>
+                            <span class="text-sm font-medium text-slate-800">All floors</span>
                         </label>
 
                         @if ($showBuildingScope)
@@ -179,7 +179,7 @@
                 <button type="button" @click="open = false" class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">Cancel</button>
                 <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]">
                     <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                    Create campaign
+                    Create schedule
                 </button>
             </div>
         </form>

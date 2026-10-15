@@ -4,7 +4,7 @@
             aria-hidden="true"
         >
             <div
-                class="absolute inset-0 bg-[#0b1220]/50 backdrop-blur-[1px] transition-opacity"
+                class="absolute inset-0 bg-gray-950/40 transition-opacity"
                 onclick="closeEquipmentModal()"
             ></div>
 
@@ -155,30 +155,96 @@
             });
         }
 
-        function renderEquipmentLifecycleRows(data) {
-            const contentEl = document.getElementById('eqAssetModal_lifecycle_content');
-            if (!contentEl) return;
+        const EQUIPMENT_TIMELINE_LIMIT = 10;
+        const EQUIPMENT_STAGE_CLASSES = {
+            purchase: 'bg-indigo-50 text-indigo-700',
+            received: 'bg-sky-50 text-sky-700',
+            inventory: 'bg-slate-100 text-slate-700',
+            assigned: 'bg-violet-50 text-violet-700',
+            borrowed: 'bg-cyan-50 text-cyan-700',
+            repair: 'bg-amber-50 text-amber-700',
+            for_replacement: 'bg-orange-50 text-orange-700',
+            replacement: 'bg-emerald-50 text-emerald-700',
+            disposal: 'bg-rose-50 text-rose-700',
+        };
+        let equipmentModalTimeline = { events: [], stages: {}, counts: {}, stage: 'all', expanded: false };
 
-            contentEl.innerHTML = '';
-            const rows = [
-                ['Put in room', formatEquipmentAssetDate(data.deployed_at)],
-                ['Last moved', formatEquipmentAssetDate(data.last_moved_at)],
-                ['Last maintenance', formatEquipmentAssetDate(data.last_maintenance_at)],
-            ];
+        function escapeEquipmentHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            })[ch]);
+        }
 
-            if (data.disposed_at) {
-                rows.push(['Disposed', formatEquipmentAssetDate(data.disposed_at)]);
+        function renderEquipmentLifecycleTimeline() {
+            const { events, stages, counts, stage } = equipmentModalTimeline;
+            const stagesEl = document.getElementById('eqAssetModal_lifecycle_stages');
+            const timelineEl = document.getElementById('eqAssetModal_lifecycle_timeline');
+            const noteEl = document.getElementById('eqAssetModal_lifecycle_note');
+            const moreEl = document.getElementById('eqAssetModal_lifecycle_more');
+            if (!stagesEl || !timelineEl) return;
+
+            const chip = (key, label, count) => {
+                const on = stage === key;
+                return `<button type="button" onclick="filterEquipmentLifecycle('${key}')" class="rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition ${on ? 'bg-[#0025cc] text-white ring-[#0025cc]' : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100'}">${escapeEquipmentHtml(label)} · ${count}</button>`;
+            };
+
+            stagesEl.innerHTML = events.length
+                ? chip('all', 'All', events.length) + Object.keys(stages)
+                    .filter((key) => counts[key])
+                    .map((key) => chip(key, stages[key], counts[key]))
+                    .join('')
+                : '';
+
+            const matching = stage === 'all' ? events : events.filter((event) => event.stage === stage);
+            const expanded = equipmentModalTimeline.expanded;
+            const visible = expanded ? matching : matching.slice(0, EQUIPMENT_TIMELINE_LIMIT);
+
+            timelineEl.innerHTML = visible.length
+                ? visible.map((event, index) => `
+                    <div class="relative flex gap-3 ${index < visible.length - 1 ? 'pb-4' : ''}">
+                        ${index < visible.length - 1 ? '<span class="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200"></span>' : ''}
+                        <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ${escapeEquipmentHtml(event.meta?.dot || 'bg-slate-400')}"></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <p class="text-sm font-semibold text-slate-900">${escapeEquipmentHtml(event.title)}</p>
+                                <span class="rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${EQUIPMENT_STAGE_CLASSES[event.stage] || 'bg-slate-100 text-slate-700'}">${escapeEquipmentHtml(event.stage_label || event.type_label)}</span>
+                            </div>
+                            <p class="mt-0.5 text-xs text-slate-400">${escapeEquipmentHtml(formatEquipmentAssetDate(event.occurred_at))}</p>
+                            ${event.description ? `<p class="mt-1 text-xs leading-5 text-slate-600">${escapeEquipmentHtml(event.description)}</p>` : ''}
+                        </div>
+                    </div>`).join('')
+                : `<p class="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">${events.length ? 'No events for this stage.' : 'No lifecycle events recorded yet.'}</p>`;
+
+            const older = matching.length - EQUIPMENT_TIMELINE_LIMIT;
+            if (noteEl) {
+                noteEl.textContent = older > 0 && !expanded ? `Latest ${EQUIPMENT_TIMELINE_LIMIT} of ${matching.length}` : '';
             }
-            if (data.disposal_reason) {
-                rows.push(['Disposal reason', data.disposal_reason]);
+            if (moreEl) {
+                moreEl.classList.toggle('hidden', older <= 0);
+                moreEl.classList.toggle('inline-flex', older > 0);
+                document.getElementById('eqAssetModal_lifecycle_more_icon')?.classList.toggle('rotate-180', expanded);
+                const label = document.getElementById('eqAssetModal_lifecycle_more_label');
+                if (label) {
+                    label.textContent = expanded
+                        ? 'Show fewer'
+                        : `Show ${older} older ${older === 1 ? 'event' : 'events'}`;
+                }
             }
+        }
 
-            rows.forEach(([label, value]) => {
-                const row = document.createElement('div');
-                row.className = 'flex items-center justify-between gap-4 px-4 py-3.5';
-                row.innerHTML = `<span class="text-sm text-slate-500">${label}</span><span class="text-right text-sm font-medium text-slate-800">${value || '—'}</span>`;
-                contentEl.appendChild(row);
-            });
+        function filterEquipmentLifecycle(stage) {
+            equipmentModalTimeline.stage = stage;
+            equipmentModalTimeline.expanded = false;
+            renderEquipmentLifecycleTimeline();
+        }
+
+        function toggleEquipmentLifecycle() {
+            const collapsing = equipmentModalTimeline.expanded;
+            equipmentModalTimeline.expanded = !collapsing;
+            renderEquipmentLifecycleTimeline();
+            if (collapsing) {
+                document.getElementById('eqAssetModal_lifecycle_more')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
         }
 
         function renderEquipmentActivity(data) {
@@ -245,8 +311,15 @@
             emptyEl?.classList.add('hidden');
             activityEmptyEl?.classList.add('hidden');
 
-            renderEquipmentLifecycleRows(data);
+            equipmentModalTimeline = {
+                events: Array.isArray(data.events) ? data.events : [],
+                stages: data.stages || {},
+                counts: data.stage_counts || {},
+                stage: 'all', expanded: false,
+            };
+            renderEquipmentLifecycleTimeline();
             contentEl?.classList.remove('hidden');
+            if (window.lucide) window.lucide.createIcons();
 
             renderEquipmentActivity(data);
             renderEquipmentModalProcurement(data?.procurement || null);
@@ -299,7 +372,9 @@
             activityContentEl?.classList.add('hidden');
             emptyEl?.classList.add('hidden');
             activityEmptyEl?.classList.add('hidden');
-            if (contentEl) contentEl.innerHTML = '';
+            equipmentModalTimeline = { events: [], stages: {}, counts: {}, stage: 'all', expanded: false };
+            const noteEl = document.getElementById('eqAssetModal_lifecycle_note');
+            if (noteEl) noteEl.textContent = '';
             if (activityContentEl) activityContentEl.innerHTML = '';
 
             if (!equipmentId) {

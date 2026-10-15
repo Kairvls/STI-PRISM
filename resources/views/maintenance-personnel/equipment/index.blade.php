@@ -657,7 +657,7 @@
                         >
 
                             <i
-                                data-lucide="sliders-horizontal"
+                                data-lucide="filter"
                                 class="h-4 w-4"
                             ></i>
 

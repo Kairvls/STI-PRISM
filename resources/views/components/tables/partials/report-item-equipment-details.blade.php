@@ -77,7 +77,7 @@
 @endphp
 
 @if (! $isListed)
-    <p class="{{ $compact ? 'mt-1 text-[11px] text-slate-400' : 'mt-2 text-xs text-slate-500' }}">
+    <p class="{{ $compact ? 'mt-1 text-[11px] text-slate-400' : 'mt-2 text-sm text-slate-500' }}">
         Manual entry — no inventory record linked.
     </p>
 @elseif ($compact)
@@ -120,7 +120,7 @@
                     type="button"
                     data-eq-tab="summary"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'summary')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-2.5 py-1 text-[11px] font-medium text-white"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-3 py-1.5 text-xs font-medium text-white"
                 >
                     Details
                 </button>
@@ -128,45 +128,45 @@
                     type="button"
                     data-eq-tab="profile"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'profile')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    <i data-lucide="id-card" class="h-3 w-3"></i>
+                    <i data-lucide="id-card" class="h-3.5 w-3.5"></i>
                     Full profile
                 </button>
                 <button
                     type="button"
                     data-eq-tab="lifecycle"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'lifecycle')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    <i data-lucide="git-branch" class="h-3 w-3"></i>
+                    <i data-lucide="git-branch" class="h-3.5 w-3.5"></i>
                     Lifecycle
                 </button>
                 <button
                     type="button"
                     data-eq-tab="activity"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'activity')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    <i data-lucide="activity" class="h-3 w-3"></i>
+                    <i data-lucide="activity" class="h-3.5 w-3.5"></i>
                     Activity
                 </button>
                 <button
                     type="button"
                     data-eq-tab="maintenance"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'maintenance')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    <i data-lucide="history" class="h-3 w-3"></i>
+                    <i data-lucide="history" class="h-3.5 w-3.5"></i>
                     Maintenance
                 </button>
                 <button
                     type="button"
                     data-eq-tab="transfers"
                     onclick="switchReportEquipmentPanel('{{ $cardId }}', 'transfers')"
-                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    class="rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
-                    <i data-lucide="arrow-left-right" class="h-3 w-3"></i>
+                    <i data-lucide="arrow-left-right" class="h-3.5 w-3.5"></i>
                     Transfers
                 </button>
             </div>
@@ -182,16 +182,16 @@
 
         <div data-eq-panel="summary">
             @if ($filledSummaryRows->isEmpty())
-                <p class="text-xs text-slate-500">No extra equipment details on file.</p>
+                <p class="text-sm text-slate-500">No extra equipment details on file.</p>
             @else
                 <dl class="grid grid-cols-2 gap-x-3 gap-y-2">
                     @foreach ($filledSummaryRows as $row)
                         <div class="min-w-0 {{ $row['label'] === 'Asset tag' ? 'col-span-2' : '' }}">
-                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                                 {{ $row['label'] }}
                             </dt>
                             <dd
-                                class="{{ $row['label'] === 'Asset tag' ? 'break-all' : 'truncate' }} text-xs font-medium text-slate-800"
+                                class="{{ $row['label'] === 'Asset tag' ? 'break-all' : 'truncate' }} text-sm font-medium text-slate-800"
                                 title="{{ $na($row['value']) }}"
                             >
                                 {{ $na($row['value']) }}
@@ -219,11 +219,11 @@
             <dl class="grid grid-cols-2 gap-x-3 gap-y-2">
                 @foreach ($fullProfileRows as $row)
                     <div class="min-w-0 {{ !empty($row['wide']) ? 'col-span-2' : '' }}">
-                        <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                             {{ $row['label'] }}
                         </dt>
                         <dd
-                            class="{{ !empty($row['wide']) ? 'break-all' : 'truncate' }} text-xs font-medium text-slate-800"
+                            class="{{ !empty($row['wide']) ? 'break-all' : 'truncate' }} text-sm font-medium text-slate-800"
                             title="{{ $row['value'] }}"
                         >
                             {{ $row['value'] }}
@@ -238,13 +238,13 @@
                 data-eq-loaded="0"
                 data-eq-url="/maintenance/equipment/timeline/{{ $equipmentId }}?types=created"
             >
-                <p class="text-xs text-slate-500">Loading purchase & source…</p>
+                <p class="text-sm text-slate-500">Loading purchase & source…</p>
             </div>
 
             <a
                 href="{{ url('/maintenance/equipment/view/'.$equipmentId) }}"
                 target="_blank"
-                class="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0025cc] hover:underline"
+                class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline"
             >
                 Open full equipment page
                 <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
@@ -257,7 +257,7 @@
             data-eq-loaded="0"
             data-eq-panel-type="lifecycle"
         >
-            <p class="text-xs text-slate-500">Loading lifecycle…</p>
+            <p class="text-sm text-slate-500">Loading lifecycle…</p>
         </div>
 
         <div
@@ -266,7 +266,7 @@
             data-eq-loaded="0"
             data-eq-panel-type="activity"
         >
-            <p class="text-xs text-slate-500">Loading activity…</p>
+            <p class="text-sm text-slate-500">Loading activity…</p>
         </div>
 
         <div
@@ -276,7 +276,7 @@
             data-eq-url="/maintenance/equipment/history/{{ $equipmentId }}"
             data-eq-panel-type="maintenance"
         >
-            <p class="text-xs text-slate-500">Loading maintenance history…</p>
+            <p class="text-sm text-slate-500">Loading maintenance history…</p>
         </div>
 
         <div
@@ -286,7 +286,7 @@
             data-eq-url="/maintenance/equipment/transfers/{{ $equipmentId }}"
             data-eq-panel-type="transfers"
         >
-            <p class="text-xs text-slate-500">Loading transfer history…</p>
+            <p class="text-sm text-slate-500">Loading transfer history…</p>
         </div>
     </div>
 @endif
@@ -374,9 +374,9 @@
             if (!card) return;
 
             const activeTab =
-                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-2.5 py-1 text-[11px] font-medium text-white";
+                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#0025cc] bg-[#0025cc] px-3 py-1.5 text-xs font-medium text-white";
             const idleTab =
-                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50";
+                "rf-eq-tab inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50";
 
             let activeButton = null;
             card.querySelectorAll("[data-eq-tab]").forEach((btn) => {
@@ -427,14 +427,14 @@
             };
             const section = function (title, rows) {
                 return (
-                    '<p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">' + esc(title) + "</p>" +
+                    '<p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">' + esc(title) + "</p>" +
                     '<dl class="mb-4 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">' +
                     rows
                         .map(function (row) {
                             return (
                                 '<div class="flex items-start justify-between gap-3 px-3 py-2">' +
-                                '<dt class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">' + esc(row[0]) + "</dt>" +
-                                '<dd class="min-w-0 break-words text-right text-xs font-medium text-slate-800">' + (row[2] ? row[1] : esc(row[1] || "—")) + "</dd>" +
+                                '<dt class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">' + esc(row[0]) + "</dt>" +
+                                '<dd class="min-w-0 break-words text-right text-sm font-medium text-slate-800">' + (row[2] ? row[1] : esc(row[1] || "—")) + "</dd>" +
                                 "</div>"
                             );
                         })
@@ -452,7 +452,7 @@
                 const p = data && data.equipment;
 
                 if (!response.ok || !p) {
-                    body.innerHTML = '<p class="text-xs text-rose-600">Could not load purchase details.</p>';
+                    body.innerHTML = '<p class="text-sm text-rose-600">Could not load purchase details.</p>';
                     return;
                 }
 
@@ -500,7 +500,7 @@
                 body.innerHTML = html;
                 body.setAttribute("data-eq-loaded", "1");
             } catch (error) {
-                body.innerHTML = '<p class="text-xs text-rose-600">Could not load purchase details.</p>';
+                body.innerHTML = '<p class="text-sm text-rose-600">Could not load purchase details.</p>';
             }
         };
 
@@ -512,7 +512,7 @@
             if (!equipmentId) return;
 
             body.innerHTML =
-                '<p class="text-xs text-slate-500">Loading ' +
+                '<p class="text-sm text-slate-500">Loading ' +
                 (panel === "lifecycle" ? "lifecycle" : "activity") +
                 "…</p>";
 
@@ -528,47 +528,25 @@
                 const data = await response.json().catch(() => null);
 
                 if (!response.ok || !data) {
-                    body.innerHTML = '<p class="text-xs text-rose-600">Could not load lifecycle.</p>';
+                    body.innerHTML = '<p class="text-sm text-rose-600">Could not load lifecycle.</p>';
                     return;
                 }
 
                 if (panel === "lifecycle") {
-                    const rows = [
-                        ["Put in room", window.formatReportEquipmentDate(data.deployed_at)],
-                        ["Last moved", window.formatReportEquipmentDate(data.last_moved_at)],
-                        ["Last maintenance", window.formatReportEquipmentDate(data.last_maintenance_at)],
-                    ];
-
-                    if (data.disposed_at) {
-                        rows.push(["Disposed", window.formatReportEquipmentDate(data.disposed_at)]);
-                    }
-                    if (data.disposal_reason) {
-                        rows.push(["Disposal reason", data.disposal_reason]);
-                    }
-
-                    body.innerHTML =
-                        '<dl class="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">' +
-                        rows
-                            .map(function (row) {
-                                return (
-                                    '<div class="flex items-center justify-between gap-3 px-3 py-2.5">' +
-                                    '<dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">' +
-                                    row[0] +
-                                    "</dt>" +
-                                    '<dd class="text-right text-xs font-medium text-slate-800">' +
-                                    String(row[1] || "—").replace(/</g, "&lt;") +
-                                    "</dd>" +
-                                    "</div>"
-                                );
-                            })
-                            .join("") +
-                        "</dl>";
+                    body._timeline = {
+                        events: Array.isArray(data.events) ? data.events : [],
+                        stages: data.stages || {},
+                        counts: data.stage_counts || {},
+                        stage: "all",
+                        expanded: false,
+                    };
+                    window.renderReportEquipmentTimeline(card.getAttribute("data-eq-card"));
                 } else {
                     const transfers = Array.isArray(data.transfers) ? data.transfers.slice(0, 6) : [];
                     const maintenance = Array.isArray(data.maintenance) ? data.maintenance.slice(0, 6) : [];
 
                     if (!transfers.length && !maintenance.length) {
-                        body.innerHTML = '<p class="text-xs text-slate-500">No recent activity.</p>';
+                        body.innerHTML = '<p class="text-sm text-slate-500">No recent activity.</p>';
                         body.setAttribute("data-eq-loaded", "1");
                         return;
                     }
@@ -578,18 +556,18 @@
                     if (transfers.length) {
                         html +=
                             '<div class="mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white">' +
-                            '<p class="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent moves</p>';
+                            '<p class="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent moves</p>';
                         transfers.forEach(function (move, index) {
                             html +=
                                 '<div class="' +
                                 (index ? "border-t border-slate-100 " : "") +
                                 'px-3 py-2.5">' +
-                                '<p class="text-xs font-medium text-slate-800">' +
+                                '<p class="text-sm font-medium text-slate-800">' +
                                 String(move.from_room_name || "Unassigned").replace(/</g, "&lt;") +
                                 ' <span class="text-slate-400">→</span> ' +
                                 String(move.to_room_name || "—").replace(/</g, "&lt;") +
                                 "</p>" +
-                                '<p class="mt-1 text-[10px] text-slate-400">' +
+                                '<p class="mt-1 text-[11px] text-slate-400">' +
                                 window.formatReportEquipmentDate(move.created_at) +
                                 "</p>" +
                                 "</div>";
@@ -600,16 +578,16 @@
                     if (maintenance.length) {
                         html +=
                             '<div class="overflow-hidden rounded-lg border border-slate-200 bg-white">' +
-                            '<p class="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Maintenance</p>';
+                            '<p class="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Maintenance</p>';
                         maintenance.forEach(function (row, index) {
                             html +=
                                 '<div class="' +
                                 (index ? "border-t border-slate-100 " : "") +
                                 'px-3 py-2.5">' +
-                                '<p class="truncate text-xs font-medium text-slate-800">' +
+                                '<p class="truncate text-sm font-medium text-slate-800">' +
                                 String(row.findings || row.status || "Maintenance").replace(/</g, "&lt;") +
                                 "</p>" +
-                                '<p class="mt-1 text-[10px] text-slate-400">' +
+                                '<p class="mt-1 text-[11px] text-slate-400">' +
                                 window.formatReportEquipmentDate(row.at) +
                                 "</p>" +
                                 "</div>";
@@ -622,7 +600,130 @@
 
                 body.setAttribute("data-eq-loaded", "1");
             } catch (error) {
-                body.innerHTML = '<p class="text-xs text-rose-600">Could not load lifecycle.</p>';
+                body.innerHTML = '<p class="text-sm text-rose-600">Could not load lifecycle.</p>';
+            }
+        };
+
+        const REPORT_EQ_TIMELINE_LIMIT = 10;
+        const REPORT_EQ_STAGE_CLASSES = {
+            purchase: "bg-indigo-50 text-indigo-700",
+            received: "bg-sky-50 text-sky-700",
+            inventory: "bg-slate-100 text-slate-700",
+            assigned: "bg-violet-50 text-violet-700",
+            borrowed: "bg-cyan-50 text-cyan-700",
+            repair: "bg-amber-50 text-amber-700",
+            for_replacement: "bg-orange-50 text-orange-700",
+            replacement: "bg-emerald-50 text-emerald-700",
+            disposal: "bg-rose-50 text-rose-700",
+        };
+
+        const escapeReportEquipmentHtml = function (value) {
+            return String(value ?? "").replace(/[&<>"']/g, function (ch) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+            });
+        };
+
+        const formatReportEquipmentDateTime = function (value) {
+            if (!value) return "—";
+            const date = new Date(String(value).replace(" ", "T"));
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+            });
+        };
+
+        window.renderReportEquipmentTimeline = function (cardId) {
+            const card = document.querySelector('[data-eq-card="' + cardId + '"]');
+            const body = card && card.querySelector('[data-eq-panel="lifecycle"]');
+            const state = body && body._timeline;
+            if (!state) return;
+
+            const esc = escapeReportEquipmentHtml;
+            const chip = function (key, label, count) {
+                const on = state.stage === key;
+                return (
+                    '<button type="button" onclick="filterReportEquipmentLifecycle(\'' + cardId + "', '" + key + '\')" class="rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition ' +
+                    (on ? "bg-[#0025cc] text-white ring-[#0025cc]" : "bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100") +
+                    '">' + esc(label) + " · " + Number(count) + "</button>"
+                );
+            };
+
+            const chips = state.events.length
+                ? chip("all", "All", state.events.length) +
+                  Object.keys(state.stages)
+                      .filter(function (key) { return state.counts[key]; })
+                      .map(function (key) { return chip(key, state.stages[key], state.counts[key]); })
+                      .join("")
+                : "";
+
+            const matching = state.stage === "all"
+                ? state.events
+                : state.events.filter(function (event) { return event.stage === state.stage; });
+            const visible = state.expanded ? matching : matching.slice(0, REPORT_EQ_TIMELINE_LIMIT);
+            const older = matching.length - REPORT_EQ_TIMELINE_LIMIT;
+
+            const timeline = visible.length
+                ? visible.map(function (event, index) {
+                      const last = index === visible.length - 1;
+                      return (
+                          '<div class="relative flex gap-3 ' + (last ? "" : "pb-4") + '">' +
+                          (last ? "" : '<span class="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200"></span>') +
+                          '<span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ' + esc((event.meta && event.meta.dot) || "bg-slate-400") + '"></span>' +
+                          '<div class="min-w-0 flex-1">' +
+                          '<div class="flex flex-wrap items-center gap-1.5">' +
+                          '<p class="text-sm font-semibold text-slate-900">' + esc(event.title) + "</p>" +
+                          '<span class="rounded-md px-1.5 py-0.5 text-[10px] font-semibold ' + (REPORT_EQ_STAGE_CLASSES[event.stage] || "bg-slate-100 text-slate-700") + '">' + esc(event.stage_label || event.type_label) + "</span>" +
+                          "</div>" +
+                          '<p class="mt-0.5 text-xs text-slate-400">' + esc(formatReportEquipmentDateTime(event.occurred_at)) + "</p>" +
+                          (event.description ? '<p class="mt-1 text-xs leading-5 text-slate-600">' + esc(event.description) + "</p>" : "") +
+                          "</div></div>"
+                      );
+                  }).join("")
+                : '<p class="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">' +
+                  (state.events.length ? "No events for this stage." : "No lifecycle events recorded yet.") +
+                  "</p>";
+
+            const more = older > 0
+                ? '<button type="button" onclick="toggleReportEquipmentLifecycle(\'' + cardId + '\')" data-eq-lifecycle-more class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline">' +
+                  '<span class="inline-flex transition-transform ' + (state.expanded ? "rotate-180" : "") + '"><i data-lucide="chevron-down" class="h-4 w-4"></i></span>' +
+                  (state.expanded ? "Show fewer" : "Show " + older + " older " + (older === 1 ? "event" : "events")) +
+                  "</button>"
+                : "";
+
+            body.innerHTML =
+                '<div class="rounded-xl border border-slate-200 bg-white p-4">' +
+                '<div class="mb-3 flex items-center justify-between gap-3">' +
+                '<h4 class="text-sm font-semibold text-slate-900">Lifecycle timeline</h4>' +
+                '<span class="text-[11px] text-slate-400">' + (older > 0 && !state.expanded ? "Latest " + REPORT_EQ_TIMELINE_LIMIT + " of " + matching.length : "") + "</span>" +
+                "</div>" +
+                (chips ? '<div class="mb-4 flex flex-wrap gap-1.5">' + chips + "</div>" : "") +
+                "<div>" + timeline + "</div>" +
+                more +
+                "</div>";
+
+            if (typeof lucide !== "undefined") lucide.createIcons();
+        };
+
+        window.filterReportEquipmentLifecycle = function (cardId, stage) {
+            const body = document.querySelector('[data-eq-card="' + cardId + '"] [data-eq-panel="lifecycle"]');
+            if (!body || !body._timeline) return;
+            body._timeline.stage = stage;
+            body._timeline.expanded = false;
+            window.renderReportEquipmentTimeline(cardId);
+        };
+
+        window.toggleReportEquipmentLifecycle = function (cardId) {
+            const body = document.querySelector('[data-eq-card="' + cardId + '"] [data-eq-panel="lifecycle"]');
+            if (!body || !body._timeline) return;
+            const collapsing = body._timeline.expanded;
+            body._timeline.expanded = !collapsing;
+            window.renderReportEquipmentTimeline(cardId);
+            if (collapsing) {
+                body.querySelector("[data-eq-lifecycle-more]")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
             }
         };
 
@@ -634,7 +735,7 @@
             if (!url) return;
 
             body.innerHTML =
-                '<p class="text-xs text-slate-500">Loading ' +
+                '<p class="text-sm text-slate-500">Loading ' +
                 (panel === "maintenance" ? "maintenance" : "transfer") +
                 " history…</p>";
 
@@ -650,13 +751,13 @@
 
                 if (!response.ok || !Array.isArray(data)) {
                     body.innerHTML =
-                        '<p class="text-xs text-rose-600">Could not load history.</p>';
+                        '<p class="text-sm text-rose-600">Could not load history.</p>';
                     return;
                 }
 
                 if (data.length === 0) {
                     body.innerHTML =
-                        '<p class="text-xs text-slate-500">No ' +
+                        '<p class="text-sm text-slate-500">No ' +
                         (panel === "maintenance" ? "maintenance" : "transfer") +
                         " records yet.</p>";
                     body.setAttribute("data-eq-loaded", "1");
@@ -688,14 +789,14 @@
                             return (
                                 '<div class="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-2 last:mb-0">' +
                                 '<div class="flex items-start justify-between gap-2">' +
-                                '<p class="text-xs font-semibold text-slate-800">' +
+                                '<p class="text-sm font-semibold text-slate-800">' +
                                 String(status).replace(/</g, "&lt;") +
                                 "</p>" +
-                                '<p class="shrink-0 text-[10px] text-slate-400">' +
+                                '<p class="shrink-0 text-[11px] text-slate-400">' +
                                 whenLabel +
                                 "</p>" +
                                 "</div>" +
-                                '<p class="mt-1 text-[11px] leading-5 text-slate-600">' +
+                                '<p class="mt-1 text-xs leading-5 text-slate-600">' +
                                 String(findings).replace(/</g, "&lt;") +
                                 "</p>" +
                                 "</div>"
@@ -720,15 +821,15 @@
                                 : "—";
                             return (
                                 '<div class="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-2 last:mb-0">' +
-                                '<p class="text-xs font-semibold text-slate-800">' +
+                                '<p class="text-sm font-semibold text-slate-800">' +
                                 String(fromRoom).replace(/</g, "&lt;") +
                                 ' <span class="font-normal text-slate-400">→</span> ' +
                                 String(toRoom).replace(/</g, "&lt;") +
                                 "</p>" +
-                                '<p class="mt-1 text-[11px] leading-5 text-slate-600">' +
+                                '<p class="mt-1 text-xs leading-5 text-slate-600">' +
                                 String(remarks).replace(/</g, "&lt;") +
                                 "</p>" +
-                                '<p class="mt-1 text-[10px] text-slate-400">' +
+                                '<p class="mt-1 text-[11px] text-slate-400">' +
                                 whenLabel +
                                 "</p>" +
                                 "</div>"
@@ -740,7 +841,7 @@
                 body.setAttribute("data-eq-loaded", "1");
             } catch (error) {
                 body.innerHTML =
-                    '<p class="text-xs text-rose-600">Could not load history.</p>';
+                    '<p class="text-sm text-rose-600">Could not load history.</p>';
             }
         };
     }

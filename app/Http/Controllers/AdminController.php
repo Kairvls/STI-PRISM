@@ -2772,10 +2772,18 @@ class AdminController extends Controller
             ? trim(implode(' ', array_slice($parts, 1, -1)))
             : '';
 
+        $email = trim((string) ($user->user_email_address ?? ''));
+        if ($email !== '' && DB::table('reporters_table')
+            ->whereRaw('LOWER(TRIM(reporter_email_address)) = ?', [strtolower($email)])
+            ->when($existing, fn ($q) => $q->where('reporter_id', '!=', $existing->reporter_id))
+            ->exists()) {
+            $email = '';
+        }
+
         $payload = [
             'reporter_employee_id' => $employeeId,
             'reporter_full_name' => $fullName !== '' ? $fullName : 'Administrator',
-            'reporter_email_address' => $user->user_email_address ?: null,
+            'reporter_email_address' => $email !== '' ? $email : null,
             'reporter_contact_number' => $user->user_contact_number ?: null,
             'reporter_status' => 'Active',
         ];

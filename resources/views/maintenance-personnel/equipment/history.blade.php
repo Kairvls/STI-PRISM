@@ -346,24 +346,44 @@
                         <div>
                             <div class="mb-3 flex items-center justify-between">
                                 <p class="text-sm font-semibold text-slate-900">Activity timeline</p>
-                                <p class="text-xs text-slate-500" x-text="`${events.length} event${events.length === 1 ? '' : 's'}`"></p>
+                                <p class="text-xs text-slate-500" x-text="`${visibleEvents().length} event${visibleEvents().length === 1 ? '' : 's'}`"></p>
                             </div>
 
-                            <div x-show="events.length === 0" class="rounded-2xl border border-dashed border-slate-200 px-6 py-12 text-center">
+                            <div class="mb-3 flex flex-wrap gap-2" x-show="events.length > 0">
+                                <button
+                                    type="button"
+                                    @click="stageFilter = 'all'"
+                                    class="rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition"
+                                    :class="stageFilter === 'all' ? 'bg-[#0025cc] text-white ring-[#0025cc]' : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100'"
+                                    x-text="`All · ${events.length}`"
+                                ></button>
+                                <template x-for="(label, stage) in stages" :key="stage">
+                                    <button
+                                        type="button"
+                                        x-show="stageCounts[stage]"
+                                        @click="stageFilter = stage"
+                                        class="rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition"
+                                        :class="stageFilter === stage ? 'bg-[#0025cc] text-white ring-[#0025cc]' : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100'"
+                                        x-text="`${label} · ${stageCounts[stage] || 0}`"
+                                    ></button>
+                                </template>
+                            </div>
+
+                            <div x-show="visibleEvents().length === 0" class="rounded-2xl border border-dashed border-slate-200 px-6 py-12 text-center">
                                 <p class="text-sm font-semibold text-slate-900">No events in this range</p>
-                                <p class="mt-1 text-sm text-slate-500">Try clearing the date or event filters.</p>
+                                <p class="mt-1 text-sm text-slate-500">Try clearing the date, event or stage filters.</p>
                             </div>
 
-                            <div class="space-y-3" x-show="events.length > 0">
-                                <template x-for="(event, index) in events" :key="`${event.type}-${event.occurred_at}-${index}`">
+                            <div class="space-y-3" x-show="visibleEvents().length > 0">
+                                <template x-for="(event, index) in visibleEvents()" :key="`${event.type}-${event.occurred_at}-${index}`">
                                     <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0">
                                                 <div class="flex flex-wrap items-center gap-2">
                                                     <span
                                                         class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold"
-                                                        :class="eventTypeClass(event.type)"
-                                                        x-text="event.type_label"
+                                                        :class="stageClass(event.stage)"
+                                                        x-text="event.stage_label || event.type_label"
                                                     ></span>
                                                     <p class="text-sm font-semibold text-slate-950" x-text="event.title"></p>
                                                 </div>
@@ -414,6 +434,31 @@
             pageDateTo: @js(request('date_to')),
             pageTypes: @js($selectedTypeValues),
             profileUrlBase: @js($profileUrlBase ?? null),
+            stages: @js(\App\Support\EquipmentTimeline::stages()),
+            stageCounts: {},
+            stageFilter: 'all',
+
+            visibleEvents() {
+                return this.stageFilter === 'all'
+                    ? this.events
+                    : this.events.filter((event) => event.stage === this.stageFilter);
+            },
+
+            stageClass(stage) {
+                const map = {
+                    purchase: 'bg-indigo-50 text-indigo-700',
+                    received: 'bg-sky-50 text-sky-700',
+                    inventory: 'bg-slate-100 text-slate-700',
+                    assigned: 'bg-violet-50 text-violet-700',
+                    borrowed: 'bg-cyan-50 text-cyan-700',
+                    repair: 'bg-amber-50 text-amber-700',
+                    for_replacement: 'bg-orange-50 text-orange-700',
+                    replacement: 'bg-emerald-50 text-emerald-700',
+                    disposal: 'bg-rose-50 text-rose-700',
+                };
+
+                return map[stage] || 'bg-slate-100 text-slate-700';
+            },
 
             profileUrl() {
                 if (!this.profile) return null;
@@ -433,6 +478,7 @@
                     maintenance: 'bg-amber-50 text-amber-700',
                     report: 'bg-orange-50 text-orange-700',
                     disposal: 'bg-rose-50 text-rose-700',
+                    replacement: 'bg-emerald-50 text-emerald-700',
                     created: 'bg-slate-100 text-slate-700',
                 };
 
@@ -486,6 +532,7 @@
                 this.modalDateFrom = this.pageDateFrom || '';
                 this.modalDateTo = this.pageDateTo || '';
                 this.modalTypes = this.pageTypes.length ? [...this.pageTypes] : Object.keys(this.eventTypeLabels);
+                this.stageFilter = 'all';
                 this.modalOpen = true;
                 document.body.style.overflow = 'hidden';
                 await this.reloadTimeline();
@@ -523,6 +570,8 @@
                     const data = await response.json();
                     this.profile = data.equipment || null;
                     this.events = data.events || [];
+                    this.stageCounts = data.stage_counts || {};
+                    if (this.stageFilter !== 'all' && !this.stageCounts[this.stageFilter]) this.stageFilter = 'all';
                     this.profileFields = this.profile ? this.buildProfileFields(this.profile) : [];
                 } catch (error) {
                     this.profile = null;

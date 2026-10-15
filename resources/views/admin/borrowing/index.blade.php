@@ -258,7 +258,7 @@
                     >
 
                         <i
-                            data-lucide="sliders-horizontal"
+                            data-lucide="filter"
                             class="h-4 w-4"
                         ></i>
 
@@ -447,10 +447,13 @@
 
 
                                             <p
-                                                class="mt-0.5 text-[11px]
+                                                class="mt-0.5 max-w-[200px] truncate text-[11px]
                                                     text-slate-400"
                                             >
-                                                Equipment record
+                                                {{ $record->equipment_asset_tag ?: 'No asset tag' }}
+                                                @if ($record->borrowed_from_room_name)
+                                                    · from {{ $record->borrowed_from_room_name }}
+                                                @endif
                                             </p>
 
                                         </div>
@@ -612,10 +615,19 @@
 
                                         </div>
 
+                                    @elseif ($borrowingStatus === 'Overdue' && $record->borrowing_expected_return_date)
+
+                                        @php
+                                            $daysLate = (int) Carbon::parse($record->borrowing_expected_return_date)->startOfDay()->diffInDays(today());
+                                        @endphp
+                                        <span class="whitespace-nowrap text-xs font-semibold text-rose-600">
+                                            Not returned · {{ $daysLate }} day{{ $daysLate === 1 ? '' : 's' }} late
+                                        </span>
+
                                     @else
 
                                         <span class="text-xs text-slate-400">
-                                            Not returned
+                                            Not returned yet
                                         </span>
 
                                     @endif
@@ -642,21 +654,29 @@
                                         <button
                                             type="button"
 
-                                            onclick="viewBorrowing(
-                                                '{{ $record->borrowing_record_id }}',
-                                                @js($record->equipment_name),
-                                                @js($record->borrowing_borrower_name),
-                                                @js($record->borrowing_borrower_department),
-                                                '{{ $record->borrowing_quantity }}',
-                                                '{{ $record->borrowing_date }}',
-                                                '{{ $record->borrowing_expected_return_date }}',
-                                                '{{ $record->borrowing_actual_return_date }}',
-                                                @js($record->borrowing_purpose),
-                                                @js($record->borrowing_destination_location),
-                                                @js($record->borrowing_authorized_by),
-                                                @js($record->borrowing_remarks),
-                                                '{{ $record->borrowing_status }}'
-                                            )"
+                                            onclick="viewBorrowing(@js([
+                                                'id' => $record->borrowing_record_id,
+                                                'equipmentId' => $record->borrowing_equipment_id,
+                                                'equipment' => $record->equipment_name,
+                                                'assetTag' => $record->equipment_asset_tag,
+                                                'borrower' => $record->borrowing_borrower_name,
+                                                'department' => $record->borrowing_borrower_department,
+                                                'quantity' => $record->borrowing_quantity,
+                                                'borrowDate' => $record->borrowing_date,
+                                                'expectedReturn' => $record->borrowing_expected_return_date,
+                                                'actualReturn' => $record->borrowing_actual_return_date,
+                                                'purpose' => $record->borrowing_purpose,
+                                                'destination' => $record->borrowing_destination_location,
+                                                'authorized' => $record->borrowing_authorized_by,
+                                                'remarks' => $record->borrowing_remarks,
+                                                'status' => $record->borrowing_status,
+                                                'conditionOut' => $record->borrowing_equipment_condition,
+                                                'fromRoom' => $record->borrowed_from_room_name,
+                                                'returnedTo' => $record->returned_to_room_name,
+                                                'returnCondition' => $record->borrowing_return_condition,
+                                                'returnRemarks' => $record->borrowing_return_remarks,
+                                                'returnedBy' => $record->returned_by_name,
+                                            ]))"
 
                                             class="flex h-9 w-9 items-center
                                                 justify-center rounded-lg
@@ -681,14 +701,14 @@
                                         {{-- RETURN BUTTON --}}
                                         {{-- ================================= --}}
 
-                                        @if ($record->borrowing_status == "Borrowed")
+                                        @if (in_array($record->borrowing_status, ["Borrowed", "Overdue"], true))
 
                                             <button
                                                 type="button"
 
                                                 onclick="openReturnModal(
-                                                    '{{$record->borrowing_record_id}}',
-                                                    '{{$record->equipment_name}}'
+                                                    {{ (int) $record->borrowing_record_id }},
+                                                    @js($record->equipment_name)
                                                 )"
 
                                                 class="flex h-9 w-9 items-center
@@ -1150,185 +1170,7 @@
         </div>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- VIEW MODAL — slide-out details panel -->
-    <!-- ===================================================== -->
-
-    <div
-        id="viewModal"
-        class="fixed inset-0 z-50 hidden"
-        onclick="if (event.target === this) closeViewModal()"
-    >
-        <div class="absolute inset-0 bg-[#0b1220]/55 backdrop-blur-[2px]"></div>
-
-        <aside
-            id="viewModalPanel"
-            class="absolute inset-y-0 right-0 rounded-l-2xl flex h-full w-full max-w-md translate-x-full flex-col bg-white shadow-2xl transition-transform duration-300 ease-out sm:max-w-lg"
-        >
-            {{-- Header --}}
-            <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
-                <div class="min-w-0">
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
-                        Borrowing Details
-                    </h2>
-                    <p
-                        id="viewSubtitle"
-                        class="mt-1 text-sm text-slate-500"
-                    >
-                        Review borrowing record information.
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    onclick="closeViewModal()"
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label="Close modal"
-                >
-                    <i data-lucide="x" class="h-5 w-5"></i>
-                </button>
-            </div>
-
-            {{-- Scrollable body --}}
-            <div class="min-h-0 flex-1 overflow-y-auto">
-                {{-- Profile summary --}}
-                <div class="border-b border-slate-100 px-6 py-5">
-                    <div class="flex items-start gap-4">
-                        <div
-                            id="viewAvatar"
-                            class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-semibold text-orange-700"
-                        >
-                            —
-                        </div>
-
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h3
-                                    id="viewBorrowerName"
-                                    class="truncate text-base font-semibold text-slate-950"
-                                >
-                                    —
-                                </h3>
-                                <span
-                                    id="viewStatusBadge"
-                                    class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600"
-                                >
-                                    —
-                                </span>
-                                <span
-                                    id="viewDepartmentBadge"
-                                    class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
-                                >
-                                    —
-                                </span>
-                            </div>
-
-                            <div class="mt-3 space-y-2">
-                                <div class="flex items-center gap-2 text-sm text-slate-600">
-                                    <i data-lucide="monitor" class="h-3.5 w-3.5 shrink-0 text-sky-600"></i>
-                                    <span id="viewEquipmentMeta" class="truncate">—</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm text-slate-600">
-                                    <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-emerald-600"></i>
-                                    <span id="viewDestinationMeta" class="truncate">—</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm text-slate-600">
-                                    <i data-lucide="shield-check" class="h-3.5 w-3.5 shrink-0 text-violet-600"></i>
-                                    <span class="truncate">
-                                        Authorized by:
-                                        <span id="viewAuthorizedMeta" class="font-medium text-slate-800">—</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Tabs --}}
-                <div class="border-b border-slate-200 px-6">
-                    <nav class="flex gap-6" aria-label="Borrowing details tabs">
-                        <button
-                            type="button"
-                            data-view-tab="overview"
-                            onclick="setViewTab('overview')"
-                            class="view-tab relative -mb-px border-b-2 border-slate-950 py-3 text-sm font-semibold text-slate-950"
-                        >
-                            Overview
-                        </button>
-                        <button
-                            type="button"
-                            data-view-tab="schedule"
-                            onclick="setViewTab('schedule')"
-                            class="view-tab relative -mb-px border-b-2 border-transparent py-3 text-sm font-medium text-slate-500 transition hover:text-slate-800"
-                        >
-                            Schedule
-                        </button>
-                        <button
-                            type="button"
-                            data-view-tab="notes"
-                            onclick="setViewTab('notes')"
-                            class="view-tab relative -mb-px border-b-2 border-transparent py-3 text-sm font-medium text-slate-500 transition hover:text-slate-800"
-                        >
-                            Notes
-                        </button>
-                    </nav>
-                </div>
-
-                {{-- Tab panels --}}
-                <div class="px-6 py-5">
-                    <div id="viewTabOverview" class="view-tab-panel space-y-4">
-                        <h4 class="text-sm font-semibold text-slate-800">
-                            Borrowing Information
-                        </h4>
-                        <div
-                            id="viewOverviewRows"
-                            class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white"
-                        ></div>
-                    </div>
-
-                    <div id="viewTabSchedule" class="view-tab-panel hidden space-y-4">
-                        <h4 class="text-sm font-semibold text-slate-800">
-                            Schedule
-                        </h4>
-                        <div
-                            id="viewScheduleRows"
-                            class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white"
-                        ></div>
-                    </div>
-
-                    <div id="viewTabNotes" class="view-tab-panel hidden space-y-4">
-                        <h4 class="text-sm font-semibold text-slate-800">
-                            Purpose & Remarks
-                        </h4>
-                        <div
-                            id="viewNotesRows"
-                            class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white"
-                        ></div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Footer --}}
-            <div class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
-                <button
-                    type="button"
-                    onclick="closeViewModal()"
-                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                    Close
-                </button>
-
-                <button
-                    type="button"
-                    id="viewReturnButton"
-                    class="hidden inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
-                >
-                    <i data-lucide="archive-restore" class="h-4 w-4"></i>
-                    Return equipment
-                </button>
-            </div>
-        </aside>
-    </div>
+    @include('admin.borrowing.partials.details-drawer')
 
     <!-- ===================================================== -->
     <!-- RETURN MODAL -->
@@ -1417,6 +1259,35 @@
                 <!-- RETURN FIELDS -->
                 <!-- ===================================== -->
                 <div class="space-y-5">
+
+                    <!-- RETURN TO STORAGE -->
+                    <div>
+                        <label
+                            for="returnRoom"
+                            class="mb-2 block text-sm font-medium text-slate-700"
+                        >
+                            Return to storage room
+                        </label>
+
+                        @if (($returnStorageRooms ?? collect())->isNotEmpty())
+                            <select
+                                id="returnRoom"
+                                name="return_room_id"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                                @foreach ($returnStorageRooms as $storageRoom)
+                                    <option value="{{ $storageRoom->room_id }}">{{ $storageRoom->room_name }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1.5 text-xs leading-5 text-slate-500">
+                                Returned equipment goes back to Inventory. A bulk item that still has units in a room rejoins that room instead.
+                            </p>
+                        @else
+                            <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                No storage room is set up, so the equipment stays in the room it was taken from.
+                            </p>
+                        @endif
+                    </div>
 
                     <!-- CONDITION UPON RETURN -->
                     <div>
@@ -1655,226 +1526,6 @@
             }
         }
 
-        function escapeHtml(value) {
-            return String(value ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#39;");
-        }
-
-        function getBorrowerInitials(name) {
-            const parts = String(name || "")
-                .trim()
-                .split(/\s+/)
-                .filter(Boolean);
-
-            if (!parts.length) return "?";
-            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-
-        function formatViewDate(value) {
-            if (!value || value === "null" || value === "undefined") return "—";
-
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return value;
-
-            return date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-            });
-        }
-
-        function statusBadgeClass(status) {
-            switch (status) {
-                case "Borrowed":
-                    return "bg-sky-50 text-sky-700";
-                case "Returned":
-                    return "bg-emerald-50 text-emerald-700";
-                case "Overdue":
-                    return "bg-rose-50 text-rose-700";
-                default:
-                    return "bg-slate-100 text-slate-600";
-            }
-        }
-
-        function detailRow(label, valueHtml) {
-            return `
-                <div class="flex items-start justify-between gap-6 px-4 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">${label}</span>
-                    <div class="min-w-0 text-right text-sm font-medium text-slate-900">
-                        ${valueHtml}
-                    </div>
-                </div>
-            `;
-        }
-
-        function setViewTab(tab) {
-            const panels = {
-                overview: document.getElementById("viewTabOverview"),
-                schedule: document.getElementById("viewTabSchedule"),
-                notes: document.getElementById("viewTabNotes"),
-            };
-
-            Object.keys(panels).forEach(function (key) {
-                panels[key].classList.toggle("hidden", key !== tab);
-            });
-
-            document.querySelectorAll(".view-tab").forEach(function (button) {
-                const active = button.getAttribute("data-view-tab") === tab;
-                button.classList.toggle("border-slate-950", active);
-                button.classList.toggle("text-slate-950", active);
-                button.classList.toggle("font-semibold", active);
-                button.classList.toggle("border-transparent", !active);
-                button.classList.toggle("text-slate-500", !active);
-                button.classList.toggle("font-medium", !active);
-            });
-        }
-
-        function viewBorrowing(
-            recordId,
-            equipment,
-            borrower,
-            department,
-            quantity,
-            borrowDate,
-            expectedReturn,
-            actualReturn,
-            purpose,
-            destination,
-            authorized,
-            remarks,
-            status,
-        ) {
-            const safeBorrower = borrower || "Unknown borrower";
-            const safeEquipment = equipment || "—";
-            const safeDepartment = department || "No department";
-            const safeDestination = destination || "—";
-            const safeAuthorized = authorized || "—";
-            const safeStatus = status || "Unknown";
-            const safePurpose = purpose || "—";
-            const safeRemarks = remarks || "—";
-
-            document.getElementById("viewSubtitle").textContent =
-                "Review " + safeBorrower + "'s borrowing record.";
-            document.getElementById("viewBorrowerName").textContent = safeBorrower;
-            document.getElementById("viewAvatar").textContent =
-                getBorrowerInitials(safeBorrower);
-            document.getElementById("viewEquipmentMeta").textContent = safeEquipment;
-            document.getElementById("viewDestinationMeta").textContent =
-                safeDestination;
-            document.getElementById("viewAuthorizedMeta").textContent =
-                safeAuthorized;
-
-            const statusBadge = document.getElementById("viewStatusBadge");
-            statusBadge.textContent = safeStatus;
-            statusBadge.className =
-                "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold " +
-                statusBadgeClass(safeStatus);
-
-            document.getElementById("viewDepartmentBadge").textContent =
-                safeDepartment;
-
-            document.getElementById("viewOverviewRows").innerHTML = [
-                detailRow("Equipment", escapeHtml(safeEquipment)),
-                detailRow("Borrower", escapeHtml(safeBorrower)),
-                detailRow("Department", escapeHtml(safeDepartment)),
-                detailRow(
-                    "Quantity",
-                    '<span class="inline-flex min-w-8 items-center justify-center rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-semibold text-slate-700">' +
-                        escapeHtml(quantity || "—") +
-                        "</span>"
-                ),
-                detailRow("Destination", escapeHtml(safeDestination)),
-                detailRow("Authorized by", escapeHtml(safeAuthorized)),
-                detailRow(
-                    "Status",
-                    '<span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium ' +
-                        statusBadgeClass(safeStatus) +
-                        '">' +
-                        escapeHtml(safeStatus) +
-                        "</span>"
-                ),
-            ].join("");
-
-            document.getElementById("viewScheduleRows").innerHTML = [
-                detailRow(
-                    "Borrow date",
-                    '<span class="inline-flex items-center gap-1.5"><i data-lucide="calendar" class="h-3.5 w-3.5 text-sky-600"></i>' +
-                        escapeHtml(formatViewDate(borrowDate)) +
-                        "</span>"
-                ),
-                detailRow(
-                    "Expected return",
-                    '<span class="inline-flex items-center gap-1.5"><i data-lucide="clock" class="h-3.5 w-3.5 text-amber-600"></i>' +
-                        escapeHtml(formatViewDate(expectedReturn)) +
-                        "</span>"
-                ),
-                detailRow(
-                    "Actual return",
-                    '<span class="inline-flex items-center gap-1.5"><i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-600"></i>' +
-                        escapeHtml(formatViewDate(actualReturn)) +
-                        "</span>"
-                ),
-            ].join("");
-
-            document.getElementById("viewNotesRows").innerHTML = [
-                detailRow(
-                    "Purpose",
-                    '<span class="whitespace-pre-wrap text-slate-700">' +
-                        escapeHtml(safePurpose) +
-                        "</span>"
-                ),
-                detailRow(
-                    "Remarks",
-                    '<span class="whitespace-pre-wrap text-slate-700">' +
-                        escapeHtml(safeRemarks) +
-                        "</span>"
-                ),
-            ].join("");
-
-            const returnButton = document.getElementById("viewReturnButton");
-            if (safeStatus === "Borrowed") {
-                returnButton.classList.remove("hidden");
-                returnButton.onclick = function () {
-                    closeViewModal();
-                    openReturnModal(recordId, safeEquipment);
-                };
-            } else {
-                returnButton.classList.add("hidden");
-                returnButton.onclick = null;
-            }
-
-            setViewTab("overview");
-
-            const modal = document.getElementById("viewModal");
-            const panel = document.getElementById("viewModalPanel");
-
-            modal.classList.remove("hidden");
-            document.body.style.overflow = "hidden";
-
-            requestAnimationFrame(function () {
-                panel.classList.remove("translate-x-full");
-            });
-
-            if (window.lucide) lucide.createIcons();
-        }
-
-        function closeViewModal() {
-            const modal = document.getElementById("viewModal");
-            const panel = document.getElementById("viewModalPanel");
-
-            panel.classList.add("translate-x-full");
-            document.body.style.overflow = "";
-
-            setTimeout(function () {
-                modal.classList.add("hidden");
-            }, 280);
-        }
 
         function openReturnModal(id, equipment) {
             document.getElementById("returnBorrowingId").value = id;

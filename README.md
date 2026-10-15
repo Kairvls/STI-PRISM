@@ -200,3 +200,30 @@ Many procurement systems handle it the same way: undelivered items are a back or
 Nothing needs to change. The only thing to remember is that Received counts every piece that arrived, including damaged ones. If 5 arrived and 1 is broken, enter Received 5 and Damaged 1, and the system works out 5 missing plus 1 damaged.
 
 !M3Dc4meT#
+
+How to justify it to the panel: it's separation of duties. The Super Admin manages the system (accounts, roles, settings, audit logs). Day-to-day work belongs to the role that does it: Purchaser for procurement, Maintenance for inventory and reporters, School Administrator for RIS approval and monitoring.
+
+
+
+
+
+procurement request viewing of 3 latest procurement requests and maybe theres a buttton for each 3 latest procurement ris to open a modal and viewing to action it
+
+in the purchaser system for the ris if it from replacement requests make the item from replacement requests cant be overwrite right? if it only if fill in another row or from create ris form, am i right?
+
+on the school administrator system side for the dashboard module what we can put in the dashboard since the dashboard means easy access to all/everything or thats the part where you can see very important pieces
+
+
+
+make this part ahmm detect also in the maintenance that it will alarm in the maintenance that theres a reporter using that id spamming it
+and make it everytime that employee id after making a report it will email to their corresponding gmail about their report (or like a reminder or notif that you report this etc... like time and date you report, what you report, etc... this is to make aware of the reporter also its use to know if theres another person who use their employee id and pin to report since every after report or report that maked it will email to their corresponding email for them to check also if there was another person who act as them by knowing or checking that theres an email to your email about reporting but you didn't make any report at that time or date so basically you'll know that theres another person who acts as you) and also by emailing what you've report that you can also monitor the status of your report also
+
+on the administator side theres some module or form or table put a color of * and status and buttons same on other system side
+
+For your defense
+
+You could say: "A room is where the equipment physically is. A department is the office that owns it or is accountable for it. Equipment always has a room. It can also be charged to a department or issued to a person, and that's for accountability, not location."
+
+A department is an office, not a place. A room says where equipment physically is; a department says which office owns it and is accountable for it. Equipment always has a room, and can also be charged to a department or issued to a person.
+
+should we add equipment in that department also or what since its just person in that department or person that has equipment and belong to that department

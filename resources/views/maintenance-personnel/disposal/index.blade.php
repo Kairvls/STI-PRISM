@@ -355,7 +355,7 @@
                     >
 
                         <i
-                            data-lucide="sliders-horizontal"
+                            data-lucide="filter"
                             class="h-4 w-4"
                         ></i>
 
@@ -1959,6 +1959,7 @@
             report: "bg-rose-500",
             disposal: "bg-rose-700",
             assignment: "bg-teal-500",
+            replacement: "bg-emerald-600",
         };
 
         function formatTimelineDate(value) {

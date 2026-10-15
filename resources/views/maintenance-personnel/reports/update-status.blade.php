@@ -200,4 +200,6 @@
         </div>
     </div>
 
+    @include('maintenance-personnel.reports.partials.replacement-stock-picker')
+
 @endsection

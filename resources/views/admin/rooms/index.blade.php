@@ -170,7 +170,7 @@
                         type="submit"
                         class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
                     >
-                        <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
+                        <i data-lucide="filter" class="h-4 w-4"></i>
                         Apply
                     </button>
 
@@ -465,7 +465,7 @@
                     type="submit"
                     class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
                 >
-                    <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
+                    <i data-lucide="filter" class="h-4 w-4"></i>
                     Apply
                 </button>
 
@@ -684,8 +684,8 @@
 
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <div class="mb-3 hidden gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_40px]">
-                <span>Room name <span class="text-rose-400">*</span></span>
-                <span>Floor <span class="text-rose-400">*</span></span>
+                <span>Room name <span class="text-red-500">*</span></span>
+                <span>Floor <span class="text-red-500">*</span></span>
                 <span>Room type</span>
                 <span>Status</span>
                 <span></span>
@@ -696,7 +696,7 @@
                     <div class="add-room-row rounded-xl border border-slate-200 bg-slate-50/60 p-3 lg:border-0 lg:bg-transparent lg:p-0" data-row>
                         <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_40px] lg:items-start">
                             <div>
-                                <label class="{{ $eqLabel }} lg:hidden">Room name <span class="text-rose-500">*</span></label>
+                                <label class="{{ $eqLabel }} lg:hidden">Room name <span class="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     name="rooms[{{ $i }}][room_name]"
@@ -707,7 +707,7 @@
                                 />
                             </div>
                             <div>
-                                <label class="{{ $eqLabel }} lg:hidden">Floor <span class="text-rose-500">*</span></label>
+                                <label class="{{ $eqLabel }} lg:hidden">Floor <span class="text-red-500">*</span></label>
                                 <select name="rooms[{{ $i }}][room_floor_id]" required class="{{ $eqField }} add-room-floor">
                                     <option value="">Select floor</option>
                                     @forelse ($floors as $floor)
@@ -780,11 +780,11 @@
     <div class="add-room-row rounded-xl border border-slate-200 bg-slate-50/60 p-3 lg:border-0 lg:bg-transparent lg:p-0" data-row>
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_40px] lg:items-start">
             <div>
-                <label class="{{ $eqLabel }} lg:hidden">Room name <span class="text-rose-500">*</span></label>
+                <label class="{{ $eqLabel }} lg:hidden">Room name <span class="text-red-500">*</span></label>
                 <input type="text" name="rooms[__INDEX__][room_name]" required value="" placeholder="e.g. ComLab 1" class="{{ $eqField }} add-room-name" />
             </div>
             <div>
-                <label class="{{ $eqLabel }} lg:hidden">Floor <span class="text-rose-500">*</span></label>
+                <label class="{{ $eqLabel }} lg:hidden">Floor <span class="text-red-500">*</span></label>
                 <select name="rooms[__INDEX__][room_floor_id]" required class="{{ $eqField }} add-room-floor">
                     <option value="">Select floor</option>
                     @foreach ($floors as $floor)
@@ -850,11 +850,11 @@
         <div class="grid grid-cols-1 gap-6 px-6 py-5 lg:grid-cols-2">
             <div class="space-y-4">
                 <div>
-                    <label for="edit_room_name" class="{{ $eqLabel }}">Room name <span class="text-rose-500">*</span></label>
+                    <label for="edit_room_name" class="{{ $eqLabel }}">Room name <span class="text-red-500">*</span></label>
                     <input id="edit_room_name" type="text" name="room_name" required class="{{ $eqField }}" />
                 </div>
                 <div>
-                    <label for="edit_room_floor" class="{{ $eqLabel }}">Floor <span class="text-rose-500">*</span></label>
+                    <label for="edit_room_floor" class="{{ $eqLabel }}">Floor <span class="text-red-500">*</span></label>
                     <select id="edit_room_floor" name="room_floor_id" required class="{{ $eqField }}">
                         <option value="">Select floor</option>
                         @foreach ($floors as $floor)

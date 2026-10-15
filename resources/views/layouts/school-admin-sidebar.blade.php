@@ -1,6 +1,6 @@
 {{-- School Administrator sidebar — same design as the Administrator sidebar --}}
 @include('layouts.partials.admin-design')
-@include('layouts.partials.admin-grayscale-theme')
+@include('layouts.partials.admin-grayscale-theme', ['keepColors' => true])
 
 <div id="sidebar">
 
@@ -12,7 +12,7 @@
 
         <div class="logo-icon">
 
-            <img src="{{ asset('image/STI.png') }}" alt="">
+            <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="">
 
         </div>
 
@@ -80,7 +80,7 @@
         {{-- QUICK ACTIONS --}}
         {{-- ====================================== --}}
 
-        <div class="quick-actions">
+        <!--<div class="quick-actions">
 
             <a
                 href="{{ route('school-admin.procurement-review') }}"
@@ -126,7 +126,7 @@
 
             </a>
 
-        </div>
+        </div>-->
 
         {{-- ====================================== --}}
         {{-- DASHBOARD --}}
@@ -264,11 +264,11 @@
             </div>
         </div>
 
-        {{-- ====================================== --}}
+        {{-- ====================================== --}} 
         {{-- ACCOUNT --}}
         {{-- ====================================== --}}
 
-        <div class="menu-title" id="settings-section">
+        <!--<div class="menu-title" id="settings-section">
 
             ACCOUNT
 
@@ -283,7 +283,7 @@
 
             <span>Account settings</span>
 
-        </a>
+        </a>-->
 
     </div>
 

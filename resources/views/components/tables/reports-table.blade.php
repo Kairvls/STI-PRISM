@@ -1,4 +1,4 @@
-<style>
+﻿<style>
     @keyframes scanner {
         0% {
             left: -40%;
@@ -466,7 +466,7 @@
                     <th
                         class="w-[12%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
-                        Report ID
+                        Report No
                     </th>
                     <th
                         class="w-[18%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
@@ -719,12 +719,12 @@
                                 @if ($canUpdate)
                                     <button
                                         type="button"
-                                        data-tooltip="Update Report"
+                                        data-tooltip="Update Report Status"
                                         onclick="openReportModal('update-modal-{{ $report->report_id }}')"
                                         class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                     >
                                         <i
-                                            data-lucide="edit-3"
+                                            data-lucide="refresh-cw"
                                             class="h-3.5 w-3.5"
                                         ></i>
                                         
@@ -1057,27 +1057,27 @@
                                     <li class="rounded-xl border px-4 py-3 {{ ($item->repeat_state ?? null) === 'not_actioned' ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-slate-50/80' }}">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0">
-                                                <p class="truncate text-sm font-semibold text-slate-900">
+                                                <p class="truncate text-base font-semibold text-slate-900">
                                                     {{ \App\Support\ReportItems::displayName($item) }}
                                                 </p>
-                                                <p class="mt-0.5 text-xs text-slate-500">
+                                                <p class="mt-0.5 text-sm text-slate-500">
                                                     Issue: {{ \App\Support\ReportItems::itemIssue($item) ?? ($report->report_suggested_issue ?? "None given") }}
                                                 </p>
                                                 @if ($perItemDetails && !empty(trim((string) ($item->report_item_problem_description ?? ''))))
-                                                    <p class="mt-1 whitespace-pre-wrap text-xs italic leading-5 text-slate-700">“{{ trim($item->report_item_problem_description) }}”</p>
+                                                    <p class="mt-1 whitespace-pre-wrap text-sm italic leading-6 text-slate-700">“{{ trim($item->report_item_problem_description) }}”</p>
                                                 @endif
                                                 @if ((int) ($report->extra_location_count ?? 0) > 0 && !empty($item->room_name))
-                                                    <p class="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#0037C7]">
-                                                        <i data-lucide="map-pin" class="h-3 w-3 shrink-0"></i>
+                                                    <p class="mt-0.5 flex items-center gap-1 text-sm font-medium text-[#0037C7]">
+                                                        <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0"></i>
                                                         {{ $item->room_name }}
                                                     </p>
                                                 @endif
                                             </div>
-                                            <span class="inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium {{ $itemStatusPill }}">
+                                            <span class="inline-flex shrink-0 rounded-md px-2 py-0.5 text-[13px] font-medium {{ $itemStatusPill }}">
                                                 {{ $itemStatus }}
                                             </span>
                                         </div>
-                                        @include('components.tables.partials.report-item-repeat-badge', ['item' => $item])
+                                        @include('components.tables.partials.report-item-repeat-badge', ['item' => $item, 'large' => true])
                                         @include('components.tables.partials.report-item-checks', ['item' => $item])
                                         @include('components.tables.partials.report-item-equipment-details', [
                                             'item' => $item,
@@ -1098,7 +1098,7 @@
                                                     />
                                                 </button>
                                             @else
-                                                <p class="mt-2 text-xs text-slate-400">No photo</p>
+                                                <p class="mt-2 text-sm text-slate-400">No photo</p>
                                             @endif
                                         @endif
                                     </li>
@@ -1453,7 +1453,7 @@
                             id="replacement-warning-{{ $report->report_id }}"
                             class="hidden text-sm text-amber-700"
                         >
-                            This will create a procurement request for the Purchaser Department.
+                            The inventory is checked for stock first. If a matching unit is in storage you can swap it in; otherwise this creates a procurement request for the Purchaser Department.
                         </p>
                     </div>
 
@@ -1602,6 +1602,8 @@
         />
     </div>
 </div>
+
+@include('maintenance-personnel.reports.partials.replacement-stock-picker')
 
 <script>
     function openReportModal(modalId) {

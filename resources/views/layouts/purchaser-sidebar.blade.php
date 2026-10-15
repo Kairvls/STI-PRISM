@@ -6,7 +6,7 @@
 
     <div class="sidebar-header p-5">
         <div class="logo-icon">
-            <img src="{{ asset('image/STI.png') }}" alt="STI Logo">
+            <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="PaAyo Logo">
         </div>
         <div class="min-w-0">
             <h2>PaAyo</h2>
@@ -612,7 +612,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #64748b, #475569);
+        background: #FFF200;
         display: flex;
         align-items: center;
         justify-content: center;

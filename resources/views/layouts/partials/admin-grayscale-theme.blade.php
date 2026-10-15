@@ -1,4 +1,43 @@
-{{-- Admin theme: slate base + soft light blue & yellow accents --}}
+{{--
+    Slate base + soft light blue & yellow accents.
+    Pass keepColors => true (Admin / School Admin shells) to keep page content in the
+    same semantic colours as Maintenance: red required marks, coloured status and
+    condition badges, coloured action buttons. Only the sidebar accents apply then.
+--}}
+@php($keepColors = $keepColors ?? false)
+<style>
+    /* Sidebar accents */
+    #sidebar .bg-sky-50, #sidebar .bg-blue-50, #sidebar .bg-indigo-50 {
+        background-color: #eff6ff !important;
+    }
+    #sidebar .bg-amber-50 {
+        background-color: #fffbeb !important;
+    }
+    #sidebar .bg-emerald-50, #sidebar .bg-rose-50 {
+        background-color: #f1f5f9 !important;
+    }
+    #sidebar .quick-card:hover {
+        border-color: #93c5fd !important;
+    }
+    #sidebar .quick-card i {
+        color: #93c5fd !important;
+    }
+    #sidebar .quick-card.active {
+        border-color: #60a5fa !important;
+        box-shadow: 0 0 12px rgba(96, 165, 250, 0.22) !important;
+    }
+    #sidebar .quick-card.active i {
+        color: #93c5fd !important;
+    }
+    #sidebar .menu-notif-dot {
+        background: #fbbf24 !important;
+    }
+    #sidebar .menu-item.active svg {
+        color: #fde68a !important;
+        stroke: #fde68a !important;
+    }
+</style>
+@unless($keepColors)
 <style>
     :root {
         --admin-brand: #475569;
@@ -40,14 +79,12 @@
      | - other chromatics stay muted slate
      */
     main:not(:has(.admin-keep-colors)) .bg-sky-50, main:not(:has(.admin-keep-colors)) .bg-blue-50, main:not(:has(.admin-keep-colors)) .bg-indigo-50, main:not(:has(.admin-keep-colors)) .bg-cyan-50,
-    main:not(:has(.admin-keep-colors)) .bg-sky-100, main:not(:has(.admin-keep-colors)) .bg-blue-100, main:not(:has(.admin-keep-colors)) .bg-indigo-100, main:not(:has(.admin-keep-colors)) .bg-cyan-100,
-    #sidebar .bg-sky-50, #sidebar .bg-blue-50, #sidebar .bg-indigo-50 {
+    main:not(:has(.admin-keep-colors)) .bg-sky-100, main:not(:has(.admin-keep-colors)) .bg-blue-100, main:not(:has(.admin-keep-colors)) .bg-indigo-100, main:not(:has(.admin-keep-colors)) .bg-cyan-100 {
         background-color: #eff6ff !important;
     }
 
     main:not(:has(.admin-keep-colors)) .bg-amber-50, main:not(:has(.admin-keep-colors)) .bg-yellow-50, main:not(:has(.admin-keep-colors)) .bg-orange-50,
-    main:not(:has(.admin-keep-colors)) .bg-amber-100, main:not(:has(.admin-keep-colors)) .bg-yellow-100, main:not(:has(.admin-keep-colors)) .bg-orange-100,
-    #sidebar .bg-amber-50 {
+    main:not(:has(.admin-keep-colors)) .bg-amber-100, main:not(:has(.admin-keep-colors)) .bg-yellow-100, main:not(:has(.admin-keep-colors)) .bg-orange-100 {
         background-color: #fffbeb !important;
     }
 
@@ -56,8 +93,7 @@
     main:not(:has(.admin-keep-colors)) .bg-violet-50, main:not(:has(.admin-keep-colors)) .bg-purple-50,
     main:not(:has(.admin-keep-colors)) .bg-emerald-100, main:not(:has(.admin-keep-colors)) .bg-green-100, main:not(:has(.admin-keep-colors)) .bg-teal-100,
     main:not(:has(.admin-keep-colors)) .bg-rose-100, main:not(:has(.admin-keep-colors)) .bg-red-100, main:not(:has(.admin-keep-colors)) .bg-pink-100,
-    main:not(:has(.admin-keep-colors)) .bg-violet-100, main:not(:has(.admin-keep-colors)) .bg-purple-100,
-    #sidebar .bg-emerald-50, #sidebar .bg-rose-50 {
+    main:not(:has(.admin-keep-colors)) .bg-violet-100, main:not(:has(.admin-keep-colors)) .bg-purple-100 {
         background-color: #f1f5f9 !important;
     }
 
@@ -153,28 +189,6 @@
         color: #334155 !important;
     }
 
-    /* Sidebar accents */
-    #sidebar .quick-card:hover {
-        border-color: #93c5fd !important;
-    }
-    #sidebar .quick-card i {
-        color: #93c5fd !important;
-    }
-    #sidebar .quick-card.active {
-        border-color: #60a5fa !important;
-        box-shadow: 0 0 12px rgba(96, 165, 250, 0.22) !important;
-    }
-    #sidebar .quick-card.active i {
-        color: #93c5fd !important;
-    }
-    #sidebar .menu-notif-dot {
-        background: #fbbf24 !important;
-    }
-    #sidebar .menu-item.active svg {
-        color: #fde68a !important;
-        stroke: #fde68a !important;
-    }
-
     /* Dashboard icons: blue family + amber family */
     main:not(:has(.admin-keep-colors)) .stat-icon-blue,
     main:not(:has(.admin-keep-colors)) .stat-icon-indigo,
@@ -268,3 +282,4 @@
         background-color: #94a3b8 !important;
     }
 </style>
+@endunless

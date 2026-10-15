@@ -51,8 +51,8 @@
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ $row->report_id }}</td>
                                 <td class="px-4 py-3 text-sm font-semibold">{{ $row->equipment_name ?: ($row->report_unlisted_equipment_name ?: ($row->report_suggested_issue ?: '—')) }}</td>
                                 <td class="px-4 py-3 text-sm">{{ trim(($row->building_name ? $row->building_name.' · ' : '').($row->room_name ?: '')) ?: '—' }}</td>
-                                <td class="px-4 py-3 text-sm">{{ $row->report_urgency_level }}</td>
-                                <td class="px-4 py-3 text-sm">{{ $row->report_current_status }}</td>
+                                <td class="px-4 py-3 text-sm">@include('partials.status-pill', ['status' => $row->report_urgency_level])</td>
+                                <td class="px-4 py-3 text-sm">@include('partials.status-pill', ['status' => $row->report_current_status])</td>
                                 <td class="px-4 py-3 text-sm">{{ $row->technician_name ?: 'Unassigned' }}</td>
                             </tr>
                         @empty
@@ -97,7 +97,7 @@
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ $row->receiving_report_id }}</td>
                                 <td class="px-4 py-3 text-sm font-semibold">{{ $row->supplier_name }}</td>
                                 <td class="px-4 py-3 text-sm">{{ $row->receiving_report_invoice_no ?: '—' }}</td>
-                                <td class="px-4 py-3 text-sm">{{ $row->receiving_report_status }}</td>
+                                <td class="px-4 py-3 text-sm">@include('partials.status-pill', ['status' => $row->receiving_report_status])</td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ \Carbon\Carbon::parse($row->receiving_report_date ?: $row->receiving_report_created_at)->format('M d, Y') }}</td>
                             </tr>
                         @empty
@@ -126,7 +126,7 @@
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ $row->approval_log_approved_at ? \Carbon\Carbon::parse($row->approval_log_approved_at)->format('M d, Y g:i A') : '—' }}</td>
                                 <td class="px-4 py-3 text-sm font-semibold">{{ $row->officer_name ?: '—' }}</td>
                                 <td class="px-4 py-3 text-sm">{{ $row->approval_log_reference_type }} #{{ $row->approval_log_reference_id }}</td>
-                                <td class="px-4 py-3 text-sm">{{ $row->approval_log_approval_status }}</td>
+                                <td class="px-4 py-3 text-sm">@include('partials.status-pill', ['status' => $row->approval_log_approval_status])</td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ \Illuminate\Support\Str::limit($row->approval_log_approval_remarks ?: '—', 80) }}</td>
                             </tr>
                         @empty

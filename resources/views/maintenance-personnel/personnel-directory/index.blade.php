@@ -148,7 +148,7 @@
                                             class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 hover:text-slate-900"
                                         >
                                             <i data-lucide="history" class="h-3.5 w-3.5"></i>
-                                            View records
+                                            
                                         </a>
                                     </div>
                                 </td>

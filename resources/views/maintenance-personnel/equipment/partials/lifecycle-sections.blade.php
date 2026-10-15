@@ -170,6 +170,7 @@
             'report' => 'bg-rose-500',
             'disposal' => 'bg-rose-700',
             'assignment' => 'bg-teal-500',
+            'replacement' => 'bg-emerald-600',
         ];
     @endphp
     @if (!empty($reportSummary) && ($reportSummary['times_reported'] ?? 0) > 0)
@@ -209,28 +210,40 @@
             </div>
         </div>
     @endif
-    @if (!empty($counts))
-        <div class="flex flex-wrap gap-2 border-b border-slate-100 px-6 py-3">
-            @foreach ($counts as $type => $count)
-                <span class="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">
-                    {{ \App\Support\EquipmentTimeline::eventTypes()[$type] ?? ucfirst($type) }}
-                    · {{ $count }}
-                </span>
-            @endforeach
+    @php
+        $stageLabels = \App\Support\EquipmentTimeline::stages();
+        $stageCounts = collect($events)->countBy(fn ($event) => $event['stage'] ?? 'repair');
+    @endphp
+    @if ($stageCounts->isNotEmpty())
+        <div class="border-b border-slate-100 px-6 py-3" data-lifecycle-stage-filter>
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Filter by stage</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" data-stage="all" class="lifecycle-stage-chip rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition bg-[#0025cc] text-white ring-[#0025cc]">
+                    All · {{ collect($events)->count() }}
+                </button>
+                @foreach ($stageLabels as $stageKey => $stageLabel)
+                    @continue(! $stageCounts->has($stageKey))
+                    <button type="button" data-stage="{{ $stageKey }}" class="lifecycle-stage-chip rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition bg-slate-50 text-slate-600 ring-slate-200/80 hover:bg-slate-100">
+                        {{ $stageLabel }} · {{ $stageCounts[$stageKey] }}
+                    </button>
+                @endforeach
+            </div>
         </div>
     @endif
-    <div class="px-6 py-5">
+    @php
+        $lifecycleLimit = 10;
+        $olderCount = max(0, collect($events)->count() - $lifecycleLimit);
+    @endphp
+    <div class="px-6 py-5" data-lifecycle-events>
         @forelse ($events as $event)
-            <div class="relative flex gap-4 {{ ! $loop->last ? 'pb-5' : '' }}">
-                @if (! $loop->last)
-                    <span class="absolute left-[7px] top-4 bottom-0 w-px bg-slate-200"></span>
-                @endif
+            <div class="lifecycle-event relative flex gap-4 pb-5 last:pb-0 {{ $loop->index >= $lifecycleLimit ? 'hidden' : '' }}" data-stage="{{ $event['stage'] ?? 'repair' }}">
+                <span class="lifecycle-line absolute left-[7px] top-4 bottom-0 w-px bg-slate-200 {{ $loop->last || $loop->iteration === $lifecycleLimit ? 'hidden' : '' }}"></span>
                 <span class="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ring-white {{ $event['meta']['dot'] ?? ($typeColors[$event['type'] ?? ''] ?? 'bg-slate-400') }}"></span>
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                         <p class="text-sm font-semibold text-slate-900">{{ $event['title'] ?? 'Event' }}</p>
                         <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
-                            {{ $event['type_label'] ?? ($event['type'] ?? '') }}
+                            {{ $event['stage_label'] ?? ($event['type_label'] ?? ($event['type'] ?? '')) }}
                         </span>
                     </div>
                     <p class="mt-0.5 text-xs text-slate-400">
@@ -263,4 +276,74 @@
             <p class="py-6 text-center text-sm text-slate-400">No lifecycle events recorded yet.</p>
         @endforelse
     </div>
+    <div class="border-t border-slate-100 px-6 py-3 {{ $olderCount > 0 ? '' : 'hidden' }}" data-lifecycle-toggle>
+        <button type="button" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline">
+            <span data-lifecycle-toggle-icon class="inline-flex transition-transform">
+                <i data-lucide="chevron-down" class="h-4 w-4"></i>
+            </span>
+            <span data-lifecycle-toggle-label>Show {{ $olderCount }} older {{ \Illuminate\Support\Str::plural('event', $olderCount) }}</span>
+        </button>
+    </div>
 </section>
+
+@once
+<script>
+    (function () {
+        const LIFECYCLE_LIMIT = 10;
+
+        function renderLifecycle(section) {
+            const stage = section.dataset.lifecycleStage || "all";
+            const expanded = section.dataset.lifecycleExpanded === "1";
+            const rows = Array.from(section.querySelectorAll(".lifecycle-event"));
+            const matching = rows.filter((row) => stage === "all" || row.dataset.stage === stage);
+            const shown = expanded ? matching : matching.slice(0, LIFECYCLE_LIMIT);
+
+            rows.forEach((row) => row.classList.add("hidden"));
+            shown.forEach(function (row, index) {
+                row.classList.remove("hidden");
+                row.querySelector(".lifecycle-line")?.classList.toggle("hidden", index === shown.length - 1);
+            });
+
+            const toggle = section.querySelector("[data-lifecycle-toggle]");
+            if (!toggle) return;
+            const older = matching.length - LIFECYCLE_LIMIT;
+            toggle.classList.toggle("hidden", older <= 0);
+            toggle.querySelector("[data-lifecycle-toggle-label]").textContent = expanded
+                ? "Show fewer"
+                : "Show " + older + " older " + (older === 1 ? "event" : "events");
+            toggle.querySelector("[data-lifecycle-toggle-icon]")?.classList.toggle("rotate-180", expanded);
+        }
+
+        document.addEventListener("click", function (event) {
+            const toggleButton = event.target.closest("[data-lifecycle-toggle] button");
+            if (toggleButton) {
+                const section = toggleButton.closest("section");
+                const collapsing = section.dataset.lifecycleExpanded === "1";
+                section.dataset.lifecycleExpanded = collapsing ? "0" : "1";
+                renderLifecycle(section);
+                if (collapsing) {
+                    section.querySelector("[data-lifecycle-toggle]").scrollIntoView({ block: "nearest", behavior: "smooth" });
+                }
+                return;
+            }
+
+            const chip = event.target.closest(".lifecycle-stage-chip");
+            if (!chip) return;
+
+            const section = chip.closest("section");
+            const active = ["bg-[#0025cc]", "text-white", "ring-[#0025cc]"];
+            const idle = ["bg-slate-50", "text-slate-600", "ring-slate-200/80", "hover:bg-slate-100"];
+
+            section.querySelectorAll(".lifecycle-stage-chip").forEach(function (button) {
+                const on = button === chip;
+                button.classList.remove(...(on ? idle : active));
+                button.classList.add(...(on ? active : idle));
+            });
+
+            section.dataset.lifecycleStage = chip.dataset.stage;
+            section.dataset.lifecycleExpanded = "0";
+            renderLifecycle(section);
+        });
+    })();
+</script>
+@endonce

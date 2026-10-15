@@ -13,7 +13,7 @@
 
     {{-- Shared design tokens (Inter/Outfit) + Receiving-matched minimalist theme --}}
     @include('layouts.partials.admin-design')
-    @include('layouts.partials.admin-grayscale-theme')
+    @include('layouts.partials.admin-grayscale-theme', ['keepColors' => $adminShell])
     <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
     <style>

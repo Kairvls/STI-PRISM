@@ -2,7 +2,7 @@
 
     <div class="sidebar-header p-5">
         <div class="logo-icon">
-            <img src="{{ asset('image/STI.png') }}" alt="" />
+            <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="" />
         </div>
         <div>
             <h2>PaAyo</h2>
@@ -144,13 +144,13 @@
             <span>Maintenance Schedule</span>
         </a>
 
-        <div class="menu-title" id="manage-section">MANAGE</div>
+        <div class="menu-title" id="manage-section">MONITORING</div>
         <a
             href="/maintenance/personnel-directory"
             class="menu-item {{ request()->is('maintenance/personnel-directory*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="book-user"></i>
-            <span>Personnel directory</span>
+            <span>Reporters Directory</span>
         </a>
 
         @php
@@ -172,7 +172,7 @@
                 aria-expanded="{{ $equipmentActive ? 'true' : 'false' }}"
             >
                 <i class="h-5 w-5" data-lucide="package"></i>
-                <span>Equipment</span>
+                <span>Monitoring</span>
                 <span class="menu-group-trail">
                     <i data-lucide="chevron-down" class="menu-group-chevron"></i>
                 </span>
@@ -183,7 +183,7 @@
                     class="menu-sub-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }}"
                 >
                     <i data-lucide="package"></i>
-                    <span>Inventory of Equipment</span>
+                    <span>Equipment Inventory</span>
                 </a>
                 
                 <a
@@ -223,7 +223,7 @@
                     class="menu-sub-item {{ request()->is('maintenance/disposal*') ? 'active' : '' }}"
                 >
                     <i data-lucide="trash-2"></i>
-                    <span>Disposal</span>
+                    <span>Equipment Disposal</span>
                 </a>
 
                 <a
@@ -305,7 +305,7 @@
         width: 50px;
         height: 50px;
         border-radius: 14px;
-        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        background: #FFF200;
         display: flex;
         align-items: center;
         justify-content: center;

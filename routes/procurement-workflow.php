@@ -34,6 +34,11 @@ Route::get(
     [ReplacementRequestController::class, 'index']
 )->name('procurement.replacement-requests');
 
+Route::get(
+    '/procurement/replacement-requests/equipment/{equipmentId}',
+    [ReplacementRequestController::class, 'equipment']
+)->whereNumber('equipmentId')->name('procurement.replacement-requests.equipment');
+
 Route::post(
     '/procurement/replacement-requests/{requestId}/approve',
     [ReplacementRequestController::class, 'approve']

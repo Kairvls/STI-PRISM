@@ -309,7 +309,7 @@
             ></div>
             <div class="relative z-10 pr-28 sm:pr-40">
             <p class="text-2xl font-semibold tracking-tight">
-                {{ number_format($overdueMaintenance ?? 0) }} Overdue {{ \Illuminate\Support\Str::plural('Schedule', (int) ($overdueMaintenance ?? 0)) }}
+                <span class="text-red-500">{{ number_format($overdueMaintenance ?? 0) }}</span> All Over Equipment Maintenance Overdue {{ \Illuminate\Support\Str::plural('Schedule', (int) ($overdueMaintenance ?? 0)) }}
             </p>
             <div class="mt-6 flex flex-wrap gap-2.5">
                 <button
@@ -317,7 +317,7 @@
                     onclick="openScheduleModal()"
                     class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad]"
                 >
-                    Schedule maintenance
+                    Schedule Equipment Maintenance
                 </button>
                 <button
                     type="button"
@@ -374,8 +374,9 @@
             <button
                 type="button"
                 onclick="openScheduleModal()"
-                class="inline-flex h-9 items-center justify-center rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
+                class="inline-flex h-9 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-medium text-slate-200 transition hover:bg-blue-800"
             >
+            <i data-lucide="plus" class="h-4 w-4 mr-2"></i>
                 Add schedule
             </button>
             </div>
@@ -641,7 +642,7 @@
                 >
 
                     <i
-                        data-lucide="sliders-horizontal"
+                        data-lucide="filter"
                         class="h-4 w-4"
                     ></i>
 

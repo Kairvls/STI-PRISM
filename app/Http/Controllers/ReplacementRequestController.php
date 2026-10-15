@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\EquipmentTimeline;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Support\PurchaserAttentionSummary;
@@ -51,6 +53,8 @@ class ReplacementRequestController extends Controller
                 'reports_table.report_urgency_level',
                 'reports_table.report_replacement_notes',
                 'reports_table.report_replacement_image',
+                'reports_table.report_uploaded_image',
+                'reports_table.report_equipment_id',
                 'reports_table.report_submitted_at',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_asset_tag',
@@ -160,6 +164,57 @@ class ReplacementRequestController extends Controller
         ReplacementRequestBasket::attachToRequests($replacementRequests);
 
         return view('purchaser.procurement.replacement-requests', compact('replacementRequests', 'archiveView', 'attentionFocus'));
+    }
+
+    /**
+     * Key equipment details and lifecycle for a replacement request line.
+     * Limited to equipment that appears on a replacement request.
+     */
+    public function equipment(int $equipmentId)
+    {
+        $onRequest = DB::table('procurement_requests_table')
+            ->join('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->where('reports_table.report_equipment_id', $equipmentId)
+            ->exists();
+
+        if (! $onRequest && ReplacementRequestBasket::tableExists()) {
+            $onRequest = DB::table('procurement_request_items_table')
+                ->leftJoin('report_items_table', 'procurement_request_items_table.report_item_id', '=', 'report_items_table.report_item_id')
+                ->where(function ($query) use ($equipmentId) {
+                    $query->where('procurement_request_items_table.equipment_id', $equipmentId)
+                        ->orWhere('report_items_table.report_item_equipment_id', $equipmentId);
+                })
+                ->exists();
+        }
+
+        if (! $onRequest) {
+            return response()->json(['message' => 'Equipment is not part of a replacement request.'], 404);
+        }
+
+        $timeline = EquipmentTimeline::forEquipment($equipmentId);
+        $profile = $timeline['equipment'] ?? null;
+
+        if (! $profile) {
+            return response()->json(['message' => 'Equipment not found.'], 404);
+        }
+
+        $image = DB::table('equipment_table')->where('equipment_id', $equipmentId)->value('equipment_image');
+
+        return response()->json([
+            'equipment' => Arr::only($profile, [
+                'id', 'name', 'category', 'room_name', 'inventory_status', 'condition_status',
+                'tracking_mode', 'quantity', 'asset_tag', 'serial_number', 'brand', 'model',
+                'purchase_date', 'purchase_cost', 'acquired_date', 'warranty_expiration',
+                'useful_life_years', 'supplier_name', 'receiving_report_number',
+                'purchase_order_number', 'deployed_at', 'deployed_room', 'acquisition_source_label',
+            ]) + [
+                'image_url' => $image ? asset('storage/'.$image) : null,
+            ],
+            'report_summary' => $timeline['report_summary'] ?? null,
+            'events' => $timeline['events'] ?? [],
+            'stages' => $timeline['stages'] ?? [],
+            'stage_counts' => $timeline['stage_counts'] ?? [],
+        ]);
     }
 
     public function approve(Request $request, int $requestId)

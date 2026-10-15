@@ -990,7 +990,17 @@ class AdminOperationsController extends Controller
 
                 $query = DB::table('borrowing_records_table')
                     ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
-                    ->select('borrowing_records_table.*', 'equipment_table.equipment_name', 'equipment_table.equipment_asset_tag');
+                    ->leftJoin('rooms_table as borrow_from_room', 'borrow_from_room.room_id', '=', 'borrowing_records_table.borrowing_from_room_id')
+                    ->leftJoin('rooms_table as borrow_return_room', 'borrow_return_room.room_id', '=', 'borrowing_records_table.borrowing_returned_to_room_id')
+                    ->leftJoin('users_table as borrow_returned_by', 'borrow_returned_by.user_id', '=', 'borrowing_records_table.borrowing_returned_by')
+                    ->select(
+                        'borrowing_records_table.*',
+                        'equipment_table.equipment_name',
+                        'equipment_table.equipment_asset_tag',
+                        'borrow_from_room.room_name as borrowed_from_room_name',
+                        'borrow_return_room.room_name as returned_to_room_name',
+                        'borrow_returned_by.user_full_name as returned_by_name'
+                    );
 
                 if ($recordId > 0) {
                     $query->where('borrowing_records_table.borrowing_record_id', $recordId);
@@ -1017,14 +1027,12 @@ class AdminOperationsController extends Controller
                     });
                 }
 
-                if ($filter === 'Returned') {
-                    $query->orderByDesc('borrowing_records_table.borrowing_actual_return_date');
-                } else {
-                    $query->orderByRaw("FIELD(borrowing_records_table.borrowing_status, 'Overdue', 'Borrowed', 'Returned')")
-                        ->orderBy('borrowing_records_table.borrowing_expected_return_date');
-                }
-
-                $rows = $query->orderByDesc('borrowing_records_table.borrowing_created_at')->paginate(15)->withQueryString();
+                // Stack order: newest borrow on top.
+                $rows = $query
+                    ->orderByDesc('borrowing_records_table.borrowing_created_at')
+                    ->orderByDesc('borrowing_records_table.borrowing_record_id')
+                    ->paginate(15)
+                    ->withQueryString();
             } catch (\Throwable $e) {
                 // keep empty pager
             }

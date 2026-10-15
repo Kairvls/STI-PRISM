@@ -5194,7 +5194,7 @@
                                     aria-expanded="false"
                                     id="equipmentStatisticsMenuButton"
                                 >
-                                    <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
+                                    <i data-lucide="filter" class="h-4 w-4"></i>
                                 </button>
 
                                 <div
@@ -6576,7 +6576,7 @@
     <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
-                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Equipment Maintenance</h2>
             </div>
             <button
                 type="button"

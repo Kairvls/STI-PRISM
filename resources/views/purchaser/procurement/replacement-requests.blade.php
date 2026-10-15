@@ -478,7 +478,7 @@
                                 <div
                                     x-show="openModal === 'replacement-{{ $request->procurement_request_id }}'"
                                     x-transition
-                                    x-on:click.outside="openModal = null"
+                                    x-on:click.outside="if (! $event.target.closest('#rrEquipmentDrawer')) openModal = null"
                                     class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
                                 >
                                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
@@ -556,23 +556,56 @@
                                                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                     {{ $lineItems->count() > 1 ? 'Equipment items' : 'Equipment' }}
                                                 </p>
-                                                @if($lineItems->count() > 1)
+                                                @if($lineItems->isNotEmpty())
                                                     <ul class="mt-3 divide-y divide-gray-100">
                                                         @foreach($lineItems as $line)
-                                                            <li class="py-3 first:pt-0 last:pb-0">
-                                                                <h3 class="text-sm font-semibold text-gray-950">{{ $line->display_name }}</h3>
-                                                                <p class="mt-1 text-xs text-gray-500">
-                                                                    {{ $line->room_name ?: 'Unknown room' }}
-                                                                    · {{ \App\Support\ReportGrouping::ticketCode($line->report_id ?? null, $line->report_submitted_at ?? null) }}
-                                                                    @if(!empty($line->equipment_asset_tag))
-                                                                        · {{ $line->equipment_asset_tag }}
-                                                                    @endif
-                                                                </p>
-                                                                @if(!empty($line->problem_description) || !empty($line->replacement_notes))
-                                                                    <p class="mt-1 text-xs leading-5 text-gray-400">
-                                                                        {{ $line->replacement_notes ?: $line->problem_description }}
-                                                                    </p>
+                                                            @php
+                                                                $singleLine = $lineItems->count() === 1;
+                                                                $lineTicket = \App\Support\ReportGrouping::ticketCode($line->report_id ?? null, $line->report_submitted_at ?? null);
+                                                                $diagnosisImage = ($line->replacement_image ?? null) ?: ($singleLine ? $request->report_replacement_image : null);
+                                                                $reportedImage = ($line->uploaded_image ?? null) ?: ($singleLine ? ($request->report_uploaded_image ?? null) : null);
+                                                                $thumbImage = $diagnosisImage ?: $reportedImage;
+                                                                $linePayload = [
+                                                                    'equipmentId' => (int) ($line->resolved_equipment_id ?? $line->equipment_id ?? 0) ?: null,
+                                                                    'name' => $line->display_name,
+                                                                    'room' => $line->room_name ?: 'Unknown room',
+                                                                    'ticket' => $lineTicket,
+                                                                    'reason' => $line->replacement_notes ?: ($line->problem_description ?: ($singleLine ? ($request->report_replacement_notes ?: $request->report_problem_description) : null)),
+                                                                    'diagnosisImage' => $diagnosisImage ? asset('storage/'.$diagnosisImage) : null,
+                                                                    'reportedImage' => $reportedImage ? asset('storage/'.$reportedImage) : null,
+                                                                ];
+                                                            @endphp
+                                                            <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                                                                @if($thumbImage)
+                                                                    <img src="{{ asset('storage/'.$thumbImage) }}" alt="" class="h-11 w-11 shrink-0 rounded-lg border border-gray-200 object-cover">
+                                                                @else
+                                                                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-400">
+                                                                        <i data-lucide="image-off" class="h-4 w-4"></i>
+                                                                    </span>
                                                                 @endif
+                                                                <div class="min-w-0 flex-1">
+                                                                    <h3 class="{{ $singleLine ? 'text-base' : 'text-sm' }} font-semibold text-gray-950">{{ $line->display_name }}</h3>
+                                                                    <p class="mt-1 text-xs text-gray-500">
+                                                                        {{ $line->room_name ?: 'Unknown room' }}
+                                                                        · {{ $lineTicket }}
+                                                                        @if(!empty($line->equipment_asset_tag))
+                                                                            · {{ $line->equipment_asset_tag }}
+                                                                        @endif
+                                                                    </p>
+                                                                    @if(! $singleLine && (!empty($line->problem_description) || !empty($line->replacement_notes)))
+                                                                        <p class="mt-1 text-xs leading-5 text-gray-400">
+                                                                            {{ $line->replacement_notes ?: $line->problem_description }}
+                                                                        </p>
+                                                                    @endif
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onclick="openReplacementEquipment(@js($linePayload))"
+                                                                    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0025cc] transition hover:bg-gray-50"
+                                                                >
+                                                                    <i data-lucide="panel-right-open" class="h-3.5 w-3.5"></i>
+                                                                    Details
+                                                                </button>
                                                             </li>
                                                         @endforeach
                                                     </ul>
@@ -987,5 +1020,301 @@
         </div>
     </template>
 </div>
+
+{{-- EQUIPMENT DETAILS DRAWER --}}
+<div id="rrEquipmentDrawer" class="fixed inset-0 z-[1200] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-gray-950/40" onclick="closeReplacementEquipment()"></div>
+
+    <aside
+        id="rrEquipmentPanel"
+        class="absolute right-0 top-0 flex h-full w-full max-w-[460px] translate-x-full flex-col overflow-hidden rounded-l-2xl border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 ease-out"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rrEquipmentTitle"
+    >
+        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+            <div class="min-w-0">
+                <h2 id="rrEquipmentTitle" class="truncate text-lg font-semibold text-gray-950">Equipment</h2>
+                <p id="rrEquipmentSubtitle" class="mt-1 text-xs text-gray-500"></p>
+            </div>
+            <button type="button" onclick="closeReplacementEquipment()" aria-label="Close" class="rounded-lg border border-gray-200 p-2 text-gray-400 transition hover:bg-gray-50 hover:text-gray-700">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            <section>
+                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Photos</p>
+                <div id="rrEquipmentPhotos" class="mt-3 grid grid-cols-2 gap-3"></div>
+                <div id="rrEquipmentReasonWrap" class="mt-3 hidden rounded-xl bg-gray-50 px-4 py-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Replacement reason</p>
+                    <p id="rrEquipmentReason" class="mt-1 text-sm leading-6 text-gray-700"></p>
+                </div>
+            </section>
+
+            <p id="rrEquipmentUnlisted" class="hidden rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+                This item isn't in the equipment register, so there are no equipment details or lifecycle history.
+            </p>
+            <p id="rrEquipmentLoading" class="hidden rounded-xl border border-gray-200 px-4 py-6 text-center text-sm text-gray-400">Loading equipment details…</p>
+            <p id="rrEquipmentError" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Could not load the equipment details.</p>
+
+            <div id="rrEquipmentContent" class="hidden space-y-6">
+                <section>
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Equipment details</p>
+                    <dl id="rrEquipmentRows" class="mt-3 divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200"></dl>
+                </section>
+
+                <section id="rrEquipmentReportsWrap" class="hidden">
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Report history</p>
+                    <div id="rrEquipmentReports" class="mt-3 grid grid-cols-3 gap-3"></div>
+                </section>
+
+                <section>
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Lifecycle timeline</p>
+                        <span id="rrEquipmentTimelineNote" class="text-[11px] text-gray-400"></span>
+                    </div>
+                    <div id="rrEquipmentStages" class="mt-3 flex flex-wrap gap-1.5"></div>
+                    <div id="rrEquipmentTimeline" class="mt-4"></div>
+                    <button id="rrEquipmentTimelineToggle" type="button" onclick="toggleReplacementTimeline()" class="mt-3 hidden items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline">
+                        <span id="rrEquipmentTimelineToggleIcon" class="inline-flex transition-transform">
+                            <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                        </span>
+                        <span id="rrEquipmentTimelineToggleLabel">Show older events</span>
+                    </button>
+                </section>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+    (function () {
+        const equipmentUrl = @json(route(($pp ?? 'purchaser').'.procurement.replacement-requests.equipment', ['equipmentId' => '__ID__']));
+        const TIMELINE_LIMIT = 10;
+        const STAGE_CLASSES = {
+            purchase: 'bg-indigo-50 text-indigo-700',
+            received: 'bg-sky-50 text-sky-700',
+            inventory: 'bg-slate-100 text-slate-700',
+            assigned: 'bg-violet-50 text-violet-700',
+            borrowed: 'bg-cyan-50 text-cyan-700',
+            repair: 'bg-amber-50 text-amber-700',
+            for_replacement: 'bg-orange-50 text-orange-700',
+            replacement: 'bg-emerald-50 text-emerald-700',
+            disposal: 'bg-rose-50 text-rose-700',
+        };
+        const state = { request: 0, events: [], stages: {}, counts: {}, stage: 'all', expanded: false };
+
+        const el = (id) => document.getElementById(id);
+        const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[ch]);
+        const fmtDate = (value) => {
+            if (!value) return '—';
+            const date = new Date(String(value).replace(' ', 'T'));
+            return Number.isNaN(date.getTime())
+                ? String(value)
+                : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        };
+        const fmtMoney = (value) => value === null || value === undefined || value === ''
+            ? '—'
+            : '₱' + Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const icons = () => window.lucide && window.lucide.createIcons();
+
+        function renderPhotos(item, equipmentImage) {
+            const photos = [
+                ['Diagnosis photo', item.diagnosisImage],
+                ['Reported photo', item.reportedImage],
+                ['Equipment photo', equipmentImage],
+            ].filter(([, url]) => url);
+
+            el('rrEquipmentPhotos').innerHTML = photos.length
+                ? photos.map(([label, url]) => `
+                    <a href="${esc(url)}" target="_blank" rel="noopener" class="group block overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                        <img src="${esc(url)}" alt="${esc(label)}" class="h-36 w-full object-cover transition group-hover:opacity-90">
+                        <span class="block border-t border-gray-100 bg-white px-3 py-2 text-xs font-medium text-gray-600">${esc(label)}</span>
+                    </a>`).join('')
+                : '<p class="col-span-2 rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-400">No photos were attached.</p>';
+        }
+
+        function renderDetails(equipment) {
+            const brandModel = [equipment.brand, equipment.model].filter(Boolean).join(' · ');
+            const rows = [
+                ['Asset tag', equipment.asset_tag],
+                ['Serial number', equipment.serial_number],
+                ['Category', equipment.category],
+                ['Brand / model', brandModel],
+                ['Status', equipment.inventory_status],
+                ['Condition', equipment.condition_status],
+                ['Location', equipment.room_name],
+                ['Tracking', equipment.tracking_mode ? `${equipment.tracking_mode} · Qty ${equipment.quantity ?? 1}` : null],
+                ['Acquired via', equipment.acquisition_source_label],
+                ['Supplier', equipment.supplier_name],
+                ['Purchase order', equipment.purchase_order_number],
+                ['Receiving report', equipment.receiving_report_number],
+                ['Purchase date', fmtDate(equipment.purchase_date)],
+                ['Purchase cost', fmtMoney(equipment.purchase_cost)],
+                ['Added to inventory', fmtDate(equipment.acquired_date)],
+                ['First deployed', equipment.deployed_at ? `${fmtDate(equipment.deployed_at)}${equipment.deployed_room ? ' · ' + equipment.deployed_room : ''}` : null],
+                ['Warranty until', fmtDate(equipment.warranty_expiration)],
+                ['Useful life', equipment.useful_life_years ? `${equipment.useful_life_years} year${Number(equipment.useful_life_years) === 1 ? '' : 's'}` : null],
+            ];
+
+            el('rrEquipmentRows').innerHTML = rows.map(([label, value]) => `
+                <div class="flex items-start justify-between gap-4 px-4 py-2.5">
+                    <dt class="text-xs text-gray-500">${esc(label)}</dt>
+                    <dd class="text-right text-sm font-medium text-gray-800">${esc(value || '—')}</dd>
+                </div>`).join('');
+        }
+
+        function renderReports(summary) {
+            const wrap = el('rrEquipmentReportsWrap');
+            if (!summary || !summary.times_reported) {
+                wrap.classList.add('hidden');
+                return;
+            }
+            wrap.classList.remove('hidden');
+            const tile = (label, value, note) => `
+                <div class="rounded-xl border border-gray-200 px-3 py-2.5">
+                    <p class="text-[11px] text-gray-400">${esc(label)}</p>
+                    <p class="mt-0.5 text-sm font-semibold text-gray-900">${esc(value)}</p>
+                    ${note ? `<p class="text-[11px] text-gray-400">${esc(note)}</p>` : ''}
+                </div>`;
+            el('rrEquipmentReports').innerHTML =
+                tile('Right now', summary.state || '—')
+                + tile('Times reported', summary.times_reported, 'Last ' + fmtDate(summary.last_reported_at))
+                + tile('Times fixed', summary.times_fixed ?? 0, summary.last_fixed_at ? 'Last ' + fmtDate(summary.last_fixed_at) : '');
+        }
+
+        function renderTimeline() {
+            const { events, stages, counts, stage, expanded } = state;
+            const chip = (key, label, count) => {
+                const on = stage === key;
+                return `<button type="button" onclick="filterReplacementTimeline('${key}')" class="rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition ${on ? 'bg-[#0025cc] text-white ring-[#0025cc]' : 'bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100'}">${esc(label)} · ${count}</button>`;
+            };
+
+            el('rrEquipmentStages').innerHTML = events.length
+                ? chip('all', 'All', events.length) + Object.keys(stages)
+                    .filter((key) => counts[key])
+                    .map((key) => chip(key, stages[key], counts[key]))
+                    .join('')
+                : '';
+
+            const matching = stage === 'all' ? events : events.filter((event) => event.stage === stage);
+            const visible = expanded ? matching : matching.slice(0, TIMELINE_LIMIT);
+
+            el('rrEquipmentTimeline').innerHTML = visible.length
+                ? visible.map((event, index) => `
+                    <div class="relative flex gap-3 ${index < visible.length - 1 ? 'pb-4' : ''}">
+                        ${index < visible.length - 1 ? '<span class="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200"></span>' : ''}
+                        <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ${esc(event.meta?.dot || 'bg-slate-400')}"></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <p class="text-sm font-semibold text-slate-900">${esc(event.title)}</p>
+                                <span class="rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${STAGE_CLASSES[event.stage] || 'bg-slate-100 text-slate-700'}">${esc(event.stage_label || event.type_label)}</span>
+                            </div>
+                            <p class="mt-0.5 text-xs text-slate-400">${esc(fmtDate(event.occurred_at))}</p>
+                            ${event.description ? `<p class="mt-1 text-xs leading-5 text-slate-600">${esc(event.description)}</p>` : ''}
+                        </div>
+                    </div>`).join('')
+                : `<p class="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-400">${events.length ? 'No events for this stage.' : 'No lifecycle events recorded yet.'}</p>`;
+
+            const older = matching.length - TIMELINE_LIMIT;
+            el('rrEquipmentTimelineNote').textContent = older > 0 && !expanded ? `Latest ${TIMELINE_LIMIT} of ${matching.length}` : '';
+            const toggle = el('rrEquipmentTimelineToggle');
+            toggle.classList.toggle('hidden', older <= 0);
+            toggle.classList.toggle('inline-flex', older > 0);
+            el('rrEquipmentTimelineToggleIcon').classList.toggle('rotate-180', expanded);
+            el('rrEquipmentTimelineToggleLabel').textContent = expanded
+                ? 'Show fewer'
+                : `Show ${older} older ${older === 1 ? 'event' : 'events'}`;
+        }
+
+        window.filterReplacementTimeline = function (stage) {
+            state.stage = stage;
+            state.expanded = false;
+            renderTimeline();
+        };
+
+        window.toggleReplacementTimeline = function () {
+            const collapsing = state.expanded;
+            state.expanded = !collapsing;
+            renderTimeline();
+            if (collapsing) {
+                el('rrEquipmentTimelineToggle').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        };
+
+        window.openReplacementEquipment = async function (item) {
+            const requestId = ++state.request;
+            Object.assign(state, { events: [], stages: {}, counts: {}, stage: 'all', expanded: false });
+
+            el('rrEquipmentTitle').textContent = item.name || 'Equipment';
+            el('rrEquipmentSubtitle').textContent = [item.room, item.ticket].filter(Boolean).join(' · ');
+            el('rrEquipmentReason').textContent = item.reason || '';
+            el('rrEquipmentReasonWrap').classList.toggle('hidden', !item.reason);
+            renderPhotos(item, null);
+
+            ['rrEquipmentContent', 'rrEquipmentError', 'rrEquipmentLoading', 'rrEquipmentUnlisted']
+                .forEach((id) => el(id).classList.add('hidden'));
+            el(item.equipmentId ? 'rrEquipmentLoading' : 'rrEquipmentUnlisted').classList.remove('hidden');
+
+            const drawer = el('rrEquipmentDrawer');
+            drawer.classList.remove('hidden');
+            drawer.setAttribute('aria-hidden', 'false');
+            requestAnimationFrame(() => el('rrEquipmentPanel').classList.remove('translate-x-full'));
+            icons();
+
+            if (!item.equipmentId) return;
+
+            try {
+                const response = await fetch(equipmentUrl.replace('__ID__', encodeURIComponent(item.equipmentId)), {
+                    headers: { Accept: 'application/json' },
+                });
+                if (requestId !== state.request) return;
+                if (!response.ok) throw new Error('Request failed');
+
+                const data = await response.json();
+                if (requestId !== state.request) return;
+
+                renderPhotos(item, data.equipment?.image_url || null);
+                renderDetails(data.equipment || {});
+                renderReports(data.report_summary);
+                Object.assign(state, {
+                    events: Array.isArray(data.events) ? data.events : [],
+                    stages: data.stages || {},
+                    counts: data.stage_counts || {},
+                });
+                renderTimeline();
+
+                el('rrEquipmentLoading').classList.add('hidden');
+                el('rrEquipmentContent').classList.remove('hidden');
+                icons();
+            } catch (error) {
+                if (requestId !== state.request) return;
+                el('rrEquipmentLoading').classList.add('hidden');
+                el('rrEquipmentError').classList.remove('hidden');
+            }
+        };
+
+        window.closeReplacementEquipment = function () {
+            state.request++;
+            const drawer = el('rrEquipmentDrawer');
+            el('rrEquipmentPanel').classList.add('translate-x-full');
+            drawer.setAttribute('aria-hidden', 'true');
+            setTimeout(() => {
+                if (el('rrEquipmentPanel').classList.contains('translate-x-full')) {
+                    drawer.classList.add('hidden');
+                }
+            }, 300);
+        };
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape' || el('rrEquipmentDrawer').classList.contains('hidden')) return;
+            event.stopPropagation();
+            window.closeReplacementEquipment();
+        }, true);
+    })();
+</script>
 
 @endsection

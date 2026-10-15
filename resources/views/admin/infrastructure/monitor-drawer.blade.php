@@ -1439,7 +1439,7 @@
                                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
                                         <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Equipment name <span class="text-rose-500">*</span></label>
+                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Equipment name <span class="text-red-500">*</span></label>
                                             <input
                                                 type="text"
                                                 x-model="addForm.name"

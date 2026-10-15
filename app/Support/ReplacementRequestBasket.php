@@ -179,6 +179,9 @@ class ReplacementRequestBasket
                         'report_id' => $request->report_id ?? $request->procurement_request_report_id ?? null,
                         'report_item_id' => null,
                         'equipment_id' => $request->report_equipment_id ?? null,
+                        'resolved_equipment_id' => $request->report_equipment_id ?? null,
+                        'uploaded_image' => $request->report_uploaded_image ?? null,
+                        'replacement_image' => $request->report_replacement_image ?? null,
                         'equipment_name' => $request->equipment_name ?? null,
                         'equipment_asset_tag' => $request->equipment_asset_tag ?? null,
                         'unlisted_equipment_name' => $request->report_unlisted_equipment_name ?? null,
@@ -413,6 +416,9 @@ class ReplacementRequestBasket
             'report_items_table.report_item_replacement_notes as replacement_notes',
             'report_items_table.report_item_problem_description as problem_description',
             'report_items_table.report_item_unlisted_equipment_name',
+            DB::raw('COALESCE(procurement_request_items_table.equipment_id, report_items_table.report_item_equipment_id) as resolved_equipment_id'),
+            'report_items_table.report_item_uploaded_image as uploaded_image',
+            'report_items_table.report_item_replacement_image as replacement_image',
         ]);
     }
 

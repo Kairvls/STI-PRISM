@@ -545,6 +545,7 @@ Route::middleware(['auth', 'admin'])
 
         Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+        Route::get('/departments/{department}', [DepartmentController::class, 'show'])->whereNumber('department')->name('departments.show');
         Route::put('/departments/{department}', [DepartmentController::class, 'update'])->whereNumber('department')->name('departments.update');
         Route::post('/departments/{department}/archive', [DepartmentController::class, 'archive'])->whereNumber('department')->name('departments.archive');
         Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore'])->whereNumber('department')->name('departments.restore');
@@ -582,6 +583,9 @@ Route::middleware(['auth', 'admin'])
         Route::get('/disposal/requests', [MaintenanceController::class, 'disposalRequests'])->name('disposal.requests');
         Route::post('/disposal/requests/{id}/approve', [MaintenanceController::class, 'approveDisposalRequest'])->whereNumber('id')->name('disposal.requests.approve');
         Route::post('/disposal/requests/{id}/reject', [MaintenanceController::class, 'rejectDisposalRequest'])->whereNumber('id')->name('disposal.requests.reject');
+
+        // Replacement log: how each "For Replacement" item was fulfilled (stock swap or procurement)
+        Route::get('/equipment/replacements', [MaintenanceController::class, 'replacementLog'])->name('equipment.replacements');
 
         // Borrowing: lending equipment out and recording returns
         Route::get('/borrowing', [MaintenanceController::class, 'borrowing'])->name('borrowing.index');
@@ -1052,6 +1056,11 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
         '/maintenance/reports/update-status/{id}',
         [MaintenanceController::class, 'updateStatus']
     );
+
+    Route::get(
+        '/maintenance/reports/{id}/replacement-stock',
+        [MaintenanceController::class, 'replacementStock']
+    )->whereNumber('id')->name('maintenance.reports.replacement-stock');
 
     Route::post(
         '/maintenance/reports/{id}/severity',
