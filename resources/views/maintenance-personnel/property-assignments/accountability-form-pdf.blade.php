@@ -59,10 +59,10 @@
         <thead>
             <tr>
                 <th class="num">#</th>
-                <th style="width: 22%;">Item / description</th>
+                <th style="width: 22%;">Item</th>
                 <th style="width: 15%;">Asset tag</th>
                 <th style="width: 15%;">Serial no.</th>
-                <th style="width: 16%;">Room / desk</th>
+                <th style="width: 16%;">Room</th>
                 <th style="width: 9%;">Condition</th>
                 <th style="width: 10%;">Doc. no.</th>
                 <th style="width: 9%;">Date issued</th>
@@ -111,12 +111,12 @@
             </td>
             <td>
                 <div class="sig-line">{{ $preparedBy ?: ' ' }}</div>
-                <div class="sig-role">Issued by (maintenance personnel)</div>
+                <div class="sig-role">Issued by</div>
                 <div class="sig-role" style="margin-top: 8px;">Date: ____________________</div>
             </td>
             <td>
                 <div class="sig-line">&nbsp;</div>
-                <div class="sig-role">Noted by (department head / administrator)</div>
+                <div class="sig-role">Noted by (school administrator)</div>
                 <div class="sig-role" style="margin-top: 8px;">Date: ____________________</div>
             </td>
         </tr>

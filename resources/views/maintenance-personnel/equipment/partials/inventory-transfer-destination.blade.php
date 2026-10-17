@@ -23,7 +23,7 @@
     <div>
         <span class="mb-2 block text-sm font-medium text-slate-700">Transfer type</span>
         <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-            @foreach (['room' => ['door-open', 'Room only'], 'person' => ['user-round', 'Issue to person'], 'department' => ['network', 'Charge to department']] as $type => [$icon, $label])
+            @foreach (['room' => ['door-open', 'Room only'], 'person' => ['user-round', 'Assign to person'], 'department' => ['network', 'Assign to department']] as $type => [$icon, $label])
                 <label class="cursor-pointer">
                     <input
                         type="radio"

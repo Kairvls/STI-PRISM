@@ -746,10 +746,7 @@
                         <p
                             class="mt-1.5 text-sm font-medium text-gray-700"
                         >
-                            {{
-                                $report->reporter_contact_number
-                                ?? "Not provided"
-                            }}
+                            {{ \App\Support\PhoneNumber::formatForDisplay($report->reporter_contact_number) ?? "Not provided" }}
                         </p>
                     </div>
 

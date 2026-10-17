@@ -18,9 +18,26 @@
         ['Room', $person->home_room_name, 'door-open'],
         ['Email', $person->custodian_email_address, 'mail'],
         ['Contact no.', $person->custodian_contact_number, 'phone'],
-        ['System account', $person->linked_reporter_name ? $person->linked_reporter_name.' ('.$person->linked_employee_id.')' : 'Not linked', 'link'],
+        ['Employment basis', $person->custodian_employment_basis ?: '—', 'users'],
         ['In directory since', $formatDate($person->custodian_created_at), 'calendar'],
     ];
+@endphp
+
+@php
+    // Provide auxiliary data for the modal form partial
+    $rooms = DB::table('rooms_table')
+        ->when(
+            Schema::hasColumn('rooms_table', 'room_is_archived'),
+            fn ($q) => $q->where('room_is_archived', false)
+        )
+        ->where(function ($q) {
+            $q->whereNull('room_type')->orWhere('room_type', '!=', \App\Support\RoomCategories::STORAGE_TYPE);
+        })
+        ->orderBy('room_name')
+        ->get(['room_id', 'room_name', 'room_type']);
+
+    $departments = \App\Support\Departments::options();
+    $linkableReporters = \App\Support\Custodians::linkableReporters($person->custodian_id);
 @endphp
 
 <div class="space-y-6">
@@ -51,13 +68,14 @@
             </div>
 
             <div class="flex shrink-0 flex-wrap gap-2">
-                <a
-                    href="{{ \App\Support\PropertyAssignments::route('people.edit', $person->custodian_id) }}"
+                <button
+                    type="button"
+                    onclick="openEditPersonModal()"
                     class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                     <i data-lucide="pencil" class="h-4 w-4"></i>
                     Edit details
-                </a>
+                </button>
                 <a
                     href="{{ \App\Support\PropertyAssignments::route('person.form', $person->custodian_id) }}"
                     target="_blank"
@@ -102,6 +120,105 @@
             <i data-lucide="package" class="h-5 w-5 text-slate-400"></i>
         </div>
 
+        <!-- Edit Person Modal -->
+        <div id="editPersonModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4">
+            <div class="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+                <div class="relative">
+                    <button type="button" onclick="closeEditPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                    <div class="p-4 overflow-y-auto">
+                        @include('maintenance-personnel.property-assignments._person-form-fields', [
+                            'person' => $person,
+                            'rooms' => $rooms,
+                            'departments' => $departments,
+                            'linkableReporters' => $linkableReporters,
+                            'defaultRoomId' => $person->custodian_room_id ?? null,
+                        ])
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function openEditPersonModal() {
+                const modal = document.getElementById('editPersonModal');
+                if (!modal) return;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if (window.lucide) lucide.createIcons();
+                try {
+                    const input = document.getElementById('custodian-contact-number');
+                    if (typeof window.refreshPrismPhoneInput === 'function' && input) {
+                        window.refreshPrismPhoneInput(input);
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            function closeEditPersonModal() {
+                const modal = document.getElementById('editPersonModal');
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            function suffixForCustodianType(type) {
+                if (type === 'Faculty') return 'F';
+                if (type === 'Staff') return 'S';
+                return '';
+            }
+
+            function syncCustodianEmployeeIdEditModal() {
+                const type = document.getElementById('custodian-employment-type');
+                const digits = document.getElementById('custodianEmployeeDigits');
+                const full = document.getElementById('custodian_employee_id');
+                const suffixEl = document.getElementById('custodianEmployeeIdSuffix');
+                const field = document.getElementById('custodianEmployeeIdField');
+                const hint = document.getElementById('custodianEmployeeHint');
+
+                if (!type || !digits || !full || !suffixEl || !field) return;
+
+                const selectedType = type.value || '';
+                const suffix = suffixForCustodianType(selectedType);
+                const normalizedDigits = String(digits.value || '').replace(/\D/g, '').slice(0, 5);
+                digits.value = normalizedDigits;
+                suffixEl.textContent = suffix || '?';
+                suffixEl.classList.toggle('is-empty', !suffix);
+
+                if (selectedType) {
+                    digits.readOnly = false;
+                    digits.disabled = false;
+                    digits.removeAttribute('readonly');
+                    digits.removeAttribute('disabled');
+                    digits.tabIndex = 0;
+                    field.classList.remove('is-disabled');
+                    if (hint) hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+                } else {
+                    digits.readOnly = true;
+                    digits.disabled = true;
+                    digits.setAttribute('readonly', 'readonly');
+                    digits.setAttribute('disabled', 'disabled');
+                    digits.tabIndex = -1;
+                    field.classList.add('is-disabled');
+                    if (hint) hint.textContent = 'Select type first, then enter the 5-digit number.';
+                }
+
+                full.value = (selectedType && normalizedDigits.length === 5 && suffix) ? ('OMC' + normalizedDigits + suffix) : '';
+            }
+
+            (function () {
+                const type = document.getElementById('custodian-employment-type');
+                const digits = document.getElementById('custodianEmployeeDigits');
+                const field = document.getElementById('custodianEmployeeIdField');
+                if (!type || !digits || !field) return;
+
+                type.addEventListener('change', syncCustodianEmployeeIdEditModal);
+                digits.addEventListener('input', syncCustodianEmployeeIdEditModal);
+                field.addEventListener('click', function () { try { digits.focus(); } catch (e) { } });
+                syncCustodianEmployeeIdEditModal();
+            })();
+        </script>
+
         @if ($holdsProperty)
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
@@ -109,7 +226,7 @@
                         <tr>
                             <th class="px-5 py-3">Item</th>
                             <th class="px-5 py-3">Asset tag / serial</th>
-                            <th class="px-5 py-3">Room / desk</th>
+                            <th class="px-5 py-3">Room</th>
                             <th class="px-5 py-3">Condition</th>
                             <th class="px-5 py-3">Document no.</th>
                             <th class="px-5 py-3">Since</th>

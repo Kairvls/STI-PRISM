@@ -1199,6 +1199,11 @@ Route::get(
 )->middleware('throttle:60,1');
 
 Route::get(
+    '/get-custodian/{employeeId}',
+    [\App\Http\Controllers\PropertyAssignmentController::class, 'getCustodianByEmployee']
+)->middleware('throttle:60,1');
+
+Route::get(
     '/get-reporter/{employeeId}/assigned-equipment',
     [ReporterController::class, 'getAssignedEquipment']
 )->middleware('throttle:30,1');

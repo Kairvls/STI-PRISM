@@ -22,8 +22,16 @@ class Departments
 
     public static function tableReady(): bool
     {
-        return Schema::hasTable('departments_table')
-            && Schema::hasColumn('custodians_table', 'custodian_department_id');
+        if (! Schema::hasTable('departments_table')) {
+            return false;
+        }
+
+        return Schema::hasColumn('departments_table', 'department_id')
+            && (
+                Schema::hasColumn('custodians_table', 'custodian_department_id')
+                || Schema::hasColumn('reporters_table', 'reporter_department_id')
+                || Schema::hasColumn('equipment_table', 'equipment_department_id')
+            );
     }
 
     /**

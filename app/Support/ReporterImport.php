@@ -15,6 +15,7 @@ class ReporterImport
         'first_name' => 'First name',
         'middle_name' => 'Middle name',
         'last_name' => 'Last name',
+        'employment_basis' => 'Employment basis',
         'department' => 'Department',
         'email_address' => 'Email address',
         'contact_number' => 'Contact number',
@@ -30,6 +31,7 @@ class ReporterImport
             'middle_name' => ['middle_name', 'middle name', 'middlename', 'mi', 'middle initial'],
             'last_name' => ['last_name', 'last name', 'lastname', 'surname', 'family name'],
             'type' => ['type', 'employment type', 'employment', 'employee type', 'status type', 'category', 'faculty staff', 'position type'],
+            'employment_basis' => ['employment_basis', 'employment basis', 'basis', 'full time', 'part time', 'fulltime', 'part-time'],
             'department' => ['department', 'dept', 'office', 'department office', 'unit'],
             'email_address' => ['email_address', 'email address', 'email', 'e mail', 'mail', 'institutional email', 'school email'],
             'contact_number' => ['contact_number', 'contact number', 'contact', 'contact no', 'phone', 'phone number', 'mobile', 'mobile number', 'cellphone'],
@@ -340,6 +342,11 @@ class ReporterImport
     public static function hasTypeColumn(): bool
     {
         return Schema::hasColumn('reporters_table', 'reporter_employment_type');
+    }
+
+    public static function hasBasisColumn(): bool
+    {
+        return Schema::hasColumn('reporters_table', 'reporter_employment_basis');
     }
 
     public static function hasDepartmentColumn(): bool

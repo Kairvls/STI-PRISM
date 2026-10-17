@@ -12,8 +12,8 @@ use Illuminate\Support\Str;
  */
 class PersonNames
 {
-    /** Starts with a letter; then letters, marks, spaces, hyphens, apostrophes and periods. */
-    public const PATTERN = "/^[\p{L}\p{M}][\p{L}\p{M}\s'.\-]*$/u";
+    /** Starts with a letter; then letters, marks, spaces, hyphens and apostrophes only. */
+    public const PATTERN = "/^[\p{L}\p{M}][\p{L}\p{M}\s'-]*$/u";
 
     public static function clean(?string $value): string
     {
@@ -25,9 +25,17 @@ class PersonNames
     /**
      * @return array<int, mixed>
      */
-    public static function rules(bool $required = true, int $max = 100): array
+    public static function rules(bool $required = true, int $max = 50, int $min = 2): array
     {
-        return [$required ? 'required' : 'nullable', 'string', 'max:'.$max, new PersonName];
+        $rules = [$required ? 'required' : 'nullable', 'string', 'max:'.$max];
+
+        if ($required) {
+            $rules[] = 'min:'.$min;
+        }
+
+        $rules[] = new PersonName;
+
+        return $rules;
     }
 
     /**

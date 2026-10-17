@@ -129,7 +129,7 @@
 
         
 
-    <div class="rounded-3xl border border-slate-100 bg-white shadow-sm">
+    <div class="rounded-3xl bg-white shadow-sm">
 
         
 
@@ -154,7 +154,7 @@
         {{-- REPORTER DIRECTORY --}}
         {{-- ========================================================= --}}
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <section class="overflow-hidden rounded-2xl bg-white">
 
             @if ($historyReporter)
 
@@ -162,241 +162,99 @@
                 {{-- REPORTER HISTORY TOOLBAR --}}
                 {{-- ===================================================== --}}
 
-                <div
-                    class="flex flex-col gap-4 border-b border-slate-200
-                        px-5 py-4 lg:flex-row lg:items-center
-                        lg:justify-between"
-                >
+                @php
+                    $historyTotal = $reportHistory->total();
+                    $historyOpen = $reportHistory->where('report_current_status', 'Pending')->count() + $reportHistory->where('report_current_status', 'Processing')->count() + $reportHistory->where('report_current_status', 'For Replacement')->count();
+                    $historyResolved = $reportHistory->where('report_current_status', 'Resolved')->count();
+                    $lastHistoryDate = $reportHistory->isNotEmpty() ? $reportHistory->first()->report_submitted_at : null;
+                    $historyStatusBadge = $historyReporter->reporter_status === 'Active'
+                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                        : 'bg-slate-100 text-slate-600 ring-slate-200';
+                @endphp
 
-                    {{-- ================================================= --}}
-                    {{-- LEFT SIDE --}}
-                    {{-- BACK BUTTON AND REPORTER INFO --}}
-                    {{-- ================================================= --}}
+                <div class="space-y-6 p-0">
+                    <a href="{{ route('admin.reporters.index') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
+                        <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                        Back to directory
+                    </a>
 
-                    <div class="flex min-w-0 items-center gap-3">
-
-                        <a
-                            href="{{ url()->current() }}"
-
-                            class="flex h-9 w-9 shrink-0
-                                items-center justify-center
-                                rounded-lg border border-slate-200
-                                bg-white text-slate-500
-                                transition
-                                hover:bg-slate-50
-                                hover:text-slate-900"
-
-                            data-tooltip="Back to reporters"
-                            aria-label="Back to reporters"
-                        >
-                            <i
-                                data-lucide="arrow-left"
-                                class="h-4 w-4"
-                            ></i>
-                        </a>
-
-
-                        <div
-                            class="flex h-9 w-9 shrink-0
-                                items-center justify-center
-                                rounded-lg bg-slate-100
-                                text-slate-600"
-                        >
-                            <i
-                                data-lucide="history"
-                                class="h-4 w-4"
-                            ></i>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5">
+                        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="flex min-w-0 items-center gap-4">
+                                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-base font-semibold text-slate-700">
+                                    {{ strtoupper(substr($historyReporter->reporter_full_name, 0, 1)) }}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h2 class="truncate text-lg font-semibold text-slate-900">{{ $historyReporter->reporter_full_name }}</h2>
+                                        <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $historyStatusBadge }}">{{ $historyReporter->reporter_status }}</span>
+                                    </div>
+                                    <p class="mt-0.5 font-mono text-xs text-slate-500">{{ $historyReporter->reporter_employee_id }}</p>
+                                </div>
+                            </div>
+                            <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Type</dt>
+                                    <dd class="mt-0.5 font-medium text-slate-800">{{ $historyReporter->reporter_employment_type ?? '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Department</dt>
+                                    <dd class="mt-0.5 font-medium text-slate-800">{{ $historyReporter->reporter_department_name ?? $historyReporter->department_name ?? '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Email</dt>
+                                    <dd class="mt-0.5 break-all font-medium text-slate-800">{{ $historyReporter->reporter_email_address ?: '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Contact</dt>
+                                    <dd class="mt-0.5 font-medium text-slate-800">{{ \App\Support\PhoneNumber::formatForDisplay($historyReporter->reporter_contact_number) ?: '—' }}</dd>
+                                </div>
+                            </dl>
                         </div>
-
-
-                        <div class="min-w-0">
-
-                            <h2
-                                class="truncate text-sm
-                                    font-semibold text-slate-900"
-                            >
-                                {{ $historyReporter->reporter_full_name }}
-                            </h2>
-
-
-                            <p class="mt-0.5 text-xs text-slate-400">
-
-                                {{ $historyReporter->reporter_employee_id }}
-
-                                <span class="mx-1">
-                                    ·
-                                </span>
-
-                                {{ $reportHistory->total() }}
-
-                                {{
-                                    $reportHistory->total() === 1
-                                        ? 'report'
-                                        : 'reports'
-                                }}
-
-                            </p>
-
-                        </div>
-
                     </div>
 
+                    @include('layouts.partials.maintenance-stat-cards', [
+                        'cards' => [
+                            ['label' => 'Reports filed', 'hint' => 'All time', 'value' => number_format($historyTotal)],
+                            ['label' => 'Open', 'hint' => 'Pending, processing or for replacement', 'value' => number_format($historyOpen)],
+                            ['label' => 'Resolved', 'hint' => 'Fixed and closed', 'value' => number_format($historyResolved)],
+                            ['label' => 'Last report', 'hint' => $lastHistoryDate ? \Illuminate\Support\Carbon::parse($lastHistoryDate)->diffForHumans() : 'No reports yet', 'value' => $lastHistoryDate ? \Illuminate\Support\Carbon::parse($lastHistoryDate)->format('M j, Y') : '—'],
+                        ],
+                    ])
 
-                    {{-- ================================================= --}}
-                    {{-- RIGHT SIDE --}}
-                    {{-- HISTORY SEARCH AND STATUS FILTER --}}
-                    {{-- ================================================= --}}
+                    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        
+                            
+                        
 
-                    <form
-                        method="GET"
-                        action="{{ url()->current() }}"
-
-                        class="flex w-full flex-col gap-2
-                            sm:flex-row lg:w-auto lg:items-center"
-                    >
-
-                        {{-- KEEP HISTORY MODE ACTIVE --}}
-
-                        <input
-                            type="hidden"
-                            name="history"
-                            value="{{ $historyReporter->reporter_id }}"
-                        >
-
-
-                        {{-- HISTORY SEARCH --}}
-
-                        <div class="relative w-full sm:w-[240px]">
-
-                            <i
-                                data-lucide="search"
-                                class="pointer-events-none absolute
-                                    left-3 top-1/2 h-4 w-4
-                                    -translate-y-1/2 text-slate-400"
-                            ></i>
-
-
-                            <input
-                                type="search"
-                                name="history_search"
-                                value="{{ request('history_search') }}"
-                                placeholder="Search history..."
-
-                                class="h-9 w-full rounded-lg
-                                    border border-slate-200
-                                    bg-white pl-9 pr-3
-                                    text-xs font-medium text-slate-700
-                                    outline-none transition
-                                    placeholder:text-slate-400
-                                    focus:border-slate-400"
-                            >
-
-                        </div>
-
-
-                        {{-- HISTORY STATUS --}}
-
-                        <div class="relative">
-
-                            <select
-                                name="history_status"
-                                class="h-9 min-w-[150px]
-                                    appearance-none rounded-lg
-                                    border border-slate-200
-                                    bg-white pl-3 pr-9
-                                    text-xs font-medium text-slate-600
-                                    outline-none transition
-                                    focus:border-slate-400"
-                            >
-                                <option value="">All Status</option>
-
-                                @foreach ([
-                                    'Pending',
-                                    'Processing',
-                                    'Resolved',
-                                    'For Replacement',
-                                    'Rejected',
-                                ] as $historyStatus)
-
-                                    <option
-                                        value="{{ $historyStatus }}"
-                                        @selected(
-                                            request('history_status') === $historyStatus
-                                        )
-                                    >
-                                        {{ $historyStatus }}
-                                    </option>
-
-                                @endforeach
-                            </select>
-
-
-                            <i
-                                data-lucide="chevron-down"
-                                class="pointer-events-none absolute
-                                    right-3 top-1/2 h-4 w-4
-                                    -translate-y-1/2 text-slate-400"
-                            ></i>
-
-                        </div>
-
-
-                        {{-- APPLY HISTORY FILTERS --}}
-
-                        <button
-                            type="submit"
-
-                            class="inline-flex h-9 shrink-0
-                                items-center justify-center gap-2
-                                rounded-lg bg-[#0025cc] px-4
-                                text-sm font-semibold text-white
-                                transition hover:bg-blue-800"
-                        >
-                            <i
-                                data-lucide="filter"
-                                class="h-4 w-4"
-                            ></i>
-
-                            Apply
-                        </button>
-
-
-                        {{-- CLEAR HISTORY FILTERS --}}
-
-                        @if (
-                            request()->filled('history_search')
-                            || request()->filled('history_status')
-                        )
-
-                            <a
-                                href="{{ request()->fullUrlWithQuery([
-                                    'history_search' => null,
-                                    'history_status' => null,
-                                    'history_page' => null,
-                                ]) }}"
-
-                                class="inline-flex h-9 w-9 shrink-0
-                                    items-center justify-center
-                                    rounded-lg border border-slate-200
-                                    bg-white text-slate-500
-                                    transition
-                                    hover:bg-slate-50
-                                    hover:text-slate-900"
-
-                                data-tooltip="Clear history filters"
-                                aria-label="Clear history filters"
-                            >
-                                <i
-                                    data-lucide="x"
-                                    class="h-4 w-4"
-                                ></i>
-                            </a>
-
-                        @endif
-
-                    </form>
-
-                </div>
+                        <form method="GET" action="{{ url()->current() }}" class="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h3 class="mr-2 text-base font-semibold text-slate-900">Report records</h3>
+                            <div class="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
+                                <input type="hidden" name="history" value="{{ $historyReporter->reporter_id }}">
+                                <div class="relative w-full sm:w-[240px]">
+                                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                                    <input type="search" name="history_search" value="{{ request('history_search') }}" placeholder="Search history..." class="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400">
+                                </div>
+                                <div class="relative">
+                                    <select name="history_status" class="h-9 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs font-medium text-slate-600 outline-none transition focus:border-slate-400">
+                                        <option value="">All Status</option>
+                                        @foreach (['Pending', 'Processing', 'Resolved', 'For Replacement', 'Rejected'] as $historyStatus)
+                                            <option value="{{ $historyStatus }}" @selected(request('history_status') === $historyStatus)>{{ $historyStatus }}</option>
+                                        @endforeach
+                                    </select>
+                                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                                <button type="submit" class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                                    <i data-lucide="filter" class="h-4 w-4"></i>
+                                    Apply
+                                </button>
+                                @if (request()->filled('history_search') || request()->filled('history_status'))
+                                    <a href="{{ request()->fullUrlWithQuery(['history_search' => null, 'history_status' => null, 'history_page' => null]) }}" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900" data-tooltip="Clear history filters" aria-label="Clear history filters">
+                                        <i data-lucide="x" class="h-4 w-4"></i>
+                                    </a>
+                                @endif
+                            </div>
+                        </form>
 
                 {{-- ===================================================== --}}
                 {{-- REPORTER HISTORY TABLE --}}
@@ -1335,6 +1193,9 @@
                                                 title="{{ $reporter->reporter_full_name }}"
                                             >
                                                 {{ $reporter->reporter_full_name }}
+                                                @if (!empty($reporter->report_count) && (int) $reporter->report_count > 0)
+                                                    <span class="ml-1 text-xs font-normal text-slate-400">{{ number_format($reporter->report_count) }} - All {{ (int) $reporter->report_count === 1 ? 'Report' : 'Reports' }}</span>
+                                                @endif
                                             </p>
 
 
@@ -1387,13 +1248,13 @@
                                         <button
                                             type="button"
                                             onclick="copyReporterContact(this)"
-                                            data-contact="{{ $reporter->reporter_contact_number }}"
+                                            data-contact="{{ \App\Support\PhoneNumber::formatForDisplay($reporter->reporter_contact_number) ?: $reporter->reporter_contact_number }}"
                                             data-tooltip="Click to copy"
                                             class="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-sm text-gray-600 transition hover:bg-slate-100 hover:text-slate-900"
                                             aria-label="Copy contact number"
                                         >
                                             <span class="truncate font-medium select-all">
-                                                {{ $reporter->reporter_contact_number }}
+                                                    {{ \App\Support\PhoneNumber::formatForDisplay($reporter->reporter_contact_number) ?: $reporter->reporter_contact_number }}
                                             </span>
                                             <i data-lucide="copy" class="h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition group-hover:opacity-100"></i>
                                         </button>
@@ -1445,40 +1306,6 @@
                                 <td class="px-5 py-4">
 
                                     <div class="flex items-center justify-center gap-1.5">
-
-                                        {{-- ================================= --}}
-                                        {{-- VIEW BUTTON --}}
-                                        {{-- ================================= --}}
-
-                                        <button
-                                            type="button"
-
-                                            onclick="viewReporter(
-                                                @js($reporter->reporter_employee_id),
-                                                @js($reporter->reporter_full_name),
-                                                @js($reporter->reporter_employment_type),
-                                                @js($reporter->reporter_email_address),
-                                                @js($reporter->reporter_contact_number),
-                                                @js($reporter->reporter_department_name ?? null)
-                                            )"
-
-                                            class="flex h-9 w-9 shrink-0 items-center
-                                                justify-center rounded-lg
-                                                bg-slate-100 text-slate-600
-                                                transition
-                                                hover:bg-slate-200
-                                                hover:text-slate-900
-                                                active:scale-95"
-
-                                            data-tooltip="View reporter details"
-
-                                            aria-label="View reporter details"
-                                        >
-                                            <i
-                                                data-lucide="eye"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-                                        </button>
 
                                         {{-- ===================================================== --}}
                                         {{-- REPORTER HISTORY BUTTON --}}
@@ -1533,7 +1360,8 @@
                                                     @js($reporter->reporter_employment_type ?? ''),
                                                     @js($reporter->reporter_email_address),
                                                     @js($reporter->reporter_contact_number),
-                                                    @js($reporter->reporter_department_id ?? null)
+                                                    @js($reporter->reporter_department_id ?? null),
+                                                    @js($reporter->reporter_employment_basis ?? '')
                                                 )"
 
                                                 class="flex h-9 w-9 shrink-0 items-center
@@ -1833,6 +1661,7 @@
             $importSkipped = (int) ($importResult['skipped'] ?? 0);
             $importErrors = $importResult['errors'] ?? [];
             $importUnknownDepartments = $importResult['unknown_departments'] ?? [];
+            $importAutoLinked = (int) ($importResult['auto_linked'] ?? 0);
         @endphp
         <div
             id="importResultModal"
@@ -1856,6 +1685,12 @@
                             <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $importSkipped }}</p>
                         </div>
                     </div>
+
+                    @if ($importAutoLinked > 0)
+                        <p class="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-[#0025cc]">
+                            <strong>{{ number_format($importAutoLinked) }}</strong> reporter{{ $importAutoLinked === 1 ? '' : 's' }} had their department auto-linked from existing assignments.
+                        </p>
+                    @endif
 
                     @if ($importCreated > 0 && ($pinsReady ?? false))
                         <p class="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-[#0025cc]">
@@ -2044,17 +1879,24 @@
                                 <span id="createEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                             </div>
                             <input type="hidden" id="employee_id" name="employee_id" value="" required>
+                            <p id="createEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
+                            <p id="createEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee exists in Property Assignments; reporter details must match the people directory.</p>
                         </div>
-                        <p id="createEmployeeIdHint" class="-mt-2 text-xs text-slate-400 sm:col-span-2">Select type first, then enter the 5-digit number.</p>
-                        <div class="sm:col-span-2">
-                            <label for="department_id" class="{{ $reporterLabelClass }}">Department</label>
-                            <select id="department_id" name="department_id" class="{{ $reporterFieldClass }}" data-searchable="1" data-search-placeholder="Search department">
-                                <option value="">No department</option>
-                                @foreach ($departments as $department)
-                                    <option value="{{ $department->department_id }}">{{ $department->department_name }}{{ $department->department_is_archived ? ' (archived)' : '' }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @if(session('mismatch_force_data') && session('mismatch_force_data.type') === 'custodian')
+                            @php $m = session('mismatch_force_data.custodian'); @endphp
+                            <div class="sm:col-span-2 mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                                <div class="flex items-center justify-between">
+                                    <div class="font-semibold">People directory (authoritative)</div>
+                                    <div class="text-[11px] text-amber-700">These values will be used if you choose <strong>Force sync</strong></div>
+                                </div>
+                                <div class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                                    <div><span class="font-medium">Name:</span> {{ $m['custodian_full_name'] ?? '—' }}</div>
+                                    <div><span class="font-medium">Email:</span> {{ $m['custodian_email_address'] ?? '—' }}</div>
+                                    <div><span class="font-medium">Contact:</span> {{ $m['custodian_contact_number'] ?? '—' }}</div>
+                                    <div><span class="font-medium">Department ID:</span> {{ $m['custodian_department_id'] ?? '—' }}</div>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </section>
 
@@ -2063,15 +1905,39 @@
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                             <label for="first_name" class="{{ $reporterLabelClass }}">First name <span class="text-red-500">*</span></label>
-                            <input id="first_name" name="first_name" type="text" placeholder="John" required class="{{ $reporterFieldClass }}" />
+                            <input id="first_name" name="first_name" type="text" maxlength="50" placeholder="John" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
                         </div>
                         <div>
                             <label for="middle_name" class="{{ $reporterLabelClass }}">Middle name</label>
-                            <input id="middle_name" name="middle_name" type="text" placeholder="Optional" class="{{ $reporterFieldClass }}" />
+                            <input id="middle_name" name="middle_name" type="text" maxlength="50" placeholder="Optional" oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
                         </div>
                         <div>
                             <label for="last_name" class="{{ $reporterLabelClass }}">Last name <span class="text-red-500">*</span></label>
-                            <input id="last_name" name="last_name" type="text" placeholder="Smith" required class="{{ $reporterFieldClass }}" />
+                            <input id="last_name" name="last_name" type="text" maxlength="50" placeholder="Smith" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <p class="{{ $reporterSectionClass }}"><i data-lucide="briefcase" class="h-3.5 w-3.5"></i> Employment</p>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        
+                        <div>
+                            <label for="department_id" class="{{ $reporterLabelClass }}">Department</label>
+                            <select id="department_id" name="department_id" class="{{ $reporterFieldClass }}" data-searchable="1" data-search-placeholder="Search department">
+                                <option value="">No department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->department_id }}">{{ $department->department_name }}{{ $department->department_is_archived ? ' (archived)' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="employment_basis" class="{{ $reporterLabelClass }}">Employment basis</label>
+                            <select id="employment_basis" name="employment_basis" class="{{ $reporterFieldClass }}">
+                                <option value="">Select basis</option>
+                                <option value="Full time">Full time</option>
+                                <option value="Part time">Part time</option>
+                            </select>
                         </div>
                     </div>
                 </section>
@@ -2085,7 +1951,13 @@
                         </div>
                         <div>
                             <label for="contact" class="{{ $reporterLabelClass }}">Contact number</label>
-                            <input id="contact" name="contact" type="text" placeholder="09103102012" maxlength="11" pattern="[0-9]*" inputmode="numeric" class="{{ $reporterFieldClass }}" />
+                            @include('partials.phone-input', [
+                                'name' => 'contact',
+                                'value' => old('contact', ''),
+                                'id' => 'contact',
+                                'placeholder' => '9XX XXX XXXX',
+                                'inputClass' => $reporterFieldClass,
+                            ])
                         </div>
                     </div>
                 </section>
@@ -2093,33 +1965,23 @@
 
             <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4">
                 <button type="button" onclick="closeCreateModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">
-                    <i data-lucide="user-plus" class="h-4 w-4"></i>
-                    Add reporter
-                </button>
+                @if(session('mismatch_force_data'))
+                    <button type="submit" name="force_sync" value="1" class="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-medium text-white transition hover:bg-amber-700">
+                        <i data-lucide="zap" class="h-4 w-4"></i>
+                        Force sync and add
+                    </button>
+                    <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">
+                        <i data-lucide="user-plus" class="h-4 w-4"></i>
+                        Add reporter (without forcing)
+                    </button>
+                @else
+                    <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">
+                        <i data-lucide="user-plus" class="h-4 w-4"></i>
+                        Add reporter
+                    </button>
+                @endif
             </div>
         </form>
-    </div>
-
-    <div
-        id="viewModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
-    >
-        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
-            <div class="flex items-start justify-between px-6 pb-4 pt-6">
-                <div>
-                    <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Reporter</p>
-                    <h2 class="mt-1 text-lg font-semibold tracking-tight text-slate-900">Profile</h2>
-                </div>
-                <button type="button" onclick="closeViewModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-            <div id="reporterDetails" class="px-6 pb-2"></div>
-            <div class="flex justify-end px-6 py-4">
-                <button type="button" onclick="closeViewModal()" class="h-10 rounded-xl  px-4 text-sm font-medium text-slate-950 hover:text-slate-600">Close</button>
-            </div>
-        </div>
     </div>
 
     <div
@@ -2181,16 +2043,8 @@
                                 <span id="editEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                             </div>
                             <input type="hidden" name="employee_id" id="editEmployeeId" value="" required>
-                        </div>
-                        <p id="editEmployeeIdHint" class="-mt-2 text-xs text-slate-400 sm:col-span-2">Select type first, then enter the 5-digit number.</p>
-                        <div class="sm:col-span-2">
-                            <label for="editDepartment" class="{{ $reporterLabelClass }}">Department</label>
-                            <select name="department_id" id="editDepartment" class="{{ $reporterFieldClass }}" data-searchable="1" data-search-placeholder="Search department">
-                                <option value="">No department</option>
-                                @foreach ($departments as $department)
-                                    <option value="{{ $department->department_id }}">{{ $department->department_name }}{{ $department->department_is_archived ? ' (archived)' : '' }}</option>
-                                @endforeach
-                            </select>
+                            <p id="editEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
+                            <p id="editEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee exists in Property Assignments; reporter details must match the people directory.</p>
                         </div>
                     </div>
                 </section>
@@ -2200,15 +2054,39 @@
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                             <label for="editFirstName" class="{{ $reporterLabelClass }}">First name <span class="text-red-500">*</span></label>
-                            <input type="text" name="first_name" id="editFirstName" required class="{{ $reporterFieldClass }}" />
+                            <input type="text" name="first_name" id="editFirstName" maxlength="50" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
                         </div>
                         <div>
                             <label for="editMiddleName" class="{{ $reporterLabelClass }}">Middle name</label>
-                            <input type="text" name="middle_name" id="editMiddleName" placeholder="Optional" class="{{ $reporterFieldClass }}" />
+                            <input type="text" name="middle_name" id="editMiddleName" maxlength="50" placeholder="Optional" oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
                         </div>
                         <div>
                             <label for="editLastName" class="{{ $reporterLabelClass }}">Last name <span class="text-red-500">*</span></label>
-                            <input type="text" name="last_name" id="editLastName" required class="{{ $reporterFieldClass }}" />
+                            <input type="text" name="last_name" id="editLastName" maxlength="50" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" class="{{ $reporterFieldClass }}" />
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <p class="{{ $reporterSectionClass }}"><i data-lucide="briefcase" class="h-3.5 w-3.5"></i> Employment</p>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        
+                        <div>
+                            <label for="editDepartment" class="{{ $reporterLabelClass }}">Department</label>
+                            <select name="department_id" id="editDepartment" class="{{ $reporterFieldClass }}" data-searchable="1" data-search-placeholder="Search department">
+                                <option value="">No department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->department_id }}">{{ $department->department_name }}{{ $department->department_is_archived ? ' (archived)' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="editEmploymentBasis" class="{{ $reporterLabelClass }}">Employment basis</label>
+                            <select name="employment_basis" id="editEmploymentBasis" class="{{ $reporterFieldClass }}">
+                                <option value="">Select basis</option>
+                                <option value="Full time">Full time</option>
+                                <option value="Part time">Part time</option>
+                            </select>
                         </div>
                     </div>
                 </section>
@@ -2222,7 +2100,13 @@
                         </div>
                         <div>
                             <label for="editContact" class="{{ $reporterLabelClass }}">Contact number</label>
-                            <input type="text" name="contact" id="editContact" placeholder="09103102012" maxlength="11" inputmode="numeric" class="{{ $reporterFieldClass }}" />
+                            @include('partials.phone-input', [
+                                'name' => 'contact',
+                                'value' => old('contact', ''),
+                                'id' => 'editContact',
+                                'placeholder' => '9XX XXX XXXX',
+                                'inputClass' => $reporterFieldClass,
+                            ])
                         </div>
                     </div>
                 </section>
@@ -2618,7 +2502,6 @@
     <script>
         const createModal = document.getElementById("createModal");
         const importModal = document.getElementById("importModal");
-        const viewModal = document.getElementById("viewModal");
         const editModal = document.getElementById("editModal");
         const deleteModal = document.getElementById("deleteModal");
 
@@ -2651,11 +2534,6 @@
             createModal.classList.remove("flex");
         }
 
-        function closeViewModal() {
-            viewModal.classList.add("hidden");
-            viewModal.classList.remove("flex");
-        }
-
         function closeEditModal() {
             editModal.classList.add("hidden");
             editModal.classList.remove("flex");
@@ -2670,6 +2548,52 @@
             if (type === 'Faculty') return 'F';
             if (type === 'Staff') return 'S';
             return '';
+        }
+
+        const propertyAssignmentWarningRequest = { create: 0, edit: 0 };
+
+        function setPropertyAssignmentWarning(mode, shouldShow) {
+            const hint = document.getElementById(mode === 'edit' ? 'editEmployeeIdHint2' : 'createEmployeeIdHint2');
+            if (!hint) return;
+            hint.classList.toggle('hidden', !shouldShow);
+        }
+
+        async function refreshPropertyAssignmentWarning(mode) {
+            const isEdit = mode === 'edit';
+            const typeEl = document.getElementById(isEdit ? 'editType' : 'type');
+            const digitsEl = document.getElementById(isEdit ? 'editEmployeeIdDigits' : 'employee_id_digits');
+            const type = typeEl ? (typeEl.value || '') : '';
+            const digits = digitsEl ? String(digitsEl.value || '').replace(/\D/g, '').slice(0, 5) : '';
+            const suffix = suffixForReporterType(type);
+            const employeeId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
+
+            propertyAssignmentWarningRequest[mode] += 1;
+            const requestId = propertyAssignmentWarningRequest[mode];
+
+            if (!employeeId) {
+                setPropertyAssignmentWarning(mode, false);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/get-custodian/${encodeURIComponent(employeeId)}`);
+                if (requestId !== propertyAssignmentWarningRequest[mode]) {
+                    return;
+                }
+                if (!res || !res.ok) {
+                    setPropertyAssignmentWarning(mode, false);
+                    return;
+                }
+                const json = await res.json();
+                if (requestId !== propertyAssignmentWarningRequest[mode]) {
+                    return;
+                }
+                setPropertyAssignmentWarning(mode, !!json);
+            } catch (e) {
+                if (requestId === propertyAssignmentWarningRequest[mode]) {
+                    setPropertyAssignmentWarning(mode, false);
+                }
+            }
         }
 
         function syncReporterEmployeeId(mode) {
@@ -2697,10 +2621,113 @@
                 fieldEl.classList.add('is-disabled');
                 digitsEl.setAttribute('readonly', 'readonly');
                 if (hintEl) hintEl.textContent = 'Select type first, then enter the 5-digit number.';
+                setPropertyAssignmentWarning(mode, false);
             }
 
             const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
             fullEl.value = fullId;
+            setPropertyAssignmentWarning(mode, false);
+            if (!fullId) {
+                return fullId;
+            }
+
+            if (fullId) {
+                (async function () {
+                    const requestId = ++propertyAssignmentWarningRequest[mode];
+                    try {
+                        // Try to get a reporter record first for department hints
+                        const rResp = await fetch(`/get-reporter/${encodeURIComponent(fullId)}`);
+                        if (rResp && rResp.ok) {
+                            const rData = await rResp.json();
+                            const deptId = rData?.department_id ?? null;
+                            if (deptId) {
+                                const sel = document.getElementById(isEdit ? 'editDepartment' : 'department_id');
+                                if (sel) {
+                                    sel.value = String(deptId);
+                                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }
+                        }
+
+                        // Also try to fetch the authoritative people directory (custodian)
+                        const cResp = await fetch(`/get-custodian/${encodeURIComponent(fullId)}`);
+                        if (requestId !== propertyAssignmentWarningRequest[mode]) {
+                            return;
+                        }
+                        if (cResp && cResp.ok) {
+                            const cData = await cResp.json();
+                            if (requestId !== propertyAssignmentWarningRequest[mode]) {
+                                return;
+                            }
+                            if (cData) {
+                                // Auto-fill name/contact/email/department fields from people directory
+                                const first = cData.custodian_first_name ?? '';
+                                const middle = cData.custodian_middle_name ?? '';
+                                const last = cData.custodian_last_name ?? '';
+                                const email = cData.custodian_email_address ?? '';
+                                const contact = cData.custodian_contact_number ?? '';
+
+                                const firstEl = document.getElementById(isEdit ? 'editFirstName' : 'first_name');
+                                const middleEl = document.getElementById(isEdit ? 'editMiddleName' : 'middle_name');
+                                const lastEl = document.getElementById(isEdit ? 'editLastName' : 'last_name');
+                                const emailEl = document.getElementById(isEdit ? 'editEmail' : 'email');
+                                const contactEl = document.getElementById(isEdit ? 'editContact' : 'contact');
+
+                                if (firstEl && first) firstEl.value = first;
+                                if (middleEl && middle) middleEl.value = middle;
+                                if (lastEl && last) lastEl.value = last;
+                                if (emailEl && email) emailEl.value = email;
+                                // Normalize contact: strip non-digit characters so storage accepts it
+                                const normalizedContact = contact ? String(contact).replace(/\D/g, '') : '';
+                                if (contactEl) {
+                                    try {
+                                        contactEl.value = normalizedContact;
+                                    } catch (e) {
+                                        // ignore
+                                    }
+                                    if (typeof window.writePrismPhoneStorage === 'function') {
+                                        window.writePrismPhoneStorage(contactEl, normalizedContact);
+                                    }
+                                    // Refresh visible formatting in the form so users see 3-3-4 grouping
+                                    try {
+                                        const root = contactEl.closest && contactEl.closest('form') ? contactEl.closest('form') : document;
+                                        if (typeof window.syncPrismPhoneInputs === 'function') {
+                                            window.syncPrismPhoneInputs(root);
+                                        }
+                                    } catch (e) {
+                                        // ignore
+                                    }
+                                }
+
+                                // department
+                                if (! isEdit) {
+                                    const sel = document.getElementById('department_id');
+                                    if (sel && cData.custodian_department_id) {
+                                        sel.value = String(cData.custodian_department_id);
+                                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                    }
+                                } else {
+                                    const sel = document.getElementById('editDepartment');
+                                    if (sel && cData.custodian_department_id) {
+                                        sel.value = String(cData.custodian_department_id);
+                                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                    }
+                                }
+                                setPropertyAssignmentWarning(mode, true);
+                            } else {
+                                setPropertyAssignmentWarning(mode, false);
+                            }
+                        } else {
+                            setPropertyAssignmentWarning(mode, false);
+                        }
+                    } catch (e) {
+                        // ignore network errors silently
+                        if (requestId === propertyAssignmentWarningRequest[mode]) {
+                            setPropertyAssignmentWarning(mode, false);
+                        }
+                    }
+                })();
+            }
             return fullId;
         }
 
@@ -2768,55 +2795,7 @@
             notifyCopied();
         }
 
-        function viewReporter(employee, name, type, email, contact, department) {
-            const displayName = name || "—";
-            const initials = displayName
-                .split(/\s+/)
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((part) => part[0].toUpperCase())
-                .join("") || "?";
-            const typeChip = type
-                ? `<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">${type}</span>`
-                : `<span class="text-xs text-slate-400">No type set</span>`;
-
-            document.getElementById("reporterDetails").innerHTML = `
-                <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100/80 text-sm font-semibold text-slate-950">${initials}</div>
-                        <div class="min-w-0">
-                            <p class="truncate text-base font-semibold text-slate-900">${displayName}</p>
-                            <p class="mt-0.5 font-mono text-xs text-slate-500">${employee || "—"}</p>
-                        </div>
-                    </div>
-                    <div class="mt-3">${typeChip}</div>
-                </div>
-                <dl class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200/70">
-                    <div class="flex items-start justify-between gap-4 px-4 py-3">
-                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Department</dt>
-                        <dd class="min-w-0 text-right text-sm font-medium text-slate-800">${department ? String(department).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : "—"}</dd>
-                    </div>
-                    <div class="flex items-start justify-between gap-4 px-4 py-3">
-                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Email</dt>
-                        <dd class="min-w-0 break-all text-right text-sm font-medium text-slate-800">${email || "—"}</dd>
-                    </div>
-                    <div class="flex items-start justify-between gap-4 px-4 py-3">
-                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Contact</dt>
-                        <dd class="text-right text-sm font-medium text-slate-800">
-                            ${contact
-                                ? `<button type="button" onclick="copyReporterContact(this)" data-contact="${String(contact).replace(/"/g, '&quot;')}" data-tooltip="Click to copy" class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition hover:bg-slate-100">${contact}<i data-lucide="copy" class="h-3 w-3 text-slate-400"></i></button>`
-                                : '—'}
-                        </dd>
-                    </div>
-                </dl>
-            `;
-
-            viewModal.classList.remove("hidden");
-            viewModal.classList.add("flex");
-            if (typeof lucide !== "undefined") lucide.createIcons();
-        }
-
-        function editReporter(id, employee, first, middle, last, type, email, contact, departmentId) {
+        function editReporter(id, employee, first, middle, last, type, email, contact, departmentId, employmentBasis) {
             clearDuplicateWarnings();
             document.getElementById("editReporterId").value = id;
             document.getElementById("editFirstName").value = first || "";
@@ -2830,6 +2809,7 @@
             document.getElementById("editEmail").value = email || "";
             document.getElementById("editContact").value = contact || "";
             document.getElementById("editDepartment").value = departmentId ? String(departmentId) : "";
+            document.getElementById("editEmploymentBasis").value = employmentBasis || "";
             syncReporterEmployeeId('edit');
 
             editModal.classList.remove("hidden");
@@ -3142,6 +3122,32 @@
 
         });
 
+        // Show a hint in the create / edit modal when the entered employee ID exists
+        // in the people directory (custodians). This warns users that details
+        // must match the people directory.
+        (function () {
+            const inputs = [
+                { mode: 'create', input: document.getElementById('employee_id_digits'), hidden: document.getElementById('employee_id') },
+                { mode: 'edit', input: document.getElementById('editEmployeeIdDigits'), hidden: document.getElementById('editEmployeeId') },
+            ];
+
+            inputs.forEach(({ mode, input, hidden }) => {
+                if (!input) return;
+                const onChange = () => {
+                    const digits = input.value?.trim() || '';
+                    const full = hidden?.value?.trim() || '';
+                    const employeeId = full || (digits ? ('OMC' + digits) : '');
+                    if (!employeeId) {
+                        setPropertyAssignmentWarning(mode, false);
+                        return;
+                    }
+                    refreshPropertyAssignmentWarning(mode);
+                };
+                input.addEventListener('input', onChange);
+                input.addEventListener('blur', onChange);
+            });
+        })();
+
         const importFile = document.getElementById('importFile');
         const importDropzone = document.getElementById('importDropzone');
         const importFileName = document.getElementById('importFileName');
@@ -3200,7 +3206,7 @@
                     <td class="px-3 py-2 font-mono text-xs text-slate-700">${cellText(person.employee_id)}</td>
                     <td class="px-3 py-2 text-slate-900">${cellText(name)}</td>
                     <td class="px-3 py-2 text-slate-600">${cellText(person.type)}</td>
-                    <td class="px-3 py-2 text-slate-600">${department}</td>
+                    <td class="px-3 py-2 text-slate-600" data-dept-line="${person.line}" data-employee-id="${person.employee_id}" data-dept-name="${cellText(person.department)}">${department}</td>
                     <td class="px-3 py-2 text-slate-600">${cellText(person.email_address)}</td>
                     <td class="px-3 py-2 text-slate-600">${cellText(person.contact_number)}</td>
                 `;
@@ -3221,6 +3227,70 @@
                 : '';
 
             importMappingPanel.classList.remove('hidden');
+            importSubmitBtn.disabled = ready === 0;
+            importSubmitBtn.textContent = ready ? `Add ${ready} reporter${ready === 1 ? '' : 's'}` : 'Import reporters';
+
+            // After rendering the preview, attempt to resolve departments and then
+            // recompute the exact shown ready/skipped counters for the preview.
+            tryResolveDepartments(data);
+        }
+        // Try to resolve missing departments using employee IDs for rows shown in the preview.
+        async function tryResolveDepartments(data) {
+            const deptCells = Array.from(importPreviewBody.querySelectorAll('td[data-dept-line]'));
+            // Collect cells that show a department string but no department_id (they have the '(not found)' marker)
+            const toResolve = deptCells.filter((cell) => cell.textContent.includes('(not found)'))
+                .map((cell) => ({ line: cell.getAttribute('data-dept-line'), employeeId: cell.getAttribute('data-employee-id'), cell }));
+
+            if (toResolve.length === 0) {
+                // Still recompute counts based on the current DOM
+                recomputePreviewCounts(data);
+                return;
+            }
+
+            await Promise.all(toResolve.map(async ({ line, employeeId, cell }) => {
+                if (!employeeId) return;
+                try {
+                    const res = await fetch(`/get-reporter/${encodeURIComponent(employeeId)}`);
+                    if (!res.ok) return;
+                    const json = await res.json();
+                    const deptId = json?.department_id ?? null;
+                    const deptName = json?.department_name ?? null;
+                    if (deptId && deptName) {
+                        // Update the cell to show the matched department
+                        cell.innerHTML = `${cellText(deptName)}`;
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }));
+
+            // Recompute unknown departments shown in the preview from remaining '(not found)' cells
+            const remaining = Array.from(importPreviewBody.querySelectorAll('td[data-dept-line]'))
+                .filter((c) => c.textContent.includes('(not found)'))
+                .map((c) => c.getAttribute('data-dept-name'))
+                .filter(Boolean);
+
+            const unique = Array.from(new Set(remaining));
+            importUnknownDepartments.classList.toggle('hidden', unique.length === 0);
+            importUnknownDepartments.textContent = unique.length
+                ? `Departments not found (these reporters will be saved without a department): ${unique.join(', ')}. Add them in Departments first if you want them linked.`
+                : '';
+
+            // Recompute counts now that some department cells may have been updated
+            recomputePreviewCounts(data);
+        }
+
+        function recomputePreviewCounts(data) {
+            const rows = Array.from(importPreviewBody.querySelectorAll('tr'));
+            const shown = rows.length;
+            const skipped = rows.filter((r) => r.querySelector('td:nth-child(2)')?.textContent.includes('Skip')).length;
+            const ready = shown - skipped;
+
+            const totalAll = data?.total || shown;
+            importPreviewCount.textContent = totalAll
+                ? `${totalAll} row${totalAll === 1 ? '' : 's'} found: ${ready} ready to add` + (skipped ? `, ${skipped} will be skipped` : '') + (totalAll > 50 ? ' (showing the first 50, problems first)' : '')
+                : 'No employees found in the file';
+
             importSubmitBtn.disabled = ready === 0;
             importSubmitBtn.textContent = ready ? `Add ${ready} reporter${ready === 1 ? '' : 's'}` : 'Import reporters';
         }
@@ -3591,6 +3661,7 @@
                     'middle_name' => old('middle_name'),
                     'last_name' => old('last_name'),
                     'type' => old('type'),
+                    'employment_basis' => old('employment_basis'),
                     'email' => old('email'),
                     'contact' => old('contact'),
                     'department_id' => old('department_id'),
@@ -3598,7 +3669,7 @@
                 let form;
 
                 if (mode === 'edit') {
-                    editReporter(old.reporter_id, old.employee_id, old.first_name, old.middle_name, old.last_name, old.type, old.email, old.contact, old.department_id);
+                    editReporter(old.reporter_id, old.employee_id, old.first_name, old.middle_name, old.last_name, old.type, old.email, old.contact, old.department_id, old.employment_basis);
                     form = document.getElementById('editReporterForm');
                 } else {
                     openCreateModal();
@@ -3610,6 +3681,8 @@
                         const input = form.querySelector(`[name="${name}"]`);
                         if (input) input.value = old[name] || '';
                     });
+                    const basisInput = form.querySelector('[name="employment_basis"]');
+                    if (basisInput) basisInput.value = old.employment_basis || '';
                     syncReporterEmployeeId('create');
                 }
 

@@ -47,7 +47,7 @@
                         </dd>
                     </div>
                     <div class="flex justify-between gap-3">
-                        <dt class="text-slate-500">Room / desk</dt>
+                        <dt class="text-slate-500">Room</dt>
                         <dd class="text-right font-semibold text-slate-800">
                             {{ $current->room_name ?? '—' }}@if (!empty($current->workstation_slot_label)) · {{ $current->workstation_slot_label }}@endif
                         </dd>

@@ -45,6 +45,9 @@ class PropertyAssignmentController extends Controller
             'stats' => PropertyAssignments::stats(),
             'tableReady' => $tableReady,
             'unlinkedReporters' => $tableReady ? Custodians::unlinkedReporterCount() : 0,
+            // Provide auxiliary data used by the Add Person modal
+            'rooms' => $tableReady ? $this->roomOptions() : collect(),
+            'linkableReporters' => $tableReady ? Custodians::linkableReporters() : collect(),
         ]);
     }
 
@@ -97,9 +100,114 @@ class PropertyAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Return custodian data for a given employee ID (JSON) — used by frontend hints.
+     */
+    public function getCustodianByEmployee(Request $request, string $employeeId)
+    {
+        if (trim($employeeId) === '' || ! Schema::hasTable('custodians_table') || ! Schema::hasTable('property_assignments_table')) {
+            return response()->json(null);
+        }
+
+        $person = DB::table('custodians_table as c')
+            ->join('property_assignments_table as pa', 'pa.assignment_custodian_id', '=', 'c.custodian_id')
+            ->leftJoin('departments_table as d', 'd.department_id', '=', 'c.custodian_department_id')
+            ->where('c.custodian_employee_id', $employeeId)
+            ->where('c.custodian_status', '!=', 'Inactive')
+            ->where('pa.assignment_status', 'Active')
+            ->select('c.*', 'd.department_name as custodian_department')
+            ->first();
+
+        return response()->json($person ?: null);
+    }
+
     public function storePerson(Request $request)
     {
         $validated = $this->validatePerson($request);
+
+        // If a reporter exists with the same employee ID, enforce exact match
+        // rather than silently overwriting custodian details. This prevents
+        // mismatched records across modules.
+        if (! empty($validated['custodian_employee_id']) && Schema::hasTable('reporters_table')) {
+            $reporter = DB::table('reporters_table')
+                ->where('reporter_employee_id', $validated['custodian_employee_id'])
+                ->first();
+
+            if ($reporter) {
+                $errors = [];
+                $repName = trim((string) $reporter->reporter_full_name);
+                $newName = trim((($validated['custodian_first_name'] ?? '') . ' ' . ($validated['custodian_last_name'] ?? '')));
+                if ($repName !== '' && $newName !== '' && $repName !== $newName) {
+                    $errors['custodian_employee_id'] = 'Employee ID already exists in the reporters directory with a different name ('.$repName.'). Reconcile details first.';
+                }
+
+                $repEmail = trim((string) ($reporter->reporter_email_address ?? ''));
+                if ($repEmail !== '' && ($validated['custodian_email_address'] ?? '') !== '' && $repEmail !== $validated['custodian_email_address']) {
+                    $errors['custodian_email_address'] = 'Email differs from the reporters directory ('.$repEmail.'). Reconcile details first.';
+                }
+
+                $repContact = trim((string) ($reporter->reporter_contact_number ?? ''));
+                if ($repContact !== '' && ($validated['custodian_contact_number'] ?? '') !== '' && $repContact !== $validated['custodian_contact_number']) {
+                    $errors['custodian_contact_number'] = 'Contact number differs from the reporters directory ('.$repContact.'). Reconcile details first.';
+                }
+
+                $repDept = ! empty($reporter->reporter_department_id) ? (int) $reporter->reporter_department_id : null;
+                $custDept = ! empty($validated['custodian_department_id']) ? (int) $validated['custodian_department_id'] : null;
+                if ($repDept !== null && $custDept !== null && $repDept !== $custDept) {
+                    $errors['custodian_department_id'] = 'Department differs from the reporters directory. Reconcile details first.';
+                }
+
+                if ($errors !== []) {
+                    // Offer a force-sync option in the UI: include reporter data in session
+                    session()->flash('mismatch_force_data', [
+                        'type' => 'reporter',
+                        'reporter' => [
+                            'reporter_full_name' => $reporter->reporter_full_name ?? null,
+                            'reporter_first_name' => $reporter->reporter_first_name ?? null,
+                            'reporter_middle_name' => $reporter->reporter_middle_name ?? null,
+                            'reporter_last_name' => $reporter->reporter_last_name ?? null,
+                            'reporter_email_address' => $reporter->reporter_email_address ?? null,
+                            'reporter_contact_number' => $reporter->reporter_contact_number ?? null,
+                            'reporter_department_id' => $reporter->reporter_department_id ?? null,
+                            'reporter_id' => $reporter->reporter_id ?? null,
+                        ],
+                    ]);
+
+                    // If the user explicitly asked to force sync, merge and continue
+                    if ($request->filled('force_sync')) {
+                        $validated['custodian_full_name'] = $reporter->reporter_full_name ?? $validated['custodian_full_name'] ?? null;
+                        if (Custodians::hasNameColumns()) {
+                            $validated['custodian_first_name'] = $reporter->reporter_first_name ?? $validated['custodian_first_name'] ?? null;
+                            $validated['custodian_middle_name'] = $reporter->reporter_middle_name ?? $validated['custodian_middle_name'] ?? null;
+                            $validated['custodian_last_name'] = $reporter->reporter_last_name ?? $validated['custodian_last_name'] ?? null;
+                        }
+                        $validated['custodian_email_address'] = $reporter->reporter_email_address ?? $validated['custodian_email_address'] ?? null;
+                        $validated['custodian_contact_number'] = $reporter->reporter_contact_number ?? $validated['custodian_contact_number'] ?? null;
+                        if (! empty($reporter->reporter_department_id)) {
+                            $validated['custodian_department_id'] = (int) $reporter->reporter_department_id;
+                        }
+
+                        // Map reporter employment type to custodian position when possible
+                        if (! empty($reporter->reporter_employment_type)) {
+                            $validated['custodian_position'] = $reporter->reporter_employment_type;
+                        }
+
+                        // Map reporter status to custodian status
+                        if (! empty($reporter->reporter_status)) {
+                            $validated['custodian_status'] = $reporter->reporter_status === 'Active' ? 'Active' : $validated['custodian_status'] ?? 'Active';
+                        }
+
+                        // Link to reporter record
+                        $validated['custodian_reporter_id'] = (int) $reporter->reporter_id;
+                    } else {
+                        return back()->withInput()->withErrors($errors);
+                    }
+                }
+
+                // If match is exact (or force_sync performed), link to reporter record
+                $validated['custodian_reporter_id'] = $validated['custodian_reporter_id'] ?? (int) $reporter->reporter_id;
+            }
+        }
 
         if ($duplicate = $this->holdForDuplicateName($request, $validated)) {
             return $duplicate;
@@ -109,7 +217,7 @@ class PropertyAssignmentController extends Controller
 
         return redirect()
             ->to(PropertyAssignments::route('person', $id))
-            ->with('success', trim($validated['custodian_first_name'].' '.$validated['custodian_last_name']).' was added. You can now assign equipment to them.');
+            ->with('success', trim(($validated['custodian_first_name'] ?? '').' '.($validated['custodian_last_name'] ?? '')).' was added. You can now assign equipment to them.');
     }
 
     public function editPerson(int $custodian)
@@ -283,12 +391,13 @@ class PropertyAssignmentController extends Controller
     {
         PersonNames::cleanRequest($request, ['custodian_first_name', 'custodian_middle_name', 'custodian_last_name']);
 
-        return $request->validate([
+        $validated = $request->validate([
             'custodian_first_name' => PersonNames::rules(),
             'custodian_middle_name' => PersonNames::rules(false),
             'custodian_last_name' => PersonNames::rules(),
+            'custodian_employment_type' => ['required', Rule::in(['Faculty', 'Staff'])],
             'custodian_employee_id' => [
-                'nullable', 'string', 'max:50',
+                'required', 'string', 'max:50', 'regex:/^OMC\d{5}[FS]$/',
                 Rule::unique('custodians_table', 'custodian_employee_id')->ignore($custodianId, 'custodian_id'),
             ],
             'custodian_position' => ['nullable', 'string', 'max:120'],
@@ -301,11 +410,14 @@ class PropertyAssignmentController extends Controller
                 Rule::exists('reporters_table', 'reporter_id'),
                 Rule::unique('custodians_table', 'custodian_reporter_id')->ignore($custodianId, 'custodian_id'),
             ],
+            'custodian_employment_basis' => ['nullable', Rule::in(['Full time', 'Part time'])],
             'custodian_status' => ['required', Rule::in(Custodians::STATUSES)],
             'custodian_notes' => ['nullable', 'string', 'max:1000'],
         ], [
             'custodian_first_name.required' => 'Enter the first name.',
             'custodian_last_name.required' => 'Enter the last name.',
+            'custodian_employee_id.required' => 'Enter the employee ID.',
+            'custodian_employee_id.regex' => 'Employee ID must be OMC + 5 digits + F or S (e.g. OMC00127F).',
             'custodian_employee_id.unique' => 'Another person in the directory already uses this employee ID.',
             'custodian_reporter_id.unique' => 'That faculty/staff account is already linked to another person.',
         ], [
@@ -313,6 +425,18 @@ class PropertyAssignmentController extends Controller
             'custodian_middle_name' => 'middle name',
             'custodian_last_name' => 'last name',
         ]);
+
+        // Map employment type to the stored position column so older code continues
+        if (! empty($validated['custodian_employment_type']) && empty($validated['custodian_position'])) {
+            $validated['custodian_position'] = $validated['custodian_employment_type'];
+        }
+
+        // Preserve employment basis if provided (new column)
+        if (! empty($validated['custodian_employment_basis'])) {
+            $validated['custodian_employment_basis'] = $validated['custodian_employment_basis'];
+        }
+
+        return $validated;
     }
 
     private function roomOptions()

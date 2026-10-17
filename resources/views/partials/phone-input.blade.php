@@ -146,6 +146,32 @@
                 return digits;
             };
 
+            window.formatPrismPhoneDisplay = function (raw) {
+                let digits = String(raw || '').replace(/\D/g, '');
+                if (!digits) {
+                    return '';
+                }
+
+                if (digits.startsWith('63') && digits.length >= 11) {
+                    digits = '0' + digits.slice(2);
+                } else if (digits.length === 10 && digits.startsWith('9')) {
+                    digits = '0' + digits;
+                }
+
+                digits = digits.replace(/^0+(?=\d)/, '0');
+                digits = digits.slice(0, 11);
+
+                if (digits.length <= 4) {
+                    return digits;
+                }
+
+                if (digits.length <= 7) {
+                    return digits.slice(0, 4) + ' ' + digits.slice(4);
+                }
+
+                return digits.slice(0, 4) + ' ' + digits.slice(4, 7) + ' ' + digits.slice(7, 11);
+            };
+
             window.getPrismPhoneStorage = function (input) {
                 if (!input) return null;
                 const storageId = input.getAttribute('data-phone-storage-id');
@@ -164,6 +190,62 @@
                     storage.value = formatted;
                 }
                 return formatted;
+            };
+
+            window.getPrismPhoneMaxDigits = function (input) {
+                if (!input) return 0;
+                const iti = window.PRISM_PHONE_INPUTS.get(input);
+                let iso2 = 'ph';
+                if (iti && typeof iti.getSelectedCountryData === 'function') {
+                    try {
+                        const country = iti.getSelectedCountryData();
+                        if (country && country.iso2) {
+                            iso2 = String(country.iso2).toLowerCase();
+                        }
+                    } catch (e) {
+                        // fallback to the default PH limit
+                    }
+                }
+
+                if (iso2 === 'ph') return 11;
+                return 15;
+            };
+
+            window.normalizePrismPhoneDigits = function (input, digits) {
+                if (!digits) return '';
+
+                const iti = window.PRISM_PHONE_INPUTS.get(input);
+                let iso2 = 'ph';
+                if (iti && typeof iti.getSelectedCountryData === 'function') {
+                    try {
+                        const country = iti.getSelectedCountryData();
+                        if (country && country.iso2) {
+                            iso2 = String(country.iso2).toLowerCase();
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+
+                let cleaned = String(digits).replace(/\D/g, '');
+
+                if (iso2 === 'ph') {
+                    if (cleaned.startsWith('63') && cleaned.length > 10) {
+                        cleaned = '0' + cleaned.slice(2);
+                    }
+
+                    cleaned = cleaned.replace(/^0+/, '0');
+                    cleaned = cleaned.slice(0, 11);
+
+                    if (!cleaned.startsWith('09')) {
+                        cleaned = cleaned.replace(/^0+/, '');
+                        cleaned = '09' + cleaned.slice(0, 9);
+                    }
+
+                    return cleaned.slice(0, 11);
+                }
+
+                return cleaned.slice(0, 15);
             };
 
             window.readPrismPhoneDigits = function (input) {
@@ -203,7 +285,7 @@
                     }
                 }
 
-                return digits;
+                return window.normalizePrismPhoneDigits(input, digits);
             };
 
             window.initPrismPhoneInput = function (input) {
@@ -353,33 +435,17 @@
                     window.writePrismPhoneStorage(input, seed);
                 }
 
-                // Enforce a friendly PH mobile format while typing: 9XX XXX XXXX
+                // Keep the standard country-code format from intl-tel-input while typing.
                 input.addEventListener('input', function () {
                     try {
                         if (input.dataset.phMaskApplying === '1') return;
-                        const selected = iti.getSelectedCountryData && iti.getSelectedCountryData();
-                        if (!selected || selected.iso2 !== 'ph') {
-                            window.writePrismPhoneStorage(input, window.readPrismPhoneDigits(input));
-                            return;
-                        }
 
-                        let digits = String(input.value).replace(/\D/g, '');
-                        if (digits.startsWith('0') && digits.length > 1) {
-                            digits = digits.slice(1);
+                        const rawDigits = window.readPrismPhoneDigits(input);
+                        if (rawDigits) {
+                            window.writePrismPhoneStorage(input, rawDigits);
+                        } else {
+                            window.writePrismPhoneStorage(input, '');
                         }
-                        digits = digits.slice(0, 10);
-                        const part1 = digits.slice(0, 3);
-                        const part2 = digits.slice(3, 6);
-                        const part3 = digits.slice(6, 10);
-                        const formatted = [part1, part2, part3].filter(Boolean).join(' ');
-
-                        if (formatted !== input.value) {
-                            input.dataset.phMaskApplying = '1';
-                            input.value = formatted;
-                            setTimeout(function () { input.dataset.phMaskApplying = '0'; }, 0);
-                        }
-
-                        window.writePrismPhoneStorage(input, digits ? ('0' + digits) : '');
                     } catch (e) {
                         // Ignore masking errors; intl-tel-input still owns formatting.
                     }
@@ -441,7 +507,9 @@
                     if (formatted) {
                         const national = formatted.replace(/\D/g, '');
                         if (national.length === 11 && national.startsWith('09')) {
-                            input.value = national.slice(1, 4) + ' ' + national.slice(4, 7) + ' ' + national.slice(7, 11);
+                            input.value = input.value || window.formatPrismPhoneDisplay(national);
+                        } else if (national.length > 3) {
+                            input.value = input.value || window.formatPrismPhoneDisplay(national);
                         }
                     }
                 });

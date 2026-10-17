@@ -721,9 +721,22 @@ class ReporterController extends Controller
             return response()->json(null);
         }
 
+        // Try to resolve a linked custodian / department for this employee id.
+        $custodian = DB::table('custodians_table as c')
+            ->leftJoin('departments_table as d', 'd.department_id', '=', 'c.custodian_department_id')
+            ->where(function ($q) use ($employeeId, $reporter) {
+                $q->where('c.custodian_employee_id', $employeeId)
+                  ->orWhere('c.custodian_reporter_id', DB::table('reporters_table')->where('reporter_employee_id', $employeeId)->value('reporter_id'));
+            })
+            ->where('c.custodian_status', '!=', 'Inactive')
+            ->select('c.custodian_id', 'c.custodian_department_id', 'd.department_name')
+            ->first();
+
         return response()->json([
             'reporter_full_name' => $reporter->reporter_full_name,
             'reporter_status' => $reporter->reporter_status,
+            'department_id' => $custodian->custodian_department_id ?? null,
+            'department_name' => $custodian->department_name ?? null,
         ]);
     }
 

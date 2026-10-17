@@ -60,6 +60,14 @@ class PersonnelDirectoryController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        if ($hasDepartment) {
+            foreach ($people as $person) {
+                if (empty($person->department_name) && ! empty($person->reporter_employee_id)) {
+                    $person->department_name = $this->resolveReporterDepartmentName($person);
+                }
+            }
+        }
+
         return view('maintenance-personnel.personnel-directory.index', [
             'people' => $people,
             'stats' => $this->stats($hasType),
@@ -78,6 +86,10 @@ class PersonnelDirectoryController extends Controller
     private function records(Request $request, int $reporterId, bool $hasDepartment)
     {
         $reporter = $this->reportersQuery($hasDepartment)->where('r.reporter_id', $reporterId)->first();
+
+        if ($reporter && $hasDepartment && empty($reporter->department_name)) {
+            $reporter->department_name = $this->resolveReporterDepartmentName($reporter);
+        }
 
         if (! $reporter) {
             return redirect()
@@ -143,6 +155,35 @@ class PersonnelDirectoryController extends Controller
                 'rc.last_reported_at'
             )
             ->when($hasDepartment, fn ($q) => $q->addSelect('d.department_name'));
+    }
+
+    private function resolveReporterDepartmentName(object $reporter): ?string
+    {
+        if (! ReporterImport::hasDepartmentColumn() || ! Departments::tableReady()) {
+            return null;
+        }
+
+        $employeeId = trim((string) ($reporter->reporter_employee_id ?? ''));
+        $reporterId = (int) ($reporter->reporter_id ?? 0);
+
+        if ($reporterId <= 0 && $employeeId === '') {
+            return null;
+        }
+
+        $linked = DB::table('custodians_table as person')
+            ->leftJoin('departments_table as dept', 'dept.department_id', '=', 'person.custodian_department_id')
+            ->where(function ($query) use ($reporterId, $employeeId) {
+                if ($reporterId > 0) {
+                    $query->orWhere('person.custodian_reporter_id', $reporterId);
+                }
+                if ($employeeId !== '') {
+                    $query->orWhere('person.custodian_employee_id', $employeeId);
+                }
+            })
+            ->orderByRaw('person.custodian_reporter_id = ? DESC', [$reporterId])
+            ->value('dept.department_name');
+
+        return $linked !== null && $linked !== '' ? (string) $linked : null;
     }
 
     /**

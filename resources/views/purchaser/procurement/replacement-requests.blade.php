@@ -667,7 +667,7 @@
                                                     @if($request->reporter_contact_number)
                                                         <div>
                                                             <p class="text-xs text-gray-400">Reporter Contact</p>
-                                                            <p class="mt-1 text-sm font-medium text-gray-800">{{ $request->reporter_contact_number }}</p>
+                                                            <p class="mt-1 text-sm font-medium text-gray-800">{{ \App\Support\PhoneNumber::formatForDisplay($request->reporter_contact_number) }}</p>
                                                         </div>
                                                     @endif
                                                 </div>

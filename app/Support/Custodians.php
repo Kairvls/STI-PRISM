@@ -17,7 +17,7 @@ class Custodians
 {
     public const STATUS_ACTIVE = 'Active';
 
-    public const STATUSES = ['Active', 'On Leave', 'Inactive'];
+    public const STATUSES = ['Active', 'Inactive'];
 
     public static function tableReady(): bool
     {
@@ -339,6 +339,7 @@ class Custodians
         return $name + [
             'custodian_employee_id' => $clean('custodian_employee_id'),
             'custodian_position' => $clean('custodian_position'),
+            'custodian_employment_basis' => $clean('custodian_employment_basis'),
             'custodian_department_id' => ! empty($data['custodian_department_id']) ? (int) $data['custodian_department_id'] : null,
             'custodian_room_id' => ! empty($data['custodian_room_id']) ? (int) $data['custodian_room_id'] : null,
             'custodian_email_address' => $clean('custodian_email_address'),

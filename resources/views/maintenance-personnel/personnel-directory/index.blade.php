@@ -127,7 +127,7 @@
                                 @if ($hasDepartment)
                                     <td class="px-5 py-3 text-slate-600">{{ $person->department_name ?: '—' }}</td>
                                 @endif
-                                <td class="px-5 py-3 text-slate-600">{{ $person->reporter_contact_number ?: '—' }}</td>
+                                <td class="px-5 py-3 text-slate-600">{{ \App\Support\PhoneNumber::formatForDisplay($person->reporter_contact_number) ?: '—' }}</td>
                                 <td class="px-5 py-3">
                                     <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $inactiveRow ? 'bg-slate-100 text-slate-600 ring-slate-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-100' }}">{{ $person->reporter_status }}</span>
                                 </td>

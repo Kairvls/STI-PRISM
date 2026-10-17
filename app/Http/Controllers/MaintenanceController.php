@@ -13948,14 +13948,19 @@ class MaintenanceController extends Controller
             // GET SELECTED REPORTER
             // =================================================
 
-            $historyReporter = DB::table('reporters_table')
-
-                ->where(
-                    'reporter_id',
-                    $request->history
-                )
-
+            $historyReporter = DB::table('reporters_table as r')
+                ->when(ReporterImport::hasDepartmentColumn() && Departments::tableReady(), function ($query) {
+                    $query->leftJoin('departments_table as d', 'd.department_id', '=', 'r.reporter_department_id');
+                })
+                ->where('r.reporter_id', $request->history)
+                ->select('r.*')
+                ->when(ReporterImport::hasDepartmentColumn() && Departments::tableReady(), fn ($query) => $query->addSelect('d.department_name as reporter_department_name'))
                 ->first();
+
+            if ($historyReporter && empty($historyReporter->reporter_department_name) && empty($historyReporter->department_name)) {
+                $historyReporter->reporter_department_name = $this->resolveReporterDepartmentName($historyReporter);
+                $historyReporter->department_name = $historyReporter->reporter_department_name;
+            }
 
 
             // =================================================
@@ -14264,16 +14269,20 @@ class MaintenanceController extends Controller
             // PAGINATE REPORTERS
             // =====================================================
 
+            // add a subquery that counts total reports per reporter (by employee id)
+            $reportCountSub = DB::table('reports_table')
+                ->selectRaw('COUNT(*)')
+                ->whereColumn('reports_table.report_reporter_employee_id', 'reporters_table.reporter_employee_id');
+
+            $query->selectSub($reportCountSub, 'report_count');
+
             $reporters = $query
-
                 ->orderBy('reporter_id', 'desc')
-
                 ->paginate(
                     10,
                     ['*'],
                     'page'
                 )
-
                 ->withQueryString();
 
         }
@@ -14623,6 +14632,7 @@ class MaintenanceController extends Controller
             'middle_name' => PersonNames::rules(false),
             'last_name' => PersonNames::rules(),
             'type' => 'required|in:Faculty,Staff',
+            'employment_basis' => ['nullable', Rule::in(['Full time', 'Part time'])],
             'department_id' => $this->reporterDepartmentRules(),
             'email' => 'required|email|max:255',
             'contact' => 'nullable|string|max:50',
@@ -14677,6 +14687,10 @@ class MaintenanceController extends Controller
 
         if (ReporterImport::hasTypeColumn()) {
             $payload['reporter_employment_type'] = $request->filled('type') ? trim($request->type) : null;
+        }
+
+        if (ReporterImport::hasBasisColumn()) {
+            $payload['reporter_employment_basis'] = $request->filled('employment_basis') ? trim((string) $request->employment_basis) : null;
         }
 
         if (ReporterImport::hasDepartmentColumn()) {
@@ -16097,6 +16111,35 @@ class MaintenanceController extends Controller
         }
     }
 
+    private function resolveReporterDepartmentName(object $reporter): ?string
+    {
+        if (! ReporterImport::hasDepartmentColumn() || ! Departments::tableReady()) {
+            return null;
+        }
+
+        $employeeId = trim((string) ($reporter->reporter_employee_id ?? ''));
+        $reporterId = (int) ($reporter->reporter_id ?? 0);
+
+        if ($reporterId <= 0 && $employeeId === '') {
+            return null;
+        }
+
+        $linked = DB::table('custodians_table as person')
+            ->leftJoin('departments_table as dept', 'dept.department_id', '=', 'person.custodian_department_id')
+            ->where(function ($query) use ($reporterId, $employeeId) {
+                if ($reporterId > 0) {
+                    $query->orWhere('person.custodian_reporter_id', $reporterId);
+                }
+                if ($employeeId !== '') {
+                    $query->orWhere('person.custodian_employee_id', $employeeId);
+                }
+            })
+            ->orderByRaw('person.custodian_reporter_id = ? DESC', [$reporterId])
+            ->value('dept.department_name');
+
+        return $linked !== null && $linked !== '' ? (string) $linked : null;
+    }
+
     private function reporterDepartmentRules(): array
     {
         return Departments::tableReady()
@@ -16212,6 +16255,10 @@ class MaintenanceController extends Controller
                 'in:Faculty,Staff',
             ],
 
+            // Employment Basis
+            // Optional, if present must be Full time or Part time
+            'employment_basis' => ['nullable', Rule::in(['Full time', 'Part time'])],
+
             // Department
             // Optional
             'department_id' => $this->reporterDepartmentRules(),
@@ -16285,11 +16332,117 @@ class MaintenanceController extends Controller
             $payload['reporter_employment_type'] = trim($request->type);
         }
 
+        if (ReporterImport::hasBasisColumn() && $request->filled('employment_basis')) {
+            $payload['reporter_employment_basis'] = trim((string) $request->employment_basis);
+        }
+
         if (ReporterImport::hasDepartmentColumn()) {
             $payload['reporter_department_id'] = $request->filled('department_id') ? (int) $request->department_id : null;
         }
 
+        // If a custodian exists with this employee ID, enforce exact match
+        // rather than silently altering data. This prevents divergent
+        // records for the same employee ID across modules.
+        if (Schema::hasTable('custodians_table')) {
+            $custodian = DB::table('custodians_table')
+                ->where('custodian_employee_id', $employeeId)
+                ->first();
+
+            if ($custodian) {
+                $errors = [];
+                $custName = trim((string) $custodian->custodian_full_name);
+                if ($custName !== '' && $custName !== $fullName) {
+                    $errors['employee_id'] = 'Employee ID already exists in the people directory with a different name ('.$custName.'). Reconcile details first.';
+                }
+
+                $custEmail = trim((string) ($custodian->custodian_email_address ?? ''));
+                if ($custEmail !== '' && $custEmail !== ($payload['reporter_email_address'] ?? '')) {
+                    $errors['email'] = 'Email differs from the people directory ('.$custEmail.'). Reconcile details first.';
+                }
+
+                $custContact = trim((string) ($custodian->custodian_contact_number ?? ''));
+                if ($custContact !== '' && $custContact !== ($payload['reporter_contact_number'] ?? '')) {
+                    $errors['contact'] = 'Contact number differs from the people directory ('.$custContact.'). Reconcile details first.';
+                }
+
+                $custDept = ! empty($custodian->custodian_department_id) ? (int) $custodian->custodian_department_id : null;
+                $reqDept = ReporterImport::hasDepartmentColumn() ? ($request->filled('department_id') ? (int) $request->department_id : null) : null;
+                if ($custDept !== null && $reqDept !== null && $custDept !== $reqDept) {
+                    $errors['department_id'] = 'Department differs from the people directory. Reconcile details first.';
+                }
+
+                if ($errors !== []) {
+                    // Offer a force-sync option in the UI: include custodian data in session
+                    session()->flash('mismatch_force_data', [
+                        'type' => 'custodian',
+                        'custodian' => [
+                            'custodian_full_name' => $custodian->custodian_full_name ?? null,
+                            'custodian_first_name' => $custodian->custodian_first_name ?? null,
+                            'custodian_middle_name' => $custodian->custodian_middle_name ?? null,
+                            'custodian_last_name' => $custodian->custodian_last_name ?? null,
+                            'custodian_email_address' => $custodian->custodian_email_address ?? null,
+                            'custodian_contact_number' => $custodian->custodian_contact_number ?? null,
+                            'custodian_department_id' => $custodian->custodian_department_id ?? null,
+                        ],
+                    ]);
+
+                    // If the user explicitly asked to force sync, perform the auto-sync instead
+                    if ($request->filled('force_sync')) {
+
+                        // Overwrite payload fields with custodian's authoritative values
+                        $payload['reporter_full_name'] = $custodian->custodian_full_name ?? $payload['reporter_full_name'];
+                        if (ReporterImport::hasNameColumns()) {
+                            $payload['reporter_first_name'] = $custodian->custodian_first_name ?? $payload['reporter_first_name'] ?? null;
+                            $payload['reporter_middle_name'] = $custodian->custodian_middle_name ?? $payload['reporter_middle_name'] ?? null;
+                            $payload['reporter_last_name'] = $custodian->custodian_last_name ?? $payload['reporter_last_name'] ?? null;
+                        }
+                        $payload['reporter_email_address'] = $custodian->custodian_email_address ?: $payload['reporter_email_address'] ?? null;
+                        $payload['reporter_contact_number'] = $custodian->custodian_contact_number ?: $payload['reporter_contact_number'] ?? null;
+                        if (ReporterImport::hasDepartmentColumn() && ! empty($custodian->custodian_department_id)) {
+                            $payload['reporter_department_id'] = (int) $custodian->custodian_department_id;
+                        }
+
+                        // Employment type/status mapping where applicable
+                        if (ReporterImport::hasTypeColumn() && ! empty($custodian->custodian_position)) {
+                            $pos = trim((string) $custodian->custodian_position);
+                            if (stripos($pos, 'staff') !== false) {
+                                $payload['reporter_employment_type'] = 'Staff';
+                            } elseif (stripos($pos, 'faculty') !== false) {
+                                $payload['reporter_employment_type'] = 'Faculty';
+                            }
+                        }
+
+                        // Map custodian status to reporter_status when available
+                        if (! empty($custodian->custodian_status)) {
+                            $payload['reporter_status'] = $custodian->custodian_status === 'Inactive' ? 'Inactive' : 'Active';
+                        }
+
+                        $reporterId = DB::table('reporters_table')->insertGetId($payload, 'reporter_id');
+
+                        // Link the custodian to the newly created reporter
+                        DB::table('custodians_table')
+                            ->where('custodian_id', $custodian->custodian_id)
+                            ->update(['custodian_reporter_id' => (int) $reporterId]);
+
+                        return back()
+                            ->with('success', 'Reporter added successfully (forced sync).')
+                            ->with('reporter_pin_result', $this->issuePinForNewReporter((int) $reporterId));
+                    }
+
+                    return back()->withInput()->withErrors($errors)->with('reporter_form_mode', 'create');
+                }
+            }
+        }
+
         $reporterId = DB::table('reporters_table')->insertGetId($payload, 'reporter_id');
+
+        // If reporter is created and a custodian exists, link the two records
+        // so future lookups are consistent.
+        if (isset($custodian) && $custodian && Schema::hasTable('custodians_table')) {
+            DB::table('custodians_table')
+                ->where('custodian_id', $custodian->custodian_id)
+                ->update(['custodian_reporter_id' => (int) $reporterId]);
+        }
 
         return back()
             ->with('success', 'Reporter added successfully.')
@@ -16383,9 +16536,11 @@ class MaintenanceController extends Controller
         $hasDepartment = ReporterImport::hasDepartmentColumn();
         $now = now();
 
+        $autoLinked = 0;
+
         $payloads = collect($plan['rows'])
             ->whereNull('error')
-            ->map(function (array $row) use ($hasType, $hasNames, $hasDepartment, $now) {
+            ->map(function (array $row) use ($hasType, $hasNames, $hasDepartment, $now, &$autoLinked) {
                 $payload = [
                     'reporter_employee_id' => $row['employee_id'],
                     'reporter_full_name' => ReporterImport::composeFullName($row['first_name'], $row['middle_name'], $row['last_name']),
@@ -16406,7 +16561,28 @@ class MaintenanceController extends Controller
                 }
 
                 if ($hasDepartment) {
-                    $payload['reporter_department_id'] = $row['department_id'];
+                    $deptId = $row['department_id'] ?? null;
+
+                    // If department is not provided in the CSV, attempt to infer it from existing custodian
+                    // linked to this employee ID. This helps auto-link reporters when the person already
+                    // exists in the directory with a department assignment.
+                    if ($deptId === null && trim((string) $row['employee_id']) !== '') {
+                        try {
+                            $custodianId = Custodians::idForEmployee($row['employee_id']);
+                        } catch (\Throwable $e) {
+                            $custodianId = null;
+                        }
+
+                        if ($custodianId) {
+                            $cust = Custodians::find((int) $custodianId);
+                            if ($cust && ! empty($cust->custodian_department_id)) {
+                                $deptId = (int) $cust->custodian_department_id;
+                                $autoLinked++;
+                            }
+                        }
+                    }
+
+                    $payload['reporter_department_id'] = $deptId;
                 }
 
                 return $payload;
@@ -16430,6 +16606,40 @@ class MaintenanceController extends Controller
             'skipped' => $plan['skipped'],
             'errors' => array_slice($errors, 0, 20),
             'unknown_departments' => $plan['unknown_departments'],
+            'auto_linked' => $autoLinked,
         ]);
+    }
+
+    /**
+     * Admin report listing reporter ↔ custodian conflicts by employee ID.
+     */
+    public function reporterCustodianConflicts()
+    {
+        if (! Schema::hasTable('reporters_table') || ! Schema::hasTable('custodians_table')) {
+            $conflicts = collect();
+        } else {
+            $conflicts = DB::table('reporters_table as r')
+                ->join('custodians_table as c', function ($join) {
+                    $join->on('r.reporter_employee_id', '=', 'c.custodian_employee_id');
+                })
+                ->select(
+                    'r.reporter_employee_id as employee_id',
+                    'r.reporter_full_name as reporter_name',
+                    'c.custodian_full_name as custodian_name',
+                    'r.reporter_email_address as reporter_email',
+                    'c.custodian_email_address as custodian_email',
+                    'r.reporter_contact_number as reporter_contact',
+                    'c.custodian_contact_number as custodian_contact'
+                )
+                ->where(function ($q) {
+                    $q->whereRaw('COALESCE(NULLIF(TRIM(r.reporter_full_name), \'\'), \'__NULL__\') != COALESCE(NULLIF(TRIM(c.custodian_full_name), \'\'), \'__NULL__\')')
+                      ->orWhereRaw('COALESCE(NULLIF(TRIM(r.reporter_email_address), \'\'), \'__NULL__\') != COALESCE(NULLIF(TRIM(c.custodian_email_address), \'\'), \'__NULL__\')')
+                      ->orWhereRaw('COALESCE(NULLIF(TRIM(r.reporter_contact_number), \'\'), \'__NULL__\') != COALESCE(NULLIF(TRIM(c.custodian_contact_number), \'\'), \'__NULL__\')');
+                })
+                ->orderBy('r.reporter_employee_id')
+                ->get();
+        }
+
+        return view('admin.reporters.conflicts', ['conflicts' => $conflicts]);
     }
 }

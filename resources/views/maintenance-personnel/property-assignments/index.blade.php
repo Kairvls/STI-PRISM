@@ -70,13 +70,14 @@
                     </form>
 
                     @if ($view === 'people')
-                        <a
-                            href="{{ \App\Support\PropertyAssignments::route('people.create') }}"
+                        <button
+                            type="button"
+                            onclick="openAddPersonModal()"
                             class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                         >
                             <i data-lucide="user-plus" class="h-4 w-4"></i>
                             Add person
-                        </a>
+                        </button>
                     @endif
                 </div>
             </div>
@@ -140,8 +141,8 @@
                             <thead class="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                                 <tr>
                                     <th class="px-5 py-3">Person</th>
-                                    <th class="px-5 py-3">Position / office</th>
-                                    <th class="px-5 py-3">Home room</th>
+                                    <th class="px-5 py-3">Type - Department</th>
+                                    <th class="px-5 py-3">Room</th>
                                     <th class="px-5 py-3">Contact</th>
                                     <th class="px-5 py-3">Property held</th>
                                     <th class="px-5 py-3">Status</th>
@@ -154,11 +155,10 @@
                                         <td class="px-5 py-3">
                                             <a href="{{ $personUrl }}" class="font-semibold text-slate-950 hover:underline">{{ $row->custodian_full_name }}</a>
                                             <p class="font-mono text-xs text-slate-400">{{ $row->custodian_employee_id ?: 'No employee ID' }}</p>
-                                            @if ($row->custodian_reporter_id)
-                                                <p class="mt-0.5 inline-flex items-center gap-1 text-[11px] text-slate-400" title="Linked to a faculty/staff account">
-                                                    <i data-lucide="link" class="h-3 w-3"></i> System account
-                                                </p>
-                                            @endif
+                                            <p class="mt-0.5 inline-flex items-center gap-1 text-[11px] text-slate-400" title="Employment basis">
+                                                <i data-lucide="users" class="h-3 w-3"></i>
+                                                {{ $row->custodian_employment_basis ?: '—' }}
+                                            </p>
                                         </td>
                                         <td class="px-5 py-3 text-slate-700">
                                             {{ $row->custodian_position ?: '—' }}
@@ -207,10 +207,10 @@
                         <p class="mt-1 text-sm text-slate-500">
                             Add anyone who can be accountable for property, even people without a system account.
                         </p>
-                        <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
+                        <button onclick="openAddPersonModal()" class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
                             <i data-lucide="user-plus" class="h-4 w-4"></i>
                             Add person
-                        </a>
+                        </button>
                     </div>
                 @endif
             @else
@@ -227,6 +227,7 @@
                                         <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">{{ $row->room_type }}</span>
                                     @endif
                                 </div>
+
                                 <p class="mt-1 truncate text-sm text-slate-500">
                                     {{ implode(' · ', array_filter([$row->building_name, $row->floor_level ? 'Floor '.$row->floor_level : null])) ?: '—' }}
                                 </p>
@@ -263,5 +264,132 @@
             @endif
         </div>
     @endif
-</div>
+                                    <!-- Add Person Modal -->
+                                    <div id="addPersonModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4">
+                                        <div class="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+                                            <div class="relative">
+                                                <button type="button" onclick="closeAddPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                                </button>
+                                                <div class="p-4 overflow-y-auto">
+                                                    @include('maintenance-personnel.property-assignments._person-form-fields')
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <script>
+                                        function openAddPersonModal() {
+                                            const modal = document.getElementById('addPersonModal');
+                                            if (!modal) return;
+                                            modal.classList.remove('hidden');
+                                            modal.classList.add('flex');
+                                            if (window.lucide) lucide.createIcons();
+                                            try {
+                                                const input = document.getElementById('custodian-contact-number');
+                                                if (typeof window.refreshPrismPhoneInput === 'function' && input) {
+                                                    window.refreshPrismPhoneInput(input);
+                                                }
+                                            } catch (e) { /* ignore */ }
+                                        }
+
+                                        function closeAddPersonModal() {
+                                            const modal = document.getElementById('addPersonModal');
+                                            if (!modal) return;
+                                            modal.classList.add('hidden');
+                                            modal.classList.remove('flex');
+                                        }
+                                    </script>
+
+                                    <script>
+                                        // Sync custodian employee id for modal form (same logic as standalone page)
+                                        function suffixForCustodianType(type) {
+                                            if (type === 'Faculty') return 'F';
+                                            if (type === 'Staff') return 'S';
+                                            return '';
+                                        }
+
+                                        function syncCustodianEmployeeIdModal() {
+                                            const typeEl = document.getElementById('custodian-employment-type');
+                                            const digitsEl = document.getElementById('custodianEmployeeDigits');
+                                            const fullEl = document.getElementById('custodian_employee_id');
+                                            const suffixEl = document.getElementById('custodianEmployeeIdSuffix');
+                                            const fieldEl = document.getElementById('custodianEmployeeIdField');
+                                            const hintEl = document.getElementById('custodianEmployeeHint');
+                                            if (!typeEl || !digitsEl || !fullEl || !suffixEl || !fieldEl) return '';
+
+                                            const type = typeEl.value || '';
+                                            const suffix = suffixForCustodianType(type);
+                                            const digits = String(digitsEl.value || '').replace(/\D/g, '').slice(0,5);
+                                            digitsEl.value = digits;
+                                            suffixEl.textContent = suffix || '?';
+                                            suffixEl.classList.toggle('is-empty', !suffix);
+
+                                            if (type) {
+                                                fieldEl.classList.remove('is-disabled');
+                                                try {
+                                                    digitsEl.readOnly = false;
+                                                    digitsEl.disabled = false;
+                                                    digitsEl.removeAttribute('readonly');
+                                                    digitsEl.removeAttribute('disabled');
+                                                    digitsEl.tabIndex = 0;
+                                                } catch (e) { }
+                                                if (hintEl) hintEl.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+                                            } else {
+                                                fieldEl.classList.add('is-disabled');
+                                                try {
+                                                    digitsEl.readOnly = true;
+                                                    digitsEl.disabled = true;
+                                                    digitsEl.setAttribute('readonly', 'readonly');
+                                                    digitsEl.setAttribute('disabled', 'disabled');
+                                                    digitsEl.tabIndex = -1;
+                                                } catch (e) { }
+                                                if (hintEl) hintEl.textContent = 'Select type first, then enter the 5-digit number.';
+                                            }
+
+                                            const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
+                                            fullEl.value = fullId;
+                                            return fullId;
+                                        }
+
+                                        (function () {
+                                            ['custodian-employment-type', 'custodianEmployeeDigits'].forEach((id) => {
+                                                const el = document.getElementById(id);
+                                                if (!el) return;
+                                                el.addEventListener(id === 'custodian-employment-type' ? 'change' : 'input', () => syncCustodianEmployeeIdModal());
+                                            });
+
+                                            const field = document.getElementById('custodianEmployeeIdField');
+                                            const digits = document.getElementById('custodianEmployeeDigits');
+                                            if (field && digits) {
+                                                field.addEventListener('click', function () { try { digits.focus(); } catch (e) { } });
+                                            }
+
+                                            // initialize when modal exists on page
+                                            try { syncCustodianEmployeeIdModal(); } catch (e) { }
+                                        })();
+                                    </script>
+
+                                    @php
+                                        $__personFormFields = [
+                                            'custodian_first_name', 'custodian_middle_name', 'custodian_last_name',
+                                            'custodian_employee_id', 'custodian_position', 'custodian_employment_basis', 'custodian_department_id',
+                                            'custodian_room_id', 'custodian_email_address', 'custodian_contact_number',
+                                            'custodian_status', 'custodian_reporter_id', 'custodian_notes'
+                                        ];
+                                        $__hasPersonErrors = false;
+                                        foreach ($__personFormFields as $__f) {
+                                            if ($errors->has($__f)) { $__hasPersonErrors = true; break; }
+                                        }
+                                    @endphp
+
+                                    @if ($__hasPersonErrors)
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                try { openAddPersonModal(); } catch (e) { /* ignore */ }
+                                                try { window.scrollTo(0, 0); } catch (e) { }
+                                            });
+                                        </script>
+                                    @endif
+    </div>
 @endsection

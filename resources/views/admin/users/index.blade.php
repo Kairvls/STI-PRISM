@@ -879,17 +879,17 @@
                         <div class="flex flex-col gap-4 sm:flex-row">
                             <div class="min-w-0 flex-1">
                                 <label class="pur-label">First Name <span class="text-red-500">*</span></label>
-                                <input type="text" name="first_name" class="pur-input mt-1.5" placeholder="e.g. Juan" value="{{ old('first_name') }}" required />
+                                <input type="text" name="first_name" maxlength="50" class="pur-input mt-1.5" placeholder="e.g. Juan" value="{{ old('first_name') }}" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <label class="pur-label">Middle Name <span class="font-normal text-gray-400">(optional)</span></label>
-                                <input type="text" name="middle_name" class="pur-input mt-1.5" placeholder="e.g. Santos" value="{{ old('middle_name') }}" />
+                                <input type="text" name="middle_name" maxlength="50" class="pur-input mt-1.5" placeholder="e.g. Santos" value="{{ old('middle_name') }}" oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" />
                             </div>
                         </div>
                         <div class="flex flex-col gap-4 sm:flex-row">
                             <div class="min-w-0 flex-1">
                                 <label class="pur-label">Last Name <span class="text-red-500">*</span></label>
-                                <input type="text" name="last_name" class="pur-input mt-1.5" placeholder="e.g. Dela Cruz" value="{{ old('last_name') }}" required />
+                                <input type="text" name="last_name" maxlength="50" class="pur-input mt-1.5" placeholder="e.g. Dela Cruz" value="{{ old('last_name') }}" required oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')" />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <label class="pur-label">Contact Number</label>
@@ -901,14 +901,10 @@
                                 ])
                             </div>
                         </div>
-                        <div>
-                            <label class="pur-label">Email <span class="text-red-500">*</span></label>
-                            <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
-                        </div>
                         <div class="flex flex-col gap-4 sm:flex-row">
                             <div class="min-w-0 flex-1">
-                                <label class="pur-label">Username <span class="text-red-500">*</span></label>
-                                <input type="text" name="username" class="pur-input mt-1.5" required />
+                                <label class="pur-label">Email <span class="text-red-500">*</span></label>
+                                <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-2">

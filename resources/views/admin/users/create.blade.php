@@ -44,10 +44,12 @@
 
                 <input type="text"
                     name="first_name"
+                    maxlength="50"
                     class="w-full border p-2 rounded"
                     placeholder="e.g. Juan"
                     value="{{ old('first_name') }}"
-                    required>
+                    required
+                    oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')">
             </div>
 
             <div class="min-w-0 flex-1">
@@ -55,9 +57,11 @@
 
                 <input type="text"
                     name="middle_name"
+                    maxlength="50"
                     class="w-full border p-2 rounded"
                     placeholder="e.g. Santos"
-                    value="{{ old('middle_name') }}">
+                    value="{{ old('middle_name') }}"
+                    oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')">
             </div>
         </div>
 
@@ -67,10 +71,12 @@
 
                 <input type="text"
                     name="last_name"
+                    maxlength="50"
                     class="w-full border p-2 rounded"
                     placeholder="e.g. Dela Cruz"
                     value="{{ old('last_name') }}"
-                    required>
+                    required
+                    oninput="this.value = this.value.replace(/[^\p{L}\p{M}\s'-]/gu, '')">
             </div>
 
             <div class="min-w-0 flex-1">
@@ -94,24 +100,13 @@
                 required>
         </div>
 
-        <div class="col-span-2 flex flex-col gap-4 sm:flex-row">
-            <div class="min-w-0 flex-1">
-                <label>Username <span class="text-red-500">*</span></label>
+        <div class="col-span-2">
+            <label>Password <span class="text-red-500">*</span></label>
 
-                <input type="text"
-                    name="username"
-                    class="w-full border p-2 rounded"
-                    required>
-            </div>
-
-            <div class="min-w-0 flex-1">
-                <label>Password <span class="text-red-500">*</span></label>
-
-                <input type="password"
-                    name="password"
-                    class="w-full border p-2 rounded"
-                    required>
-            </div>
+            <input type="password"
+                name="password"
+                class="w-full border p-2 rounded"
+                required>
         </div>
 
         <div>

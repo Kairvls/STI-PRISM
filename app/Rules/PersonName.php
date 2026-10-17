@@ -13,7 +13,7 @@ class PersonName implements ValidationRule
         $value = PersonNames::clean(is_scalar($value) ? (string) $value : '');
 
         if ($value !== '' && ! preg_match(PersonNames::PATTERN, $value)) {
-            $fail('The :attribute can only use letters, spaces, hyphens (-), apostrophes (\') and periods (.), and must start with a letter.');
+            $fail('The :attribute can only contain letters, spaces, hyphens (-), apostrophes (\'), and the Philippine ñ/Ñ characters. It cannot contain numbers or other symbols.');
         }
     }
 }

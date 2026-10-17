@@ -2399,7 +2399,6 @@ class AdminController extends Controller
             'first_name' => PersonNames::rules(),
             'middle_name' => PersonNames::rules(false),
             'last_name' => PersonNames::rules(),
-            'username' => 'required|string|max:100',
             'email' => 'required|email|max:255',
             'password' => 'required|string|min:6',
             'contact_number' => 'nullable|string|max:50',
@@ -2458,10 +2457,17 @@ class AdminController extends Controller
         $last = trim((string) $request->last_name);
         $fullName = trim(preg_replace('/\s+/', ' ', $first.' '.$middle.' '.$last));
 
+        $usernameSource = trim((string) ($request->input('username') ?: Str::before((string) $request->input('email', ''), '@')));
+        $username = preg_replace('/[^A-Za-z0-9._-]+/', '', $usernameSource) ?: Str::slug($fullName, '');
+        $username = trim((string) $username, '.-_');
+        if ($username === '') {
+            $username = 'user'.now()->format('YmdHis');
+        }
+
         $payload = [
             'user_role_id' => $primaryRoleId,
             'user_employee_id' => $employeeId,
-            'user_username' => $request->username,
+            'user_username' => $username,
             'user_full_name' => $fullName,
             'user_email_address' => $request->email,
             'user_contact_number' => $request->contact_number,
