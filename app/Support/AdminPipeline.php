@@ -12,6 +12,19 @@ class AdminPipeline
 {
     public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'rr', 'liq'];
 
+    public const STAGE_NAMES = [
+        'ris' => 'Canvas + RIS',
+        'atp' => 'Authority to Purchase',
+        'rfc' => 'Request for Check',
+        'rr' => 'Receiving Report',
+        'liq' => 'Liquidation Report',
+    ];
+
+    public static function stageName(string $key): string
+    {
+        return self::STAGE_NAMES[$key] ?? strtoupper($key);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -22,6 +35,7 @@ class AdminPipeline
         } catch (\Throwable $e) {
             return [
                 'ris_id' => $risId,
+                'request_no' => null,
                 'stages' => [
                     'ris' => [
                         'exists' => true,
@@ -172,8 +186,19 @@ class AdminPipeline
             }
         }
 
+        $requestNo = null;
+        if (class_exists(ProcurementRequestNumber::class)) {
+            $requestNo = ProcurementRequestNumber::resolveFromRis($risId);
+        } elseif (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $requestNo = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->value('ris_request_no');
+            $requestNo = filled($requestNo) ? (string) $requestNo : null;
+        }
+
         return [
             'ris_id' => $risId,
+            'request_no' => $requestNo,
             'stages' => $stages,
             'funds' => $funds,
             'payment_path' => $paymentPath,

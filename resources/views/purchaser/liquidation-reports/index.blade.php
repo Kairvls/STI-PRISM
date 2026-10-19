@@ -141,33 +141,6 @@
         @endunless
     </div>
 
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Draft',
-                    'hint' => 'Incomplete drafts awaiting submit',
-                    'value' => number_format($summary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Draft']),
-                    'active' => request('status') === 'Draft',
-                ],
-                [
-                    'label' => 'In Review',
-                    'hint' => 'Waiting for accounting review',
-                    'value' => number_format($summary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Submitted']),
-                    'active' => request('status') === 'Submitted',
-                ],
-                [
-                    'label' => 'Approved',
-                    'hint' => 'Approved liquidation reports',
-                    'value' => number_format($summary['approved']),
-                    'href' => route(($pp ?? 'purchaser').'.liq.index', ['status' => 'Approved']),
-                    'active' => request('status') === 'Approved',
-                ],
-            ],
-        ])
-    </div>
 
     @php
         $liqHasFilters = request()->filled('search')
@@ -195,7 +168,7 @@
                     </p>
                 </div>
 
-                <form
+                <form data-auto-filter
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.liq.index') }}"
                     role="search"
@@ -254,6 +227,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">LR No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RR</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Employee</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
@@ -280,6 +254,12 @@
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $liq->liquidation_report_id }}</p>
                                     </div>
                                 </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                @include('partials.procurement-request-no', ['requestNo' => $liq->liquidation_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                                @if(blank($liq->liquidation_report_request_no ?? null))
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
@@ -366,7 +346,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="receipt" class="h-5 w-5"></i>
                                 </div>
@@ -404,7 +384,7 @@
         >
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-5">
                     <div class="flex items-center gap-3">
@@ -506,7 +486,7 @@
             <div
                 @click.stop
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -547,54 +527,15 @@
                         @endif
                         @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => null, 'rows' => collect(), 'signKey' => 'liq-create'])
                         <div id="purSigSlot-liq-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
-                        <div
-                            class="mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white"
-                            x-data="{ attachmentNames: [] }"
-                        >
-                            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
-                                    <p class="truncate text-[11px] text-slate-500">Optional · PDF, JPG, PNG · max 5MB each</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    x-show="attachmentNames.length"
-                                    x-cloak
-                                    x-on:click="attachmentNames = []; $refs.createLiqAttachments.value = ''"
-                                    class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                            <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                <template x-for="(name, index) in attachmentNames" :key="index">
-                                    <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
-                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="name"></p>
-                                    </div>
-                                </template>
-                                <label class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50">
-                                    <input
-                                        type="file"
-                                        name="attachments[]"
-                                        multiple
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        class="sr-only"
-                                        x-ref="createLiqAttachments"
-                                        x-on:change="attachmentNames = Array.from($event.target.files || []).map((f) => f.name); $nextTick(() => window.lucide && window.lucide.createIcons())"
-                                    >
-                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
-                                        <i data-lucide="upload" class="h-3.5 w-3.5"></i>
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-xs font-medium text-slate-800">Add files</p>
-                                        <p class="truncate text-[10px] text-slate-500">Choose PDF, JPG, or PNG</p>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
+                        @include('partials.single-file-upload', [
+                            'name' => 'attachments[]',
+                            'refKey' => 'createLiqAttachment',
+                            'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
+                            'title' => 'Supporting Document',
+                            'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                            'uploadLabel' => 'Upload file',
+                            'helpLine' => 'One file only · PDF, JPG, or PNG',
+                        ])
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
@@ -637,7 +578,7 @@
                 <div
                     @click.stop
                     class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                 >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div>
@@ -754,7 +695,7 @@
                     <div
                         @click.stop
                         class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.update', $liq->liquidation_report_id) }}" enctype="multipart/form-data"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
@@ -789,60 +730,19 @@
                                 @endif
                                 @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => $liq, 'rows' => $liqItems, 'signKey' => 'liq-'.$liq->liquidation_report_id])
                                 <div id="purSigSlot-liq-{{ $liq->liquidation_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
-                                <div
-                                    class="mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white"
-                                    x-data="{ attachmentNames: [] }"
-                                >
-                                    <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
-                                            <p class="truncate text-[11px] text-slate-500">Optional · PDF, JPG, PNG · max 5MB each</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            x-show="attachmentNames.length"
-                                            x-cloak
-                                            x-on:click="attachmentNames = []; $refs.editLiqAttachments{{ $liq->liquidation_report_id }}.value = ''"
-                                            class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
-                                        >
-                                            Clear
-                                        </button>
-                                    </div>
-                                    <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                        @foreach($liqFiles as $file)
-                                            <label class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5 text-xs text-slate-700">
-                                                <input type="checkbox" name="delete_attachments[]" value="{{ $file->liquidation_attachment_id }}" class="rounded border-slate-300">
-                                                <span class="min-w-0 flex-1 truncate">Remove {{ $file->liquidation_attachment_original_name }}</span>
-                                            </label>
-                                        @endforeach
-                                        <template x-for="(name, index) in attachmentNames" :key="index">
-                                            <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
-                                                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
-                                                    <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                                </div>
-                                                <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="name"></p>
-                                            </div>
-                                        </template>
-                                        <label class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50">
-                                            <input
-                                                type="file"
-                                                name="attachments[]"
-                                                multiple
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                                class="sr-only"
-                                                x-ref="editLiqAttachments{{ $liq->liquidation_report_id }}"
-                                                x-on:change="attachmentNames = Array.from($event.target.files || []).map((f) => f.name); $nextTick(() => window.lucide && window.lucide.createIcons())"
-                                            >
-                                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
-                                                <i data-lucide="upload" class="h-3.5 w-3.5"></i>
-                                            </div>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-xs font-medium text-slate-800">Add files</p>
-                                                <p class="truncate text-[10px] text-slate-500">Choose PDF, JPG, or PNG</p>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
+                                @include('partials.single-file-upload', [
+                                    'name' => 'attachments[]',
+                                    'refKey' => 'editLiqAttachment'.$liq->liquidation_report_id,
+                                    'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
+                                    'title' => 'Supporting Document',
+                                    'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                                    'uploadLabel' => 'Upload file',
+                                    'helpLine' => 'One file only · remove the current file first to replace',
+                                    'existing' => $liqFiles->map(fn ($file) => [
+                                        'id' => $file->liquidation_attachment_id,
+                                        'name' => $file->liquidation_attachment_original_name,
+                                    ]),
+                                ])
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">

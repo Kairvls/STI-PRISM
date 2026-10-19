@@ -172,7 +172,7 @@ class SeedPurchasingWorkflowDemo extends Command
         $totalAmount = array_sum(array_column($risItems, 'amount'));
         $rfcId = $this->insert('request_check_table', $this->onlyExisting('request_check_table', [
             'request_check_authority_purchase_id' => $atpId,
-            'request_check_form_number' => 'DEMO-RFC-' . now()->format('Ym') . '-' . $formSuffix,
+            'request_check_form_number' => 'DEMO-RFC-' . now()->format('Ymd') . '-' . $formSuffix,
             'request_check_date' => $now->copy()->addDays(3)->toDateString(),
             'request_check_payee' => $supplier['display_name'],
             'request_check_amount_words' => 'Demo amount for workflow testing',
@@ -193,7 +193,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'request_check_updated_at' => $now->copy()->addDays(4),
             'request_check_created_at' => $now->copy()->addDays(3),
         ]));
-        $record['rfc_form'] = 'DEMO-RFC-' . now()->format('Ym') . '-' . $formSuffix;
+        $record['rfc_form'] = 'DEMO-RFC-' . now()->format('Ymd') . '-' . $formSuffix;
 
         $this->log('RFC', $rfcId, $actors['purchaser'], 'Submitted', 'Request Check submitted to Accounting.', $now->copy()->addDays(3));
 
@@ -226,7 +226,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'receiving_report_procurement_request_id' => $procurementRequestId,
             'receiving_report_atp_id' => $atpId,
             'receiving_report_ris_id' => $risId,
-            'receiving_report_form_number' => 'DEMO-RR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT),
+            'receiving_report_form_number' => 'DEMO-RR-' . now()->format('Ymd') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT),
             'receiving_report_supplier_id' => $supplier['supplier_id'],
             'receiving_report_supplier_address_override' => $supplier['address'],
             'receiving_report_received_from' => $supplier['display_name'],
@@ -245,7 +245,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'receiving_report_updated_at' => $profile['stage'] === 'rr_receiving_queue' ? $now->copy()->addDays(6) : $now->copy()->addDays(7),
             'receiving_report_created_at' => $now->copy()->addDays(6),
         ]));
-        $record['rr_form'] = 'DEMO-RR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT);
+        $record['rr_form'] = 'DEMO-RR-' . now()->format('Ymd') . '-' . str_pad($formSuffix, 7, '0', STR_PAD_LEFT);
 
         $this->seedReceivingItems($rrId, $risItems);
         $this->log('RR', $rrId, $actors['purchaser'], 'Submitted', 'Receiving Report submitted to Receiving.', $now->copy()->addDays(6));
@@ -270,7 +270,7 @@ class SeedPurchasingWorkflowDemo extends Command
         $liqId = $this->insert('liquidation_reports_table', $this->onlyExisting('liquidation_reports_table', [
             'liquidation_report_receiving_report_id' => $rrId,
             'liquidation_report_procurement_request_id' => $procurementRequestId,
-            'liquidation_report_form_number' => 'DEMO-LR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT),
+            'liquidation_report_form_number' => 'DEMO-LR-' . now()->format('Ymd') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT),
             'liquidation_report_employee_name' => 'Demo Purchaser',
             'liquidation_report_cheque_number' => 'DEMO-CHK-' . $formSuffix,
             'liquidation_report_purpose' => 'Liquidation for ' . $referenceLabel,
@@ -295,7 +295,7 @@ class SeedPurchasingWorkflowDemo extends Command
             'liquidation_report_updated_at' => $profile['stage'] === 'liq_accounting_queue' ? $now->copy()->addDays(8) : $now->copy()->addDays(9),
             'liquidation_report_created_at' => $now->copy()->addDays(8),
         ]));
-        $record['liq_form'] = 'DEMO-LR-' . now()->format('Ym') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT);
+        $record['liq_form'] = 'DEMO-LR-' . now()->format('Ymd') . '-' . str_pad($formSuffix, 5, '0', STR_PAD_LEFT);
 
         $this->seedLiquidationItems($liqId, $risItems, $formSuffix);
         $this->log('LIQ', $liqId, $actors['purchaser'], 'Submitted', 'Liquidation Report submitted to Accounting.', $now->copy()->addDays(8));
@@ -516,10 +516,10 @@ class SeedPurchasingWorkflowDemo extends Command
             'president_rejected' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'President rejected an RIS', $risForm . ' was rejected. Return it to Purchaser for revision.', 'ris_president_rejected', 'RIS', $risId, '/school-admin/digital-signatures/sign-ris'),
             'admin_cosign_queue' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'President approved an RIS', $risForm . ' is waiting for School Administrator Sign RIS.', 'ris_president_approved', 'RIS', $risId, '/school-admin/digital-signatures/sign-ris'),
             'atp_ready_direct', 'atp_ready_president' => WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'RIS released', $risForm . ' is ready. Create an Authority to Purchase.', 'ris_released', 'RIS', $risId, '/purchaser/ris'),
-            'atp_accounting_queue' => $atpId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ACCOUNTING, 'ATP submitted for review', (string) DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->value('authority_purchase_form_number') . ' is waiting for Accounting review.', 'atp_submitted', 'ATP', $atpId, '/accounting/authority-to-purchase/' . $atpId) : null,
+            'atp_accounting_queue' => $atpId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'ATP submitted for review', (string) DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->value('authority_purchase_form_number') . ' is waiting for School Administrator review.', 'atp_submitted', 'ATP', $atpId, '/school-admin/authority-to-purchase/' . $atpId) : null,
             'rfc_ready' => $atpId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'ATP approved', (string) DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->value('authority_purchase_form_number') . ' was approved. Create a Request for Check.', 'atp_approved', 'ATP', $atpId, '/purchaser/request-check?selected_atp=' . $atpId) : null,
-            'rfc_accounting_queue' => $rfcId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_ACCOUNTING, 'Request Check submitted', (string) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_form_number') . ' is waiting for Accounting review.', 'rfc_submitted', 'RFC', $rfcId, '/accounting/request-check/' . $rfcId) : null,
-            'rfc_waiting_funds' => $rfcId ? WorkflowNotifier::toUser((int) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_requested_by_user_id'), WorkflowNotifier::ROLE_PURCHASER, 'Request Check approved', (string) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_form_number') . ' was approved. Wait for Accounting to release funds, then create a Receiving Report.', 'rfc_approved', 'RFC', $rfcId, '/purchaser/request-check') : null,
+            'rfc_accounting_queue' => $rfcId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'Request Check submitted', (string) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_form_number') . ' is waiting for School Administrator review.', 'rfc_submitted', 'RFC', $rfcId, '/school-admin/request-check/' . $rfcId) : null,
+            'rfc_waiting_funds' => $rfcId ? WorkflowNotifier::toUser((int) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_requested_by_user_id'), WorkflowNotifier::ROLE_PURCHASER, 'Request Check approved', (string) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_form_number') . ' was approved. Wait for the School Administrator to release funds, then create a Receiving Report.', 'rfc_approved', 'RFC', $rfcId, '/purchaser/request-check') : null,
             'rr_ready' => $rfcId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'Funds released', (string) DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_form_number') . ' funds were released. Create a Receiving Report.', 'rfc_funds_released', 'RFC', $rfcId, '/purchaser/receiving-reports') : null,
             'rr_receiving_queue' => $rrId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_RECEIVING, 'Receiving Report submitted', (string) DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->value('receiving_report_form_number') . ' is waiting for inspection.', 'rr_submitted', 'RR', $rrId, '/receiving/reports') : null,
             'liq_ready' => $rrId ? WorkflowNotifier::toRole(WorkflowNotifier::ROLE_PURCHASER, 'Receiving completed', (string) DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->value('receiving_report_form_number') . ' was accepted. Create a Liquidation Report.', 'rr_completed', 'RR', $rrId, '/purchaser/liquidation-reports') : null,

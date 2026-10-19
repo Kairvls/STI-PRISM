@@ -29,7 +29,7 @@
                     Accept procurement request?
                 </h3>
                 <p id="acceptRisModalSubtitle" class="mt-0.5 text-sm leading-snug text-slate-500">
-                    This moves the RIS to Sign RIS for Forward, Approve Directly, or Return.
+                    This moves the RIS to Ready to Sign for Direct Approve or Pass to President.
                 </p>
             </div>
 
@@ -55,7 +55,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
                         </svg>
                         <p class="text-xs leading-relaxed text-sky-900/80">
-                            Accepting does not approve the purchase. You will decide the path on Sign RIS next.
+                            Accepting does not approve the purchase. You will decide on Ready to Sign next.
                         </p>
                     </div>
                 </div>
@@ -121,9 +121,9 @@
         form.action = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + encodeURIComponent(risId) + '/accept';
         fillAcceptModalCopy(
             'Accept procurement request?',
-            'This moves the RIS to Sign RIS for Forward, Approve Directly, or Return.',
+            'This moves the RIS to Ready to Sign for Direct Approve or Pass to President.',
             refLabel || window.risFormNumberLabel(risId),
-            detailLabel || 'Ready to accept for Sign RIS.',
+            detailLabel || 'Ready to accept for Ready to Sign.',
             'Accept & continue'
         );
 
@@ -162,9 +162,9 @@
         var count = selected.length;
         fillAcceptModalCopy(
             count === 1 ? 'Accept procurement request?' : 'Accept ' + count + ' procurement requests?',
-            'Selected requests will move to Sign RIS for Forward, Approve Directly, or Return.',
+            'Selected requests will move to Ready to Sign for Direct Approve or Pass to President.',
             count === 1 ? ('1 request selected') : (count + ' requests selected'),
-            'Ready to accept for Sign RIS.',
+            'Ready to accept for Ready to Sign.',
             count === 1 ? 'Accept & continue' : ('Accept ' + count + ' & continue')
         );
 

@@ -6,35 +6,6 @@
 
 
 
-{{-- Summary Cards --}}
-@include('layouts.partials.maintenance-stat-cards', [
-    'cards' => [
-        [
-            'label' => 'Total Approved',
-            'hint' => 'Presidential approvals',
-            'value' => number_format((int) ($totalApproved ?? 0)),
-            'valueId' => 'cardTotalApproved',
-        ],
-        [
-            'label' => 'Total Rejected',
-            'hint' => 'Declined RIS',
-            'value' => number_format((int) ($totalRejected ?? 0)),
-            'valueId' => 'cardTotalRejected',
-        ],
-        [
-            'label' => 'Pending RIS',
-            'hint' => 'Awaiting decision',
-            'value' => number_format((int) ($totalPending ?? 0)),
-            'valueId' => 'cardTotalPending',
-        ],
-        [
-            'label' => 'Total Decisions',
-            'hint' => 'Approved + rejected',
-            'value' => number_format((int) ($totalDecisions ?? 0)),
-            'valueId' => 'cardTotalDecisions',
-        ],
-    ],
-])
 
 {{-- Table --}}
 <div class="mt-4 grid grid-cols-1 gap-4">

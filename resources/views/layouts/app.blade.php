@@ -989,6 +989,8 @@
 
     </script>
 
+    <script src="{{ asset('js/auto-filter.js') }}" defer></script>
+
     @stack('scripts')
 
     @include('layouts.partials.idle-session-timeout')

@@ -25,12 +25,13 @@
                 >
             </th>
             @endif
-            <th class="{{ $risPageHasAcceptable ? 'w-[12%]' : 'w-[16%]' }} text-left">RIS Number</th>
-            <th class="w-[24%]">Equipment</th>
-            <th class="w-[14%]">Requested By</th>
-            <th class="w-[17%]">Status</th>
-            <th class="w-[12%] text-right">Amount</th>
-            <th class="w-[17%] text-center">Actions</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[12%]' : 'w-[14%]' }} text-left">RIS Number</th>
+            <th class="w-[12%] text-left">Request No.</th>
+            <th class="w-[20%]">Equipment</th>
+            <th class="w-[12%]">Requested By</th>
+            <th class="w-[15%]">Status</th>
+            <th class="w-[11%] text-right">Amount</th>
+            <th class="w-[16%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -71,6 +72,13 @@
                             </div>
                         @endif
                     </div>
+                </td>
+
+                <td class="text-left">
+                    @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                    @if(blank($ris->ris_request_no ?? null))
+                        <span class="text-xs text-gray-400">—</span>
+                    @endif
                 </td>
 
                 <td>
@@ -138,7 +146,7 @@
                             <button
                                 type="button"
                                 onclick="openAcceptRisModal('{{ $ris->ris_id }}', @js($acceptRef), @js($acceptDetail))"
-                                title="Accept and send to Sign RIS"
+                                title="Accept and continue to Ready to Sign"
                                 aria-label="Accept procurement request"
                                 class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-2.5 text-xs font-semibold text-white transition hover:bg-[#001fa8]"
                             >
@@ -163,11 +171,11 @@
             </tr>
         @empty
             <tr>
-                <td colspan="{{ $risPageHasAcceptable ? 7 : 6 }}" class="pur-empty">
+                <td colspan="{{ $risPageHasAcceptable ? 8 : 7 }}" class="pur-empty">
                     @if (($filter ?? 'pending') === 'pending')
                         No pending procurement requests
                     @elseif (($filter ?? '') === 'accepted')
-                        No accepted requests waiting on Sign RIS
+                        No accepted requests waiting on Ready to Sign
                     @else
                         No RIS records found
                     @endif

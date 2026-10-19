@@ -21,6 +21,7 @@ use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\RisFormExporter;
 use App\Support\ProcurementPortal;
+use App\Support\SupplyHandoff;
 
 /**
  * Requisition & Issue Slip (RIS) workflow for the purchaser role.
@@ -88,6 +89,10 @@ class RisController extends Controller
             $risQuery->addSelect('requisition_issue_slip_table.ris_urgency');
         }
 
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $risQuery->addSelect('requisition_issue_slip_table.ris_request_no');
+        }
+
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
             $risQuery->addSelect('requisition_issue_slip_table.ris_requested_by_signature_image');
         }
@@ -117,6 +122,9 @@ class RisController extends Controller
                     ->orWhere('procurement_requests_table.procurement_request_id', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', '%' . $request->search . '%');
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $query->orWhere('requisition_issue_slip_table.ris_request_no', 'LIKE', '%'.$request->search.'%');
+                }
             });
         }
 
@@ -160,7 +168,11 @@ class RisController extends Controller
 
         // Paginated RIS list
         $spotlightQuery = clone $risQuery;
-        $risRecords = RisWorkflow::orderUrgentFirst($risQuery)
+        $risRecords = DocumentWorkflowService::orderOwnUnfinishedFirst(
+            $risQuery,
+            'requisition_issue_slip_table.ris_status'
+        );
+        $risRecords = RisWorkflow::orderUrgentFirst($risRecords)
             ->orderByDesc('requisition_issue_slip_table.ris_created_at')
             ->paginate(10)
             ->withQueryString();
@@ -190,12 +202,19 @@ class RisController extends Controller
         $itemsByRis = $this->risItemsWithLookups($risIds)
             ->groupBy('ris_id');
 
-        $risHasAtp = DB::table('authority_to_purchase_table')
-            ->whereIn('authority_purchase_ris_id', $risIds)
-            ->pluck('authority_purchase_ris_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-        $atpProgress = AtpRisSuppliers::progress($risHasAtp);
+        // RIS ids that already have at least one ATP (kept for the index view payload).
+        $risHasAtp = ($risIds->isNotEmpty() && Schema::hasTable('authority_to_purchase_table'))
+            ? DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_ris_id', $risIds)
+                ->pluck('authority_purchase_ris_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all()
+            : [];
+
+        // Progress for every listed RIS (not only those that already have an ATP row).
+        $atpProgress = AtpRisSuppliers::progress($risIds);
         $atpSupplierBreakdown = AtpRisSuppliers::breakdown($risIds);
 
         $releasedRisIds = DB::table('approval_logs_table')
@@ -233,7 +252,13 @@ class RisController extends Controller
             $ris->atp_suppliers_open = $progress['open'] ?? 0;
             $ris->atp_supplier_breakdown = $atpSupplierBreakdown[(int) $ris->ris_id] ?? [];
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
-            $ris->can_create_atp = empty($ris->ris_is_archived) && RisWorkflow::isEligibleForAtp($ris);
+            $ris->sent_to_supply = \App\Support\SupplyHandoff::risIsSentToSupply($ris);
+            // Also require !has_atp so the list never shows Send when ATP is already complete.
+            $ris->can_send_to_supply = empty($ris->ris_is_archived)
+                && empty($ris->has_atp)
+                && \App\Support\SupplyHandoff::purchaserCanSendRis($ris);
+            // ATP is created by School Supply / Material Officer after Purchaser sends the RIS.
+            $ris->can_create_atp = false;
         }
 
         // Dashboard counts
@@ -600,7 +625,7 @@ class RisController extends Controller
                 'RIS number is required before submitting.',
 
             'ris_form_number.regex' =>
-                'RIS number must follow the format RIS-YYYYMM-0000000.',
+                'RIS number must follow the format RIS-YYYYMMDD-0000000.',
 
             'ris_form_number.unique' =>
                 'This RIS number is already in use. Choose another or leave blank to assign on submit.',
@@ -872,6 +897,10 @@ class RisController extends Controller
                 && Schema::hasColumn('requisition_issue_slip_table', 'ris_copied_from_id')
             ) {
                 $risPayload['ris_copied_from_id'] = $copiedFromRisId;
+            }
+
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                $risPayload['ris_request_no'] = \App\Support\ProcurementRequestNumber::allocate();
             }
 
             $risId = DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
@@ -1232,7 +1261,7 @@ public function update(Request $request, $risId)
             'RIS number is required before submitting.',
 
         'ris_form_number.regex' =>
-            'RIS number must follow the format RIS-YYYYMM-0000000.',
+            'RIS number must follow the format RIS-YYYYMMDD-0000000.',
 
         'ris_form_number.unique' =>
             'This RIS number is already in use. Choose another or leave blank to assign on submit.',
@@ -1880,6 +1909,47 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             ->with('success', 'Draft RIS deleted.');
     }
 
+    public function sendToSupply(Request $request, $risId)
+    {
+        $validated = $request->validate([
+            'assigned_reviewer_id' => ['nullable', 'integer'],
+        ]);
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        if (! $ris) {
+            return back()->with('error', 'RIS not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($ris, 'ris');
+
+        try {
+            $officerId = isset($validated['assigned_reviewer_id']) && (int) $validated['assigned_reviewer_id'] > 0
+                ? (int) $validated['assigned_reviewer_id']
+                : null;
+
+            if ($officerId) {
+                $allowed = collect(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SUPPLY_OFFICER))
+                    ->pluck('id')
+                    ->all();
+                if (! in_array($officerId, $allowed, true)) {
+                    return back()->with('error', 'Select a valid School Supply / Material Officer.');
+                }
+            }
+
+            \App\Support\SupplyHandoff::sendRisToSupply($ris, $officerId, (int) Auth::id());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with(
+            'success',
+            RisWorkflow::formNumber($ris).' was sent to the School Supply / Material Officer for ATP.'
+        );
+    }
+
     public function archive($risId)
     {
         $ris = DB::table('requisition_issue_slip_table')
@@ -1897,9 +1967,22 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         $groups = $this->risStatusGroups();
-        $archivable = array_merge($groups['approved'], $groups['rejected']);
-        if (!in_array((string) ($ris->ris_status ?? ''), $archivable, true)) {
+        $status = (string) ($ris->ris_status ?? '');
+        $isRejected = in_array($status, $groups['rejected'], true);
+        $isApproved = in_array($status, $groups['approved'], true);
+        if (! $isRejected && ! $isApproved) {
             return back()->with('error', 'Only approved or rejected RIS records can be archived.');
+        }
+
+        if ($isApproved) {
+            if (SupplyHandoff::purchaserCanSendRis($ris)) {
+                return back()->with('error', 'Send this RIS to the Supply Officer before archiving.');
+            }
+            $progress = AtpRisSuppliers::progress([(int) $risId])[(int) $risId] ?? null;
+            $hasAtp = $progress !== null && (int) ($progress['open'] ?? 1) === 0;
+            if (! $hasAtp) {
+                return back()->with('error', 'Wait until an ATP has been created before archiving this RIS.');
+            }
         }
 
         DocumentWorkflowService::setArchived(
@@ -1955,8 +2038,15 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             ->where('ris_id', $attachment->ris_id)
             ->first();
         abort_if(!$ris, 404);
-        // Admin and President routes sit behind their own middleware; multi-role reviewers would otherwise hit the purchaser owner check.
-        if (!request()->routeIs('admin.*', 'president.*')) {
+        // Admin / President / Supply Officer routes sit behind their own middleware;
+        // multi-role users would otherwise hit the purchaser owner check.
+        if (request()->routeIs('supply-officer.*')) {
+            abort_unless(\App\Support\SupplyHandoff::risIsSentToSupply($ris), 403);
+            $assigned = (int) ($ris->ris_supply_officer_user_id ?? 0);
+            if ($assigned > 0 && $assigned !== (int) Auth::id()) {
+                abort(403, 'This RIS was sent to another School Supply / Material Officer.');
+            }
+        } elseif (! request()->routeIs('admin.*', 'president.*')) {
             PurchaserDocumentAccess::assertOwns($ris, 'ris');
         }
 
@@ -2132,7 +2222,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             $required ? 'required' : 'nullable',
             'string',
             'max:100',
-            'regex:/^RIS-\d{6}-\d{7}$/',
+            'regex:'.RisWorkflow::FORM_NUMBER_REGEX,
             $unique,
         ];
     }

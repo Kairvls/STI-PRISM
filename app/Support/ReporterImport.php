@@ -89,7 +89,8 @@ class ReporterImport
             $last = PersonNames::clean($cell($row, 'last_name'));
             $rawType = $cell($row, 'type');
             $email = strtolower($cell($row, 'email_address'));
-            $contact = preg_replace('/\D+/', '', self::normalizeContact($cell($row, 'contact_number')));
+            $contactRaw = self::normalizeContact($cell($row, 'contact_number'));
+            $contact = PhoneNumber::normalizeForStorage($contactRaw) ?? '';
             $departmentName = $cell($row, 'department');
             $departmentId = $departmentName !== '' ? ($departments[Str::lower($departmentName)] ?? null) : null;
 
@@ -122,7 +123,7 @@ class ReporterImport
                 ! filter_var($email, FILTER_VALIDATE_EMAIL) => '"'.$email.'" is not a valid email.',
                 isset($takenEmails[$email]) => 'Email '.$email.' is already used by another reporter.',
                 isset($seenEmails[$email]) => 'Email '.$email.' already appears on row '.$seenEmails[$email].'.',
-                $contact !== '' && strlen($contact) !== 11 => 'Contact number must have exactly 11 digits.',
+                $contactRaw !== '' && ! PhoneNumber::isValid($contactRaw) => 'Contact number is not a valid mobile number.',
                 default => null,
             };
 

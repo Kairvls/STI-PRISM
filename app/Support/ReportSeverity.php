@@ -6,11 +6,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Automatic report priority (ITIL-style impact × urgency), decided by the system
+ * Automatic report priority (Critical / High / Medium / Low), decided by the system
  * from the equipment, the suggested issue, the room, repeat reports, and safety signals.
  *
- * report_urgency_level (Urgent / Non-Urgent) is still saved and derived from the level,
- * so every existing Urgent-based rule keeps working.
+ * User-facing wording uses these four levels only. report_urgency_level is still stored
+ * internally (Critical+High → legacy Urgent, Medium+Low → legacy Non-Urgent) for older
+ * filters and purchaser queues, but should not be shown as the report status label.
  */
 class ReportSeverity
 {

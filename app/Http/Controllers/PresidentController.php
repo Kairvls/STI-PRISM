@@ -250,6 +250,7 @@ class PresidentController extends Controller
             'ris.ris_submitted_by',
             'ris.ris_created_at',
         ];
+        $this->appendRisRequestNoSelect($pendingSelect, $pendingGroupBy);
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
             $pendingSelect[] = 'ris.ris_forward_details';
             $pendingGroupBy[] = 'ris.ris_forward_details';
@@ -294,6 +295,10 @@ class PresidentController extends Controller
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%")
                   ->orWhereIn('ris.ris_created_by', RisWorkflow::userIdsMatchingName($search));
+
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $q->orWhere('ris.ris_request_no', 'LIKE', "%{$search}%");
+                }
 
                 $this->addDateSearch($q, 'ris.ris_created_at', $search);
             });
@@ -342,6 +347,7 @@ class PresidentController extends Controller
             'ris.ris_submitted_by',
             'ris.ris_created_at',
         ];
+        $this->appendRisRequestNoSelect($awaitingSelect, $awaitingGroupBy);
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
             $awaitingSelect[] = 'ris.ris_forward_details';
             $awaitingGroupBy[] = 'ris.ris_forward_details';
@@ -538,7 +544,7 @@ class PresidentController extends Controller
                     ->where('log.approval_log_level', '=', 'President');
             })
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
-            ->select(
+            ->select($this->withRisRequestNoSelect([
                 'ris.ris_id',
                 'ris.ris_form_number',
                 'ris.ris_status',
@@ -547,8 +553,8 @@ class PresidentController extends Controller
                 'log.approval_log_approval_status as decision',
                 'log.approval_log_approval_remarks as remarks',
                 'log.approval_log_approved_at as decided_at',
-                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
-            )
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount'),
+            ]))
             ->whereIn('ris.ris_status', [
                 'Approved',
                 'Approved by the President',
@@ -556,7 +562,7 @@ class PresidentController extends Controller
                 'Rejected by President',
                 'Rejected by the President',
             ])
-            ->groupBy(
+            ->groupBy($this->withRisRequestNoGroup([
                 'ris.ris_id',
                 'ris.ris_form_number',
                 'ris.ris_status',
@@ -564,8 +570,8 @@ class PresidentController extends Controller
                 'ris.ris_purpose_description',
                 'log.approval_log_approval_status',
                 'log.approval_log_approval_remarks',
-                'log.approval_log_approved_at'
-            );
+                'log.approval_log_approved_at',
+            ]));
 
         // Search
         if ($request->filled('search')) {
@@ -574,6 +580,9 @@ class PresidentController extends Controller
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%");
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $q->orWhere('ris.ris_request_no', 'LIKE', "%{$search}%");
+                }
             });
         }
 
@@ -634,6 +643,7 @@ class PresidentController extends Controller
             'ris.ris_status',
             'ris.ris_approved_by_date',
         ];
+        $this->appendRisRequestNoSelect($select, $groupBy);
 
         if ($hasReason) {
             $select[] = 'ris.ris_direct_approval_reason';
@@ -694,6 +704,9 @@ class PresidentController extends Controller
                     ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                     ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%");
 
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $q->orWhere('ris.ris_request_no', 'LIKE', "%{$search}%");
+                }
                 if ($hasReason) {
                     $q->orWhere('ris.ris_direct_approval_reason', 'LIKE', "%{$search}%");
                 }
@@ -1919,6 +1932,36 @@ class PresidentController extends Controller
     // =====================================================
     // SEARCH HELPER: DATE SEARCH
     // =====================================================
+
+    private function appendRisRequestNoSelect(array &$select, ?array &$groupBy = null): void
+    {
+        if (! Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            return;
+        }
+
+        $select[] = 'ris.ris_request_no';
+        if ($groupBy !== null) {
+            $groupBy[] = 'ris.ris_request_no';
+        }
+    }
+
+    /** @param  list<string|\Illuminate\Database\Query\Expression>  $select */
+    private function withRisRequestNoSelect(array $select): array
+    {
+        $this->appendRisRequestNoSelect($select);
+
+        return $select;
+    }
+
+    /** @param  list<string>  $groupBy */
+    private function withRisRequestNoGroup(array $groupBy): array
+    {
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $groupBy[] = 'ris.ris_request_no';
+        }
+
+        return $groupBy;
+    }
 
     private function addDateSearch($query, string $dateColumn, string $search): void
     {

@@ -46,6 +46,7 @@
                     <tr class="border-b border-gray-100">
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS ID</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
+                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Request No.</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved by</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reason</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
@@ -123,7 +124,7 @@
                     </a>
                 </div>
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Supporting document of RIS</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Canvas</p>
                     <div id="directApprovalDetailDocs" class="mt-1.5 flex flex-wrap gap-2">
                         <p class="text-xs text-slate-400">None attached to this RIS.</p>
                     </div>
@@ -175,7 +176,7 @@
                 class="hidden border-t border-slate-100 bg-slate-50 px-3 py-2"
                 style="line-height: normal; font-size: medium;"
             >
-                <p class="m-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Supporting document</p>
+                <p class="m-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Canvas</p>
                 <div class="mt-1.5 flex flex-wrap gap-1.5" id="risViewAttachmentList"></div>
             </div>
             <div class="absolute right-3 top-3 z-10 flex items-center gap-2" style="line-height: normal; font-size: medium;">

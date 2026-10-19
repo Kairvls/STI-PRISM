@@ -81,6 +81,14 @@
             <i class="h-5 w-5" data-lucide="history"></i>
             <span>Approval History</span>
         </a>
+        <a
+            href="{{ route('president.dv.index') }}"
+            class="menu-item {{ request()->is('president/disbursement-vouchers*') ? 'active' : '' }} mt-1"
+            id="dv-approvals-section"
+        >
+            <i class="h-5 w-5" data-lucide="file-text"></i>
+            <span>Disbursement Vouchers</span>
+        </a>
 
         <div class="menu-title" id="reports-section">DECISION REPORTS</div>
         <a

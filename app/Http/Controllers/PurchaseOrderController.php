@@ -23,6 +23,11 @@ class PurchaseOrderController extends Controller
 {
     public function index(Request $request)
     {
+        return ProcurementPortal::redirect('atp.index')->with(
+            'error',
+            'Purchase Orders are no longer used. Use Released ATPs and Request for Check instead.'
+        );
+
         abort_unless(PurchaseOrderBasket::tablesExist(), 404);
 
         $userId = (int) Auth::id();
@@ -108,6 +113,11 @@ class PurchaseOrderController extends Controller
 
     public function attach(Request $request, $id)
     {
+        return back()->with(
+            'error',
+            'Purchase Orders are no longer used. The School Supply / Material Officer submits each Authority to Purchase directly to the School Administrator.'
+        );
+
         $order = $this->findOwnedOrder($id);
         abort_if(! $order, 404);
 
@@ -152,6 +162,11 @@ class PurchaseOrderController extends Controller
 
     public function detach(Request $request, $id)
     {
+        return back()->with(
+            'error',
+            'Purchase Orders are no longer used. The School Supply / Material Officer submits each Authority to Purchase directly to the School Administrator.'
+        );
+
         $order = $this->findOwnedOrder($id);
         abort_if(! $order, 404);
 
@@ -172,7 +187,7 @@ class PurchaseOrderController extends Controller
 
         $released = PurchaseOrderBasket::releaseIfUndersized((int) $id);
         $message = $released !== []
-            ? 'ATP removed. Only one ATP was left, so it was taken off the Purchase Order and can be submitted directly to Accounting.'
+            ? 'ATP removed. Only one ATP was left, so it was taken off the Purchase Order and can be submitted directly to the School Administrator.'
             : 'ATP removed from Purchase Order.';
 
         if (! DB::table('purchase_orders_table')->where('purchase_order_id', $id)->exists()) {
@@ -188,7 +203,12 @@ class PurchaseOrderController extends Controller
 
     public function submit($id)
     {
-        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+        return back()->with(
+            'error',
+            'Purchase Orders are no longer used. The School Supply / Material Officer submits each Authority to Purchase directly to the School Administrator.'
+        );
+
+        $reviewerId = ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
         return DB::transaction(function () use ($id, $reviewerId) {
             $order = DB::table('purchase_orders_table')
@@ -207,7 +227,7 @@ class PurchaseOrderController extends Controller
             if (count($atpIds) < PurchaseOrderBasket::MIN_ATPS) {
                 return back()->with(
                     'error',
-                    'A Purchase Order needs at least '.PurchaseOrderBasket::MIN_ATPS.' ATPs. Submit a single ATP directly to Accounting from Authority to Purchase.'
+                    'A Purchase Order needs at least '.PurchaseOrderBasket::MIN_ATPS.' ATPs. Submit a single ATP directly to the School Administrator from Authority to Purchase.'
                 );
             }
 
@@ -271,19 +291,19 @@ class PurchaseOrderController extends Controller
             }
 
             DocumentWorkflowService::notifySubmitted(
-                WorkflowNotifier::ROLE_ACCOUNTING,
+                \App\Support\ProcurementReviewPortal::ROLE,
                 'New Purchase Order submitted',
-                $poNumber.' ('.count($atpIds).' ATP'.(count($atpIds) === 1 ? '' : 's').') was submitted for Accounting review.',
+                $poNumber.' ('.count($atpIds).' ATP'.(count($atpIds) === 1 ? '' : 's').') was submitted for School Administrator review.',
                 'po_submitted',
                 'PO',
                 (int) $id,
-                '/accounting/purchase-orders?status=incoming',
+                \App\Support\ProcurementReviewPortal::purchaseOrder().'?status=incoming',
                 $reviewerId
             );
 
             return redirect()
                 ->route(ProcurementPortal::routeName('purchase-orders.index'))
-                ->with('success', $poNumber.' submitted to Accounting.');
+                ->with('success', $poNumber.' submitted to the School Administrator.');
         });
     }
 
@@ -293,7 +313,7 @@ class PurchaseOrderController extends Controller
         abort_if(! $order, 404);
 
         $validated = $request->validate([
-            'payment_path' => ['required', Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE])],
+            'payment_path' => ['required', Rule::in(ProcurementPaymentPath::choices())],
         ]);
         $path = $validated['payment_path'];
 
@@ -303,9 +323,9 @@ class PurchaseOrderController extends Controller
 
         $groups = PurchaseOrderFunding::fundingGroups($path, (int) $id);
         $label = ProcurementPaymentPath::label($path);
-        $message = $path === ProcurementPaymentPath::CASH_ADVANCE
+        $message = ProcurementPaymentPath::requiresLiquidation($path)
             ? "Payment path set to {$label}. Create one Cash Advance for the whole Purchase Order."
-            : "Payment path set to {$label}. Create one Request for Check per supplier (".count($groups).').';
+            : "Payment path set to {$label}. Create one funding request per supplier (".count($groups).').';
 
         $params = ['funding_type' => $path];
         if ($groups !== []) {
@@ -326,6 +346,14 @@ class PurchaseOrderController extends Controller
             PurchaseOrderBasket::STATUS_CANCELLED,
         ], true)) {
             return back()->with('error', 'Only approved, rejected, or cancelled Purchase Orders can be archived.');
+        }
+
+        if ((string) $order->purchase_order_status === PurchaseOrderBasket::STATUS_APPROVED) {
+            PurchaseOrderBasket::attachToOrders(collect([$order]));
+            PurchaseOrderFunding::attachFundingState(collect([$order]));
+            if (empty($order->funding_path) || ! empty($order->funding_open_groups)) {
+                return back()->with('error', 'Finish choosing a payment path / funding request before archiving this Purchase Order.');
+            }
         }
 
         DB::table('purchase_orders_table')

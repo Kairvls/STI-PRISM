@@ -819,8 +819,8 @@
     }
 
     .acc-attachments a {
-        font-size: 0.8125rem;
-        font-weight: 500;
+        font-size: 0.9375rem;
+        font-weight: 600;
         color: var(--acc-brand);
         text-decoration: none;
     }

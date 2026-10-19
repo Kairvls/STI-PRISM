@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * RR "No." values: RR-YYYYMM-0000001
+ * RR "No." values: RR-YYYYMMDD-0000001
  * Assigned on submit only — drafts stay null.
  */
 class RrFormNumber
 {
-    public const FORM_NUMBER_REGEX = '/^RR-\d{6}-\d{7}$/';
+    /** Accepts RR-YYYYMMDD-0000001 and legacy RR-YYYYMM-0000001 */
+    public const FORM_NUMBER_REGEX = '/^RR-\d{6,8}-\d{7}$/';
 
     public static function isValid(?string $value): bool
     {
@@ -19,13 +20,12 @@ class RrFormNumber
     }
 
     /**
-     * Next RR No. — the YYYYMM prefix is the current month, but the sequence
-     * continues across months (non-draft rows only).
+     * Next RR No. — YYYYMMDD is today; sequence continues across days.
      */
     public static function next(): string
     {
-        $ym = now()->format('Ym');
-        $prefix = 'RR-'.$ym.'-';
+        $ymd = now()->format('Ymd');
+        $prefix = 'RR-'.$ymd.'-';
         $max = 0;
 
         if (! Schema::hasTable('receiving_reports_table')
@@ -45,7 +45,7 @@ class RrFormNumber
         }
 
         foreach ($query->pluck('receiving_report_form_number') as $formNumber) {
-            if (preg_match('/^RR-\d{6}-(\d{7})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^RR-\d{6,8}-(\d{7})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

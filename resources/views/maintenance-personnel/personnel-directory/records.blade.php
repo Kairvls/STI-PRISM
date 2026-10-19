@@ -62,17 +62,9 @@
         </div>
     </div>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            ['label' => 'Reports filed', 'hint' => 'All time', 'value' => number_format($reporter->reports_total)],
-            ['label' => 'Open', 'hint' => 'Pending, processing or for replacement', 'value' => number_format($reporter->reports_open)],
-            ['label' => 'Resolved', 'hint' => 'Fixed and closed', 'value' => number_format($reporter->reports_resolved)],
-            ['label' => 'Last report', 'hint' => $reporter->last_reported_at ? \Illuminate\Support\Carbon::parse($reporter->last_reported_at)->diffForHumans() : 'No reports yet', 'value' => $reporter->last_reported_at ? \Illuminate\Support\Carbon::parse($reporter->last_reported_at)->format('M j, Y') : '—'],
-        ],
-    ])
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <form method="GET" action="{{ url()->current() }}" class="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <form method="GET" action="{{ url()->current() }}" data-auto-filter class="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <input type="hidden" name="reporter" value="{{ $reporter->reporter_id }}">
             <h3 class="text-base font-semibold text-slate-900">Report records</h3>
 
@@ -129,7 +121,7 @@
                                         $recordTicketCode = \App\Support\ReportGrouping::ticketCode($record);
                                     @endphp
                                     @if ($canOpenReports)
-                                        <a href="{{ url('/maintenance/reports/details/'.$record->report_id) }}" class="text-[#0025cc] hover:underline">{{ $recordTicketCode }}</a>
+                                        <a href="{{ \App\Support\ReportDetailsReturn::detailsUrl((int) $record->report_id) }}" class="text-[#0025cc] hover:underline">{{ $recordTicketCode }}</a>
                                     @else
                                         <span class="text-slate-900">{{ $recordTicketCode }}</span>
                                     @endif

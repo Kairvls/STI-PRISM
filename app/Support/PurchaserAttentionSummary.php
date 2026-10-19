@@ -25,6 +25,8 @@ class PurchaserAttentionSummary
 
     public const FOCUS_RFC_READY_FOR_RR = 'ready-for-rr';
 
+    public const FOCUS_CHECK_READY = 'check-ready';
+
     public const FOCUS_RR_READY_FOR_LIQ = 'ready-for-liquidation';
 
     /**
@@ -49,6 +51,11 @@ class PurchaserAttentionSummary
         self::FOCUS_ATP_READY_FOR_RFC => [
             'label' => 'Approved ATP ready for funding',
             'description' => 'Approved ATP without an active Request for Check or Cash Advance.',
+            'scope' => 'mine',
+        ],
+        self::FOCUS_CHECK_READY => [
+            'label' => 'Checks ready for pickup',
+            'description' => 'Accounting released the check. Collect it at the office, then buy and file the Receiving Report.',
             'scope' => 'mine',
         ],
         self::FOCUS_RFC_READY_FOR_RR => [
@@ -96,6 +103,7 @@ class PurchaserAttentionSummary
      *     availableUrgentReports: int,
      *     risReadyForAtp: int,
      *     atpReadyForRfc: int,
+     *     checkReady: int,
      *     rfcReadyForRr: int,
      *     rrReadyForLiq: int,
      *     attentionTotal: int
@@ -114,6 +122,9 @@ class PurchaserAttentionSummary
         $atpReadyForRfc = Schema::hasTable('authority_to_purchase_table')
             ? (int) self::scopeAtpReadyForRfc(DB::table('authority_to_purchase_table'))->count()
             : 0;
+        $checkReady = Schema::hasTable('request_check_table')
+            ? (int) self::scopeCheckReady(DB::table('request_check_table'))->count()
+            : 0;
         $rfcReadyForRr = Schema::hasTable('request_check_table')
             ? (int) self::scopeRfcReadyForRr(DB::table('request_check_table'))->count()
             : 0;
@@ -126,17 +137,60 @@ class PurchaserAttentionSummary
             'availableUrgentReports' => $availableUrgentReports,
             'risReadyForAtp' => $risReadyForAtp,
             'atpReadyForRfc' => $atpReadyForRfc,
+            'checkReady' => $checkReady,
             'rfcReadyForRr' => $rfcReadyForRr,
             'rrReadyForLiq' => $rrReadyForLiq,
             'attentionTotal' => $pendingReplacementRequests
                 + $availableUrgentReports
                 + $risReadyForAtp
                 + $atpReadyForRfc
+                + $checkReady
                 + $rfcReadyForRr
                 + $rrReadyForLiq,
         ];
 
         return self::$cached;
+    }
+
+    /** RFCs whose DV check was released but RR not started yet (pickup / buy step). */
+    public static function scopeCheckReady($query)
+    {
+        $query->where('request_check_table.request_check_status', 'Approved');
+        self::whereNotArchived($query, 'request_check_table', 'request_check_is_archived');
+        PurchaserDocumentAccess::scopeOwned($query, 'rfc', 'request_check_table');
+
+        if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+            $query->whereNotNull('request_check_table.request_check_funds_released_at');
+        } elseif (Schema::hasTable('disbursement_vouchers_table')) {
+            $query->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('disbursement_vouchers_table as ready_dv')
+                    ->whereColumn('ready_dv.dv_request_check_id', 'request_check_table.request_check_id')
+                    ->where('ready_dv.dv_status', 'Check Released')
+                    ->where(function ($arch) {
+                        $arch->whereNull('ready_dv.dv_is_archived')->orWhere('ready_dv.dv_is_archived', 0);
+                    });
+            });
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        if (
+            Schema::hasTable('receiving_reports_table')
+            && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+        ) {
+            $query->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('receiving_reports_table as ready_rr')
+                    ->whereColumn('ready_rr.receiving_report_request_check_id', 'request_check_table.request_check_id')
+                    ->where('ready_rr.receiving_report_status', '!=', 'Returned');
+                if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
+                    self::whereNotArchived($sub, 'ready_rr.receiving_report_is_archived');
+                }
+            });
+        }
+
+        return $query;
     }
 
     public static function scopeReplacementPending($query)

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 class SemesterInspections
 {
-    public const STATUSES = ['Draft', 'Active', 'In Progress', 'Completed', 'Cancelled'];
+    public const STATUSES = ['Draft', 'Active', 'In Progress', 'Completed', 'Cancelled', 'Archived'];
 
     public const SEMESTERS = ['1st Semester', '2nd Semester', 'Summer'];
 

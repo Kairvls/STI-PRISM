@@ -40,8 +40,8 @@
 
     $risPanels = [
         [
-            'title' => 'RIS Requests - Waiting for your acceptance',
-            'url' => route('school-admin.procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]),
+            'title' => 'RIS — Pending Accept',
+            'url' => route('school-admin.procurement-review', ['filter' => 'pending', 'focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]),
             'total' => $stats['pending_ris'],
             'empty' => 'No RIS waiting for acceptance.',
             'rows' => $pendingRisList,
@@ -52,8 +52,7 @@
             'statusText' => null,
         ],
         [
-            'title' => 'RIS - Approved by the President: ready for your signature',
-            
+            'title' => 'RIS — Ready to Sign (Issued by)',
             'url' => route('school-admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']),
             'total' => $stats['awaiting_issued_by'],
             'empty' => 'Nothing to sign right now. RIS approved by the President will appear here.',
@@ -113,6 +112,11 @@
                             >
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
+                                    @if(!blank($row->ris_request_no ?? null))
+                                        <p class="mt-0.5">
+                                            @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no, 'inline' => true, 'showLabel' => false])
+                                        </p>
+                                    @endif
                                     <p class="mt-0.5 truncate text-xs text-gray-400">
                                         {{ \Illuminate\Support\Str::limit($row->ris_purpose_description ?: 'No purpose noted', 60) }}
                                         · ₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}
@@ -148,8 +152,7 @@
     <div class="pur-card">
         <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
             <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-gray-950">3 Latest procurement workflow</h3>
-                <!--<p class="mt-0.5 text-xs text-gray-400">Where the most recent RIS are in the purchasing process.</p>-->
+                <h3 class="text-sm font-semibold text-gray-950">3 Latest requests</h3>
             </div>
             <a href="{{ route('school-admin.operations.procurement', ['filter' => 'open']) }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
                 View all ({{ $stats['open_ris'] }} open)
@@ -164,19 +167,24 @@
                     $stageKeys = \App\Support\AdminPipeline::STAGE_ORDER;
                     $currentIndex = array_search($current, $stageKeys, true) ?: 0;
                     $formNumber = \App\Support\RisWorkflow::formNumber($row);
+                    $requestNo = trim((string) ($row->ris_request_no ?? ($pipeline['request_no'] ?? '')));
                     $whereNow = ($pipeline['current_hint'] ?? null) ?: \App\Support\RisWorkflow::statusLabel($row);
+                    $displayLabel = $requestNo !== '' ? $requestNo : $formNumber;
                 @endphp
                 <li>
                     <button
                         type="button"
                         data-ris-id="{{ (int) $row->ris_id }}"
-                        data-ris-label="{{ $row->ris_form_number ?: $formNumber }}"
+                        data-ris-label="{{ $displayLabel }}"
                         onclick="window.dispatchEvent(new CustomEvent('open-procurement-pipeline', { detail: { id: Number(this.dataset.risId), label: this.dataset.risLabel } }))"
-                        title="Show where this RIS is in the procurement process"
+                        title="Show where this request is in the procurement process"
                         class="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-gray-50/70 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-center md:gap-6"
                     >
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900">{{ $formNumber }}</p>
+                            <p class="text-sm font-semibold text-gray-900">{{ $displayLabel ?: 'Request' }}</p>
+                            @if($requestNo !== '' && $formNumber !== '')
+                                <p class="mt-0.5 text-[11px] text-gray-400">{{ $formNumber }}</p>
+                            @endif
                             <p class="mt-0.5 truncate text-xs text-gray-400">
                                 {{ \Illuminate\Support\Str::limit($row->ris_purpose_description ?: 'No purpose noted', 70) }}
                                 · ₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}
@@ -312,13 +320,13 @@
             if (isAccept) {
                 if (risNumber) params.set('search', risNumber);
                 moduleLink.href = procurementUrl + (params.toString() ? '?' + params.toString() : '');
-                moduleLink.textContent = 'Open in Procurement Requests';
+                moduleLink.textContent = 'Open Pending Accept';
                 moduleLink.className = 'rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50';
             } else {
                 params.set('filter', 'for_cosign');
                 if (risNumber) params.set('search', risNumber);
                 moduleLink.href = signRisUrl + '?' + params.toString();
-                moduleLink.textContent = 'Go to Sign RIS';
+                moduleLink.textContent = 'Open Ready to Sign';
                 moduleLink.className = 'rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800';
             }
         }

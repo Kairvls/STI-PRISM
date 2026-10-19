@@ -36,14 +36,6 @@
 
     {{-- Weekly Stats Cards --}}
     <div class="mt-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total RIS', 'hint' => 'This week', 'value' => number_format((int) ($totalRis ?? 0))],
-                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approved ?? 0))],
-                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejected ?? 0))],
-                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pending ?? 0))],
-            ],
-        ])
     </div>
 
     {{-- Weekly Chart --}}
@@ -90,7 +82,7 @@
 <div id="monthlyTab" class="mt-6 {{ $tab === 'monthly' ? '' : 'hidden' }}">
     {{-- Month Selector --}}
     <div class="pm-card p-5 slide-up" style="animation-delay: 0.05s">
-        <form method="GET" action="/president/reports/summary" class="flex items-center gap-2">
+        <form data-auto-filter method="GET" action="/president/reports/summary" class="flex items-center gap-2">
             <input type="hidden" name="tab" value="monthly" />
             <select name="month" class="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200">
                 @foreach(($monthNames ?? []) as $num => $name)
@@ -111,14 +103,6 @@
 
     {{-- Monthly Stats Cards --}}
     <div class="mt-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total RIS', 'hint' => 'This month', 'value' => number_format((int) ($totalRis ?? 0))],
-                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approved ?? 0))],
-                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejected ?? 0))],
-                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pending ?? 0))],
-            ],
-        ])
     </div>
 
     {{-- Monthly Chart --}}

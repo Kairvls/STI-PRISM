@@ -248,7 +248,7 @@ class MobileSemesterInspectionController extends Controller
             return response()->json(['message' => 'Campaign not found.'], 404);
         }
 
-        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true)) {
+        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled', 'Archived'], true)) {
             return response()->json([
                 'message' => 'This campaign is closed and cannot accept new inspections.',
             ], 422);

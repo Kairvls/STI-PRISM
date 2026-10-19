@@ -94,7 +94,7 @@
                 id="{{ $modalId }}-attachments"
                 class="hidden shrink-0 border-t border-gray-100 bg-white px-4 py-2"
             >
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Supporting documents</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Canvas</p>
                 <div class="mt-1 space-y-0.5" data-attachment-list></div>
             </div>
 
@@ -346,7 +346,7 @@
                     link.href = file.url;
                     link.target = '_blank';
                     link.rel = 'noopener';
-                    link.className = 'block max-w-full truncate text-xs text-sky-700 hover:underline';
+                    link.className = 'block max-w-full truncate text-[15px] font-semibold text-[#0025cc] hover:underline';
                     link.title = file.name || 'Attachment';
                     link.textContent = file.name || 'Attachment';
                     list.appendChild(link);

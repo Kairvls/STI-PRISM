@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\AccountingAttentionSummary;
 use App\Support\AccountingDashboard;
+use App\Support\ProcurementReviewPortal;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -57,13 +58,13 @@ class AccountingController extends Controller
 
     public function authorityToPurchase(Request $request)
     {
-        $filter = $this->resolveModuleFilter($request, 'accounting.atp_status', 'incoming', [
+        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming', [
             'all', 'incoming', 'revision', 'approved', 'rejected',
         ]);
         $attentionFocus = AccountingAttentionSummary::focusFor($request, 'authority_to_purchase_table');
         if ($attentionFocus) {
             $filter = $attentionFocus['status'];
-            session(['accounting.atp_status' => $filter]);
+            session([ProcurementReviewPortal::SESSION_ATP_STATUS => $filter]);
         }
         $query = $this->atpQuery()->where(function ($q) {
             $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
@@ -84,21 +85,33 @@ class AccountingController extends Controller
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Rejected');
         }
 
-        $this->applySearch($query, $request, [
+        $atpSearchCols = [
             'authority_to_purchase_table.authority_purchase_form_number',
             'requisition_issue_slip_table.ris_form_number',
             'requisition_issue_slip_table.ris_purpose_description',
             'authority_to_purchase_table.authority_purchase_status',
             'physical_suppliers_table.company_name',
             'online_suppliers_table.shop_name',
-        ]);
+        ];
+        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
+            $atpSearchCols[] = 'authority_to_purchase_table.authority_purchase_request_no';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $atpSearchCols[] = 'requisition_issue_slip_table.ris_request_no';
+        }
+        $this->applySearch($query, $request, $atpSearchCols);
 
         if ($filter === 'incoming') {
             DocumentUrgency::orderUrgentFirst($query, 'ATP');
+            // Urgent first, then oldest waiting.
+            $records = $query->orderBy('authority_to_purchase_table.authority_purchase_updated_at')
+                ->paginate(15)
+                ->withQueryString();
+        } else {
+            $records = $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
+                ->paginate(15)
+                ->withQueryString();
         }
-        $records = $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
-            ->paginate(15)
-            ->withQueryString();
 
         $counts = [
             'all' => $this->countAtpAll(),
@@ -143,7 +156,7 @@ class AccountingController extends Controller
         $reviewable = $atp->authority_purchase_status === 'Pending'
             && $atp->authority_purchase_submitted_at !== null
             && ! $this->atpReviewedViaPurchaseOrder($purchaseOrder);
-        $returnStatus = $this->resolveReturnStatus($request, 'accounting.atp_status', 'incoming');
+        $returnStatus = $this->resolveReturnStatus($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming');
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
 
@@ -180,16 +193,9 @@ class AccountingController extends Controller
 
     private function purchaseOrderDecisionBlock(Request $request, int $atpId)
     {
-        $order = $this->purchaseOrderForAtp($atpId);
-        if (! $this->atpReviewedViaPurchaseOrder($order)) {
-            return null;
-        }
-
-        $message = 'This ATP is part of '.PurchaseOrderBasket::displayNumber($order).'. Approve or send back the whole Purchase Order instead.';
-
-        return $request->expectsJson()
-            ? response()->json(['ok' => false, 'message' => $message], 422)
-            : back()->with('error', $message);
+        // Purchase Orders are retired from the active workflow — School Admin
+        // reviews each ATP individually even if legacy rows still link a PO.
+        return null;
     }
 
     /**
@@ -220,7 +226,7 @@ class AccountingController extends Controller
             : [
                 'ris' => [
                     'label' => RisWorkflow::formNumber($ris),
-                    'url' => route('accounting.ris.show', $id),
+                    'url' => route('school-admin.ris.show', $id),
                     'status' => $ris->ris_status ?? null,
                 ],
                 'atp' => null,
@@ -233,7 +239,7 @@ class AccountingController extends Controller
             ->reject(fn ($row) => (string) ($row->authority_purchase_status ?? '') === 'Rejected')
             ->map(fn ($row) => [
                 'label' => $row->authority_purchase_form_number ?: ('ATP #' . $row->authority_purchase_id),
-                'url' => '/accounting/authority-to-purchase/' . $row->authority_purchase_id,
+                'url' => ProcurementReviewPortal::atp((int) $row->authority_purchase_id),
                 'status' => $row->authority_purchase_status,
             ])
             ->values()
@@ -241,8 +247,8 @@ class AccountingController extends Controller
 
         $history = $this->documentHistory('RIS', (int) $id);
         $backUrl = $atp
-            ? '/accounting/authority-to-purchase/' . $atp->authority_purchase_id
-            : '/accounting/authority-to-purchase';
+            ? ProcurementReviewPortal::atp((int) $atp->authority_purchase_id)
+            : ProcurementReviewPortal::atp();
 
         return view('accounting.ris.show', [
             'ris' => $ris,
@@ -289,10 +295,6 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
-        if ($blocked = $this->purchaseOrderDecisionBlock($request, (int) $id)) {
-            return $blocked;
-        }
-
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
         $update = [
             'authority_purchase_status' => 'Approved',
@@ -308,22 +310,25 @@ class AccountingController extends Controller
         }
         DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update($update);
 
-        $this->log('ATP', (int) $id, 'Approved', 'ATP approved. Purchaser may proceed to Request Check.');
-        $this->notifyPurchaser(
-            $atp->authority_purchase_submitted_by,
+        $this->log('ATP', (int) $id, 'Approved', 'ATP approved. School Supply / Material Officer may release it to the Purchaser.');
+        $supplyUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
+        WorkflowNotifier::toUser(
+            $supplyUserId,
+            WorkflowNotifier::ROLE_SUPPLY_OFFICER,
             'ATP approved',
-            ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ' was approved by Accounting. You may create a Request Check.',
+            ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ' was approved by the School Administrator. Release it to the Purchaser for Request for Check.',
             'atp_approved',
             'ATP',
             (int) $id,
-            '/purchaser/request-check?selected_atp=' . (int) $id
+            '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
+            'school-admin'
         );
 
-        $message = 'ATP approved. ' . WorkflowNotifier::recipientName($atp->authority_purchase_submitted_by, 'The Purchaser') . ' has been notified.';
+        $message = 'ATP approved. ' . WorkflowNotifier::recipientName($supplyUserId, 'The School Supply / Material Officer') . ' has been notified.';
         if ($request->ajax()) {
             return response()->json(['ok' => true, 'message' => $message]);
         }
-        return redirect('/accounting/authority-to-purchase/' . $id)->with('success', $message);
+        return redirect(ProcurementReviewPortal::atp((int) $id))->with('success', $message);
         });
     }
 
@@ -346,10 +351,6 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be sent back for revision.');
         }
 
-        if ($blocked = $this->purchaseOrderDecisionBlock($request, (int) $id)) {
-            return $blocked;
-        }
-
         try {
             return DocumentRevisionNotes::record($request, 'ATP', (int) $id, $validated['remarks'], DocumentRevisionNotes::KIND_REVISION, function (array $images) use ($request, $id, $atp, $validated) {
                 DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
@@ -359,21 +360,24 @@ class AccountingController extends Controller
                 ]);
 
                 $this->log('ATP', (int) $id, 'Under Review', $validated['remarks']);
-                $this->notifyPurchaser(
-                    $atp->authority_purchase_submitted_by,
+                $supplyUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
+                WorkflowNotifier::toUser(
+                    $supplyUserId,
+                    WorkflowNotifier::ROLE_SUPPLY_OFFICER,
                     'ATP revision required',
                     ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ': ' . $validated['remarks'] . DocumentRevisionNotes::imagesSuffix($images),
                     'atp_revision',
                     'ATP',
                     (int) $id,
-                    '/purchaser/authority-to-purchase'
+                    '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
+                    'school-admin'
                 );
 
-                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($atp->authority_purchase_submitted_by, 'The Purchaser') . ' has been notified' . DocumentRevisionNotes::imagesSuffix($images) . '.';
+                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($supplyUserId, 'The School Supply / Material Officer') . ' has been notified' . DocumentRevisionNotes::imagesSuffix($images) . '.';
                 if ($request->ajax()) {
                     return response()->json(['ok' => true, 'message' => $message]);
                 }
-                return redirect('/accounting/authority-to-purchase?status=' . urlencode(session('accounting.atp_status', 'incoming')))
+                return redirect(ProcurementReviewPortal::atp().'?status=' . urlencode(session(ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming')))
                     ->with('success', $message);
             });
         } catch (RevisionImageUploadException $e) {
@@ -394,7 +398,7 @@ class AccountingController extends Controller
     {
         abort_unless(PurchaseOrderBasket::tablesExist(), 404);
 
-        $filter = $this->resolveModuleFilter($request, 'accounting.po_status', 'incoming', [
+        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_PO_STATUS, 'incoming', [
             'all', 'incoming', 'revision', 'approved', 'rejected', 'cancelled',
         ]);
 
@@ -543,14 +547,14 @@ class AccountingController extends Controller
             $this->notifyPurchaser(
                 $order->purchase_order_submitted_by ?: $order->purchase_order_created_by,
                 'Purchase Order approved',
-                $label.' was approved by Accounting. Linked ATPs are ready for Request Check.',
+                $label.' was approved by the School Administrator. Linked ATPs are ready for Request Check.',
                 'po_approved',
                 'PO',
                 (int) $id,
                 '/purchaser/purchase-orders?view_po='.(int) $id
             );
 
-            return redirect('/accounting/purchase-orders/'.$id)->with(
+            return redirect(ProcurementReviewPortal::purchaseOrder((int) $id))->with(
                 'success',
                 $label.' approved. '.WorkflowNotifier::recipientName($order->purchase_order_submitted_by ?: $order->purchase_order_created_by, 'The Purchaser').' has been notified.'
             );
@@ -627,7 +631,7 @@ class AccountingController extends Controller
                 '/purchaser/purchase-orders?edit_po='.$id
             );
 
-            return redirect('/accounting/purchase-orders')->with(
+            return redirect(ProcurementReviewPortal::purchaseOrder())->with(
                 'success',
                 'Purchase Order sent back to '.WorkflowNotifier::recipientName($order->purchase_order_submitted_by ?: $order->purchase_order_created_by, 'the Purchaser').' for revision'.$suffix.'.'
             );
@@ -636,13 +640,13 @@ class AccountingController extends Controller
 
     public function requestCheck(Request $request)
     {
-        $filter = $this->resolveModuleFilter($request, 'accounting.rfc_status', 'incoming', [
+        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming', [
             'all', 'incoming', 'funds', 'released', 'revision', 'approved',
         ]);
         $attentionFocus = AccountingAttentionSummary::focusFor($request, 'request_check_table');
         if ($attentionFocus) {
             $filter = $attentionFocus['status'];
-            session(['accounting.rfc_status' => $filter]);
+            session([ProcurementReviewPortal::SESSION_RFC_STATUS => $filter]);
         }
         $query = $this->rfcQuery();
         AccountingAttentionSummary::scopeRfcActive($query);
@@ -672,8 +676,14 @@ class AccountingController extends Controller
         if ($this->rfcHas('request_check_form_number')) {
             array_unshift($searchCols, 'request_check_table.request_check_form_number');
         }
+        if ($this->rfcHas('request_check_request_no')) {
+            $searchCols[] = 'request_check_table.request_check_request_no';
+        }
         $searchCols[] = 'authority_to_purchase_table.authority_purchase_form_number';
         $searchCols[] = 'requisition_issue_slip_table.ris_form_number';
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $searchCols[] = 'requisition_issue_slip_table.ris_request_no';
+        }
         if ($this->rfcHas('request_check_amount_figures')) {
             $searchCols[] = 'request_check_table.request_check_amount_figures';
         }
@@ -681,8 +691,11 @@ class AccountingController extends Controller
 
         if (in_array($filter, ['incoming', 'funds'], true)) {
             DocumentUrgency::orderUrgentFirst($query, 'RFC');
+            // Urgent first, then oldest waiting.
+            $records = $query->orderBy($this->rfcSortColumn())->paginate(15)->withQueryString();
+        } else {
+            $records = $query->orderByDesc($this->rfcSortColumn())->paginate(15)->withQueryString();
         }
-        $records = $query->orderByDesc($this->rfcSortColumn())->paginate(15)->withQueryString();
         $counts = [
             'incoming' => $this->countRfcIncoming(),
             'funds' => $this->countFundsAwaiting(),
@@ -722,7 +735,7 @@ class AccountingController extends Controller
                 'request_check_updated_at' => now(),
             ]);
             $rfc->request_check_status = 'Under Review';
-            $this->log('RFC', (int) $id, 'Under Review', 'Opened for Accounting review.');
+            $this->log('RFC', (int) $id, 'Under Review', 'Opened for School Administrator review.');
         }
 
         $attachments = Schema::hasTable('request_check_attachments_table')
@@ -762,7 +775,7 @@ class AccountingController extends Controller
         $releasable = $rfc->request_check_status === 'Approved'
             && $this->rfcHas('request_check_funds_released_at')
             && empty($rfc->request_check_funds_released_at);
-        $returnStatus = $this->resolveReturnStatus($request, 'accounting.rfc_status', 'incoming');
+        $returnStatus = $this->resolveReturnStatus($request, ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming');
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
 
@@ -793,7 +806,7 @@ class AccountingController extends Controller
         );
 
         if (!in_array($rfc->request_check_status, $this->rfcIncomingStatuses(), true)) {
-            return back()->with('error', 'This Request Check is not awaiting Accounting review.');
+            return back()->with('error', 'This Request Check is not awaiting School Administrator review.');
         }
 
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
@@ -814,7 +827,7 @@ class AccountingController extends Controller
         $this->notifyPurchaser(
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Request Check approved',
-            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' was approved. Wait for Accounting to release funds, then create a Receiving Report.',
+            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' was approved. Wait for funds to be marked ready for collection, then create a Receiving Report.',
             'rfc_approved',
             'RFC',
             (int) $id,
@@ -825,7 +838,7 @@ class AccountingController extends Controller
         if ($request->ajax()) {
             return response()->json(['ok' => true, 'message' => $message]);
         }
-        return redirect('/accounting/request-check/' . $id)->with('success', $message);
+        return redirect(ProcurementReviewPortal::requestCheck((int) $id))->with('success', $message);
     }
 
     public function reviseRequestCheck(Request $request, $id)
@@ -874,7 +887,7 @@ class AccountingController extends Controller
                 if ($request->ajax()) {
                     return response()->json(['ok' => true, 'message' => $message]);
                 }
-                return redirect('/accounting/request-check?status=' . urlencode(session('accounting.rfc_status', 'incoming')))
+                return redirect(ProcurementReviewPortal::requestCheck().'?status=' . urlencode(session(ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming')))
                     ->with('success', $message);
             });
         } catch (RevisionImageUploadException $e) {
@@ -918,7 +931,7 @@ class AccountingController extends Controller
             '/purchaser/receiving-reports'
         );
 
-        return redirect('/accounting/request-check/' . $id)->with(
+        return redirect(ProcurementReviewPortal::requestCheck((int) $id))->with(
             'success',
             'Funds marked as ready for collection. ' . WorkflowNotifier::recipientName($rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id, 'The Purchaser') . ' has been notified.'
         );
@@ -997,6 +1010,9 @@ class AccountingController extends Controller
         ];
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
             array_unshift($liqSearch, 'liquidation_reports_table.liquidation_report_form_number');
+        }
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_request_no')) {
+            $liqSearch[] = 'liquidation_reports_table.liquidation_report_request_no';
         }
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')) {
             $liqSearch[] = 'receiving_reports_table.receiving_report_form_number';
@@ -1249,7 +1265,7 @@ class AccountingController extends Controller
                     'status' => $row->authority_purchase_status,
                     'amount' => $row->atp_total ?? null,
                     'when' => $row->authority_purchase_updated_at,
-                    'url' => '/accounting/authority-to-purchase/' . $row->authority_purchase_id,
+                    'url' => ProcurementReviewPortal::atp((int) $row->authority_purchase_id),
                 ]);
             }
         }
@@ -1270,7 +1286,7 @@ class AccountingController extends Controller
                 $this->applySearch($q, $request, $cols);
             }
             foreach ($q->orderByDesc($this->rfcSortColumn())->get() as $row) {
-                $status = !empty($row->request_check_funds_released_at ?? null) ? 'Funds released' : $row->request_check_status;
+                $status = !empty($row->request_check_funds_released_at ?? null) ? 'Checks released' : $row->request_check_status;
                 $rows->push((object) [
                     'type' => 'Request Check',
                     'ref' => $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
@@ -1278,7 +1294,7 @@ class AccountingController extends Controller
                     'status' => $status,
                     'amount' => $row->request_check_amount_figures,
                     'when' => $row->request_check_updated_at ?? $row->request_check_created_at ?? $row->request_check_date,
-                    'url' => '/accounting/request-check/' . $row->request_check_id,
+                    'url' => ProcurementReviewPortal::requestCheck((int) $row->request_check_id),
                 ]);
             }
         }
@@ -1924,14 +1940,14 @@ class AccountingController extends Controller
         if ($atp) {
             $chain['atp'] = [
                 'label' => $atp->authority_purchase_form_number ?: ('ATP #' . $atpId),
-                'url' => '/accounting/authority-to-purchase/' . $atpId,
+                'url' => ProcurementReviewPortal::atp((int) $atpId),
                 'status' => $atp->authority_purchase_status,
             ];
             if (!empty($atp->authority_purchase_ris_id)) {
                 $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
                 $chain['ris'] = [
                     'label' => RisWorkflow::formNumber($ris, (int) $atp->authority_purchase_ris_id),
-                    'url' => route('accounting.ris.show', $atp->authority_purchase_ris_id),
+                    'url' => route('school-admin.ris.show', $atp->authority_purchase_ris_id),
                     'status' => $ris->ris_status ?? null,
                 ];
             }
@@ -1942,12 +1958,12 @@ class AccountingController extends Controller
             if ($rfc) {
                 $chain['rfc'] = [
                     'label' => $rfc->request_check_form_number ?: ('RFC #' . $rfc->request_check_id),
-                    'url' => '/accounting/request-check/' . $rfc->request_check_id,
+                    'url' => ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id),
                     'status' => $rfc->request_check_status,
                 ];
                 $chain['funds'] = [
                     'label' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Not released',
-                    'url' => '/accounting/request-check/' . $rfc->request_check_id . '?view=funds',
+                    'url' => ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id) . '?view=funds',
                     'status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Pending',
                 ];
 
@@ -2056,7 +2072,7 @@ class AccountingController extends Controller
             DB::table('approval_logs_table')->insert([
                 'approval_log_reference_type' => $type,
                 'approval_log_reference_id' => $id,
-                'approval_log_level' => 'Accounting',
+                'approval_log_level' => $this->approvalLogLevel($type),
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => $status,
                 'approval_log_approval_remarks' => $remarks,
@@ -2066,16 +2082,30 @@ class AccountingController extends Controller
         }
     }
 
+    private function approvalLogLevel(string $type): string
+    {
+        return ProcurementReviewPortal::ownsDocumentType($type)
+            ? ProcurementReviewPortal::LOG_LEVEL
+            : 'Accounting';
+    }
+
     private function markReviewed(string $type, int $id, bool $should): void
     {
         if (!$should) {
             return;
         }
-        $this->log($type, $id, 'Under Review', 'Opened for Accounting review.');
+        $label = ProcurementReviewPortal::ownsDocumentType($type)
+            ? 'School Administrator'
+            : 'Accounting';
+        $this->log($type, $id, 'Under Review', 'Opened for '.$label.' review.');
     }
 
     private function notifyPurchaser($userId, string $title, string $message, string $kind, string $refType, int $refId, string $url): void
     {
+        $source = ProcurementReviewPortal::ownsDocumentType($refType)
+            ? 'school-admin'
+            : 'accounting';
+
         WorkflowNotifier::toUser(
             $userId,
             WorkflowNotifier::ROLE_PURCHASER,
@@ -2085,7 +2115,7 @@ class AccountingController extends Controller
             $refType,
             $refId,
             $url,
-            'accounting'
+            $source
         );
     }
 

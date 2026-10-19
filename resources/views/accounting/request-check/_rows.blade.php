@@ -24,6 +24,12 @@
                 </div>
             </div>
         </td>
+        <td class="px-5 py-4">
+            @include('partials.procurement-request-no', ['requestNo' => $row->request_check_request_no ?? null, 'inline' => true, 'showLabel' => false])
+            @if(blank($row->request_check_request_no ?? null))
+                <span class="text-xs text-gray-400">—</span>
+            @endif
+        </td>
         <td class="px-5 py-4 text-gray-700">{{ $row->authority_purchase_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-700">{{ $row->ris_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-600">{{ $row->request_check_payee ?? '—' }}</td>
@@ -38,8 +44,8 @@
         </td>
         <td class="px-5 py-4 text-right">
             <x-view-action-button
-                :href="'/accounting/request-check/'.$row->request_check_id.'?return_status='.urlencode($filter ?? 'incoming')"
-                label="View"
+                :href="'/school-admin/request-check/'.$row->request_check_id.'?return_status='.urlencode($filter ?? 'incoming')"
+                label="Review"
                 :title="$reviewTip"
                 :aria-label="$reviewTip"
                 :data-tip="$reviewTip"
@@ -48,7 +54,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="8">
+        <td colspan="9">
             <div class="pur-empty my-2">No Request Check records in this queue.</div>
         </td>
     </tr>

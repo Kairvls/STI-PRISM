@@ -54,8 +54,12 @@
                         Dashboard
                     </div>
 
+                    <div class="dropdown-item" data-target="campus-section">
+                        Campus / Location
+                    </div>
+
                     <div class="dropdown-item" data-target="monitoring-section">
-                        Monitoring
+                        Equipment
                     </div>
 
                     <div class="dropdown-item" data-target="procurement-section">
@@ -63,11 +67,11 @@
                     </div>
 
                     <div class="dropdown-item" data-target="users-section">
-                        User Management
+                        People
                     </div>
 
                     <div class="dropdown-item" data-target="settings-section">
-                        System
+                        Settings
                     </div>
 
                 </div>
@@ -98,42 +102,44 @@
         </a>
 
         {{-- ====================================== --}}
-        {{-- MONITORING --}}
+        {{-- CAMPUS / LOCATION --}}
         {{-- ====================================== --}}
 
         @php
             $pendingTransferApprovals = \App\Support\TransferRequests::pendingCount();
             $pendingDisposalApprovals = \App\Support\DisposalRequests::pendingCount();
 
-            $monitoringGroups = [
+            $campusLinks = [
                 [
-                    'label' => 'Location',
-                    'icon' => 'building-2',
-                    'links' => [
-                        [
-                            'url' => route('admin.infrastructure.index'),
-                            'label' => 'Rooms Layout',
-                            'icon' => 'map',
-                            'active' => request()->is('admin/infrastructure*'),
-                        ],
-                        [
-                            'url' => route('admin.rooms.index'),
-                            'label' => 'Rooms',
-                            'icon' => 'door-open',
-                            'active' => request()->is('admin/rooms*'),
-                        ],
-                    ],
+                    'url' => route('admin.infrastructure.index'),
+                    'label' => 'Rooms Layout',
+                    'icon' => 'map',
+                    'active' => request()->is('admin/infrastructure*'),
                 ],
                 [
-                    'label' => 'Equipment Management',
+                    'url' => route('admin.rooms.index'),
+                    'label' => 'Rooms',
+                    'icon' => 'door-open',
+                    'active' => request()->is('admin/rooms*')
+                        || (
+                            request()->is('maintenance/reports/details/*')
+                            && str_contains((string) request()->query('return'), '/admin/rooms')
+                        ),
+                ],
+                [
+                    'url' => route('admin.departments.index'),
+                    'label' => 'Departments',
+                    'icon' => 'network',
+                    'active' => request()->is('admin/departments*'),
+                ],
+            ];
+            $campusGroupActive = collect($campusLinks)->contains('active', true);
+
+            $equipmentGroups = [
+                [
+                    'label' => 'Register & stock',
                     'icon' => 'package',
                     'links' => [
-                        [
-                            'url' => route('admin.schedules.index'),
-                            'label' => 'Maintenance Schedule',
-                            'icon' => 'calendar-days',
-                            'active' => request()->is('admin/schedules*', 'admin/semester-inspections*', 'admin/operations/schedules*'),
-                        ],
                         [
                             'url' => route('admin.equipment-all.index'),
                             'label' => 'All Equipment',
@@ -154,29 +160,34 @@
                             'active' => request()->is('admin/inventory/deployed*'),
                         ],
                         [
-                            'url' => route('admin.inventory.transfer-requests'),
-                            'label' => 'Transfer Approvals',
-                            'icon' => 'shield-check',
-                            'active' => request()->is('admin/inventory/transfer-requests*'),
-                            'badge' => $pendingTransferApprovals,
-                        ],
-                        [
                             'url' => route('admin.equipment-categories.index'),
                             'label' => 'Classification',
                             'icon' => 'tags',
                             'active' => request()->is('admin/equipment/categories*'),
                         ],
                         [
-                            'url' => route('admin.suggested-issues.index'),
-                            'label' => 'Suggested Issues',
-                            'icon' => 'list-checks',
-                            'active' => request()->is('admin/equipment/suggested-issues*'),
-                        ],
-                        [
                             'url' => route('admin.qr-tools.index'),
                             'label' => 'Property Tagging',
                             'icon' => 'qr-code',
                             'active' => request()->is('admin/qr-tools*'),
+                        ],
+                        [
+                            'url' => route('admin.computer-sets.index'),
+                            'label' => 'Computer Sets',
+                            'icon' => 'monitor',
+                            'active' => request()->is('admin/computer-sets*'),
+                        ],
+                    ],
+                ],
+                [
+                    'label' => 'Operations',
+                    'icon' => 'wrench',
+                    'links' => [
+                        [
+                            'url' => route('admin.schedules.index'),
+                            'label' => 'Maintenance Schedule',
+                            'icon' => 'calendar-days',
+                            'active' => request()->is('admin/schedules*', 'admin/semester-inspections*', 'admin/operations/schedules*'),
                         ],
                         [
                             'url' => route('admin.property-assignments.index'),
@@ -191,16 +202,29 @@
                             'active' => request()->is('admin/borrowing*', 'admin/operations/borrowing*'),
                         ],
                         [
+                            'url' => route('admin.inventory.transfer-requests'),
+                            'label' => 'Transfer Approvals',
+                            'icon' => 'shield-check',
+                            'active' => request()->is('admin/inventory/transfer-requests*'),
+                            'badge' => $pendingTransferApprovals,
+                        ],
+                        [
                             'url' => route('admin.disposal.index'),
                             'label' => 'Equipment Disposal',
                             'icon' => 'trash-2',
                             'active' => request()->is('admin/disposal*'),
                             'badge' => $pendingDisposalApprovals,
                         ],
+                        [
+                            'url' => route('admin.suggested-issues.index'),
+                            'label' => 'Suggested Issues',
+                            'icon' => 'list-checks',
+                            'active' => request()->is('admin/equipment/suggested-issues*'),
+                        ],
                     ],
                 ],
                 [
-                    'label' => 'Equipment Monitoring',
+                    'label' => 'Monitoring',
                     'icon' => 'radar',
                     'links' => [
                         [
@@ -268,13 +292,40 @@
             ];
         @endphp
 
+        <div class="menu-title" id="campus-section">
+
+            CAMPUS
+
+        </div>
+
+        <div class="menu-group {{ $campusGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $campusGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $campusGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="building-2"></i>
+                <span>Location</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if (! $campusGroupActive) hidden @endif>
+                @foreach ($campusLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
         <div class="menu-title" id="monitoring-section">
 
             EQUIPMENT
 
         </div>
 
-        @foreach ($monitoringGroups as $group)
+        @foreach ($equipmentGroups as $group)
             @php
                 $groupActive = collect($group['links'])->contains('active', true);
                 $groupBadge = collect($group['links'])->sum(fn ($link) => $link['badge'] ?? 0);
@@ -358,49 +409,62 @@
         </a>
 
         {{-- ====================================== --}}
-        {{-- USER MANAGEMENT --}}
+        {{-- PEOPLE --}}
         {{-- ====================================== --}}
+
+        @php
+            $peopleLinks = [
+                [
+                    'url' => route('admin.persons.index'),
+                    'label' => 'Faculty & Staff',
+                    'icon' => 'users',
+                    'active' => request()->is('admin/persons*'),
+                ],
+                [
+                    'url' => route('admin.reporters.index'),
+                    'label' => 'Reporters Directory',
+                    'icon' => 'contact',
+                    'active' => request()->is('admin/reporters*'),
+                ],
+                [
+                    'url' => route('admin.users'),
+                    'label' => 'System Users',
+                    'icon' => 'user-cog',
+                    'active' => request()->is('admin/users*'),
+                ],
+            ];
+            $peopleGroupActive = collect($peopleLinks)->contains('active', true);
+        @endphp
 
         <div class="menu-title" id="users-section">
 
-            USER MANAGEMENT
+            PERSONNEL
 
         </div>
 
-        <a
-            href="{{ route('admin.departments.index') }}"
-            class="menu-item {{ request()->is('admin/departments*') ? 'active' : '' }}"
-        >
-            <i data-lucide="network"></i>
-            <span>Departments</span>
-        </a>
-
-        <a
-            href="{{ route('admin.reporters.index') }}"
-            class="menu-item {{ request()->is('admin/reporters*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="contact"></i>
-
-            <span>Reporters Directory</span>
-
-        </a>
-
-        <a
-            href="{{ route('admin.users') }}"
-            class="menu-item {{ request()->is('admin/users*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="users"></i>
-
-            <span>System Users</span>
-
-        </a>
-
-        
+        <div class="menu-group {{ $peopleGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $peopleGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $peopleGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="users"></i>
+                <span>User Management</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if (! $peopleGroupActive) hidden @endif>
+                @foreach ($peopleLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
 
         {{-- ====================================== --}}
-        {{-- SYSTEM --}}
+        {{-- SETTINGS --}}
         {{-- ====================================== --}}
 
         <div class="menu-title" id="settings-section">

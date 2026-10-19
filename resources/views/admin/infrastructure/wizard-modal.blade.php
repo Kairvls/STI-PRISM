@@ -688,7 +688,7 @@
                                     @php
                                         $statusColor = match ($room->room_status) {
                                             "Critical" => "#EF4444",
-                                            "Maintenance Needed" => "#F59E0B",
+                                            "Under Maintenance" => "#F59E0B",
                                             default => "#10B981",
                                         };
                                         $labelOrientation = (int) $room->room_height > (int) $room->room_width
@@ -4871,7 +4871,7 @@
                                 const statusColor =
                                     updates.status === "Critical"
                                         ? "#EF4444"
-                                        : updates.status === "Maintenance Needed"
+                                        : updates.status === "Under Maintenance"
                                           ? "#F59E0B"
                                           : "#10B981";
 

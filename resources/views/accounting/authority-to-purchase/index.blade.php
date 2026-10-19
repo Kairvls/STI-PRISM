@@ -1,8 +1,11 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'ATP')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('css/president-modern.css') }}">
+<link rel="stylesheet" href="{{ asset('css/accounting-modern.css') }}">
+@include('accounting.partials.ui')
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
@@ -47,52 +50,20 @@
         'revision' => 'Revision',
         'approved' => 'Approved',
     ];
-    $searchQuery = request('search') ? '&search='.urlencode(request('search')) : '';
-    $statCards = [
-        [
-            'label' => 'Needs review',
-            'hint' => 'Awaiting Accounting review',
-            'value' => number_format($counts['incoming'] ?? 0),
-            'href' => '/accounting/authority-to-purchase?status=incoming'.$searchQuery,
-            'filterKey' => 'incoming',
-            'active' => $filter === 'incoming',
-        ],
-        [
-            'label' => 'Revision',
-            'hint' => 'Sent back to Purchaser',
-            'value' => number_format($counts['revision'] ?? 0),
-            'href' => '/accounting/authority-to-purchase?status=revision'.$searchQuery,
-            'filterKey' => 'revision',
-            'active' => $filter === 'revision',
-        ],
-        [
-            'label' => 'Approved',
-            'hint' => 'Cleared by Accounting',
-            'value' => number_format($counts['approved'] ?? 0),
-            'href' => '/accounting/authority-to-purchase?status=approved'.$searchQuery,
-            'filterKey' => 'approved',
-            'active' => $filter === 'approved',
-        ],
-    ];
-    $filterLabels = [
-        'all' => 'All ATP records',
-        'incoming' => 'ATP awaiting your review',
-        'revision' => 'ATP sent back for revision',
-        'approved' => 'ATP cleared by Accounting',
-    ];
 @endphp
 
 <div class="acc-page acc-atp-page acc-content-fill space-y-6 fade-in">
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
 
     @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $records->total()])
+
+    <p class="text-sm text-slate-500">Open a request to see the form, approve or return, and view the procurement pipeline.</p>
 
     <div class="pur-card">
         @include('accounting.partials.status-filter-bar', [
             'filters' => $filters,
             'activeFilter' => $filter,
-            'baseUrl' => '/accounting/authority-to-purchase',
-            'searchPlaceholder' => 'Search ATP, RIS, supplier...',
+            'baseUrl' => '/school-admin/authority-to-purchase',
+            'searchPlaceholder' => 'Search ATP, Request No., RIS, supplier...',
             'formId' => 'atpSearchForm',
             'searchId' => 'atpSearch',
         ])
@@ -102,6 +73,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Related RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Supplier</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
@@ -172,7 +144,7 @@
             if (currentFocus) params.set('focus', currentFocus);
             if (search) params.set('search', search);
             if (page && page > 1) params.set('page', page);
-            return '/accounting/authority-to-purchase?' + params.toString();
+            return '/school-admin/authority-to-purchase?' + params.toString();
         }
 
         function fetchData(page, filter) {

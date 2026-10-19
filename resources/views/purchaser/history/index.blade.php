@@ -70,7 +70,7 @@
             </div>
 
             @if($isAdmin && $accounts->count() > 1)
-                <form method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-1.5 sm:min-w-[300px]">
+                <form data-auto-filter method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-1.5 sm:min-w-[300px]">
                     <input type="hidden" name="tab" value="{{ $tab }}">
                     <label for="historyPurchaser" class="text-xs font-semibold text-slate-500">View purchaser account</label>
                     <select
@@ -214,7 +214,7 @@
         {{-- ===================================================== --}}
 
         <div class="border-b border-gray-100 px-5 py-4">
-            <form method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
+            <form data-auto-filter method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
                 <input type="hidden" name="tab" value="{{ $tab }}">
                 @if($isAdmin && ! $isOwnHistory)
                     <input type="hidden" name="purchaser" value="{{ $subject->user_id }}">

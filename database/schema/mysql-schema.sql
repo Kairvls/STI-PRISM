@@ -1627,7 +1627,7 @@ CREATE TABLE `rooms_table` (
   `room_color` varchar(255) DEFAULT NULL,
   `room_type` varchar(255) DEFAULT NULL,
   `room_metadata` json DEFAULT NULL,
-  `room_status` enum('Normal','Maintenance Needed','Critical') NOT NULL DEFAULT 'Normal',
+  `room_status` enum('Normal','Under Maintenance','Critical') NOT NULL DEFAULT 'Normal',
   `room_layout_mode` enum('loose_equipment','workstation_grid') NOT NULL DEFAULT 'loose_equipment',
   `room_layout_version` int NOT NULL DEFAULT '1',
   `room_is_archived` tinyint(1) NOT NULL DEFAULT '0',

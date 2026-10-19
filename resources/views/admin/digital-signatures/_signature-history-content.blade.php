@@ -39,8 +39,6 @@
         ];
     @endphp
 
-    {{-- Metric strip --}}
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $historyCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -117,7 +115,7 @@
                         type="search"
                         name="search"
                         value="{{ $search }}"
-                        placeholder="Search RIS, requester, equipment…"
+                        placeholder="Search RIS, Request No., requester, equipment…"
                         autocomplete="off"
                         title="Search signature history records"
                         class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"

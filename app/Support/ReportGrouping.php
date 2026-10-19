@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\PropertyAssignment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -189,6 +190,50 @@ class ReportGrouping
         }
 
         return $query;
+    }
+
+    /**
+     * Hide stockroom inventory from public location / room pickers.
+     */
+    public static function excludeStorageRoomEquipment($query, string $equipmentTable = 'equipment_table')
+    {
+        return $query->whereNotIn($equipmentTable.'.equipment_room_id', function ($subQuery) {
+            $subQuery
+                ->select('room_id')
+                ->from('rooms_table')
+                ->where('room_type', RoomCategories::STORAGE_TYPE);
+        });
+    }
+
+    /**
+     * Hide units under an active property assignment from the shared room list
+     * (those stay available via “Equipment assigned to you”).
+     */
+    public static function excludePersonHeldEquipment($query, string $equipmentTable = 'equipment_table')
+    {
+        if (! PropertyAssignments::tableReady()) {
+            return $query;
+        }
+
+        return $query->whereNotIn($equipmentTable.'.equipment_id', function ($subQuery) {
+            $subQuery
+                ->select('assignment_equipment_id')
+                ->from('property_assignments_table')
+                ->where('assignment_status', PropertyAssignment::STATUS_ACTIVE)
+                ->whereNotNull('assignment_equipment_id');
+        });
+    }
+
+    /**
+     * Room dropdown + per-location equipment list: reportable, not inventory, not person-held.
+     */
+    public static function applyLocationEquipmentFilters($query)
+    {
+        return self::excludePersonHeldEquipment(
+            self::excludeStorageRoomEquipment(
+                self::applyReporterEquipmentFilters($query)
+            )
+        );
     }
 
     /**

@@ -45,14 +45,6 @@
             : (($issuesMonthlyPercentage > 0 ? '+' : '') . number_format($issuesMonthlyPercentage, 2) . '% vs last month');
     @endphp
     <div class="mb-6 mt-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Issues', 'hint' => $issuesMonthlyHint, 'value' => number_format($totalIssues)],
-                ['label' => 'Categories Covered', 'hint' => number_format($categoriesCoveredPercentage, 2) . '% of all categories', 'value' => number_format($categoriesCovered)],
-                ['label' => 'Category-wide', 'hint' => number_format($categoryWidePercentage, 2) . '% of all issues', 'value' => number_format($categoryWideIssues)],
-                ['label' => 'Fixed by reporters', 'hint' => number_format($selfFixesThisMonth) . ' this month · no report needed', 'value' => number_format($selfFixesTotal)],
-            ],
-        ])
     </div>
 
     {{-- Table --}}

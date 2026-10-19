@@ -84,6 +84,7 @@ Route::put('/ris/{risId}', [RisController::class, 'update'])->name('ris.update')
 Route::delete('/ris/{risId}', [RisController::class, 'destroy'])->name('ris.destroy');
 Route::post('/ris/{risId}/submit', [RisController::class, 'submit'])->name('ris.submit');
 Route::post('/ris/{risId}/resubmit', [RisController::class, 'resubmit'])->name('ris.resubmit');
+Route::post('/ris/{risId}/send-to-supply', [RisController::class, 'sendToSupply'])->name('ris.send-to-supply');
 Route::post('/ris/{risId}/archive', [RisController::class, 'archive'])->name('ris.archive');
 Route::post('/ris/{risId}/restore', [RisController::class, 'restore'])->name('ris.restore');
 Route::get('/ris/{risId}/print', [RisController::class, 'print'])->name('ris.print');
@@ -136,6 +137,7 @@ Route::get('/request-check/export-blank-xlsx', [RequestForCheckController::class
 Route::get('/request-check/export-blank-docx', [RequestForCheckController::class, 'exportBlankWord'])->name('rfc.export-blank-docx');
 Route::put('/request-check/{id}', [RequestForCheckController::class, 'update'])->name('rfc.update');
 Route::post('/request-check/{id}/submit', [RequestForCheckController::class, 'submit'])->name('rfc.submit');
+Route::post('/request-check/{id}/send-to-accounting', [RequestForCheckController::class, 'sendToAccounting'])->name('rfc.send-to-accounting');
 Route::post('/request-check/{id}/archive', [RequestForCheckController::class, 'archive'])->name('rfc.archive');
 Route::post('/request-check/{id}/restore', [RequestForCheckController::class, 'restore'])->name('rfc.restore');
 Route::get('/request-check/{id}/attachments/{attachmentId}', [RequestForCheckController::class, 'downloadAttachment'])->name('rfc.attachment');

@@ -36,9 +36,10 @@
 
     $supplierLabel = '';
     if ($atp) {
-        $supplierLabel = $atp->supplier_store_type === 'Physical Store'
-            ? ($atp->company_name ?? '')
-            : ($atp->shop_name ?? '');
+        $storeType = (string) ($atp->supplier_store_type ?? '');
+        $supplierLabel = $storeType === 'Physical Store'
+            ? (string) ($atp->company_name ?? '')
+            : (string) ($atp->shop_name ?? $atp->company_name ?? '');
     }
 
     $atpDefaultRows = 8;
@@ -98,7 +99,7 @@
                         name="authority_purchase_date"
                         value="{{ $dateValue }}"
                         class="border-0 border-b border-black bg-transparent outline-none"
-                        title="Required before submitting to Accounting"
+                        title="Required before submitting to the School Administrator"
                     >
                 @elseif($isBlank)
                     <span class="inline-block min-w-[7rem] border-b border-black text-center">&nbsp;</span>
@@ -122,7 +123,7 @@
             <select
                 name="authority_purchase_supplier_id"
                 class="ml-2 w-[420px] border-0 border-b border-black bg-transparent outline-none ring-0 focus:outline-none focus:ring-0"
-                title="Required before submitting to Accounting"
+                title="Required before submitting to the School Administrator"
                 onchange="
                     const opt = this.options[this.selectedIndex];
                     const warn = this.parentElement.querySelector('[data-supplier-blacklist-warn]');

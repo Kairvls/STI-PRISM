@@ -179,7 +179,7 @@
         }
         if (subtitle) {
             subtitle.textContent = actionMode === 'forward'
-                ? 'Review the RIS form, then forward it to the President. Issued by is signed later on Sign RIS after approval.'
+                ? 'Review the RIS form, then Pass to President. Issued by is signed later on Ready to Sign after approval.'
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
                     : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm School Administrator Approval.');

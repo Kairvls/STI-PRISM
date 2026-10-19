@@ -6,6 +6,7 @@ use App\Support\DocumentUrgency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\BackOrders;
@@ -82,7 +83,10 @@ class ReceivingReportController extends Controller
 
         DocumentUrgency::select($query, 'RR');
         $spotlightQuery = clone $query;
-        $reports = $query
+        $reports = DocumentWorkflowService::orderOwnUnfinishedFirst(
+            $query,
+            'receiving_reports_table.receiving_report_status'
+        )
             ->orderByDesc('receiving_reports_table.receiving_report_created_at')
             ->paginate(10)
             ->withQueryString();
@@ -174,7 +178,8 @@ class ReceivingReportController extends Controller
 
         [$rfcId, $atpId] = $this->resolveRrTarget($validated);
 
-        if ($error = $this->rrEligibilityError($rfcId, $atpId, null, !$isDraft)) {
+        // Real RR records always link a funds-released RFC — blank paper is Print Empty only.
+        if ($error = $this->rrEligibilityError($rfcId, $atpId, null, true)) {
             return back()->withInput()->with('error', $error);
         }
 
@@ -186,7 +191,15 @@ class ReceivingReportController extends Controller
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId) {
+        $orMoney = $this->resolveOrMoneyFields($validated, $rfcId);
+        $orFile = $this->storeOrAttachment($request);
+        if (! $isDraft && empty($orFile['path'])) {
+            throw ValidationException::withMessages([
+                'or_attachment' => 'Upload a photo or PDF of the Official Receipt before submitting.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId, $orMoney, $orFile) {
             $now = now();
             $user = auth()->user();
             $reviewerId = $isDraft
@@ -216,11 +229,27 @@ class ReceivingReportController extends Controller
                 'receiving_report_created_at' => $now,
                 'receiving_report_updated_at' => $now,
             ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')) {
+                $payload['receiving_report_or_amount'] = $orMoney['orAmount'];
+                $payload['receiving_report_check_amount'] = $orMoney['checkAmount'];
+                $payload['receiving_report_change_amount'] = $orMoney['changeAmount'];
+            }
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')) {
+                $payload['receiving_report_or_attachment_path'] = $orFile['path'];
+                $payload['receiving_report_or_attachment_name'] = $orFile['name'];
+                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
+            }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
             }
             if (! $isDraft && Schema::hasColumn('receiving_reports_table', 'receiving_report_assigned_reviewer_id')) {
                 $payload['receiving_report_assigned_reviewer_id'] = $reviewerId;
+            }
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_request_no') && $rfcId) {
+                $requestNo = \App\Support\ProcurementRequestNumber::resolveFromRfc((int) $rfcId);
+                if ($requestNo) {
+                    $payload['receiving_report_request_no'] = $requestNo;
+                }
             }
 
             $id = DB::table('receiving_reports_table')->insertGetId($payload);
@@ -238,6 +267,9 @@ class ReceivingReportController extends Controller
             if (!$isDraft) {
                 $backOrders = $this->syncBackOrders($id);
                 $this->notifyReceiving($id, $reviewerId);
+                $this->syncOrAmountToDv((int) $id, $rfcId, $orMoney['orAmount'], $orMoney['changeAmount']);
+            } elseif ($orMoney['orAmount'] !== null) {
+                $this->syncOrAmountToDv((int) $id, $rfcId, $orMoney['orAmount'], $orMoney['changeAmount']);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
@@ -268,7 +300,7 @@ class ReceivingReportController extends Controller
             ]);
         }
 
-        if ($error = $this->rrEligibilityError($rfcId, $atpId, $id, !$isDraft)) {
+        if ($error = $this->rrEligibilityError($rfcId, $atpId, $id, true)) {
             return back()->withInput()->with('error', $error);
         }
 
@@ -280,7 +312,15 @@ class ReceivingReportController extends Controller
             return back()->withInput()->with('error', $itemError);
         }
 
-        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig) {
+        $orMoney = $this->resolveOrMoneyFields($validated, $rfcId);
+        $orFile = $this->storeOrAttachment($request, $rr);
+        if (! $isDraft && empty($orFile['path'])) {
+            throw ValidationException::withMessages([
+                'or_attachment' => 'Upload a photo or PDF of the Official Receipt before submitting.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig, $orMoney, $orFile) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -311,6 +351,16 @@ class ReceivingReportController extends Controller
                 'receiving_report_submitted_at' => $isDraft ? $rr->receiving_report_submitted_at : $now,
                 'receiving_report_updated_at' => $now,
             ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')) {
+                $payload['receiving_report_or_amount'] = $orMoney['orAmount'];
+                $payload['receiving_report_check_amount'] = $orMoney['checkAmount'];
+                $payload['receiving_report_change_amount'] = $orMoney['changeAmount'];
+            }
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')) {
+                $payload['receiving_report_or_attachment_path'] = $orFile['path'];
+                $payload['receiving_report_or_attachment_name'] = $orFile['name'];
+                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
+            }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
             }
@@ -330,9 +380,12 @@ class ReceivingReportController extends Controller
             $this->attachRelatedDocuments($id, $rfcId, $atpId);
 
             $backOrders = 0;
-            if (!$isDraft) {
+            if (! $isDraft) {
                 $backOrders = $this->syncBackOrders($id);
                 $this->notifyReceiving($id, $reviewerId);
+            }
+            if ($orMoney['orAmount'] !== null) {
+                $this->syncOrAmountToDv((int) $id, $rfcId, $orMoney['orAmount'], $orMoney['changeAmount']);
             }
 
             return ProcurementPortal::redirect('rr.index')->with(
@@ -378,6 +431,22 @@ class ReceivingReportController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
+            if (blank($rr->receiving_report_invoice_no ?? null)) {
+                return back()->with('error', 'Official Receipt (OR) number is required before submitting. Open Edit and enter the OR details.');
+            }
+            if (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')
+                && ($rr->receiving_report_or_amount === null || $rr->receiving_report_or_amount === '')
+            ) {
+                return back()->with('error', 'OR amount is required before submitting. Open Edit and enter the amount from the Official Receipt.');
+            }
+            if (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')
+                && blank($rr->receiving_report_or_attachment_path ?? null)
+            ) {
+                return back()->with('error', 'Upload a photo or PDF of the Official Receipt before submitting. Open Edit to attach it.');
+            }
+
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
             $update = [
                 'receiving_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
@@ -394,6 +463,12 @@ class ReceivingReportController extends Controller
             $this->attachRelatedDocuments($id, $rfcId, $atpId);
             $backOrders = $this->syncBackOrders($id);
             $this->notifyReceiving($id, $reviewerId);
+            $this->syncOrAmountToDv(
+                (int) $id,
+                $rfcId,
+                isset($rr->receiving_report_or_amount) ? (float) $rr->receiving_report_or_amount : null,
+                isset($rr->receiving_report_change_amount) ? (float) $rr->receiving_report_change_amount : null
+            );
 
             return back()->with('success', $this->submittedMessage($backOrders));
         });
@@ -404,6 +479,39 @@ class ReceivingReportController extends Controller
         $rr = $this->findRr($id);
         if (!$rr || !in_array($rr->receiving_report_status, ['Completed', 'Returned'], true)) {
             return back()->with('error', 'Only completed or returned Receiving Reports can be archived.');
+        }
+
+        if ($rr->receiving_report_status === 'Completed') {
+            $path = null;
+            $rfcId = (int) ($rr->receiving_report_request_check_id ?? 0);
+            $atpId = (int) ($rr->receiving_report_atp_id ?? 0);
+            if ($rfcId > 0 && Schema::hasTable('request_check_table')) {
+                $rfc = DB::table('request_check_table')->where('request_check_id', $rfcId)->first();
+                $path = $rfc->request_check_funding_type ?? null;
+                if ($atpId < 1) {
+                    $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
+                }
+            }
+            if ($atpId > 0 && Schema::hasTable('authority_to_purchase_table')) {
+                $atpPath = DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $atpId)
+                    ->value('authority_purchase_payment_path');
+                $path = $atpPath ?: $path;
+            }
+            if (ProcurementPaymentPath::requiresLiquidation($path)) {
+                $hasLiq = Schema::hasTable('liquidation_reports_table')
+                    && DB::table('liquidation_reports_table')
+                        ->where('liquidation_report_receiving_report_id', $id)
+                        ->where(function ($q) {
+                            $q->whereNull('liquidation_report_is_archived')
+                                ->orWhere('liquidation_report_is_archived', 0);
+                        })
+                        ->where('liquidation_report_status', '!=', 'Rejected')
+                        ->exists();
+                if (! $hasLiq) {
+                    return back()->with('error', 'Create the Liquidation Report before archiving this Receiving Report.');
+                }
+            }
         }
 
         DocumentWorkflowService::setArchived(
@@ -467,7 +575,33 @@ class ReceivingReportController extends Controller
             'receiving_report_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'receiving_report_received_from' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_supplier_address_override' => ['nullable', 'string', 'max:2000'],
-            'receiving_report_invoice_no' => ['nullable', 'string', 'max:100'],
+            'receiving_report_invoice_no' => [$isDraft ? 'nullable' : 'required', 'string', 'max:100'],
+            'receiving_report_or_amount' => [
+                $isDraft ? 'nullable' : 'required',
+                'numeric',
+                'min:0',
+                'max:9999999999.99',
+                'regex:/^\d{1,10}(\.\d{1,2})?$/',
+            ],
+            'receiving_report_check_amount' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999.99',
+                'regex:/^\d{1,10}(\.\d{1,2})?$/',
+            ],
+            'receiving_report_change_amount' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999.99',
+            ],
+            'or_attachment' => [
+                $isDraft ? 'nullable' : 'nullable',
+                'file',
+                'max:10240',
+                'mimes:pdf,jpg,jpeg,png',
+            ],
             'receiving_report_dr_no' => ['nullable', 'string', 'max:100'],
             'receiving_report_delivery_date' => ['nullable', 'date'],
             'receiving_report_received_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
@@ -489,9 +623,117 @@ class ReceivingReportController extends Controller
         ], [
             'items.*.damaged_qty.lte' => 'Damaged units cannot be more than the quantity received.',
             'receiving_report_form_number.required' => 'Receiving Report number is required before submitting.',
-            'receiving_report_form_number.regex' => 'Receiving Report number must follow the format RR-YYYYMM-0000001.',
+            'receiving_report_form_number.regex' => 'Receiving Report number must follow the format RR-YYYYMMDD-0000001.',
             'receiving_report_form_number.unique' => 'This Receiving Report number is already in use.',
+            'receiving_report_invoice_no.required' => 'Official Receipt (OR) number is required before submitting.',
+            'receiving_report_or_amount.required' => 'OR amount from the Official Receipt is required before submitting.',
         ]);
+    }
+
+    /**
+     * Persist OR photo/PDF and return path fields for the RR row.
+     *
+     * @return array{path: ?string, name: ?string, mime: ?string}
+     */
+    private function storeOrAttachment(Request $request, ?object $existing = null): array
+    {
+        $kept = [
+            'path' => $existing->receiving_report_or_attachment_path ?? null,
+            'name' => $existing->receiving_report_or_attachment_name ?? null,
+            'mime' => $existing->receiving_report_or_attachment_mime ?? null,
+        ];
+
+        if (! $request->hasFile('or_attachment')) {
+            return $kept;
+        }
+
+        $file = $request->file('or_attachment');
+        if (! $file || ! $file->isValid()) {
+            return $kept;
+        }
+
+        $dir = 'receiving-reports/or';
+        $stored = $file->store($dir, 'public');
+        if (! $stored) {
+            return $kept;
+        }
+
+        if (! empty($kept['path'])) {
+                try {
+                    Storage::disk('public')->delete($kept['path']);
+                } catch (\Throwable $e) {
+                    // ignore missing old file
+                }
+        }
+
+        return [
+            'path' => $stored,
+            'name' => $file->getClientOriginalName(),
+            'mime' => $file->getClientMimeType(),
+        ];
+    }
+
+    private function resolveOrMoneyFields(array $validated, ?int $rfcId): array
+    {
+        $orAmount = isset($validated['receiving_report_or_amount']) && $validated['receiving_report_or_amount'] !== ''
+            ? round((float) $validated['receiving_report_or_amount'], 2)
+            : null;
+
+        $checkAmount = isset($validated['receiving_report_check_amount']) && $validated['receiving_report_check_amount'] !== ''
+            ? round((float) $validated['receiving_report_check_amount'], 2)
+            : null;
+
+        if ($checkAmount === null && $rfcId) {
+            $fromRfc = DB::table('request_check_table')
+                ->where('request_check_id', $rfcId)
+                ->value('request_check_amount_figures');
+            if ($fromRfc !== null) {
+                $checkAmount = round((float) $fromRfc, 2);
+            }
+        }
+
+        $changeAmount = null;
+        if ($checkAmount !== null && $orAmount !== null) {
+            $changeAmount = round(max(0, $checkAmount - $orAmount), 2);
+        } elseif (isset($validated['receiving_report_change_amount']) && $validated['receiving_report_change_amount'] !== '') {
+            $changeAmount = round((float) $validated['receiving_report_change_amount'], 2);
+        }
+
+        return compact('orAmount', 'checkAmount', 'changeAmount');
+    }
+
+    /**
+     * Push OR amount onto the linked Disbursement Voucher as the final settled amount.
+     */
+    private function syncOrAmountToDv(int $rrId, ?int $rfcId, ?float $orAmount, ?float $changeAmount): void
+    {
+        if (! $rfcId || $orAmount === null || ! Schema::hasTable('disbursement_vouchers_table')) {
+            return;
+        }
+
+        if (! Schema::hasColumn('disbursement_vouchers_table', 'dv_or_amount')) {
+            return;
+        }
+
+        $payload = [
+            'dv_or_amount' => $orAmount,
+        ];
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_change_amount')) {
+            $payload['dv_change_amount'] = $changeAmount;
+        }
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_or_synced_from_rr_id')) {
+            $payload['dv_or_synced_from_rr_id'] = $rrId;
+        }
+        if (Schema::hasColumn('disbursement_vouchers_table', 'updated_at')) {
+            $payload['updated_at'] = now();
+        }
+
+        DB::table('disbursement_vouchers_table')
+            ->where('dv_request_check_id', $rfcId)
+            ->where(function ($q) {
+                $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+            })
+            ->update($payload);
     }
 
     private function rrFormNumberRules(bool $required, $ignoreRrId = null): array
@@ -747,18 +989,20 @@ class ReceivingReportController extends Controller
         $rfc->authority_purchase_payment_path = $atp->authority_purchase_payment_path ?? null;
         $rfc->authority_purchase_supplier_id = $atp->authority_purchase_supplier_id ?? null;
 
-        $path = $rfc->authority_purchase_payment_path
-            ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+        $path = ProcurementPaymentPath::normalize(
+            $rfc->authority_purchase_payment_path
+                ?? ($rfc->request_check_funding_type ?? null)
+        ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
 
         $atpItems = DB::table('authority_to_purchase_items_table')
             ->where('authority_purchase_id', $atpId)
             ->orderBy('atp_item_id')
             ->get();
 
-        if ($path === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+        if (ProcurementPaymentPath::endsAtReceivingReport($path)) {
             foreach ($items as $row) {
                 if (!empty($row['supplier_id']) && (int) $row['supplier_id'] !== (int) $rfc->authority_purchase_supplier_id) {
-                    return 'Request for Check requires all items from the ATP supplier only.';
+                    return ProcurementPaymentPath::label($path).' requires all items from the ATP supplier only.';
                 }
             }
         }
@@ -889,6 +1133,7 @@ class ReceivingReportController extends Controller
                 'request_check_table.request_check_form_number',
                 'request_check_table.request_check_payee',
                 'request_check_table.request_check_funding_type',
+                'request_check_table.request_check_amount_figures',
                 'request_check_table.request_check_authority_purchase_id'
             )
             ->orderByDesc('request_check_table.request_check_id')
@@ -958,6 +1203,7 @@ class ReceivingReportController extends Controller
                     'request_check_form_number' => $rfc->request_check_form_number,
                     'request_check_payee' => $rfc->request_check_payee,
                     'request_check_funding_type' => $rfc->request_check_funding_type,
+                    'request_check_amount_figures' => $rfc->request_check_amount_figures ?? null,
                     'is_multi_atp' => count($rfcAtpIds) > 1,
                 ]));
             }
@@ -1006,8 +1252,10 @@ class ReceivingReportController extends Controller
             $from = $rfc->supplier_store_type === 'Physical Store'
                 ? ($rfc->company_name ?? $rfc->request_check_payee)
                 : ($rfc->shop_name ?? $rfc->request_check_payee);
-            $path = $rfc->authority_purchase_payment_path
-                ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+            $path = ProcurementPaymentPath::normalize(
+                $rfc->authority_purchase_payment_path
+                    ?? ($rfc->request_check_funding_type ?? null)
+            ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
             $rows = [];
             foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(50) as $index => $item) {
                 $rows[] = [
@@ -1026,6 +1274,9 @@ class ReceivingReportController extends Controller
                 'received_from' => $from,
                 'address' => $rfc->company_address ?? '',
                 'payment_path' => $path,
+                'check_amount' => isset($rfc->request_check_amount_figures)
+                    ? (float) $rfc->request_check_amount_figures
+                    : null,
                 'items' => $rows,
             ];
         }
@@ -1077,7 +1328,9 @@ class ReceivingReportController extends Controller
     private function rrEligibilityError($rfcId, $atpId, $ignoreId, bool $required): ?string
     {
         if (!$rfcId) {
-            return $required ? 'Select an approved Request for Check with released funds before submitting.' : null;
+            return $required
+                ? 'Select an approved Request for Check with released funds before creating a Receiving Report.'
+                : null;
         }
 
         $primary = DB::table('request_check_table')->where('request_check_id', $rfcId)->value('request_check_authority_purchase_id');

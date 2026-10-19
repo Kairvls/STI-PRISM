@@ -22917,11 +22917,22 @@ if (!isGroup) {
                 hideTimer = setTimeout(hide, 40);
             });
 
+            // Modals often open on click before pointerout fires — clear sticky tips immediately.
+            document.addEventListener('pointerdown', hide, true);
+            document.addEventListener('click', hide, true);
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    hide();
+                }
+            }, true);
+
             document.addEventListener('scroll', () => {
                 if (active) {
                     hide();
                 }
             }, true);
+
+            window.hideMessagingHoverTooltip = hide;
         }
 
         document.addEventListener('DOMContentLoaded', () => {

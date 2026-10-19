@@ -48,67 +48,7 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
-                @if ($atpPending > 0)
-                    <a
-                        href="{{ route('accounting.atp.index', ['status' => 'incoming', 'focus' => 'atp-review']) }}"
-                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/50"
-                    >
-                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 transition group-hover:bg-blue-100">
-                            <i data-lucide="file-check-2" class="h-5 w-5"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-slate-900">
-                                {{ $atpPending }} ATP awaiting review
-                            </p>
-                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Submitted Authority to Purchase documents pending Accounting action.
-                            </p>
-                        </div>
-                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-blue-400"></i>
-                    </a>
-                @endif
-
-                @if ($rfcPending > 0)
-                    <a
-                        href="{{ route('accounting.rfc.index', ['status' => 'incoming', 'focus' => 'rfc-review']) }}"
-                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-indigo-200 hover:bg-indigo-50/50"
-                    >
-                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 transition group-hover:bg-indigo-100">
-                            <i data-lucide="clipboard-list" class="h-5 w-5"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-slate-900">
-                                {{ $rfcPending }} Request {{ \Illuminate\Support\Str::plural('Check', $rfcPending) }} pending review
-                            </p>
-                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Incoming RFCs that still need Accounting review.
-                            </p>
-                        </div>
-                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-indigo-400"></i>
-                    </a>
-                @endif
-
-                @if ($fundsAwaiting > 0)
-                    <a
-                        href="{{ route('accounting.rfc.index', ['status' => 'funds', 'focus' => 'funds']) }}"
-                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-emerald-200 hover:bg-emerald-50/50"
-                    >
-                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover:bg-emerald-100">
-                            <i data-lucide="banknote" class="h-5 w-5"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-slate-900">
-                                {{ $fundsAwaiting }} approved {{ \Illuminate\Support\Str::plural('RFC', $fundsAwaiting) }} waiting for funds release
-                            </p>
-                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Mark funds ready for collection when available.
-                            </p>
-                        </div>
-                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-emerald-400"></i>
-                    </a>
-                @endif
-
-                @if ($liqPending > 0)
+                                @if ($liqPending > 0)
                     <a
                         href="{{ route('accounting.liq.index', ['status' => 'incoming', 'focus' => 'liq-review']) }}"
                         class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-violet-200 hover:bg-violet-50/50"
@@ -158,28 +98,7 @@
                     Remind me tomorrow
                 </button>
 
-                @if ($atpPending > 0)
-                    <a
-                        href="{{ route('accounting.atp.index', ['status' => 'incoming', 'focus' => 'atp-review']) }}"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-                    >
-                        Review ATP
-                    </a>
-                @elseif ($rfcPending > 0)
-                    <a
-                        href="{{ route('accounting.rfc.index', ['status' => 'incoming', 'focus' => 'rfc-review']) }}"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-                    >
-                        Review Request Checks
-                    </a>
-                @elseif ($fundsAwaiting > 0)
-                    <a
-                        href="{{ route('accounting.rfc.index', ['status' => 'funds', 'focus' => 'funds']) }}"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-                    >
-                        Release funds
-                    </a>
-                @elseif ($liqPending > 0)
+                @if ($liqPending > 0)
                     <a
                         href="{{ route('accounting.liq.index', ['status' => 'incoming', 'focus' => 'liq-review']) }}"
                         class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"

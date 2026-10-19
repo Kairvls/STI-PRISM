@@ -11,6 +11,9 @@ class AccountingSigner
     /** Printed designation under Accounting signatures on paper forms. */
     public const SIGNATURE_TITLE = 'Accountant';
 
+    /** Role under "Approved by:" on Request for Check paper (School Administrator). */
+    public const RFC_APPROVED_BY_TITLE = 'Administrator';
+
     public static function currentUserName(): string
     {
         $user = Auth::user();
@@ -90,7 +93,7 @@ class AccountingSigner
                 ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
                 ->where('approval_logs_table.approval_log_reference_type', $referenceType)
                 ->where('approval_logs_table.approval_log_reference_id', $referenceId)
-                ->where('approval_logs_table.approval_log_level', 'Accounting')
+                ->whereIn('approval_logs_table.approval_log_level', ['Accounting', 'School Administrator'])
                 ->orderByDesc('approval_logs_table.approval_log_approved_at')
                 ->select([
                     'users_table.user_full_name',

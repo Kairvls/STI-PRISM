@@ -1,5 +1,72 @@
 # Implementation Plan
 
+## Task: Persons master module (Phase 1)
+- ✅ `persons_table` campus identity master + `person_id` on reporters / custodians / users (backfilled from existing rows)
+- ✅ Admin UI labeled **Faculty & Staff** (routes/table still `persons`) + search for pickers
+- ✅ CRUD under User Management (`/admin/persons`) + `GET /admin/persons/search` (also `/maintenance/persons/search` for Property Assignment)
+- ✅ Overlay flows pick or create a Person instead of retyping identity:
+  - Reporters Directory — person picker on create; identity synced from Person
+  - Property Assignment → Add person — pick/create Person → custodian overlay
+  - System Users create — pick Person, then password + roles
+  - Departments → Add person — create for dept **or** link existing Person to department
+- ✅ Add person modal matches reporters: OMC + 5 digits + F/S from Type; contact uses country-code phone input
+- ✅ Bulk import CSV/XLSX (sample template + preview + import), same pattern as Reporters Directory
+- Note: Reporter PIN, custodian property fields, and user login/roles stay on overlay tables; tickets still key on reporter employee ID strings
+
+## Task: Computer Set dual tagging (adviser requirement)
+- ✅ Schema: `computer_sets_table` + `computer_set_members_table`
+- ✅ Set tag format: `COMPSET-YYYYMMDD-#####` (set-level) while members keep individual QR/asset tags
+- ✅ Admin-only: **Computer Sets** under Monitoring — create set, place Monitor / Keyboard / Mouse / System Unit / AVR inside (removed from Maintenance sidebar; old `/maintenance/computer-sets` redirects to Admin)
+- ✅ Reporting: after picking a room, equipment picker chips show COMPSET tags; tap a set → only its members appear
+- Note: individual equipment tagging (OMC-COE/AVE + asset tag) is unchanged; COMPSET is an additional grouping tag for labs/reporting
+
+## Task 0: Move ATP / Purchase Orders / Request Checks to School Administrator
+- ✅ Routes under `/school-admin` (Accounting keeps Liquidation + compiled records)
+- ✅ Submit notifications / reviewer assignment retargeted to School Administrator
+- ✅ School Admin sidebar + Accounting sidebar updated
+- ✅ Purchaser submit copy updated
+
+## Task 0b: School Supply / Material Officer + ATP handoffs
+- ✅ Role ID 8 + `/supply-officer` portal (dashboard, Incoming RIS, ATP, notifications, account)
+- ✅ Purchaser **Send to Supply Officer** on approved/released RIS
+- ✅ Supply Officer owns ATP create / submit / revise; School Admin still approves
+- ✅ Supply Officer **Release to Purchaser**; Purchaser RFC only links released ATPs
+- ✅ Purchase Orders removed from active workflow (UI hidden; submit/attach blocked; SA redirects to ATP)
+- ✅ User-management help: Purchaser = RIS → RFC → RR/LIQ; Supply Officer = ATP
+
+## Task 0c: Accounting package inbox + DV shell (Phase 4a)
+- ✅ Accounting dashboard crash fixed (queue types = DV packages + Liquidation only)
+- ✅ Purchaser **Submit to Accounting** on approved RFC (Canvas+RIS+ATP+RFC)
+- ✅ Accounting **Disbursement Vouchers** inbox: create draft from package, submit to School Admin
+- ✅ School Admin DV approve / revise
+- ✅ STI Disbursement Voucher paper form (pay to, date, particulars, account classification Dr/Cr, prepared/checked/CDV, receipt block, SA/Accountant signature slots)
+
+## Task 0d: DV President + check release + Request No. (Phase 4b–6 wire)
+- ✅ Accounting submits SA-approved DV to President (`With President`)
+- ✅ President DV queue: approve / return to Accounting
+- ✅ Accounting **Release check** after President approval → sets RFC funds released + notifies Purchaser
+- ✅ Purchaser reminder: checks ready for pickup → RR (Liquidation still for Cash Advance only)
+- ✅ Shared **Request No.** (`PR-YYYYMM-####`) ticket: one number per transaction across Canvas+RIS → ATP → RFC → DV → RR → LR (lists, search, DV paper)
+- ✅ Form Nos use date `YYYYMMDD` + per-form sequence digits (RIS/ATP/RFC/DV/RR/LR); DV e.g. `DV-20261019-0001`
+- ✅ Accounting **Print Empty DV** (blank paper only — create still requires package)
+
+## Task 0f: Request No. explorer
+- ✅ Shared `/requests/{PR-YYYYMM-####}` page: pipeline (RIS → ATP → RFC → DV → RR → LIQ) + open links for each document
+- ✅ Request No. badges link to the explorer (portal layout remembered from session/referer)
+
+## Task 0e: Print blank vs create (RIS → RR)
+**Rule:** Print blank anytime. Create in the system only when the prior document exists.
+
+| Form | Print empty | Create in system |
+|------|-------------|------------------|
+| RIS | Yes | Standalone OK (start of the chain) |
+| ATP | Yes | Must link approved RIS (even draft) |
+| RFC | Yes | Draft optional; **submit** needs linked ATP |
+| DV | Yes | From accounting package / prior docs only — no bare empty create |
+| RR | Yes | Must link approved RFC after check/funds released |
+
+Flow: RIS → ATP → RFC → DV → check released → buy → RR → (Liquidation only if Cash Advance)
+
 ## Task 1: Quick Access Modal (Already Implemented)
 - ✅ Quick Access cards changed to buttons with `openQuickAccessModal()` 
 - ✅ Quick Access Modal HTML added
@@ -14,7 +81,9 @@
   - ✅ Forwarded to President (President signed with base64) → Shows President name + signature image + `ris_approved_by_date`
   - ✅ Direct Approved (Admin directly approved) → Shows admin name + `ris_approved_by_date`
 
+## Task 3: Dont put cards in new module
 
+# Main Task
 make the easy flow to understand about this procurement process in our system in sti college ormoc
 
 the sentence i note about the process:

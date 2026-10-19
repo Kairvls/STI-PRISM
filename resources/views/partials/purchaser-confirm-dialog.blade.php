@@ -5,6 +5,7 @@
 
     $purReviewerOptions = [
         WorkflowNotifier::ROLE_SCHOOL_ADMIN => ReviewerAssignment::options(WorkflowNotifier::ROLE_SCHOOL_ADMIN),
+        WorkflowNotifier::ROLE_SUPPLY_OFFICER => ReviewerAssignment::options(WorkflowNotifier::ROLE_SUPPLY_OFFICER),
         WorkflowNotifier::ROLE_ACCOUNTING => ReviewerAssignment::options(WorkflowNotifier::ROLE_ACCOUNTING),
         WorkflowNotifier::ROLE_RECEIVING => ReviewerAssignment::options(WorkflowNotifier::ROLE_RECEIVING),
     ];
@@ -34,6 +35,7 @@
     function reviewerRoleLabel(role) {
         if (role === 'Admin') return 'Administrator';
         if (role === 'School Administrator') return 'School Administrator';
+        if (role === 'School Supply / Material Officer') return 'School Supply / Material Officer';
         if (role === 'Receiving Officer') return 'Receiving Officer';
         if (role === 'Accounting') return 'Accounting';
         return 'reviewer';

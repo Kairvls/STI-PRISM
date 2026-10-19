@@ -129,31 +129,6 @@
         </div>
     @endunless
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Needs action',
-                'hint' => 'Missing or damaged items not yet delivered',
-                'value' => number_format($summary['unresolved'] ?? 0),
-                'href' => $filterUrl(['status' => 'unresolved']),
-                'active' => $filter === 'unresolved',
-            ],
-            [
-                'label' => 'For second count',
-                'hint' => 'Replacement delivered, waiting for Receiving',
-                'value' => number_format($summary['receiving'] ?? 0),
-                'href' => $filterUrl(['status' => 'receiving']),
-                'active' => $filter === 'receiving',
-            ],
-            [
-                'label' => 'Delivered',
-                'hint' => 'Completed through replacement or delivery',
-                'value' => number_format($summary['resolved'] ?? 0),
-                'href' => $filterUrl(['status' => 'resolved']),
-                'active' => $filter === 'resolved',
-            ],
-        ],
-    ])
 
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         @php

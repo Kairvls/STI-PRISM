@@ -2804,6 +2804,49 @@
         </div>
     </div>
 
+    <div
+        id="reportIdleWarningModal"
+        class="fixed inset-0 z-[60] hidden items-center justify-center bg-[#0b1220]/75 p-4 backdrop-blur-[2px]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reportIdleWarningTitle"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.25)]">
+            <div class="border-b border-slate-100 px-6 py-5">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Report security
+                </p>
+                <h2
+                    id="reportIdleWarningTitle"
+                    class="mt-1 text-xl font-semibold tracking-tight text-slate-950"
+                >
+                    Still there?
+                </h2>
+                <p class="mt-1 text-sm text-slate-500">
+                    No activity detected for 15 minutes. This report form will close in
+                    <span id="reportIdleCountdown" class="font-semibold text-slate-900">60</span>
+                    seconds to protect the shared terminal.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2 bg-slate-50/60 px-6 py-4">
+                <button
+                    type="button"
+                    id="reportIdleCloseNow"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    Close now
+                </button>
+                <button
+                    type="button"
+                    id="reportIdleStay"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
+                >
+                    Keep reporting
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         lucide.createIcons();
@@ -3031,7 +3074,9 @@
 
         function closeAllModals() {
             if (loginChooserModal) loginChooserModal.classList.add('hidden');
-            if (reportModal) {
+            if (reportModal && !reportModal.classList.contains('hidden')) {
+                closeReportModal();
+            } else if (reportModal) {
                 reportModal.classList.add('hidden');
                 reportModal.classList.remove('is-expanded');
                 syncReportModalExpandUi();
@@ -3093,12 +3138,155 @@
             if (reportModal) reportModal.classList.remove('is-expanded');
             showModal(reportModal);
             syncReportModalExpandUi();
+            if (typeof window.startReportModalIdleWatch === 'function') {
+                window.startReportModalIdleWatch();
+            }
         }
         function closeReportModal() {
+            if (typeof window.stopReportModalIdleWatch === 'function') {
+                window.stopReportModalIdleWatch();
+            }
             if (reportModal) reportModal.classList.remove('is-expanded');
             hideModal(reportModal);
             syncReportModalExpandUi();
         }
+
+        (function setupReportModalIdleWatch() {
+            const IDLE_MS = 15 * 60 * 1000;
+            const WARN_MS = 60 * 1000;
+            const ACTIVITY_EVENTS = [
+                'mousemove',
+                'mousedown',
+                'keydown',
+                'scroll',
+                'touchstart',
+                'click',
+                'wheel',
+            ];
+
+            const idleModal = document.getElementById('reportIdleWarningModal');
+            const countdownEl = document.getElementById('reportIdleCountdown');
+            const stayBtn = document.getElementById('reportIdleStay');
+            const closeNowBtn = document.getElementById('reportIdleCloseNow');
+
+            if (!reportModal || !idleModal || !countdownEl || !stayBtn || !closeNowBtn) {
+                return;
+            }
+
+            let idleTimer = null;
+            let warnTimer = null;
+            let countdownTimer = null;
+            let secondsLeft = 60;
+            let warningActive = false;
+            let watching = false;
+
+            function clearWarnTimers() {
+                if (warnTimer) {
+                    clearTimeout(warnTimer);
+                    warnTimer = null;
+                }
+                if (countdownTimer) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+            }
+
+            function hideWarning() {
+                warningActive = false;
+                clearWarnTimers();
+                idleModal.classList.add('hidden');
+                idleModal.classList.remove('flex');
+            }
+
+            function forceCloseReport() {
+                hideWarning();
+                closeReportModal();
+            }
+
+            function showWarning() {
+                if (warningActive || !watching) {
+                    return;
+                }
+
+                warningActive = true;
+                secondsLeft = 60;
+                countdownEl.textContent = String(secondsLeft);
+                idleModal.classList.remove('hidden');
+                idleModal.classList.add('flex');
+
+                countdownTimer = setInterval(function () {
+                    secondsLeft -= 1;
+                    countdownEl.textContent = String(Math.max(secondsLeft, 0));
+                    if (secondsLeft <= 0) {
+                        clearWarnTimers();
+                        forceCloseReport();
+                    }
+                }, 1000);
+
+                warnTimer = setTimeout(forceCloseReport, WARN_MS);
+            }
+
+            function resetIdleTimer() {
+                if (!watching || warningActive) {
+                    return;
+                }
+
+                if (idleTimer) {
+                    clearTimeout(idleTimer);
+                }
+
+                idleTimer = setTimeout(showWarning, IDLE_MS);
+            }
+
+            function onActivity() {
+                if (!watching || warningActive) {
+                    return;
+                }
+                if (reportModal.classList.contains('hidden')) {
+                    return;
+                }
+                resetIdleTimer();
+            }
+
+            ACTIVITY_EVENTS.forEach(function (eventName) {
+                document.addEventListener(eventName, onActivity, { passive: true });
+            });
+
+            stayBtn.addEventListener('click', function () {
+                hideWarning();
+                resetIdleTimer();
+            });
+
+            closeNowBtn.addEventListener('click', forceCloseReport);
+
+            idleModal.addEventListener('click', function (e) {
+                if (e.target === idleModal) {
+                    hideWarning();
+                    resetIdleTimer();
+                }
+            });
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && watching && !warningActive) {
+                    resetIdleTimer();
+                }
+            });
+
+            window.startReportModalIdleWatch = function () {
+                watching = true;
+                hideWarning();
+                resetIdleTimer();
+            };
+
+            window.stopReportModalIdleWatch = function () {
+                watching = false;
+                if (idleTimer) {
+                    clearTimeout(idleTimer);
+                    idleTimer = null;
+                }
+                hideWarning();
+            };
+        })();
 
         if (reportModal) {
             reportModal.addEventListener('click', (e) => {

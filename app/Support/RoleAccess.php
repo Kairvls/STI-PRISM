@@ -27,7 +27,84 @@ class RoleAccess
 
     public const SCHOOL_ADMIN = 7;
 
+    public const SUPPLY_OFFICER = 8;
+
+    public const IT_DEPARTMENT_NAME = 'IT Department';
+
     public const PORTAL_SESSION_KEY = 'portal_context';
+
+    /**
+     * Additional roles are only for Staff in IT Department when primary is
+     * Purchaser (may add Maintenance) or Maintenance (may add Purchaser).
+     *
+     * @param  array<int, int|string>  $additional
+     * @return array<int, int>
+     */
+    public static function filterAllowedAdditionalRoles(
+        int $primaryRoleId,
+        array $additional,
+        bool $isStaff,
+        bool $isItDepartment
+    ): array {
+        $allowedId = self::allowedAdditionalRoleId($primaryRoleId, $isStaff, $isItDepartment);
+        if ($allowedId === null) {
+            return [];
+        }
+
+        return collect($additional)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id === $allowedId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public static function allowedAdditionalRoleId(
+        int $primaryRoleId,
+        bool $isStaff = true,
+        bool $isItDepartment = true
+    ): ?int {
+        if (! $isStaff || ! $isItDepartment) {
+            return null;
+        }
+
+        return match ($primaryRoleId) {
+            self::PURCHASER => self::MAINTENANCE,
+            self::MAINTENANCE => self::PURCHASER,
+            default => null,
+        };
+    }
+
+    public static function isItDepartmentName(?string $name): bool
+    {
+        return strcasecmp(trim((string) $name), self::IT_DEPARTMENT_NAME) === 0;
+    }
+
+    public static function personIsItDepartment(?object $person): bool
+    {
+        if (! $person) {
+            return false;
+        }
+
+        $name = $person->department_name ?? null;
+        if ($name === null && ! empty($person->person_department_id) && Schema::hasTable('departments_table')) {
+            $name = DB::table('departments_table')
+                ->where('department_id', (int) $person->person_department_id)
+                ->value('department_name');
+        }
+
+        return self::isItDepartmentName(is_string($name) ? $name : null);
+    }
+
+    public static function isStaffEmploymentType(?string $type): bool
+    {
+        return strcasecmp(trim((string) $type), 'Staff') === 0;
+    }
+
+    public static function isStaffEmployeeId(?string $employeeId): bool
+    {
+        return (bool) preg_match('/S$/i', trim((string) $employeeId));
+    }
 
     public static function user(?object $user = null): ?object
     {
@@ -181,6 +258,12 @@ class RoleAccess
                 'label' => 'School Administrator',
                 'path' => '/school-admin/dashboard',
                 'match' => 'school-admin',
+            ],
+            self::SUPPLY_OFFICER => [
+                'key' => 'supply-officer',
+                'label' => 'School Supply / Material Officer',
+                'path' => '/supply-officer/dashboard',
+                'match' => 'supply-officer',
             ],
         ];
     }

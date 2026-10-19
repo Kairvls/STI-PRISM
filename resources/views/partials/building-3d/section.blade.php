@@ -122,7 +122,7 @@
                     <span>Status</span>
 
                     <strong id="buildingRoomDetailsStatus">
-                        No Active Reports
+                        Normal
                     </strong>
                 </div>
 
@@ -141,35 +141,47 @@
                 </div>
             </div>
 
-            {{-- MAINTENANCE SUMMARY --}}
+            {{-- REPORT PERIOD + LIST --}}
+            <div class="building-room-details-period" id="buildingRoomDetailsPeriod">
+                <label class="building-room-details-period-label" for="buildingRoomDetailsPeriodSelect">
+                    Reports period
+                </label>
+                <div class="building-period-controls">
+                    <select id="buildingRoomDetailsPeriodSelect" class="building-period-select">
+                        <option value="today" selected>Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                        <option value="custom">Custom date</option>
+                    </select>
+                    <div class="building-room-details-custom-range" id="buildingRoomDetailsCustomRange" hidden>
+                        <input type="date" id="buildingRoomDetailsDate" class="building-period-date" aria-label="Custom report date">
+                    </div>
+                </div>
+            </div>
+
+            {{-- SEVERITY SUMMARY (from existing room report data) --}}
             <div class="building-room-details-stats">
                 <div class="building-room-details-stat">
-                    <span>Active Reports</span>
-
-                    <strong
-                        id="buildingRoomDetailsActiveReports"
-                    >
-                        0
-                    </strong>
+                    <span>Critical</span>
+                    <strong id="buildingRoomDetailsCritical">0</strong>
                 </div>
-
                 <div class="building-room-details-stat">
-                    <span>Urgent Reports</span>
-
-                    <strong
-                        id="buildingRoomDetailsUrgentReports"
-                    >
-                        0
-                    </strong>
+                    <span>High</span>
+                    <strong id="buildingRoomDetailsHigh">0</strong>
                 </div>
-
                 <div class="building-room-details-stat">
-                    <span>Maintenance</span>
-
-                    <strong id="buildingRoomDetailsMaintenance">
-                        0
-                    </strong>
+                    <span>Medium</span>
+                    <strong id="buildingRoomDetailsMedium">0</strong>
                 </div>
+                <div class="building-room-details-stat">
+                    <span>Low</span>
+                    <strong id="buildingRoomDetailsLow">0</strong>
+                </div>
+            </div>
+
+            <div class="building-room-details-reports" id="buildingRoomDetailsReports">
+                <p class="building-room-details-muted">Select a room to load reports.</p>
             </div>
 
             {{-- ACTION --}}
@@ -220,8 +232,22 @@
                 </span>
 
                 <span id="buildingRoomTooltipStatus">
-                    Available
+                    Normal
                 </span>
+            </div>
+
+            <div
+                id="buildingRoomTooltipDepartments"
+                class="building-room-tooltip-details building-room-tooltip-departments"
+            >
+                Departments: —
+            </div>
+
+            <div
+                id="buildingRoomTooltipReports"
+                class="building-room-tooltip-details building-room-tooltip-reports"
+            >
+                0 reports
             </div>
 
             <div
@@ -259,6 +285,23 @@
                 id="buildingFloorFilterButtons"
                 class="building-floor-filter-dynamic"
             ></div>
+
+            {{-- Compact status period (dropdown + date on one row) --}}
+            <div class="building-status-period-compact">
+                <span>Status</span>
+                <div class="building-period-controls building-period-controls--dark">
+                    <select id="buildingStatusPeriodSelect" class="building-period-select building-period-select--dark">
+                        <option value="today" selected>Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                        <option value="custom">Custom date</option>
+                    </select>
+                    <div class="building-status-period-custom-inline" id="buildingStatusCustomRange" hidden>
+                        <input type="date" id="buildingStatusDate" class="building-period-date building-period-date--dark" aria-label="Custom status date">
+                    </div>
+                </div>
+            </div>
         </div>
 
         <button

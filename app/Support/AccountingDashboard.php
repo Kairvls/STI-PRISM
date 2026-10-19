@@ -11,10 +11,7 @@ use Illuminate\Support\Facades\Schema;
 class AccountingDashboard
 {
     public const QUEUE_TYPES = [
-        'atp' => 'Authority to Purchase',
-        'po' => 'Purchase Order',
-        'rfc' => 'Request Check',
-        'funds' => 'Funds release',
+        'dv' => 'Disbursement packages',
         'liq' => 'Liquidation',
     ];
 
@@ -71,11 +68,10 @@ class AccountingDashboard
      */
     public static function queue(): Collection
     {
+        // ATP / PO / RFC / funds review moved to School Administrator.
+        // Accounting queue: incoming DV packages + liquidations.
         return collect()
-            ->merge(self::atpQueue())
-            ->merge(self::poQueue())
-            ->merge(self::rfcQueue('rfc'))
-            ->merge(self::rfcQueue('funds'))
+            ->merge(self::dvQueue())
             ->merge(self::liqQueue())
             ->sort(function ($a, $b) {
                 if ($a->urgent !== $b->urgent) {
@@ -85,6 +81,62 @@ class AccountingDashboard
                 return strcmp((string) $a->since, (string) $b->since);
             })
             ->values();
+    }
+
+    /**
+     * Packages Purchaser sent for DV (no DV yet, or DV still draft).
+     */
+    private static function dvQueue(): Collection
+    {
+        if (! Schema::hasTable('request_check_table')
+            || ! Schema::hasColumn('request_check_table', 'request_check_sent_to_accounting_at')) {
+            return collect();
+        }
+
+        $query = DB::table('request_check_table')
+            ->where('request_check_status', 'Approved')
+            ->whereNotNull('request_check_sent_to_accounting_at')
+            ->where(function ($q) {
+                $q->whereNull('request_check_is_archived')
+                    ->orWhere('request_check_is_archived', 0);
+            });
+
+        if (Schema::hasTable('disbursement_vouchers_table')) {
+            $query->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('disbursement_vouchers_table')
+                    ->whereColumn(
+                        'disbursement_vouchers_table.dv_request_check_id',
+                        'request_check_table.request_check_id'
+                    )
+                    ->whereIn('disbursement_vouchers_table.dv_status', [
+                        'Pending',
+                        'Approved',
+                        'With President',
+                        'President Approved',
+                        'Check Released',
+                    ])
+                    ->where(function ($arch) {
+                        $arch->whereNull('disbursement_vouchers_table.dv_is_archived')
+                            ->orWhere('disbursement_vouchers_table.dv_is_archived', 0);
+                    });
+            });
+        }
+
+        return $query
+            ->orderBy('request_check_sent_to_accounting_at')
+            ->get()
+            ->map(fn ($row) => self::item(
+                'dv',
+                $row->request_check_form_number ?: 'RFC-'.$row->request_check_id,
+                $row->request_check_payee ?: ($row->request_check_requested_by ?: 'Package'),
+                'Ready for Disbursement Voucher',
+                $row->request_check_amount_figures ?? null,
+                $row->request_check_sent_to_accounting_at,
+                false,
+                'Open',
+                url('/accounting/disbursement-vouchers?status=incoming&rfc='.(int) $row->request_check_id)
+            ));
     }
 
     private static function atpQueue(): Collection
@@ -118,38 +170,14 @@ class AccountingDashboard
             $row->authority_purchase_submitted_at ?? $row->authority_purchase_created_at,
             DocumentUrgency::isUrgent('ATP', $row),
             'Review',
-            url('/accounting/authority-to-purchase/'.$row->authority_purchase_id)
+            url(ProcurementReviewPortal::atp((int) $row->authority_purchase_id))
         ));
     }
 
     private static function poQueue(): Collection
     {
-        if (!PurchaseOrderBasket::tablesExist()) {
-            return collect();
-        }
-
-        $query = DB::table('purchase_orders_table')
-            ->where('purchase_order_status', PurchaseOrderBasket::STATUS_SUBMITTED)
-            ->where(fn ($q) => $q->whereNull('purchase_order_is_archived')->orWhere('purchase_order_is_archived', 0));
-        if (Schema::hasColumn('purchase_orders_table', 'purchase_order_assigned_reviewer_id')) {
-            ReviewerAssignment::applyQueueFilter($query, 'purchase_orders_table.purchase_order_assigned_reviewer_id');
-        }
-        DocumentUrgency::select($query, 'PO');
-
-        $orders = $query->get();
-        PurchaseOrderBasket::attachToOrders($orders);
-
-        return $orders->map(fn ($row) => self::item(
-            'po',
-            $row->purchase_order_number ?: 'PO-'.$row->purchase_order_id,
-            optional(collect($row->linked_atps ?? [])->first())->supplier_display ?: 'Bundled ATPs',
-            (int) ($row->atp_count ?? 0).((int) ($row->atp_count ?? 0) === 1 ? ' ATP' : ' ATPs'),
-            $row->po_total_amount ?? null,
-            $row->purchase_order_submitted_at ?? $row->purchase_order_created_at,
-            DocumentUrgency::isUrgent('PO', $row),
-            'Review',
-            url('/accounting/purchase-orders/'.$row->purchase_order_id)
-        ));
+        // Purchase Orders retired from active School Admin workflow.
+        return collect();
     }
 
     private static function rfcQueue(string $type): Collection
@@ -167,7 +195,7 @@ class AccountingDashboard
         DocumentUrgency::select($query, 'RFC');
 
         return $query->get()->map(function ($row) use ($type) {
-            $fundLabel = ProcurementPaymentPath::labels()[$row->request_check_funding_type ?? ''] ?? 'Request for Check';
+            $fundLabel = ProcurementPaymentPath::label($row->request_check_funding_type ?? null);
             $since = $type === 'funds'
                 ? ($row->request_check_approved_at ?? $row->request_check_accounting_verified_at ?? $row->request_check_updated_at)
                 : ($row->request_check_submitted_at ?? $row->request_check_created_at ?? $row->request_check_date);
@@ -181,7 +209,7 @@ class AccountingDashboard
                 $since,
                 DocumentUrgency::isUrgent('RFC', $row),
                 $type === 'funds' ? 'Release' : 'Review',
-                url('/accounting/request-check/'.$row->request_check_id)
+                url(ProcurementReviewPortal::requestCheck((int) $row->request_check_id))
             );
         });
     }
@@ -292,7 +320,7 @@ class AccountingDashboard
                 'released_at' => $releasedAt,
                 'days' => (int) $releasedAt->diffInDays(now()),
                 'liquidation_status' => $row->liquidation_status ?? null,
-                'url' => url('/accounting/request-check/'.$row->request_check_id),
+                'url' => url(ProcurementReviewPortal::requestCheck((int) $row->request_check_id)),
             ];
         });
     }
@@ -354,9 +382,9 @@ class AccountingDashboard
             ->get();
 
         $documents = [
-            'ATP' => ['authority_to_purchase_table', 'authority_purchase_id', 'authority_purchase_form_number', '/accounting/authority-to-purchase/', 'Authority to Purchase'],
-            'PO' => ['purchase_orders_table', 'purchase_order_id', 'purchase_order_number', '/accounting/purchase-orders/', 'Purchase Order'],
-            'RFC' => ['request_check_table', 'request_check_id', 'request_check_form_number', '/accounting/request-check/', 'Request Check'],
+            'ATP' => ['authority_to_purchase_table', 'authority_purchase_id', 'authority_purchase_form_number', ProcurementReviewPortal::BASE.'/authority-to-purchase/', 'Authority to Purchase'],
+            'PO' => ['purchase_orders_table', 'purchase_order_id', 'purchase_order_number', ProcurementReviewPortal::BASE.'/purchase-orders/', 'Purchase Order'],
+            'RFC' => ['request_check_table', 'request_check_id', 'request_check_form_number', ProcurementReviewPortal::BASE.'/request-check/', 'Request Check'],
             'LIQ' => ['liquidation_reports_table', 'liquidation_report_id', 'liquidation_report_form_number', '/accounting/liquidation-reports/', 'Liquidation'],
         ];
         $aliases = ['LR' => 'LIQ', 'LIQUIDATION' => 'LIQ', 'REQUEST CHECK' => 'RFC'];
@@ -414,10 +442,11 @@ class AccountingDashboard
             return $query;
         };
 
+        // Purchase Orders retired — keep zero so School Admin dashboards omit PO work.
         return [
-            'pending' => $base()->where('purchase_order_status', PurchaseOrderBasket::STATUS_SUBMITTED)->count(),
-            'revision' => $base()->where('purchase_order_status', PurchaseOrderBasket::STATUS_DRAFT)->whereNotNull('purchase_order_revision_reason')->count(),
-            'approved' => $base()->where('purchase_order_status', PurchaseOrderBasket::STATUS_APPROVED)->count(),
+            'pending' => 0,
+            'revision' => 0,
+            'approved' => 0,
         ];
     }
 }

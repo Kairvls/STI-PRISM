@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * RFC "No." values: RFC-YYYYMM-00001
+ * RFC "No." values: RFC-YYYYMMDD-00001
  * Assigned on submit only — drafts stay null.
  */
 class RfcFormNumber
 {
-    public const FORM_NUMBER_REGEX = '/^RFC-\d{6}-\d{5}$/';
+    /** Accepts RFC-YYYYMMDD-00001 and legacy RFC-YYYYMM-00001 */
+    public const FORM_NUMBER_REGEX = '/^RFC-\d{6,8}-\d{5}$/';
 
     public static function isValid(?string $value): bool
     {
@@ -19,13 +20,12 @@ class RfcFormNumber
     }
 
     /**
-     * Next RFC No. — the YYYYMM prefix is the current month, but the sequence
-     * continues across months (non-draft rows only).
+     * Next RFC No. — YYYYMMDD is today; sequence continues across days.
      */
     public static function next(): string
     {
-        $ym = now()->format('Ym');
-        $prefix = 'RFC-'.$ym.'-';
+        $ymd = now()->format('Ymd');
+        $prefix = 'RFC-'.$ymd.'-';
         $max = 0;
 
         if (! Schema::hasTable('request_check_table')
@@ -45,7 +45,7 @@ class RfcFormNumber
         }
 
         foreach ($query->pluck('request_check_form_number') as $formNumber) {
-            if (preg_match('/^RFC-\d{6}-(\d{5})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^RFC-\d{6,8}-(\d{5})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

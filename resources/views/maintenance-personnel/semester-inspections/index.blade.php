@@ -30,13 +30,6 @@
             Semester inspection tables are missing. Run <code class="font-mono text-xs">php artisan migrate</code> to enable this module.
         </div>
     @else
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Active campaigns', 'hint' => '', 'value' => number_format($stats['active'])],
-                ['label' => 'Due within 7 days', 'hint' => '', 'value' => number_format($stats['dueSoon'])],
-                ['label' => 'Overdue', 'hint' => '', 'value' => number_format($stats['overdue'])],
-            ],
-        ])
 
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -53,7 +46,7 @@
                 }
             </style>
             <div class="border-b border-slate-100 p-4 sm:p-5">
-                <form method="GET" action="{{ $inspectionsUrl }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <form data-auto-filter method="GET" action="{{ $inspectionsUrl }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
                     <div class="relative min-w-0 lg:flex-[1.6]">
                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                         <input
@@ -66,7 +59,7 @@
                     </div>
                     <select name="status" class="{{ $selectClass }} {{ ($status ?? 'all') !== 'all' ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
                         <option value="all" @selected(($status ?? 'all') === 'all')>All statuses</option>
-                        @foreach (['Active', 'In Progress', 'Draft', 'Completed', 'Cancelled'] as $opt)
+                        @foreach (['Active', 'In Progress', 'Draft', 'Completed', 'Cancelled', 'Archived'] as $opt)
                             <option value="{{ $opt }}" @selected(($status ?? '') === $opt)>{{ $opt }}</option>
                         @endforeach
                     </select>
@@ -104,6 +97,7 @@
                         $statusTone = match ($campaign->campaign_status) {
                             'Completed' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
                             'Cancelled' => 'bg-slate-100 text-slate-600 ring-slate-200',
+                            'Archived' => 'bg-slate-200/80 text-slate-600 ring-slate-300',
                             'In Progress' => 'bg-blue-50 text-blue-700 ring-blue-100',
                             'Draft' => 'bg-slate-50 text-slate-600 ring-slate-200',
                             default => 'bg-amber-50 text-amber-700 ring-amber-100',
@@ -118,45 +112,64 @@
                             'Due '.$due->format('M j, Y'),
                         ]));
                     @endphp
-                    <a
-                        href="{{ $inspectionsUrl.'/'.$campaign->campaign_id }}"
-                        class="block px-4 py-4 transition hover:bg-slate-50/80 sm:px-5"
-                    >
-                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <h2 class="truncate text-base font-semibold text-slate-950">{{ $campaign->campaign_title }}</h2>
-                                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 {{ $statusTone }}">
-                                        {{ $campaign->campaign_status }}
-                                    </span>
-                                </div>
-                                <p class="mt-1 text-sm text-slate-500">
-                                    {{ implode(' · ', $metaParts) }}
-                                    @if (in_array($campaign->campaign_status, ['Active', 'In Progress'], true))
-                                        @if ($days < 0)
-                                            · <span class="font-medium text-rose-600">{{ abs((int) $days) }}d overdue</span>
-                                        @elseif ($days === 0)
-                                            · <span class="font-medium text-amber-600">Due today</span>
-                                        @elseif ($days <= 7)
-                                            · <span class="font-medium text-amber-600">In {{ (int) $days }}d</span>
+                    <div class="flex flex-col gap-3 px-4 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+                        <a
+                            href="{{ $inspectionsUrl.'/'.$campaign->campaign_id }}"
+                            class="min-w-0 flex-1"
+                        >
+                            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h2 class="truncate text-base font-semibold text-slate-950">{{ $campaign->campaign_title }}</h2>
+                                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 {{ $statusTone }}">
+                                            {{ $campaign->campaign_status }}
+                                        </span>
+                                    </div>
+                                    <p class="mt-1 text-sm text-slate-500">
+                                        {{ implode(' · ', $metaParts) }}
+                                        @if (in_array($campaign->campaign_status, ['Active', 'In Progress'], true))
+                                            @if ($days < 0)
+                                                · <span class="font-medium text-rose-600">{{ abs((int) $days) }}d overdue</span>
+                                            @elseif ($days === 0)
+                                                · <span class="font-medium text-amber-600">Due today</span>
+                                            @elseif ($days <= 7)
+                                                · <span class="font-medium text-amber-600">In {{ (int) $days }}d</span>
+                                            @endif
                                         @endif
+                                    </p>
+                                </div>
+                                <div class="w-full max-w-xs lg:w-56">
+                                    <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
+                                        <span>{{ $p['inspected'] }}/{{ $p['total'] }} inspected</span>
+                                        <span>{{ $p['percent'] }}%</span>
+                                    </div>
+                                    <div class="h-2 overflow-hidden rounded-full bg-slate-100">
+                                        <div class="h-full rounded-full bg-[#0025cc]" style="width: {{ $p['percent'] }}%"></div>
+                                    </div>
+                                    @if ($p['defects'] > 0)
+                                        <p class="mt-1 text-[11px] font-medium text-rose-600">{{ $p['defects'] }} defect(s) recorded</p>
                                     @endif
-                                </p>
-                            </div>
-                            <div class="w-full max-w-xs lg:w-56">
-                                <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
-                                    <span>{{ $p['inspected'] }}/{{ $p['total'] }} inspected</span>
-                                    <span>{{ $p['percent'] }}%</span>
                                 </div>
-                                <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                                    <div class="h-full rounded-full bg-[#0025cc]" style="width: {{ $p['percent'] }}%"></div>
-                                </div>
-                                @if ($p['defects'] > 0)
-                                    <p class="mt-1 text-[11px] font-medium text-rose-600">{{ $p['defects'] }} defect(s) recorded</p>
-                                @endif
                             </div>
-                        </div>
-                    </a>
+                        </a>
+                        @if ($canManage && $campaign->campaign_status === 'Cancelled')
+                            <form
+                                action="{{ $inspectionsUrl.'/'.$campaign->campaign_id }}/archive"
+                                method="POST"
+                                class="shrink-0"
+                                onsubmit="return confirm('Archive this cancelled campaign? It will be hidden from the default list.')"
+                            >
+                                @csrf
+                                <button
+                                    type="submit"
+                                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-white transition hover:bg-slate-700"
+                                >
+                                    <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                    Archive
+                                </button>
+                            </form>
+                        @endif
+                    </div>
                 @empty
                     <div class="px-5 py-16 text-center">
                         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">

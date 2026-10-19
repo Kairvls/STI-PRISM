@@ -2,15 +2,23 @@
     $urgentReportsNeedingAction = (int) ($attentionUrgentReports ?? 0);
     $nonUrgentReportsNeedingAction = (int) ($attentionNonUrgentReports ?? 0);
     $overdueMaintenance = (int) ($attentionOverdueSchedules ?? 0);
+    $reporterSpamAlerts = (int) ($attentionReporterSpamAlerts ?? 0);
+    $reporterSpamReporters = is_array($attentionReporterSpamReporters ?? null)
+        ? $attentionReporterSpamReporters
+        : [];
     $attentionTotal = (int) ($attentionTotal ?? (
         $urgentReportsNeedingAction
         + $nonUrgentReportsNeedingAction
         + $overdueMaintenance
+        + $reporterSpamAlerts
     ));
     $showDailyReminder = $attentionTotal > 0;
     $urgentFocusUrl = url('/maintenance/reports/urgent?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_URGENT_ACTION);
     $nonUrgentFocusUrl = url('/maintenance/reports/incoming?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_NON_URGENT_PENDING);
     $schedulesFocusUrl = url('/maintenance/schedules?focus='.\App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE);
+    $spamFocusUrl = ! empty($reporterSpamReporters[0]['employee_id'] ?? null)
+        ? url('/maintenance/reports/incoming?search='.urlencode($reporterSpamReporters[0]['employee_id']))
+        : url('/maintenance/reports/incoming');
 @endphp
 
 @if ($showDailyReminder)
@@ -109,6 +117,31 @@
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-orange-400"></i>
+                    </a>
+                @endif
+
+                @if ($reporterSpamAlerts > 0)
+                    <a
+                        href="{{ $spamFocusUrl }}"
+                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
+                    >
+                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
+                            <i data-lucide="shield-alert" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ $reporterSpamAlerts }} reporter {{ \Illuminate\Support\Str::plural('ID', $reporterSpamAlerts) }} may be spamming
+                            </p>
+                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
+                                {{ \App\Support\ReporterReportMail::SPAM_THRESHOLD }}+ reports in
+                                {{ \App\Support\ReporterReportMail::SPAM_WINDOW_MINUTES }} minutes
+                                @if (! empty($reporterSpamReporters[0]['employee_id']))
+                                    · top: {{ $reporterSpamReporters[0]['employee_id'] }}
+                                    ({{ $reporterSpamReporters[0]['count'] }})
+                                @endif
+                            </p>
+                        </div>
+                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-500"></i>
                     </a>
                 @endif
             </div>

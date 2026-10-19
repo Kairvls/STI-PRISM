@@ -9,22 +9,6 @@
 
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'receiving'])
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Delivered',
-                'value' => number_format($accepted),
-            ],
-            [
-                'label' => 'Returned',
-                'value' => number_format($returned),
-            ],
-            [
-                'label' => 'With OR',
-                'value' => number_format($withOr),
-            ],
-        ],
-    ])
 
     <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">
         @include('layouts.partials.admin-system-reports-filters', ['placeholder' => 'Search OR, status, officer...'])

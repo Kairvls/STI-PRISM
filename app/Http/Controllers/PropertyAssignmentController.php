@@ -101,29 +101,92 @@ class PropertyAssignmentController extends Controller
     }
 
     /**
-     * Return custodian data for a given employee ID (JSON) — used by frontend hints.
+     * Return people-directory (custodian) data for a given employee ID (JSON).
+     * Used by reporter / property-assignment UI hints. 404 when not found.
      */
     public function getCustodianByEmployee(Request $request, string $employeeId)
     {
-        if (trim($employeeId) === '' || ! Schema::hasTable('custodians_table') || ! Schema::hasTable('property_assignments_table')) {
-            return response()->json(null);
+        $employeeId = strtoupper(preg_replace('/\s+/', '', (string) $employeeId));
+
+        if ($employeeId === '' || ! preg_match('/^OMC\d{5}[FS]$/', $employeeId) || ! Schema::hasTable('custodians_table')) {
+            return response()->json(['exists' => false], 404);
         }
 
-        $person = DB::table('custodians_table as c')
-            ->join('property_assignments_table as pa', 'pa.assignment_custodian_id', '=', 'c.custodian_id')
+        $query = DB::table('custodians_table as c')
             ->leftJoin('departments_table as d', 'd.department_id', '=', 'c.custodian_department_id')
-            ->where('c.custodian_employee_id', $employeeId)
+            ->whereRaw('UPPER(TRIM(c.custodian_employee_id)) = ?', [$employeeId])
             ->where('c.custodian_status', '!=', 'Inactive')
-            ->where('pa.assignment_status', 'Active')
-            ->select('c.*', 'd.department_name as custodian_department')
-            ->first();
+            ->select('c.*', 'd.department_name as custodian_department');
 
-        return response()->json($person ?: null);
+        $person = $query->first();
+
+        if (! $person) {
+            return response()->json(['exists' => false], 404);
+        }
+
+        $hasActiveAssignment = false;
+        if (Schema::hasTable('property_assignments_table')) {
+            $hasActiveAssignment = DB::table('property_assignments_table')
+                ->where('assignment_custodian_id', (int) $person->custodian_id)
+                ->where('assignment_status', 'Active')
+                ->exists();
+        }
+
+        return response()->json([
+            'exists' => true,
+            'custodian_id' => (int) $person->custodian_id,
+            'custodian_employee_id' => $person->custodian_employee_id,
+            'custodian_full_name' => $person->custodian_full_name ?? null,
+            'custodian_first_name' => $person->custodian_first_name ?? null,
+            'custodian_middle_name' => $person->custodian_middle_name ?? null,
+            'custodian_last_name' => $person->custodian_last_name ?? null,
+            'custodian_email_address' => $person->custodian_email_address ?? null,
+            'custodian_contact_number' => $person->custodian_contact_number ?? null,
+            'custodian_department_id' => $person->custodian_department_id ?? null,
+            'custodian_department' => $person->custodian_department ?? null,
+            'has_active_assignment' => $hasActiveAssignment,
+        ]);
     }
 
     public function storePerson(Request $request)
     {
+        if ($request->filled('person_id') && \App\Support\Persons::tableReady()) {
+            $person = \App\Support\Persons::find((int) $request->input('person_id'));
+            if ($person) {
+                $request->merge([
+                    'custodian_employee_id' => $person->person_employee_id,
+                    'custodian_first_name' => $person->person_first_name,
+                    'custodian_middle_name' => $person->person_middle_name,
+                    'custodian_last_name' => $person->person_last_name,
+                    'custodian_position' => $person->person_employment_type,
+                    'custodian_employment_basis' => $person->person_employment_basis,
+                    'custodian_department_id' => $person->person_department_id,
+                    'custodian_email_address' => $person->person_email_address,
+                    'custodian_contact_number' => $person->person_contact_number,
+                ]);
+            }
+        }
+
         $validated = $this->validatePerson($request);
+        if ($request->filled('person_id')) {
+            $validated['person_id'] = (int) $request->input('person_id');
+        } elseif (\App\Support\Persons::tableReady() && ! empty($validated['custodian_employee_id'])) {
+            try {
+                $validated['person_id'] = \App\Support\Persons::ensureFromIdentity([
+                    'employee_id' => $validated['custodian_employee_id'],
+                    'type' => $validated['custodian_position'] ?? null,
+                    'first_name' => $validated['custodian_first_name'] ?? '',
+                    'middle_name' => $validated['custodian_middle_name'] ?? '',
+                    'last_name' => $validated['custodian_last_name'] ?? '',
+                    'employment_basis' => $validated['custodian_employment_basis'] ?? null,
+                    'department_id' => $validated['custodian_department_id'] ?? null,
+                    'email' => $validated['custodian_email_address'] ?? null,
+                    'contact' => $validated['custodian_contact_number'] ?? null,
+                ]);
+            } catch (\Throwable $e) {
+                // Continue without person link if ensure fails.
+            }
+        }
 
         // If a reporter exists with the same employee ID, enforce exact match
         // rather than silently overwriting custodian details. This prevents
@@ -404,7 +467,7 @@ class PropertyAssignmentController extends Controller
             'custodian_department_id' => ['nullable', 'integer', Rule::exists('departments_table', 'department_id')],
             'custodian_room_id' => ['nullable', 'integer', Rule::exists('rooms_table', 'room_id')],
             'custodian_email_address' => ['nullable', 'email', 'max:150'],
-            'custodian_contact_number' => ['nullable', 'string', 'max:50'],
+            'custodian_contact_number' => \App\Support\PhoneNumber::rules(),
             'custodian_reporter_id' => [
                 'nullable', 'integer',
                 Rule::exists('reporters_table', 'reporter_id'),

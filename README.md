@@ -215,8 +215,7 @@ on the school administrator system side for the dashboard module what we can put
 
 
 
-make this part ahmm detect also in the maintenance that it will alarm in the maintenance that theres a reporter using that id spamming it
-and make it everytime that employee id after making a report it will email to their corresponding gmail about their report (or like a reminder or notif that you report this etc... like time and date you report, what you report, etc... this is to make aware of the reporter also its use to know if theres another person who use their employee id and pin to report since every after report or report that maked it will email to their corresponding email for them to check also if there was another person who act as them by knowing or checking that theres an email to your email about reporting but you didn't make any report at that time or date so basically you'll know that theres another person who acts as you) and also by emailing what you've report that you can also monitor the status of your report also
+DONE — Reporter emails + spam alarm: after each submit, email `reporter_email_address` (ticket, time, items); email again on every Maintenance status change; if same employee ID submits 5+ reports in 1 hour, alert Maintenance (notification + daily reminder attention).
 
 on the administator side theres some module or form or table put a color of * and status and buttons same on other system side
 
@@ -227,3 +226,39 @@ You could say: "A room is where the equipment physically is. A department is the
 A department is an office, not a place. A room says where equipment physically is; a department says which office owns it and is accountable for it. Equipment always has a room, and can also be charged to a department or issued to a person.
 
 should we add equipment in that department also or what since its just person in that department or person that has equipment and belong to that department
+
+
+the traditional workflow is the Purchaser first create Canvas + RIS then submit to School Administrator for approval then the School Administrator approve it or either submit to President for approval then go back to the Purchaser the approve Canvas + RIS then that approved Canvas + RIS will be pass to School Supply/Material Officer to have a base when making an ATP then that canvas + ris and atp will be submitted to school administrator by School Supply/Material Officer for approval the reason that ATP has canvas + ris is for reference of ATP cause that ATP is about the canvas + RIS then after that approved ATP by School administrator the School Supply/ATP pass/submit now back it to the Purchaser the already approved canvas + RIS and the approved ATP then the Purchaser start making the RFC base on the approved canvas + ris and atp then that RFC then before that the RFC form is in the Accounting the Purchaser will personally get that then make RFC with the attach of canvas + ris and atp to that rfc submitted to school administrator by the Purchaser for the approval then after the approved RFC now we have approved canvas + ris, atp, rfc and that will be submitted to Accounting by Purchaser then the Accounting starts making the Disbursement Voucher form base on the approved canvas + ris, atp, rfc (remember every form needs basis on the approved form like canvas + ris, atp, rfc and soon cause each all connected to each other) then that Disbursement Voucher now has with attach approved canvas + ris, atp, rfc to the school administrator then after approval by the school administrator it will be pass back or return to Accounting then the accounting submit now the approved Disbursement Voucher, with already approved canvas + ris, atp, rfc to the President then the president approved the Disbursement Voucher (with already approved canvas + ris, atp, rfc) too it will be pass back or return again to the Accounting then now the accounting will start releasing the cheque/check and the accounting will notify the Purchaser that the check is now release then that will be the time where the purchaser start buying and so on...
+
+then put Ticket Number (Request No.) i dont the exact term but that will be the way for easy tracking of 1 or per transaction like each Request No. holds 1 canvas + ris, atp, rfc, dv, rr, lr per transaction
+
+DONE — Request No. (ticket): format PR-YYYYMM-#### (e.g. PR-202610-0001), created with Canvas+RIS and copied to ATP → RFC → DV → RR → Liquidation. Form Nos (RIS→LR) use YYYYMMDD + sequence digits (e.g. RFC-20261019-00001).
+
+
+Print blank anytime. Create in the system only when the prior document exists.
+
+Form	Print empty	Create in system
+RIS
+Yes
+Standalone OK (start of the chain)
+ATP
+Yes
+Must link approved RIS
+RFC
+Yes
+Draft optional; submit needs linked ATP
+DV
+Yes
+Must come from the accounting package / prior docs — not a bare empty create
+RR
+Yes
+Must link approved RFC after check/funds released
+Flow: RIS → ATP → RFC → DV → check released → buy → RR → (Liquidation only if Cash Advance)
+
+Rule of thumb: blank paper = print; real record = always tied to the previous step.
+
+add here that can assign person in this department much likely for those person that still no department
+
+in the maintenace or administrator system side for maintenance schedule module when schedule is completed this day or year or month make it cant be mark as complete again when its not yet 7 days before of another maintenance schedule... am i right?
+
+whats the exact ordering and grouping for the links in the administrator sidebar

@@ -37,14 +37,14 @@ class ReviewerAssignment
                 'table' => 'authority_to_purchase_table',
                 'id' => 'authority_purchase_id',
                 'column' => 'authority_purchase_assigned_reviewer_id',
-                'role' => WorkflowNotifier::ROLE_ACCOUNTING,
+                'role' => WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 'ownership' => 'atp',
                 'label' => 'Authority to Purchase',
                 'ref_type' => 'ATP',
                 'form_number' => 'authority_purchase_form_number',
                 'notify_title' => 'ATP reassigned to you',
                 'notify_type' => 'atp_reassigned',
-                'notify_url' => fn (int $id) => '/accounting/authority-to-purchase/'.$id,
+                'notify_url' => fn (int $id) => ProcurementReviewPortal::atp($id),
                 'status_check' => function (object $row): bool {
                     return ($row->authority_purchase_status ?? null) === 'Pending'
                         && ! blank($row->authority_purchase_submitted_at ?? null)
@@ -72,14 +72,14 @@ class ReviewerAssignment
                 'table' => 'request_check_table',
                 'id' => 'request_check_id',
                 'column' => 'request_check_assigned_reviewer_id',
-                'role' => WorkflowNotifier::ROLE_ACCOUNTING,
+                'role' => WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 'ownership' => 'rfc',
                 'label' => 'Request for Check',
                 'ref_type' => 'RFC',
                 'form_number' => 'request_check_form_number',
                 'notify_title' => 'RFC reassigned to you',
                 'notify_type' => 'rfc_reassigned',
-                'notify_url' => fn (int $id) => '/accounting/request-check/'.$id,
+                'notify_url' => fn (int $id) => ProcurementReviewPortal::requestCheck($id),
                 'status_check' => function (object $row): bool {
                     return in_array($row->request_check_status ?? null, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
                         && (int) ($row->request_check_is_archived ?? 0) === 0;
@@ -123,14 +123,14 @@ class ReviewerAssignment
                 'table' => 'purchase_orders_table',
                 'id' => 'purchase_order_id',
                 'column' => 'purchase_order_assigned_reviewer_id',
-                'role' => WorkflowNotifier::ROLE_ACCOUNTING,
+                'role' => WorkflowNotifier::ROLE_SCHOOL_ADMIN,
                 'ownership' => 'po',
                 'label' => 'Purchase Order',
                 'ref_type' => 'PO',
                 'form_number' => 'purchase_order_number',
                 'notify_title' => 'Purchase Order reassigned to you',
                 'notify_type' => 'po_reassigned',
-                'notify_url' => fn (int $id) => '/accounting/purchase-orders?status=incoming',
+                'notify_url' => fn (int $id) => ProcurementReviewPortal::purchaseOrder($id),
                 'status_check' => function (object $row): bool {
                     return ($row->purchase_order_status ?? null) === 'Submitted'
                         && (int) ($row->purchase_order_is_archived ?? 0) === 0;

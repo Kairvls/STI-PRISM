@@ -1,18 +1,19 @@
 @extends('layouts.admin-layout')
 
-@section('title', 'Procurement Requests')
+@section('title', 'RIS')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 @endpush
 
 {{-- ===================================================== --}}
-{{-- PROCUREMENT REQUESTS — ACCEPT STAGE --}}
+{{-- RIS — PENDING ACCEPT --}}
 {{-- ===================================================== --}}
 
 @section('content')
 
 <div class="admin-page">
+    @include('admin.partials.ris-phase-tabs', ['phase' => 'accept'])
     <div id="risContentContainer">
         @include('admin.procurement-review._content')
     </div>

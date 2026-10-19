@@ -38,13 +38,11 @@
                 'filterKey' => 'accepted',
                 'extraClass' => 'ris-filter-card',
                 'active' => $filter === 'accepted',
-                'title' => 'Accepted requests waiting for a Sign RIS decision',
+                'title' => 'Accepted requests waiting on Ready to Sign',
             ],
         ];
     @endphp
 
-    {{-- Metric strip --}}
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $procurementCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -54,7 +52,7 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Procurement Requests</h2>
+                        <h2 class="text-base font-semibold text-gray-950">Pending Accept</h2>
                         <span
                             id="risTotalCount"
                             class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500"
@@ -63,9 +61,9 @@
                     </div>
                     <p class="mt-1 text-xs text-gray-400">
                         @if ($risCanAct)
-                            Accept purchaser submissions to send them to Sign RIS for Forward, Approve Directly, or Return.
+                            Accept purchaser submissions, then open <strong>Ready to Sign</strong> for Direct Approve or Pass to President.
                         @else
-                            View only. The School Administrator accepts, forwards, approves, and returns procurement requests.
+                            View only. The School Administrator accepts, then decides on Ready to Sign (Direct Approve or Pass to President).
                         @endif
                     </p>
                 </div>
@@ -156,7 +154,7 @@
                         type="search"
                         name="search"
                         value="{{ $search }}"
-                        placeholder="Search RIS, requester, equipment, status…"
+                        placeholder="Search RIS, Request No., requester, equipment…"
                         autocomplete="off"
                         title="Search RIS records"
                         class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"

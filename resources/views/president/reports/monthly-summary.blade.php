@@ -86,14 +86,6 @@
 <div id="weeklyTab" class="mt-6 {{ request('tab') === 'monthly' ? 'hidden' : '' }}">
     {{-- Weekly Stats Cards --}}
     <div class="mt-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total RIS', 'hint' => 'This period', 'value' => number_format((int) ($totalRis ?? 0))],
-                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approvedDecisionsCount ?? 0))],
-                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejectedDecisionsCount ?? 0))],
-                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pendingApprovalsCount ?? 0))],
-            ],
-        ])
     </div>
 
     {{-- Weekly Chart --}}
@@ -216,14 +208,6 @@
 
     {{-- Monthly Stats Cards --}}
     <div class="mt-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total RIS', 'hint' => 'This period', 'value' => number_format((int) ($totalRis ?? 0))],
-                ['label' => 'Approved', 'hint' => 'Presidential approvals', 'value' => number_format((int) ($approvedDecisionsCount ?? 0))],
-                ['label' => 'Rejected', 'hint' => 'Declined RIS', 'value' => number_format((int) ($rejectedDecisionsCount ?? 0))],
-                ['label' => 'Pending', 'hint' => 'Awaiting decision', 'value' => number_format((int) ($pendingApprovalsCount ?? 0))],
-            ],
-        ])
     </div>
 
     {{-- Monthly Chart --}}

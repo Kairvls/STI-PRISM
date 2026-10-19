@@ -18,20 +18,13 @@
     $plural = fn (int $n, string $word) => $n.' '.($n === 1 ? $word : Str::plural($word));
 
     $typeLinks = [
-        'atp' => route('accounting.atp.index', ['focus' => 'atp-review']),
-        'po' => route('accounting.purchase-orders.index', ['status' => 'incoming']),
-        'rfc' => route('accounting.rfc.index', ['focus' => 'rfc-review']),
-        'funds' => route('accounting.rfc.index', ['focus' => 'funds']),
+        'dv' => route('accounting.dv.index'),
         'liq' => route('accounting.liq.index', ['focus' => 'liq-review']),
     ];
-    $typeShort = ['atp' => 'ATP', 'po' => 'PO', 'rfc' => 'Request Check', 'funds' => 'Release', 'liq' => 'Liquidation'];
+    $typeShort = ['dv' => 'DV request', 'liq' => 'Liquidation'];
 
-    if ($review['count'] > 0 && $funds['count'] > 0) {
-        $headline = $plural($review['count'], 'document').' to review and '.$peso($funds['amount']).' ready to release';
-    } elseif ($review['count'] > 0) {
-        $headline = $plural($review['count'], 'document').' waiting for your review';
-    } elseif ($funds['count'] > 0) {
-        $headline = $peso($funds['amount']).' approved and ready to release';
+    if (($metrics['liq_pending'] ?? 0) > 0) {
+        $headline = $plural((int) $metrics['liq_pending'], 'liquidation').' waiting for your review';
     } else {
         $headline = 'You\'re all caught up';
     }
@@ -52,9 +45,6 @@
     $awaiting = max(0, $received - $releasedTotal);
 
     $docStatus = [
-        ['label' => 'Authority to Purchase', 'review' => $metrics['atp_pending'] ?? 0, 'returned' => $metrics['atp_revision'] ?? 0, 'done' => $metrics['atp_approved'] ?? 0, 'url' => route('accounting.atp.index', ['status' => 'all'])],
-        ['label' => 'Purchase Orders', 'review' => $d['poCounts']['pending'], 'returned' => $d['poCounts']['revision'], 'done' => $d['poCounts']['approved'], 'url' => route('accounting.purchase-orders.index', ['status' => 'all'])],
-        ['label' => 'Request Checks', 'review' => $metrics['rfc_pending'] ?? 0, 'returned' => $metrics['rfc_revision'] ?? 0, 'done' => $metrics['rfc_approved'] ?? 0, 'url' => route('accounting.rfc.index', ['status' => 'all'])],
         ['label' => 'Liquidations', 'review' => $metrics['liq_pending'] ?? 0, 'returned' => $metrics['liq_revision'] ?? 0, 'done' => $metrics['liq_approved'] ?? 0, 'url' => route('accounting.liq.index', ['status' => 'all'])],
     ];
 
@@ -71,10 +61,9 @@
         </div>
         <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             @foreach([
-                ['Authority to Purchase', route('accounting.atp.index')],
-                ['Purchase Orders', route('accounting.purchase-orders.index')],
-                ['Request Checks', route('accounting.rfc.index')],
                 ['Liquidations', route('accounting.liq.index')],
+                ['Compiled Records', route('accounting.procurement-records.index')],
+                ['History', url('/accounting/history')],
             ] as [$label, $url])
                 <a href="{{ $url }}" class="text-slate-500 underline-offset-4 transition hover:text-[#0025cc] hover:underline">{{ $label }}</a>
             @endforeach
@@ -86,49 +75,34 @@
         $reviewAlert = $review['slow'] > 0
             ? $review['slow'].' waiting '.\App\Support\AccountingDashboard::SLOW_AFTER_DAYS.'+ days'
             : ($review['urgent'] > 0 ? $review['urgent'].' urgent' : null);
-        $fundsFigure = ['label' => 'Ready to release', 'value' => $peso($funds['amount']), 'note' => $funds['count'] > 0 ? $plural($funds['count'], 'approved check').' · oldest '.$plural((int) $funds['oldest_days'], 'day') : 'Nothing to release', 'alert' => null, 'url' => $typeLinks['funds']];
-        $reviewFigure = ['label' => 'Waiting for review', 'value' => number_format($review['count']), 'note' => $review['count'] > 0 ? $peso($review['amount']).' in requests' : 'Queue is clear', 'alert' => $reviewAlert, 'url' => '#review-queue'];
+        $fundsFigure = ['label' => 'Ready to release', 'value' => $peso($funds['amount']), 'note' => 'Handled by School Administrator (ATP / RFC)', 'alert' => null, 'url' => route('accounting.liq.index')];
+        $reviewFigure = ['label' => 'Liquidations waiting', 'value' => number_format((int) ($metrics['liq_pending'] ?? 0)), 'note' => ($metrics['liq_pending'] ?? 0) > 0 ? 'Open the liquidation queue' : 'Queue is clear', 'alert' => $overdue > 0 ? $overdue.' overdue' : null, 'url' => '#review-queue'];
 
-        // Lead with money to release; when there is none, lead with the review workload instead.
-        $leadFunds = $funds['count'] > 0 || $review['count'] === 0;
+        // Accounting now focuses on liquidations; ATP/PO/RFC review moved to School Administrator.
+        $leadFunds = false;
     @endphp
     <section class="acx-card grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div class="flex flex-col justify-between gap-6 p-6 sm:p-8">
             <div>
-                @if($leadFunds)
-                    <p class="acx-label">Ready to release</p>
-                    <p class="mt-3 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl {{ $funds['count'] > 0 ? 'text-[#0025cc]' : 'text-slate-300' }}">{{ $peso($funds['amount']) }}</p>
-                    <p class="mt-2 text-sm text-slate-500">
-                        {{ $funds['count'] > 0 ? $plural($funds['count'], 'approved check').' · oldest waiting '.$plural((int) $funds['oldest_days'], 'day') : 'Nothing approved is waiting for release.' }}
-                    </p>
-                @else
-                    <p class="acx-label">In your review queue</p>
-                    <p class="mt-3 text-4xl font-semibold tracking-tight tabular-nums text-[#0025cc] sm:text-5xl">{{ $peso($review['amount']) }}</p>
-                    <p class="mt-2 text-sm text-slate-500">
-                        {{ $plural($review['count'], 'document') }} to review
-                        @if($reviewAlert)<span class="text-amber-600"> · {{ $reviewAlert }}</span>@endif
-                    </p>
-                @endif
+                <p class="acx-label">Liquidations in your queue</p>
+                <p class="mt-3 text-4xl font-semibold tracking-tight tabular-nums text-[#0025cc] sm:text-5xl">{{ number_format((int) ($metrics['liq_pending'] ?? 0)) }}</p>
+                <p class="mt-2 text-sm text-slate-500">
+                    {{ ($metrics['liq_pending'] ?? 0) > 0 ? 'Reports waiting for Accounting review' : 'Queue is clear' }}
+                    @if($overdue > 0)<span class="text-amber-600"> · {{ $overdue }} overdue</span>@endif
+                </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                @if($leadFunds)
-                    <a href="{{ $typeLinks['funds'] }}" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
-                        Release funds <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                    </a>
-                    <a href="#review-queue" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Review queue</a>
-                @else
-                    <a href="#review-queue" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
-                        Start reviewing <i data-lucide="arrow-down" class="h-4 w-4"></i>
-                    </a>
-                    <a href="{{ $typeLinks['funds'] }}" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Funds to release</a>
-                @endif
+                <a href="{{ $typeLinks['liq'] }}" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001ea3]">
+                    Review liquidations <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                </a>
+                <a href="{{ route('accounting.procurement-records.index') }}" class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Compiled records</a>
             </div>
         </div>
 
         @php
             $figures = [
                 $leadFunds ? $reviewFigure : $fundsFigure,
-                ['label' => 'Released this month', 'value' => $peso($released['amount']), 'note' => $releasedNote, 'alert' => null, 'url' => route('accounting.rfc.index', ['status' => 'released'])],
+                ['label' => 'Released this month', 'value' => $peso($released['amount']), 'note' => $releasedNote, 'alert' => null, 'url' => url('/accounting/history')],
                 ['label' => 'Cash advances out', 'value' => $peso($d['cashAdvanceAmount']), 'note' => $d['cashAdvanceCount'] > 0 ? $d['cashAdvanceCount'].' not yet liquidated' : 'All liquidated', 'alert' => null, 'url' => '#cash-advances'],
                 ['label' => 'Liquidations overdue', 'value' => number_format($overdue), 'note' => $dueToday.' due today · '.$dueWeek.' in 7 days', 'alert' => $overdue > 0 ? 'Past deadline' : null, 'url' => route('accounting.liq.index', ['status' => 'incoming', 'deadline' => 'overdue'])],
             ];
@@ -166,6 +140,7 @@
 
             <div class="mt-4 flex flex-wrap gap-x-5 border-b border-slate-100 px-6 text-sm">
                 @foreach($d['queueByType'] as $type => $group)
+                    @continue(empty($typeLinks[$type]))
                     <a href="{{ $typeLinks[$type] }}"
                        class="-mb-px shrink-0 border-b-2 pb-2.5 transition {{ $group['count'] > 0 ? 'border-[#0025cc] font-medium text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">
                         {{ $group['label'] }}

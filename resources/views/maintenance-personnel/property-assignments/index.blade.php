@@ -22,17 +22,23 @@
             The property assignment tables are missing. Run <code class="font-mono text-xs">php artisan migrate</code> to enable this module.
         </div>
     @else
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Items assigned', 'hint' => 'Across '.number_format($stats['offices']).' '.\Illuminate\Support\Str::plural('room', $stats['offices']), 'value' => number_format($stats['active'])],
-                ['label' => 'People holding property', 'hint' => number_format($stats['people']).' in the directory', 'value' => number_format($stats['custodians'])],
-                ['label' => 'Unassigned office items', 'hint' => 'Individual items in offices with no custodian', 'value' => number_format($stats['unassigned'])],
-            ],
-        ])
+
+        @if ($view === 'people')
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <button
+                    type="button"
+                    onclick="openAddPersonModal()"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[rgba(0,44,155,0.85)]"
+                >
+                    <i data-lucide="user-plus" class="h-4 w-4"></i>
+                    Add person
+                </button>
+            </div>
+        @endif
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-                <div class="inline-flex rounded-xl bg-slate-100 p-1">
+            <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                <div class="inline-flex shrink-0 rounded-xl bg-slate-100 p-1">
                     @foreach ($tabs as $key => $tab)
                         <a
                             href="{{ \App\Support\PropertyAssignments::url('?view='.$key) }}"
@@ -44,42 +50,29 @@
                     @endforeach
                 </div>
 
-                <div class="flex flex-1 flex-col gap-3 sm:flex-row lg:max-w-2xl lg:justify-end">
-                    <form method="GET" action="{{ \App\Support\PropertyAssignments::url() }}" class="flex flex-1 gap-3 lg:max-w-md">
-                        <input type="hidden" name="view" value="{{ $view }}">
-                        @if ($view === 'people' && $filter !== 'all')
-                            <input type="hidden" name="filter" value="{{ $filter }}">
-                        @endif
-                        @if ($view === 'people' && $departmentId)
-                            <input type="hidden" name="department" value="{{ $departmentId }}">
-                        @endif
-                        <div class="relative flex-1">
-                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                            <input
-                                type="search"
-                                name="search"
-                                value="{{ $search }}"
-                                placeholder="{{ $view === 'offices' ? 'Search room name' : 'Search name, ID, position, or office' }}"
-                                class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                            >
-                        </div>
-                        <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
-                            <i data-lucide="search" class="h-4 w-4"></i>
-                            Search
-                        </button>
-                    </form>
-
-                    @if ($view === 'people')
-                        <button
-                            type="button"
-                            onclick="openAddPersonModal()"
-                            class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-                        >
-                            <i data-lucide="user-plus" class="h-4 w-4"></i>
-                            Add person
-                        </button>
+                <form method="GET" action="{{ \App\Support\PropertyAssignments::url() }}" class="flex w-full gap-3 sm:w-auto sm:max-w-md lg:justify-end">
+                    <input type="hidden" name="view" value="{{ $view }}">
+                    @if ($view === 'people' && $filter !== 'all')
+                        <input type="hidden" name="filter" value="{{ $filter }}">
                     @endif
-                </div>
+                    @if ($view === 'people' && $departmentId)
+                        <input type="hidden" name="department" value="{{ $departmentId }}">
+                    @endif
+                    <div class="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                            type="search"
+                            name="search"
+                            value="{{ $search }}"
+                            placeholder="{{ $view === 'offices' ? 'Search room name' : 'Search name, ID, position, or office' }}"
+                            class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                        >
+                    </div>
+                    <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                        <i data-lucide="search" class="h-4 w-4"></i>
+                        Search
+                    </button>
+                </form>
             </div>
 
             @if ($view === 'people')
@@ -167,10 +160,14 @@
                                             @endif
                                         </td>
                                         <td class="px-5 py-3 text-slate-700">{{ $row->home_room_name ?: '—' }}</td>
-                                        <td class="px-5 py-3 text-xs text-slate-600">
-                                            {{ $row->custodian_email_address ?: '' }}
+                                        <td class="px-5 py-3 text-sm leading-snug text-slate-700">
+                                            @if ($row->custodian_email_address)
+                                                <p class="break-all">{{ $row->custodian_email_address }}</p>
+                                            @endif
                                             @if ($row->custodian_contact_number)
-                                                <p>{{ $row->custodian_contact_number }}</p>
+                                                <p class="{{ $row->custodian_email_address ? 'mt-0.5' : '' }} tabular-nums">
+                                                    {{ \App\Support\PhoneNumber::formatForDisplay($row->custodian_contact_number) ?: $row->custodian_contact_number }}
+                                                </p>
                                             @endif
                                             @if (! $row->custodian_email_address && ! $row->custodian_contact_number)
                                                 <span class="text-slate-400">—</span>
@@ -264,40 +261,50 @@
             @endif
         </div>
     @endif
-                                    <!-- Add Person Modal -->
-                                    <div id="addPersonModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4">
-                                        <div class="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
-                                            <div class="relative">
-                                                <button type="button" onclick="closeAddPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                                </button>
-                                                <div class="p-4 overflow-y-auto">
-                                                    @include('maintenance-personnel.property-assignments._person-form-fields')
-                                                </div>
-                                            </div>
+                                    <!-- Add Person Modal (mounted to body on open so backdrop covers topbar) -->
+                                    <div id="addPersonModal" class="fixed inset-0 z-[12000] hidden items-center justify-center bg-[#0b1220]/70 p-4" onclick="if (event.target === this) closeAddPersonModal()">
+                                        <div class="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl shadow-slate-950/10" onclick="event.stopPropagation()">
+                                            <button type="button" onclick="closeAddPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                                                <i data-lucide="x" class="h-4 w-4"></i>
+                                            </button>
+                                            @include('maintenance-personnel.property-assignments._person-form-fields', ['modalEmbed' => true])
                                         </div>
                                     </div>
 
                                     <script>
+                                        function mountAddPersonModal(modal) {
+                                            if (modal && modal.parentElement !== document.body) {
+                                                document.body.appendChild(modal);
+                                            }
+                                            return modal;
+                                        }
+
                                         function openAddPersonModal() {
-                                            const modal = document.getElementById('addPersonModal');
+                                            const modal = mountAddPersonModal(document.getElementById('addPersonModal'));
                                             if (!modal) return;
                                             modal.classList.remove('hidden');
                                             modal.classList.add('flex');
+                                            document.body.classList.add('overflow-hidden');
                                             if (window.lucide) lucide.createIcons();
                                             try {
-                                                const input = document.getElementById('custodian-contact-number');
+                                                const input = modal.querySelector('[data-phone-input]');
                                                 if (typeof window.refreshPrismPhoneInput === 'function' && input) {
-                                                    window.refreshPrismPhoneInput(input);
+                                                    requestAnimationFrame(function () {
+                                                        window.refreshPrismPhoneInput(input);
+                                                    });
                                                 }
                                             } catch (e) { /* ignore */ }
                                         }
 
                                         function closeAddPersonModal() {
+                                            if (typeof window.closeAllPrismPhoneDropdowns === 'function') {
+                                                window.closeAllPrismPhoneDropdowns();
+                                            }
                                             const modal = document.getElementById('addPersonModal');
                                             if (!modal) return;
                                             modal.classList.add('hidden');
                                             modal.classList.remove('flex');
+                                            document.body.classList.remove('overflow-hidden');
                                         }
                                     </script>
 
@@ -307,6 +314,39 @@
                                             if (type === 'Faculty') return 'F';
                                             if (type === 'Staff') return 'S';
                                             return '';
+                                        }
+
+                                        let custodianExistsWarningRequest = 0;
+
+                                        function setCustodianExistsWarning(shouldShow) {
+                                            const hint = document.getElementById('custodianEmployeeExistsHint');
+                                            if (!hint) return;
+                                            hint.classList.toggle('hidden', !shouldShow);
+                                        }
+
+                                        async function refreshCustodianExistsWarning(employeeId) {
+                                            const requestId = ++custodianExistsWarningRequest;
+                                            if (!employeeId) {
+                                                setCustodianExistsWarning(false);
+                                                return;
+                                            }
+                                            try {
+                                                const res = await fetch(`/get-custodian/${encodeURIComponent(employeeId)}`, {
+                                                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                                });
+                                                if (requestId !== custodianExistsWarningRequest) return;
+                                                if (!res || !res.ok) {
+                                                    setCustodianExistsWarning(false);
+                                                    return;
+                                                }
+                                                const json = await res.json();
+                                                if (requestId !== custodianExistsWarningRequest) return;
+                                                setCustodianExistsWarning(!!(json && json.exists === true && Number(json.custodian_id) > 0));
+                                            } catch (e) {
+                                                if (requestId === custodianExistsWarningRequest) {
+                                                    setCustodianExistsWarning(false);
+                                                }
+                                            }
                                         }
 
                                         function syncCustodianEmployeeIdModal() {
@@ -349,6 +389,8 @@
 
                                             const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
                                             fullEl.value = fullId;
+                                            setCustodianExistsWarning(false);
+                                            refreshCustodianExistsWarning(fullId);
                                             return fullId;
                                         }
 

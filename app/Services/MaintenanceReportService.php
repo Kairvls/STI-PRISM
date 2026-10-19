@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
+use App\Support\ReporterReportMail;
 use App\Support\ReportSeverity;
 use App\Support\RoomCategories;
 use Illuminate\Support\Facades\DB;
@@ -385,6 +386,8 @@ class MaintenanceReportService
                             ]);
                         }
 
+                        $this->notifyReporterIfParentStatusChanged($id, (string) $report->report_current_status);
+
                         $result = [
                             'success' => true,
                             'message' => 'Selected equipment marked as resolved. Remaining items can still be fixed or sent for replacement.',
@@ -448,6 +451,7 @@ class MaintenanceReportService
 
                         ReportItems::refreshParentStatus($id);
                         $this->ensureReplacementSideEffects($id, $personnelId);
+                        $this->notifyReporterIfParentStatusChanged($id, (string) $report->report_current_status);
 
                         $result = [
                             'success' => true,
@@ -526,6 +530,9 @@ class MaintenanceReportService
 
     private function applyReportStatusUpdate(int $id, object $report, array $updates): void
     {
+        $oldStatus = trim((string) ($report->report_current_status ?? ''));
+        $newStatus = trim((string) ($updates['report_current_status'] ?? ''));
+
         DB::table('reports_table')
             ->where('report_id', $id)
             ->update($updates);
@@ -571,6 +578,28 @@ class MaintenanceReportService
         }
 
         ReportGrouping::syncOpenSiblings($report, $updates);
+
+        if ($newStatus !== '' && strcasecmp($oldStatus, $newStatus) !== 0) {
+            $this->notifyReporterIfParentStatusChanged($id, $oldStatus, $newStatus);
+        }
+    }
+
+    private function notifyReporterIfParentStatusChanged(int $reportId, string $oldStatus, ?string $newStatus = null): void
+    {
+        $newStatus = trim((string) ($newStatus ?? DB::table('reports_table')
+            ->where('report_id', $reportId)
+            ->value('report_current_status')));
+        $oldStatus = trim($oldStatus);
+
+        if ($newStatus === '' || strcasecmp($oldStatus, $newStatus) === 0) {
+            return;
+        }
+
+        try {
+            ReporterReportMail::sendStatusChanged($reportId, $oldStatus, $newStatus);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function baseReportQuery()

@@ -40,15 +40,24 @@
                                 "name" => $room->room_name,
                                 "type" => $room->room_type,
                                 "status" => $room->dashboard_status,
+                                "label" => $room->dashboard_label,
+                                "statusColor" => $room->status_color,
 
                                 "property" => $building3DProperty[(int) $room->room_id] ?? null,
 
-                                "activeReportCount" => $room->active_report_count,
+                                "departments" => $room->departments ?? [],
 
-                                "urgentReportCount" => $room->urgent_report_count,
+                                "reportCount" => (int) ($room->report_count ?? 0),
+                                "criticalReportCount" => (int) ($room->critical_report_count ?? 0),
+                                "highReportCount" => (int) ($room->high_report_count ?? 0),
+                                "mediumReportCount" => (int) ($room->medium_report_count ?? 0),
+                                "lowReportCount" => (int) ($room->low_report_count ?? 0),
+                                "underMaintenanceScheduled" => (bool) ($room->under_maintenance_scheduled ?? false),
 
-                                "maintenanceEquipmentCount" =>
-                                    $room->maintenance_equipment_count,
+                                // Legacy keys for older helpers
+                                "activeReportCount" => (int) ($room->report_count ?? 0),
+                                "urgentReportCount" => (int) ($room->critical_report_count ?? 0),
+                                "maintenanceEquipmentCount" => (bool) ($room->under_maintenance_scheduled ?? false) ? 1 : 0,
 
                                 "x" => (float) $room->room_x,
                                 "y" => (float) $room->room_y,
@@ -56,7 +65,8 @@
                                 "width" => (float) $room->room_width,
                                 "height" => (float) $room->room_height,
 
-                                "color" => $room->room_color ?: "#60A5FA",
+                                "color" => $room->status_color ?: "#3B82F6",
+                                "layoutColor" => $room->room_color ?: "#60A5FA",
 
                                 "rotation" => (float) data_get(
                                     $room->room_metadata,
@@ -69,6 +79,13 @@
                 ];
             })
             ->values();
+
+        $building3DStatusUrl = request()->is('admin/*')
+            ? route('admin.operations.building-layout.status')
+            : route('maintenance.building-layout.status');
+        $building3DRoomDetailUrl = request()->is('admin/*')
+            ? url('/admin/operations/building-layout/rooms/__ROOM__')
+            : url('/maintenance/building-layout/rooms/__ROOM__');
     @endphp
 
     <script type="module">
@@ -101,6 +118,11 @@
 
         // "__ROOM__" is replaced with the room id; null opens the maintenance room layout.
         const building3DRoomViewUrl = @json ($building3DRoomViewUrl ?? null);
+        const building3DStatusUrl = @json ($building3DStatusUrl);
+        const building3DRoomDetailUrl = @json ($building3DRoomDetailUrl);
+
+        let layoutPeriod = { preset: "today", from: "", to: "" };
+        let roomDetailPeriod = { preset: "today", from: "", to: "" };
 
         console.log("REAL 3D BUILDING DATA:", building3DData);
 
@@ -1093,52 +1115,71 @@
                 const data = room?.userData || room || {};
 
                 return {
-                    urgent: Number(data.urgentReportCount || 0),
-                    active: Number(data.activeReportCount || 0),
-                    maintenance: Number(data.maintenanceEquipmentCount || 0),
+                    critical: Number(data.criticalReportCount || data.urgentReportCount || 0),
+                    high: Number(data.highReportCount || 0),
+                    medium: Number(data.mediumReportCount || 0),
+                    low: Number(data.lowReportCount || 0),
+                    total: Number(data.reportCount || data.activeReportCount || 0),
+                    underMaintenance: Boolean(data.underMaintenanceScheduled) || Number(data.maintenanceEquipmentCount || 0) > 0,
+                    status: String(data.roomStatus || data.status || "normal"),
+                    label: String(data.roomLabel || data.label || "Normal"),
+                    departments: Array.isArray(data.departments) ? data.departments : [],
                 };
             }
 
-            function getRoomStatusTone(room) {
-                const { urgent, active, maintenance } = getRoomReportCounts(room);
-
-                if (urgent > 0) {
+            function statusColorFor(status) {
+                if (status === "critical") {
                     return {
                         hex: 0xef4444,
-                        css: "#ef4444",
+                        css: "#EF4444",
                         glow: "rgba(239, 68, 68, 0.9)",
                         selectedIntensity: 1.2,
                         hoverIntensity: 0.55,
                     };
                 }
 
-                if (active > 0) {
+                if (status === "under-maintenance" || status === "maintenance" || status === "needs-repair") {
                     return {
                         hex: 0xf59e0b,
-                        css: "#f59e0b",
+                        css: "#F59E0B",
                         glow: "rgba(245, 158, 11, 0.9)",
                         selectedIntensity: 1.1,
                         hoverIntensity: 0.5,
                     };
                 }
 
-                if (maintenance > 0) {
-                    return {
-                        hex: 0x38bdf8,
-                        css: "#38bdf8",
-                        glow: "rgba(56, 189, 248, 0.9)",
-                        selectedIntensity: 1.05,
-                        hoverIntensity: 0.48,
-                    };
-                }
-
                 return {
-                    hex: 0x4ade80,
-                    css: "#4ade80",
-                    glow: "rgba(74, 222, 128, 0.85)",
+                    hex: 0x3b82f6,
+                    css: "#3B82F6",
+                    glow: "rgba(59, 130, 246, 0.9)",
                     selectedIntensity: 0.95,
                     hoverIntensity: 0.4,
                 };
+            }
+
+            function getRoomStatusTone(room) {
+                const data = getRoomReportCounts(room);
+                let status = data.status;
+
+                if (!status || status === "available" || status === "normal") {
+                    if (data.critical > 0) status = "critical";
+                    else if (data.underMaintenance) status = "under-maintenance";
+                    else status = "normal";
+                }
+
+                return statusColorFor(status);
+            }
+
+            function applyRoomStatusMaterial(room, status, colorCss) {
+                if (!room?.material) return;
+                const tone = statusColorFor(status);
+                const hex = parseRoomLayoutColor(colorCss || tone.css);
+                room.material.color.setHex(hex);
+                room.material.emissive.setHex(hex);
+                room.userData.layoutColor = colorCss || tone.css;
+                room.userData.layoutColorHex = hex;
+                room.userData.statusColor = colorCss || tone.css;
+                room.userData.roomStatus = status;
             }
 
             function applyRoomHoverVisual(room) {
@@ -1149,7 +1190,7 @@
                 const layoutHex =
                     room.userData.layoutColorHex ??
                     room.userData.originalEmissive ??
-                    0x60a5fa;
+                    0x3b82f6;
 
                 room.material.emissive.setHex(layoutHex);
                 room.material.emissiveIntensity = 0.55;
@@ -1163,7 +1204,7 @@
                 const layoutHex =
                     room.userData.layoutColorHex ??
                     room.userData.originalEmissive ??
-                    0x60a5fa;
+                    0x3b82f6;
 
                 room.material.emissive.setHex(layoutHex);
                 room.material.emissiveIntensity = 1.0;
@@ -1191,17 +1232,15 @@
                 "buildingRoomDetailsStatus",
             );
 
-            const roomDetailsActiveReports = document.getElementById(
-                "buildingRoomDetailsActiveReports",
-            );
-
-            const roomDetailsUrgentReports = document.getElementById(
-                "buildingRoomDetailsUrgentReports",
-            );
-
-            const roomDetailsMaintenance = document.getElementById(
-                "buildingRoomDetailsMaintenance",
-            );
+            const roomDetailsCritical = document.getElementById("buildingRoomDetailsCritical");
+            const roomDetailsHigh = document.getElementById("buildingRoomDetailsHigh");
+            const roomDetailsMedium = document.getElementById("buildingRoomDetailsMedium");
+            const roomDetailsLow = document.getElementById("buildingRoomDetailsLow");
+            const roomDetailsReports = document.getElementById("buildingRoomDetailsReports");
+            const roomDetailsPeriodSelect = document.getElementById("buildingRoomDetailsPeriodSelect");
+            const roomDetailsCustomRange = document.getElementById("buildingRoomDetailsCustomRange");
+            const roomDetailsDate = document.getElementById("buildingRoomDetailsDate");
+            const buildingStatusPeriodSelect = document.getElementById("buildingStatusPeriodSelect");
 
             const roomDetailsClose = document.getElementById(
                 "buildingRoomDetailsClose",
@@ -1222,12 +1261,17 @@
             );
 
             const roomTooltipDot = document.getElementById("buildingRoomTooltipDot");
+            const roomTooltipDepartments = document.getElementById("buildingRoomTooltipDepartments");
+            const roomTooltipReports = document.getElementById("buildingRoomTooltipReports");
 
             const roomTooltipProperty = document.getElementById("buildingRoomTooltipProperty");
 
             const roomDetailsPropertyRow = document.getElementById("buildingRoomDetailsPropertyRow");
 
             const roomDetailsProperty = document.getElementById("buildingRoomDetailsProperty");
+
+            const buildingStatusCustomRange = document.getElementById("buildingStatusCustomRange");
+            const buildingStatusDate = document.getElementById("buildingStatusDate");
 
             function formatRoomProperty(data) {
                 const property = data?.property;
@@ -1271,27 +1315,128 @@
             // =====================================================
 
             function formatRoomStatus(room) {
-                const { urgent, active, maintenance } = getRoomReportCounts(room);
+                const data = getRoomReportCounts(room);
 
-                if (urgent > 0) {
-                    return urgent === 1
-                        ? "1 Urgent Report"
-                        : `${urgent} Urgent Reports`;
+                if (data.critical > 0 || data.status === "critical") {
+                    return data.critical === 1
+                        ? "Critical · 1 Critical report"
+                        : `Critical · ${Math.max(data.critical, 1)} Critical reports`;
                 }
 
-                if (active > 0) {
-                    return active === 1
-                        ? "1 Open Report"
-                        : `${active} Open Reports`;
+                if (data.underMaintenance || data.status === "under-maintenance") {
+                    return "Under Maintenance";
                 }
 
-                if (maintenance > 0) {
-                    return maintenance === 1
-                        ? "1 Item in Maintenance"
-                        : `${maintenance} Items in Maintenance`;
+                if (data.total > 0) {
+                    return data.total === 1
+                        ? "Normal · 1 report"
+                        : `Normal · ${data.total} reports`;
                 }
 
-                return "No Active Reports";
+                return "Normal";
+            }
+
+            function formatDepartmentsLabel(departments) {
+                if (!Array.isArray(departments) || departments.length === 0) {
+                    return "No departments";
+                }
+                const names = departments.map((d) => d.name || d).filter(Boolean);
+                if (names.length <= 3) return names.join(", ");
+                return `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+            }
+
+            function periodQuery(period) {
+                const params = new URLSearchParams();
+                params.set("preset", period.preset || "today");
+                if (period.preset === "custom") {
+                    if (period.from) params.set("from", period.from);
+                    if (period.to) params.set("to", period.to);
+                }
+                return params.toString();
+            }
+
+            function escapeHtml(value) {
+                return String(value || "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+
+            /** Workflow status only — severity stays on the badge. */
+            function formatReportTicketStatus(status) {
+                const value = String(status || "").trim();
+                return value ? `Progress: ${value}` : "Progress: —";
+            }
+
+            function renderRoomReportsList(container, reports) {
+                if (!container) return;
+                if (!Array.isArray(reports) || reports.length === 0) {
+                    container.innerHTML = '<p class="building-room-details-muted" style="padding:10px">No reports in this period.</p>';
+                    return;
+                }
+                container.innerHTML = reports
+                    .map((report) => {
+                        const sev = String(report.severity || "Medium");
+                        const sevClass = sev.toLowerCase();
+                        const ticket =
+                            report.ticket_code ||
+                            (report.id ? `RPT-${String(report.id).padStart(3, "0")}` : "RPT-—");
+                        const ticketStatus = formatReportTicketStatus(report.status);
+                        return `<div class="building-room-report-row">
+                            <div>
+                                <div style="font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums">${escapeHtml(ticket)}</div>
+                                <div style="font-weight:600;color:#334155;margin-top:2px">${escapeHtml(ticketStatus)}</div>
+                                <div class="building-room-details-muted">${escapeHtml(report.submitted_at || "")}</div>
+                                <div style="color:#475569;margin-top:2px">${escapeHtml(report.description || "—")}</div>
+                            </div>
+                            <span class="building-room-report-sev is-${sevClass}">${escapeHtml(sev)}</span>
+                        </div>`;
+                    })
+                    .join("");
+            }
+
+            async function fetchRoomDetail(roomId, period) {
+                const url = String(building3DRoomDetailUrl).replace("__ROOM__", encodeURIComponent(roomId));
+                const response = await fetch(`${url}?${periodQuery(period)}`, {
+                    headers: { Accept: "application/json" },
+                });
+                if (!response.ok) throw new Error("Could not load room reports");
+                return response.json();
+            }
+
+            async function refreshLayoutStatus(period) {
+                const response = await fetch(`${building3DStatusUrl}?${periodQuery(period)}`, {
+                    headers: { Accept: "application/json" },
+                });
+                if (!response.ok) throw new Error("Could not refresh room status");
+                const payload = await response.json();
+                const byId = new Map((payload.rooms || []).map((room) => [Number(room.id), room]));
+
+                scene.traverse((obj) => {
+                    if (obj?.userData?.type !== "room") return;
+                    const next = byId.get(Number(obj.userData.roomId));
+                    if (!next) return;
+
+                    obj.userData.roomStatus = next.status;
+                    obj.userData.roomLabel = next.label;
+                    obj.userData.departments = next.departments || [];
+                    obj.userData.reportCount = next.reportCount || 0;
+                    obj.userData.criticalReportCount = next.criticalReportCount || 0;
+                    obj.userData.highReportCount = next.highReportCount || 0;
+                    obj.userData.mediumReportCount = next.mediumReportCount || 0;
+                    obj.userData.lowReportCount = next.lowReportCount || 0;
+                    obj.userData.underMaintenanceScheduled = !!next.underMaintenanceScheduled;
+                    obj.userData.activeReportCount = next.reportCount || 0;
+                    obj.userData.urgentReportCount = next.criticalReportCount || 0;
+                    obj.userData.maintenanceEquipmentCount = next.underMaintenanceScheduled ? 1 : 0;
+
+                    applyRoomStatusMaterial(obj, next.status, next.color);
+                    obj.material.emissiveIntensity =
+                        obj === selectedRoom ? 1.0 : obj.userData.originalEmissiveIntensity || 0.22;
+                });
+
+                return payload;
             }
 
             // =====================================================
@@ -1313,6 +1458,17 @@
                 roomTooltipFloor.textContent = room.userData.floorName || "Floor";
 
                 roomTooltipStatus.textContent = formatRoomStatus(room);
+
+                const counts = getRoomReportCounts(room);
+                if (roomTooltipDepartments) {
+                    roomTooltipDepartments.textContent =
+                        "Departments: " + formatDepartmentsLabel(counts.departments);
+                }
+                if (roomTooltipReports) {
+                    const total = counts.total;
+                    roomTooltipReports.textContent =
+                        total === 1 ? "1 report" : `${total} reports`;
+                }
 
                 if (roomTooltipProperty) {
                     const propertyText = formatRoomProperty(room.userData);
@@ -1368,7 +1524,7 @@
             // OPEN COMPACT ROOM DETAILS PANEL
             // =====================================================
 
-            function openRoomDetailsPanel(room) {
+            async function openRoomDetailsPanel(room) {
                 if (!room || !roomDetailsPanel) {
                     return;
                 }
@@ -1381,19 +1537,13 @@
 
                 roomDetailsFloor.textContent = room.floorName || "Unknown";
 
-                roomDetailsStatus.textContent = formatRoomStatus(room);
+                roomDetailsStatus.textContent = room.roomLabel || formatRoomStatus(room);
                 roomDetailsStatus.style.color = getRoomStatusTone(room).css;
 
-                // =============================================
-                // UPDATE MAINTENANCE COUNTS
-                // =============================================
-
-                roomDetailsActiveReports.textContent = room.activeReportCount || 0;
-
-                roomDetailsUrgentReports.textContent = room.urgentReportCount || 0;
-
-                roomDetailsMaintenance.textContent =
-                    room.maintenanceEquipmentCount || 0;
+                if (roomDetailsCritical) roomDetailsCritical.textContent = room.criticalReportCount || 0;
+                if (roomDetailsHigh) roomDetailsHigh.textContent = room.highReportCount || 0;
+                if (roomDetailsMedium) roomDetailsMedium.textContent = room.mediumReportCount || 0;
+                if (roomDetailsLow) roomDetailsLow.textContent = room.lowReportCount || 0;
 
                 if (roomDetailsPropertyRow && roomDetailsProperty) {
                     const propertyText = formatRoomProperty(room);
@@ -1411,12 +1561,52 @@
                     roomDetailsView.dataset.floorId = room.floorId;
                 }
 
+                if (roomDetailsPeriodSelect) {
+                    roomDetailsPeriodSelect.value = roomDetailPeriod.preset || "today";
+                }
+                if (roomDetailsCustomRange) {
+                    roomDetailsCustomRange.hidden = roomDetailPeriod.preset !== "custom";
+                }
+
                 // =============================================
-                // SHOW PANEL
+                // SHOW PANEL — counts use existing room payload first
                 // =============================================
 
                 roomDetailsPanel.classList.add("visible");
                 updateRoomDetailsPanelPosition();
+
+                const useLiveCounts = !roomDetailPeriod.preset || roomDetailPeriod.preset === "today";
+                if (useLiveCounts) {
+                    if (roomDetailsCritical) roomDetailsCritical.textContent = room.criticalReportCount || 0;
+                    if (roomDetailsHigh) roomDetailsHigh.textContent = room.highReportCount || 0;
+                    if (roomDetailsMedium) roomDetailsMedium.textContent = room.mediumReportCount || 0;
+                    if (roomDetailsLow) roomDetailsLow.textContent = room.lowReportCount || 0;
+                }
+
+                if (roomDetailsReports) {
+                    roomDetailsReports.innerHTML =
+                        '<p class="building-room-details-muted" style="padding:10px">Loading reports…</p>';
+                }
+
+                try {
+                    const detail = await fetchRoomDetail(room.roomId, roomDetailPeriod);
+                    if (!useLiveCounts || (detail.counts && Number(detail.counts.total || 0) > 0)) {
+                        if (roomDetailsCritical) roomDetailsCritical.textContent = detail.counts?.critical || 0;
+                        if (roomDetailsHigh) roomDetailsHigh.textContent = detail.counts?.high || 0;
+                        if (roomDetailsMedium) roomDetailsMedium.textContent = detail.counts?.medium || 0;
+                        if (roomDetailsLow) roomDetailsLow.textContent = detail.counts?.low || 0;
+                    }
+                    if (detail.layout_label) {
+                        roomDetailsStatus.textContent = detail.layout_label;
+                    }
+                    renderRoomReportsList(roomDetailsReports, detail.reports || []);
+                } catch (error) {
+                    console.error(error);
+                    if (roomDetailsReports) {
+                        roomDetailsReports.innerHTML =
+                            '<p class="building-room-details-muted" style="padding:10px;color:#b91c1c">Could not load reports.</p>';
+                    }
+                }
             }
 
             const roomFocusSize = new THREE.Vector3();
@@ -1499,89 +1689,56 @@
 
                 if (!isOpen) {
                     clearRoomDetailsPanelAnchor();
+                    roomDetailsPanel.style.left = "";
+                    roomDetailsPanel.style.top = "";
+                    roomDetailsPanel.style.right = "";
                     return;
                 }
 
-                const host = roomDetailsPanel.offsetParent;
-
-                if (!host) {
-                    return;
-                }
-
-                const hostRect = host.getBoundingClientRect();
+                // Fixed to the viewport so overflow:hidden on the 3D view cannot clip it.
                 const canvasRect = renderer.domElement.getBoundingClientRect();
-                const roomRect = getSelectedRoomScreenRect(canvasRect, hostRect);
-
-                if (!roomRect) {
-                    return;
-                }
-
-                const panelWidth = roomDetailsPanel.offsetWidth || 280;
-                const panelHeight = roomDetailsPanel.offsetHeight || 300;
-                const width = host.clientWidth;
-                const height = host.clientHeight;
+                const panelWidth = roomDetailsPanel.offsetWidth || 320;
+                const panelHeight = roomDetailsPanel.offsetHeight || 360;
                 const margin = 16;
-                const topSafe = 64;
-                const gap = 20;
+                const gap = 16;
 
-                const spaceRight = width - margin - roomRect.right;
-                const spaceLeft = roomRect.left - margin;
-                const roomMidY = (roomRect.top + roomRect.bottom) / 2;
+                let left = canvasRect.right - panelWidth - margin;
+                let top = Math.max(margin, canvasRect.top + 64);
 
-                let left;
-                let top = roomMidY - panelHeight / 2;
+                if (selectedRoom?.geometry) {
+                    // hostRect {0,0} => coords are already viewport-absolute
+                    const roomRect = getSelectedRoomScreenRect(canvasRect, {
+                        left: 0,
+                        top: 0,
+                    });
+                    if (roomRect) {
+                        const midY = (roomRect.top + roomRect.bottom) / 2;
 
-                if (spaceRight >= panelWidth + gap) {
-                    left = roomRect.right + gap;
-                } else if (spaceLeft >= panelWidth + gap) {
-                    left = roomRect.left - panelWidth - gap;
-                } else if (spaceRight >= spaceLeft) {
-                    left = Math.min(
-                        roomRect.right + gap,
-                        width - panelWidth - margin,
-                    );
-                } else {
-                    left = Math.max(roomRect.left - panelWidth - gap, margin);
+                        if (window.innerWidth - roomRect.right >= panelWidth + gap + margin) {
+                            left = roomRect.right + gap;
+                        } else if (roomRect.left >= panelWidth + gap + margin) {
+                            left = roomRect.left - panelWidth - gap;
+                        } else {
+                            left = Math.min(
+                                window.innerWidth - panelWidth - margin,
+                                Math.max(margin, roomRect.right + gap),
+                            );
+                        }
+                        top = midY - panelHeight / 2;
+                    }
                 }
 
                 left = Math.min(
                     Math.max(left, margin),
-                    Math.max(margin, width - panelWidth - margin),
+                    Math.max(margin, window.innerWidth - panelWidth - margin),
                 );
                 top = Math.min(
-                    Math.max(top, topSafe),
-                    Math.max(topSafe, height - panelHeight - margin),
+                    Math.max(top, margin),
+                    Math.max(margin, window.innerHeight - panelHeight - margin),
                 );
 
-                const overlapsRoom = (panelLeft, panelTop) => {
-                    const panelRight = panelLeft + panelWidth;
-                    const panelBottom = panelTop + panelHeight;
-
-                    return !(
-                        panelRight < roomRect.left ||
-                        panelLeft > roomRect.right ||
-                        panelBottom < roomRect.top ||
-                        panelTop > roomRect.bottom
-                    );
-                };
-
-                if (overlapsRoom(left, top)) {
-                    if (height - margin - roomRect.bottom >= panelHeight + gap) {
-                        top = roomRect.bottom + gap;
-                        left = Math.min(
-                            Math.max(roomRect.left, margin),
-                            width - panelWidth - margin,
-                        );
-                    } else if (roomRect.top - topSafe >= panelHeight + gap) {
-                        top = roomRect.top - panelHeight - gap;
-                        left = Math.min(
-                            Math.max(roomRect.left, margin),
-                            width - panelWidth - margin,
-                        );
-                    }
-                }
-
                 roomDetailsPanel.classList.add("is-anchored");
+                roomDetailsPanel.style.right = "auto";
                 roomDetailsPanel.style.left = `${left}px`;
                 roomDetailsPanel.style.top = `${top}px`;
             }
@@ -2285,8 +2442,8 @@
 
                     // =============================================
                     // CREATE ROOM
-                    // Fill color comes from Building Layout room_color
-                    // Report status stays in tooltip / details panel
+                    // Fill color follows room status:
+                    // Normal (blue) / Under Maintenance (yellow) / Critical (red)
                     // =============================================
 
                     const roomMesh = createRoom(
@@ -2296,7 +2453,7 @@
                         roomZ,
                         roomWidth,
                         roomDepth,
-                        roomData.color || "#60A5FA",
+                        roomData.statusColor || roomData.color || "#3B82F6",
                     );
 
                     // =================================================
@@ -2315,26 +2472,16 @@
 
                     // =================================================
                     // STATUS INDICATORS
-                    // Critical     -> light bulb (urgent reports)
-                    // Maintenance  -> tool (open reports / under maintenance)
+                    // Critical           -> light bulb
+                    // Under Maintenance  -> tool (room inspection schedule)
                     // =================================================
 
-                    const urgentCount = Number(roomData.urgentReportCount || 0);
-                    const activeCount = Number(roomData.activeReportCount || 0);
-                    const maintenanceCount = Number(
-                        roomData.maintenanceEquipmentCount || 0,
-                    );
-                    const roomStatus = String(roomData.status || "");
-
-                    const isCritical =
-                        urgentCount > 0 || roomStatus === "critical";
-
+                    const roomStatus = String(roomData.status || "normal");
+                    const isCritical = roomStatus === "critical" || Number(roomData.criticalReportCount || 0) > 0;
                     const isMaintenance =
                         !isCritical &&
-                        (activeCount > 0 ||
-                            maintenanceCount > 0 ||
-                            roomStatus === "needs-repair" ||
-                            roomStatus === "maintenance");
+                        (roomStatus === "under-maintenance" ||
+                            !!roomData.underMaintenanceScheduled);
 
                     if (isCritical) {
                         const criticalBulb = createCriticalLightBulb();
@@ -2374,26 +2521,29 @@
                         roomType: roomData.type,
 
                         roomStatus: roomData.status,
+                        roomLabel: roomData.label || "Normal",
+                        statusColor: roomData.statusColor || roomData.color || "#3B82F6",
 
                         floorId: floorData.id,
 
                         floorName: floorData.name,
 
-                        layoutColor: roomData.color || "#60A5FA",
+                        layoutColor: roomData.statusColor || roomData.color || "#3B82F6",
 
                         layoutColorHex: parseRoomLayoutColor(
-                            roomData.color || "#60A5FA",
+                            roomData.statusColor || roomData.color || "#3B82F6",
                         ),
 
-                        // =========================================
-                        // PHASE 7.8
-                        // ROOM MAINTENANCE INFORMATION
-                        // =========================================
+                        departments: roomData.departments || [],
+                        reportCount: roomData.reportCount || 0,
+                        criticalReportCount: roomData.criticalReportCount || 0,
+                        highReportCount: roomData.highReportCount || 0,
+                        mediumReportCount: roomData.mediumReportCount || 0,
+                        lowReportCount: roomData.lowReportCount || 0,
+                        underMaintenanceScheduled: !!roomData.underMaintenanceScheduled,
 
                         activeReportCount: roomData.activeReportCount || 0,
-
                         urgentReportCount: roomData.urgentReportCount || 0,
-
                         maintenanceEquipmentCount:
                             roomData.maintenanceEquipmentCount || 0,
 
@@ -5874,6 +6024,72 @@
                     cameraTargetBeforeRoomSelection = null;
                 }
             });
+
+            // =====================================================
+            // ROOM STATUS PERIOD FILTERS (layout recolor + room detail)
+            // =====================================================
+
+            async function applyLayoutCustomDate() {
+                const date = buildingStatusDate?.value || "";
+                if (!date) return;
+                layoutPeriod = { preset: "custom", from: date, to: date };
+                if (buildingStatusPeriodSelect) buildingStatusPeriodSelect.value = "custom";
+                try {
+                    await refreshLayoutStatus(layoutPeriod);
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+
+            buildingStatusPeriodSelect?.addEventListener("change", async () => {
+                const preset = buildingStatusPeriodSelect.value || "today";
+                if (buildingStatusCustomRange) {
+                    buildingStatusCustomRange.hidden = preset !== "custom";
+                }
+                if (preset === "custom") {
+                    if (buildingStatusDate && !buildingStatusDate.value) {
+                        buildingStatusDate.value = new Date().toISOString().slice(0, 10);
+                    }
+                    await applyLayoutCustomDate();
+                    return;
+                }
+                layoutPeriod = { preset, from: "", to: "" };
+                try {
+                    await refreshLayoutStatus(layoutPeriod);
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+
+            buildingStatusDate?.addEventListener("change", applyLayoutCustomDate);
+
+            async function applyRoomDetailCustomDate() {
+                if (!selectedRoom) return;
+                const date = roomDetailsDate?.value || "";
+                if (!date) return;
+                roomDetailPeriod = { preset: "custom", from: date, to: date };
+                if (roomDetailsPeriodSelect) roomDetailsPeriodSelect.value = "custom";
+                await openRoomDetailsPanel(selectedRoom.userData);
+            }
+
+            roomDetailsPeriodSelect?.addEventListener("change", async () => {
+                if (!selectedRoom) return;
+                const preset = roomDetailsPeriodSelect.value || "today";
+                if (roomDetailsCustomRange) {
+                    roomDetailsCustomRange.hidden = preset !== "custom";
+                }
+                if (preset === "custom") {
+                    if (roomDetailsDate && !roomDetailsDate.value) {
+                        roomDetailsDate.value = new Date().toISOString().slice(0, 10);
+                    }
+                    await applyRoomDetailCustomDate();
+                    return;
+                }
+                roomDetailPeriod = { preset, from: "", to: "" };
+                await openRoomDetailsPanel(selectedRoom.userData);
+            });
+
+            roomDetailsDate?.addEventListener("change", applyRoomDetailCustomDate);
 
             // =====================================================
             // PHASE 7.8

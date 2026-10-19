@@ -52,7 +52,7 @@
             </div>
         </header>
 
-        <form
+        <form data-auto-filter
             id="activity-filters"
             method="GET"
             action="{{ route('maintenance.activities.index') }}"

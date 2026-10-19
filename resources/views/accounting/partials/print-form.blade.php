@@ -3,9 +3,9 @@
 <script>
     window.accountingPrintForm = function (options) {
         options = options || {};
-        var sheet = null;
+        var sheet = options.sheet || null;
 
-        if (options.sheetId) {
+        if (!sheet && options.sheetId) {
             sheet = document.getElementById(options.sheetId);
         }
         if (!sheet) {
@@ -16,10 +16,16 @@
                 '.acc-viewer-fit .liq-print-sheet, ' +
                 '.acc-viewer-fit .ris-document, ' +
                 '.acc-viewer-fit .ris-print-sheet, ' +
-                '.acc-viewer-fit .acc-paper'
+                '.acc-viewer-fit .acc-paper, ' +
+                '.dv-print-sheet.dv-print-active, ' +
+                '#pkg-print-sheet, ' +
+                '.atp-print-sheet, ' +
+                '.rfc-print-sheet, ' +
+                '.ris-document, ' +
+                '.dv-print-sheet'
             );
         }
-        if (!sheet) return;
+        if (!sheet) return false;
 
         var existing = document.getElementById('accounting-print-mount');
         if (existing) existing.remove();
@@ -44,7 +50,7 @@
             pageSize = 'landscape';
         } else if (sheet.classList.contains('rfc-print-sheet') || sheet.classList.contains('liq-print-sheet')) {
             pageSize = 'A4 landscape';
-        } else if (sheet.classList.contains('atp-print-sheet') || sheet.classList.contains('rr-print-sheet')) {
+        } else if (sheet.classList.contains('atp-print-sheet') || sheet.classList.contains('rr-print-sheet') || sheet.classList.contains('dv-print-sheet')) {
             pageSize = 'A4 portrait';
         }
         pageStyle.textContent = '@media print { @page { size: ' + pageSize + '; margin: 8mm; } }';
@@ -56,8 +62,12 @@
         mount.appendChild(clone);
         document.body.appendChild(mount);
 
-        if (window.fitPrintPage) {
-            window.fitPrintPage(clone, { host: mount });
+        try {
+            if (window.fitPrintPage) {
+                window.fitPrintPage(clone, { host: mount });
+            }
+        } catch (err) {
+            // Fit helper is optional; never block the print dialog.
         }
 
         var cleaned = false;
@@ -69,8 +79,14 @@
         };
 
         window.addEventListener('afterprint', cleanup);
-        window.print();
+        try {
+            window.print();
+        } catch (err) {
+            cleanup();
+            return false;
+        }
         window.setTimeout(cleanup, 1500);
+        return true;
     };
 </script>
 <style>
@@ -150,6 +166,7 @@
         #accounting-print-mount .liq-print-sheet,
         #accounting-print-mount .ris-document,
         #accounting-print-mount .ris-print-sheet,
+        #accounting-print-mount .dv-print-sheet,
         #accounting-print-mount .acc-paper {
             display: block !important;
             position: static !important;

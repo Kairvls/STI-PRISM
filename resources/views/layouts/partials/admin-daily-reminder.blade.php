@@ -5,9 +5,13 @@
     $awaitingCosign = (int) ($attention['awaitingCosign'] ?? 0);
     $amendRis = (int) ($attention['amendRis'] ?? 0);
     $overdueBorrows = \App\Support\AdminPortal::isSchoolAdmin() ? 0 : \App\Support\AdminAttentionSummary::overdueBorrows();
-    $attentionTotal = (int) ($attention['attentionTotal'] ?? 0) + $overdueBorrows;
+    $overdueSchedules = \App\Support\AdminPortal::isSchoolAdmin() ? 0 : \App\Support\AdminAttentionSummary::overdueMaintenanceSchedules();
+    $attentionTotal = (int) ($attention['attentionTotal'] ?? 0) + $overdueBorrows + $overdueSchedules;
     $showDailyReminder = $attentionTotal > 0;
     $overdueBorrowsUrl = $overdueBorrows > 0 ? route('admin.borrowing.index', ['focus' => \App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE]) : null;
+    $overdueSchedulesUrl = $overdueSchedules > 0
+        ? route('admin.schedules.index', ['focus' => \App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE])
+        : null;
     $pendingRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
     $awaitingCosignUrl = \App\Support\AdminPortal::route('digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);
     $amendRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]);
@@ -62,10 +66,10 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-slate-900">
-                                {{ $pendingRis }} procurement requests to accept
+                                {{ $pendingRis }} RIS to accept
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Purchaser submissions waiting for School Administrator accept before Sign RIS.
+                                Purchaser submissions waiting on Pending Accept before Ready to Sign.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-blue-400"></i>
@@ -82,10 +86,10 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-slate-900">
-                                {{ $awaitingCosign }} RIS awaiting Sign RIS action
+                                {{ $awaitingCosign }} RIS awaiting Ready to Sign
                             </p>
                             <p class="mt-0.5 text-xs leading-5 text-slate-500">
-                                Accepted decisions or President-approved Issued by signatures.
+                                Direct Approve / Pass to President, or Issued by after President approval.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-400"></i>
@@ -109,6 +113,26 @@
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500"></i>
+                    </a>
+                @endif
+
+                @if ($overdueSchedules > 0)
+                    <a
+                        href="{{ $overdueSchedulesUrl }}"
+                        class="group flex items-start gap-3.5 rounded-xl border border-rose-200 bg-rose-50/40 px-4 py-3.5 transition hover:border-rose-300 hover:bg-rose-50"
+                    >
+                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover:bg-rose-100">
+                            <i data-lucide="alarm-clock" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ $overdueSchedules }} overdue maintenance {{ \Illuminate\Support\Str::plural('schedule', $overdueSchedules) }}
+                            </p>
+                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
+                                Past the scheduled date — complete or reschedule these first.
+                            </p>
+                        </div>
+                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-rose-400"></i>
                     </a>
                 @endif
 
@@ -154,7 +178,7 @@
                         href="{{ $awaitingCosignUrl }}"
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
-                        Open Sign RIS
+                        Open Ready to Sign
                     </a>
                 @elseif ($amendRis > 0)
                     <a
@@ -162,6 +186,13 @@
                         class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
                         View amendments
+                    </a>
+                @elseif ($overdueSchedules > 0)
+                    <a
+                        href="{{ $overdueSchedulesUrl }}"
+                        class="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700"
+                    >
+                        View overdue schedules
                     </a>
                 @elseif ($overdueBorrows > 0)
                     <a

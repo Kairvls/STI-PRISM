@@ -16,6 +16,8 @@ class WorkflowNotifier
     public const ROLE_MAINTENANCE = 'Maintenance Personnel';
     public const ROLE_SCHOOL_ADMIN = 'School Administrator';
 
+    public const ROLE_SUPPLY_OFFICER = 'School Supply / Material Officer';
+
     private const ROLE_IDS = [
         self::ROLE_ADMIN => 1,
         self::ROLE_MAINTENANCE => 2,
@@ -24,6 +26,7 @@ class WorkflowNotifier
         self::ROLE_ACCOUNTING => 5,
         self::ROLE_RECEIVING => 6,
         self::ROLE_SCHOOL_ADMIN => 7,
+        self::ROLE_SUPPLY_OFFICER => 8,
     ];
 
     public static function toUser(

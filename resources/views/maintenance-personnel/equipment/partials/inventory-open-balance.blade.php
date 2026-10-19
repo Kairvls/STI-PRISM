@@ -8,6 +8,22 @@
         $obOpen = collect($obReports)
             ->mapWithKeys(fn ($r) => [(string) $r['receiving_report_id'] => $obFocusRrId > 0 || (int) ($r['totals']['pending_stock'] ?? 0) > 0])
             ->all();
+        $ghostCount = (int) (($monitoring['ghost_count'] ?? null) ?? count($monitoring['ghost'] ?? []));
+        $warrantyCount = (int) (($monitoring['warranty_count'] ?? null) ?? count($monitoring['warranty'] ?? []));
+        $hasMonitoring = ! empty($monitoring) && ($ghostCount > 0 || $warrantyCount > 0 || ! empty($monitoring['ghost']) || ! empty($monitoring['warranty']));
+        $hasOpenBalance = ! empty($obReports);
+        $assetIdentity = function ($row) {
+            $tag = trim((string) ($row->equipment_asset_tag ?? ''));
+            if ($tag !== '') {
+                return $tag;
+            }
+            $serial = trim((string) ($row->equipment_serial_number ?? ''));
+            if ($serial !== '') {
+                return 'S/N '.$serial;
+            }
+
+            return '';
+        };
     @endphp
     @if ($obFocusRrId > 0)
         @include('partials.attention-focus-chip', [
@@ -15,40 +31,59 @@
             'total' => count($obReports),
         ])
     @endif
-    @if (!empty($obReports))
-        <div class="rounded-2xl border border-slate-200/80 bg-white">
-            <div class="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
-                <div class="min-w-0">
-                    <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Open balance</p>
-                    <p class="mt-1 text-sm text-slate-500">RR deliveries vs what is already in inventory</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-4 sm:divide-x sm:divide-slate-100">
-                @foreach ([
-                    'ordered' => 'Ordered',
-                    'received' => 'Received',
-                    'stocked' => 'In inventory',
-                    'pending_stock' => 'Pending',
-                ] as $key => $label)
-                    <div class="px-5 py-4 {{ $loop->index >= 2 ? 'border-t border-slate-100 sm:border-t-0' : '' }}">
-                        <p class="text-xs text-slate-400">{{ $label }}</p>
-                        <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
-                            {{ number_format((int) ($obTotals[$key] ?? 0)) }}
+    @if ($hasOpenBalance || $hasMonitoring)
+        <div
+            id="inventoryOpenBalanceModal"
+            class="fixed inset-0 z-[12000] hidden bg-[#0b1220]/70"
+            :class="fullscreen ? 'items-stretch p-0' : 'items-center justify-center p-4'"
+            onclick="if (event.target === this) closeInventoryOpenBalanceModal()"
+            x-data="{
+                fullscreen: false,
+                openRr: @js((object) $obOpen),
+                openLine: {},
+                toggleRr(id) { this.openRr = { ...this.openRr, [id]: !this.openRr[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
+                toggleLine(id) { this.openLine = { ...this.openLine, [id]: !this.openLine[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
+                toggleFullscreen() { this.fullscreen = !this.fullscreen; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
+            }"
+        >
+            <div
+                class="ob-open-balance-panel flex w-full flex-col overflow-hidden bg-white shadow-2xl shadow-slate-950/15"
+                :class="fullscreen ? 'ob-open-balance-panel--fullscreen h-full max-h-none max-w-none rounded-none' : 'max-h-[90vh] max-w-3xl rounded-2xl'"
+                onclick="event.stopPropagation()"
+            >
+                <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                            {{ $hasOpenBalance ? 'Open balance' : 'Monitoring' }}
+                        </p>
+                        <p class="mt-1 text-sm text-slate-500">
+                            {{ $hasOpenBalance ? 'RR deliveries vs what is already in inventory' : 'Not RR related assets and warranty alerts' }}
                         </p>
                     </div>
-                @endforeach
-            </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                        <button
+                            type="button"
+                            @click="toggleFullscreen()"
+                            class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
+                            :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
+                            :title="fullscreen ? 'Exit full screen' : 'Full screen'"
+                        >
+                            <i x-show="!fullscreen" data-lucide="maximize-2" class="h-4 w-4"></i>
+                            <i x-show="fullscreen" x-cloak data-lucide="minimize-2" class="h-4 w-4"></i>
+                        </button>
+                        <button
+                            type="button"
+                            onclick="closeInventoryOpenBalanceModal()"
+                            class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
 
-            <div
-                class="monitoring-scroll max-h-[28rem] overflow-y-auto border-t border-slate-100"
-                x-data="{
-                    openRr: @js((object) $obOpen),
-                    openLine: {},
-                    toggleRr(id) { this.openRr = { ...this.openRr, [id]: !this.openRr[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
-                    toggleLine(id) { this.openLine = { ...this.openLine, [id]: !this.openLine[id] }; this.$nextTick(() => window.lucide && window.lucide.createIcons()); },
-                }"
-            >
+                <div class="monitoring-scroll min-h-0 flex-1 overflow-y-auto">
+                @if ($hasOpenBalance)
                 <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 border-b border-slate-100 bg-white px-5 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                     <span>Receiving report</span>
                     <span class="text-right">Recv</span>
@@ -99,8 +134,6 @@
                                         </span>
                                         <span class="mt-0.5 block truncate text-[11px] text-slate-400">
                                             {{ $report['supplier_name'] ?: 'No supplier' }}
-                                            <span class="text-slate-300">·</span>
-                                            {{ !empty($report['po_number']) ? 'PO '.$report['po_number'] : 'No PO' }}
                                             @if ($rrDate)
                                                 <span class="text-slate-300">·</span> {{ $rrDate }}
                                             @endif
@@ -208,116 +241,166 @@
                         </div>
                     @endforeach
                 </div>
+                @endif
+
+                @if ($hasMonitoring)
+                    <div class="{{ $hasOpenBalance ? 'border-t border-slate-200' : '' }} px-5 py-4">
+                        <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Monitoring</p>
+                        <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+                            <span>
+                                <span class="text-slate-400">Not RR related</span>
+                                <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($ghostCount) }}</span>
+                            </span>
+                            <span class="h-1 w-1 rounded-full bg-slate-300"></span>
+                            <span>
+                                <span class="text-slate-400">Warranty</span>
+                                <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($warrantyCount) }}</span>
+                            </span>
+                        </p>
+                    </div>
+                    <div class="grid gap-0 border-t border-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
+                        <div class="px-5 py-4">
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">Not RR related</p>
+                                    <p class="mt-0.5 text-xs text-slate-400">No receiving report link</p>
+                                </div>
+                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($ghostCount) }}</p>
+                            </div>
+                            <ul class="max-h-48 divide-y divide-slate-100 overflow-y-auto pr-1">
+                                @forelse (($monitoring['ghost'] ?? []) as $g)
+                                    <li>
+                                        @php $ghostIdentity = $assetIdentity($g); @endphp
+                                        <a href="{{ $g->view_url }}" class="block py-2.5 transition hover:bg-slate-50/80">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-900">{{ $g->equipment_name }}</p>
+                                                @if ($ghostIdentity !== '' || ! empty($g->room_name))
+                                                    <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+                                                        @if ($ghostIdentity !== '')
+                                                            {{ $ghostIdentity }}
+                                                        @endif
+                                                        @if ($ghostIdentity !== '' && ! empty($g->room_name))
+                                                            <span class="font-sans text-slate-300"> · </span>
+                                                        @endif
+                                                        @if (! empty($g->room_name))
+                                                            <span class="font-sans">{{ $g->room_name }}</span>
+                                                        @endif
+                                                    </p>
+                                                @endif
+                                            </div>
+                                        </a>
+                                    </li>
+                                @empty
+                                    <li class="py-6 text-center text-sm text-slate-400">No assets without an RR link</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                        <div class="border-t border-slate-100 px-5 py-4 sm:border-t-0">
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">Warranty</p>
+                                    <p class="mt-0.5 text-xs text-slate-400">Within 90 days or expired</p>
+                                </div>
+                                <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($warrantyCount) }}</p>
+                            </div>
+                            <ul class="max-h-48 divide-y divide-slate-100 overflow-y-auto pr-1">
+                                @forelse (($monitoring['warranty'] ?? []) as $w)
+                                    @php
+                                        $expired = (bool) ($w->is_expired ?? ((int) ($w->days_remaining ?? 0) < 0));
+                                        $expiryLabel = ! empty($w->equipment_warranty_expiration)
+                                            ? \Illuminate\Support\Carbon::parse($w->equipment_warranty_expiration)->format('M j, Y')
+                                            : null;
+                                    @endphp
+                                    @php $warrantyIdentity = $assetIdentity($w); @endphp
+                                    <li>
+                                        <a href="{{ $w->view_url }}" class="flex items-start justify-between gap-3 py-2.5 transition hover:bg-slate-50/80">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-900">{{ $w->equipment_name }}</p>
+                                                @if ($warrantyIdentity !== '' || $expiryLabel)
+                                                    <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+                                                        @if ($warrantyIdentity !== '')
+                                                            {{ $warrantyIdentity }}
+                                                        @endif
+                                                        @if ($warrantyIdentity !== '' && $expiryLabel)
+                                                            <span class="font-sans text-slate-300"> · </span>
+                                                        @endif
+                                                        @if ($expiryLabel)
+                                                            <span class="font-sans">{{ $expiryLabel }}</span>
+                                                        @endif
+                                                    </p>
+                                                @endif
+                                            </div>
+                                            <span class="mt-0.5 shrink-0 text-[11px] font-medium {{ $expired ? 'text-rose-600' : 'text-amber-700' }}">
+                                                {{ $w->suggest_action }}
+                                            </span>
+                                        </a>
+                                    </li>
+                                @empty
+                                    <li class="py-6 text-center text-sm text-slate-400">No warranty alerts</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                    </div>
+                @endif
+                </div>
             </div>
         </div>
-    @endif
-    @if (!empty($monitoring))
-        @php
-            $ghostCount = (int) ($monitoring['ghost_count'] ?? count($monitoring['ghost'] ?? []));
-            $warrantyCount = (int) ($monitoring['warranty_count'] ?? count($monitoring['warranty'] ?? []));
-            $assetIdentity = function ($row) {
-                $tag = trim((string) ($row->equipment_asset_tag ?? ''));
-                if ($tag !== '') {
-                    return $tag;
+        <style>
+            #inventoryOpenBalanceModal .ob-open-balance-panel--fullscreen {
+                zoom: 1.22;
+            }
+            @supports not (zoom: 1) {
+                #inventoryOpenBalanceModal .ob-open-balance-panel--fullscreen {
+                    font-size: 122%;
                 }
-                $serial = trim((string) ($row->equipment_serial_number ?? ''));
-                if ($serial !== '') {
-                    return 'S/N '.$serial;
+                #inventoryOpenBalanceModal .ob-open-balance-panel--fullscreen .text-\[11px\] {
+                    font-size: 0.85rem;
                 }
-
-                return '#'.(int) ($row->equipment_id ?? 0);
+                #inventoryOpenBalanceModal .ob-open-balance-panel--fullscreen .text-\[10px\] {
+                    font-size: 0.8rem;
+                }
+                #inventoryOpenBalanceModal .ob-open-balance-panel--fullscreen .text-\[13px\] {
+                    font-size: 1rem;
+                }
+            }
+        </style>
+        <script>
+            window.openInventoryOpenBalanceModal = function () {
+                var modal = document.getElementById('inventoryOpenBalanceModal');
+                if (!modal) return;
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+                try {
+                    if (window.Alpine && typeof Alpine.$data === 'function') {
+                        Alpine.$data(modal).fullscreen = false;
+                    }
+                } catch (e) {}
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.classList.add('overflow-hidden');
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
             };
-        @endphp
-        <details class="group rounded-2xl border border-slate-200/80 bg-white">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
-                <div class="min-w-0">
-                    <p class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">Monitoring</p>
-                    <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                        <span>
-                            <span class="text-slate-400">Unlinked</span>
-                            <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($ghostCount) }}</span>
-                        </span>
-                        <span class="h-1 w-1 rounded-full bg-slate-300"></span>
-                        <span>
-                            <span class="text-slate-400">Warranty</span>
-                            <span class="ml-1 font-semibold tabular-nums text-slate-900">{{ number_format($warrantyCount) }}</span>
-                        </span>
-                    </p>
-                </div>
-                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition group-open:rotate-180 group-open:bg-slate-50">
-                    <i data-lucide="chevron-down" class="h-4 w-4"></i>
-                </span>
-            </summary>
-
-            <div class="grid gap-0 border-t border-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
-                <div class="px-5 py-4">
-                    <div class="mb-3 flex items-baseline justify-between gap-3">
-                        <div>
-                            <p class="text-sm font-semibold text-slate-900">Unlinked assets</p>
-                            <p class="mt-0.5 text-xs text-slate-400">No RR / PO link</p>
-                        </div>
-                        <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($ghostCount) }}</p>
-                    </div>
-                    <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
-                        @forelse (($monitoring['ghost'] ?? []) as $g)
-                            <li>
-                                <a href="{{ $g->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-medium text-slate-900">{{ $g->equipment_name }}</p>
-                                        <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
-                                            {{ $assetIdentity($g) }}
-                                            @if (!empty($g->room_name))
-                                                <span class="font-sans text-slate-300"> · </span>{{ $g->room_name }}
-                                            @endif
-                                        </p>
-                                    </div>
-                                    <span class="mt-0.5 shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400">#{{ (int) $g->equipment_id }}</span>
-                                </a>
-                            </li>
-                        @empty
-                            <li class="py-6 text-center text-sm text-slate-400">No unlinked assets</li>
-                        @endforelse
-                    </ul>
-                </div>
-
-                <div class="border-t border-slate-100 px-5 py-4 sm:border-t-0">
-                    <div class="mb-3 flex items-baseline justify-between gap-3">
-                        <div>
-                            <p class="text-sm font-semibold text-slate-900">Warranty</p>
-                            <p class="mt-0.5 text-xs text-slate-400">Within 90 days or expired</p>
-                        </div>
-                        <p class="text-xl font-semibold tabular-nums tracking-tight text-slate-900">{{ number_format($warrantyCount) }}</p>
-                    </div>
-                    <ul class="monitoring-scroll max-h-40 divide-y divide-slate-100 overflow-y-auto pr-3">
-                        @forelse (($monitoring['warranty'] ?? []) as $w)
-                            @php
-                                $expired = (bool) ($w->is_expired ?? ((int) ($w->days_remaining ?? 0) < 0));
-                                $expiryLabel = ! empty($w->equipment_warranty_expiration)
-                                    ? \Illuminate\Support\Carbon::parse($w->equipment_warranty_expiration)->format('M j, Y')
-                                    : null;
-                            @endphp
-                            <li>
-                                <a href="{{ $w->view_url }}" class="flex items-start justify-between gap-3 py-2.5 pr-1 transition hover:bg-slate-50/80">
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-medium text-slate-900">{{ $w->equipment_name }}</p>
-                                        <p class="mt-0.5 truncate font-mono text-[11px] text-slate-400">
-                                            {{ $assetIdentity($w) }}
-                                            @if ($expiryLabel)
-                                                <span class="font-sans text-slate-300"> · </span>
-                                                <span class="font-sans">{{ $expiryLabel }}</span>
-                                            @endif
-                                        </p>
-                                    </div>
-                                    <span class="mt-0.5 shrink-0 text-[11px] font-medium {{ $expired ? 'text-rose-600' : 'text-amber-700' }}">
-                                        {{ $w->suggest_action }}
-                                    </span>
-                                </a>
-                            </li>
-                        @empty
-                            <li class="py-6 text-center text-sm text-slate-400">No warranty alerts</li>
-                        @endforelse
-                    </ul>
-                </div>
-            </div>
-        </details>
+            window.closeInventoryOpenBalanceModal = function () {
+                var modal = document.getElementById('inventoryOpenBalanceModal');
+                if (!modal) return;
+                try {
+                    if (window.Alpine && typeof Alpine.$data === 'function') {
+                        Alpine.$data(modal).fullscreen = false;
+                    }
+                } catch (e) {}
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.classList.remove('overflow-hidden');
+            };
+            @if ($obFocusRrId > 0)
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof window.openInventoryOpenBalanceModal === 'function') {
+                    window.openInventoryOpenBalanceModal();
+                }
+            });
+            @endif
+        </script>
     @endif

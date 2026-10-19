@@ -194,8 +194,8 @@
     var pendingSaveDataUrl = '';
     var pendingDeleteId = '';
     var maxSavedSignatures = 4;
-    var storeUrl = @json(route(($pp ?? 'purchaser').'.ris.saved-signatures.store'));
-    var destroyBase = @json(url('/'.($pp ?? 'purchaser').'/ris/saved-signatures'));
+    var storeUrl = @json($signatureStoreUrl ?? route(($pp ?? 'purchaser').'.ris.saved-signatures.store'));
+    var destroyBase = @json($signatureDestroyBase ?? url('/'.($pp ?? 'purchaser').'/ris/saved-signatures'));
     var defaultPrinted = @json($printedName);
 
     function csrfToken() {

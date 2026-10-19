@@ -31,7 +31,7 @@ return new class extends Migration
                 'room_status',
                 [
                     'Normal',
-                    'Maintenance Needed',
+                    'Under Maintenance',
                     'Critical'
                 ]
             )->default('Normal');

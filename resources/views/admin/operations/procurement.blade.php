@@ -1,36 +1,23 @@
 @extends('layouts.admin-layout')
 
 @section('title', 'Procurement Monitor')
+@section('page-subtitle', 'Track each Request No. (PR) through Canvas + RIS → ATP → RFC → RR → Liquidation.')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
 @php
     $filters = [
-        'all' => 'All',
-        'open' => 'Open',
-        'awaiting_admin' => 'Pending review',
-        'atp' => 'At ATP',
-        'rfc' => 'At RFC/CA',
-        'rr' => 'At RR',
-        'liq' => 'At LIQ',
+        'all' => 'All requests',
+        'open' => 'Still in progress',
+        'awaiting_admin' => 'Waiting on Administrator',
+        'atp' => 'At Authority to Purchase',
+        'rfc' => 'At Request for Check',
+        'rr' => 'At Receiving Report',
+        'liq' => 'At Liquidation Report',
     ];
 
-    $risStatusClasses = [
-        'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
-        'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
-        'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
-        'Resubmitted' => 'border-amber-200 bg-amber-50 text-amber-700',
-        'Accepted' => 'border-violet-200 bg-violet-50 text-violet-700',
-        'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
-        'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
-        'Directly Approved' => 'border-slate-200 bg-slate-50 text-slate-600',
-        'Approved' => 'border-green-200 bg-green-50 text-green-700',
-        'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
-        'Rejected' => 'border-red-200 bg-red-50 text-red-700',
-        'Rejected by the President' => 'border-slate-500 bg-slate-800 text-slate-100',
-    ];
-
+    $filterCounts = $filterCounts ?? [];
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
 @endphp
 
@@ -146,22 +133,6 @@
     </div>-->
 
     {{-- Stage metrics --}}
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'RIS forms',
-                'value' => number_format($stageCounts['ris'] ?? 0),
-            ],
-            [
-                'label' => 'ATP',
-                'value' => number_format($stageCounts['atp'] ?? 0),
-            ],
-            [
-                'label' => 'Request for Check',
-                'value' => number_format($stageCounts['rfc'] ?? 0),
-            ],
-        ],
-    ])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -169,13 +140,25 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Procurement records</h2>
+                        <h2 class="text-base font-semibold text-gray-950">Requests</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $rowCount }}</span>
                     </div>
+                    <p class="mt-1 text-xs text-gray-400">Each row is one Request No. (PR) and its document pipeline.</p>
                 </div>
 
                 <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                    <input type="hidden" name="filter" value="{{ $filter }}">
+                    <select
+                        name="filter"
+                        aria-label="Filter by pipeline stop"
+                        onchange="this.form.submit()"
+                        class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:min-w-[16.5rem]"
+                    >
+                        @foreach($filters as $key => $label)
+                            <option value="{{ $key }}" @selected($filter === $key)>
+                                {{ $label }}@if(isset($filterCounts[$key])) ({{ number_format($filterCounts[$key]) }})@endif
+                            </option>
+                        @endforeach
+                    </select>
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
@@ -184,29 +167,20 @@
                             type="text"
                             name="q"
                             value="{{ $q }}"
-                            placeholder="Search RIS, purpose, submitter…"
-                            class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            placeholder="Search Request No., form no., submitter…"
+                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
                         >
                     </div>
-                    <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                    <button type="submit" class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-[13px] font-medium leading-none text-white transition hover:bg-[#001fa8]">
                         Search
                     </button>
-                    @if($q !== '' && $q !== null)
+                    @if(($q !== '' && $q !== null) || $filter !== 'all')
                         <a
-                            href="{{ \App\Support\AdminPortal::route('operations.procurement', ['filter' => $filter]) }}"
-                            class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
+                            href="{{ \App\Support\AdminPortal::route('operations.procurement') }}"
+                            class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-100 px-3.5 text-[13px] font-medium leading-none text-gray-600 transition hover:bg-gray-50"
                         >Clear</a>
                     @endif
                 </form>
-            </div>
-
-            <div class="mt-4 flex flex-wrap gap-2">
-                @foreach($filters as $key => $label)
-                    <a
-                        href="{{ \App\Support\AdminPortal::route('operations.procurement', ['filter' => $key, 'q' => $q]) }}"
-                        class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
-                    >{{ $label }}</a>
-                @endforeach
             </div>
         </div>
 
@@ -214,12 +188,12 @@
             <table class="pur-table min-w-[1080px]">
                 <thead>
                     <tr>
-                        <th>RIS</th>
-                        <th>Purpose</th>
-                        <th>Pipeline</th>
+                        <th>Request No.</th>
+                        <th>Procurement Pipeline</th>
+                        <th>Latest stop</th>
                         <th>Submitted by</th>
                         <th>Amount</th>
-                        <th class="text-right">Action</th>
+                        <th class="text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -233,26 +207,34 @@
                             if ($currentIndex === false) {
                                 $currentIndex = 0;
                             }
-                            $status = (string) ($row->ris_status ?: '');
-                            $statusClass = $risStatusClasses[$status] ?? 'border-gray-200 bg-gray-50 text-gray-600';
+                            $requestNo = trim((string) ($row->ris_request_no ?? ($pipeline['request_no'] ?? '')));
+                            $risLabel = \App\Support\RisWorkflow::formNumber($row);
+                            $latestStage = $stages[$current] ?? null;
+                            $latestFormNo = trim((string) ($latestStage['label'] ?? ''));
+                            if ($latestFormNo === '' && $current === 'ris') {
+                                $latestFormNo = $risLabel;
+                            }
+                            // Full status wording for the current stop (not the short pipeline chip).
+                            if ($current === 'ris') {
+                                $latestStatus = trim((string) (\App\Support\DocumentLineage::reviewHintForRis($row) ?? ''));
+                                if ($latestStatus === '') {
+                                    $latestStatus = \App\Support\RisWorkflow::statusLabel($row);
+                                }
+                            } else {
+                                $latestStatus = trim((string) ($latestStage['hint'] ?? ($pipeline['current_hint'] ?? '')));
+                            }
+                            $latestStageName = \App\Support\AdminPipeline::stageName($current);
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td>
-                                <p class="font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
-                                @if($status !== '')
-                                    <span class="mt-1.5 inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium {{ $statusClass }}">{{ $status }}</span>
+                                @if($requestNo !== '')
+                                    @include('partials.procurement-request-no', ['requestNo' => $requestNo, 'inline' => true, 'size' => 'md', 'showLabel' => false])
                                 @else
-                                    <p class="mt-1 text-xs text-gray-400">—</p>
+                                    <p class="text-xs text-gray-400">No Request No. yet</p>
                                 @endif
                             </td>
                             <td>
-                                <p class="text-sm text-gray-600">{{ \Illuminate\Support\Str::limit($row->ris_purpose_description, 70) ?: '—' }}</p>
-                                @if(!empty($row->report_id))
-                                    <p class="mt-1 text-xs text-gray-400">From report #{{ $row->report_id }}</p>
-                                @endif
-                            </td>
-                            <td>
-                                <div class="pm-pipe" title="{{ $pipeline['current_hint'] ?? '' }}">
+                                <div class="pm-pipe" title="{{ $latestStatus }}">
                                     @foreach($stageKeys as $i => $key)
                                         @php
                                             $stage = $stages[$key] ?? null;
@@ -263,7 +245,7 @@
                                         <div class="pm-pipe-step">
                                             <span
                                                 class="pm-pipe-dot {{ $dotClass }}"
-                                                title="{{ $exists ? ($stage['hint'] ?? $stage['label']) : (strtoupper($key).' not started') }}"
+                                                title="{{ \App\Support\AdminPipeline::stageName($key) }}{{ $exists ? ': '.($stage['hint'] ?? $stage['label']) : ' — not started' }}"
                                             ></span>
                                             @if(!$loop->last)
                                                 <span class="pm-pipe-line {{ ($exists && $i < $currentIndex) || ($exists && $isCurrent) ? 'is-done' : '' }}"></span>
@@ -281,33 +263,36 @@
                                         <span class="pm-pipe-label {{ $labelClass }}">{{ strtoupper($key) }}</span>
                                     @endforeach
                                 </div>
-                                <p class="mt-1.5 text-xs text-gray-400">
-                                    {{ $pipeline['current_hint'] ?? '—' }}
-                                    @if(!empty($pipeline['payment_path_label']) && $pipeline['payment_path_label'] !== 'Not chosen')
-                                        · {{ $pipeline['payment_path_label'] }}
-                                    @endif
-                                </p>
+                                @if(!empty($pipeline['payment_path_label']) && $pipeline['payment_path_label'] !== 'Not chosen')
+                                    <p class="mt-1.5 text-xs text-gray-400">Payment: {{ $pipeline['payment_path_label'] }}</p>
+                                @endif
+                            </td>
+                            <td>
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $latestStageName }}</p>
+                                <p class="mt-0.5 text-sm font-semibold tabular-nums text-gray-900">{{ $latestFormNo !== '' ? $latestFormNo : '—' }}</p>
+                                <p class="mt-1 text-xs leading-4 text-gray-500">{{ $latestStatus !== '' ? $latestStatus : '—' }}</p>
                             </td>
                             <td class="text-sm text-gray-600">{{ $row->created_by_name ?: '—' }}</td>
                             <td class="whitespace-nowrap text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</td>
-                            <td class="text-right">
-                                <div class="inline-flex items-center justify-end gap-2">
+                            <td class="text-center">
+                                <div class="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                                    @if($requestNo !== '' && \Illuminate\Support\Facades\Route::has('requests.show'))
+                                        <a
+                                            href="{{ route('requests.show', ['requestNo' => $requestNo]) }}"
+                                            class="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                        >Open</a>
+                                    @endif
                                     <button
                                         type="button"
-                                        class="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                                        @click="openDoc('ris', {{ (int) $row->ris_id }}, '{{ e(\App\Support\RisWorkflow::formNumber($row)) }}')"
-                                    >View RIS</button>
-                                    <button
-                                        type="button"
-                                        class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001fa8]"
-                                        @click="openPipeline({{ (int) $row->ris_id }})"
+                                        class="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001fa8]"
+                                        @click="openPipeline({{ (int) $row->ris_id }}, @js($requestNo !== '' ? $requestNo : $risLabel))"
                                     >Pipeline</button>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="pur-empty">No procurement forms found.</td>
+                            <td colspan="6" class="pur-empty">No requests found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -386,8 +371,10 @@
 
                 <div class="space-y-5 px-5 py-5" x-show="!pipelineLoading && pipelineData">
                     <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Current stage</p>
-                        <p class="mt-1 text-base font-semibold uppercase tracking-tight text-gray-950" x-text="(pipelineData?.current_stage || '—')"></p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Request No.</p>
+                        <p class="mt-1 text-base font-semibold tracking-tight text-indigo-800" x-text="pipelineData?.request_no || pipelineSubtitle || '—'"></p>
+                        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Current stage</p>
+                        <p class="mt-1 text-sm font-semibold uppercase tracking-tight text-gray-950" x-text="(pipelineData?.current_stage || '—')"></p>
                         <p class="mt-1 text-sm text-gray-500" x-text="pipelineData?.current_hint || ''"></p>
                         <p class="mt-1 text-xs text-gray-400" x-show="pipelineData?.payment_path_label" x-text="'Payment: ' + (pipelineData?.payment_path_label || '')"></p>
                     </div>
@@ -396,7 +383,7 @@
                         <template x-for="key in ['ris','atp','rfc','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key"></p>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvas + RIS' : key"></p>
                                     <p class="mt-1 text-sm font-semibold text-gray-900" x-text="pipelineData?.stages?.[key]?.exists ? (pipelineData.stages[key].label) : 'Not started'"></p>
                                     <p class="mt-0.5 text-xs text-gray-400" x-text="pipelineData?.stages?.[key]?.hint || ''"></p>
                                 </div>
@@ -457,7 +444,7 @@ document.addEventListener('alpine:init', () => {
 
         openDoc(type, id, title) {
             if (!type || !id) return;
-            this.docTitle = title || (String(type).toUpperCase() + ' #' + id);
+            this.docTitle = title || String(type).toUpperCase();
             this.docOpen = true;
             this.docLoading = true;
             const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
@@ -484,13 +471,11 @@ document.addEventListener('alpine:init', () => {
             } catch (e) {}
         },
 
-        async openPipeline(risId) {
+        async openPipeline(risId, label) {
             this.pipelineOpen = true;
             this.pipelineLoading = true;
             this.pipelineData = null;
-            this.pipelineSubtitle = (typeof window.risFormNumberLabel === 'function')
-                ? window.risFormNumberLabel(risId)
-                : ('RIS #' + risId);
+            this.pipelineSubtitle = label || 'Request pipeline';
 
             this.$nextTick(() => {
                 if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -504,7 +489,9 @@ document.addEventListener('alpine:init', () => {
                 });
                 if (!res.ok) throw new Error('Failed');
                 this.pipelineData = await res.json();
-                this.pipelineSubtitle = (this.pipelineData?.stages?.ris?.label) || this.pipelineSubtitle;
+                this.pipelineSubtitle = this.pipelineData?.request_no
+                    || this.pipelineData?.stages?.ris?.label
+                    || this.pipelineSubtitle;
             } catch (e) {
                 this.pipelineData = { stages: {}, logs: [], current_stage: '—', current_hint: 'Unable to load pipeline.' };
             } finally {

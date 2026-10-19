@@ -31,7 +31,6 @@
                 'name' => 'contact_number',
                 'value' => old('contact_number'),
                 'id' => 'create-physical-contact-number',
-                'placeholder' => '9XX XXX XXXX',
                 'inputClass' => 'phone-input--pur pur-input mt-1',
             ])
         </div>

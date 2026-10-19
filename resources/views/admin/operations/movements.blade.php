@@ -21,22 +21,6 @@
 
 <div class="admin-page space-y-6">
     {{-- Summary metrics --}}
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Transfers',
-                'value' => number_format($counts['transfers']),
-                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers']),
-                'active' => $tab === 'transfers',
-            ],
-            [
-                'label' => 'Disposals',
-                'value' => number_format($counts['disposal']),
-                'href' => \App\Support\AdminPortal::route('operations.movements', ['tab' => 'disposal']),
-                'active' => $tab === 'disposal',
-            ],
-        ],
-    ])
 
     {{-- Records --}}
     <div class="pur-card">

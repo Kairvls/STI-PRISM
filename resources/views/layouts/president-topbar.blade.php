@@ -112,6 +112,7 @@
                 </div>
 
                 <div class="max-h-[290px] overflow-y-auto">
+                    @include('layouts.partials.module-importance-mute-panel')
                     @if (($attentionTotal ?? 0) > 0)
                         <button
                             type="button"

@@ -20,6 +20,8 @@ class AccountingMiddleware
             abort(403);
         }
 
+        RoleAccess::enterPortal('accounting');
+
         return $next($request);
     }
 }

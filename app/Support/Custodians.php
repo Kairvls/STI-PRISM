@@ -336,7 +336,7 @@ class Custodians
             ];
         }
 
-        return $name + [
+        $out = $name + [
             'custodian_employee_id' => $clean('custodian_employee_id'),
             'custodian_position' => $clean('custodian_position'),
             'custodian_employment_basis' => $clean('custodian_employment_basis'),
@@ -348,5 +348,11 @@ class Custodians
             'custodian_status' => $status,
             'custodian_notes' => $clean('custodian_notes'),
         ];
+
+        if (Schema::hasColumn('custodians_table', 'person_id') && ! empty($data['person_id'])) {
+            $out['person_id'] = (int) $data['person_id'];
+        }
+
+        return $out;
     }
 }

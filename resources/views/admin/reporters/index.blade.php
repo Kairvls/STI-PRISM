@@ -112,15 +112,6 @@
             ? 'New activity vs last month'
             : (($reporterMonthlyPercentage > 0 ? '+' : '') . number_format($reporterMonthlyPercentage, 2) . '% vs last month');
     @endphp
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Reporters', 'hint' => $reporterMonthlyHint, 'value' => number_format($totalReporters)],
-                ['label' => 'With Email', 'hint' => number_format($emailCoveragePercentage, 2) . '% of all reporters', 'value' => number_format($reportersWithEmail)],
-                ['label' => 'With Contact', 'hint' => number_format($contactCoveragePercentage, 2) . '% of all reporters', 'value' => number_format($reportersWithContact)],
-            ],
-        ])
-    </div>
 
 
     @endif
@@ -213,21 +204,13 @@
                         </div>
                     </div>
 
-                    @include('layouts.partials.maintenance-stat-cards', [
-                        'cards' => [
-                            ['label' => 'Reports filed', 'hint' => 'All time', 'value' => number_format($historyTotal)],
-                            ['label' => 'Open', 'hint' => 'Pending, processing or for replacement', 'value' => number_format($historyOpen)],
-                            ['label' => 'Resolved', 'hint' => 'Fixed and closed', 'value' => number_format($historyResolved)],
-                            ['label' => 'Last report', 'hint' => $lastHistoryDate ? \Illuminate\Support\Carbon::parse($lastHistoryDate)->diffForHumans() : 'No reports yet', 'value' => $lastHistoryDate ? \Illuminate\Support\Carbon::parse($lastHistoryDate)->format('M j, Y') : '—'],
-                        ],
-                    ])
 
                     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         
                             
                         
 
-                        <form method="GET" action="{{ url()->current() }}" class="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <form method="GET" action="{{ url()->current() }}" data-auto-filter class="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                             <h3 class="mr-2 text-base font-semibold text-slate-900">Report records</h3>
                             <div class="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
                                 <input type="hidden" name="history" value="{{ $historyReporter->reporter_id }}">
@@ -929,9 +912,7 @@
                 {{-- RIGHT SIDE: SEARCH --}}
                 {{-- ================================================= --}}
 
-                <form
-                    method="GET"
-                    action="{{ url()->current() }}"
+                <form method="GET" action="{{ url()->current() }}"
 
                     class="flex w-full shrink-0 items-center gap-2
                         sm:w-auto"
@@ -1194,7 +1175,10 @@
                                             >
                                                 {{ $reporter->reporter_full_name }}
                                                 @if (!empty($reporter->report_count) && (int) $reporter->report_count > 0)
-                                                    <span class="ml-1 text-xs font-normal text-slate-400">{{ number_format($reporter->report_count) }} - All {{ (int) $reporter->report_count === 1 ? 'Report' : 'Reports' }}</span>
+                                                    @php $reporterReportCount = (int) $reporter->report_count; @endphp
+                                                    <span class="ml-1 text-xs font-normal text-red-600">
+                                                        {{ number_format($reporterReportCount) }} - {{ $reporterReportCount === 1 ? 'Report' : 'All Reports' }}
+                                                    </span>
                                                 @endif
                                             </p>
 
@@ -1849,8 +1833,19 @@
                 </button>
             </div>
 
-            <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5" x-data="reporterPersonPicker()">
                 <div data-duplicate-slot class="empty:hidden"></div>
+
+                @if (\App\Support\Persons::tableReady())
+                <section>
+                    <p class="{{ $reporterSectionClass }}"><i data-lucide="users" class="h-3.5 w-3.5"></i> From Faculty &amp; Staff</p>
+                    @include('admin.partials.person-picker', [
+                        'label' => 'Pick existing faculty/staff',
+                        'required' => false,
+                        'hint' => 'Optional — pick to auto-fill the form and lock identity.',
+                    ])
+                </section>
+                @endif
 
                 <section>
                     <p class="{{ $reporterSectionClass }}"><i data-lucide="briefcase" class="h-3.5 w-3.5"></i> Employment</p>
@@ -1880,7 +1875,7 @@
                             </div>
                             <input type="hidden" id="employee_id" name="employee_id" value="" required>
                             <p id="createEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
-                            <p id="createEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee exists in Property Assignments; reporter details must match the people directory.</p>
+                            <p id="createEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee ID is already in the Property Assignments people directory; reporter details must match that record.</p>
                         </div>
                         @if(session('mismatch_force_data') && session('mismatch_force_data.type') === 'custodian')
                             @php $m = session('mismatch_force_data.custodian'); @endphp
@@ -1955,7 +1950,6 @@
                                 'name' => 'contact',
                                 'value' => old('contact', ''),
                                 'id' => 'contact',
-                                'placeholder' => '9XX XXX XXXX',
                                 'inputClass' => $reporterFieldClass,
                             ])
                         </div>
@@ -2044,7 +2038,7 @@
                             </div>
                             <input type="hidden" name="employee_id" id="editEmployeeId" value="" required>
                             <p id="editEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
-                            <p id="editEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee exists in Property Assignments; reporter details must match the people directory.</p>
+                            <p id="editEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee ID is already in the Property Assignments people directory; reporter details must match that record.</p>
                         </div>
                     </div>
                 </section>
@@ -2104,7 +2098,6 @@
                                 'name' => 'contact',
                                 'value' => old('contact', ''),
                                 'id' => 'editContact',
-                                'placeholder' => '9XX XXX XXXX',
                                 'inputClass' => $reporterFieldClass,
                             ])
                         </div>
@@ -2552,6 +2545,10 @@
 
         const propertyAssignmentWarningRequest = { create: 0, edit: 0 };
 
+        function custodianLookupExists(payload) {
+            return !!(payload && payload.exists === true && Number(payload.custodian_id) > 0);
+        }
+
         function setPropertyAssignmentWarning(mode, shouldShow) {
             const hint = document.getElementById(mode === 'edit' ? 'editEmployeeIdHint2' : 'createEmployeeIdHint2');
             if (!hint) return;
@@ -2567,8 +2564,7 @@
             const suffix = suffixForReporterType(type);
             const employeeId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
 
-            propertyAssignmentWarningRequest[mode] += 1;
-            const requestId = propertyAssignmentWarningRequest[mode];
+            const requestId = ++propertyAssignmentWarningRequest[mode];
 
             if (!employeeId) {
                 setPropertyAssignmentWarning(mode, false);
@@ -2576,7 +2572,9 @@
             }
 
             try {
-                const res = await fetch(`/get-custodian/${encodeURIComponent(employeeId)}`);
+                const res = await fetch(`/get-custodian/${encodeURIComponent(employeeId)}`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
                 if (requestId !== propertyAssignmentWarningRequest[mode]) {
                     return;
                 }
@@ -2588,7 +2586,7 @@
                 if (requestId !== propertyAssignmentWarningRequest[mode]) {
                     return;
                 }
-                setPropertyAssignmentWarning(mode, !!json);
+                setPropertyAssignmentWarning(mode, custodianLookupExists(json));
             } catch (e) {
                 if (requestId === propertyAssignmentWarningRequest[mode]) {
                     setPropertyAssignmentWarning(mode, false);
@@ -2621,7 +2619,6 @@
                 fieldEl.classList.add('is-disabled');
                 digitsEl.setAttribute('readonly', 'readonly');
                 if (hintEl) hintEl.textContent = 'Select type first, then enter the 5-digit number.';
-                setPropertyAssignmentWarning(mode, false);
             }
 
             const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
@@ -2631,103 +2628,66 @@
                 return fullId;
             }
 
-            if (fullId) {
-                (async function () {
-                    const requestId = ++propertyAssignmentWarningRequest[mode];
-                    try {
-                        // Try to get a reporter record first for department hints
-                        const rResp = await fetch(`/get-reporter/${encodeURIComponent(fullId)}`);
-                        if (rResp && rResp.ok) {
-                            const rData = await rResp.json();
-                            const deptId = rData?.department_id ?? null;
-                            if (deptId) {
-                                const sel = document.getElementById(isEdit ? 'editDepartment' : 'department_id');
-                                if (sel) {
-                                    sel.value = String(deptId);
-                                    sel.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                            }
-                        }
+            // Single source of truth for the Property Assignments existence hint.
+            refreshPropertyAssignmentWarning(mode);
 
-                        // Also try to fetch the authoritative people directory (custodian)
-                        const cResp = await fetch(`/get-custodian/${encodeURIComponent(fullId)}`);
-                        if (requestId !== propertyAssignmentWarningRequest[mode]) {
-                            return;
-                        }
-                        if (cResp && cResp.ok) {
-                            const cData = await cResp.json();
-                            if (requestId !== propertyAssignmentWarningRequest[mode]) {
-                                return;
-                            }
-                            if (cData) {
-                                // Auto-fill name/contact/email/department fields from people directory
-                                const first = cData.custodian_first_name ?? '';
-                                const middle = cData.custodian_middle_name ?? '';
-                                const last = cData.custodian_last_name ?? '';
-                                const email = cData.custodian_email_address ?? '';
-                                const contact = cData.custodian_contact_number ?? '';
+            (async function () {
+                const requestId = propertyAssignmentWarningRequest[mode];
+                try {
+                    const cResp = await fetch(`/get-custodian/${encodeURIComponent(fullId)}`, {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (requestId !== propertyAssignmentWarningRequest[mode]) {
+                        return;
+                    }
+                    if (!cResp || !cResp.ok) {
+                        return;
+                    }
+                    const cData = await cResp.json();
+                    if (requestId !== propertyAssignmentWarningRequest[mode] || !custodianLookupExists(cData)) {
+                        return;
+                    }
 
-                                const firstEl = document.getElementById(isEdit ? 'editFirstName' : 'first_name');
-                                const middleEl = document.getElementById(isEdit ? 'editMiddleName' : 'middle_name');
-                                const lastEl = document.getElementById(isEdit ? 'editLastName' : 'last_name');
-                                const emailEl = document.getElementById(isEdit ? 'editEmail' : 'email');
-                                const contactEl = document.getElementById(isEdit ? 'editContact' : 'contact');
+                    // Auto-fill from people directory only when a real custodian was found.
+                    const first = cData.custodian_first_name ?? '';
+                    const middle = cData.custodian_middle_name ?? '';
+                    const last = cData.custodian_last_name ?? '';
+                    const email = cData.custodian_email_address ?? '';
+                    const contact = cData.custodian_contact_number ?? '';
 
-                                if (firstEl && first) firstEl.value = first;
-                                if (middleEl && middle) middleEl.value = middle;
-                                if (lastEl && last) lastEl.value = last;
-                                if (emailEl && email) emailEl.value = email;
-                                // Normalize contact: strip non-digit characters so storage accepts it
-                                const normalizedContact = contact ? String(contact).replace(/\D/g, '') : '';
-                                if (contactEl) {
-                                    try {
-                                        contactEl.value = normalizedContact;
-                                    } catch (e) {
-                                        // ignore
-                                    }
-                                    if (typeof window.writePrismPhoneStorage === 'function') {
-                                        window.writePrismPhoneStorage(contactEl, normalizedContact);
-                                    }
-                                    // Refresh visible formatting in the form so users see 3-3-4 grouping
-                                    try {
-                                        const root = contactEl.closest && contactEl.closest('form') ? contactEl.closest('form') : document;
-                                        if (typeof window.syncPrismPhoneInputs === 'function') {
-                                            window.syncPrismPhoneInputs(root);
-                                        }
-                                    } catch (e) {
-                                        // ignore
-                                    }
-                                }
+                    const firstEl = document.getElementById(isEdit ? 'editFirstName' : 'first_name');
+                    const middleEl = document.getElementById(isEdit ? 'editMiddleName' : 'middle_name');
+                    const lastEl = document.getElementById(isEdit ? 'editLastName' : 'last_name');
+                    const emailEl = document.getElementById(isEdit ? 'editEmail' : 'email');
+                    const contactEl = document.querySelector(
+                        isEdit
+                            ? '#editReporterForm [data-phone-input]'
+                            : '#createReporterForm [data-phone-input]'
+                    );
 
-                                // department
-                                if (! isEdit) {
-                                    const sel = document.getElementById('department_id');
-                                    if (sel && cData.custodian_department_id) {
-                                        sel.value = String(cData.custodian_department_id);
-                                        sel.dispatchEvent(new Event('change', { bubbles: true }));
-                                    }
-                                } else {
-                                    const sel = document.getElementById('editDepartment');
-                                    if (sel && cData.custodian_department_id) {
-                                        sel.value = String(cData.custodian_department_id);
-                                        sel.dispatchEvent(new Event('change', { bubbles: true }));
-                                    }
-                                }
-                                setPropertyAssignmentWarning(mode, true);
-                            } else {
-                                setPropertyAssignmentWarning(mode, false);
-                            }
-                        } else {
-                            setPropertyAssignmentWarning(mode, false);
-                        }
-                    } catch (e) {
-                        // ignore network errors silently
-                        if (requestId === propertyAssignmentWarningRequest[mode]) {
-                            setPropertyAssignmentWarning(mode, false);
+                    if (firstEl && first) firstEl.value = first;
+                    if (middleEl && middle) middleEl.value = middle;
+                    if (lastEl && last) lastEl.value = last;
+                    if (emailEl && email) emailEl.value = email;
+
+                    if (contactEl && contact && typeof window.writePrismPhoneStorage === 'function') {
+                        window.writePrismPhoneStorage(contactEl, contact);
+                        const iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(contactEl);
+                        if (iti && typeof iti.setNumber === 'function') {
+                            try { iti.setNumber(String(contact)); } catch (e) { /* keep storage */ }
                         }
                     }
-                })();
-            }
+
+                    const sel = document.getElementById(isEdit ? 'editDepartment' : 'department_id');
+                    if (sel && cData.custodian_department_id) {
+                        sel.value = String(cData.custodian_department_id);
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } catch (e) {
+                    // ignore network errors silently
+                }
+            })();
+
             return fullId;
         }
 
@@ -3121,32 +3081,6 @@
             }
 
         });
-
-        // Show a hint in the create / edit modal when the entered employee ID exists
-        // in the people directory (custodians). This warns users that details
-        // must match the people directory.
-        (function () {
-            const inputs = [
-                { mode: 'create', input: document.getElementById('employee_id_digits'), hidden: document.getElementById('employee_id') },
-                { mode: 'edit', input: document.getElementById('editEmployeeIdDigits'), hidden: document.getElementById('editEmployeeId') },
-            ];
-
-            inputs.forEach(({ mode, input, hidden }) => {
-                if (!input) return;
-                const onChange = () => {
-                    const digits = input.value?.trim() || '';
-                    const full = hidden?.value?.trim() || '';
-                    const employeeId = full || (digits ? ('OMC' + digits) : '');
-                    if (!employeeId) {
-                        setPropertyAssignmentWarning(mode, false);
-                        return;
-                    }
-                    refreshPropertyAssignmentWarning(mode);
-                };
-                input.addEventListener('input', onChange);
-                input.addEventListener('blur', onChange);
-            });
-        })();
 
         const importFile = document.getElementById('importFile');
         const importDropzone = document.getElementById('importDropzone');
@@ -3569,29 +3503,22 @@
 
 
             // =================================================
-            // CONTACT NUMBER
+            // CONTACT NUMBER (PH mobile or international E.164)
             // =================================================
 
             if (data.contact) {
+                const raw = String(data.contact).trim();
+                const digits = raw.replace(/\D/g, '');
+                const isPh = (digits.length === 11 && digits.startsWith('09'))
+                    || (digits.length === 10 && digits.startsWith('9'))
+                    || (digits.startsWith('63') && digits.length >= 12 && digits.length <= 13);
+                const isIntl = digits.length >= 8 && digits.length <= 15 && digits[0] !== '0';
 
-                if (!/^[0-9]+$/.test(data.contact)) {
-
+                if (!digits || (!isPh && !isIntl)) {
                     reporterAlert(
                         'warning',
                         'Invalid contact number',
-                        'Contact number must contain numbers only.'
-                    );
-
-                    return false;
-                }
-
-
-                if (data.contact.length !== 11) {
-
-                    reporterAlert(
-                        'warning',
-                        'Invalid contact number',
-                        'Contact number must contain exactly 11 digits.'
+                        'Enter a valid mobile number for the selected country.'
                     );
 
                     return false;
@@ -3712,5 +3639,219 @@
     @endif
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+    function getCreateReporterPhoneInput() {
+        return document.querySelector('#createReporterForm [data-phone-input]');
+    }
+
+    function setCreateReporterPhone(value) {
+        const input = getCreateReporterPhoneInput();
+        if (!input) return;
+
+        const raw = value == null ? '' : String(value).trim();
+        if (typeof window.writePrismPhoneStorage === 'function') {
+            window.writePrismPhoneStorage(input, raw);
+        }
+
+        const iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+        if (iti && typeof iti.setNumber === 'function') {
+            try {
+                if (raw) {
+                    iti.setNumber(raw);
+                } else {
+                    iti.setNumber('');
+                    input.value = '';
+                }
+            } catch (e) {
+                input.value = raw ? raw.replace(/^\+?63/, '').replace(/^0/, '').trim() : '';
+            }
+            return;
+        }
+
+        input.value = raw;
+        if (typeof window.initPrismPhoneInput === 'function') {
+            window.initPrismPhoneInput(input);
+            const created = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+            if (created && raw && typeof created.setNumber === 'function') {
+                try { created.setNumber(raw); } catch (e) { /* keep raw */ }
+            }
+        }
+    }
+
+    function setCreateReporterSelectLocked(select, locked, hiddenId) {
+        if (!select) return;
+        const form = document.getElementById('createReporterForm');
+        let hidden = document.getElementById(hiddenId);
+        select.disabled = !!locked;
+        if (locked && form) {
+            if (!hidden) {
+                hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = select.name;
+                hidden.id = hiddenId;
+                form.appendChild(hidden);
+            }
+            hidden.value = select.value || '';
+            hidden.disabled = false;
+        } else if (hidden) {
+            hidden.disabled = true;
+            hidden.value = '';
+        }
+    }
+
+    function setCreateReporterIdentityLocked(locked) {
+        const form = document.getElementById('createReporterForm');
+        if (!form) return;
+
+        setCreateReporterSelectLocked(form.querySelector('#type'), locked, 'createReporterTypeLocked');
+        setCreateReporterSelectLocked(form.querySelector('#department_id'), locked, 'createReporterDepartmentLocked');
+        setCreateReporterSelectLocked(form.querySelector('#employment_basis'), locked, 'createReporterBasisLocked');
+
+        const digitsEl = form.querySelector('#employee_id_digits');
+        if (digitsEl) {
+            if (locked) {
+                digitsEl.setAttribute('readonly', 'readonly');
+            } else {
+                const typeEl = form.querySelector('#type');
+                if (typeEl && typeEl.value) {
+                    digitsEl.removeAttribute('readonly');
+                } else {
+                    digitsEl.setAttribute('readonly', 'readonly');
+                }
+            }
+        }
+
+        ['first_name', 'middle_name', 'last_name', 'email'].forEach(function (name) {
+            const input = form.querySelector('[name="' + name + '"]');
+            if (input) input.readOnly = !!locked;
+        });
+
+        const phone = getCreateReporterPhoneInput();
+        if (phone) {
+            phone.readOnly = !!locked;
+            const wrap = phone.closest('.iti');
+            if (wrap) {
+                wrap.classList.toggle('pointer-events-none', !!locked);
+                wrap.style.opacity = locked ? '0.85' : '';
+            }
+        }
+    }
+
+    function clearCreateReporterAutofill() {
+        const form = document.getElementById('createReporterForm');
+        if (!form) return;
+
+        setCreateReporterIdentityLocked(false);
+
+        const typeEl = form.querySelector('#type');
+        if (typeEl) {
+            typeEl.disabled = false;
+            typeEl.value = '';
+        }
+
+        const digitsEl = form.querySelector('#employee_id_digits');
+        if (digitsEl) {
+            digitsEl.value = '';
+            digitsEl.setAttribute('readonly', 'readonly');
+        }
+
+        const employeeId = form.querySelector('#employee_id');
+        if (employeeId) employeeId.value = '';
+
+        ['first_name', 'middle_name', 'last_name', 'email'].forEach(function (name) {
+            const input = form.querySelector('[name="' + name + '"]');
+            if (input) {
+                input.readOnly = false;
+                input.value = '';
+            }
+        });
+
+        const dept = form.querySelector('#department_id');
+        if (dept) {
+            dept.disabled = false;
+            dept.value = '';
+        }
+        const basis = form.querySelector('#employment_basis');
+        if (basis) {
+            basis.disabled = false;
+            basis.value = '';
+        }
+
+        setCreateReporterPhone('');
+
+        if (typeof syncReporterEmployeeId === 'function') {
+            syncReporterEmployeeId('create');
+        }
+    }
+
+    function reporterPersonPicker() {
+        return {
+            personId: '',
+            personQuery: '',
+            personOpen: false,
+            personResults: [],
+            personLabel: '',
+            async searchPersons(url) {
+                try {
+                    const endpoint = url || @js(route('admin.persons.search'));
+                    const res = await fetch(`${endpoint}?q=${encodeURIComponent(this.personQuery || '')}`);
+                    this.personResults = await res.json();
+                } catch (e) {
+                    this.personResults = [];
+                }
+            },
+            pickPerson(row) {
+                this.personId = String(row.person_id);
+                const name = String(row.person_full_name || '').trim();
+                const meta = String(row.label || '').trim();
+                this.personLabel = name && meta ? (name + ' · ' + meta) : (name || meta || 'Selected person');
+                this.personOpen = false;
+                const form = document.getElementById('createReporterForm');
+                if (!form) return;
+
+                setCreateReporterIdentityLocked(false);
+
+                const typeEl = form.querySelector('#type');
+                if (typeEl && row.person_employment_type) {
+                    typeEl.value = row.person_employment_type;
+                }
+                const parsed = (typeof parseReporterEmployeeId === 'function')
+                    ? parseReporterEmployeeId(row.person_employee_id)
+                    : { digits: String(row.person_employee_id || '').replace(/\D/g, '').slice(0, 5) };
+                const digitsEl = form.querySelector('#employee_id_digits');
+                if (digitsEl) {
+                    digitsEl.readOnly = false;
+                    digitsEl.value = parsed.digits || '';
+                }
+                if (typeof syncReporterEmployeeId === 'function') syncReporterEmployeeId('create');
+
+                const map = {
+                    first_name: row.person_first_name,
+                    middle_name: row.person_middle_name,
+                    last_name: row.person_last_name,
+                    email: row.person_email_address,
+                    department_id: row.person_department_id,
+                    employment_basis: row.person_employment_basis,
+                };
+                Object.entries(map).forEach(([name, value]) => {
+                    const input = form.querySelector(`[name="${name}"]`);
+                    if (input && value != null && value !== '') input.value = value;
+                });
+
+                setCreateReporterPhone(row.person_contact_number || '');
+                setCreateReporterIdentityLocked(true);
+
+                if (window.lucide) lucide.createIcons();
+            },
+            clearPerson() {
+                this.personId = '';
+                this.personLabel = '';
+                this.personOpen = false;
+                clearCreateReporterAutofill();
+            },
+        };
+    }
+    </script>
 
 @endsection

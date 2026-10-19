@@ -43,14 +43,23 @@ class Departments
             return collect();
         }
 
-        $people = DB::table('custodians_table')
-            ->whereNotNull('custodian_department_id')
-            ->groupBy('custodian_department_id')
-            ->select(
-                'custodian_department_id',
-                DB::raw('COUNT(*) as people_count'),
-                DB::raw("SUM(CASE WHEN custodian_status != 'Inactive' THEN 1 ELSE 0 END) as active_people_count")
-            );
+        $people = Persons::tableReady()
+            ? DB::table('persons_table')
+                ->whereNotNull('person_department_id')
+                ->groupBy('person_department_id')
+                ->select(
+                    'person_department_id as custodian_department_id',
+                    DB::raw('COUNT(*) as people_count'),
+                    DB::raw("SUM(CASE WHEN person_status != 'Inactive' THEN 1 ELSE 0 END) as active_people_count")
+                )
+            : DB::table('custodians_table')
+                ->whereNotNull('custodian_department_id')
+                ->groupBy('custodian_department_id')
+                ->select(
+                    'custodian_department_id',
+                    DB::raw('COUNT(*) as people_count'),
+                    DB::raw("SUM(CASE WHEN custodian_status != 'Inactive' THEN 1 ELSE 0 END) as active_people_count")
+                );
 
         $hasEquipment = Schema::hasColumn('equipment_table', 'equipment_department_id');
         $equipment = DB::table('equipment_table')
@@ -63,7 +72,7 @@ class Departments
                 DB::raw('COALESCE(SUM(equipment_quantity), 0) as equipment_units')
             );
 
-        return DB::table('departments_table as dept')
+        $rows = DB::table('departments_table as dept')
             ->leftJoinSub($people, 'p', 'p.custodian_department_id', '=', 'dept.department_id')
             ->when($hasEquipment, fn ($q) => $q->leftJoinSub($equipment, 'eq', 'eq.equipment_department_id', '=', 'dept.department_id'))
             ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search) {
@@ -81,6 +90,18 @@ class Departments
                 DB::raw($hasEquipment ? 'COALESCE(eq.equipment_count, 0) as equipment_count' : '0 as equipment_count'),
                 DB::raw($hasEquipment ? 'COALESCE(eq.equipment_units, 0) as equipment_units' : '0 as equipment_units'),
             ]);
+
+        $roomsByDepartment = RoomDepartments::forDepartments(
+            $rows->pluck('department_id')->all()
+        );
+
+        return $rows->map(function ($dept) use ($roomsByDepartment) {
+            $rooms = $roomsByDepartment[(int) $dept->department_id] ?? [];
+            $dept->rooms = $rooms;
+            $dept->room_count = count($rooms);
+
+            return $dept;
+        });
     }
 
     /**
@@ -95,8 +116,12 @@ class Departments
         return [
             'active' => DB::table('departments_table')->where('department_is_archived', false)->count(),
             'archived' => DB::table('departments_table')->where('department_is_archived', true)->count(),
-            'assigned_people' => DB::table('custodians_table')->whereNotNull('custodian_department_id')->count(),
-            'unassigned_people' => DB::table('custodians_table')->whereNull('custodian_department_id')->count(),
+            'assigned_people' => Persons::tableReady()
+                ? DB::table('persons_table')->whereNotNull('person_department_id')->count()
+                : DB::table('custodians_table')->whereNotNull('custodian_department_id')->count(),
+            'unassigned_people' => Persons::tableReady()
+                ? DB::table('persons_table')->whereNull('person_department_id')->count()
+                : DB::table('custodians_table')->whereNull('custodian_department_id')->count(),
             'charged_equipment' => Schema::hasColumn('equipment_table', 'equipment_department_id')
                 ? DB::table('equipment_table')
                     ->whereNotNull('equipment_department_id')
@@ -179,26 +204,49 @@ class Departments
                 ->select('assignment_custodian_id', DB::raw('COUNT(*) as held_count'))
             : null;
 
-        $people = DB::table('custodians_table as c')
-            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'c.custodian_room_id')
-            ->when($held, fn ($q) => $q->leftJoinSub($held, 'h', 'h.assignment_custodian_id', '=', 'c.custodian_id'))
-            ->where('c.custodian_department_id', $departmentId)
-            ->orderByRaw("CASE WHEN c.custodian_status = 'Inactive' THEN 1 ELSE 0 END")
-            ->orderBy('c.custodian_full_name')
-            ->get([
-                'c.custodian_id',
-                'c.custodian_employee_id',
-                'c.custodian_full_name',
-                'c.custodian_position',
-                'c.custodian_email_address',
-                'c.custodian_contact_number',
-                'c.custodian_status',
-                'r.room_name',
-                DB::raw($held ? 'COALESCE(h.held_count, 0) as held_count' : '0 as held_count'),
-            ]);
+        if (Persons::tableReady()) {
+            $people = DB::table('persons_table as p')
+                ->leftJoin('custodians_table as c', 'c.person_id', '=', 'p.person_id')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 'c.custodian_room_id')
+                ->when($held, fn ($q) => $q->leftJoinSub($held, 'h', 'h.assignment_custodian_id', '=', 'c.custodian_id'))
+                ->where('p.person_department_id', $departmentId)
+                ->orderByRaw("CASE WHEN p.person_status = 'Inactive' THEN 1 ELSE 0 END")
+                ->orderBy('p.person_full_name')
+                ->get([
+                    'p.person_id',
+                    'c.custodian_id',
+                    'p.person_employee_id as custodian_employee_id',
+                    'p.person_full_name as custodian_full_name',
+                    'p.person_employment_type as custodian_position',
+                    'p.person_email_address as custodian_email_address',
+                    'p.person_contact_number as custodian_contact_number',
+                    'p.person_status as custodian_status',
+                    'r.room_name',
+                    DB::raw($held ? 'COALESCE(h.held_count, 0) as held_count' : '0 as held_count'),
+                ]);
+        } else {
+            $people = DB::table('custodians_table as c')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 'c.custodian_room_id')
+                ->when($held, fn ($q) => $q->leftJoinSub($held, 'h', 'h.assignment_custodian_id', '=', 'c.custodian_id'))
+                ->where('c.custodian_department_id', $departmentId)
+                ->orderByRaw("CASE WHEN c.custodian_status = 'Inactive' THEN 1 ELSE 0 END")
+                ->orderBy('c.custodian_full_name')
+                ->get([
+                    DB::raw('NULL as person_id'),
+                    'c.custodian_id',
+                    'c.custodian_employee_id',
+                    'c.custodian_full_name',
+                    'c.custodian_position',
+                    'c.custodian_email_address',
+                    'c.custodian_contact_number',
+                    'c.custodian_status',
+                    'r.room_name',
+                    DB::raw($held ? 'COALESCE(h.held_count, 0) as held_count' : '0 as held_count'),
+                ]);
+        }
 
         $hasDepartment = Schema::hasColumn('equipment_table', 'equipment_department_id');
-        $peopleIds = $people->pluck('custodian_id')->all();
+        $peopleIds = $people->pluck('custodian_id')->filter()->values()->all();
 
         if (! $hasDepartment && ($peopleIds === [] || ! $hasAssignments)) {
             return ['people' => $people, 'equipment' => collect()];
@@ -255,7 +303,11 @@ class Departments
 
     public static function peopleCount(int $departmentId): int
     {
-        return DB::table('custodians_table')->where('custodian_department_id', $departmentId)->count();
+        if (Persons::tableReady()) {
+            return (int) DB::table('persons_table')->where('person_department_id', $departmentId)->count();
+        }
+
+        return (int) DB::table('custodians_table')->where('custodian_department_id', $departmentId)->count();
     }
 
     /**

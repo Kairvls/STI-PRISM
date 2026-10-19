@@ -64,11 +64,6 @@
             </p>
         </div>
 
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Fixed by reporters', 'hint' => number_format($fixesThisMonth).' this month · no report needed', 'value' => number_format($totalFixes)],
-            ],
-        ])
     </div>
 
     <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

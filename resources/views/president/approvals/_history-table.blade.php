@@ -10,6 +10,12 @@
     <tr class="border-b border-gray-100 history-row transition-all duration-200">
         <td class="px-2 py-4 text-sm font-semibold text-gray-600">RIS#{{ $risId }}</td>
         <td class="px-2 py-4 text-sm text-gray-700">{{ $reference }}</td>
+        <td class="px-2 py-4 text-sm text-gray-700">
+            @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+            @if(blank($row->ris_request_no ?? null))
+                <span class="text-xs text-gray-400">—</span>
+            @endif
+        </td>
         <td class="px-2 py-4 text-sm">
             @if ($decision === 'Approved' || $decisionLower === 'approved')
                 <span class="status-pill status-approved">Approved</span>
@@ -45,7 +51,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="6" class="px-2 py-12 text-center fade-in">
+        <td colspan="7" class="px-2 py-12 text-center fade-in">
             <p class="text-sm font-semibold text-gray-800">No approval records found.</p>
             <p class="mt-1 text-xs text-gray-500">
                 @if (request('search'))

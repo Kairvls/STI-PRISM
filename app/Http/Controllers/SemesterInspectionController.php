@@ -59,11 +59,16 @@ class SemesterInspectionController extends Controller
                 WHEN 'Active' THEN 1
                 WHEN 'Draft' THEN 2
                 WHEN 'Completed' THEN 3
-                ELSE 4 END")
+                WHEN 'Cancelled' THEN 4
+                WHEN 'Archived' THEN 5
+                ELSE 6 END")
             ->orderBy('campaign_due_date');
 
         if ($status !== 'all' && in_array($status, SemesterInspections::STATUSES, true)) {
             $query->where('campaign_status', $status);
+        } elseif ($status === 'all') {
+            // Keep cancelled visible until archived; hide the archive pile by default.
+            $query->where('campaign_status', '!=', 'Archived');
         }
 
         if ($search !== '') {
@@ -456,7 +461,7 @@ class SemesterInspectionController extends Controller
             abort(404);
         }
 
-        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true)) {
+        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled', 'Archived'], true)) {
             return back()->with('error', 'This campaign is closed and cannot accept new inspections.');
         }
 
@@ -609,8 +614,8 @@ class SemesterInspectionController extends Controller
             return back()->with('error', 'Campaign is already completed.');
         }
 
-        if ($campaign->campaign_status === 'Cancelled') {
-            return back()->with('error', 'Cancelled campaigns cannot be completed.');
+        if (in_array($campaign->campaign_status, ['Cancelled', 'Archived'], true)) {
+            return back()->with('error', 'Cancelled or archived campaigns cannot be completed.');
         }
 
         $force = $request->boolean('force');
@@ -659,7 +664,7 @@ class SemesterInspectionController extends Controller
             abort(404);
         }
 
-        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true)) {
+        if (in_array($campaign->campaign_status, ['Completed', 'Cancelled', 'Archived'], true)) {
             return back()->with('error', 'This campaign is already closed.');
         }
 
@@ -671,6 +676,46 @@ class SemesterInspectionController extends Controller
             ]);
 
         return back()->with('success', 'Campaign cancelled.');
+    }
+
+    public function archive(Request $request, int $id)
+    {
+        if (! SemesterInspections::tablesReady()) {
+            abort(404);
+        }
+
+        abort_unless(SchedulePortal::canManageSemester(), 403);
+
+        $campaign = $this->findCampaign($id);
+        if (! $campaign) {
+            abort(404);
+        }
+
+        if ($campaign->campaign_status !== 'Cancelled') {
+            return back()->with('error', 'Only cancelled campaigns can be archived.');
+        }
+
+        DB::table('semester_inspection_campaigns_table')
+            ->where('campaign_id', $id)
+            ->update([
+                'campaign_status' => 'Archived',
+                'campaign_updated_at' => now(),
+            ]);
+
+        DB::table('audit_logs_table')->insert([
+            'audit_log_user_id' => Auth::id(),
+            'audit_log_action' => 'Archived semester inspection',
+            'audit_log_module' => 'Schedules',
+            'audit_log_table_name' => 'semester_inspection_campaigns_table',
+            'audit_log_reference_id' => $id,
+            'audit_log_description' => 'Archived cancelled campaign "'.$campaign->campaign_title.'".',
+            'audit_log_ip_address' => $request->ip(),
+            'audit_log_created_at' => now(),
+        ]);
+
+        return redirect()
+            ->to(SchedulePortal::semesterUrl())
+            ->with('success', 'Cancelled campaign archived.');
     }
 
     public function activate(int $id)

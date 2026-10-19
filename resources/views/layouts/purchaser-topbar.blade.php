@@ -10,7 +10,7 @@
                 request()->is('purchaser/security*') => ['Security Settings', ''],
                 request()->is('purchaser/dashboard') => ['Dashboard', ''],
                 request()->is('purchaser/notifications*') => ['Notifications', ''],
-                request()->is('purchaser/reports/urgent*') => ['Urgent Reports', ''],
+                request()->is('purchaser/reports/urgent*') => ['Critical & High Reports', ''],
                 request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', ''],
                 request()->is('purchaser/suppliers*') => ['Suppliers', ''],
                 request()->is('purchaser/file-maintenance*') || request()->is('purchaser/brands*') || request()->is('purchaser/items*') || request()->is('purchaser/uom*') || request()->is('purchaser/categories*') || request()->is('purchaser/subcategories*') => match (request('tab', request()->routeIs('purchaser.items.*') ? 'items' : (request()->routeIs('purchaser.uom.*') ? 'uom' : (request()->routeIs('purchaser.categories.*') ? 'categories' : (request()->routeIs('purchaser.subcategories.*') ? 'subcategories' : 'brands'))))) {
@@ -22,12 +22,13 @@
                 },
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slips.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', ''],
-                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
+                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to the School Administrator.'],
+                request()->is('purchaser/request-check*') && in_array(request('fund'), ['direct_payment', 'request_for_check'], true) => ['Direct Payment', ''],
+                request()->is('purchaser/request-check*') && request('fund') === 'cash_installment' => ['Cash Installment', ''],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', ''],
-                request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', ''],
-                request()->is('purchaser/request-check*') => ['Request Fund', ''],
+                request()->is('purchaser/request-check*') => ['Funding Requests', ''],
                 request()->is('purchaser/receiving-reports*') => ['Receiving Reports', ''],
-                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Request for Check', 'Items delivered short or damaged.'],
+                request()->is('purchaser/back-orders*') && request('payment') === 'rfc' => ['Back Orders · Direct / Installment', 'Items delivered short or damaged.'],
                 request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Items delivered short or damaged.'],
                 request()->is('purchaser/back-orders*') => ['Back Orders', 'Items delivered short or damaged.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', ''],
@@ -152,6 +153,7 @@
                 </div>
 
                 <div class="max-h-[290px] overflow-y-auto">
+                    @include('layouts.partials.module-importance-mute-panel')
                     @if ($attentionTotal > 0)
                         <button
                             type="button"

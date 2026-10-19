@@ -148,7 +148,7 @@
                     <div x-show="intakeBasis !== 'non_procurement'" x-cloak class="space-y-3">
                         <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
                             <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Delivered lines (RR / PO)</p>
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Delivered lines (RR)</p>
                                 <div class="flex items-center gap-3">
                                     <button
                                         type="button"
@@ -216,9 +216,9 @@
                                                 ></span>
                                             </button>
                                             </div>
-                                            <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-slate-50/60">
+                                            <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-slate-50/60 pl-8">
                                                 <template x-for="line in group.lines" :key="line.id">
-                                                    <li>
+                                                    <li class="border-l border-slate-200/90">
                                                         <label
                                                             class="flex w-full items-start gap-3 py-2 pl-3 pr-3 text-left transition"
                                                             :class="isRrSelected(line)
@@ -233,7 +233,6 @@
                                                                 @change="toggleRrLine(line)"
                                                                 :aria-label="'Select ' + line.article"
                                                             >
-                                                            <span class="w-4 shrink-0"></span>
                                                             <div class="min-w-0 flex-1">
                                                                 <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
                                                                 <p x-show="rrLineCost(line)" class="mt-0.5 truncate text-[11px] text-slate-500" x-text="rrLineCost(line)"></p>
@@ -305,7 +304,7 @@
                                         <li class="flex items-center gap-3 px-3 py-2">
                                             <div class="min-w-0 flex-1">
                                                 <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
-                                                <p class="truncate text-[11px] text-slate-500" x-text="[line.rr_number, line.po_number ? ('PO ' + line.po_number) : 'No PO', line.supplier_name, line.purchase_date ? ('Bought ' + line.purchase_date) : null].filter(Boolean).join(' · ')"></p>
+                                                <p class="truncate text-[11px] text-slate-500" x-text="[line.rr_number, line.supplier_name, line.purchase_date ? ('Bought ' + line.purchase_date) : null].filter(Boolean).join(' · ')"></p>
                                             </div>
                                             <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600" x-text="(line.remaining_qty != null ? line.remaining_qty : line.quantity) + ' quantity available'"></span>
                                             <button
@@ -1590,7 +1589,6 @@
                             : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     }
                     return [
-                        group.po_number ? ('PO ' + group.po_number) : 'No PO',
                         group.supplier_name || 'No supplier',
                         date,
                     ].filter(Boolean).join(' · ');
@@ -1850,7 +1848,7 @@
                         return {
                             id,
                             article,
-                            source: [line.rr_number, line.po_number ? ('PO ' + line.po_number) : 'No PO', line.supplier_name].filter(Boolean).join(' · '),
+                            source: [line.rr_number, line.supplier_name].filter(Boolean).join(' · '),
                             rr_number: line.rr_number || '',
                             supplier_name: line.supplier_name || '',
                             purchase_date: line.purchase_date || '',
@@ -2672,7 +2670,6 @@
                         return [
                             ['Acquired via', 'Procurement (Receiving Report)'],
                             ['Receiving reports', unique(lines.map((line) => line.rr_number)) || '—'],
-                            ['Purchase orders', unique(lines.map((line) => line.po_number)) || 'Not linked'],
                             ['Suppliers', unique(lines.map((line) => line.supplier_name)) || '—'],
                             ['RR lines', String(lines.length)],
                         ];
@@ -2682,7 +2679,6 @@
                         return [
                             ['Acquired via', 'Procurement (Receiving Report)'],
                             ['Receiving report', line?.rr_number || '—'],
-                            ['Purchase order', line?.po_number || 'Not linked'],
                             ['Supplier', line?.supplier_name || '—'],
                         ];
                     }

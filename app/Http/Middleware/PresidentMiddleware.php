@@ -20,6 +20,8 @@ class PresidentMiddleware
             abort(403);
         }
 
+        RoleAccess::enterPortal('president');
+
         return $next($request);
     }
 }

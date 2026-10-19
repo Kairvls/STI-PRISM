@@ -68,6 +68,20 @@ class AdminAttentionSummary
     }
 
     /**
+     * Equipment maintenance schedules past their next date (Administrator Maintenance Schedule module).
+     */
+    public static function overdueMaintenanceSchedules(): int
+    {
+        if (! Schema::hasTable('maintenance_schedules_table')) {
+            return 0;
+        }
+
+        return (int) MaintenanceAttentionSummary::scopeOverdueSchedules(
+            DB::table('maintenance_schedules_table')
+        )->count();
+    }
+
+    /**
      * Submitted / resubmitted RIS waiting for Administrator accept (Procurement Review).
      */
     public static function scopePendingRis($query, string $prefix = '')
@@ -130,8 +144,8 @@ class AdminAttentionSummary
     {
         return match ($focus) {
             self::FOCUS_PENDING_REVIEW => [
-                'label' => 'Procurement requests to accept',
-                'description' => 'Submitted, resubmitted, or under-review RIS waiting for Administrator accept.',
+                'label' => 'RIS to accept',
+                'description' => 'Submitted, resubmitted, or under-review RIS waiting on Pending Accept.',
                 'scope' => 'shared',
             ],
             self::FOCUS_AMENDMENTS => [
@@ -140,7 +154,7 @@ class AdminAttentionSummary
                 'scope' => 'shared',
             ],
             self::FOCUS_AWAITING_COSIGN => [
-                'label' => 'RIS awaiting Sign RIS action',
+                'label' => 'RIS awaiting Ready to Sign action',
                 'description' => 'Accepted RIS waiting for a decision plus President-approved RIS waiting for your Issued by signature.',
                 'scope' => 'shared',
             ],

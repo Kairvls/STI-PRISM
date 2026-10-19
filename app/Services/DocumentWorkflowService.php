@@ -55,6 +55,49 @@ class DocumentWorkflowService
     }
 
     /**
+     * Creator lists: put unfinished own work (Draft / Minor Revision) above in-flight records.
+     * Call before date / urgency secondary sorts. Review queues should not use this.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  list<string>  $statuses
+     */
+    public static function orderOwnUnfinishedFirst($query, string $statusColumn, array $statuses = ['Draft', 'Minor Revision'])
+    {
+        $statuses = array_values(array_filter($statuses, fn ($s) => is_string($s) && $s !== ''));
+        if ($statuses === []) {
+            return $query;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($statuses), '?'));
+
+        return $query->orderByRaw(
+            "CASE WHEN {$statusColumn} IN ({$placeholders}) THEN 0 ELSE 1 END",
+            $statuses
+        );
+    }
+
+    /**
+     * ATP soft-draft lists: unsubmitted + Minor Revision first (Pending without submitted_at).
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    public static function orderSoftDraftFirst(
+        $query,
+        string $statusColumn,
+        string $submittedAtColumn,
+        string $revisionStatus = 'Minor Revision'
+    ) {
+        return $query->orderByRaw(
+            "CASE
+                WHEN {$statusColumn} = ? THEN 0
+                WHEN {$submittedAtColumn} IS NULL THEN 0
+                ELSE 1
+            END",
+            [$revisionStatus]
+        );
+    }
+
+    /**
      * Toggle the archived flag on a workflow document row.
      */
     public static function setArchived(

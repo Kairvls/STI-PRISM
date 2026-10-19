@@ -23,25 +23,6 @@
     <div>
     </div>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Inbox',
-                'hint' => 'Alerts '.($periodLabels[$activePeriod] ?? 'today'),
-                'value' => number_format($items->total() ?? 0),
-                'valueId' => 'notifInboxCount',
-                'hintId' => 'notifInboxHint',
-                'extraClass' => 'slide-up',
-            ],
-            [
-                'label' => 'Queues',
-                'hint' => 'ATP, Request Checks, and liquidations',
-                'value' => 'Open dashboard',
-                'href' => '/accounting/dashboard',
-                'extraClass' => 'slide-up',
-            ],
-        ],
-    ])
 
     <section class="pm-card overflow-hidden slide-up" style="animation-delay:.1s">
         <div class="border-b border-slate-100 px-5 py-4">

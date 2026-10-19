@@ -16,7 +16,9 @@ use App\Support\LayoutEquipmentPayload;
 use App\Support\PropertyAssignments;
 use App\Support\EquipmentAcquisition;
 use App\Support\RoleAccess;
+use App\Support\BuildingLayout3D;
 use App\Support\RoomCategories;
+use App\Support\RoomStatuses;
 use App\Support\TransferLocks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -87,8 +89,27 @@ class InfrastructureController extends Controller
                 ->get()->groupBy('equipment_room_id')->map(fn ($items) => $items->take(4)->values());
         }
 
-        $rooms->each(function (Room $room) use ($reportMetrics, $frequentProblems, $schedules): void {
+        // Same live status rules as 3D campus monitoring (Critical / Under Maintenance / Normal).
+        $layoutStatusByRoom = BuildingLayout3D::rooms(['preset' => 'today'])->keyBy('room_id');
+
+        $rooms->each(function (Room $room) use ($reportMetrics, $frequentProblems, $schedules, $layoutStatusByRoom): void {
             $metric = $reportMetrics->get($room->room_id);
+            $layout = $layoutStatusByRoom->get($room->room_id);
+            $layoutStatus = (string) ($layout->dashboard_status ?? BuildingLayout3D::STATUS_NORMAL);
+            $layoutLabel = (string) ($layout->dashboard_label ?? RoomStatuses::NORMAL);
+            $statusColor = (string) ($layout->status_color ?? BuildingLayout3D::COLOR_NORMAL);
+
+            $room->layout_status = $layoutStatus;
+            $room->layout_label = $layoutLabel;
+            $room->status_color = $statusColor;
+            $room->departments = $layout->departments ?? [];
+            $room->report_count = (int) ($layout->report_count ?? 0);
+            $room->critical_report_count = (int) ($layout->critical_report_count ?? 0);
+            $room->high_report_count = (int) ($layout->high_report_count ?? 0);
+            $room->medium_report_count = (int) ($layout->medium_report_count ?? 0);
+            $room->low_report_count = (int) ($layout->low_report_count ?? 0);
+            $room->under_maintenance_scheduled = (bool) ($layout->under_maintenance_scheduled ?? false);
+
             $room->monitoring = [
 
                 'equipment_count' => $room->equipment->count(),
@@ -111,13 +132,21 @@ class InfrastructureController extends Controller
                     ->where('equipment_condition_status', 'Disposed')
                     ->count(),
 
-                'active_reports' => (int) ($metric->active_count ?? 0),
+                'active_reports' => (int) ($layout->report_count ?? $metric->active_count ?? 0),
 
                 'today_reports' => (int) ($metric->today_count ?? 0),
 
                 'week_reports' => (int) ($metric->week_count ?? 0),
 
                 'month_reports' => (int) ($metric->month_count ?? 0),
+
+                'critical_reports' => (int) ($layout->critical_report_count ?? 0),
+
+                'high_reports' => (int) ($layout->high_report_count ?? 0),
+
+                'medium_reports' => (int) ($layout->medium_report_count ?? 0),
+
+                'low_reports' => (int) ($layout->low_report_count ?? 0),
 
                 'frequent_problems' => $frequentProblems
                     ->get($room->room_id, collect())
@@ -171,7 +200,10 @@ class InfrastructureController extends Controller
 
                     'last_updated' => $room->room_updated_at,
 
-                    'status' => $room->room_status,
+                    // Live derived status for monitoring (not only manual room_status).
+                    'status' => $layoutLabel,
+                    'layout_status' => $layoutStatus,
+                    'status_color' => $statusColor,
 
                 ],
 
@@ -219,6 +251,31 @@ class InfrastructureController extends Controller
             'canManageCampusSetup' => $canManageCampusSetup,
             'requestedFloorId' => $requestedFloorId,
             'usedAssetTags' => $usedAssetTags,
+            'buildingStatusUrl' => route('admin.infrastructure.status'),
+        ]);
+    }
+
+    public function buildingStatus(Request $request): JsonResponse
+    {
+        $period = [
+            'preset' => (string) $request->query('preset', 'today'),
+            'from' => (string) $request->query('from', ''),
+            'to' => (string) $request->query('to', ''),
+        ];
+
+        [$from, $to, $preset] = BuildingLayout3D::resolvePeriod($period);
+
+        return response()->json([
+            'rooms' => BuildingLayout3D::statusSnapshot([
+                'preset' => $preset,
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+            ]),
+            'period' => [
+                'preset' => $preset,
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+            ],
         ]);
     }
 
@@ -442,13 +499,14 @@ class InfrastructureController extends Controller
             ],
             'floors.*.rooms' => ['nullable', 'array'],
             'floors.*.rooms.*.name' => ['required', 'string', 'max:255'],
-            'floors.*.rooms.*.type' => ['required', Rule::in([
-                'Lecture Room', 'Computer Laboratory', 'Hospitality Suite', 'Office',
-                'Library', 'Canteen', 'Clinic', 'Utility', 'Hallway', 'Exit',
-                'Restroom', 'Elevator', 'Stairs', 'HM Room', 'Hotel Room Simulation',
-                'Faculty Room', 'School Clinic', 'Storage / Stockroom',
-            ])],
-            'floors.*.rooms.*.status' => ['required', Rule::in(['Normal', 'Maintenance Needed', 'Critical'])],
+            'floors.*.rooms.*.type' => ['required', Rule::in(array_values(array_unique(array_merge(
+                RoomCategories::values(),
+                [
+                    'Hospitality Suite', 'Canteen', 'Clinic', 'Utility', 'Hallway', 'Exit',
+                    'Restroom', 'Elevator', 'Stairs',
+                ]
+            ))))],
+            'floors.*.rooms.*.status' => ['required', Rule::in(RoomStatuses::all())],
             'floors.*.rooms.*.equipment' => ['nullable', 'array'],
             'floors.*.rooms.*.equipment.*.name' => ['required', 'string', 'max:255'],
             'floors.*.rooms.*.equipment.*.category_id' => ['nullable', 'integer', 'exists:equipment_categories_table,equipment_category_id'],
@@ -615,7 +673,7 @@ class InfrastructureController extends Controller
                         'room_floor_id' => $floorId,
                         'room_name' => $roomData['name'],
                         'room_type' => $roomData['type'],
-                        'room_status' => $roomData['status'],
+                        'room_status' => RoomStatuses::normalize($roomData['status'] ?? null),
                         'room_color' => $this->roomColor($roomData['type']),
                         'room_x' => $position['x'],
                         'room_y' => $position['y'],
@@ -825,8 +883,7 @@ class InfrastructureController extends Controller
 
             'room_status'=>[
                 'nullable',
-                'string',
-                'max:255'
+                Rule::in(RoomStatuses::all()),
             ],
 
         ]);
@@ -839,7 +896,9 @@ class InfrastructureController extends Controller
 
             'room_color'=>$validated['room_color'] ?? $room->room_color,
 
-            'room_status'=>$validated['room_status'] ?? $room->room_status,
+            'room_status'=> isset($validated['room_status'])
+                ? RoomStatuses::normalize($validated['room_status'])
+                : $room->room_status,
 
         ]);
 

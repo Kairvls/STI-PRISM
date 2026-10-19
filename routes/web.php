@@ -10,7 +10,9 @@ use App\Http\Controllers\IssueCheckController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\SemesterInspectionController;
 use App\Http\Controllers\PropertyAssignmentController;
+use App\Http\Controllers\ComputerSetController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\PersonController;
 use App\Http\Controllers\PersonnelDirectoryController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
@@ -33,6 +35,7 @@ use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
 use App\Http\Controllers\FileMaintenanceController;
 use App\Http\Controllers\AccountSettingsController;
+use App\Http\Controllers\DisbursementVoucherController;
 
 /*
 |--------------------------------------------------------------------------
@@ -94,6 +97,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/{id}/open', [\App\Http\Controllers\NotificationController::class, 'open'])
         ->whereNumber('id')
         ->name('notifications.open');
+
+    // Shared Request No. explorer (pipeline + linked forms for PR-YYYYMM-####)
+    Route::get('/requests/{requestNo}', [\App\Http\Controllers\RequestExplorerController::class, 'show'])
+        ->where('requestNo', 'PR-\\d{4,6}-\\d{1,6}')
+        ->name('requests.show');
 
 });
 
@@ -363,6 +371,14 @@ Route::middleware(['auth', 'admin'])
             '/operations/building-layout',
             [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayout']
         )->name('operations.building-layout');
+        Route::get(
+            '/operations/building-layout/status',
+            [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayoutStatus']
+        )->name('operations.building-layout.status');
+        Route::get(
+            '/operations/building-layout/rooms/{room}',
+            [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayoutRoomDetail']
+        )->name('operations.building-layout.room');
 
         Route::get(
             '/operations/back-orders',
@@ -520,6 +536,7 @@ Route::middleware(['auth', 'admin'])
         // ==========================================
 
         Route::get('/infrastructure', [InfrastructureController::class, 'index'])->name('infrastructure.index');
+        Route::get('/infrastructure/status', [InfrastructureController::class, 'buildingStatus'])->name('infrastructure.status');
         Route::get('/infrastructure/campus', [InfrastructureController::class, 'loadCampus'])->name('infrastructure.campus.load');
         Route::post('/infrastructure/campus', [InfrastructureController::class, 'storeCampus'])->name('infrastructure.campus.store');
         Route::post('/infrastructure/campus/unlock-verify', [InfrastructureController::class, 'verifySetupUnlockCredential'])->name('infrastructure.campus.unlock-verify');
@@ -539,6 +556,10 @@ Route::middleware(['auth', 'admin'])
         Route::get('/rooms', [MaintenanceController::class, 'roomsDirectory'])->name('rooms.index');
         Route::post('/rooms', [MaintenanceController::class, 'storeDirectoryRoom'])->name('rooms.store');
         Route::post('/rooms/merge', [MaintenanceController::class, 'mergeDuplicateRooms'])->name('rooms.merge');
+        Route::post('/rooms/types', [MaintenanceController::class, 'storeRoomType'])->name('rooms.types.store');
+        Route::put('/rooms/types/{id}', [MaintenanceController::class, 'updateRoomType'])->whereNumber('id')->name('rooms.types.update');
+        Route::post('/rooms/types/{id}/archive', [MaintenanceController::class, 'archiveRoomType'])->whereNumber('id')->name('rooms.types.archive');
+        Route::delete('/rooms/types/{id}', [MaintenanceController::class, 'destroyRoomType'])->whereNumber('id')->name('rooms.types.destroy');
         Route::get('/rooms/{id}/equipment', [MaintenanceController::class, 'roomEquipmentPeek'])->name('rooms.equipment');
         Route::post('/rooms/{id}', [MaintenanceController::class, 'updateDirectoryRoom'])->name('rooms.update');
         Route::post('/rooms/{id}/archive', [MaintenanceController::class, 'archiveDirectoryRoom'])->name('rooms.archive');
@@ -550,6 +571,17 @@ Route::middleware(['auth', 'admin'])
         Route::post('/departments/{department}/archive', [DepartmentController::class, 'archive'])->whereNumber('department')->name('departments.archive');
         Route::post('/departments/{department}/restore', [DepartmentController::class, 'restore'])->whereNumber('department')->name('departments.restore');
         Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->whereNumber('department')->name('departments.destroy');
+        Route::post('/departments/{department}/persons', [PersonController::class, 'assignDepartment'])->whereNumber('department')->name('departments.persons.assign');
+
+        // Campus Persons master (identity source for reporters / property / users)
+        Route::get('/persons', [PersonController::class, 'index'])->name('persons.index');
+        Route::get('/persons/search', [PersonController::class, 'search'])->name('persons.search');
+        Route::get('/persons/import/template', [PersonController::class, 'downloadImportTemplate'])->name('persons.import.template');
+        Route::post('/persons/import/preview', [PersonController::class, 'previewImport'])->name('persons.import.preview');
+        Route::post('/persons/import', [PersonController::class, 'import'])->name('persons.import');
+        Route::post('/persons', [PersonController::class, 'store'])->name('persons.store');
+        Route::get('/persons/{id}', [PersonController::class, 'show'])->whereNumber('id')->name('persons.show');
+        Route::put('/persons/{id}', [PersonController::class, 'update'])->whereNumber('id')->name('persons.update');
 
         // Inventory: storage stock, adding equipment, editing, disposing and transfers
         Route::get('/inventory', [MaintenanceController::class, 'equipmentInventory'])->name('inventory.index');
@@ -639,6 +671,7 @@ Route::middleware(['auth', 'admin'])
         Route::post('/semester-inspections/{id}/inspect/{itemId}', [SemesterInspectionController::class, 'inspect'])->whereNumber(['id', 'itemId'])->name('semester-inspections.inspect');
         Route::post('/semester-inspections/{id}/complete', [SemesterInspectionController::class, 'complete'])->whereNumber('id')->name('semester-inspections.complete');
         Route::post('/semester-inspections/{id}/cancel', [SemesterInspectionController::class, 'cancel'])->whereNumber('id')->name('semester-inspections.cancel');
+        Route::post('/semester-inspections/{id}/archive', [SemesterInspectionController::class, 'archive'])->whereNumber('id')->name('semester-inspections.archive');
         Route::post('/semester-inspections/{id}/activate', [SemesterInspectionController::class, 'activate'])->whereNumber('id')->name('semester-inspections.activate');
 
         // Property assignment: same module as /maintenance/property-assignments
@@ -654,6 +687,17 @@ Route::middleware(['auth', 'admin'])
         Route::post('/property-assignments/equipment/{equipment}', [PropertyAssignmentController::class, 'store'])->whereNumber('equipment')->name('property-assignments.store');
         Route::post('/property-assignments/batch', [PropertyAssignmentController::class, 'storeBatch'])->name('property-assignments.batch');
         Route::post('/property-assignments/{assignment}/return', [PropertyAssignmentController::class, 'returnAssignment'])->whereNumber('assignment')->name('property-assignments.return');
+
+        // Computer sets (COMPSET tag + nested equipment membership)
+        Route::get('/computer-sets', [ComputerSetController::class, 'index'])->name('computer-sets.index');
+        Route::get('/computer-sets/available-equipment', [ComputerSetController::class, 'availableEquipment'])->name('computer-sets.available');
+        Route::get('/computer-sets/available-zones', [ComputerSetController::class, 'availableZones'])->name('computer-sets.zones');
+        Route::post('/computer-sets', [ComputerSetController::class, 'store'])->name('computer-sets.store');
+        Route::get('/computer-sets/{id}', [ComputerSetController::class, 'show'])->whereNumber('id')->name('computer-sets.show');
+        Route::put('/computer-sets/{id}', [ComputerSetController::class, 'update'])->whereNumber('id')->name('computer-sets.update');
+        Route::post('/computer-sets/{id}/members', [ComputerSetController::class, 'syncMembers'])->whereNumber('id')->name('computer-sets.members.sync');
+        Route::post('/computer-sets/{id}/members/add', [ComputerSetController::class, 'addMember'])->whereNumber('id')->name('computer-sets.members.add');
+        Route::post('/computer-sets/{id}/members/remove', [ComputerSetController::class, 'removeMember'])->whereNumber('id')->name('computer-sets.members.remove');
 
         // ==========================================
         // REPORTS
@@ -835,15 +879,115 @@ Route::middleware(['auth', 'school_admin'])
             [MaintenanceController::class, 'disposal']
         )->name('disposal.index');
 
+        // Departments: view only (Administrator manages create/edit/archive)
+        Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+        Route::get('/departments/{department}', [DepartmentController::class, 'show'])
+            ->whereNumber('department')
+            ->name('departments.show');
+
         $schoolAdminModuleRoutes();
         $schoolAdminRisActionRoutes();
+
+        // =====================================================
+        // ATP / Purchase Orders / Request Checks
+        // (moved from Accounting — School Administrator approves)
+        // =====================================================
+
+        Route::post(
+            '/saved-signatures',
+            [AccountingController::class, 'storeSavedSignature']
+        )->name('saved-signatures.store');
+
+        Route::delete(
+            '/saved-signatures/{signature}',
+            [AccountingController::class, 'destroySavedSignature']
+        )->whereNumber('signature')->name('saved-signatures.destroy');
+
+        Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase'])->name('atp.index');
+        Route::get('/authority-to-purchase/{id}', [AccountingController::class, 'showAtp'])->whereNumber('id')->name('atp.show');
+        Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp'])->whereNumber('id')->name('atp.approve');
+        Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp'])->whereNumber('id')->name('atp.revise');
+
+        // Purchase Orders retired — redirect day-to-day SA work to ATP review.
+        Route::redirect('/purchase-orders', '/school-admin/authority-to-purchase')->name('purchase-orders.index');
+        Route::get('/purchase-orders/{id}', fn () => redirect('/school-admin/authority-to-purchase'))->whereNumber('id')->name('purchase-orders.show');
+        Route::post('/purchase-orders/{id}/approve', fn () => redirect('/school-admin/authority-to-purchase')->with('error', 'Purchase Orders are no longer used. Review each Authority to Purchase instead.'))->whereNumber('id')->name('purchase-orders.approve');
+        Route::post('/purchase-orders/{id}/revise', fn () => redirect('/school-admin/authority-to-purchase')->with('error', 'Purchase Orders are no longer used. Review each Authority to Purchase instead.'))->whereNumber('id')->name('purchase-orders.revise');
+
+        Route::get('/ris/{id}', [AccountingController::class, 'showRis'])->whereNumber('id')->name('ris.show');
+        Route::get('/ris/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRisAttachment'])
+            ->whereNumber(['id', 'attachmentId'])
+            ->name('ris.attachment');
+
+        Route::get('/request-check', [AccountingController::class, 'requestCheck'])->name('rfc.index');
+        Route::get('/request-check/{id}', [AccountingController::class, 'showRequestCheck'])->whereNumber('id')->name('rfc.show');
+        Route::post('/request-check/{id}/approve', [AccountingController::class, 'approveRequestCheck'])->whereNumber('id')->name('rfc.approve');
+        Route::post('/request-check/{id}/revise', [AccountingController::class, 'reviseRequestCheck'])->whereNumber('id')->name('rfc.revise');
+        Route::post('/request-check/{id}/release-funds', [AccountingController::class, 'releaseFunds'])->whereNumber('id')->name('rfc.release-funds');
+        Route::get('/request-check/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRfcAttachment'])
+            ->whereNumber(['id', 'attachmentId'])
+            ->name('rfc.attachment');
+
+        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'schoolAdminIndex'])->name('dv.index');
+        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'schoolAdminShow'])->whereNumber('id')->name('dv.show');
+        Route::post('/disbursement-vouchers/{id}/approve', [DisbursementVoucherController::class, 'approve'])->whereNumber('id')->name('dv.approve');
+        Route::post('/disbursement-vouchers/{id}/revise', [DisbursementVoucherController::class, 'revise'])->whereNumber('id')->name('dv.revise');
+
+        Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
+            ->whereNumber(['revisionId', 'index'])
+            ->name('document-revision-image');
     });
 
+// =====================================================
+// SCHOOL SUPPLY / MATERIAL OFFICER ROUTES
+// =====================================================
 
+Route::middleware(['auth', 'supply_officer'])
+    ->prefix('supply-officer')
+    ->name('supply-officer.')
+    ->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\SupplyOfficerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/notifications', [\App\Http\Controllers\SupplyOfficerController::class, 'notifications'])->name('notifications');
+        Route::get('/incoming-ris', [\App\Http\Controllers\SupplyOfficerController::class, 'incomingRis'])->name('incoming-ris');
+        Route::get('/incoming-ris/{risId}', [\App\Http\Controllers\SupplyOfficerController::class, 'showIncomingRis'])
+            ->whereNumber('risId')
+            ->name('incoming-ris.show');
+        Route::get('/incoming-ris/{risId}/attachments/{attachmentId}', [\App\Http\Controllers\SupplyOfficerController::class, 'downloadIncomingRisAttachment'])
+            ->whereNumber(['risId', 'attachmentId'])
+            ->name('incoming-ris.attachment');
 
+        Route::get('/profile', [AccountSettingsController::class, 'profile'])->name('profile');
+        Route::post('/profile', [AccountSettingsController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/profile/picture', [AccountSettingsController::class, 'updateProfilePicture'])->name('profile.picture');
+        Route::delete('/profile/picture', [AccountSettingsController::class, 'removeProfilePicture'])->name('profile.picture.remove');
+        Route::get('/security', [AccountSettingsController::class, 'security'])->name('security');
+        Route::put('/security/password', [AccountSettingsController::class, 'updatePassword'])->name('security.password');
 
+        Route::get('/authority-to-purchase', [AuthorityToPurchaseController::class, 'index'])->name('atp.index');
+        Route::get('/authority-to-purchase/create', [AuthorityToPurchaseController::class, 'create'])->name('atp.create');
+        Route::post('/authority-to-purchase', [AuthorityToPurchaseController::class, 'store'])->name('atp.store');
+        Route::get('/authority-to-purchase/export-blank-xlsx', [AuthorityToPurchaseController::class, 'exportBlankExcel'])->name('atp.export-blank-xlsx');
+        Route::get('/authority-to-purchase/export-blank-docx', [AuthorityToPurchaseController::class, 'exportBlankWord'])->name('atp.export-blank-docx');
+        Route::get('/authority-to-purchase/{id}', [AuthorityToPurchaseController::class, 'show'])->name('atp.show');
+        Route::get('/authority-to-purchase/{id}/edit', [AuthorityToPurchaseController::class, 'edit'])->name('atp.edit');
+        Route::put('/authority-to-purchase/{id}', [AuthorityToPurchaseController::class, 'update'])->name('atp.update');
+        Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
+        Route::post('/authority-to-purchase/{id}/release-purchaser', [AuthorityToPurchaseController::class, 'releaseToPurchaser'])->name('atp.release-purchaser');
+        Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+        Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
+        Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
+        Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');
+        Route::get('/authority-to-purchase/{id}/export-docx', [AuthorityToPurchaseController::class, 'exportWord'])->name('atp.export-docx');
 
-
+        Route::post('/ris/saved-signatures', [RisController::class, 'storeSavedSignature'])->name('ris.saved-signatures.store');
+        Route::delete('/ris/saved-signatures/{signature}', [RisController::class, 'destroySavedSignature'])
+            ->whereNumber('signature')
+            ->name('ris.saved-signatures.destroy');
+        Route::get('/ris/attachments/{attachmentId}/download', [RisController::class, 'downloadAttachment'])->name('ris.attachments.download');
+        Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
+            ->whereNumber(['revisionId', 'index'])
+            ->name('document-revision-image');
+    });
 
 /*
 |--------------------------------------------------------------------------
@@ -903,6 +1047,16 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
         '/maintenance/dashboard',
         [MaintenanceController::class, 'dashboard']
     );
+
+    Route::get(
+        '/maintenance/building-layout/status',
+        [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayoutStatus']
+    )->name('maintenance.building-layout.status');
+
+    Route::get(
+        '/maintenance/building-layout/rooms/{room}',
+        [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayoutRoomDetail']
+    )->name('maintenance.building-layout.room');
 
     Route::get(
         '/maintenance/settings/profile',
@@ -1028,11 +1182,6 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
     */
 
     Route::get(
-        '/maintenance/reports/details/{id}',
-        [MaintenanceController::class, 'reportDetails']
-    );
-
-    Route::get(
         '/maintenance/reports/assign/{id}',
         [MaintenanceController::class, 'assignReportPage']
     );
@@ -1080,12 +1229,6 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
 });
 
 Route::middleware(['auth', 'maintenance'])->group(function () {
-
-    //Report Details
-    Route::get(
-        '/maintenance/reports/details/{id}',
-        [MaintenanceController::class, 'reportDetails']
-    );
 
     // =====================================================
     // TODAY'S REPORTS
@@ -1242,6 +1385,12 @@ Route::post(
 */
 
 Route::middleware(['auth', 'maintenance:admin'])->group(function () {
+
+    // Shared report detail (Maintenance + Admin portals)
+    Route::get(
+        '/maintenance/reports/details/{id}',
+        [MaintenanceController::class, 'reportDetails']
+    );
 
     // All equipment register + deployed
     Route::get(
@@ -1592,6 +1741,11 @@ Route::post(
 )->whereNumber('id')->name('maintenance.semester-inspections.cancel');
 
 Route::post(
+    '/maintenance/semester-inspections/{id}/archive',
+    [SemesterInspectionController::class, 'archive']
+)->whereNumber('id')->name('maintenance.semester-inspections.archive');
+
+Route::post(
     '/maintenance/semester-inspections/{id}/activate',
     [SemesterInspectionController::class, 'activate']
 )->whereNumber('id')->name('maintenance.semester-inspections.activate');
@@ -1769,7 +1923,17 @@ Route::middleware([
         [PropertyAssignmentController::class, 'index']
     )->name('property-assignments.index');
 
+    // Computer sets are Admin-only — send old Maintenance bookmarks to Admin.
+    Route::get('/computer-sets/{rest?}', function (\Illuminate\Http\Request $request, ?string $rest = null) {
+        $target = '/admin/computer-sets'.($rest ? '/'.$rest : '');
+        $qs = $request->getQueryString();
+
+        return redirect($target.($qs ? '?'.$qs : ''));
+    })->where('rest', '.*')->name('computer-sets.redirect');
+
     Route::get('/personnel-directory', [PersonnelDirectoryController::class, 'index'])->name('personnel-directory.index');
+
+    Route::get('/persons/search', [PersonController::class, 'search'])->name('persons.search');
 
     Route::get(
         '/property-assignments/people/create',
@@ -2048,6 +2212,11 @@ Route::middleware([
         Route::get('/procurement-records/{package}/attachments/{attachmentId}', [ProcurementRecordPackageController::class, 'presidentDownloadAttachment'])->name('procurement-records.attachment');
         Route::get('/procurement-records/{id}', [ProcurementRecordPackageController::class, 'presidentShow'])->name('procurement-records.show');
 
+        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'presidentIndex'])->name('dv.index');
+        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'presidentShow'])->whereNumber('id')->name('dv.show');
+        Route::post('/disbursement-vouchers/{id}/approve', [DisbursementVoucherController::class, 'presidentApprove'])->whereNumber('id')->name('dv.approve');
+        Route::post('/disbursement-vouchers/{id}/revise', [DisbursementVoucherController::class, 'presidentRevise'])->whereNumber('id')->name('dv.revise');
+
         // =====================================================
         // APPROVAL DECISION ENDPOINTS
         // =====================================================
@@ -2193,27 +2362,38 @@ Route::middleware(['auth', 'accounting'])
             [AccountingController::class, 'destroySavedSignature']
         )->whereNumber('signature')->name('accounting.saved-signatures.destroy');
 
-        Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase'])->name('accounting.atp.index');
-        Route::get('/authority-to-purchase/{id}', [AccountingController::class, 'showAtp']);
-        Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp'])->name('accounting.atp.approve');
-        Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp'])->name('accounting.atp.revise');
+        // ATP / PO / RFC moved to School Administrator — keep bookmarks working
+        Route::redirect('/authority-to-purchase', '/school-admin/authority-to-purchase');
+        Route::get('/authority-to-purchase/{id}', fn ($id) => redirect('/school-admin/authority-to-purchase/'.$id))->whereNumber('id');
+        Route::redirect('/purchase-orders', '/school-admin/authority-to-purchase');
+        Route::get('/purchase-orders/{id}', fn () => redirect('/school-admin/authority-to-purchase'))->whereNumber('id');
+        Route::redirect('/request-check', '/school-admin/request-check');
+        Route::get('/request-check/{id}', fn ($id) => redirect('/school-admin/request-check/'.$id))->whereNumber('id');
+        Route::get('/ris/{id}', fn ($id) => redirect('/school-admin/ris/'.$id))->whereNumber('id');
 
-        Route::get('/purchase-orders', [AccountingController::class, 'purchaseOrders'])->name('accounting.purchase-orders.index');
-        Route::get('/purchase-orders/{id}', [AccountingController::class, 'showPurchaseOrder'])->name('accounting.purchase-orders.show');
-        Route::post('/purchase-orders/{id}/approve', [AccountingController::class, 'approvePurchaseOrder'])->name('accounting.purchase-orders.approve');
-        Route::post('/purchase-orders/{id}/revise', [AccountingController::class, 'revisePurchaseOrder'])->name('accounting.purchase-orders.revise');
-
-        Route::get('/ris/{id}', [AccountingController::class, 'showRis'])->whereNumber('id')->name('accounting.ris.show');
-        Route::get('/ris/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRisAttachment'])
-            ->whereNumber(['id', 'attachmentId'])
-            ->name('accounting.ris.attachment');
-
-        Route::get('/request-check', [AccountingController::class, 'requestCheck'])->name('accounting.rfc.index');
-        Route::get('/request-check/{id}', [AccountingController::class, 'showRequestCheck']);
-        Route::post('/request-check/{id}/approve', [AccountingController::class, 'approveRequestCheck']);
-        Route::post('/request-check/{id}/revise', [AccountingController::class, 'reviseRequestCheck']);
-        Route::post('/request-check/{id}/release-funds', [AccountingController::class, 'releaseFunds']);
-        Route::get('/request-check/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRfcAttachment']);
+        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'index'])->name('accounting.dv.index');
+        Route::post('/disbursement-vouchers/from-package', [DisbursementVoucherController::class, 'createFromPackage'])->name('accounting.dv.from-package');
+        Route::get('/disbursement-vouchers/package/{rfcId}/rfc', [DisbursementVoucherController::class, 'viewPackageRfc'])
+            ->whereNumber('rfcId')
+            ->name('accounting.dv.package.rfc');
+        Route::get('/disbursement-vouchers/package/{rfcId}/atp/{atpId}', [DisbursementVoucherController::class, 'viewPackageAtp'])
+            ->whereNumber('rfcId')
+            ->whereNumber('atpId')
+            ->name('accounting.dv.package.atp');
+        Route::get('/disbursement-vouchers/package/{rfcId}/ris/{risId}', [DisbursementVoucherController::class, 'viewPackageRis'])
+            ->whereNumber('rfcId')
+            ->whereNumber('risId')
+            ->name('accounting.dv.package.ris');
+        Route::get('/disbursement-vouchers/package/{rfcId}/ris/{risId}/attachments/{attachmentId}', [DisbursementVoucherController::class, 'downloadPackageRisAttachment'])
+            ->whereNumber('rfcId')
+            ->whereNumber('risId')
+            ->whereNumber('attachmentId')
+            ->name('accounting.dv.package.ris.attachment');
+        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'show'])->whereNumber('id')->name('accounting.dv.show');
+        Route::put('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'update'])->whereNumber('id')->name('accounting.dv.update');
+        Route::post('/disbursement-vouchers/{id}/submit', [DisbursementVoucherController::class, 'submit'])->whereNumber('id')->name('accounting.dv.submit');
+        Route::post('/disbursement-vouchers/{id}/submit-president', [DisbursementVoucherController::class, 'submitToPresident'])->whereNumber('id')->name('accounting.dv.submit-president');
+        Route::post('/disbursement-vouchers/{id}/release-check', [DisbursementVoucherController::class, 'releaseCheck'])->whereNumber('id')->name('accounting.dv.release-check');
 
         Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports'])->name('accounting.liq.index');
         Route::get('/liquidation-reports/{id}', [AccountingController::class, 'showLiquidation']);

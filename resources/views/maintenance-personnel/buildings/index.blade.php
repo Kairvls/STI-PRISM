@@ -4,13 +4,6 @@
 
 <div class="text-black">
     <div class="mb-10">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Buildings', 'hint' => '', 'value' => number_format($totalBuildings)],
-                ['label' => 'Floors', 'hint' => '', 'value' => number_format($totalFloors)],
-                ['label' => 'Rooms', 'hint' => '', 'value' => number_format($totalRooms)],
-            ],
-        ])
     </div>
 
     <table>

@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * LR "No." values: LR-YYYYMM-00001
+ * LR "No." values: LR-YYYYMMDD-00001
  * Assigned on submit only — drafts stay null.
  */
 class LrFormNumber
 {
-    public const FORM_NUMBER_REGEX = '/^LR-\d{6}-\d{5}$/';
+    /** Accepts LR-YYYYMMDD-00001 and legacy LR-YYYYMM-00001 */
+    public const FORM_NUMBER_REGEX = '/^LR-\d{6,8}-\d{5}$/';
 
     public static function isValid(?string $value): bool
     {
@@ -19,13 +20,12 @@ class LrFormNumber
     }
 
     /**
-     * Next LR No. — the YYYYMM prefix is the current month, but the sequence
-     * continues across months (non-draft rows only).
+     * Next LR No. — YYYYMMDD is today; sequence continues across days.
      */
     public static function next(): string
     {
-        $ym = now()->format('Ym');
-        $prefix = 'LR-'.$ym.'-';
+        $ymd = now()->format('Ymd');
+        $prefix = 'LR-'.$ymd.'-';
         $max = 0;
 
         if (! Schema::hasTable('liquidation_reports_table')
@@ -45,7 +45,7 @@ class LrFormNumber
         }
 
         foreach ($query->pluck('liquidation_report_form_number') as $formNumber) {
-            if (preg_match('/^LR-\d{6}-(\d{5})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^LR-\d{6,8}-(\d{5})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }

@@ -108,7 +108,7 @@
         <div class="doc-actions doc-actions-split">
             <div class="doc-actions-left">
                 <div id="reviewAttachments" class="review-attachments-inline hidden">
-                    <p class="review-attachments-label">Supporting documents</p>
+                    <p class="review-attachments-label">Canvas</p>
                     <div id="reviewAttachmentsList" class="review-attachments-list"></div>
                 </div>
             </div>
@@ -201,7 +201,7 @@
         <div class="doc-actions doc-actions-split">
             <div class="doc-actions-left">
                 <div id="previewAttachments" class="review-attachments-inline">
-                    <p class="review-attachments-label">Supporting documents</p>
+                    <p class="review-attachments-label">Canvas</p>
                     <div id="previewAttachmentsList" class="review-attachments-list">
                         <span class="text-xs text-slate-400">Loading…</span>
                     </div>

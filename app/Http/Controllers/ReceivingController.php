@@ -126,16 +126,26 @@ class ReceivingController extends Controller
         DocumentUrgency::select($query, 'RR');
         if ($filter === 'queue') {
             DocumentUrgency::orderUrgentFirst($query, 'RR');
-        }
-
-        try {
-            $reports = $query
-                ->orderByDesc($sortColumn)
-                ->orderByDesc('receiving_reports_table.receiving_report_id')
-                ->paginate(10)
-                ->withQueryString();
-        } catch (\Throwable $e) {
-            $reports = $empty;
+            // Urgent first, then oldest waiting (fair queue).
+            try {
+                $reports = $query
+                    ->orderBy($sortColumn)
+                    ->orderBy('receiving_reports_table.receiving_report_id')
+                    ->paginate(10)
+                    ->withQueryString();
+            } catch (\Throwable $e) {
+                $reports = $empty;
+            }
+        } else {
+            try {
+                $reports = $query
+                    ->orderByDesc($sortColumn)
+                    ->orderByDesc('receiving_reports_table.receiving_report_id')
+                    ->paginate(10)
+                    ->withQueryString();
+            } catch (\Throwable $e) {
+                $reports = $empty;
+            }
         }
 
         $ids = $reports->getCollection()->pluck('receiving_report_id');

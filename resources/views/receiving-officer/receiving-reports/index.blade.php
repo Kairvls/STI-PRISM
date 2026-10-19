@@ -71,8 +71,12 @@
     <div class="space-y-6">
         @php
             $focusKey = $attentionFocus['key'] ?? null;
-            // Leftover is a subset of the queue, so no card total matches it.
-            $activeCard = $focusKey === 'leftover' || (int) request('rr') > 0 ? null : $filter;
+            $statusFilters = [
+                'queue' => 'For Second Count',
+                'completed' => 'Delivered',
+                'returned' => 'Returned',
+            ];
+            $activeStatus = $focusKey === 'leftover' || (int) request('rr') > 0 ? null : $filter;
         @endphp
         @if(!empty($dateFilter))
             <p class="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/80 px-3.5 py-2 text-xs font-medium text-blue-800">
@@ -80,33 +84,6 @@
                 <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="font-semibold underline decoration-blue-300 underline-offset-2 hover:text-blue-950">Clear date</a>
             </p>
         @endif
-
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-            @php
-                $statCards = [
-                    ['key' => 'queue', 'label' => 'For Second Count', 'hint' => 'Awaiting verification', 'value' => $counts['queue']],
-                    ['key' => 'completed', 'label' => 'Delivered', 'hint' => 'Accepted into inventory', 'value' => $counts['completed']],
-                    ['key' => 'returned', 'label' => 'Returned', 'hint' => 'Sent back to Purchaser', 'value' => $counts['returned']],
-                ];
-            @endphp
-            @foreach ($statCards as $card)
-                <a
-                    href="{{ route('receiving.rr.index', array_filter(['status' => $card['key'], 'date' => $dateFilter ?? null])) }}"
-                    class="group rounded-2xl border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm {{ $activeCard === $card['key'] ? 'border-[#0025cc]/60 ring-2 ring-[#0025cc]/15' : 'border-slate-200' }}"
-                >
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
-                            <p class="mt-1 text-xs text-slate-400">{{ $card['hint'] }}</p>
-                        </div>
-                        @if ($activeCard === $card['key'])
-                            <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#0025cc]"></span>
-                        @endif
-                    </div>
-                    <p class="mt-4 text-3xl font-semibold tracking-tight text-slate-950">{{ $card['value'] }}</p>
-                </a>
-            @endforeach
-        </div>
 
         @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $reports->total()])
 
@@ -133,24 +110,40 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                    <input
-                        type="text"
-                        name="search"
-                        value="{{ request('search') }}"
-                        placeholder="Search RR, RFC, or received from"
-                        class="h-10 w-full max-w-md sm:ml-auto rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <nav
+                        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        role="tablist"
+                        aria-label="Receiving report status filters"
                     >
-                    <button type="submit" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
-                        <i data-lucide="search" class="h-3.5 w-3.5"></i>
-                        Search
-                    </button>
-                    @if(request()->filled('search'))
-                        <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null, 'focus' => $focusKey])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
-                            Reset
-                        </a>
-                    @endif
+                        @foreach ($statusFilters as $key => $label)
+                            <a
+                                href="{{ route('receiving.rr.index', array_filter(['status' => $key, 'date' => $dateFilter ?? null, 'search' => request('search') ?: null])) }}"
+                                role="tab"
+                                aria-selected="{{ $activeStatus === $key ? 'true' : 'false' }}"
+                                class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $activeStatus === $key ? 'bg-slate-100 font-medium text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                            >{{ $label }}</a>
+                        @endforeach
+                    </nav>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                        <input
+                            type="text"
+                            name="search"
+                            value="{{ request('search') }}"
+                            placeholder="Search RR, RFC, or received from"
+                            class="h-10 w-full max-w-md rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                        >
+                        <button type="submit" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                            <i data-lucide="search" class="h-3.5 w-3.5"></i>
+                            Search
+                        </button>
+                        @if(request()->filled('search'))
+                            <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null, 'focus' => $focusKey])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                                Reset
+                            </a>
+                        @endif
+                    </div>
                 </div>
             </div>
 

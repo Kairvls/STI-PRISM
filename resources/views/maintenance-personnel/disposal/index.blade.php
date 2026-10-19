@@ -47,21 +47,7 @@
     @endphp
     <div class="mb-6 mt-6">
         @if ($disposedOnly)
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Disposed Equipment', 'hint' => 'Permanently disposed', 'value' => number_format($disposedOnlyStats['total'] ?? 0)],
-                ['label' => 'Disposed This Month', 'hint' => now()->format('F Y'), 'value' => number_format($disposedOnlyStats['thisMonth'] ?? 0)],
-                ['label' => 'Purchase Value Written Off', 'hint' => 'Total purchase cost of disposed items', 'value' => '₱'.number_format($disposedOnlyStats['writtenOff'] ?? 0, 2)],
-            ],
-        ])
         @else
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Disposal Records', 'hint' => $disposalMonthlyHint, 'value' => number_format($totalDisposalRecords)],
-                ['label' => 'Damaged Disposals', 'hint' => number_format($damagedDisposalsPercentage, 2) . '% of disposal records', 'value' => number_format($damagedDisposals)],
-                ['label' => 'Disposed Equipment', 'hint' => number_format($disposedEquipmentPercentage, 2) . '% of all equipment', 'value' => number_format($disposedEquipment)],
-            ],
-        ])
         @endif
     </div>
 
@@ -122,9 +108,7 @@
             {{-- ADD BETWEEN HEADER AND TABLE --}}
             {{-- ===================================================== --}}
 
-            <form
-                method="GET"
-                action="{{ url()->current() }}"
+            <form method="GET" action="{{ url()->current() }}" data-auto-filter
                 class="border-b border-slate-200 px-5 py-4"
             >
                 <input type="hidden" name="archive" value="{{ !empty($showArchive) ? 1 : 0 }}" />

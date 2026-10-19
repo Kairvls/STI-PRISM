@@ -1208,8 +1208,9 @@ a.icon-btn:hover {
     gap: 4px;
 }
 .review-attachment-link {
-    font-size: 0.8125rem;
-    color: #2563eb;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #0025cc;
     text-decoration: none;
 }
 .review-attachment-link:hover { text-decoration: underline; }
@@ -1364,4 +1365,81 @@ a.icon-btn:hover {
 .pm-table-word-btn svg {
     width: 14px;
     height: 14px;
+}
+
+/* Fullscreen document modals - fill viewport width AND height.
+   Do NOT stretch the overlay flex cross-axis to 100vh ? that clips the white
+   panel background while signature/actions paint over the dark backdrop. */
+.fixed.inset-0:has(.pur-modal-is-fullscreen) {
+    align-items: flex-start;
+}
+
+.fixed.inset-0:has(.pur-modal-is-fullscreen) > div {
+    min-height: 100dvh;
+    height: auto;
+    align-items: stretch;
+}
+
+.pur-modal-is-fullscreen {
+    min-height: 100dvh !important;
+    height: auto !important;
+    max-height: none !important;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff !important;
+    overflow: visible;
+}
+
+.pur-modal-is-fullscreen > form {
+    flex: 1 0 auto;
+    min-height: auto;
+    height: auto;
+    background-color: #fff;
+}
+
+.pur-modal-is-fullscreen .bg-slate-100,
+.pur-modal-is-fullscreen .bg-gray-100 {
+    min-height: calc(100dvh - 4.75rem);
+    padding: 1rem 1.25rem;
+}
+
+@media (min-width: 768px) {
+    .pur-modal-is-fullscreen .bg-slate-100 {
+        padding: 1.25rem 1.75rem;
+    }
+}
+
+.pur-modal-is-fullscreen .atp-print-sheet,
+.pur-modal-is-fullscreen .rfc-print-sheet,
+.pur-modal-is-fullscreen .rr-print-sheet,
+.pur-modal-is-fullscreen .liq-print-sheet,
+.pur-modal-is-fullscreen .dv-print-sheet,
+.pur-modal-is-fullscreen .ris-print-sheet {
+    max-width: none !important;
+    width: 100%;
+    min-height: calc(100dvh - 14rem);
+    box-shadow: none;
+}
+
+.pur-modal-is-fullscreen .dv-print-sheet > table.dv-grid {
+    min-height: calc(100dvh - 16rem);
+}
+
+.pur-modal-is-fullscreen [id^="purSigSlot-"],
+.pur-modal-is-fullscreen [id^="roSigSlot-"] {
+    max-width: none !important;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    background-color: #fff;
+}
+
+.pur-modal-is-fullscreen #purDocSignaturePanel {
+    background-color: #fff;
+}
+
+.pur-modal-is-fullscreen .bg-slate-100 > .mx-auto {
+    max-width: none !important;
+    width: 100%;
 }

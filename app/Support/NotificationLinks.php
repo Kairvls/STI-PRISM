@@ -31,6 +31,7 @@ class NotificationLinks
             'ris' => self::ris($role, $stored, $id),
             'atp' => self::atp($role, $stored, $id),
             'rfc' => self::rfc($role, $stored, $id),
+            'dv' => self::dv($role, $id),
             'po' => self::po($role, $id),
             'liq' => self::liq($role, $id),
             'rr' => self::rr($role, $stored, $id),
@@ -38,7 +39,7 @@ class NotificationLinks
             'borrowing_record' => $role === WorkflowNotifier::ROLE_SCHOOL_ADMIN
                 ? '/school-admin/operations/borrowing?record='.$id
                 : '/admin/borrowing?record='.$id,
-            'maintenance_schedule' => self::maintenanceOrAdmin($role, $stored, 'schedules', 'operations/schedules', $id),
+            'maintenance_schedule' => self::maintenanceOrAdmin($role, $stored, 'schedules', 'schedules', $id),
             'equipment_transfer' => match (true) {
                 $role === WorkflowNotifier::ROLE_ADMIN => '/admin/inventory/deployed?record='.$id,
                 str_starts_with($stored, '/maintenance/') => '/maintenance/equipment/deployed?record='.$id,
@@ -84,14 +85,20 @@ class NotificationLinks
 
     private static function atp(string $role, string $stored, int $id): ?string
     {
-        if ($role === WorkflowNotifier::ROLE_ACCOUNTING) {
-            return '/accounting/authority-to-purchase/'.$id;
+        if (in_array($role, [WorkflowNotifier::ROLE_SCHOOL_ADMIN, WorkflowNotifier::ROLE_ACCOUNTING], true)) {
+            return ProcurementReviewPortal::atp($id);
+        }
+
+        if ($role === WorkflowNotifier::ROLE_SUPPLY_OFFICER) {
+            return str_contains($stored, 'view_atp=')
+                ? $stored
+                : '/supply-officer/authority-to-purchase?view_atp='.$id;
         }
 
         if ($role === WorkflowNotifier::ROLE_PURCHASER) {
             return str_contains($stored, 'selected_atp=') || str_contains($stored, 'view_atp=')
                 ? $stored
-                : '/purchaser/authority-to-purchase?view_atp='.$id;
+                : '/purchaser/request-check?selected_atp='.$id;
         }
 
         return null;
@@ -99,8 +106,14 @@ class NotificationLinks
 
     private static function rfc(string $role, string $stored, int $id): ?string
     {
+        if ($role === WorkflowNotifier::ROLE_SCHOOL_ADMIN) {
+            return ProcurementReviewPortal::requestCheck($id);
+        }
+
         if ($role === WorkflowNotifier::ROLE_ACCOUNTING) {
-            return '/accounting/request-check/'.$id;
+            return str_contains($stored, 'disbursement-vouchers')
+                ? $stored
+                : '/accounting/disbursement-vouchers?status=incoming&rfc='.$id;
         }
 
         if ($role === WorkflowNotifier::ROLE_PURCHASER) {
@@ -112,10 +125,22 @@ class NotificationLinks
         return null;
     }
 
+    private static function dv(string $role, int $id): ?string
+    {
+        return match ($role) {
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN => ProcurementReviewPortal::disbursementVoucher($id),
+            WorkflowNotifier::ROLE_ACCOUNTING => '/accounting/disbursement-vouchers?view_dv='.$id.'&status=approved',
+            WorkflowNotifier::ROLE_PRESIDENT => '/president/disbursement-vouchers/'.$id,
+            WorkflowNotifier::ROLE_PURCHASER => '/purchaser/request-check',
+            default => null,
+        };
+    }
+
     private static function po(string $role, int $id): ?string
     {
         return match ($role) {
-            WorkflowNotifier::ROLE_ACCOUNTING => '/accounting/purchase-orders/'.$id,
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+            WorkflowNotifier::ROLE_ACCOUNTING => ProcurementReviewPortal::purchaseOrder($id),
             WorkflowNotifier::ROLE_PURCHASER => '/purchaser/purchase-orders?view_po='.$id,
             default => null,
         };

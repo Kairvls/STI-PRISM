@@ -18,7 +18,7 @@ return new class extends Migration
         'Guidance',
         'Library',
         'Maintenance',
-        'MIS / IT',
+        'IT Department',
         'Registrar',
         'Security',
         'Student Affairs',

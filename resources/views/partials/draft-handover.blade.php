@@ -43,67 +43,116 @@
 
     @if($handoverIncoming->isNotEmpty())
         <div
-            class="mb-6 rounded-2xl border border-blue-200 bg-blue-50/60 p-4"
-            x-data="{ previewUrl: null, previewTitle: '', previewAccept: '' }"
+            class="mb-6"
+            x-data="{
+                inboxOpen: {{ request()->boolean('handover_inbox') ? 'true' : 'false' }},
+                previewUrl: null,
+                previewTitle: '',
+                previewAccept: '',
+            }"
+            x-on:open-handover-inbox.window="inboxOpen = true"
         >
-            <div class="mb-3 flex items-center gap-2">
-                <i data-lucide="inbox" class="h-4 w-4 text-[#0025cc]"></i>
-                <p class="text-sm font-semibold text-slate-900">
-                    {{ $handoverTypeLabel }} drafts passed to you
-                    <span class="ml-1 rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[11px] font-semibold text-white">{{ $handoverIncoming->count() }}</span>
-                </p>
-            </div>
-            <div class="space-y-2">
-                @foreach($handoverIncoming as $handover)
-                    <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-blue-100 bg-white px-4 py-3">
-                        <div class="min-w-0 flex-1">
-                            <p class="font-semibold text-slate-900">{{ $handover->document_label }}</p>
-                            <p class="mt-0.5 text-xs text-slate-500">
-                                From <span class="font-medium text-slate-700">{{ $handover->from_name ?: 'a co-worker' }}</span>
-                                · {{ \Carbon\Carbon::parse($handover->handover_created_at)->diffForHumans() }}
-                            </p>
-                            @if(filled($handover->document_summary))
-                                <p class="mt-1 text-xs text-slate-600">{{ $handover->document_summary }}</p>
-                            @endif
-                            @if(filled($handover->handover_note))
-                                <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">“{{ $handover->handover_note }}”</p>
-                            @endif
-                        </div>
-                        <div class="flex shrink-0 items-start gap-2">
+            <button
+                type="button"
+                x-on:click="inboxOpen = true"
+                class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-[13px] font-semibold text-[#0025cc] transition hover:bg-blue-100"
+            >
+                <i data-lucide="inbox" class="h-4 w-4"></i>
+                {{ $handoverTypeLabel }} drafts passed to you
+                <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[11px] font-semibold text-white">{{ $handoverIncoming->count() }}</span>
+            </button>
+
+            <template x-teleport="body">
+                <div
+                    x-show="inboxOpen"
+                    x-cloak
+                    x-transition.opacity
+                    x-on:keydown.escape.window="if (!previewUrl) inboxOpen = false"
+                    x-on:click.self="inboxOpen = false"
+                    class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-3 sm:p-6"
+                >
+                    <div
+                        class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="{{ $handoverTypeLabel }} drafts passed to you"
+                    >
+                        <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <i data-lucide="inbox" class="h-4 w-4 shrink-0 text-[#0025cc]"></i>
+                                <div class="min-w-0">
+                                    <p class="text-base font-semibold text-gray-950">
+                                        {{ $handoverTypeLabel }} drafts passed to you
+                                    </p>
+                                    <p class="text-xs text-gray-500">{{ $handoverIncoming->count() }} waiting for Accept or Decline</p>
+                                </div>
+                            </div>
                             <button
                                 type="button"
-                                x-on:click="previewTitle = @js($handover->document_label); previewAccept = @js(route($handoverPortal.'.handovers.accept', $handover->handover_id)); previewUrl = @js(route($handoverPortal.'.handovers.preview', $handover->handover_id))"
-                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                x-on:click="inboxOpen = false"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Close"
                             >
-                                <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                View draft
+                                <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
-                            <details class="group relative">
-                                <summary class="inline-flex cursor-pointer list-none items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                                    Decline
-                                </summary>
-                                <form
-                                    method="POST"
-                                    action="{{ route($handoverPortal.'.handovers.decline', $handover->handover_id) }}"
-                                    class="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
-                                >
-                                    @csrf
-                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Reason (optional)</label>
-                                    <textarea name="reason" rows="2" maxlength="500" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-300" placeholder="e.g. I'm on leave this week"></textarea>
-                                    <button type="submit" class="mt-2 w-full rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700">Decline draft</button>
-                                </form>
-                            </details>
-                            <form method="POST" action="{{ route($handoverPortal.'.handovers.accept', $handover->handover_id) }}">
-                                @csrf
-                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800">
-                                    <i data-lucide="check" class="h-3.5 w-3.5"></i>
-                                    Accept
-                                </button>
-                            </form>
+                        </div>
+
+                        <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50/80 px-5 py-4">
+                            @foreach($handoverIncoming as $handover)
+                                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                    <div class="flex flex-wrap items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="font-semibold text-slate-900">{{ $handover->document_label }}</p>
+                                            <p class="mt-0.5 text-xs text-slate-500">
+                                                From <span class="font-medium text-slate-700">{{ $handover->from_name ?: 'a co-worker' }}</span>
+                                                · {{ \Carbon\Carbon::parse($handover->handover_created_at)->diffForHumans() }}
+                                            </p>
+                                            @if(filled($handover->document_summary))
+                                                <p class="mt-1 text-xs text-slate-600">{{ $handover->document_summary }}</p>
+                                            @endif
+                                            @if(filled($handover->handover_note))
+                                                <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">“{{ $handover->handover_note }}”</p>
+                                            @endif
+                                        </div>
+                                        <div class="flex shrink-0 flex-wrap items-start gap-2">
+                                            <button
+                                                type="button"
+                                                x-on:click="previewTitle = @js($handover->document_label); previewAccept = @js(route($handoverPortal.'.handovers.accept', $handover->handover_id)); previewUrl = @js(route($handoverPortal.'.handovers.preview', $handover->handover_id))"
+                                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                            >
+                                                <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                                View draft
+                                            </button>
+                                            <details class="group relative">
+                                                <summary class="inline-flex cursor-pointer list-none items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                                                    Decline
+                                                </summary>
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route($handoverPortal.'.handovers.decline', $handover->handover_id) }}"
+                                                    class="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
+                                                >
+                                                    @csrf
+                                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Reason (optional)</label>
+                                                    <textarea name="reason" rows="2" maxlength="500" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-300" placeholder="e.g. I'm on leave this week"></textarea>
+                                                    <button type="submit" class="mt-2 w-full rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700">Decline draft</button>
+                                                </form>
+                                            </details>
+                                            <form method="POST" action="{{ route($handoverPortal.'.handovers.accept', $handover->handover_id) }}">
+                                                @csrf
+                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800">
+                                                    <i data-lucide="check" class="h-3.5 w-3.5"></i>
+                                                    Accept
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
-                @endforeach
-            </div>
+                </div>
+            </template>
 
             <template x-teleport="body">
                 <div

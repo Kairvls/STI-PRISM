@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Funding Requests')
-@section('page-subtitle', 'Request for Check and Cash Advance — create, submit, print, and archive funding requests.')
+@section('page-subtitle', 'Direct Payment, Cash Installment, and Cash Advance — create, submit, print, and archive funding requests.')
 
 @section('content')
 
@@ -179,11 +179,9 @@
 >
     @php
         $fundQuery = !empty($fundFilter) ? ['fund' => $fundFilter] : [];
-        $fundLabel = match ($fundFilter ?? null) {
-            'cash_advance' => 'Cash Advance',
-            'request_for_check' => 'Request for Check',
-            default => null,
-        };
+        $fundLabel = filled($fundFilter ?? null)
+            ? \App\Support\ProcurementPaymentPath::label($fundFilter)
+            : null;
     @endphp
     <div x-show="filterError" x-cloak class="pur-alert-error" x-text="filterError"></div>
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -220,39 +218,12 @@
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
-                    Create {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                    Create {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }}
                 </button>
             </div>
         @endunless
     </div>
 
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Draft',
-                    'hint' => 'Incomplete drafts awaiting submit',
-                    'value' => number_format($rfcSummary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Draft'] + $fundQuery),
-                    'active' => request('status') === 'Draft',
-                ],
-                [
-                    'label' => 'In Review',
-                    'hint' => 'Waiting for accounting review',
-                    'value' => number_format($rfcSummary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Submitted'] + $fundQuery),
-                    'active' => request('status') === 'Submitted',
-                ],
-                [
-                    'label' => 'Approved',
-                    'hint' => 'Approved for receiving workflow',
-                    'value' => number_format($rfcSummary['approved']),
-                    'href' => route(($pp ?? 'purchaser').'.rfc.index', ['status' => 'Approved'] + $fundQuery),
-                    'active' => request('status') === 'Approved',
-                ],
-            ],
-        ])
-    </div>
 
     @php
         $rfcHasFilters = request()->filled('search')
@@ -298,7 +269,7 @@
                     </p>
                 </div>
 
-                <form
+                <form data-auto-filter
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.rfc.index') }}"
                     x-ref="rfcFilterForm"
@@ -331,15 +302,15 @@
                         >
                     </div>
 
-                    <select name="status" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36">
+                    <select name="status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
                         @endforeach
                     </select>
 
-                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" x-on:change="refreshRfcRecords()" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input type="date" name="date_to" value="{{ request('date_to') }}" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
 
                     <button
                         type="submit"
@@ -371,6 +342,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RFC No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payee</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
@@ -401,6 +373,12 @@
                                     </div>
                                 </div>
                             </td>
+                            <td class="px-5 py-4">
+                                @include('partials.procurement-request-no', ['requestNo' => $rfc->request_check_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                                @if(blank($rfc->request_check_request_no ?? null))
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-5 py-4 text-gray-600">
                                 @if(!empty($rfc->purchase_order_label))
                                     <p class="font-medium text-gray-800">{{ $rfc->purchase_order_label }}</p>
@@ -415,7 +393,7 @@
                             <td class="px-5 py-4">
                                 @if($rfc->request_check_status === 'Approved')
                                     @if($rfc->funds_released)
-                                        @include('accounting.partials.status-badge', ['status' => 'Funds released'])
+                                        @include('accounting.partials.status-badge', ['status' => 'Checks released'])
                                     @else
                                         @include('accounting.partials.status-badge', ['status' => 'Waiting for funds'])
                                     @endif
@@ -454,10 +432,10 @@
                                                 <form
                                                     method="POST"
                                                     action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
-                                                    data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to Accounting?' : 'Submit this Request for Check to Accounting?' }}"
+                                                    data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to the School Administrator?' : 'Submit this Request for Check to the School Administrator?' }}"
                                                     data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
                                                     data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
-                                                    data-pur-confirm-reviewer-role="Accounting"
+                                                    data-pur-confirm-reviewer-role="School Administrator"
                                                 >
                                                     @csrf
                                                     <button
@@ -465,7 +443,7 @@
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        {{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}
+                                                        {{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}
                                                     </button>
                                                 </form>
                                             </div>
@@ -482,7 +460,22 @@
                                         ])
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
-                                        @if(!$rfc->has_rr && $rfc->funds_released)
+                                        @if(!empty($rfc->can_send_to_accounting))
+                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}" class="inline">
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                                    data-pur-confirm-title="Submit to Accounting"
+                                                    data-pur-confirm-ok="Submit"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                                    title="Submit to Accounting"
+                                                    aria-label="Submit to Accounting"
+                                                ><i data-lucide="send" class="h-4 w-4"></i></button>
+                                            </form>
+                                        @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for Accounting / DV" aria-label="Waiting for Accounting / DV"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
+                                        @elseif(!$rfc->has_rr && $rfc->funds_released)
                                             <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" data-pur-confirm="Create a Receiving Report for {{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}? The RR form will open with this RFC already selected." data-pur-confirm-title="Create RR" data-pur-confirm-ok="Create RR" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
@@ -490,12 +483,24 @@
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RR Created" aria-label="RR Created"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                         @endif
                                     @endif
+                                    @php
+                                        // Hide archive while send / wait / create-RR actions are still open.
+                                        $rfcNeedsHandoff = $rfc->request_check_status === 'Approved' && (
+                                            ! empty($rfc->can_send_to_accounting)
+                                            || (! empty($rfc->sent_to_accounting) && empty($rfc->funds_released))
+                                            || empty($rfc->has_rr)
+                                        );
+                                        $canArchiveRfc = (
+                                            $rfc->request_check_status === 'Rejected'
+                                            || ($rfc->request_check_status === 'Approved' && ! empty($rfc->has_rr))
+                                        ) && ! $rfcNeedsHandoff;
+                                    @endphp
                                     @if($archiveView)
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.restore', $rfc->request_check_id) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
-                                    @elseif(in_array($rfc->request_check_status, ['Approved', 'Rejected'], true))
+                                    @elseif($canArchiveRfc)
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.rfc.archive', $rfc->request_check_id) }}"
@@ -513,7 +518,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-16 text-center">
+                            <td colspan="8" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="receipt-text" class="h-5 w-5"></i>
                                 </div>
@@ -559,7 +564,7 @@
             <div
                 @click.stop
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -568,7 +573,7 @@
                         </div>
                         <div>
                             <h3 id="rfc-create-title" class="text-lg font-semibold tracking-tight text-slate-900">
-                                Create {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }}
+                                Create {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }}
                             </h3>
                         </div>
                     </div>
@@ -582,7 +587,7 @@
                 <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
-                    <input type="hidden" name="request_check_funding_type" value="{{ $selectedFundingType ?? 'request_for_check' }}">
+                    <input type="hidden" name="request_check_funding_type" value="{{ \App\Support\ProcurementPaymentPath::normalize($selectedFundingType ?? null) ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
                     <div class="bg-slate-100 p-3 md:p-5">
                         @php
                             $createSource = (string) old('request_check_funding_source', $selectedSource ?? '');
@@ -590,15 +595,15 @@
                         @endphp
                         @if($eligibleAtps->isEmpty() && empty($fundingGroups))
                             <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                No approved ATP or Purchase Order is currently available. You can still fill out and save this {{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Cash Advance' : 'Request for Check' }} as a draft, then link one later before submitting.
+                                No approved ATP is currently available. You can still save this {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }} as a draft, but you must link an approved ATP before submitting. Use <strong>Print Empty RFC</strong> for a blank paper form.
                             </div>
                         @else
                             <div class="mb-4">
-                                <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft · required to submit)</span></label>
                                 <select name="request_check_funding_source" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
                                     <option value="">Select an approved ATP or Purchase Order</option>
                                     @if(!empty($fundingGroups))
-                                        <optgroup label="{{ ($selectedFundingType ?? 'request_for_check') === 'cash_advance' ? 'Purchase Orders (one Cash Advance per PO)' : 'Purchase Orders (one Request for Check per supplier)' }}">
+                                        <optgroup label="{{ \App\Support\ProcurementPaymentPath::requiresLiquidation($selectedFundingType ?? null) ? 'Purchase Orders (one Cash Advance per PO)' : 'Purchase Orders (one funding request per supplier)' }}">
                                             @foreach($fundingGroups as $group)
                                                 <option value="{{ $group['key'] }}" {{ $createSource === $group['key'] ? 'selected' : '' }}>
                                                     {{ $group['label'] }} · {{ implode(', ', $group['atp_labels']) }}
@@ -622,54 +627,14 @@
                         @endif
                         @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
                         <div id="purSigSlot-rfc-create" class="mt-4 w-full"></div>
-                        <div
-                            class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white"
-                            x-data="{ attachmentNames: [] }"
-                        >
-                            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
-                                    <p class="truncate text-[11px] text-slate-500">Optional · PDF, JPG, PNG · max 5MB each</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    x-show="attachmentNames.length"
-                                    x-cloak
-                                    x-on:click="attachmentNames = []; $refs.createRfcAttachments.value = ''"
-                                    class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                            <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                <template x-for="(name, index) in attachmentNames" :key="index">
-                                    <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
-                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                        </div>
-                                        <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="name"></p>
-                                    </div>
-                                </template>
-                                <label class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50">
-                                    <input
-                                        type="file"
-                                        name="attachments[]"
-                                        multiple
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        class="sr-only"
-                                        x-ref="createRfcAttachments"
-                                        x-on:change="attachmentNames = Array.from($event.target.files || []).map((f) => f.name); $nextTick(() => window.lucide && window.lucide.createIcons())"
-                                    >
-                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
-                                        <i data-lucide="upload" class="h-3.5 w-3.5"></i>
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-xs font-medium text-slate-800">Add files</p>
-                                        <p class="truncate text-[10px] text-slate-500">Choose PDF, JPG, or PNG</p>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
+                        @include('partials.single-file-upload', [
+                            'name' => 'attachments[]',
+                            'refKey' => 'createRfcAttachment',
+                            'title' => 'Supporting Document',
+                            'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                            'uploadLabel' => 'Upload file',
+                            'helpLine' => 'One file only · PDF, JPG, or PNG',
+                        ])
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
@@ -712,7 +677,7 @@
                 <div
                     @click.stop
                     class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                 >
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
@@ -722,6 +687,11 @@
                                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                                 @endif
                             </div>
+                            @if(!empty($rfc->request_check_request_no))
+                                <div class="mt-1.5">
+                                    @include('partials.procurement-request-no', ['requestNo' => $rfc->request_check_request_no, 'showHint' => true, 'size' => 'md'])
+                                </div>
+                            @endif
                             <p class="mt-1 text-sm text-gray-500">
                                 @if(!empty($rfc->purchase_order_label))
                                     {{ $rfc->purchase_order_label }} · ATPs: {{ implode(', ', $rfc->linked_atp_labels ?? []) }}
@@ -821,8 +791,21 @@
                             Close
                         </button>
                         @if(!$archiveView && $rfc->request_check_status === 'Approved')
-                            @if($rfc->has_rr)
+                            @if(!empty($rfc->can_send_to_accounting))
+                                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}">
+                                    @csrf
+                                    <button
+                                        type="submit"
+                                        data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                        data-pur-confirm-title="Submit to Accounting"
+                                        data-pur-confirm-ok="Submit"
+                                        class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                    >Submit to Accounting</button>
+                                </form>
+                            @elseif($rfc->has_rr)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">RR Created</span>
+                            @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
+                                <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for Accounting / DV</span>
                             @elseif(!$rfc->funds_released)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
                             @endif
@@ -854,7 +837,7 @@
                     <div
                         @click.stop
                         class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <h3 id="rfc-edit-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">Edit {{ $rfc->request_check_form_number }}</h3>
@@ -874,7 +857,7 @@
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="save_action" value="draft">
-                            <input type="hidden" name="request_check_funding_type" value="{{ $rfc->request_check_funding_type ?? ($selectedFundingType ?? 'request_for_check') }}">
+                            <input type="hidden" name="request_check_funding_type" value="{{ \App\Support\ProcurementPaymentPath::normalize($rfc->request_check_funding_type ?? ($selectedFundingType ?? null)) ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
                             <div class="bg-slate-100 p-3 md:p-5">
                                 @if($rfc->request_check_authority_purchase_id)
                                     <input type="hidden" name="request_check_authority_purchase_id" value="{{ $rfc->request_check_authority_purchase_id }}">
@@ -907,27 +890,30 @@
                                 @else
                                     <input type="hidden" name="request_check_authority_purchase_id" value="">
                                     <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                        No approved ATP with a matching payment path is available. Link one before submitting to Accounting.
+                                        No approved ATP with a matching payment path is available. Link one before submitting to School Administrator.
                                     </div>
                                 @endif
                                 @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc, 'signKey' => 'rfc-'.$rfc->request_check_id])
                                 <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mt-4 w-full"></div>
-                                <div class="mt-4 rounded-lg bg-white p-4 text-sm">
-                                    @foreach($rfcFiles as $file)
-                                        <label class="mt-1 flex items-center gap-2">
-                                            <input type="checkbox" name="delete_attachments[]" value="{{ $file->request_check_attachment_id }}">
-                                            <span>Remove {{ $file->request_check_attachment_original_name }}</span>
-                                        </label>
-                                    @endforeach
-                                    <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png" class="mt-3 block w-full">
-                                </div>
+                                @include('partials.single-file-upload', [
+                                    'name' => 'attachments[]',
+                                    'refKey' => 'editRfcAttachment'.$rfc->request_check_id,
+                                    'title' => 'Supporting Document',
+                                    'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                                    'uploadLabel' => 'Upload file',
+                                    'helpLine' => 'One file only · remove the current file first to replace',
+                                    'existing' => $rfcFiles->map(fn ($file) => [
+                                        'id' => $file->request_check_attachment_id,
+                                        'name' => $file->request_check_attachment_original_name,
+                                    ]),
+                                ])
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">
                                     @if($rfc->request_check_status === 'Minor Revision')
-                                        Save your corrections here, then use <strong>⋮ → Resubmit to Accounting</strong> in the list.
+                                        Save your corrections here, then use <strong>⋮ → Resubmit to School Administrator</strong> in the list.
                                     @else
-                                        Save your changes here (including signature), then use <strong>⋮ → Submit to Accounting</strong> in the list.
+                                        Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
                                     @endif
                                 </p>
                                 <button
@@ -972,11 +958,12 @@
         >
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
                         <h3 id="rfc-empty-title" class="text-lg font-semibold text-gray-900">Print Empty RFC</h3>
+                        <p class="mt-0.5 text-xs text-gray-500">Blank paper only. System RFCs need a linked ATP before submit (draft may omit it).</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')

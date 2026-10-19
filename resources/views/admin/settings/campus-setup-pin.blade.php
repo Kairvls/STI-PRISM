@@ -6,7 +6,7 @@
 
 <div class="admin-page mx-auto max-w-3xl space-y-6">
     <div>
-        <h1 class="admin-page-title">System Settings</h1>
+        <h1 class="admin-page-title">Campus Setup</h1>
         <p class="admin-page-subtitle">Campus setup unlock PIN.</p>
     </div>
 

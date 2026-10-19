@@ -3,7 +3,7 @@
 @section(
     "title",
     request()->is("maintenance/reports/urgent")
-        ? "Urgent Reports"
+        ? "Critical & High Reports"
         : (
             request()->is("maintenance/reports/pending")
                 ? "Pending Reports"
@@ -24,7 +24,7 @@
         $isMainReportsPage = !$isUrgentPage && !$isPendingPage && !$isTodayPage;
 
         $countLabel = match (true) {
-            $isUrgentPage => 'Urgent Reports',
+            $isUrgentPage => 'Critical & High Reports',
             $isPendingPage => 'Pending Reports',
             $isTodayPage => 'Reports Today',
             default => 'On This Page',
@@ -49,15 +49,6 @@
                 ];
             };
         @endphp
-        <div class="mb-6">
-            @include('layouts.partials.maintenance-stat-cards', [
-                'cards' => [
-                    $statusCard('Pending', 'Pending', $pendingReports, $pendingMonthlyPercentage ?? 0),
-                    $statusCard('Processing', 'Processing', $processingReports, $processingMonthlyPercentage ?? 0),
-                    $statusCard('Resolved', 'Resolved', $resolvedReports, $resolvedMonthlyPercentage ?? 0),
-                ],
-            ])
-        </div>
     @endif
 
     @if (!$isMainReportsPage && empty($attentionFocus))

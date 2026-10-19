@@ -1213,8 +1213,9 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     gap: 4px;
 }
 .review-attachment-link {
-    font-size: 0.8125rem;
-    color: #0284c7;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #0025cc;
     text-decoration: none;
 }
 .review-attachment-link:hover { text-decoration: underline; }

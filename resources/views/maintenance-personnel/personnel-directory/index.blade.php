@@ -17,14 +17,6 @@
 @endphp
 
 <div class="space-y-6">
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            ['label' => 'Active faculty', 'hint' => 'Can file reports', 'value' => number_format($stats['faculty'])],
-            ['label' => 'Active staff', 'hint' => 'Can file reports', 'value' => number_format($stats['staff'])],
-            ['label' => 'Inactive', 'hint' => number_format($stats['total']).' reporters in total', 'value' => number_format($stats['inactive'])],
-            ['label' => 'Reports filed', 'hint' => 'By everyone in this list', 'value' => number_format($stats['reports'])],
-        ],
-    ])
 
     <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
         <div class="flex items-start gap-3">

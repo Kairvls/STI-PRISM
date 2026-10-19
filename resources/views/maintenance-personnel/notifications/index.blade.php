@@ -65,33 +65,12 @@
         </div>
     </header>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Unread alerts',
-                'hint' => $unreadCount > 0 ? 'Requires your attention' : 'All caught up',
-                'value' => number_format($unreadCount),
-            ],
-            [
-                'label' => 'Urgent reports',
-                'hint' => $urgentReports > 0 ? 'Needs immediate action' : 'No urgent reports',
-                'value' => number_format($urgentReports),
-                'href' => url('/maintenance/reports/urgent'),
-            ],
-            [
-                'label' => 'Overdue',
-                'hint' => $overdueMaintenance > 0 ? 'Past scheduled date' : 'No overdue maintenance',
-                'value' => number_format($overdueMaintenance),
-                'href' => url('/maintenance/schedules'),
-            ],
-        ],
-    ])
 
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="p-4 sm:p-5">
             <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <form method="GET" action="{{ url()->current() }}" class="relative w-full xl:max-w-sm">
+                <form method="GET" action="{{ url()->current() }}" data-auto-filter class="relative w-full xl:max-w-sm">
                     <input type="hidden" name="period" value="{{ $period }}">
                     <input type="hidden" name="category" value="{{ $category }}">
 
@@ -179,7 +158,7 @@
 
                         @php $popoverField = 'h-9 min-w-0 flex-1 rounded-lg border-0 bg-slate-50 px-3 text-xs text-slate-700 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10'; @endphp
 
-                        <form method="GET" action="{{ url()->current() }}" class="mb-3">
+                        <form method="GET" action="{{ url()->current() }}" data-auto-filter class="mb-3">
                             <input type="hidden" name="category" value="{{ $category }}">
                             <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Specific date</label>
                             <div class="flex gap-2">
@@ -188,7 +167,7 @@
                             </div>
                         </form>
 
-                        <form method="GET" action="{{ url()->current() }}" class="mb-3">
+                        <form method="GET" action="{{ url()->current() }}" data-auto-filter class="mb-3">
                             <input type="hidden" name="category" value="{{ $category }}">
                             <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Week containing</label>
                             <div class="flex gap-2">
@@ -197,7 +176,7 @@
                             </div>
                         </form>
 
-                        <form method="GET" action="{{ url()->current() }}" class="mb-3">
+                        <form method="GET" action="{{ url()->current() }}" data-auto-filter class="mb-3">
                             <input type="hidden" name="category" value="{{ $category }}">
                             <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Month</label>
                             <div class="flex gap-2">
@@ -206,8 +185,7 @@
                             </div>
                         </form>
 
-                        <form method="GET" action="{{ url()->current() }}">
-                            <input type="hidden" name="category" value="{{ $category }}">
+                        <form method="GET" action="{{ url()->current() }}" data-auto-filter>`n                            <input type="hidden" name="category" value="{{ $category }}">
                             <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Year</label>
                             <div class="flex gap-2">
                                 <input

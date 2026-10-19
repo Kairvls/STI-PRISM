@@ -1,4 +1,4 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'Review ATP')
 
@@ -14,11 +14,11 @@
     <div class="acc-review-head">
         <div>
             @if ($backToPo)
-                <a href="/accounting/purchase-orders/{{ $purchaseOrder->purchase_order_id }}#po-atp-{{ $atp->authority_purchase_id }}" class="acc-back" data-tip="Back to {{ $poLabel }}" aria-label="Back to {{ $poLabel }}">
+                <a href="/school-admin/purchase-orders/{{ $purchaseOrder->purchase_order_id }}#po-atp-{{ $atp->authority_purchase_id }}" class="acc-back" data-tip="Back to {{ $poLabel }}" aria-label="Back to {{ $poLabel }}">
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 </a>
             @else
-                <a href="/accounting/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
+                <a href="/school-admin/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 </a>
             @endif
@@ -29,11 +29,16 @@
                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                 @endif
             </div>
+            @if(!blank($atp->authority_purchase_request_no ?? null))
+                <div class="mt-2">
+                    @include('partials.procurement-request-no', ['requestNo' => $atp->authority_purchase_request_no, 'inline' => true, 'size' => 'md'])
+                </div>
+            @endif
             @if ($poLabel)
                 <p class="mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-900">
                     <i data-lucide="shopping-bag" class="h-3.5 w-3.5"></i>
                     Part of
-                    <a href="/accounting/purchase-orders/{{ $purchaseOrder->purchase_order_id }}" class="font-semibold underline underline-offset-2">{{ $poLabel }}</a>
+                    <a href="/school-admin/purchase-orders/{{ $purchaseOrder->purchase_order_id }}" class="font-semibold underline underline-offset-2">{{ $poLabel }}</a>
                     @if (($purchaseOrder->purchase_order_status ?? '') === 'Submitted')
                         · approve or send back the whole Purchase Order
                     @endif
@@ -77,7 +82,7 @@
                                 <p>Revision remarks: {{ $atp->authority_purchase_rejection_reason }}</p>
                                 @include('partials.ris-revision-images', [
                                     'revision' => \App\Support\DocumentRevisionNotes::latest('ATP', $atp->authority_purchase_id),
-                                    'routeName' => 'accounting.document-revision-image',
+                                    'routeName' => 'school-admin.document-revision-image',
                                     'size' => 'sm',
                                 ])
                             </div>
@@ -158,7 +163,7 @@
         if (remarks) remarks.value = '';
         const isApproved = (presetDecision || '').toLowerCase() === 'approved';
         document.getElementById('decisionModalSubtitle').textContent = '{{ $atp->authority_purchase_form_number }}';
-        form.action = '/accounting/authority-to-purchase/' + id + (isApproved ? '/approve' : '/revise');
+        form.action = '/school-admin/authority-to-purchase/' + id + (isApproved ? '/approve' : '/revise');
         document.getElementById('signatureBlock').classList.toggle('hidden', !isApproved);
         document.getElementById('decisionImagesBlock').classList.toggle('hidden', isApproved);
         document.getElementById('remarksReqStar').classList.toggle('hidden', isApproved);

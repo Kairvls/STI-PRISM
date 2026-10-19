@@ -38,6 +38,39 @@
         return '';
     }
 
+    let custodianExistsWarningRequest = 0;
+
+    function setCustodianExistsWarning(shouldShow) {
+        const hint = document.getElementById('custodianEmployeeExistsHint');
+        if (!hint) return;
+        hint.classList.toggle('hidden', !shouldShow);
+    }
+
+    async function refreshCustodianExistsWarning(employeeId) {
+        const requestId = ++custodianExistsWarningRequest;
+        if (!employeeId) {
+            setCustodianExistsWarning(false);
+            return;
+        }
+        try {
+            const res = await fetch(`/get-custodian/${encodeURIComponent(employeeId)}`, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (requestId !== custodianExistsWarningRequest) return;
+            if (!res || !res.ok) {
+                setCustodianExistsWarning(false);
+                return;
+            }
+            const json = await res.json();
+            if (requestId !== custodianExistsWarningRequest) return;
+            setCustodianExistsWarning(!!(json && json.exists === true && Number(json.custodian_id) > 0));
+        } catch (e) {
+            if (requestId === custodianExistsWarningRequest) {
+                setCustodianExistsWarning(false);
+            }
+        }
+    }
+
     function syncCustodianEmployeeId() {
         const typeEl = document.getElementById('custodian-employment-type');
         const digitsEl = document.getElementById('custodianEmployeeDigits');
@@ -78,60 +111,8 @@
 
         const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
         fullEl.value = fullId;
-
-        if (fullId) {
-            (async function () {
-                try {
-                    const rResp = await fetch(`/get-reporter/${encodeURIComponent(fullId)}`);
-                    if (rResp && rResp.ok) {
-                        const rData = await rResp.json();
-                        const deptId = rData?.department_id ?? null;
-                        if (deptId) {
-                            const sel = document.getElementById('custodian-department');
-                            if (sel) { sel.value = String(deptId); sel.dispatchEvent(new Event('change', { bubbles: true })); }
-                        }
-                    }
-
-                    const cResp = await fetch(`/get-custodian/${encodeURIComponent(fullId)}`);
-                    if (cResp && cResp.ok) {
-                        const cData = await cResp.json();
-                        if (cData) {
-                            const first = cData.custodian_first_name ?? '';
-                            const middle = cData.custodian_middle_name ?? '';
-                            const last = cData.custodian_last_name ?? '';
-                            const email = cData.custodian_email_address ?? '';
-                            const contact = cData.custodian_contact_number ?? '';
-
-                            const firstEl = document.querySelector('[name="custodian_first_name"]');
-                            const middleEl = document.querySelector('[name="custodian_middle_name"]');
-                            const lastEl = document.querySelector('[name="custodian_last_name"]');
-                            const emailEl = document.querySelector('[name="custodian_email_address"]');
-                            const contactEl = document.getElementById('custodian-contact-number');
-
-                            if (firstEl && first) firstEl.value = first;
-                            if (middleEl && middle) middleEl.value = middle;
-                            if (lastEl && last) lastEl.value = last;
-                            if (emailEl && email) emailEl.value = email;
-                            const normalizedContact = contact ? String(contact).replace(/\D/g, '') : '';
-                            if (contactEl) {
-                                try { contactEl.value = normalizedContact; } catch (e) { }
-                                if (typeof window.writePrismPhoneStorage === 'function') {
-                                    window.writePrismPhoneStorage(contactEl, normalizedContact);
-                                }
-                                try {
-                                    const root = contactEl.closest && contactEl.closest('form') ? contactEl.closest('form') : document;
-                                    if (typeof window.syncPrismPhoneInputs === 'function') {
-                                        window.syncPrismPhoneInputs(root);
-                                    }
-                                } catch (e) { }
-                            }
-                            const sel = document.getElementById('custodian-department');
-                            if (sel && cData.custodian_department_id) { sel.value = String(cData.custodian_department_id); sel.dispatchEvent(new Event('change', { bubbles: true })); }
-                        }
-                    }
-                } catch (e) { /* ignore */ }
-            })();
-        }
+        setCustodianExistsWarning(false);
+        refreshCustodianExistsWarning(fullId);
         return fullId;
     }
 

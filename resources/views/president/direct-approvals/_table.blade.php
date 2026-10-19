@@ -46,6 +46,12 @@
                 </div>
             @endif
         </td>
+        <td class="px-2 py-4 text-sm text-gray-700">
+            @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+            @if(blank($row->ris_request_no ?? null))
+                <span class="text-xs text-gray-400">—</span>
+            @endif
+        </td>
         <td class="px-2 py-4 text-sm text-gray-700">{{ $adminName }}</td>
         <td class="px-2 py-4 text-sm text-gray-700 max-w-[220px]">
             <span class="line-clamp-2" title="{{ $reason !== '' ? $reason : 'No reason recorded' }}">
@@ -91,7 +97,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="7" class="px-2 py-12 text-center fade-in">
+        <td colspan="8" class="px-2 py-12 text-center fade-in">
             <p class="text-sm font-semibold text-gray-800">No admin direct approvals found.</p>
             <p class="mt-1 text-xs text-gray-500">
                 @if (request('search'))

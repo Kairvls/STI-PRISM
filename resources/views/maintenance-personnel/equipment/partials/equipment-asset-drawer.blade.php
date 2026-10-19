@@ -329,7 +329,6 @@
             if (!profile || typeof profile !== 'object') return;
 
             setEquipmentModalText('eqAssetModal_supplier', profile.supplier_name || '');
-            setEquipmentModalText('eqAssetModal_po', profile.purchase_order_number || '');
             setEquipmentModalText('eqAssetModal_rr', profile.receiving_report_number || '');
 
             const atp = String(profile.atp_number || '').trim();
@@ -449,7 +448,6 @@
             setEquipmentModalText('eqAssetModal_room', asset.room_name);
             setEquipmentModalText('eqAssetModal_zone', asset.placement_zone || asset.location);
             setEquipmentModalText('eqAssetModal_supplier', '');
-            setEquipmentModalText('eqAssetModal_po', '');
             setEquipmentModalText('eqAssetModal_rr', '');
             setEquipmentModalText('eqAssetModal_atp_ris', '');
 

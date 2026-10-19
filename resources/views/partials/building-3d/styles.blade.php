@@ -531,16 +531,24 @@
             z-index: 20;
 
             display: flex;
+            flex-wrap: nowrap;
             align-items: center;
-            gap: 6px;
+            gap: 6px 8px;
 
-            padding: 5px;
+            max-width: calc(100% - 96px);
+            padding: 5px 8px;
 
             background: rgba(2, 6, 23, 0.72);
             border: 1px solid rgba(34, 211, 238, 0.2);
             border-radius: 999px;
 
             backdrop-filter: blur(12px);
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .building-floor-filters::-webkit-scrollbar {
+            display: none;
         }
 
         .building-floor-filter {
@@ -983,13 +991,15 @@
         /* ===================================================== */
 
         .building-room-details-panel {
-            position: absolute;
-            top: 76px;
-            right: 20px;
-            width: 280px;
+            position: fixed;
+            top: 96px;
+            right: 24px;
+            width: min(320px, calc(100vw - 32px));
+            max-height: min(78vh, 640px);
             padding: 18px;
+            overflow-y: auto;
 
-            background: rgba(2, 6, 23, 0.94);
+            background: rgba(2, 6, 23, 0.96);
             border: 1px solid rgba(34, 211, 238, 0.25);
             border-radius: 16px;
 
@@ -999,10 +1009,11 @@
                 0 20px 50px rgba(0, 0, 0, 0.35),
                 0 0 30px rgba(34, 211, 238, 0.06);
 
-            z-index: 20;
+            z-index: 1200;
 
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
             transform: translateX(15px);
 
             transition:
@@ -1014,15 +1025,13 @@
         .building-room-details-panel.visible {
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
             transform: translateX(0);
         }
 
         .building-room-details-panel.is-anchored {
             right: auto;
-            left: 0;
-            top: 0;
             transform: none;
-            z-index: 55;
         }
 
         .building-room-details-panel.is-anchored.visible {
@@ -1127,7 +1136,7 @@
 
         .building-room-details-stats {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
 
             gap: 7px;
 
@@ -1274,4 +1283,200 @@
             width: 17px;
             height: 17px;
         }
+
+        .building-status-period-compact {
+            display: inline-flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 6px;
+            margin-left: 2px;
+            color: #e2e8f0;
+            font-size: 11px;
+            font-weight: 600;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        .building-period-controls {
+            display: inline-flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+
+        .building-status-period-custom-inline,
+        .building-room-details-custom-range {
+            display: inline-flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+
+        .building-status-period-custom-inline[hidden],
+        .building-room-details-custom-range[hidden] {
+            display: none !important;
+        }
+
+        .building-floor-filters .building-period-select {
+            min-width: 7.25rem;
+            width: auto;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 999px;
+            font-size: 11px;
+        }
+
+        .building-floor-filters .building-period-date {
+            width: 8.75rem;
+            max-width: none;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 999px;
+            font-size: 11px;
+        }
+
+        .building-period-select {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 120px;
+            width: auto;
+            flex: 0 0 auto;
+        }
+
+        .building-period-select--dark,
+        .building-period-date--dark {
+            border-color: rgba(148, 163, 184, 0.45);
+            background: rgba(15, 23, 42, 0.75);
+            color: #e2e8f0;
+        }
+
+        .building-period-date {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .building-period-apply {
+            border: 0;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .building-room-details-row--stack {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .building-room-details-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .building-room-details-chips span,
+        .building-room-details-chip {
+            display: inline-flex;
+            border-radius: 6px;
+            background: #f1f5f9;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+        }
+
+        .building-room-details-muted {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .building-room-details-period {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .building-room-details-period-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .building-room-details-period .building-period-controls {
+            width: 100%;
+        }
+
+        .building-room-details-period .building-period-select {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+        }
+
+        .building-room-details-period .building-period-date {
+            flex: 0 0 auto;
+            width: auto;
+            max-width: 10.5rem;
+        }
+
+        .building-room-details-reports {
+            margin-top: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .building-room-report-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+        }
+
+        .building-room-report-row:last-child {
+            border-bottom: 0;
+        }
+
+        .building-room-report-sev {
+            flex: 0 0 auto;
+            align-self: flex-start;
+            height: fit-content;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .building-room-report-sev.is-critical { background: #fee2e2; color: #b91c1c; }
+        .building-room-report-sev.is-high { background: #ffedd5; color: #c2410c; }
+        .building-room-report-sev.is-medium { background: #e0f2fe; color: #0369a1; }
+        .building-room-report-sev.is-low { background: #f1f5f9; color: #475569; }
+
 </style>

@@ -191,7 +191,6 @@
                     'value' => old('user_contact_number', $user->user_contact_number),
                     'id' => 'purchaser-user-contact-number',
                     'inputClass' => 'h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100',
-                    'placeholder' => 'XXX XXX XXXX',
                 ])
                 @error('user_contact_number')
                     <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>

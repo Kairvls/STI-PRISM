@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Receiving Reports')
-@section('page-subtitle', 'Create receiving reports from approved funding requests (Request for Check or Cash Advance).')
+@section('page-subtitle', 'Create receiving reports after check pickup — attach the Official Receipt (OR); OR amount settles the Disbursement Voucher.')
 
 @section('content')
 
@@ -56,12 +56,20 @@
 
         applyRfcPrefill(fundingKey) {
             const data = this.rfcPrefill[String(fundingKey)];
+            if (data && data.check_amount != null) {
+                window.dispatchEvent(new CustomEvent('rr-check-amount', { detail: { amount: Number(data.check_amount) } }));
+            }
             const form = this.$refs.createForm;
             if (!form || !data) return;
             const from = form.querySelector('[name=receiving_report_received_from]');
             const address = form.querySelector('[name=receiving_report_supplier_address_override]');
+            const checkAmt = form.querySelector('[name=receiving_report_check_amount]');
             if (from && data.received_from) from.value = data.received_from;
             if (address && data.address) address.value = data.address;
+            if (checkAmt && data.check_amount != null) {
+                checkAmt.value = data.check_amount;
+                checkAmt.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             const rows = data.items || [];
             const rowsRoot = form.querySelector('[data-doc-rows]');
             const rowTotal = (rowsRoot && window.docRows)
@@ -160,40 +168,6 @@
         @endunless
     </div>
 
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Draft',
-                    'hint' => 'Incomplete drafts awaiting submit',
-                    'value' => number_format($summary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Draft']),
-                    'active' => request('status') === 'Draft',
-                ],
-                [
-                    'label' => 'In Review',
-                    'hint' => 'Waiting for accounting review',
-                    'value' => number_format($summary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['status' => 'Submitted']),
-                    'active' => request('status') === 'Submitted',
-                ],
-                [
-                    'label' => 'Incomplete',
-                    'hint' => 'Missing or damaged items still on back order',
-                    'value' => number_format($summary['incomplete'] ?? 0),
-                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['completeness' => 'incomplete']),
-                    'active' => ($completeness ?? null) === 'incomplete',
-                ],
-                [
-                    'label' => 'Completed',
-                    'hint' => 'All items delivered and verified',
-                    'value' => number_format($summary['completed']),
-                    'href' => route(($pp ?? 'purchaser').'.rr.index', ['completeness' => 'complete']),
-                    'active' => ($completeness ?? null) === 'complete',
-                ],
-            ],
-        ])
-    </div>
 
     @php
         $rrHasFilters = request()->filled('search')
@@ -229,7 +203,7 @@
                     </p>
                 </div>
 
-                <form
+                <form data-auto-filter
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.rr.index') }}"
                     role="search"
@@ -306,6 +280,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RR No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RFC</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Received from</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
@@ -340,6 +315,12 @@
                                         </p>
                                     </div>
                                 </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                @include('partials.procurement-request-no', ['requestNo' => $rr->receiving_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                                @if(blank($rr->receiving_report_request_no ?? null))
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
                             <td class="px-5 py-4 text-gray-600">{{ $rr->request_check_form_number ?? '—' }}</td>
                             <td class="px-5 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?: '—' }}</td>
@@ -417,12 +398,25 @@
                                     @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && empty($rr->requires_liquidation))
                                         <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="Workflow complete" aria-label="Workflow complete"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                     @endif
+                                    @php
+                                        // Hide archive while liquidation still needs to be created.
+                                        $rrNeedsLiq = $rr->receiving_report_status === 'Completed'
+                                            && ! empty($rr->requires_liquidation)
+                                            && empty($rr->has_liq);
+                                        $canArchiveRr = in_array($rr->receiving_report_status, ['Completed', 'Returned'], true)
+                                            && ! $rrNeedsLiq
+                                            && (
+                                                $rr->receiving_report_status === 'Returned'
+                                                || empty($rr->requires_liquidation)
+                                                || ! empty($rr->has_liq)
+                                            );
+                                    @endphp
                                     @if($archiveView)
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.restore', $rr->receiving_report_id) }}">
                                             @csrf
                                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50" title="Restore" aria-label="Restore"><i data-lucide="archive-restore" class="h-4 w-4"></i></button>
                                         </form>
-                                    @elseif(in_array($rr->receiving_report_status, ['Completed','Returned'], true))
+                                    @elseif($canArchiveRr)
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.rr.archive', $rr->receiving_report_id) }}"
@@ -440,7 +434,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="package-check" class="h-5 w-5"></i>
                                 </div>
@@ -479,7 +473,7 @@
             <div
                 @click.stop
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -498,16 +492,18 @@
                     </div>
                 </div>
                 @if($eligibleRfcs->isEmpty())
-                    <div class="p-6 text-sm text-gray-600">No approved Request for Check is available.</div>
+                    <div class="p-6 text-sm text-gray-600">
+                        No approved Request for Check with released funds is available. Create RR only after Accounting releases the check. Use <strong>Print Empty RR</strong> for a blank paper form.
+                    </div>
                 @else
-                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.store') }}" x-ref="createForm">
+                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.store') }}" enctype="multipart/form-data" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
                         <div class="bg-slate-100 p-3 md:p-5">
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <label class="text-xs font-medium text-gray-500">Approved funding request · ATP <span class="text-red-500">*</span></label>
+                                <label class="text-xs font-medium text-gray-500">Approved funding request · ATP <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(required to create)</span></label>
                                 @php $createFundingKey = (string) old('receiving_report_funding_key', $selectedFundingKey ?? ''); @endphp
-                                <select name="receiving_report_funding_key" x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
+                                <select name="receiving_report_funding_key" required x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select funding request and ATP</option>
                                     @foreach($eligibleRfcs as $rfc)
                                         <option value="{{ $rfc->funding_key }}" {{ $createFundingKey === $rfc->funding_key ? 'selected' : '' }}>
@@ -569,7 +565,7 @@
                 <div
                     @click.stop
                     class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                 >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div>
@@ -706,7 +702,7 @@
                     <div
                         @click.stop
                         class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                             <div class="flex items-center gap-3">
@@ -725,6 +721,7 @@
                         <form
                             method="POST"
                             action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}"
+                            enctype="multipart/form-data"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
                         >
                             @csrf
@@ -786,7 +783,7 @@
         >
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-5">
                     <div class="flex items-center gap-3">
@@ -795,6 +792,7 @@
                         </div>
                         <div>
                             <h3 id="rr-empty-title" class="text-lg font-semibold text-gray-950">Print Empty RR</h3>
+                            <p class="mt-0.5 text-xs text-gray-500">Blank paper only. System RRs must link a funds-released RFC.</p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">

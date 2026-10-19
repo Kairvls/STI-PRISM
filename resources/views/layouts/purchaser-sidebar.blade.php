@@ -16,7 +16,7 @@
 
     <div class="sidebar-content">
 
-        <div class="sidebar-search">
+        <!--<div class="sidebar-search">
             <div class="sidebar-dropdown">
                 <button
                     type="button"
@@ -68,10 +68,10 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div>-->
 
         {{-- Quick actions (Receiving-matched) --}}
-        <div class="quick-actions">
+        <!--<div class="quick-actions">
             <a
                 href="{{ route('purchaser.dashboard') }}"
                 class="quick-card {{ request()->routeIs('purchaser.dashboard') ? 'active' : '' }}"
@@ -94,13 +94,13 @@
                 <span>RIS</span>
             </a>
             <a
-                href="{{ route('purchaser.purchase-orders.index') }}"
-                class="quick-card {{ request()->routeIs('purchaser.purchase-orders*') ? 'active' : '' }}"
+                href="{{ route('purchaser.rfc.index') }}"
+                class="quick-card {{ request()->routeIs('purchaser.rfc*') ? 'active' : '' }}"
             >
-                <i data-lucide="shopping-bag"></i>
-                <span>Orders</span>
+                <i data-lucide="wallet"></i>
+                <span>Fund</span>
             </a>
-        </div>
+        </div>-->
 
         <div class="menu-title" id="dashboard-section">
             DASHBOARD
@@ -166,7 +166,7 @@
             ></i>
 
             <span>
-                Urgent Reports
+                Critical &amp; High Reports
             </span>
 
         </a>-->
@@ -332,61 +332,24 @@
 
         </a>
 
-        {{-- ===================================================== --}}
-        {{-- ATP (Authority to Purchase + Purchase Orders) --}}
-        {{-- ===================================================== --}}
-
-        @php
-            $atpGroupActive = request()->routeIs('purchaser.atp*')
-                || request()->routeIs('purchaser.purchase-orders*');
-        @endphp
-
-        <div class="menu-group {{ $atpGroupActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $atpGroupActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $atpGroupActive ? 'true' : 'false' }}"
-            >
-                <i data-lucide="file-check-2" class="h-5 w-5"></i>
-                <span>Purchasing Process</span>
-                @php $atpGroupInbox = $handoverInbox['atp'] + $handoverInbox['po']; @endphp
-                @if($atpGroupInbox > 0)
-                    <span class="{{ str_replace('mr-2', 'mr-1.5', $handoverBadge) }}" title="{{ $atpGroupInbox }} draft(s) passed to you">{{ $atpGroupInbox }}</span>
-                @endif
-                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4 {{ $atpGroupInbox > 0 ? '!ml-0' : '' }}"></i>
-            </button>
-            <div class="menu-sub" @if(! $atpGroupActive) hidden @endif>
-                <a
-                    href="{{ route('purchaser.atp.index') }}"
-                    class="menu-sub-item {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="file-check-2" class="h-4 w-4"></i>
-                    <span>Authority to Purchase</span>
-                    @if($handoverInbox['atp'] > 0)
-                        <span class="{{ str_replace('mr-2', 'mr-0', $handoverBadge) }}" title="{{ $handoverInbox['atp'] }} ATP draft(s) passed to you">{{ $handoverInbox['atp'] }}</span>
-                    @endif
-                </a>
-                <a
-                    href="{{ route('purchaser.purchase-orders.index') }}"
-                    class="menu-sub-item {{ request()->routeIs('purchaser.purchase-orders*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="shopping-bag" class="h-4 w-4"></i>
-                    <span>Purchase Orders</span>
-                    @if($handoverInbox['po'] > 0)
-                        <span class="{{ str_replace('mr-2', 'mr-0', $handoverBadge) }}" title="{{ $handoverInbox['po'] }} Purchase Order draft(s) passed to you">{{ $handoverInbox['po'] }}</span>
-                    @endif
-                </a>
-            </div>
-        </div>
+        {{-- Released ATPs from Supply Officer (read / fund for RFC) --}}
+        <a
+            href="{{ route('purchaser.atp.index') }}"
+            class="menu-item {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
+        >
+            <i data-lucide="file-check-2" class="h-5 w-5"></i>
+            <span>Approved ATPs</span>
+        </a>
 
         {{-- ===================================================== --}}
-        {{-- REQUEST FUND (Request for Check + Cash Advance) --}}
+        {{-- REQUEST FUND (Direct Payment / Cash Installment / Cash Advance) --}}
         {{-- ===================================================== --}}
 
         @php
             $fundGroupActive = request()->routeIs('purchaser.rfc*');
-            $activeFund = $fundGroupActive ? request('fund') : null;
+            $activeFund = $fundGroupActive
+                ? (\App\Support\ProcurementPaymentPath::normalize(request('fund')) ?? request('fund'))
+                : null;
         @endphp
 
         <div class="menu-group {{ $fundGroupActive ? 'is-open' : '' }}" data-menu-group>
@@ -397,20 +360,27 @@
                 aria-expanded="{{ $fundGroupActive ? 'true' : 'false' }}"
             >
                 <i data-lucide="wallet" class="h-5 w-5"></i>
-                <span>Request Fund</span>
+                <span>Request Checks</span>
                 <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
             </button>
             <div class="menu-sub" @if(! $fundGroupActive) hidden @endif>
                 <a
-                    href="{{ route('purchaser.rfc.index', ['fund' => 'request_for_check']) }}"
-                    class="menu-sub-item {{ $activeFund === 'request_for_check' ? 'active' : '' }}"
+                    href="{{ route('purchaser.rfc.index', ['fund' => \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT]) }}"
+                    class="menu-sub-item {{ $activeFund === \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT ? 'active' : '' }}"
                 >
-                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                    <span>Request for Check</span>
+                    <i data-lucide="badge-check" class="h-4 w-4"></i>
+                    <span>Direct Payment</span>
                 </a>
                 <a
-                    href="{{ route('purchaser.rfc.index', ['fund' => 'cash_advance']) }}"
-                    class="menu-sub-item {{ $activeFund === 'cash_advance' ? 'active' : '' }}"
+                    href="{{ route('purchaser.rfc.index', ['fund' => \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT]) }}"
+                    class="menu-sub-item {{ $activeFund === \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT ? 'active' : '' }}"
+                >
+                    <i data-lucide="calendar-clock" class="h-4 w-4"></i>
+                    <span>Cash Installment</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.rfc.index', ['fund' => \App\Support\ProcurementPaymentPath::CASH_ADVANCE]) }}"
+                    class="menu-sub-item {{ $activeFund === \App\Support\ProcurementPaymentPath::CASH_ADVANCE ? 'active' : '' }}"
                 >
                     <i data-lucide="banknote" class="h-4 w-4"></i>
                     <span>Cash Advance</span>
@@ -469,7 +439,7 @@
                     class="menu-sub-item {{ $activeBoPayment === 'rfc' ? 'active' : '' }}"
                 >
                     <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                    <span>Request for Check</span>
+                    <span>Direct / Installment</span>
                 </a>
                 <a
                     href="{{ route('purchaser.bo.index', ['payment' => 'ca']) }}"
@@ -536,7 +506,7 @@
 
 
 
-        <div class="menu-title" id="account-section">
+        <!--<div class="menu-title" id="account-section">
             ACCOUNT
         </div>
 
@@ -546,7 +516,7 @@
         >
             <i data-lucide="user-cog" class="h-5 w-5"></i>
             <span>Account settings</span>
-        </a>
+        </a>-->
 
     </div>
 

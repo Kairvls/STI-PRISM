@@ -153,7 +153,7 @@
                 data-pur-confirm="Submit this Authority to Purchase for review?"
                 data-pur-confirm-title="Submit ATP"
                 data-pur-confirm-ok="Submit"
-                data-pur-confirm-reviewer-role="Accounting"
+                data-pur-confirm-reviewer-role="School Administrator"
             >
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white">Submit ATP</button>
@@ -161,14 +161,26 @@
         @endif
 
         @if($atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at)
-            <p class="text-sm text-gray-500">Waiting for Accounting to approve or request a revision.</p>
+            <p class="text-sm text-gray-500">Waiting for the School Administrator to approve or request a revision.</p>
         @endif
 
         @if($atp->authority_purchase_status === 'Approved' && !$atp->authority_purchase_is_archived)
             <a href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white hover:bg-blue-800">Create RFC</a>
         @endif
 
-        @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
+        @php
+            $atpNeedsHandoffShow = (
+                $atp->authority_purchase_status === 'Approved'
+                && empty($atp->has_rfc)
+            );
+            $canArchiveAtpShow = ! $atp->authority_purchase_is_archived
+                && ! $atpNeedsHandoffShow
+                && (
+                    $atp->authority_purchase_status === 'Rejected'
+                    || ($atp->authority_purchase_status === 'Approved' && ! empty($atp->has_rfc))
+                );
+        @endphp
+        @if($canArchiveAtpShow)
             <form
                 method="POST"
                 action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"

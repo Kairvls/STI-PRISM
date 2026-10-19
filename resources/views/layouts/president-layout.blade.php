@@ -22,6 +22,7 @@
     @include('layouts.partials.prism-toast')
     @include('layouts.partials.ris-form-number-js')
     @include('layouts.partials.president-daily-reminder')
+    @include('layouts.partials.module-importance-notice')
     <script>
         (function () {
             if (window.__pmFloatingTipInit) return;

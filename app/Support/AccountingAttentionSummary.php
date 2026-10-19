@@ -37,7 +37,8 @@ class AccountingAttentionSummary
     }
 
     /**
-     * ATPs waiting for Accounting review. Bundled ATPs are reviewed via their Purchase Order instead.
+     * ATPs waiting for School Administrator review.
+     * Purchase Orders are retired — every pending ATP is reviewed individually.
      */
     public static function scopeAtpIncoming($query): void
     {
@@ -47,29 +48,6 @@ class AccountingAttentionSummary
                 $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                     ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
             });
-
-        if (!PurchaseOrderBasket::tablesExist()) {
-            return;
-        }
-
-        $query->whereNotExists(function ($sub) {
-            $sub->select(DB::raw(1))
-                ->from('purchase_order_atps_table')
-                ->join(
-                    'purchase_orders_table',
-                    'purchase_order_atps_table.purchase_order_id',
-                    '=',
-                    'purchase_orders_table.purchase_order_id'
-                )
-                ->whereColumn(
-                    'purchase_order_atps_table.authority_purchase_id',
-                    'authority_to_purchase_table.authority_purchase_id'
-                )
-                ->whereIn('purchase_orders_table.purchase_order_status', [
-                    PurchaseOrderBasket::STATUS_SUBMITTED,
-                    PurchaseOrderBasket::STATUS_APPROVED,
-                ]);
-        });
     }
 
     public static function scopeRfcActive($query): void
@@ -153,7 +131,7 @@ class AccountingAttentionSummary
                 'scope' => 'mine',
                 'status' => 'incoming',
                 'table' => 'authority_to_purchase_table',
-                'route' => 'accounting.atp.index',
+                'route' => 'school-admin.atp.index',
             ],
             'rfc-review' => [
                 'label' => 'Request Checks pending review',
@@ -161,7 +139,7 @@ class AccountingAttentionSummary
                 'scope' => 'mine',
                 'status' => 'incoming',
                 'table' => 'request_check_table',
-                'route' => 'accounting.rfc.index',
+                'route' => 'school-admin.rfc.index',
             ],
             'funds' => [
                 'label' => 'Approved RFCs waiting for funds release',
@@ -169,7 +147,7 @@ class AccountingAttentionSummary
                 'scope' => 'mine',
                 'status' => 'funds',
                 'table' => 'request_check_table',
-                'route' => 'accounting.rfc.index',
+                'route' => 'school-admin.rfc.index',
             ],
             'liq-review' => [
                 'label' => 'Liquidation reports pending review',
@@ -248,13 +226,14 @@ class AccountingAttentionSummary
         $liqPending = self::countFocus('liq-review');
         $liqOverdue = self::countFocus('overdue');
 
+        // Accounting portal attention is liquidation only; ATP/RFC moved to School Administrator.
         self::$cached = [
             'atpPending' => $atpPending,
             'rfcPending' => $rfcPending,
             'fundsAwaiting' => $fundsAwaiting,
             'liqPending' => $liqPending,
             'liqOverdue' => $liqOverdue,
-            'attentionTotal' => $atpPending + $rfcPending + $fundsAwaiting + $liqPending,
+            'attentionTotal' => $liqPending,
         ];
 
         return self::$cached;

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Support\IssueChecks;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
+use App\Support\ReporterReportMail;
 use App\Support\ReportSeverity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -420,6 +421,14 @@ class ReportSubmissionService
                 .' already reported and still waiting, so maintenance will see '
                 .($repeatCount === 1 ? 'it' : 'them').' flagged as priority.';
         }
+
+        $source = $loggedByUserId !== null ? 'Walk-in' : 'Campus';
+        ReporterReportMail::afterSuccessfulSubmit(
+            $reportId,
+            (string) $request->report_reporter_employee_id,
+            $severity['urgency'] ?? null,
+            $source
+        );
 
         return [
             'success' => true,

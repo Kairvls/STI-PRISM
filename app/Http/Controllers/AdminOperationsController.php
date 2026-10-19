@@ -527,6 +527,47 @@ class AdminOperationsController extends Controller
         return view('admin.operations.building-layout', compact('floors', 'roomsByFloor'));
     }
 
+    public function buildingLayoutStatus(Request $request): JsonResponse
+    {
+        $period = [
+            'preset' => (string) $request->query('preset', 'today'),
+            'from' => (string) $request->query('from', ''),
+            'to' => (string) $request->query('to', ''),
+        ];
+
+        [$from, $to, $preset] = BuildingLayout3D::resolvePeriod($period);
+
+        return response()->json([
+            'rooms' => BuildingLayout3D::statusSnapshot([
+                'preset' => $preset,
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+            ]),
+            'period' => [
+                'preset' => $preset,
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+            ],
+        ]);
+    }
+
+    public function buildingLayoutRoomDetail(Request $request, int $room): JsonResponse
+    {
+        $period = [
+            'preset' => (string) $request->query('preset', 'today'),
+            'from' => (string) $request->query('from', ''),
+            'to' => (string) $request->query('to', ''),
+        ];
+
+        [$from, $to, $preset] = BuildingLayout3D::resolvePeriod($period);
+
+        return response()->json(BuildingLayout3D::roomDetail($room, [
+            'preset' => $preset,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ]));
+    }
+
     public function schedules(Request $request): View
     {
         $filter = (string) $request->query('filter', 'all');
@@ -739,6 +780,10 @@ class AdminOperationsController extends Controller
                         'reports_table.report_suggested_issue'
                     );
 
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $query->addSelect('ris.ris_request_no');
+                }
+
                 if ($filter === 'awaiting_admin') {
                     $query->whereIn('ris.ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending']);
                 } elseif ($filter === 'open') {
@@ -756,6 +801,9 @@ class AdminOperationsController extends Controller
                             ->orWhere('ris.ris_purpose_description', 'like', $needle)
                             ->orWhere('ris.ris_status', 'like', $needle)
                             ->orWhere('creators.user_full_name', 'like', $needle);
+                        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                            $builder->orWhere('ris.ris_request_no', 'like', $needle);
+                        }
                     });
                 }
 
@@ -808,12 +856,69 @@ class AdminOperationsController extends Controller
             }
         }
 
+        $filterCounts = $this->procurementFilterCounts();
+
         return view('admin.operations.procurement', [
             'rows' => $rows,
             'filter' => $filter,
             'q' => $q,
             'stageCounts' => $stageCounts,
+            'filterCounts' => $filterCounts,
         ]);
+    }
+
+    /**
+     * Counts for the Procurement Monitor filter dropdown (global, not search-scoped).
+     *
+     * @return array<string, int>
+     */
+    private function procurementFilterCounts(): array
+    {
+        $counts = [
+            'all' => 0,
+            'open' => 0,
+            'awaiting_admin' => 0,
+            'atp' => 0,
+            'rfc' => 0,
+            'rr' => 0,
+            'liq' => 0,
+        ];
+
+        if (! Schema::hasTable('requisition_issue_slip_table')) {
+            return $counts;
+        }
+
+        try {
+            $counts['all'] = (int) DB::table('requisition_issue_slip_table')->count();
+
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_status')) {
+                $counts['open'] = (int) DB::table('requisition_issue_slip_table')
+                    ->whereNotIn('ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived'])
+                    ->count();
+
+                $counts['awaiting_admin'] = (int) DB::table('requisition_issue_slip_table')
+                    ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
+                    ->count();
+            } else {
+                $counts['open'] = $counts['all'];
+            }
+
+            $risIds = DB::table('requisition_issue_slip_table')
+                ->orderByDesc('ris_id')
+                ->limit(500)
+                ->pluck('ris_id');
+
+            foreach ($risIds as $risId) {
+                $stage = $this->buildAdminPipeline((int) $risId)['current_stage'] ?? 'ris';
+                if (isset($counts[$stage]) && in_array($stage, ['atp', 'rfc', 'rr', 'liq'], true)) {
+                    $counts[$stage]++;
+                }
+            }
+        } catch (\Throwable $e) {
+            // keep zeros
+        }
+
+        return $counts;
     }
 
     public function procurementPipeline(int $risId): JsonResponse

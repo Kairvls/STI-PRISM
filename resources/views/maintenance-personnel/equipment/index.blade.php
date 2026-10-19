@@ -93,6 +93,30 @@
                 </button>
                 @endif
                 @if ($canManage)
+                @php
+                    $openBalanceReports = $openBalance['reports'] ?? [];
+                    $openBalancePending = (int) (($openBalance['totals']['pending_stock'] ?? 0));
+                    $monitoringGhost = (int) (($monitoring['ghost_count'] ?? null) ?? count($monitoring['ghost'] ?? []));
+                    $monitoringWarranty = (int) (($monitoring['warranty_count'] ?? null) ?? count($monitoring['warranty'] ?? []));
+                    $showOpenBalanceBtn = ! empty($openBalanceReports)
+                        || $monitoringGhost > 0
+                        || $monitoringWarranty > 0
+                        || ! empty($monitoring['ghost'] ?? null)
+                        || ! empty($monitoring['warranty'] ?? null);
+                @endphp
+                @if ($showOpenBalanceBtn)
+                <button
+                    type="button"
+                    onclick="openInventoryOpenBalanceModal()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                >
+                    <i data-lucide="scale" class="h-4 w-4"></i>
+                    {{ ! empty($openBalanceReports) ? 'Open balance' : 'Monitoring' }}
+                    @if ($openBalancePending > 0)
+                        <span class="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $openBalancePending }}</span>
+                    @endif
+                </button>
+                @endif
                 <button
                     type="button"
                     id="stockPendingBtn"
@@ -101,7 +125,7 @@
                     @if (!($defaultStorageRoomId ?? null) || ($pendingReceivableCount ?? 0) < 1) disabled @endif
                 >
                     <i data-lucide="package-plus" class="h-4 w-4"></i>
-                    Add all pending
+                    Add all pending in RR
                     @if (($pendingReceivableCount ?? 0) > 0)
                         <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white">{{ (int) $pendingReceivableCount }}</span>
                     @endif
@@ -144,27 +168,6 @@
                     Create a storage room (room type <span class="font-semibold">Storage / Stockroom</span>) before adding equipment to inventory.
                 </div>
             @endif
-            @if ($canManage && ($pendingReceivableCount ?? 0) > 0)
-                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-                    <p>
-                        <span class="font-semibold">{{ number_format($pendingReceivableCount) }}</span>
-                        received RR line{{ $pendingReceivableCount === 1 ? '' : 's' }} ready to add.
-                        Import them in one click, or use <span class="font-semibold">Add to inventory</span> to pick the lines you want.
-                    </p>
-                    <button
-                        type="button"
-                        onclick="openStockPendingModal()"
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800"
-                        @if (!($defaultStorageRoomId ?? null)) disabled @endif
-                    >
-                        <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
-                        Add all pending
-                    </button>
-                </div>
-            @endif
-            @if ($canManage && (int) request('rr') > 0)
-                @include('maintenance-personnel.equipment.partials.inventory-open-balance')
-            @endif
         @elseif (! $canManage)
             <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                 <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
@@ -179,31 +182,17 @@
                     ? 'New activity vs last month'
                     : (($equipmentMonthlyPercentage > 0 ? '+' : '') . number_format($equipmentMonthlyPercentage, 2) . '% vs last month');
             @endphp
-            @include('layouts.partials.maintenance-stat-cards', [
-                'cards' => [
-                    ['label' => 'Items in storage', 'hint' => $stockMonthlyHint, 'value' => number_format($totalEquipment)],
-                    ['label' => 'Total quantity', 'hint' => 'Combined quantity in storage rooms', 'value' => number_format($stockTotalQuantity ?? 0)],
-                    ['label' => 'Equipment types', 'hint' => 'Distinct equipment names', 'value' => number_format($stockTypeCount ?? 0)],
-                ],
-            ])
         @else
             @php
                 $equipmentMonthlyHint = $equipmentMonthlyPercentage === null
                     ? 'New activity vs last month'
                     : (($equipmentMonthlyPercentage > 0 ? '+' : '') . number_format($equipmentMonthlyPercentage, 2) . '% vs last month');
             @endphp
-            @include('layouts.partials.maintenance-stat-cards', [
-                'cards' => [
-                    ['label' => 'Total Equipment', 'hint' => $equipmentMonthlyHint, 'value' => number_format($totalEquipment)],
-                    ['label' => 'Active', 'hint' => number_format($activeEquipmentPercentage, 2) . '% of all equipment', 'value' => number_format($activeEquipment)],
-                    ['label' => 'Under Maintenance', 'hint' => number_format($underMaintenanceEquipmentPercentage, 2) . '% of all equipment', 'value' => number_format($underMaintenanceEquipment)],
-                ],
-            ])
         @endif
 
         <!-- FILTER SECTION 
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
-            <form method="GET">
+            <form data-auto-filter method="GET">
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
                     <div class="lg:col-span-2">
                         <input
@@ -398,7 +387,7 @@
                     {{-- STATUS TABS (All Equipment only) --}}
                     {{-- ================================================= --}}
 
-                    <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
 
                         @if ($isStockPage)
                             <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
@@ -408,16 +397,16 @@
                         @else
                         @php
                             $statusOptions = [
-                                '' => 'All Status',
-                                'Active' => 'Active',
-                                'Under Maintenance' => 'Maintenance',
-                                'Borrowed' => 'Borrowed',
-                                'For Replacement' => 'For Replacement',
-                                'Disposed' => 'Disposed',
+                                '' => ['label' => 'All Status', 'count' => (int) ($totalEquipment ?? 0)],
+                                'Active' => ['label' => 'Active', 'count' => (int) ($activeEquipment ?? 0)],
+                                'Under Maintenance' => ['label' => 'Maintenance', 'count' => (int) ($underMaintenanceEquipment ?? 0)],
+                                'Borrowed' => ['label' => 'Borrowed', 'count' => (int) ($borrowedEquipment ?? 0)],
+                                'For Replacement' => ['label' => 'For Replacement', 'count' => (int) ($forReplacementEquipment ?? 0)],
+                                'Disposed' => ['label' => 'Disposed', 'count' => (int) ($disposedEquipment ?? 0)],
                             ];
                         @endphp
 
-                        <div class="relative w-48">
+                        <div class="relative w-56">
 
                             <i
                                 data-lucide="list-filter"
@@ -442,7 +431,7 @@
                                     focus:ring-2 focus:ring-slate-100"
                             >
 
-                                @foreach ($statusOptions as $statusValue => $statusLabel)
+                                @foreach ($statusOptions as $statusValue => $statusOption)
 
                                     <option
                                         value="{{ request()->fullUrlWithQuery([
@@ -452,7 +441,7 @@
 
                                         @selected((string) request('status', '') === $statusValue)
                                     >
-                                        {{ $statusLabel }}
+                                        {{ $statusOption['label'] }} ({{ number_format($statusOption['count']) }})
                                     </option>
 
                                 @endforeach
@@ -470,6 +459,16 @@
                         </div>
                         @endif
 
+                        <div
+                            class="inline-flex w-fit items-center gap-2
+                                rounded-lg border border-slate-200
+                                bg-slate-50 px-3 py-2
+                                text-xs font-medium text-slate-500"
+                        >
+                            <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                            {{ number_format($equipment->total()) }} total
+                        </div>
+
                     </div>
 
 
@@ -479,9 +478,7 @@
                     {{-- DOES NOT WRAP ON XL SCREENS --}}
                     {{-- ================================================= --}}
 
-                    <form
-                        method="GET"
-                        action="{{ url()->current() }}"
+                    <form method="GET" action="{{ url()->current() }}"
 
                         class="flex shrink-0 flex-wrap items-center gap-2
                             xl:flex-nowrap"
@@ -1374,11 +1371,9 @@
             </div>
         @endif
 
-        @if ($isStockPage && $canManage && (int) request('rr') < 1)
+        @if ($isStockPage && $canManage)
             @include('maintenance-personnel.equipment.partials.inventory-open-balance')
         @endif
-
-        
     </div>
 
     @php
@@ -1961,7 +1956,6 @@
                                     <p class="text-sm font-semibold text-slate-900">${escapeStockPendingHtml(line.article || 'Item')}</p>
                                     <p class="mt-0.5 text-[11px] text-slate-500">
                                         ${escapeStockPendingHtml(line.rr_number || 'RR')}
-                                        · ${line.po_number ? ('PO ' + escapeStockPendingHtml(line.po_number)) : 'No PO'}
                                         · Left <span class="font-semibold text-amber-700">${Number(qty) || 0}</span>
                                     </p>
                                 </li>
@@ -2333,7 +2327,7 @@
                     </div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-950">Add all pending</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Adds every completed RR line that isn’t in inventory yet to the storage room, as Bulk records linked to the RR / PO.
+                        Adds every completed RR line that isn’t in inventory yet to the storage room, as Bulk records linked to the RR.
                     </p>
                 </div>
                 <button

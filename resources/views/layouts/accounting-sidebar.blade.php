@@ -29,35 +29,26 @@
 
         <div class="quick-actions">
             <a
-                href="/accounting/authority-to-purchase?status=incoming"
-                class="quick-card {{ request()->is('accounting/authority-to-purchase*') ? 'active' : '' }}"
+                href="{{ route('accounting.dv.index', ['status' => 'incoming']) }}"
+                class="quick-card {{ request()->is('accounting/disbursement-vouchers*') ? 'active' : '' }}"
             >
-                <i data-lucide="file-check"></i>
-                <span>ATP</span>
+                <i data-lucide="file-spreadsheet"></i>
+                <span>DV</span>
             </a>
-
-            <a
-                href="/accounting/purchase-orders?status=incoming"
-                class="quick-card {{ request()->is('accounting/purchase-orders*') ? 'active' : '' }}"
-            >
-                <i data-lucide="shopping-bag"></i>
-                <span>PO</span>
-            </a>
-
-            <a
-                href="/accounting/request-check?status=incoming"
-                class="quick-card {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
-            >
-                <i data-lucide="clipboard-list"></i>
-                <span>Request Checks</span>
-            </a>
-
             <a
                 href="/accounting/liquidation-reports?status=incoming"
                 class="quick-card {{ request()->is('accounting/liquidation-reports*') ? 'active' : '' }}"
             >
                 <i data-lucide="receipt"></i>
                 <span>Liquidations</span>
+            </a>
+
+            <a
+                href="/accounting/procurement-records"
+                class="quick-card {{ request()->is('accounting/procurement-records*') ? 'active' : '' }}"
+            >
+                <i data-lucide="folder-archive"></i>
+                <span>Records</span>
             </a>
 
             <a
@@ -80,29 +71,15 @@
 
         <div class="menu-title" id="transactions-section">TRANSACTIONS</div>
         <a
-            href="/accounting/authority-to-purchase?status=incoming"
-            class="menu-item {{ request()->is('accounting/authority-to-purchase*') ? 'active' : '' }}"
+            href="{{ route('accounting.dv.index', ['status' => 'incoming']) }}"
+            class="menu-item {{ request()->is('accounting/disbursement-vouchers*') ? 'active' : '' }}"
         >
-            <i class="h-5 w-5" data-lucide="file-check"></i>
-            <span>ATP</span>
-        </a>
-        <a
-            href="/accounting/purchase-orders?status=incoming"
-            class="menu-item {{ request()->is('accounting/purchase-orders*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="shopping-bag"></i>
-            <span>Purchase Orders</span>
-        </a>
-        <a
-            href="/accounting/request-check?status=incoming"
-            class="menu-item {{ request()->is('accounting/request-check*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="clipboard-list"></i>
-            <span>Request Checks</span>
+            <i class="h-5 w-5" data-lucide="file-spreadsheet"></i>
+            <span>Disbursement Vouchers</span>
         </a>
         <a
             href="/accounting/liquidation-reports?status=incoming"
-            class="menu-item {{ request()->is('accounting/liquidation-reports*') ? 'active' : '' }} mt-1"
+            class="menu-item {{ request()->is('accounting/liquidation-reports*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="receipt"></i>
             <span>Liquidation Reports</span>

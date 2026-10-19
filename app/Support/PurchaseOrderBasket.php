@@ -56,22 +56,8 @@ class PurchaseOrderBasket
      */
     public static function groupDraftAtp(int $atpId, int $createdBy): array
     {
-        if (! self::tablesExist() || $atpId < 1 || $createdBy < 1) {
-            return [];
-        }
-
-        $openId = self::latestOpenDraftId($createdBy);
-        if ($openId && self::atpCount($openId) > 0) {
-            $poId = self::attachAtp($atpId, $createdBy);
-
-            return $poId > 0 ? [$poId] : [];
-        }
-
-        if (count(self::eligibleDraftAtpIds($createdBy)) < self::MIN_ATPS) {
-            return [];
-        }
-
-        return self::attachEligibleDraftAtps($createdBy);
+        // Purchase Orders retired — never auto-group new draft ATPs into a PO.
+        return [];
     }
 
     /**

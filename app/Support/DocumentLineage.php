@@ -162,8 +162,17 @@ class DocumentLineage
         if ($status === 'Minor Revision') {
             return 'Revision required — update and resubmit';
         }
-        if (in_array($status, ['Approved', 'Completed', 'Directly Approved'], true)) {
-            return $status === 'Completed' ? 'Completed' : 'Approved';
+        if ($status === 'Completed') {
+            return 'Completed';
+        }
+        if ($status === 'Directly Approved') {
+            return 'Directly approved by the Administrator';
+        }
+        if ($status === 'Approved') {
+            return 'Approved';
+        }
+        if ($status === 'Under Review') {
+            return 'Under review';
         }
         if ($status === 'Incomplete') {
             return 'Incomplete — waiting for back order items';

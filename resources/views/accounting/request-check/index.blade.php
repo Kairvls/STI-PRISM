@@ -1,4 +1,4 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'Request Checks')
 
@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+{{-- accounting CSS loaded via admin-layout for school-admin ATP/PO/RFC --}}
 <style>
     .acc-rfc-page,
     .acc-rfc-page * {
@@ -49,54 +50,20 @@
         'revision' => 'Revision',
         'approved' => 'Approved',
     ];
-    $searchQuery = request('search') ? '&search='.urlencode(request('search')) : '';
-    $statCards = [
-        [
-            'label' => 'Needs review',
-            'hint' => 'Pending Accounting review',
-            'value' => number_format($counts['incoming'] ?? 0),
-            'href' => '/accounting/request-check?status=incoming'.$searchQuery,
-            'filterKey' => 'incoming',
-            'active' => $filter === 'incoming',
-        ],
-        [
-            'label' => 'Funds to release',
-            'hint' => 'Ready for fund release',
-            'value' => number_format($counts['funds'] ?? 0),
-            'href' => '/accounting/request-check?status=funds'.$searchQuery,
-            'filterKey' => 'funds',
-            'active' => $filter === 'funds',
-        ],
-        [
-            'label' => 'Released',
-            'hint' => 'Funds already collected',
-            'value' => number_format($counts['released'] ?? 0),
-            'href' => '/accounting/request-check?status=released'.$searchQuery,
-            'filterKey' => 'released',
-            'active' => $filter === 'released',
-        ],
-    ];
-    $filterLabels = [
-        'all' => 'All Request Check records',
-        'incoming' => 'RFCs awaiting your review',
-        'funds' => 'RFCs ready for fund release',
-        'released' => 'RFCs with released funds',
-        'revision' => 'RFCs sent back for revision',
-        'approved' => 'RFCs approved by Accounting',
-    ];
 @endphp
 
 <div class="acc-page acc-rfc-page acc-content-fill space-y-6 fade-in">
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
 
     @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $records->total()])
+
+    <p class="text-sm text-slate-500">Open a request to see the form, approve or return, and view the procurement pipeline.</p>
 
     <div class="pur-card">
         @include('accounting.partials.status-filter-bar', [
             'filters' => $filters,
             'activeFilter' => $filter,
-            'baseUrl' => '/accounting/request-check',
-            'searchPlaceholder' => 'Search RFC, ATP, RIS, payee...',
+            'baseUrl' => '/school-admin/request-check',
+            'searchPlaceholder' => 'Search RFC, Request No., ATP, RIS, payee...',
             'formId' => 'rfcSearchForm',
             'searchId' => 'rfcSearch',
         ])
@@ -106,6 +73,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request Check</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payee</th>
@@ -177,7 +145,7 @@
             if (currentFocus) params.set('focus', currentFocus);
             if (search) params.set('search', search);
             if (page && page > 1) params.set('page', page);
-            return '/accounting/request-check?' + params.toString();
+            return '/school-admin/request-check?' + params.toString();
         }
 
         function fetchData(page, filter) {

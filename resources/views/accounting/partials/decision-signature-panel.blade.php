@@ -266,8 +266,8 @@
     var pendingSaveDataUrl = '';
     var pendingDeleteId = '';
     var maxSavedSignatures = 4;
-    var storeUrl = @json(route('accounting.saved-signatures.store'));
-    var destroyBase = @json(url('/accounting/saved-signatures'));
+    var storeUrl = @json(request()->is('school-admin*') ? route('school-admin.saved-signatures.store') : route('accounting.saved-signatures.store'));
+    var destroyBase = @json(url(request()->is('school-admin*') ? '/school-admin/saved-signatures' : '/accounting/saved-signatures'));
     var syncingPrintedName = false;
 
     function csrfToken() {

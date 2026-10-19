@@ -23,6 +23,8 @@ use App\Services\DocumentWorkflowService;
 use App\Services\RfcFormExporter;
 use Illuminate\Validation\ValidationException;
 use App\Support\ProcurementPortal;
+use App\Support\AccountingHandoff;
+use Illuminate\Support\Facades\Auth;
 
 class RequestForCheckController extends Controller
 {
@@ -49,18 +51,25 @@ class RequestForCheckController extends Controller
                 }
                 $sub->orWhere('authority_to_purchase_table.authority_purchase_form_number', 'LIKE', $search)
                     ->orWhere('request_check_table.request_check_particulars_purpose', 'LIKE', $search);
+                if ($this->rfcHas('request_check_request_no')) {
+                    $sub->orWhere('request_check_table.request_check_request_no', 'LIKE', $search);
+                }
             });
         }
 
-        $fundFilter = in_array($request->query('fund'), [ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE], true)
-            ? $request->query('fund')
+        $fundFilter = ProcurementPaymentPath::isValid($request->query('fund'))
+            ? ProcurementPaymentPath::normalize($request->query('fund'))
             : null;
         $this->applyFundFilter($query, $fundFilter);
 
-        $attentionFocus = $archiveView
-            ? null
-            : PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR);
-        if ($attentionFocus) {
+        $attentionFocus = null;
+        if (! $archiveView) {
+            $attentionFocus = PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_CHECK_READY)
+                ?? PurchaserAttentionSummary::focusFor($request, PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR);
+        }
+        if ($attentionFocus && $request->query('focus') === PurchaserAttentionSummary::FOCUS_CHECK_READY) {
+            PurchaserAttentionSummary::scopeCheckReady($query);
+        } elseif ($attentionFocus && $request->query('focus') === PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR) {
             PurchaserAttentionSummary::scopeRfcReadyForRr($query);
         } elseif ($request->filled('status')) {
             $this->applyStatusFilter($query, $request->status);
@@ -79,7 +88,10 @@ class RequestForCheckController extends Controller
 
         DocumentUrgency::select($query, 'RFC');
         $spotlightQuery = clone $query;
-        $rfcs = $query
+        $rfcs = DocumentWorkflowService::orderOwnUnfinishedFirst(
+            $query,
+            'request_check_table.request_check_status'
+        )
             ->orderByDesc($this->rfcSortColumn())
             ->paginate(10)
             ->withQueryString();
@@ -154,6 +166,8 @@ class RequestForCheckController extends Controller
             $rfc->has_rr = $rrAtps !== null
                 && (count($linked) < 2 || array_diff($linked, $rrAtps) === []);
             $rfc->funds_released = !empty($rfc->request_check_funds_released_at ?? null);
+            $rfc->sent_to_accounting = AccountingHandoff::rfcIsSentToAccounting($rfc);
+            $rfc->can_send_to_accounting = AccountingHandoff::purchaserCanSendRfc($rfc);
         }
 
         $selectedSource = trim((string) $request->query('selected_source', ''));
@@ -185,7 +199,9 @@ class RequestForCheckController extends Controller
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
         $validated = $this->validateRfc($request, $isDraft);
-        $fundingType = $validated['request_check_funding_type'] ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
+        $fundingType = ProcurementPaymentPath::normalize(
+            $validated['request_check_funding_type'] ?? null
+        ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
         $requestedSig = RisWorkflow::normalizeDrawnSignature($validated['request_check_requested_by_signature'] ?? null);
         if (!$isDraft && !$requestedSig) {
             throw ValidationException::withMessages([
@@ -203,7 +219,7 @@ class RequestForCheckController extends Controller
             $user = auth()->user();
             $reviewerId = $isDraft
                 ? null
-                : ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
+                : ReviewerAssignment::resolve($request, \App\Support\ProcurementReviewPortal::ROLE);
 
             $payload = [
                 'request_check_authority_purchase_id' => $atpIds[0] ?? null,
@@ -228,6 +244,12 @@ class RequestForCheckController extends Controller
             if (! $isDraft && $this->rfcHas('request_check_assigned_reviewer_id')) {
                 $payload['request_check_assigned_reviewer_id'] = $reviewerId;
             }
+            if ($this->rfcHas('request_check_request_no')) {
+                $requestNo = \App\Support\ProcurementRequestNumber::resolveFromAtp($atpIds[0] ?? null);
+                if ($requestNo) {
+                    $payload['request_check_request_no'] = $requestNo;
+                }
+            }
 
             $id = DB::table('request_check_table')->insertGetId($this->rfcPayload($payload));
             RfcAtpLinks::sync((int) $id, $atpIds);
@@ -243,11 +265,13 @@ class RequestForCheckController extends Controller
                 $this->notifyAccountingRfc($id, $reviewerId);
             }
 
+            $fundLabel = ProcurementPaymentPath::label($fundingType);
+
             return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
-                    ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft saved.' : 'Request for Check draft saved.')
-                    : ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance submitted to Accounting.' : 'Request for Check submitted to Accounting.')
+                    ? "{$fundLabel} draft saved."
+                    : "{$fundLabel} submitted to the School Administrator."
             );
         });
     }
@@ -280,8 +304,10 @@ class RequestForCheckController extends Controller
                 ->withErrors($e->errors())
                 ->with('edit_rfc_id', (int) $id);
         }
-        $fundingType = $validated['request_check_funding_type']
-            ?? ($rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
+        $fundingType = ProcurementPaymentPath::normalize(
+            $validated['request_check_funding_type']
+                ?? ($rfc->request_check_funding_type ?? null)
+        ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
         $requestedSig = RisWorkflow::normalizeDrawnSignature($validated['request_check_requested_by_signature'] ?? null);
         if (!$isDraft && !$requestedSig && !RisWorkflow::isDrawnSignature((string) ($rfc->request_check_requested_by_signature ?? ''))) {
             throw ValidationException::withMessages([
@@ -298,7 +324,7 @@ class RequestForCheckController extends Controller
             $now = now();
             $reviewerId = $isDraft
                 ? null
-                : ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
+                : ReviewerAssignment::resolve($request, \App\Support\ProcurementReviewPortal::ROLE);
             $wasRevision = in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
                 && $rfc->request_check_status !== 'Draft'
                 && $rfc->request_check_status !== 'Pending';
@@ -342,18 +368,20 @@ class RequestForCheckController extends Controller
                 $this->notifyAccountingRfc($id, $reviewerId);
             }
 
+            $fundLabel = ProcurementPaymentPath::label($fundingType);
+
             return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
-                    ? ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance draft updated.' : 'Request for Check draft updated.')
-                    : ($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? 'Cash Advance submitted to Accounting.' : 'Request for Check submitted to Accounting.')
+                    ? "{$fundLabel} draft updated."
+                    : "{$fundLabel} submitted to the School Administrator."
             );
         });
     }
 
     public function submit($id)
     {
-        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+        $reviewerId = ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
         return DB::transaction(function () use ($id, $reviewerId) {
             $rfc = DB::table('request_check_table')->where('request_check_id', $id)->lockForUpdate()->first();
@@ -389,7 +417,8 @@ class RequestForCheckController extends Controller
                     'Cannot submit yet. Please complete: ' . implode(', ', $missing) . '.'
                 );
             }
-            $fundingType = $rfc->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK;
+            $fundingType = ProcurementPaymentPath::normalize($rfc->request_check_funding_type ?? null)
+                ?? ProcurementPaymentPath::DIRECT_PAYMENT;
             $atpIds = RfcAtpLinks::atpIdsFor((int) $id, (int) $rfc->request_check_authority_purchase_id ?: null);
             if ($error = $this->atpSetEligibilityError($atpIds, (int) $id, true, $fundingType)) {
                 return back()->with('error', $error);
@@ -415,8 +444,31 @@ class RequestForCheckController extends Controller
 
             $this->notifyAccountingRfc($id, $reviewerId);
 
-            return back()->with('success', 'Request for Check submitted to Accounting.');
+            return back()->with('success', 'Request for Check submitted to the School Administrator.');
         });
+    }
+
+    public function sendToAccounting(Request $request, $id)
+    {
+        $rfc = $this->findRfc($id);
+        if (! $rfc) {
+            return back()->with('error', 'Request for Check not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
+
+        try {
+            AccountingHandoff::sendRfcToAccounting($rfc, (int) Auth::id());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+
+        return back()->with(
+            'success',
+            $label.' (Canvas + RIS + ATP + RFC) was submitted to Accounting for Disbursement Voucher.'
+        );
     }
 
     public function archive($id)
@@ -430,6 +482,15 @@ class RequestForCheckController extends Controller
         }
         if (!in_array($rfc->request_check_status, self::ARCHIVEABLE_STATUSES, true)) {
             return back()->with('error', 'Only approved or rejected Request for Check records can be archived.');
+        }
+
+        if ($rfc->request_check_status === 'Approved') {
+            $hasRr = DB::table('receiving_reports_table')
+                ->where('receiving_report_request_check_id', $id)
+                ->exists();
+            if (! $hasRr) {
+                return back()->with('error', 'Finish the funding handoff and create the Receiving Report before archiving.');
+            }
         }
 
         DocumentWorkflowService::setArchived(
@@ -493,7 +554,7 @@ class RequestForCheckController extends Controller
             'save_action' => ['required', 'in:draft,submit'],
             'request_check_funding_type' => [
                 'required',
-                Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE]),
+                Rule::in(ProcurementPaymentPath::choices()),
             ],
             'request_check_authority_purchase_id' => [
                 'nullable',
@@ -615,7 +676,7 @@ class RequestForCheckController extends Controller
 
     private function eligibleAtpQuery(?string $fundingType = null)
     {
-        $fundingType = $fundingType ?: ProcurementPaymentPath::REQUEST_FOR_CHECK;
+        $fundingType = ProcurementPaymentPath::normalize($fundingType) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
 
         return DB::table('authority_to_purchase_table')
             ->leftJoin(
@@ -662,8 +723,15 @@ class RequestForCheckController extends Controller
             )
             ->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
             ->when(
+                \App\Support\SupplyHandoff::atpReleaseColumnsReady(),
+                fn ($q) => \App\Support\SupplyHandoff::scopeReleasedAtpsForPurchaser($q)
+            )
+            ->when(
                 Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path'),
-                fn ($q) => $q->where('authority_to_purchase_table.authority_purchase_payment_path', $fundingType)
+                fn ($q) => $q->whereIn(
+                    'authority_to_purchase_table.authority_purchase_payment_path',
+                    ProcurementPaymentPath::storedValuesForFilter($fundingType)
+                )
             )
             ->where(function ($q) {
                 $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
@@ -788,11 +856,10 @@ class RequestForCheckController extends Controller
 
     private function resolveFundingType(Request $request): string
     {
-        $type = (string) $request->query('funding_type', $request->query('fund', ProcurementPaymentPath::REQUEST_FOR_CHECK));
+        $type = (string) $request->query('funding_type', $request->query('fund', ProcurementPaymentPath::DIRECT_PAYMENT));
+        $normalized = ProcurementPaymentPath::normalize($type);
 
-        return ProcurementPaymentPath::isValid($type)
-            ? $type
-            : ProcurementPaymentPath::REQUEST_FOR_CHECK;
+        return $normalized ?? ProcurementPaymentPath::DIRECT_PAYMENT;
     }
 
     private function applyFundFilter($query, ?string $fund): void
@@ -801,9 +868,11 @@ class RequestForCheckController extends Controller
             return;
         }
 
-        $query->where(function ($sub) use ($fund) {
-            $sub->where('request_check_table.request_check_funding_type', $fund);
-            if ($fund === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+        $values = ProcurementPaymentPath::storedValuesForFilter($fund);
+
+        $query->where(function ($sub) use ($fund, $values) {
+            $sub->whereIn('request_check_table.request_check_funding_type', $values);
+            if (ProcurementPaymentPath::normalize($fund) === ProcurementPaymentPath::DIRECT_PAYMENT) {
                 $sub->orWhereNull('request_check_table.request_check_funding_type')
                     ->orWhere('request_check_table.request_check_funding_type', '');
             }
@@ -874,18 +943,18 @@ class RequestForCheckController extends Controller
             return 'Only an approved, unarchived Authority to Purchase can be used for a funding request.';
         }
 
-        $fundingType = $fundingType ?: ProcurementPaymentPath::REQUEST_FOR_CHECK;
+        $fundingType = ProcurementPaymentPath::normalize($fundingType) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
 
         if (
             Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
             && blank($atp->authority_purchase_payment_path ?? null)
         ) {
-            return 'Choose a payment path (Request for Check or Cash Advance) on the ATP before creating a funding request.';
+            return 'Choose a payment path (Direct Payment, Cash Installment, or Cash Advance) on the ATP before creating a funding request.';
         }
 
         if (
             Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
-            && ($atp->authority_purchase_payment_path ?? null) !== $fundingType
+            && ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path ?? null) !== $fundingType
         ) {
             return 'Funding type must match the payment path chosen on the ATP (' . ProcurementPaymentPath::label($atp->authority_purchase_payment_path) . ').';
         }
@@ -1213,13 +1282,13 @@ class RequestForCheckController extends Controller
         $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
         $ref = $rfc->request_check_form_number ?? ('RFC #' . $id);
         DocumentWorkflowService::notifySubmitted(
-            WorkflowNotifier::ROLE_ACCOUNTING,
+            \App\Support\ProcurementReviewPortal::ROLE,
             'Request Check submitted',
-            $ref . ' is waiting for Accounting review.',
+            $ref . ' is waiting for School Administrator review.',
             'rfc_submitted',
             'RFC',
             (int) $id,
-            '/accounting/request-check/' . $id,
+            \App\Support\ProcurementReviewPortal::requestCheck((int) $id),
             $reviewerId
         );
     }

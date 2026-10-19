@@ -21,16 +21,20 @@ use App\Support\ReporterImport;
 use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\RoomCategories;
+use App\Support\RoomDepartments;
 use App\Support\RoomName;
+use App\Support\RoomStatuses;
 use App\Support\SuggestedIssues;
 use App\Support\EquipmentQrCodes;
 use App\Support\EquipmentViewReturn;
+use App\Support\ReportDetailsReturn;
 use App\Support\EquipmentLifecycle;
 use App\Support\EquipmentAuditPack;
 use App\Support\EquipmentConditionHistory;
 use App\Support\EquipmentMonitoring;
 use App\Support\EquipmentNextMaintenance;
 use App\Support\EquipmentOpenBalance;
+use App\Support\EquipmentSchedules;
 use App\Support\PropertyAssignments;
 use App\Support\ReceivableStockLines;
 use App\Support\ReceivableStockImporter;
@@ -3589,12 +3593,15 @@ class MaintenanceController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $reportBack = ReportDetailsReturn::resolve(request());
+
         return view(
             'maintenance-personnel.reports.report-details',
             compact(
                 'report',
                 'relatedReports',
-                'reportItems'
+                'reportItems',
+                'reportBack'
             )
         );
     }
@@ -3853,8 +3860,20 @@ class MaintenanceController extends Controller
 
 
 
+    /**
+     * Status / severity changes belong to Maintenance work, not admin monitoring.
+     */
+    private function ensureCanManageReportProgress(): void
+    {
+        if (! RoleAccess::hasRole(RoleAccess::MAINTENANCE) || RoleAccess::adminShell()) {
+            abort(403, 'Only Maintenance personnel can update report progress.');
+        }
+    }
+
     public function updateStatusPage($id)
     {
+        $this->ensureCanManageReportProgress();
+
         $report = DB::table('reports_table')
             ->leftJoin(
                 'rooms_table',
@@ -3898,6 +3917,8 @@ class MaintenanceController extends Controller
 
     public function updateReportSeverity(Request $request, int $id)
     {
+        $this->ensureCanManageReportProgress();
+
         if (!ReportSeverity::hasColumns()) {
             return back()->with('error', 'Automatic priority is not set up yet. Run the database migrations first.');
         }
@@ -3954,6 +3975,8 @@ class MaintenanceController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
+        $this->ensureCanManageReportProgress();
+
         // =====================================================
         // VALIDATE REQUEST HERE
         // =====================================================
@@ -5101,35 +5124,25 @@ class MaintenanceController extends Controller
             $activeEquipment = 0;
             $underMaintenanceEquipment = 0;
             $borrowedEquipment = 0;
+            $forReplacementEquipment = 0;
             $disposedEquipment = 0;
         } else {
             $stockTotalQuantity = 0;
             $stockTypeCount = 0;
             $storageRoomsWithStock = 0;
 
-            $totalEquipment =
-                DB::table('equipment_table')
-                    ->count();
+            $statusCountRows = DB::table('equipment_table')
+                ->select('equipment_inventory_status', DB::raw('COUNT(*) as total'))
+                ->groupBy('equipment_inventory_status')
+                ->pluck('total', 'equipment_inventory_status');
 
-            $activeEquipment =
-                DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'Active')
-                    ->count();
+            $totalEquipment = (int) $statusCountRows->sum();
 
-            $underMaintenanceEquipment =
-                DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'Under Maintenance')
-                    ->count();
-
-            $borrowedEquipment =
-                DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'Borrowed')
-                    ->count();
-
-            $disposedEquipment =
-                DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'Disposed')
-                    ->count();
+            $activeEquipment = (int) $statusCountRows->get('Active', 0);
+            $underMaintenanceEquipment = (int) $statusCountRows->get('Under Maintenance', 0);
+            $borrowedEquipment = (int) $statusCountRows->get('Borrowed', 0);
+            $forReplacementEquipment = (int) $statusCountRows->get('For Replacement', 0);
+            $disposedEquipment = (int) $statusCountRows->get('Disposed', 0);
         }
 
         // =====================================================
@@ -5592,6 +5605,7 @@ class MaintenanceController extends Controller
                 'activeEquipment',
                 'underMaintenanceEquipment',
                 'borrowedEquipment',
+                'forReplacementEquipment',
                 'disposedEquipment',
 
                 // =====================================================
@@ -5917,6 +5931,22 @@ class MaintenanceController extends Controller
                 $q->where('rooms_table.room_name', 'like', '%'.$search.'%')
                     ->orWhere('buildings_table.building_name', 'like', '%'.$search.'%')
                     ->orWhere('floors_table.floor_level', 'like', '%'.$search.'%');
+                if (RoomDepartments::ready()) {
+                    $q->orWhereExists(function ($sub) use ($search) {
+                        $sub->select(DB::raw(1))
+                            ->from(RoomDepartments::TABLE.' as rd')
+                            ->join('departments_table as d', 'd.department_id', '=', 'rd.department_id')
+                            ->whereColumn('rd.room_id', 'rooms_table.room_id')
+                            ->where('d.department_name', 'like', '%'.$search.'%');
+                    });
+                } elseif (Schema::hasColumn('rooms_table', 'room_department_id') && Schema::hasTable('departments_table')) {
+                    $q->orWhereExists(function ($sub) use ($search) {
+                        $sub->select(DB::raw(1))
+                            ->from('departments_table as d')
+                            ->whereColumn('d.department_id', 'rooms_table.room_department_id')
+                            ->where('d.department_name', 'like', '%'.$search.'%');
+                    });
+                }
             });
         }
 
@@ -5928,6 +5958,16 @@ class MaintenanceController extends Controller
             ->orderBy($orderBy, $dir)
             ->paginate(10)
             ->withQueryString();
+
+        $departmentsByRoom = RoomDepartments::forRooms($rooms->getCollection()->pluck('room_id'));
+        $rooms->getCollection()->transform(function ($room) use ($departmentsByRoom) {
+            $depts = $departmentsByRoom[(int) $room->room_id] ?? [];
+            $room->departments = $depts;
+            $room->department_ids = collect($depts)->pluck('id')->all();
+            $room->department_name = RoomDepartments::label($depts);
+
+            return $room;
+        });
 
         $buildings = DB::table('buildings_table')
             ->orderBy('building_name')
@@ -5950,6 +5990,9 @@ class MaintenanceController extends Controller
             ->get();
 
         $roomTypes = RoomCategories::options();
+        $departments = Departments::options();
+        $managedRoomTypes = RoomCategories::manageList(trim((string) $request->get('type_search', '')));
+        $roomTypesReady = RoomCategories::tableReady();
 
         $activeRoomsQuery = DB::table('rooms_table')
             ->when(
@@ -5964,7 +6007,7 @@ class MaintenanceController extends Controller
             ->count();
 
         $needsAttentionRooms = (clone $activeRoomsQuery)
-            ->whereIn('room_status', ['Maintenance Needed', 'Critical'])
+            ->whereIn('room_status', [RoomStatuses::UNDER_MAINTENANCE, RoomStatuses::CRITICAL])
             ->count();
 
         $roomsWithEquipment = DB::table('rooms_table')
@@ -6079,21 +6122,11 @@ class MaintenanceController extends Controller
 
         $historyRoom = null;
         $reportHistory = null;
-        $roomActivityHistory = collect();
-        $roomReportStats = [
-            'today' => 0,
-            'week' => 0,
-            'month' => 0,
-            'year' => 0,
-            'resolved' => 0,
-            'for_replacement' => 0,
-            'active' => 0,
-        ];
-        $roomEquipmentStats = [
-            'for_replacement' => 0,
-            'for_replacement_qty' => 0,
-            'total_qty' => 0,
-        ];
+        $roomLifecycleEvents = collect();
+        $roomLifecycleSummary = [];
+        $roomLifecycleStageCounts = [];
+        $historyPeriod = '';
+        $historyMonth = null;
 
         if ($request->filled('history')) {
             $historyRoom = DB::table('rooms_table')
@@ -6124,133 +6157,35 @@ class MaintenanceController extends Controller
             }
 
             $roomId = (int) $historyRoom->room_id;
-
-            $historyPeriod = $request->get('history_period', '');
-            $periodStarts = [
-                'today' => now()->copy()->startOfDay(),
-                'week' => now()->copy()->startOfWeek(),
-                'month' => now()->copy()->startOfMonth(),
-                'year' => now()->copy()->startOfYear(),
-            ];
-            $periodStart = $periodStarts[$historyPeriod] ?? null;
-
             $historyFrom = null;
             $historyTo = null;
-            $historyMonth = null;
 
             try {
-                // Single calendar (YYYY-MM) — filter that whole month of any year.
                 if ($request->filled('history_month')) {
                     $historyMonth = \Carbon\Carbon::createFromFormat('Y-m', $request->history_month)->startOfMonth();
                     $historyFrom = $historyMonth->copy()->startOfMonth();
                     $historyTo = $historyMonth->copy()->endOfMonth();
-                    $periodStart = null;
-                    $historyPeriod = '';
                 } elseif ($request->filled('history_date')) {
-                    // Backward-compatible single day if ever passed.
                     $day = \Carbon\Carbon::parse($request->history_date);
                     $historyFrom = $day->copy()->startOfDay();
                     $historyTo = $day->copy()->endOfDay();
-                    $periodStart = null;
-                    $historyPeriod = '';
+                } else {
+                    $historyPeriod = (string) $request->get('history_period', '');
+                    $periodStarts = [
+                        'today' => now()->copy()->startOfDay(),
+                        'week' => now()->copy()->startOfWeek(),
+                        'month' => now()->copy()->startOfMonth(),
+                        'year' => now()->copy()->startOfYear(),
+                    ];
+                    if (isset($periodStarts[$historyPeriod])) {
+                        $historyFrom = $periodStarts[$historyPeriod];
+                    }
                 }
             } catch (\Throwable $e) {
                 $historyFrom = null;
                 $historyTo = null;
                 $historyMonth = null;
-            }
-
-            $applyHistoryDateFilter = function ($query, string $column) use ($historyFrom, $historyTo, $periodStart) {
-                if ($historyFrom) {
-                    $query->where($column, '>=', $historyFrom);
-                }
-                if ($historyTo) {
-                    $query->where($column, '<=', $historyTo);
-                } elseif ($periodStart) {
-                    $query->where($column, '>=', $periodStart);
-                }
-
-                return $query;
-            };
-
-            $reportsBase = DB::table('reports_table')
-                ->where(fn ($q) => ReportGrouping::whereTicketTouchesRoom($q, (int) $roomId))
-                ->when(
-                    Schema::hasColumn('reports_table', 'report_is_archived'),
-                    fn ($q) => $q->where('report_is_archived', false)
-                );
-
-            $roomReportStats['today'] = (clone $reportsBase)
-                ->whereDate('report_submitted_at', now()->toDateString())
-                ->count();
-
-            $roomReportStats['week'] = (clone $reportsBase)
-                ->where('report_submitted_at', '>=', now()->copy()->startOfWeek())
-                ->count();
-
-            $roomReportStats['month'] = (clone $reportsBase)
-                ->where('report_submitted_at', '>=', now()->copy()->startOfMonth())
-                ->count();
-
-            $roomReportStats['year'] = (clone $reportsBase)
-                ->where('report_submitted_at', '>=', now()->copy()->startOfYear())
-                ->count();
-
-            $periodReportsBase = $applyHistoryDateFilter(clone $reportsBase, 'report_submitted_at');
-
-            $roomReportStats['resolved'] = (clone $periodReportsBase)
-                ->where('report_current_status', 'Resolved')
-                ->count();
-
-            $roomReportStats['for_replacement'] = (clone $periodReportsBase)
-                ->where('report_current_status', 'For Replacement')
-                ->count();
-
-            $roomReportStats['active'] = (clone $periodReportsBase)
-                ->whereNotIn('report_current_status', ['Resolved', 'Rejected'])
-                ->count();
-
-            $equipmentBase = DB::table('equipment_table')
-                ->where('equipment_room_id', $roomId);
-
-            $roomEquipmentStats['for_replacement'] = (clone $equipmentBase)
-                ->where('equipment_inventory_status', 'For Replacement')
-                ->count();
-
-            $roomEquipmentStats['for_replacement_qty'] = (int) (clone $equipmentBase)
-                ->where('equipment_inventory_status', 'For Replacement')
-                ->sum('equipment_quantity');
-
-            $roomEquipmentStats['total_qty'] = (int) (clone $equipmentBase)
-                ->sum('equipment_quantity');
-
-            $showEquipmentForReplacement = $request->get('history_focus') === 'equipment_for_replacement'
-                || $request->get('history_status') === 'For Replacement';
-
-            $roomEquipmentList = collect();
-            if ($showEquipmentForReplacement || $request->get('history_focus') === 'equipment') {
-                $roomEquipmentList = DB::table('equipment_table')
-                    ->leftJoin(
-                        'equipment_categories_table',
-                        'equipment_table.equipment_category_id',
-                        '=',
-                        'equipment_categories_table.equipment_category_id'
-                    )
-                    ->where('equipment_table.equipment_room_id', $roomId)
-                    ->when(
-                        $showEquipmentForReplacement,
-                        fn ($q) => $q->where('equipment_table.equipment_inventory_status', 'For Replacement')
-                    )
-                    ->select(
-                        'equipment_table.equipment_id',
-                        'equipment_table.equipment_name',
-                        'equipment_table.equipment_quantity',
-                        'equipment_table.equipment_inventory_status',
-                        'equipment_table.equipment_condition_status',
-                        'equipment_categories_table.equipment_category_name'
-                    )
-                    ->orderBy('equipment_table.equipment_name')
-                    ->get();
+                $historyPeriod = '';
             }
 
             $historyQuery = DB::table('reports_table')
@@ -6266,7 +6201,19 @@ class MaintenanceController extends Controller
                     '=',
                     'reporters_table.reporter_employee_id'
                 )
-                ->where(fn ($q) => ReportGrouping::whereTicketTouchesRoom($q, (int) $roomId))
+                ->leftJoin(
+                    'users_table as assigned_personnel',
+                    'reports_table.report_assigned_personnel_id',
+                    '=',
+                    'assigned_personnel.user_id'
+                )
+                ->leftJoin(
+                    'rooms_table',
+                    'reports_table.report_room_id',
+                    '=',
+                    'rooms_table.room_id'
+                )
+                ->where(fn ($q) => ReportGrouping::whereTicketTouchesRoom($q, $roomId))
                 ->when(
                     Schema::hasColumn('reports_table', 'report_is_archived'),
                     fn ($q) => $q->where('reports_table.report_is_archived', false)
@@ -6274,13 +6221,21 @@ class MaintenanceController extends Controller
                 ->select(
                     'reports_table.*',
                     'equipment_table.equipment_name',
-                    'reporters_table.reporter_full_name'
+                    'reporters_table.reporter_full_name',
+                    'reporters_table.reporter_employee_id',
+                    'assigned_personnel.user_full_name as assigned_personnel_name',
+                    'rooms_table.room_name'
                 );
 
-            $applyHistoryDateFilter($historyQuery, 'reports_table.report_submitted_at');
+            if ($historyFrom) {
+                $historyQuery->where('reports_table.report_submitted_at', '>=', $historyFrom);
+            }
+            if ($historyTo) {
+                $historyQuery->where('reports_table.report_submitted_at', '<=', $historyTo);
+            }
 
             if ($request->filled('history_search')) {
-                $historySearch = trim($request->history_search);
+                $historySearch = trim((string) $request->history_search);
                 $historyQuery->where(function ($query) use ($historySearch) {
                     $query->whereRaw(
                         'CAST(reports_table.report_id AS CHAR) LIKE ?',
@@ -6288,6 +6243,7 @@ class MaintenanceController extends Controller
                     )
                         ->orWhere('equipment_table.equipment_name', 'like', '%'.$historySearch.'%')
                         ->orWhere('reports_table.report_unlisted_equipment_name', 'like', '%'.$historySearch.'%')
+                        ->orWhere('reports_table.report_suggested_issue', 'like', '%'.$historySearch.'%')
                         ->orWhere('reports_table.report_problem_description', 'like', '%'.$historySearch.'%')
                         ->orWhere('reporters_table.reporter_full_name', 'like', '%'.$historySearch.'%');
                 });
@@ -6312,21 +6268,18 @@ class MaintenanceController extends Controller
                 ->paginate(10, ['*'], 'history_page')
                 ->withQueryString();
 
-            if (Schema::hasTable('room_activity_logs_table')) {
-                $activityQuery = DB::table('room_activity_logs_table')
-                    ->where('room_id', $roomId);
-                $applyHistoryDateFilter($activityQuery, 'created_at');
-                $roomActivityHistory = $activityQuery
-                    ->orderByDesc('created_at')
-                    ->paginate(15, ['*'], 'activity_page')
-                    ->withQueryString();
-            }
-        } else {
-            $roomEquipmentList = collect();
-            $historyPeriod = '';
-            $historyFrom = null;
-            $historyTo = null;
-            $historyMonth = null;
+            ReportItems::attachToReports($reportHistory->getCollection());
+            ReportItems::attachTimelines($reportHistory->getCollection());
+
+            $lifecycle = \App\Support\RoomTimeline::forRoom($roomId, [
+                'from' => $historyFrom,
+                'to' => $historyTo,
+                'search' => $request->input('history_search'),
+            ]);
+
+            $roomLifecycleEvents = collect($lifecycle['events'] ?? []);
+            $roomLifecycleSummary = $lifecycle['summary'] ?? [];
+            $roomLifecycleStageCounts = $lifecycle['stage_counts'] ?? [];
         }
 
         return view(
@@ -6336,6 +6289,9 @@ class MaintenanceController extends Controller
                 'buildings',
                 'floors',
                 'roomTypes',
+                'departments',
+                'managedRoomTypes',
+                'roomTypesReady',
                 'totalRooms',
                 'normalRooms',
                 'normalRoomsPercentage',
@@ -6350,11 +6306,11 @@ class MaintenanceController extends Controller
                 'dir',
                 'historyRoom',
                 'reportHistory',
-                'roomActivityHistory',
-                'roomReportStats',
-                'roomEquipmentStats',
-                'roomEquipmentList',
-                'historyPeriod'
+                'roomLifecycleEvents',
+                'roomLifecycleSummary',
+                'roomLifecycleStageCounts',
+                'historyPeriod',
+                'historyMonth'
             )
         );
     }
@@ -6371,6 +6327,7 @@ class MaintenanceController extends Controller
                     'room_floor_id' => $request->input('room_floor_id'),
                     'room_type' => $request->input('room_type'),
                     'room_status' => $request->input('room_status'),
+                    'department_ids' => $request->input('department_ids', $request->input('room_department_id') ? [$request->input('room_department_id')] : []),
                 ]],
             ]);
         }
@@ -6380,16 +6337,29 @@ class MaintenanceController extends Controller
             'rooms.*.room_name' => ['required', 'string', 'max:255'],
             'rooms.*.room_floor_id' => ['required', 'exists:floors_table,floor_id'],
             'rooms.*.room_type' => ['nullable', 'in:'.implode(',', $roomTypes)],
-            'rooms.*.room_status' => ['nullable', 'in:Normal,Maintenance Needed,Critical'],
+            'rooms.*.room_status' => ['nullable', Rule::in(RoomStatuses::all())],
+            'rooms.*.department_ids' => ['nullable', 'array'],
+            'rooms.*.department_ids.*' => [
+                'integer',
+                Rule::exists('departments_table', 'department_id'),
+            ],
         ]);
 
         $rows = collect($validated['rooms'])
             ->map(function ($row) {
+                $departmentIds = collect($row['department_ids'] ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+
                 return [
                     'room_name' => trim($row['room_name']),
                     'room_floor_id' => (int) $row['room_floor_id'],
                     'room_type' => ($row['room_type'] ?? null) ?: 'Lecture Room',
-                    'room_status' => ($row['room_status'] ?? null) ?: 'Normal',
+                    'room_status' => RoomStatuses::normalize($row['room_status'] ?? null),
+                    'department_ids' => $departmentIds,
                 ];
             })
             ->filter(fn ($row) => $row['room_name'] !== '')
@@ -6480,7 +6450,8 @@ class MaintenanceController extends Controller
                     $values['updated_at'] = now();
                 }
 
-                DB::table('rooms_table')->insert($values);
+                $roomId = (int) DB::table('rooms_table')->insertGetId($values);
+                RoomDepartments::sync($roomId, $row['department_ids'] ?? []);
             }
         });
 
@@ -6496,18 +6467,23 @@ class MaintenanceController extends Controller
 
     public function updateDirectoryRoom(Request $request, $id)
     {
-        $roomTypes = RoomCategories::values();
-        $validated = $request->validate([
-            'room_name' => ['required', 'string', 'max:255'],
-            'room_floor_id' => ['required', 'exists:floors_table,floor_id'],
-            'room_type' => ['nullable', 'in:'.implode(',', $roomTypes)],
-            'room_status' => ['nullable', 'in:Normal,Maintenance Needed,Critical'],
-        ]);
-
         $room = DB::table('rooms_table')->where('room_id', $id)->first();
         if (! $room) {
             return back()->withErrors(['room_name' => 'Room not found.']);
         }
+
+        $roomTypes = RoomCategories::values($room->room_type ?? null);
+        $validated = $request->validate([
+            'room_name' => ['required', 'string', 'max:255'],
+            'room_floor_id' => ['required', 'exists:floors_table,floor_id'],
+            'room_type' => ['nullable', 'in:'.implode(',', $roomTypes)],
+            'room_status' => ['nullable', Rule::in(RoomStatuses::all())],
+            'department_ids' => ['nullable', 'array'],
+            'department_ids.*' => [
+                'integer',
+                Rule::exists('departments_table', 'department_id'),
+            ],
+        ]);
 
         $matched = $this->matchingRoomName($validated['room_name'], (int) $id);
         if ($matched) {
@@ -6518,11 +6494,18 @@ class MaintenanceController extends Controller
                 ->withInput();
         }
 
+        $departmentIds = collect($validated['department_ids'] ?? [])
+            ->map(fn ($deptId) => (int) $deptId)
+            ->filter(fn ($deptId) => $deptId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
         $values = [
             'room_name' => trim($validated['room_name']),
             'room_floor_id' => $validated['room_floor_id'],
             'room_type' => $validated['room_type'] ?: $room->room_type,
-            'room_status' => $validated['room_status'] ?: ($room->room_status ?? 'Normal'),
+            'room_status' => RoomStatuses::normalize($validated['room_status'] ?? $room->room_status),
         ];
         if (Schema::hasColumn('rooms_table', 'room_updated_at')) {
             $values['room_updated_at'] = now();
@@ -6530,6 +6513,16 @@ class MaintenanceController extends Controller
         if (Schema::hasColumn('rooms_table', 'updated_at')) {
             $values['updated_at'] = now();
         }
+
+        $oldDeptIds = RoomDepartments::idsForRoom((int) $id);
+        $oldDeptLabel = RoomDepartments::label(RoomDepartments::forRooms([(int) $id])[(int) $id] ?? []);
+        $newDeptLabel = $departmentIds === []
+            ? '—'
+            : DB::table('departments_table')
+                ->whereIn('department_id', $departmentIds)
+                ->orderBy('department_name')
+                ->pluck('department_name')
+                ->implode(', ');
 
         $changes = [];
         if (trim((string) $room->room_name) !== $values['room_name']) {
@@ -6544,8 +6537,16 @@ class MaintenanceController extends Controller
         if ((string) ($room->room_status ?? '') !== (string) $values['room_status']) {
             $changes[] = 'status “'.($room->room_status ?: '—').'” → “'.$values['room_status'].'”';
         }
+        $oldSorted = $oldDeptIds;
+        sort($oldSorted);
+        $newSorted = $departmentIds;
+        sort($newSorted);
+        if ($oldSorted !== $newSorted) {
+            $changes[] = 'departments “'.$oldDeptLabel.'” → “'.$newDeptLabel.'”';
+        }
 
         DB::table('rooms_table')->where('room_id', $id)->update($values);
+        RoomDepartments::sync((int) $id, $departmentIds);
 
         if ($changes !== [] && Schema::hasTable('room_activity_logs_table')) {
             RoomActivityLog::create([
@@ -6626,6 +6627,100 @@ class MaintenanceController extends Controller
             ->with('success', $merged > 0 ? "Merged {$merged} duplicate room(s)." : 'No duplicate rooms found.');
     }
 
+    public function storeRoomType(Request $request)
+    {
+        abort_unless(RoomCategories::tableReady(), 503, 'Run php artisan migrate to enable room types.');
+
+        $validated = $request->validate([
+            'room_type_name' => [
+                'required',
+                'string',
+                'max:120',
+                Rule::unique('room_types_table', 'room_type_name'),
+            ],
+            'room_type_label' => ['nullable', 'string', 'max:120'],
+            'room_type_is_storage' => ['nullable', 'boolean'],
+        ]);
+
+        RoomCategories::create([
+            'room_type_name' => $validated['room_type_name'],
+            'room_type_label' => $validated['room_type_label'] ?? null,
+            'room_type_is_storage' => $request->boolean('room_type_is_storage'),
+        ]);
+
+        return redirect()
+            ->route('admin.rooms.index', ['manage_types' => 1])
+            ->with('success', 'Room type added.');
+    }
+
+    public function updateRoomType(Request $request, int $id)
+    {
+        abort_unless(RoomCategories::tableReady(), 503, 'Run php artisan migrate to enable room types.');
+
+        $type = RoomCategories::find($id);
+        if (! $type) {
+            return back()->with('error', 'Room type not found.');
+        }
+
+        $validated = $request->validate([
+            'room_type_name' => [
+                'required',
+                'string',
+                'max:120',
+                Rule::unique('room_types_table', 'room_type_name')->ignore($id, 'room_type_id'),
+            ],
+            'room_type_label' => ['nullable', 'string', 'max:120'],
+            'room_type_is_storage' => ['nullable', 'boolean'],
+        ]);
+
+        RoomCategories::update($id, [
+            'room_type_name' => $validated['room_type_name'],
+            'room_type_label' => $validated['room_type_label'] ?? null,
+            'room_type_is_storage' => $request->boolean('room_type_is_storage'),
+        ]);
+
+        return redirect()
+            ->route('admin.rooms.index', ['manage_types' => 1])
+            ->with('success', 'Room type updated.');
+    }
+
+    public function archiveRoomType(Request $request, int $id)
+    {
+        abort_unless(RoomCategories::tableReady(), 503, 'Run php artisan migrate to enable room types.');
+
+        $type = RoomCategories::find($id);
+        if (! $type) {
+            return back()->with('error', 'Room type not found.');
+        }
+
+        $archive = ! $request->boolean('restore');
+        RoomCategories::setArchived($id, $archive);
+
+        return redirect()
+            ->route('admin.rooms.index', ['manage_types' => 1])
+            ->with('success', $archive ? 'Room type archived.' : 'Room type restored.');
+    }
+
+    public function destroyRoomType(int $id)
+    {
+        abort_unless(RoomCategories::tableReady(), 503, 'Run php artisan migrate to enable room types.');
+
+        $type = RoomCategories::find($id);
+        if (! $type) {
+            return back()->with('error', 'Room type not found.');
+        }
+
+        if (! RoomCategories::delete($id)) {
+            return redirect()
+                ->route('admin.rooms.index', ['manage_types' => 1])
+                ->with('error', 'Cannot delete “'.$type->room_type_name.'” while rooms still use it. Archive it instead, or reassign those rooms first.');
+        }
+
+        return redirect()
+            ->route('admin.rooms.index', ['manage_types' => 1])
+            ->with('success', 'Room type deleted.');
+    }
+
     private function matchingRoomName(string $name, ?int $ignoreId = null)
     {
         $existingRooms = DB::table('rooms_table')
@@ -6663,20 +6758,55 @@ class MaintenanceController extends Controller
             ->where('equipment_table.equipment_room_id', $id)
             ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed', 'For Replacement'])
             ->orderBy('equipment_table.equipment_name')
+            ->orderBy('equipment_table.equipment_asset_tag')
+            ->orderBy('equipment_table.equipment_serial_number')
             ->select(
                 'equipment_table.equipment_id',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_quantity',
                 'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
+                'equipment_table.equipment_qr_code',
+                'equipment_table.equipment_tracking_mode',
                 'equipment_categories_table.equipment_category_name'
             )
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $isBulk = ($item->equipment_tracking_mode ?? 'Individual') === 'Bulk';
+                $identifiers = collect([
+                    filled($item->equipment_asset_tag) ? 'Tag '.$item->equipment_asset_tag : null,
+                    (! $isBulk && filled($item->equipment_serial_number)) ? 'Serial '.$item->equipment_serial_number : null,
+                    filled($item->equipment_qr_code) ? 'QR '.$item->equipment_qr_code : null,
+                    $isBulk ? 'Qty '.(int) $item->equipment_quantity : null,
+                ])->filter()->values()->all();
+
+                return [
+                    'equipment_id' => (int) $item->equipment_id,
+                    'equipment_name' => (string) $item->equipment_name,
+                    'equipment_quantity' => (int) ($item->equipment_quantity ?? 1),
+                    'equipment_inventory_status' => (string) ($item->equipment_inventory_status ?? ''),
+                    'equipment_category_name' => (string) ($item->equipment_category_name ?? 'Uncategorized'),
+                    'equipment_asset_tag' => (string) ($item->equipment_asset_tag ?? ''),
+                    'equipment_serial_number' => (string) ($item->equipment_serial_number ?? ''),
+                    'equipment_qr_code' => (string) ($item->equipment_qr_code ?? ''),
+                    'equipment_tracking_mode' => (string) ($item->equipment_tracking_mode ?? 'Individual'),
+                    'uniqueness' => $identifiers !== []
+                        ? implode(' · ', $identifiers)
+                        : 'No asset tag / serial',
+                ];
+            })
+            ->values();
+
+        $deployedBase = request()->is('admin/*')
+            ? url('/admin/inventory/deployed')
+            : url('/maintenance/equipment/deployed');
 
         return response()->json([
             'room' => $room->room_name,
             'count' => $items->count(),
             'items' => $items,
-            'inventory_url' => url('/admin/equipment/all').'?room='.$id,
+            'inventory_url' => $deployedBase.'?room='.$id,
         ]);
     }
 
@@ -11382,6 +11512,8 @@ class MaintenanceController extends Controller
 
     public function schedules(Request $request)
     {
+        EquipmentSchedules::healStuckCompletedCycles();
+
         // =====================================================
         // UPDATE EXPIRED ACTIVE SCHEDULES TO OVERDUE
         // =====================================================
@@ -12220,19 +12352,21 @@ class MaintenanceController extends Controller
 
             ->first();
 
-
-        // =====================================================
-        // PREVENT COMPLETING SAME SCHEDULE TWICE
-        // =====================================================
-
-        if ($schedule->maintenance_schedule_status === 'Completed') {
-
+        if (! $schedule) {
             return redirect()
                 ->back()
-                ->with(
-                    'error',
-                    'This maintenance schedule has already been completed.'
-                );
+                ->with('error', 'Maintenance schedule not found.');
+        }
+
+        // =====================================================
+        // ONLY WITHIN 7 DAYS OF NEXT DATE (OR OVERDUE)
+        // =====================================================
+
+        $blockedReason = EquipmentSchedules::cannotMarkCompleteReason($schedule);
+        if ($blockedReason !== null) {
+            return redirect()
+                ->back()
+                ->with('error', $blockedReason);
         }
 
 
@@ -12335,25 +12469,15 @@ class MaintenanceController extends Controller
 
 
             // =================================================
-            // MARK SCHEDULE AS COMPLETED
+            // COMPLETE THIS CYCLE → ADVANCE NEXT DATE (RECURRING)
             // =================================================
 
             DB::table('maintenance_schedules_table')
-
                 ->where(
                     'maintenance_schedule_id',
                     $schedule->maintenance_schedule_id
                 )
-
-                ->update([
-
-                    'maintenance_schedule_status'
-                        => 'Completed',
-
-                    'maintenance_schedule_last_date'
-                        => now(),
-
-                ]);
+                ->update(EquipmentSchedules::completionUpdatePayload($schedule));
 
 
             // =================================================
@@ -14575,29 +14699,6 @@ class MaintenanceController extends Controller
         }
 
         $reportId = (int) ($result['report_id'] ?? 0);
-        $isUrgent = ($result['urgency'] ?? null) === 'Urgent';
-        $merged = (bool) ($result['merged'] ?? false);
-
-        if ($reportId > 0 && ! $merged) {
-            DB::table('notifications_table')
-                ->insertOrIgnore([
-                    'notification_user_id' => null,
-                    'notification_target_role' => 'Maintenance Personnel',
-                    'notification_title' => $isUrgent
-                        ? 'Urgent Report Requires Attention'
-                        : 'New Report Submitted',
-                    'notification_message' => $isUrgent
-                        ? 'Walk-in urgent Report #' . $reportId . ' was logged and requires immediate attention.'
-                        : 'Walk-in maintenance Report #' . $reportId . ' was logged.',
-                    'notification_type' => $isUrgent ? 'urgent_report' : 'new_report',
-                    'notification_category' => 'Reports',
-                    'notification_reference_type' => 'report',
-                    'notification_reference_id' => $reportId,
-                    'notification_url' => '/maintenance/reports/details/' . $reportId,
-                    'notification_event_key' => 'report_submitted_' . $reportId,
-                    'notification_created_at' => now(),
-                ]);
-        }
 
         if ($reportId > 0) {
             $this->logActivity(
@@ -14635,7 +14736,7 @@ class MaintenanceController extends Controller
             'employment_basis' => ['nullable', Rule::in(['Full time', 'Part time'])],
             'department_id' => $this->reporterDepartmentRules(),
             'email' => 'required|email|max:255',
-            'contact' => 'nullable|string|max:50',
+            'contact' => \App\Support\PhoneNumber::rules(),
         ], [
             'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
         ]);
@@ -14676,7 +14777,7 @@ class MaintenanceController extends Controller
             'reporter_employee_id' => $employeeId,
             'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
             'reporter_email_address' => $request->email ? trim($request->email) : null,
-            'reporter_contact_number' => $request->contact ?: null,
+            'reporter_contact_number' => \App\Support\PhoneNumber::normalizeForStorage($request->contact),
         ];
 
         if (ReporterImport::hasNameColumns()) {
@@ -16227,7 +16328,26 @@ class MaintenanceController extends Controller
     {
         PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
 
+        // Prefer campus Persons master when provided.
+        if ($request->filled('person_id') && \App\Support\Persons::tableReady()) {
+            $person = \App\Support\Persons::find((int) $request->input('person_id'));
+            if ($person) {
+                $request->merge([
+                    'employee_id' => $person->person_employee_id,
+                    'first_name' => $person->person_first_name ?: $request->input('first_name'),
+                    'middle_name' => $person->person_middle_name,
+                    'last_name' => $person->person_last_name ?: $request->input('last_name'),
+                    'type' => $person->person_employment_type ?: $request->input('type'),
+                    'employment_basis' => $person->person_employment_basis ?: $request->input('employment_basis'),
+                    'department_id' => $person->person_department_id ?: $request->input('department_id'),
+                    'email' => $person->person_email_address ?: $request->input('email'),
+                    'contact' => $person->person_contact_number ?: $request->input('contact'),
+                ]);
+            }
+        }
+
         $request->validate([
+            'person_id' => ['nullable', 'integer', 'min:1'],
             // Employee ID
             // Required: OMC + 5 digits + F/S; unique by 5-digit number (F/S variants share one number)
             'employee_id' => [
@@ -16271,12 +16391,8 @@ class MaintenanceController extends Controller
                 'max:255',
             ],
 
-            // Contact Number
-            // Optional, but must contain exactly 11 digits if entered
-            'contact' => [
-                'nullable',
-                'digits:11',
-            ],
+            // Contact Number — country-aware (PH mobile or international E.164)
+            'contact' => \App\Support\PhoneNumber::rules(),
         ], [
             'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
         ]);
@@ -16317,7 +16433,7 @@ class MaintenanceController extends Controller
             'reporter_employee_id' => $employeeId,
             'reporter_full_name' => $fullName,
             'reporter_email_address' => $request->email ? trim($request->email) : null,
-            'reporter_contact_number' => $request->contact ?: null,
+            'reporter_contact_number' => \App\Support\PhoneNumber::normalizeForStorage($request->contact),
             'reporter_status' => 'Active',
             'reporter_created_at' => now(),
         ];
@@ -16431,6 +16547,27 @@ class MaintenanceController extends Controller
 
                     return back()->withInput()->withErrors($errors)->with('reporter_form_mode', 'create');
                 }
+            }
+        }
+
+        if (\App\Support\Persons::tableReady() && Schema::hasColumn('reporters_table', 'person_id')) {
+            try {
+                $personId = $request->filled('person_id')
+                    ? (int) $request->input('person_id')
+                    : \App\Support\Persons::ensureFromIdentity([
+                        'employee_id' => $employeeId,
+                        'type' => $request->type,
+                        'first_name' => $first,
+                        'middle_name' => $middle,
+                        'last_name' => $last,
+                        'employment_basis' => $request->input('employment_basis'),
+                        'department_id' => $request->input('department_id'),
+                        'email' => $request->input('email'),
+                        'contact' => $request->input('contact'),
+                    ]);
+                $payload['person_id'] = $personId;
+            } catch (\Throwable $e) {
+                // Keep reporter create resilient if person sync fails.
             }
         }
 

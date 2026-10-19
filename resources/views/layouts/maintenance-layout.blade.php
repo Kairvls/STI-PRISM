@@ -837,6 +837,7 @@
 </script>
 
 @include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.maintenance-daily-reminder')
+@include('layouts.partials.module-importance-notice')
 @include('partials.purchaser-confirm-dialog')
 @include('partials.purchaser-rich-tooltip')
 @if(\App\Support\ProcurementPortal::needsPurchaserStyles())

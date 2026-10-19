@@ -16,6 +16,10 @@
     $departments = $departments ?? collect();
     $linkableReporters = $linkableReporters ?? collect();
     $defaultRoomId = $defaultRoomId ?? null;
+    $modalEmbed = ! empty($modalEmbed);
+    $formClass = $modalEmbed
+        ? 'bg-white'
+        : 'overflow-hidden rounded-2xl border border-slate-200 bg-white';
 @endphp
 
 <style>
@@ -81,8 +85,11 @@
 <form
     method="POST"
     action="{{ $editing ? \App\Support\PropertyAssignments::route('people.update', $person->custodian_id) : \App\Support\PropertyAssignments::route('people.store') }}"
-    class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+    class="{{ $formClass }}"
     id="personCreateForm"
+    @if (! $editing && \App\Support\Persons::tableReady())
+        x-data="propertyPersonPicker()"
+    @endif
 >
     @csrf
     @if ($editing)
@@ -108,6 +115,18 @@
     @include('partials.duplicate-name-warning', ['matches' => session('duplicate_people', []), 'noun' => 'person'])
 
     <div class="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2">
+        @if (! $editing && \App\Support\Persons::tableReady())
+            <div class="sm:col-span-2">
+                @include('admin.partials.person-picker', [
+                    'label' => 'From Faculty & Staff',
+                    'required' => false,
+                    'hint' => 'Optional — pick to auto-fill the form and lock identity.',
+                    'searchUrl' => request()->is('admin/*')
+                        ? route('admin.persons.search')
+                        : route('maintenance.persons.search'),
+                ])
+            </div>
+        @endif
         <div class="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
             <div>
                 <label for="custodian-employment-type" class="mb-1 block text-xs font-medium text-slate-500">Type <span class="text-red-500">*</span></label>
@@ -135,6 +154,12 @@
                 </div>
                 <input type="hidden" id="custodian_employee_id" name="custodian_employee_id" value="{{ $fullEmp }}" required>
                 <p id="custodianEmployeeHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
+                @if (! $editing)
+                    <p id="custodianEmployeeExistsHint" class="mt-1 hidden text-xs text-amber-700">This employee ID is already in the people directory.</p>
+                @endif
+                @error('custodian_employee_id')
+                    <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
+                @enderror
 
                 @if(session('mismatch_force_data') && session('mismatch_force_data.type') === 'reporter')
                     @php $r = session('mismatch_force_data.reporter'); @endphp
@@ -228,7 +253,6 @@
                 'name' => 'custodian_contact_number',
                 'value' => $value('custodian_contact_number'),
                 'id' => 'custodian-contact-number',
-                'placeholder' => '9XX XXX XXXX',
                 'inputClass' => 'h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100',
             ])
         </div>
@@ -258,3 +282,224 @@
         @endif
     </div>
 </form>
+
+@if (! $editing && \App\Support\Persons::tableReady())
+<script>
+function getPropertyPersonPhoneInput() {
+    return document.querySelector('#personCreateForm [data-phone-input]');
+}
+
+function setPropertyPersonPhone(value) {
+    const input = getPropertyPersonPhoneInput();
+    if (!input) return;
+
+    const raw = value == null ? '' : String(value).trim();
+    if (typeof window.writePrismPhoneStorage === 'function') {
+        window.writePrismPhoneStorage(input, raw);
+    }
+
+    const iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+    if (iti && typeof iti.setNumber === 'function') {
+        try {
+            if (raw) {
+                iti.setNumber(raw);
+            } else {
+                iti.setNumber('');
+                input.value = '';
+            }
+        } catch (e) {
+            input.value = raw ? raw.replace(/^\+?63/, '').replace(/^0/, '').trim() : '';
+        }
+        return;
+    }
+
+    input.value = raw;
+    if (typeof window.initPrismPhoneInput === 'function') {
+        window.initPrismPhoneInput(input);
+        const created = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+        if (created && raw && typeof created.setNumber === 'function') {
+            try { created.setNumber(raw); } catch (e) { /* keep raw */ }
+        }
+    }
+}
+
+function setPropertyPersonSelectLocked(select, locked, hiddenId) {
+    if (!select) return;
+    const form = document.getElementById('personCreateForm');
+    let hidden = document.getElementById(hiddenId);
+    select.disabled = !!locked;
+    if (locked && form) {
+        if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = select.name;
+            hidden.id = hiddenId;
+            form.appendChild(hidden);
+        }
+        hidden.value = select.value || '';
+        hidden.disabled = false;
+    } else if (hidden) {
+        hidden.disabled = true;
+        hidden.value = '';
+    }
+}
+
+function setPropertyPersonIdentityLocked(locked) {
+    const form = document.getElementById('personCreateForm');
+    if (!form) return;
+
+    setPropertyPersonSelectLocked(form.querySelector('#custodian-employment-type'), locked, 'propertyPersonTypeLocked');
+    setPropertyPersonSelectLocked(form.querySelector('#custodian-department'), locked, 'propertyPersonDepartmentLocked');
+    setPropertyPersonSelectLocked(form.querySelector('[name="custodian_employment_basis"]'), locked, 'propertyPersonBasisLocked');
+
+    const digitsEl = form.querySelector('#custodianEmployeeDigits');
+    if (digitsEl) {
+        if (locked) {
+            digitsEl.setAttribute('readonly', 'readonly');
+        } else {
+            const typeEl = form.querySelector('#custodian-employment-type');
+            if (typeEl && typeEl.value) {
+                digitsEl.removeAttribute('readonly');
+                digitsEl.removeAttribute('disabled');
+            } else {
+                digitsEl.setAttribute('readonly', 'readonly');
+            }
+        }
+    }
+
+    ['custodian_first_name', 'custodian_middle_name', 'custodian_last_name', 'custodian_email_address'].forEach(function (name) {
+        const input = form.querySelector('[name="' + name + '"]');
+        if (input) input.readOnly = !!locked;
+    });
+
+    const phone = getPropertyPersonPhoneInput();
+    if (phone) {
+        phone.readOnly = !!locked;
+        const wrap = phone.closest('.iti');
+        if (wrap) {
+            wrap.classList.toggle('pointer-events-none', !!locked);
+            wrap.style.opacity = locked ? '0.85' : '';
+        }
+    }
+}
+
+function clearPropertyPersonAutofill() {
+    const form = document.getElementById('personCreateForm');
+    if (!form) return;
+
+    setPropertyPersonIdentityLocked(false);
+
+    const typeEl = form.querySelector('#custodian-employment-type');
+    if (typeEl) {
+        typeEl.disabled = false;
+        typeEl.value = '';
+        typeEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const digitsEl = form.querySelector('#custodianEmployeeDigits');
+    if (digitsEl) {
+        digitsEl.value = '';
+        digitsEl.setAttribute('readonly', 'readonly');
+    }
+
+    const fullId = form.querySelector('#custodian_employee_id');
+    if (fullId) fullId.value = '';
+
+    ['custodian_first_name', 'custodian_middle_name', 'custodian_last_name', 'custodian_email_address'].forEach(function (name) {
+        const input = form.querySelector('[name="' + name + '"]');
+        if (input) {
+            input.readOnly = false;
+            input.value = '';
+        }
+    });
+
+    const dept = form.querySelector('#custodian-department');
+    if (dept) {
+        dept.disabled = false;
+        dept.value = '';
+    }
+    const basis = form.querySelector('[name="custodian_employment_basis"]');
+    if (basis) {
+        basis.disabled = false;
+        basis.value = '';
+    }
+
+    setPropertyPersonPhone('');
+
+    if (typeof syncCustodianEmployeeIdModal === 'function') {
+        syncCustodianEmployeeIdModal();
+    }
+}
+
+function propertyPersonPicker() {
+    return {
+        personId: '',
+        personQuery: '',
+        personOpen: false,
+        personResults: [],
+        personLabel: '',
+        async searchPersons(url) {
+            try {
+                const endpoint = url || @js(request()->is('admin/*') ? route('admin.persons.search') : route('maintenance.persons.search'));
+                const res = await fetch(`${endpoint}?q=${encodeURIComponent(this.personQuery || '')}`);
+                this.personResults = await res.json();
+            } catch (e) {
+                this.personResults = [];
+            }
+        },
+        pickPerson(row) {
+            this.personId = String(row.person_id);
+            const name = String(row.person_full_name || '').trim();
+            const meta = String(row.label || '').trim();
+            this.personLabel = name && meta ? (name + ' · ' + meta) : (name || meta || 'Selected person');
+            this.personOpen = false;
+            const form = document.getElementById('personCreateForm');
+            if (!form) return;
+
+            setPropertyPersonIdentityLocked(false);
+
+            const typeEl = form.querySelector('#custodian-employment-type');
+            if (typeEl && row.person_employment_type) {
+                typeEl.value = row.person_employment_type;
+                typeEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            const digitsEl = form.querySelector('#custodianEmployeeDigits');
+            const empMatch = String(row.person_employee_id || '').replace(/\s+/g, '').match(/^OMC(\d{5})([FS])$/i);
+            if (digitsEl && empMatch) {
+                digitsEl.readOnly = false;
+                digitsEl.removeAttribute('disabled');
+                digitsEl.value = empMatch[1];
+                digitsEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (typeof syncCustodianEmployeeIdModal === 'function') {
+                syncCustodianEmployeeIdModal();
+            }
+
+            const map = {
+                custodian_first_name: row.person_first_name,
+                custodian_middle_name: row.person_middle_name,
+                custodian_last_name: row.person_last_name,
+                custodian_email_address: row.person_email_address,
+                custodian_employment_basis: row.person_employment_basis,
+                custodian_department_id: row.person_department_id,
+            };
+            Object.entries(map).forEach(([name, value]) => {
+                const input = form.querySelector(`[name="${name}"]`);
+                if (input && value != null && value !== '') input.value = value;
+            });
+
+            setPropertyPersonPhone(row.person_contact_number || '');
+            setPropertyPersonIdentityLocked(true);
+
+            if (window.lucide) lucide.createIcons();
+        },
+        clearPerson() {
+            this.personId = '';
+            this.personLabel = '';
+            this.personOpen = false;
+            clearPropertyPersonAutofill();
+        },
+    };
+}
+</script>
+@endif

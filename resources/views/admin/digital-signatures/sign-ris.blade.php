@@ -1,6 +1,6 @@
 @extends('layouts.admin-layout')
 
-@section('title', 'Sign RIS')
+@section('title', 'RIS')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -9,6 +9,7 @@
 @section('content')
 
 <div class="admin-page">
+    @include('admin.partials.ris-phase-tabs', ['phase' => 'sign'])
     <div id="signRisContentContainer">
         @include('admin.digital-signatures._sign-ris-content')
     </div>

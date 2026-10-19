@@ -28,7 +28,8 @@ class AdminViewServiceProvider extends ServiceProvider
                 if (! AdminPortal::canActOnRis()) {
                     if (! AdminPortal::isSchoolAdmin()) {
                         try {
-                            $attentionTotal = AdminAttentionSummary::overdueBorrows();
+                            $attentionTotal = AdminAttentionSummary::overdueBorrows()
+                                + AdminAttentionSummary::overdueMaintenanceSchedules();
                         } catch (\Throwable $e) {
                             // Keep zero if the query fails.
                         }

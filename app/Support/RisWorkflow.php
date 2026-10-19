@@ -23,8 +23,8 @@ class RisWorkflow
     /** Item rows allowed on one RIS (also caps replacement-request baskets). */
     public const MAX_ITEMS = 50;
 
-    /** RIS No. pattern: RIS-YYYYMM-0000000 */
-    public const FORM_NUMBER_REGEX = '/^RIS-\d{6}-\d{7}$/';
+    /** RIS No. pattern: RIS-YYYYMMDD-0000000 (also accepts legacy RIS-YYYYMM-0000000) */
+    public const FORM_NUMBER_REGEX = '/^RIS-\d{6,8}-\d{7}$/';
 
     public static function urgencyOptions(): array
     {
@@ -68,8 +68,8 @@ class RisWorkflow
     }
 
     /**
-     * Display / stored RIS "No." value (RIS-YYYYMM-0000000).
-     * Prefers the saved form number; otherwise builds a display fallback from id + month.
+     * Display / stored RIS "No." value (RIS-YYYYMMDD-0000000).
+     * Prefers the saved form number; otherwise builds a display fallback from id + date.
      *
      * @param  object|string|null  $risOrNumber
      */
@@ -94,17 +94,17 @@ class RisWorkflow
         }
 
         $id = (int) ($risId ?? 0);
-        $ym = now()->format('Ym');
+        $ymd = now()->format('Ymd');
         if (! empty($createdAt)) {
             try {
-                $ym = \Carbon\Carbon::parse($createdAt)->format('Ym');
+                $ymd = \Carbon\Carbon::parse($createdAt)->format('Ymd');
             } catch (\Throwable $e) {
-                // keep current month
+                // keep today
             }
         }
 
         if ($id > 0) {
-            return 'RIS-'.$ym.'-'.str_pad((string) min($id, 9999999), 7, '0', STR_PAD_LEFT);
+            return 'RIS-'.$ymd.'-'.str_pad((string) min($id, 9999999), 7, '0', STR_PAD_LEFT);
         }
 
         return '';
@@ -116,13 +116,13 @@ class RisWorkflow
     }
 
     /**
-     * Next RIS No. — the YYYYMM prefix is the current month, but the sequence
-     * continues across months (submitted / non-draft only).
+     * Next RIS No. — YYYYMMDD is today; sequence continues across days
+     * (submitted / non-draft only).
      */
     public static function nextFormNumber(): string
     {
-        $ym = now()->format('Ym');
-        $prefix = 'RIS-'.$ym.'-';
+        $ymd = now()->format('Ymd');
+        $prefix = 'RIS-'.$ymd.'-';
         $max = 0;
 
         if (Schema::hasTable('requisition_issue_slip_table')
@@ -136,7 +136,7 @@ class RisWorkflow
                 });
 
             foreach ($query->pluck('ris_form_number') as $formNumber) {
-                if (preg_match('/^RIS-\d{6}-(\d{7})$/', (string) $formNumber, $matches)) {
+                if (preg_match('/^RIS-\d{6,8}-(\d{7})$/', (string) $formNumber, $matches)) {
                     $max = max($max, (int) $matches[1]);
                 }
             }
@@ -289,11 +289,11 @@ class RisWorkflow
         $status = (string) ($ris->ris_status ?? '');
 
         if (in_array($status, self::incomingStatuses(), true)) {
-            return 'Pending';
+            return 'Under review by the Administrator';
         }
 
         if ($status === self::ACCEPTED) {
-            return 'Accepted';
+            return 'Accepted — waiting on Administrator signing decision';
         }
 
         if ($status === self::DIRECTLY_APPROVED) {
@@ -307,15 +307,23 @@ class RisWorkflow
         if (self::isPresidentApproved($ris)) {
             return self::hasIssuedBy($ris)
                 ? self::PRESIDENT_APPROVED
-                : 'Pending Admin Review';
+                : 'Approved by the President — waiting on Administrator release';
         }
 
         if ($status === self::FORWARDED || ($status === self::APPROVED_LEGACY && !self::presidentDigitalSignature($ris))) {
             return 'Forwarded to the President by the Administrator';
         }
 
-        if (in_array($status, ['Minor Revision', 'Rejected'], true)) {
-            return 'Amend';
+        if ($status === 'Minor Revision') {
+            return 'Revision required — update and resubmit';
+        }
+
+        if ($status === 'Rejected') {
+            return 'Rejected — amend and resubmit';
+        }
+
+        if ($status === 'Draft' || $status === '') {
+            return 'Draft — not submitted yet';
         }
 
         return $status !== '' ? $status : 'N/A';
@@ -381,11 +389,17 @@ class RisWorkflow
             return 'Minor Revision';
         }
 
-        if (($atp->authority_purchase_status ?? '') === 'Pending') {
-            return filled($atp->authority_purchase_submitted_at ?? null) ? 'Submitted' : 'Draft';
+        $status = (string) ($atp->authority_purchase_status ?? '');
+
+        if ($status === 'Pending') {
+            return filled($atp->authority_purchase_submitted_at ?? null) ? 'Under Review' : 'Draft';
         }
 
-        return (string) ($atp->authority_purchase_status ?? '—');
+        if ($status === 'Directly Approved') {
+            return 'Directly Approved';
+        }
+
+        return $status !== '' ? $status : '—';
     }
 
     public static function isDrawnSignature(?string $value): bool

@@ -12,6 +12,11 @@
     $fromValue = old('receiving_report_received_from', $rr?->receiving_report_received_from ?? '');
     $addressValue = old('receiving_report_supplier_address_override', $rr?->receiving_report_supplier_address_override ?? '');
     $invoiceValue = old('receiving_report_invoice_no', $rr?->receiving_report_invoice_no ?? '');
+    $orAmountValue = old('receiving_report_or_amount', $rr?->receiving_report_or_amount ?? '');
+    $checkAmountValue = old('receiving_report_check_amount', $rr?->receiving_report_check_amount ?? '');
+    $changeAmountValue = old('receiving_report_change_amount', $rr?->receiving_report_change_amount ?? '');
+    $orAttachmentName = $rr?->receiving_report_or_attachment_name ?? null;
+    $orAttachmentPath = $rr?->receiving_report_or_attachment_path ?? null;
     $drValue = old('receiving_report_dr_no', $rr?->receiving_report_dr_no ?? '');
     $deliveryValue = old('receiving_report_delivery_date', $rr?->receiving_report_delivery_date ?? '');
     $legacyReceivedSig = (string) ($rr?->receiving_report_received_by_signature ?? '');
@@ -79,7 +84,7 @@
                     value="{{ $formNo }}"
                     maxlength="17"
                     pattern="RR-\d{6}-\d{7}"
-                    title="Assigned on submit (RR-YYYYMM-0000001)"
+                    title="Assigned on submit (RR-YYYYMMDD-0000001)"
                     placeholder="{{ $suggestedRrFormNumber }}"
                     class="w-44 border-0 bg-transparent px-0 font-semibold text-red-700 outline-none"
                 >
@@ -147,9 +152,9 @@
         </div>
         <div class="space-y-3">
             <div class="flex items-end gap-2">
-                <span class="shrink-0">Refer Invoice No.:</span>
+                <span class="shrink-0">Official Receipt (OR) No.:</span>
                 @if($editable)
-                    <input type="text" name="receiving_report_invoice_no" value="{{ $invoiceValue }}" class="h-7 flex-1 border-0 border-b border-black bg-transparent outline-none">
+                    <input type="text" name="receiving_report_invoice_no" value="{{ $invoiceValue }}" class="h-7 flex-1 border-0 border-b border-black bg-transparent outline-none" placeholder="OR / invoice number">
                 @else
                     <span class="flex-1 border-b border-black">{{ $invoiceValue }}</span>
                 @endif
@@ -170,6 +175,146 @@
                     <span class="flex-1 border-b border-black">{{ $deliveryValue ? \Carbon\Carbon::parse($deliveryValue)->format('d/m/Y') : '' }}</span>
                 @endif
             </div>
+        </div>
+    </div>
+
+    {{-- Official Receipt amount vs check — change returned to cashier; OR amount settles the DV --}}
+    <div
+        class="mt-5 rounded border border-black/20 bg-slate-50/80 p-3 text-[12px]"
+        @if($editable)
+            x-data="{
+                checkAmt: {{ $checkAmountValue !== '' && $checkAmountValue !== null ? (float) $checkAmountValue : 'null' }},
+                orAmt: {{ $orAmountValue !== '' && $orAmountValue !== null ? (float) $orAmountValue : 'null' }},
+                orFileName: @js($orAttachmentName ?: ''),
+                limitMoney(raw) {
+                    let v = String(raw ?? '').replace(/[^\d.]/g, '');
+                    const parts = v.split('.');
+                    parts[0] = (parts[0] || '').slice(0, 10);
+                    if (parts.length > 1) {
+                        v = parts[0] + '.' + parts.slice(1).join('').slice(0, 2);
+                    } else {
+                        v = parts[0];
+                    }
+                    if (v === '' || v === '.') return null;
+                    const n = Number(v);
+                    return Number.isNaN(n) ? null : n;
+                },
+                setCheck(e) { this.checkAmt = this.limitMoney(e.target.value); e.target.value = this.checkAmt ?? ''; },
+                setOr(e) { this.orAmt = this.limitMoney(e.target.value); e.target.value = this.orAmt ?? ''; },
+                changeAmt() {
+                    if (this.checkAmt === null || this.checkAmt === '' || this.orAmt === null || this.orAmt === '') return null;
+                    const c = Number(this.checkAmt);
+                    const o = Number(this.orAmt);
+                    if (Number.isNaN(c) || Number.isNaN(o)) return null;
+                    return Math.max(0, Math.round((c - o) * 100) / 100);
+                },
+                fmt(n) {
+                    if (n === null || n === '' || Number.isNaN(Number(n))) return '—';
+                    return '₱' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+            }"
+            x-init="window.addEventListener('rr-check-amount', (e) => { checkAmt = limitMoney(e.detail?.amount) })"
+        @endif
+    >
+        <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Official Receipt · Check vs OR</p>
+        <div class="grid gap-3 sm:grid-cols-3">
+            <div>
+                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Check / funds amount</label>
+                @if($editable)
+                    <input type="hidden" name="receiving_report_check_amount" :value="checkAmt ?? ''">
+                    <p class="mt-1 flex h-8 items-center rounded border border-slate-200 bg-slate-100 px-2 text-sm font-semibold tabular-nums text-slate-800" x-text="fmt(checkAmt)"></p>
+                    <p class="mt-0.5 text-[10px] text-slate-400">From released check — not editable</p>
+                @else
+                    <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
+                        {{ $checkAmountValue !== '' && $checkAmountValue !== null ? '₱'.number_format((float) $checkAmountValue, 2) : '—' }}
+                    </p>
+                @endif
+            </div>
+            <div>
+                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">OR amount (actual spend) @if($editable)<span class="text-red-500">*</span>@endif</label>
+                @if($editable)
+                    <input
+                        type="text"
+                        inputmode="decimal"
+                        name="receiving_report_or_amount"
+                        :value="orAmt ?? ''"
+                        x-on:input="setOr($event)"
+                        maxlength="13"
+                        pattern="\d{1,10}(\.\d{1,2})?"
+                        title="Up to 10 digits (optional 2 decimals)"
+                        class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm tabular-nums"
+                        placeholder="Amount on the Official Receipt (required to submit)"
+                        autocomplete="off"
+                    >
+                @else
+                    <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
+                        {{ $orAmountValue !== '' && $orAmountValue !== null ? '₱'.number_format((float) $orAmountValue, 2) : '—' }}
+                    </p>
+                @endif
+            </div>
+            <div>
+                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Change (return to cashier)</label>
+                @if($editable)
+                    <input type="hidden" name="receiving_report_change_amount" :value="changeAmt() ?? ''">
+                    <p class="mt-1 flex h-8 items-center text-sm font-semibold tabular-nums text-amber-800" x-text="fmt(changeAmt())"></p>
+                @else
+                    <p class="mt-1 text-sm font-semibold tabular-nums text-amber-800">
+                        {{ $changeAmountValue !== '' && $changeAmountValue !== null ? '₱'.number_format((float) $changeAmountValue, 2) : '—' }}
+                    </p>
+                @endif
+            </div>
+        </div>
+        <div class="mt-3">
+            <div class="mb-1.5 flex items-baseline justify-between gap-2">
+                <label class="text-[10px] font-medium uppercase tracking-wide text-slate-500">OR photo / attachment @if($editable)<span class="text-red-500">*</span>@endif</label>
+                <span class="text-[10px] text-slate-400">PDF, JPG, PNG · max 10MB</span>
+            </div>
+            @if($editable)
+                <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <template x-if="orFileName">
+                        <div class="flex items-center gap-2.5 border-b border-slate-100 px-3 py-2.5">
+                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+                                <i data-lucide="file-image" class="h-3.5 w-3.5"></i>
+                            </div>
+                            <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="orFileName"></p>
+                            <button
+                                type="button"
+                                class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
+                                x-on:click="orFileName = ''; $refs.orAttachment.value = ''; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                            >Remove</button>
+                        </div>
+                    </template>
+                    <label class="group flex cursor-pointer items-center gap-3 px-3 py-3 transition hover:bg-slate-50/80">
+                        <input
+                            type="file"
+                            name="or_attachment"
+                            accept=".pdf,.jpg,.jpeg,.png,image/*"
+                            class="sr-only"
+                            x-ref="orAttachment"
+                            x-on:change="orFileName = ($event.target.files && $event.target.files[0]) ? $event.target.files[0].name : ''; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                        >
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-slate-50 text-slate-500 transition group-hover:border-slate-400 group-hover:text-slate-800">
+                            <i data-lucide="upload" class="h-4 w-4"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-medium text-slate-800" x-text="orFileName ? 'Replace file' : 'Upload Official Receipt'"></p>
+                            <p class="mt-0.5 text-[10px] leading-snug text-slate-400">Photo or PDF of the OR — this amount settles the Disbursement Voucher</p>
+                        </div>
+                    </label>
+                </div>
+            @elseif($orAttachmentPath && $orAttachmentName)
+                <a
+                    href="{{ asset('storage/'.$orAttachmentPath) }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#0025cc] transition hover:bg-slate-50"
+                >
+                    <i data-lucide="file-image" class="h-3.5 w-3.5"></i>
+                    {{ $orAttachmentName }}
+                </a>
+            @else
+                <p class="text-sm text-slate-400">No OR attachment</p>
+            @endif
         </div>
     </div>
 

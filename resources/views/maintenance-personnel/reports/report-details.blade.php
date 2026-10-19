@@ -5,6 +5,15 @@
 @section("content")
 
 @php
+    $reportBack = $reportBack ?? [
+        'url' => url('/maintenance/reports'),
+        'label' => 'Reports',
+    ];
+
+    // Admins may open this page read-only; only Maintenance (not admin shell) can progress tickets.
+    $canManageReportProgress = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE)
+        && ! \App\Support\RoleAccess::adminShell();
+
     $statusClasses = match (
         $report->report_current_status
     ) {
@@ -69,10 +78,10 @@
                 class="mb-4 flex items-center gap-2 text-sm text-gray-400"
             >
                 <a
-                    href="{{ url('/maintenance/reports') }}"
+                    href="{{ $reportBack['url'] }}"
                     class="transition hover:text-gray-700"
                 >
-                    Reports
+                    {{ $reportBack['label'] }}
                 </a>
 
                 <i
@@ -150,7 +159,7 @@
                 </div>
 
                 <a
-                    href="{{ url('/maintenance/reports') }}"
+                    href="{{ $reportBack['url'] }}"
                     class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                 >
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
@@ -450,7 +459,8 @@
                                     $severityLevel = \App\Support\ReportSeverity::forReport($report);
                                     $severityMeta = \App\Support\ReportSeverity::meta($severityLevel);
                                     $severityReason = trim((string) ($report->report_severity_reason ?? ''));
-                                    $canChangeSeverity = \App\Support\ReportSeverity::hasColumns()
+                                    $canChangeSeverity = $canManageReportProgress
+                                        && \App\Support\ReportSeverity::hasColumns()
                                         && empty($report->report_is_archived)
                                         && !in_array($report->report_current_status, ['Resolved', 'Rejected'], true);
                                     $severityFormHasErrors = $errors->has('severity') || $errors->has('severity_reason');
@@ -796,7 +806,11 @@
                             </h2>
 
                             <p class="mt-1 text-xs leading-5 text-gray-500">
-                                Update the current maintenance status.
+                                @if ($canManageReportProgress)
+                                    Update the current maintenance status.
+                                @else
+                                    View-only. Maintenance updates report progress.
+                                @endif
                             </p>
                         </div>
 
@@ -821,15 +835,7 @@
                     {{-- UPDATE STATUS --}}
                     {{-- ================================================= --}}
 
-                    @if (
-                        in_array(
-                            $report->report_current_status,
-                            [
-                                "Pending",
-                                "Processing"
-                            ]
-                        )
-                    )
+                    @if ($canManageReportProgress && in_array($report->report_current_status, ['Pending', 'Processing'], true))
 
                         <button
                             type="button"
@@ -852,6 +858,14 @@
                                 class="h-4 w-4 text-gray-400"
                             ></i>
                         </button>
+
+                    @elseif (! $canManageReportProgress)
+
+                        <div
+                            class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                        >
+                            Status changes are limited to Maintenance personnel.
+                        </div>
 
                     @else
 
@@ -940,6 +954,7 @@
 
     </div>
 
+@if ($canManageReportProgress)
     {{-- ===================================================== --}}
 {{-- UPDATE STATUS MODAL --}}
 {{-- ===================================================== --}}
@@ -1254,5 +1269,6 @@
 </script>
 
 @include('maintenance-personnel.reports.partials.replacement-stock-picker')
+@endif
 
 @endsection

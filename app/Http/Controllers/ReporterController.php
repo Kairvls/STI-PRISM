@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportSubmissionService;
+use App\Support\ComputerSets;
 use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
@@ -39,7 +40,7 @@ class ReporterController extends Controller
 
     public function index()
     {
-        $equipmentCountSub = ReportGrouping::applyReporterEquipmentFilters(
+        $equipmentCountSub = ReportGrouping::applyLocationEquipmentFilters(
             DB::table('equipment_table')
                 ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
                 ->whereNotNull('equipment_room_id')
@@ -47,6 +48,7 @@ class ReporterController extends Controller
         );
 
         $rooms = DB::table('rooms_table')
+            ->where('rooms_table.room_type', '!=', \App\Support\RoomCategories::STORAGE_TYPE)
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
                 fn ($query) => $query->where('rooms_table.room_is_archived', false)
@@ -662,7 +664,13 @@ class ReporterController extends Controller
 
     public function getEquipmentByRoom($roomId)
     {
-        $query = ReportGrouping::applyReporterEquipmentFilters(
+        $roomId = (int) $roomId;
+        $roomType = DB::table('rooms_table')->where('room_id', $roomId)->value('room_type');
+        if ($roomId < 1 || \App\Support\RoomCategories::isStorageType($roomType)) {
+            return response()->json([]);
+        }
+
+        $query = ReportGrouping::applyLocationEquipmentFilters(
             DB::table('equipment_table')
                 ->where('equipment_table.equipment_room_id', $roomId)
         );
@@ -686,6 +694,20 @@ class ReporterController extends Controller
             $query->select($select)->orderBy('equipment_table.equipment_name')->get(),
             (int) $roomId
         );
+
+        $membership = ComputerSets::membershipMapForEquipmentIds(
+            $equipment->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        $equipment = $equipment->map(function ($row) use ($membership) {
+            $set = $membership[(int) $row->equipment_id] ?? null;
+            $row->computer_set_id = $set->computer_set_id ?? null;
+            $row->computer_set_tag = $set->computer_set_tag ?? null;
+            $row->computer_set_name = $set->computer_set_name ?? null;
+            $row->computer_set_member_role = $set->member_role ?? null;
+
+            return $row;
+        });
 
         return response()->json($equipment);
     }

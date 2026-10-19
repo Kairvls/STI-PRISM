@@ -7,7 +7,7 @@
     $due = \Carbon\Carbon::parse($campaign->campaign_due_date)->startOfDay();
     $today = now()->startOfDay();
     $days = (int) $today->diffInDays($due, false);
-    $isOpen = ! in_array($campaign->campaign_status, ['Completed', 'Cancelled'], true);
+    $isOpen = ! in_array($campaign->campaign_status, ['Completed', 'Cancelled', 'Archived'], true);
     $isSchoolAdmin = \App\Support\AdminPortal::isSchoolAdmin();
     $canManage = \App\Support\SchedulePortal::canManageSemester();
     $campaignUrl = \App\Support\SchedulePortal::semesterUrl('/'.$campaign->campaign_id);
@@ -86,16 +86,19 @@
                     </button>
                 </form>
             @endif
+            @if ($canManage && $campaign->campaign_status === 'Cancelled')
+                <form action="{{ $campaignUrl }}/archive" method="POST"
+                    onsubmit="return confirm('Archive this cancelled campaign? It will be hidden from the default list.')">
+                    @csrf
+                    <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-700">
+                        <i data-lucide="archive" class="h-4 w-4"></i>
+                        Archive
+                    </button>
+                </form>
+            @endif
         </div>
     </header>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            ['label' => 'Inspected', 'hint' => '', 'value' => number_format($progress['inspected'])],
-            ['label' => 'Pending', 'hint' => '', 'value' => number_format($progress['pending'])],
-            ['label' => 'Defects found', 'hint' => '', 'value' => number_format($progress['defects'])],
-        ],
-    ])
 
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -115,7 +118,7 @@
                     box-shadow: inset 0 0 0 1.5px rgba(0, 37, 204, 0.55) !important;
                 }
             </style>
-            <form method="GET" class="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <form data-auto-filter method="GET" class="flex flex-col gap-2 lg:flex-row lg:items-center">
                 <div class="relative min-w-0 lg:flex-[2]">
                     <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                     <input type="search" name="search" value="{{ $search }}" placeholder="Search name, brand, serial, QR"

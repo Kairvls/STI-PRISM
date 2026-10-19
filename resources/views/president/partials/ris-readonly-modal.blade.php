@@ -46,7 +46,7 @@
         <div class="doc-actions doc-actions-split">
             <div class="doc-actions-left">
                 <div id="historyAttachments" class="review-attachments-inline hidden">
-                    <p class="review-attachments-label">Supporting documents</p>
+                    <p class="review-attachments-label">Canvas</p>
                     <div id="historyAttachmentsList" class="review-attachments-list"></div>
                 </div>
                 <div id="historyAdminAttachments" class="review-attachments-inline hidden">

@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * ATP "No." values: ATP-YYYYMM-0001
+ * ATP "No." values: ATP-YYYYMMDD-0001
  * Assigned on submit only — drafts stay null.
  */
 class AtpFormNumber
 {
-    public const FORM_NUMBER_REGEX = '/^ATP-\d{6}-\d{4}$/';
+    /** Accepts ATP-YYYYMMDD-0001 and legacy ATP-YYYYMM-0001 */
+    public const FORM_NUMBER_REGEX = '/^ATP-\d{6,8}-\d{4}$/';
 
     public static function isValid(?string $value): bool
     {
@@ -19,13 +20,12 @@ class AtpFormNumber
     }
 
     /**
-     * Next ATP No. — the YYYYMM prefix is the current month, but the sequence
-     * continues across months (submitted / non-draft rows only).
+     * Next ATP No. — YYYYMMDD is today; sequence continues across days.
      */
     public static function next(): string
     {
-        $ym = now()->format('Ym');
-        $prefix = 'ATP-'.$ym.'-';
+        $ymd = now()->format('Ymd');
+        $prefix = 'ATP-'.$ymd.'-';
         $max = 0;
 
         if (! Schema::hasTable('authority_to_purchase_table')
@@ -37,7 +37,6 @@ class AtpFormNumber
             ->whereNotNull('authority_purchase_form_number')
             ->where('authority_purchase_form_number', 'like', 'ATP-%');
 
-        // Soft drafts have no submitted_at; exclude them from the sequence.
         if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_submitted_at')) {
             $query->whereNotNull('authority_purchase_submitted_at');
         } elseif (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_status')) {
@@ -48,7 +47,7 @@ class AtpFormNumber
         }
 
         foreach ($query->pluck('authority_purchase_form_number') as $formNumber) {
-            if (preg_match('/^ATP-\d{6}-(\d{4})$/', (string) $formNumber, $m)) {
+            if (preg_match('/^ATP-\d{6,8}-(\d{4})$/', (string) $formNumber, $m)) {
                 $max = max($max, (int) $m[1]);
             }
         }
@@ -67,9 +66,6 @@ class AtpFormNumber
         return self::next();
     }
 
-    /**
-     * Keep a valid ATP-YYYYMM-#### as-is; otherwise return empty (caller may suggest next).
-     */
     public static function normalizeForEdit(?string $formNumber): string
     {
         $formNumber = trim((string) $formNumber);

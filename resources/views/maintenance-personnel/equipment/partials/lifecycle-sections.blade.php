@@ -57,18 +57,20 @@
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received</p>
                 <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? null) }}</p>
-                <p class="mt-0.5 text-xs text-slate-500">No RR / PO — not procured through PRISM</p>
+                <p class="mt-0.5 text-xs text-slate-500">No RR — not procured through PRISM</p>
             </div>
         @else
+            @if (!empty($lp['purchase_order_number']))
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase order</p>
                 <p class="mt-1 font-semibold text-slate-900">
-                    {{ $na($lp['purchase_order_number'] ?? null) }}
+                    {{ $lp['purchase_order_number'] }}
                     @if (!empty($lp['purchase_order_date']))
                         <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
                     @endif
                 </p>
             </div>
+            @endif
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">ATP / RIS</p>
                 <p class="mt-1 font-semibold text-slate-900">

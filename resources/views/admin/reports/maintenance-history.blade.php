@@ -34,26 +34,6 @@
     @include('layouts.partials.admin-system-reports-nav', ['current' => 'maintenance'])
 
     {{-- KPI strip --}}
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Filed',
-                'value' => number_format($filed),
-            ],
-            [
-                'label' => 'Resolved',
-                'value' => number_format($resolved),
-            ],
-            [
-                'label' => 'Rejected',
-                'value' => number_format($rejected),
-            ],
-            [
-                'label' => 'For replacement',
-                'value' => number_format($replacement),
-            ],
-        ],
-    ])
 
     {{-- Insights --}}
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -497,11 +497,11 @@ class DraftHandover
 
         foreach (self::TYPES as $type) {
             if ($counts[$type] > 0) {
-                return route(self::INDEX_ROUTES[$type]);
+                return route(self::INDEX_ROUTES[$type], ['handover_inbox' => 1]);
             }
         }
 
-        return route(self::INDEX_ROUTES['ris']);
+        return route(self::INDEX_ROUTES['ris'], ['handover_inbox' => 1]);
     }
 
     private static function pendingQuery()

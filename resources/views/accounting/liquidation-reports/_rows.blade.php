@@ -24,6 +24,12 @@
                 </div>
             </div>
         </td>
+        <td class="px-5 py-4">
+            @include('partials.procurement-request-no', ['requestNo' => $row->liquidation_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
+            @if(blank($row->liquidation_report_request_no ?? null))
+                <span class="text-xs text-gray-400">—</span>
+            @endif
+        </td>
         <td class="px-5 py-4 text-gray-700">{{ $row->receiving_report_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-600">{{ $row->liquidation_report_employee_name ?? '—' }}</td>
         <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
@@ -52,7 +58,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="7">
+        <td colspan="8">
             <div class="pur-empty my-2">No liquidation reports in this queue.</div>
         </td>
     </tr>

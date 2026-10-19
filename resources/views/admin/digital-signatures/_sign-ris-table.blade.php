@@ -6,12 +6,13 @@
 
     <thead>
         <tr>
-            <th class="w-[13%]">RIS Number</th>
-            <th class="w-[23%]">Equipment</th>
-            <th class="w-[14%]">Requested By</th>
-            <th class="w-[18%]">Status</th>
-            <th class="w-[12%] text-right">Amount</th>
-            <th class="w-[20%] text-center">Actions</th>
+            <th class="w-[12%]">RIS Number</th>
+            <th class="w-[12%]">Request No.</th>
+            <th class="w-[20%]">Equipment</th>
+            <th class="w-[12%]">Requested By</th>
+            <th class="w-[16%]">Status</th>
+            <th class="w-[11%] text-right">Amount</th>
+            <th class="w-[17%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -38,6 +39,13 @@
                             </div>
                         @endif
                     </div>
+                </td>
+
+                <td>
+                    @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                    @if(blank($ris->ris_request_no ?? null))
+                        <span class="text-xs text-gray-400">—</span>
+                    @endif
                 </td>
 
                 <td>
@@ -138,7 +146,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="pur-empty">No RIS records found.</td>
+                <td colspan="7" class="pur-empty">No RIS records found.</td>
             </tr>
         @endforelse
     </tbody>

@@ -52,6 +52,7 @@
     @include('layouts.partials.page-carousel-script')
     @include('layouts.partials.prism-toast')
     @include($adminShell ? 'layouts.partials.admin-daily-reminder' : 'layouts.partials.purchaser-daily-reminder')
+    @include('layouts.partials.module-importance-notice')
     @include('partials.purchaser-print-sheet-helper')
     @include('partials.purchaser-confirm-dialog')
     @include('partials.purchaser-rich-tooltip')

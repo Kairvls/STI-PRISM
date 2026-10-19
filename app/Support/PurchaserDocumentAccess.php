@@ -4,17 +4,20 @@ namespace App\Support;
 
 use App\Support\ProcurementPortal;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Ownership helpers for purchaser/maintenance-authored procurement documents.
- * Enforced for procurement actors (purchaser role 3, maintenance role 2); other roles bypass.
+ * Ownership helpers for purchaser/maintenance-authored procurement documents
+ * and Supply Officer–owned ATPs.
  */
 class PurchaserDocumentAccess
 {
     public const PURCHASER_ROLE_ID = 3;
 
     public const MAINTENANCE_ROLE_ID = 2;
+
+    public const SUPPLY_OFFICER_ROLE_ID = 8;
 
     public static function isPurchaser(?object $user = null): bool
     {
@@ -31,17 +34,44 @@ class PurchaserDocumentAccess
         return ProcurementPortal::userCanAccessProcurement($user);
     }
 
+    public static function isSupplyOfficer(?object $user = null): bool
+    {
+        return RoleAccess::hasRole(self::SUPPLY_OFFICER_ROLE_ID, $user);
+    }
+
+    public static function isAtpActor(?object $user = null): bool
+    {
+        return self::isSupplyOfficer($user) || RoleAccess::isAdmin($user);
+    }
+
     /**
-     * Abort 403 unless the current procurement actor owns the record.
+     * Abort 403 unless the current actor owns the record.
      * Legacy rows with no owner remain accessible to keep existing data usable.
      */
     public static function assertOwns(object $record, string $document): void
     {
-        if (!self::isProcurementActor()) {
+        if ($document === 'atp') {
+            if (self::isSupplyOfficer() || RoleAccess::isAdmin()) {
+                if (! self::owns($record, 'atp') && ! RoleAccess::isAdmin()) {
+                    abort(403, 'You do not have access to this document.');
+                }
+
+                return;
+            }
+
+            // Purchasers may view released ATPs for RFC; mutating routes should not hit this for them.
+            if (self::isProcurementActor()) {
+                return;
+            }
+
             return;
         }
 
-        if (!self::owns($record, $document)) {
+        if (! self::isProcurementActor()) {
+            return;
+        }
+
+        if (! self::owns($record, $document)) {
             abort(403, 'You do not have access to this document.');
         }
     }
@@ -60,7 +90,16 @@ class PurchaserDocumentAccess
             return true;
         }
 
-        return $ownerId === $userId;
+        if ($ownerId === $userId) {
+            return true;
+        }
+
+        // Supply Officer may act on ATPs for RIS the Purchaser sent them (incl. legacy Purchaser-created ATPs).
+        if ($document === 'atp' && self::isSupplyOfficer()) {
+            return self::supplyOfficerCanAccessAtpViaRis($record, $userId);
+        }
+
+        return false;
     }
 
     public static function ownerId(object $record, string $document): ?int
@@ -92,12 +131,25 @@ class PurchaserDocumentAccess
      */
     public static function scopeOwned($query, string $document, ?string $table = null)
     {
-        if (!self::isProcurementActor()) {
-            return $query;
-        }
-
         $userId = (int) Auth::id();
         $prefix = $table ? rtrim($table, '.').'.' : '';
+
+        if ($document === 'atp' && self::isSupplyOfficer()) {
+            return self::scopeSupplyOfficerAtp($query, $prefix, $userId);
+        }
+
+        if ($document === 'atp' && self::isProcurementActor() && ! RoleAccess::isAdmin()) {
+            // Purchaser list: ATPs released to them (for RFC), plus legacy unreleased if columns missing.
+            if (SupplyHandoff::atpReleaseColumnsReady()) {
+                return SupplyHandoff::scopeReleasedAtpsForPurchaser($query, $userId);
+            }
+
+            return self::scopeAtp($query, $prefix, $userId);
+        }
+
+        if (! self::isProcurementActor()) {
+            return $query;
+        }
 
         return match ($document) {
             'ris' => self::scopeRis($query, $prefix, $userId),
@@ -142,6 +194,60 @@ class PurchaserDocumentAccess
                         });
                 });
         });
+    }
+
+    /**
+     * Supply Officer: own ATPs, plus ATPs on RIS handed off to them.
+     */
+    private static function scopeSupplyOfficerAtp($query, string $prefix, int $userId)
+    {
+        return $query->where(function ($q) use ($prefix, $userId) {
+            $q->where($prefix.'authority_purchase_created_by', $userId)
+                ->orWhere(function ($legacy) use ($prefix, $userId) {
+                    $legacy->whereNull($prefix.'authority_purchase_created_by')
+                        ->where(function ($sub) use ($prefix, $userId) {
+                            $sub->where($prefix.'authority_purchase_submitted_by', $userId)
+                                ->orWhereNull($prefix.'authority_purchase_submitted_by');
+                        });
+                });
+
+            if (SupplyHandoff::risHandoffColumnsReady()) {
+                $q->orWhereExists(function ($sub) use ($prefix, $userId) {
+                    $sub->select(DB::raw(1))
+                        ->from('requisition_issue_slip_table')
+                        ->whereColumn(
+                            'requisition_issue_slip_table.ris_id',
+                            $prefix.'authority_purchase_ris_id'
+                        )
+                        ->whereNotNull('requisition_issue_slip_table.ris_sent_to_supply_at')
+                        ->where(function ($assigned) use ($userId) {
+                            $assigned->whereNull('requisition_issue_slip_table.ris_supply_officer_user_id')
+                                ->orWhere('requisition_issue_slip_table.ris_supply_officer_user_id', $userId);
+                        });
+                });
+            }
+        });
+    }
+
+    private static function supplyOfficerCanAccessAtpViaRis(object $record, int $userId): bool
+    {
+        if (! SupplyHandoff::risHandoffColumnsReady()) {
+            return false;
+        }
+
+        $risId = (int) ($record->authority_purchase_ris_id ?? 0);
+        if ($risId <= 0) {
+            return false;
+        }
+
+        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+        if (! $ris || ! SupplyHandoff::risIsSentToSupply($ris)) {
+            return false;
+        }
+
+        $assigned = (int) ($ris->ris_supply_officer_user_id ?? 0);
+
+        return $assigned === 0 || $assigned === $userId;
     }
 
     private static function scopeRfc($query, string $prefix, int $userId)

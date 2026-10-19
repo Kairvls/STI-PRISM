@@ -5,33 +5,12 @@
         <h1 class="text-2xl font-bold">Liquidation Report Approval</h1>
         <p class="text-sm text-gray-600">Endorse and recommend approval after Accounting has checked the report.</p>
     </div>
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Pending',
-                'value' => number_format($counts['pending']),
-                'href' => route('admin.liq.index', ['status' => 'pending']),
-                'active' => $filter === 'pending',
-            ],
-            [
-                'label' => 'Approved',
-                'value' => number_format($counts['approved']),
-                'href' => route('admin.liq.index', ['status' => 'approved']),
-                'active' => $filter === 'approved',
-            ],
-            [
-                'label' => 'Rejected',
-                'value' => number_format($counts['rejected']),
-                'href' => route('admin.liq.index', ['status' => 'rejected']),
-                'active' => $filter === 'rejected',
-            ],
-        ],
-    ])
     <div class="overflow-x-auto overflow-hidden rounded-xl border bg-white">
         <table class="w-full min-w-[1000px] text-sm">
             <thead class="border-b bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <tr>
                     <th class="px-4 py-2.5">No.</th>
+                    <th class="px-4 py-2.5">Request No.</th>
                     <th class="px-4 py-2.5">RR</th>
                     <th class="px-4 py-2.5">Employee</th>
                     <th class="px-4 py-2.5 text-right">Amount</th>
@@ -44,6 +23,12 @@
                     @php $reviewable = $liq->liquidation_report_status === 'Pending Admin Approval' || ($liq->liquidation_report_status === 'Under Review' && $liq->liquidation_report_review_stage === 'admin'); @endphp
                     <tr class="hover:bg-gray-50/80">
                         <td class="px-4 py-3 font-medium text-gray-900">{{ $liq->liquidation_report_form_number }}</td>
+                        <td class="px-4 py-3">
+                            @include('partials.procurement-request-no', ['requestNo' => $liq->liquidation_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                            @if(blank($liq->liquidation_report_request_no ?? null))
+                                <span class="text-xs text-gray-400">—</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
                         <td class="px-4 py-3 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
                         <td class="px-4 py-3 text-right tabular-nums text-gray-900">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$liq->liquidation_report_amount_advance, 2) : '—' }}</td>
@@ -60,7 +45,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
                 @endforelse
             </tbody>
         </table>

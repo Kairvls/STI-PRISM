@@ -147,7 +147,7 @@
                         ])
                     @endif
                 </div>
-                <div class="mt-1 text-center text-[11px] italic">({{ \App\Support\AccountingSigner::SIGNATURE_TITLE }})</div>
+                <div class="mt-1 text-center text-[11px] italic">({{ \App\Support\AccountingSigner::RFC_APPROVED_BY_TITLE }})</div>
             </div>
         </div>
     </div>

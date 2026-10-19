@@ -7,9 +7,10 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('maintenance/dashboard') => ['Dashboard', ''],
-                request()->is('maintenance/reports/urgent') => ['Urgent Reports', ''],
+                request()->is('maintenance/reports/urgent') => ['Critical & High Reports', ''],
                 request()->is('maintenance/reports/pending') => ['Pending Reports', ''],
                 request()->is('maintenance/reports/today') => ["Today's Reports", ''],
+                request()->is('maintenance/reports/log*') => ['Log Walk-in Report', ''],
                 request()->is('maintenance/reports*') => ['Reports', ''],
                 request()->is('maintenance/notifications*') => ['Alerts', ''],
                 request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Faculty and staff reporters and their report records.'],
@@ -164,6 +165,7 @@
                 <!-- ===================================== -->
 
                 <div class="max-h-[290px] overflow-y-auto">
+                    @include('layouts.partials.module-importance-mute-panel')
 
                     @if (($attentionTotal ?? 0) > 0)
                         <button

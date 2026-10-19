@@ -35,38 +35,6 @@
 </style>
 
 <div class="admin-page space-y-6">
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Currently borrowed',
-                'hint' => 'Not yet returned',
-                'value' => number_format($counts['active']),
-                'href' => \App\Support\AdminPortal::route('operations.borrowing', ['filter' => 'active']),
-                'active' => $filter === 'active',
-            ],
-            [
-                'label' => 'Overdue',
-                'hint' => 'Past the return date',
-                'value' => number_format($counts['overdue']),
-                'href' => \App\Support\AdminPortal::route('operations.borrowing', ['filter' => 'Overdue']),
-                'active' => $filter === 'Overdue',
-            ],
-            [
-                'label' => 'Due this week',
-                'hint' => 'Return date within 7 days',
-                'value' => number_format($counts['due_week']),
-                'href' => \App\Support\AdminPortal::route('operations.borrowing', ['filter' => 'due_week']),
-                'active' => $filter === 'due_week',
-            ],
-            [
-                'label' => 'Returned',
-                'hint' => 'Last 30 days',
-                'value' => number_format($counts['returned_30d']),
-                'href' => \App\Support\AdminPortal::route('operations.borrowing', ['filter' => 'Returned']),
-                'active' => $filter === 'Returned',
-            ],
-        ],
-    ])
 
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">

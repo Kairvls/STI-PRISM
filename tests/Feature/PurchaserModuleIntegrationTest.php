@@ -67,8 +67,8 @@ class PurchaserModuleIntegrationTest extends TestCase
         $this->assertNotNull($atpRestoreRoute);
 
         // Approving or returning an ATP is Accounting's decision, not the Purchaser's.
-        $this->assertNotNull($routes->getByName('accounting.atp.approve'));
-        $this->assertNotNull($routes->getByName('accounting.atp.revise'));
+        $this->assertNotNull($routes->getByName('school-admin.atp.approve'));
+        $this->assertNotNull($routes->getByName('school-admin.atp.revise'));
     }
 
     /**

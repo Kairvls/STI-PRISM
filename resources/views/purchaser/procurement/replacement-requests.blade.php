@@ -97,24 +97,6 @@
         $completedCount = $currentCollection->where('procurement_request_status', 'Completed')->count();
     @endphp
 
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Pending',
-                    'value' => $pendingCount,
-                ],
-                [
-                    'label' => 'Approved',
-                    'value' => $approvedCount,
-                ],
-                [
-                    'label' => 'Rejected',
-                    'value' => $rejectedCount,
-                ],
-            ],
-        ])
-    </div>
 
     <div class="pur-card">
         @if(!empty($attentionFocus))
@@ -434,6 +416,7 @@
 
                                     @if(
                                         !$request->procurement_request_is_archived
+                                        && ! $canCreateRis
                                         && in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true)
                                     )
                                         <button

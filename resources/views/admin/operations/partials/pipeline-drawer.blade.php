@@ -104,8 +104,10 @@
 
                 <div class="flex-1 space-y-5 px-5 py-5" x-show="!pipelineLoading && pipelineData">
                     <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Current stage</p>
-                        <p class="mt-1 text-base font-semibold uppercase tracking-tight text-gray-950" x-text="(pipelineData?.current_stage || '—')"></p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Request No.</p>
+                        <p class="mt-1 text-base font-semibold tracking-tight text-indigo-800" x-text="pipelineData?.request_no || pipelineSubtitle || '—'"></p>
+                        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Current stage</p>
+                        <p class="mt-1 text-sm font-semibold uppercase tracking-tight text-gray-950" x-text="(pipelineData?.current_stage || '—')"></p>
                         <p class="mt-1 text-sm text-gray-500" x-text="pipelineData?.current_hint || ''"></p>
                         <p class="mt-1 text-xs text-gray-400" x-show="pipelineData?.payment_path_label" x-text="'Payment: ' + (pipelineData?.payment_path_label || '')"></p>
                     </div>
@@ -114,7 +116,7 @@
                         <template x-for="key in ['ris','atp','rfc','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key"></p>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvas + RIS' : key"></p>
                                     <p class="mt-1 text-sm font-semibold text-gray-900" x-text="pipelineData?.stages?.[key]?.exists ? (pipelineData.stages[key].label) : 'Not started'"></p>
                                     <p class="mt-0.5 text-xs text-gray-400" x-text="pipelineData?.stages?.[key]?.hint || ''"></p>
                                 </div>
@@ -325,8 +327,7 @@ document.addEventListener('alpine:init', () => {
             this.pipelineOpen = true;
             this.pipelineLoading = true;
             this.pipelineData = null;
-            this.pipelineSubtitle = label
-                || ((typeof window.risFormNumberLabel === 'function') ? window.risFormNumberLabel(risId) : ('RIS #' + risId));
+            this.pipelineSubtitle = label || 'Request pipeline';
             this.moduleUrl = @json(\App\Support\AdminPortal::route('operations.procurement'))
                 + (label ? ('?q=' + encodeURIComponent(label)) : '');
             this.refreshIcons();
@@ -337,7 +338,13 @@ document.addEventListener('alpine:init', () => {
                 });
                 if (!res.ok) throw new Error('Failed');
                 this.pipelineData = await res.json();
-                this.pipelineSubtitle = (this.pipelineData?.stages?.ris?.label) || this.pipelineSubtitle;
+                this.pipelineSubtitle = this.pipelineData?.request_no
+                    || this.pipelineData?.stages?.ris?.label
+                    || this.pipelineSubtitle;
+                if (this.pipelineData?.request_no) {
+                    this.moduleUrl = @json(\App\Support\AdminPortal::route('operations.procurement'))
+                        + '?q=' + encodeURIComponent(this.pipelineData.request_no);
+                }
             } catch (e) {
                 this.pipelineData = { stages: {}, logs: [], current_stage: '—', current_hint: 'Unable to load pipeline.' };
             } finally {

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ComputerSets;
 use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterPins;
+use App\Support\ReporterReportMail;
 use App\Support\ReportSeverity;
+use App\Support\RoomCategories;
 use App\Support\SuggestedIssues;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -26,7 +29,7 @@ class MobileReportController extends Controller
 
     public function rooms()
     {
-        $equipmentCountSub = ReportGrouping::applyReporterEquipmentFilters(
+        $equipmentCountSub = ReportGrouping::applyLocationEquipmentFilters(
             DB::table('equipment_table')
                 ->select('equipment_room_id', DB::raw('COUNT(*) as equipment_count'))
                 ->whereNotNull('equipment_room_id')
@@ -34,7 +37,7 @@ class MobileReportController extends Controller
         );
 
         $rooms = DB::table('rooms_table')
-
+            ->where('rooms_table.room_type', '!=', RoomCategories::STORAGE_TYPE)
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
                 fn ($query) => $query->where('rooms_table.room_is_archived', false)
@@ -88,7 +91,13 @@ class MobileReportController extends Controller
 
     public function equipment($roomId)
     {
-        $query = ReportGrouping::applyReporterEquipmentFilters(
+        $roomId = (int) $roomId;
+        $roomType = DB::table('rooms_table')->where('room_id', $roomId)->value('room_type');
+        if ($roomId < 1 || RoomCategories::isStorageType($roomType)) {
+            return response()->json([]);
+        }
+
+        $query = ReportGrouping::applyLocationEquipmentFilters(
             DB::table('equipment_table')
                 ->where('equipment_table.equipment_room_id', $roomId)
         );
@@ -132,6 +141,20 @@ class MobileReportController extends Controller
             (int) $roomId
         );
 
+        $membership = ComputerSets::membershipMapForEquipmentIds(
+            $equipment->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        $equipment = $equipment->map(function ($row) use ($membership) {
+            $set = $membership[(int) $row->equipment_id] ?? null;
+            $row->computer_set_id = $set->computer_set_id ?? null;
+            $row->computer_set_tag = $set->computer_set_tag ?? null;
+            $row->computer_set_name = $set->computer_set_name ?? null;
+            $row->computer_set_member_role = $set->member_role ?? null;
+
+            return $row;
+        });
+
         return response()->json($equipment);
     }
 
@@ -172,7 +195,7 @@ class MobileReportController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'not_reportable',
-                'message' => 'This equipment can\'t be reported right now (it may be disposed, for replacement, or its room is archived).',
+                'message' => 'This equipment can\'t be reported right now (it may be in storage, disposed, for replacement, or its room is archived).',
             ], 422);
         }
 
@@ -218,6 +241,7 @@ class MobileReportController extends Controller
         $query = ReportGrouping::applyReporterEquipmentFilters($base)
             ->join('rooms_table', 'equipment_table.equipment_room_id', '=', 'rooms_table.room_id')
             ->leftJoin('floors_table', 'rooms_table.room_floor_id', '=', 'floors_table.floor_id')
+            ->where('rooms_table.room_type', '!=', RoomCategories::STORAGE_TYPE)
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
                 fn ($q) => $q->where('rooms_table.room_is_archived', false)
@@ -1034,6 +1058,13 @@ class MobileReportController extends Controller
                 .' already reported and still waiting, so maintenance will see '
                 .($repeatCount === 1 ? 'it' : 'them').' flagged as priority.';
         }
+
+        ReporterReportMail::afterSuccessfulSubmit(
+            (int) $reportId,
+            (string) $request->employee_id,
+            $severity['urgency'] ?? null,
+            'Mobile'
+        );
 
         return response()->json([
 

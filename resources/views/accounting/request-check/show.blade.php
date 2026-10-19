@@ -1,4 +1,4 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'Review Request Check')
 
@@ -8,7 +8,7 @@
 <div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/request-check?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
+            <a href="/school-admin/request-check?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -18,6 +18,11 @@
                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                 @endif
             </div>
+            @if(!blank($rfc->request_check_request_no ?? null))
+                <div class="mt-2">
+                    @include('partials.procurement-request-no', ['requestNo' => $rfc->request_check_request_no, 'inline' => true, 'size' => 'md'])
+                </div>
+            @endif
             <p class="acc-page-subtitle">Funds are collected in person.</p>
         </div>
         <div class="acc-actions">
@@ -104,7 +109,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/release-funds" class="mt-4">
+            <form method="POST" action="/school-admin/request-check/{{ $rfc->request_check_id }}/release-funds" class="mt-4">
                 @csrf
                 <div class="confirm-actions">
                     <button type="button" class="btn-ghost" data-tip="Cancel" onclick="closeReleaseFundsModal()">Cancel</button>
@@ -141,7 +146,7 @@
                         <ul>
                             @foreach ($attachments as $file)
                                 <li>
-                                    <a href="/accounting/request-check/{{ $rfc->request_check_id }}/attachments/{{ $file->request_check_attachment_id }}">
+                                    <a href="/school-admin/request-check/{{ $rfc->request_check_id }}/attachments/{{ $file->request_check_attachment_id }}">
                                         {{ $file->request_check_attachment_original_name }}
                                     </a>
                                 </li>
@@ -161,7 +166,7 @@
                         Last revision note: {{ $rfc->request_check_revision_notes }}
                         @include('partials.ris-revision-images', [
                             'revision' => \App\Support\DocumentRevisionNotes::latest('RFC', $rfc->request_check_id),
-                            'routeName' => 'accounting.document-revision-image',
+                            'routeName' => 'school-admin.document-revision-image',
                             'size' => 'sm',
                         ])
                     </div>
@@ -240,7 +245,7 @@
         if (remarks) remarks.value = '';
         const isApproved = (presetDecision || '').toLowerCase() === 'approved';
         document.getElementById('decisionModalSubtitle').textContent = '{{ $rfc->request_check_form_number ?? ('RFC-'. $rfc->request_check_id) }}';
-        form.action = '/accounting/request-check/' + id + (isApproved ? '/approve' : '/revise');
+        form.action = '/school-admin/request-check/' + id + (isApproved ? '/approve' : '/revise');
         document.getElementById('signatureBlock').classList.toggle('hidden', !isApproved);
         document.getElementById('decisionImagesBlock').classList.toggle('hidden', isApproved);
         document.getElementById('remarksReqStar').classList.toggle('hidden', isApproved);

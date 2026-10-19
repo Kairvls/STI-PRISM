@@ -7,11 +7,6 @@
 
     @php
         $filter = $filter ?? 'all';
-        $historyCards = [
-            ['filter' => 'all', 'label' => 'All', 'count' => $allCount ?? $rows->count(), 'color' => 'text-slate-950', 'title' => 'Show all history'],
-            ['filter' => 'accepted', 'label' => 'Delivered', 'count' => $acceptedCount ?? 0, 'color' => 'text-[#0025cc]', 'title' => 'Show delivered items'],
-            ['filter' => 'returned', 'label' => 'Returned', 'count' => $returnedCount ?? 0, 'color' => 'text-slate-700', 'title' => 'Show returned deliveries'],
-        ];
         $sliderOptions = [
             ['filter' => 'all', 'label' => 'All'],
             ['filter' => 'accepted', 'label' => 'Delivered'],
@@ -20,8 +15,6 @@
     @endphp
 
     <div data-ro-table data-ro-default-filter="all" class="space-y-6">
-        @include('layouts.partials.receiving-stat-cards', ['cards' => $historyCards, 'current' => $filter])
-
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
                 <div class="flex flex-col gap-4">

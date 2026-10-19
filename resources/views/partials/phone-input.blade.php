@@ -3,10 +3,11 @@
     $value = $value ?? old($name, '');
     $id = $id ?? $name . '-' . uniqid();
     $storageId = $id . '-storage';
-    $placeholder = $placeholder ?? 'XXX XXX XXXX';
+    // Omit placeholder so intl-tel-input can inject the selected country's example format.
+    $placeholder = $placeholder ?? null;
     $inputClass = $inputClass ?? '';
-    // Allow formatted local numbers like 0910 202 8282
-    $maxlength = $maxlength ?? 16;
+    // Max length is applied per-country in JS (strictMode + applyPrismPhoneCountryRules).
+    $maxlength = $maxlength ?? null;
     $required = !empty($required);
     $displayValue = \App\Support\PhoneNumber::formatForDisplay(is_string($value) ? $value : null) ?? $value;
 @endphp
@@ -183,50 +184,115 @@
                 return form.querySelector('[data-phone-storage]');
             };
 
+            window.getPrismPhoneUtils = function () {
+                if (window.intlTelInputUtils) {
+                    return window.intlTelInputUtils;
+                }
+                if (window.intlTelInput && window.intlTelInput.utils) {
+                    return window.intlTelInput.utils;
+                }
+                return null;
+            };
+
+            window.getPrismPhoneCountryIso2 = function (input) {
+                const iti = input ? window.PRISM_PHONE_INPUTS.get(input) : null;
+                if (iti && typeof iti.getSelectedCountryData === 'function') {
+                    try {
+                        const country = iti.getSelectedCountryData();
+                        if (country && country.iso2) {
+                            return String(country.iso2).toLowerCase();
+                        }
+                    } catch (e) {
+                        // fall through
+                    }
+                }
+                return 'ph';
+            };
+
+            window.getPrismPhoneMaxDigits = function (input) {
+                if (!input) return 15;
+
+                const iso2 = window.getPrismPhoneCountryIso2(input);
+                const utils = window.getPrismPhoneUtils();
+
+                if (utils && typeof utils.getExampleNumber === 'function') {
+                    try {
+                        const numberType = (utils.numberType && utils.numberType.MOBILE != null)
+                            ? utils.numberType.MOBILE
+                            : 1;
+                        // National example (true) matches separateDialCode + nationalMode display.
+                        const example = utils.getExampleNumber(iso2, true, numberType)
+                            || utils.getExampleNumber(iso2, true, 0);
+                        const digits = String(example || '').replace(/\D/g, '');
+                        if (digits.length > 0) {
+                            return digits.length;
+                        }
+                    } catch (e) {
+                        // fall through to defaults
+                    }
+                }
+
+                if (iso2 === 'ph') return 10; // national digits with +63 separate dial code
+                return 15;
+            };
+
+            window.applyPrismPhoneCountryRules = function (input) {
+                if (!input) return;
+
+                const maxDigits = window.getPrismPhoneMaxDigits(input);
+                // Room for spaces / dashes from country-specific as-you-type formatting.
+                const maxLen = Math.max(maxDigits + 8, 12);
+                input.setAttribute('maxlength', String(maxLen));
+                input.setAttribute('data-phone-max-digits', String(maxDigits));
+                input.setAttribute('inputmode', 'numeric');
+
+                const iti = window.PRISM_PHONE_INPUTS.get(input);
+                if (iti && typeof iti.setPlaceholderNumberType === 'function') {
+                    try {
+                        iti.setPlaceholderNumberType('MOBILE');
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            };
+
             window.writePrismPhoneStorage = function (input, raw) {
                 const storage = window.getPrismPhoneStorage(input);
-                const formatted = window.formatPrismPhoneForStorage(raw);
+                const iti = input ? window.PRISM_PHONE_INPUTS.get(input) : null;
+                const iso2 = window.getPrismPhoneCountryIso2(input);
+                let formatted = '';
+
+                if (iti && iso2 !== 'ph') {
+                    try {
+                        const e164 = iti.getNumber();
+                        if (e164) {
+                            formatted = e164;
+                        }
+                    } catch (e) {
+                        // fall through
+                    }
+                }
+
+                if (!formatted) {
+                    if (iso2 === 'ph') {
+                        formatted = window.formatPrismPhoneForStorage(raw);
+                    } else {
+                        const digits = String(raw || '').replace(/\D/g, '');
+                        formatted = digits ? ('+' + digits) : '';
+                    }
+                }
+
                 if (storage) {
                     storage.value = formatted;
                 }
                 return formatted;
             };
 
-            window.getPrismPhoneMaxDigits = function (input) {
-                if (!input) return 0;
-                const iti = window.PRISM_PHONE_INPUTS.get(input);
-                let iso2 = 'ph';
-                if (iti && typeof iti.getSelectedCountryData === 'function') {
-                    try {
-                        const country = iti.getSelectedCountryData();
-                        if (country && country.iso2) {
-                            iso2 = String(country.iso2).toLowerCase();
-                        }
-                    } catch (e) {
-                        // fallback to the default PH limit
-                    }
-                }
-
-                if (iso2 === 'ph') return 11;
-                return 15;
-            };
-
             window.normalizePrismPhoneDigits = function (input, digits) {
                 if (!digits) return '';
 
-                const iti = window.PRISM_PHONE_INPUTS.get(input);
-                let iso2 = 'ph';
-                if (iti && typeof iti.getSelectedCountryData === 'function') {
-                    try {
-                        const country = iti.getSelectedCountryData();
-                        if (country && country.iso2) {
-                            iso2 = String(country.iso2).toLowerCase();
-                        }
-                    } catch (e) {
-                        // ignore
-                    }
-                }
-
+                const iso2 = window.getPrismPhoneCountryIso2(input);
+                const maxDigits = window.getPrismPhoneMaxDigits(input);
                 let cleaned = String(digits).replace(/\D/g, '');
 
                 if (iso2 === 'ph') {
@@ -234,18 +300,25 @@
                         cleaned = '0' + cleaned.slice(2);
                     }
 
+                    // Keep full national 0XXXXXXXXXX for storage helpers.
+                    if (cleaned.length === 10 && cleaned.startsWith('9')) {
+                        cleaned = '0' + cleaned;
+                    }
+
                     cleaned = cleaned.replace(/^0+/, '0');
                     cleaned = cleaned.slice(0, 11);
 
-                    if (!cleaned.startsWith('09')) {
+                    if (cleaned && !cleaned.startsWith('09') && cleaned.startsWith('0')) {
                         cleaned = cleaned.replace(/^0+/, '');
                         cleaned = '09' + cleaned.slice(0, 9);
+                        cleaned = cleaned.slice(0, 11);
                     }
 
-                    return cleaned.slice(0, 11);
+                    return cleaned;
                 }
 
-                return cleaned.slice(0, 15);
+                // International: keep country code + national digits, capped by example length + dial code headroom.
+                return cleaned.slice(0, Math.max(maxDigits + 3, 15));
             };
 
             window.readPrismPhoneDigits = function (input) {
@@ -289,7 +362,16 @@
             };
 
             window.initPrismPhoneInput = function (input) {
-                if (!input || input.dataset.phoneInitialized === '1' || !window.intlTelInput) {
+                if (!input || !window.intlTelInput) {
+                    return null;
+                }
+
+                // Never wrap the hidden storage field — that duplicates the flag UI.
+                if (input.hasAttribute('data-phone-storage') || !input.hasAttribute('data-phone-input')) {
+                    return null;
+                }
+
+                if (input.dataset.phoneInitialized === '1') {
                     return window.PRISM_PHONE_INPUTS.get(input) || null;
                 }
 
@@ -304,7 +386,12 @@
                     separateDialCode: true,
                     nationalMode: true,
                     autoPlaceholder: 'aggressive',
+                    formatAsYouType: true,
                     formatOnDisplay: true,
+                    // Cap typed digits to the selected country's max valid length (libphonenumber).
+                    strictMode: true,
+                    placeholderNumberType: 'MOBILE',
+                    validationNumberType: 'MOBILE',
                     // Keep country list out of overflow:hidden modal panels
                     dropdownContainer: document.body,
                     fixDropdownWidth: false,
@@ -435,7 +522,36 @@
                     window.writePrismPhoneStorage(input, seed);
                 }
 
-                // Keep the standard country-code format from intl-tel-input while typing.
+                const applyCountryRules = function () {
+                    window.applyPrismPhoneCountryRules(input);
+                };
+
+                applyCountryRules();
+                if (iti.promise && typeof iti.promise.then === 'function') {
+                    iti.promise.then(applyCountryRules).catch(function () {});
+                }
+
+                // When the country changes, refresh placeholder / max digits and re-sync storage.
+                input.addEventListener('countrychange', function () {
+                    applyCountryRules();
+                    try {
+                        const digits = window.readPrismPhoneDigits(input);
+                        // Trim to the new country's max if the previous value was longer.
+                        const maxDigits = window.getPrismPhoneMaxDigits(input);
+                        const iso2 = window.getPrismPhoneCountryIso2(input);
+                        if (iso2 !== 'ph' && digits) {
+                            const national = String(input.value || '').replace(/\D/g, '');
+                            if (national.length > maxDigits) {
+                                input.value = national.slice(0, maxDigits);
+                            }
+                        }
+                        window.writePrismPhoneStorage(input, window.readPrismPhoneDigits(input));
+                    } catch (e) {
+                        // ignore
+                    }
+                });
+
+                // Keep storage in sync while intl-tel-input owns visible formatting.
                 input.addEventListener('input', function () {
                     try {
                         if (input.dataset.phMaskApplying === '1') return;
@@ -477,12 +593,32 @@
                     return null;
                 }
 
+                // If a caller passed the storage field, redirect to the visible tel input.
+                if (input.hasAttribute('data-phone-storage') || !input.hasAttribute('data-phone-input')) {
+                    const form = input.closest('form') || document;
+                    const visible = form.querySelector('[data-phone-input][data-phone-storage-id="' + (input.id || '') + '"]')
+                        || form.querySelector('[data-phone-input]');
+                    if (!visible || visible === input) {
+                        return null;
+                    }
+                    return window.refreshPrismPhoneInput(visible);
+                }
+
                 const storage = window.getPrismPhoneStorage(input);
                 const keep = (storage && storage.value) || input.value || '';
 
                 const existing = window.PRISM_PHONE_INPUTS.get(input);
                 if (existing && typeof existing.destroy === 'function') {
                     existing.destroy();
+                }
+
+                // Unwrap leftover .iti wrappers from a bad double-init.
+                let parent = input.parentElement;
+                while (parent && parent.classList && parent.classList.contains('iti') && parent.parentElement) {
+                    const grand = parent.parentElement;
+                    grand.insertBefore(input, parent);
+                    parent.remove();
+                    parent = input.parentElement;
                 }
 
                 input.dataset.phoneInitialized = '0';
@@ -501,15 +637,26 @@
                     }
 
                     const digits = window.readPrismPhoneDigits(input);
-                    const formatted = window.writePrismPhoneStorage(input, digits);
+                    window.writePrismPhoneStorage(input, digits);
 
-                    // Keep the visible field in sync for any fallbacks that still read it.
-                    if (formatted) {
-                        const national = formatted.replace(/\D/g, '');
-                        if (national.length === 11 && national.startsWith('09')) {
-                            input.value = input.value || window.formatPrismPhoneDisplay(national);
-                        } else if (national.length > 3) {
-                            input.value = input.value || window.formatPrismPhoneDisplay(national);
+                    // Prefer intl-tel-input's country-aware formatting for the visible field.
+                    const iti = window.PRISM_PHONE_INPUTS.get(input);
+                    if (iti && digits) {
+                        try {
+                            const iso2 = window.getPrismPhoneCountryIso2(input);
+                            if (iso2 === 'ph') {
+                                const national = String(digits).replace(/\D/g, '');
+                                if (national.length === 11 && national.startsWith('09') && !input.value) {
+                                    input.value = window.formatPrismPhoneDisplay(national);
+                                }
+                            } else if (!input.value) {
+                                const e164 = iti.getNumber();
+                                if (e164) {
+                                    iti.setNumber(e164);
+                                }
+                            }
+                        } catch (e) {
+                            // leave visible value as-is
                         }
                     }
                 });
@@ -550,11 +697,12 @@
     type="tel"
     id="{{ $id }}"
     value="{{ $displayValue }}"
-    placeholder="{{ $placeholder }}"
+    @if($placeholder !== null && $placeholder !== '') placeholder="{{ $placeholder }}" @endif
     data-phone-input
     data-phone-storage-id="{{ $storageId }}"
     @if($required) required @endif
-    maxlength="{{ $maxlength }}"
+    @if($maxlength !== null) maxlength="{{ $maxlength }}" @endif
     class="phone-input {{ $inputClass }}"
     autocomplete="tel"
+    inputmode="numeric"
 >

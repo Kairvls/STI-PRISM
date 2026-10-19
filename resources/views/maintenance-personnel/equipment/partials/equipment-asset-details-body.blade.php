@@ -184,10 +184,6 @@
                         <span id="eqAssetModal_supplier" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Purchase order</span>
-                        <span id="eqAssetModal_po" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
                         <span class="text-sm text-slate-500">Receiving report</span>
                         <span id="eqAssetModal_rr" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
                     </div>

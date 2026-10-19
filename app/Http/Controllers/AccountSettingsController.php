@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ class AccountSettingsController extends Controller
 
         $rules = [
             'user_full_name' => ['required', 'string', 'max:255'],
-            'user_contact_number' => ['nullable', 'string', 'max:32'],
+            'user_contact_number' => PhoneNumber::rules(),
             'user_username' => [
                 'required',
                 'string',
@@ -49,9 +50,7 @@ class AccountSettingsController extends Controller
 
         $user->user_full_name = trim($validated['user_full_name']);
         // Office 365 email is admin-managed only (Users module). Ignore any posted value.
-        $user->user_contact_number = filled($validated['user_contact_number'] ?? null)
-            ? trim($validated['user_contact_number'])
-            : null;
+        $user->user_contact_number = PhoneNumber::normalizeForStorage($validated['user_contact_number'] ?? null);
         $user->user_username = trim($validated['user_username']);
 
         if (Schema::hasColumn('users_table', 'user_profile_picture')) {
@@ -167,6 +166,10 @@ class AccountSettingsController extends Controller
             return 'purchaser';
         }
 
+        if (request()->routeIs('supply-officer.*') || request()->is('supply-officer/*')) {
+            return 'supply-officer';
+        }
+
         if (request()->routeIs('accounting.*') || request()->is('accounting/*')) {
             return 'accounting';
         }
@@ -184,6 +187,7 @@ class AccountSettingsController extends Controller
             'admin', 'school-admin' => 'admin.profile.index',
             'receiving' => 'receiving-officer.profile.index',
             'purchaser' => 'purchaser.profile.index',
+            'supply-officer' => 'supply-officer.profile.index',
             'accounting' => 'accounting.profile.index',
             'president' => 'president.profile.index',
             default => 'maintenance-personnel.settings.profile',
@@ -196,6 +200,7 @@ class AccountSettingsController extends Controller
             'admin', 'school-admin' => 'admin.security.index',
             'receiving' => 'receiving-officer.security.index',
             'purchaser' => 'purchaser.security.index',
+            'supply-officer' => 'supply-officer.security.index',
             'accounting' => 'accounting.security.index',
             'president' => 'president.security.index',
             default => 'maintenance-personnel.settings.security',
@@ -209,6 +214,7 @@ class AccountSettingsController extends Controller
             'school-admin' => 'school-admin.profile',
             'receiving' => 'receiving.profile',
             'purchaser' => 'purchaser.profile',
+            'supply-officer' => 'supply-officer.profile',
             'accounting' => 'accounting.profile',
             'president' => 'president.profile',
             default => 'maintenance.settings.profile',

@@ -14,7 +14,7 @@
     } elseif ($risStatus === 'Accepted') {
         $risStatusLabel = 'Accepted';
         $risStatusClass = 'border-violet-200 bg-violet-50 text-violet-700';
-        $risStatusTitle = 'Accepted — ready for Forward / Approve Directly / Return on Sign RIS';
+        $risStatusTitle = 'Accepted — ready for Direct Approve or Pass to President on Ready to Sign';
     } elseif ($risStatus === 'Directly Approved') {
         $risStatusLabel = 'Directly approved by the Administrator';
         $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';

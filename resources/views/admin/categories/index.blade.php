@@ -35,13 +35,6 @@
             : (($categoryMonthlyPercentage > 0 ? '+' : '') . number_format($categoryMonthlyPercentage, 2) . '% vs last month');
     @endphp
     <div class="mt-6 mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Categories', 'hint' => $categoryMonthlyHint, 'value' => number_format($totalCategories)],
-                ['label' => 'Categories In Use', 'hint' => number_format($categoriesInUsePercentage, 2) . '% of all categories', 'value' => number_format($categoriesInUse)],
-                ['label' => 'Categorized Equipment', 'hint' => number_format($categorizedEquipmentPercentage, 2) . '% of all equipment', 'value' => number_format($categorizedEquipment)],
-            ],
-        ])
     </div>
 
 

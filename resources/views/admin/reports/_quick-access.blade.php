@@ -14,26 +14,6 @@
     </div>
 
     <div id="qa-pane-maintenance" class="qa-report-pane space-y-4">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Filed',
-                    'value' => number_format($m['filed'] ?? 0),
-                ],
-                [
-                    'label' => 'Resolved',
-                    'value' => number_format($m['resolved'] ?? 0),
-                ],
-                [
-                    'label' => 'Rejected',
-                    'value' => number_format($m['rejected'] ?? 0),
-                ],
-                [
-                    'label' => 'Replacement',
-                    'value' => number_format($m['replacement'] ?? 0),
-                ],
-            ],
-        ])
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[900px] text-left">
@@ -65,22 +45,6 @@
     </div>
 
     <div id="qa-pane-receiving" class="qa-report-pane space-y-4 hidden">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Delivered',
-                    'value' => number_format($r['accepted'] ?? 0),
-                ],
-                [
-                    'label' => 'Returned',
-                    'value' => number_format($r['returned'] ?? 0),
-                ],
-                [
-                    'label' => 'With OR',
-                    'value' => number_format($r['withOr'] ?? 0),
-                ],
-            ],
-        ])
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[800px] text-left">

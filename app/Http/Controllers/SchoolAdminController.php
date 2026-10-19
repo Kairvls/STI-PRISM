@@ -199,6 +199,10 @@ class SchoolAdminController extends Controller
                     ->orderByDesc('requisition_issue_slip_table.ris_id')
                     ->limit(3);
 
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $latestQuery->addSelect('requisition_issue_slip_table.ris_request_no');
+                }
+
                 if (Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
                     $latestQuery->where(function ($q) {
                         $q->whereNull('requisition_issue_slip_table.ris_is_archived')

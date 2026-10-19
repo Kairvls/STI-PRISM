@@ -16,22 +16,25 @@
                 request()->is('school-admin/semester-inspections') => ['Semester Inspections', ''],
                 request()->is('school-admin/equipment/history*') => ['Equipment History', 'Reports, transfers and maintenance for each item.'],
                 request()->is('school-admin/disposal*') => ['Disposed Equipment', 'View only. Equipment that has been permanently disposed.'],
-                request()->is('school-admin/operations/procurement*', 'school-admin/operations/documents*') => ['Procurement Monitor', ''],
-                request()->is('school-admin/procurement-review*') => ['Procurement Requests', ''],
-                request()->is('school-admin/digital-signatures/sign-ris*') => ['Sign RIS', ''],
+                request()->is('school-admin/operations/procurement*', 'school-admin/operations/documents*') => ['Procurement Monitor', 'Track each Request No. (PR) through the procurement pipeline.'],
+                request()->is('school-admin/procurement-review*') => ['RIS', 'Pending Accept — then Ready to Sign for Direct Approve or Pass to President.'],
+                request()->is('school-admin/authority-to-purchase*') => ['Authority to Purchase', ''],
+                request()->is('school-admin/purchase-orders*') => ['Purchase Orders', ''],
+                request()->is('school-admin/request-check*') => ['Request Checks', ''],
+                request()->is('school-admin/digital-signatures/sign-ris*') => ['RIS', 'Ready to Sign — Direct Approve, Pass to President, or Issued by.'],
                 request()->is('school-admin/digital-signatures/history*') => ['Signature History', ''],
                 request()->is('school-admin/notifications*') => ['Notifications', ''],
                 request()->is('school-admin/profile*') => ['Profile Settings', ''],
                 request()->is('school-admin/security*') => ['Security Settings', ''],
                 request()->is('school-admin/*') => [View::yieldContent('title', 'PaAyo'), ''],
-                request()->is('admin/procurement-review*') => ['Procurement Requests', 'View only. The School Administrator approves RIS.'],
-                request()->is('admin/digital-signatures/sign-ris*') => ['Sign RIS', 'View only. The School Administrator signs RIS.'],
+                request()->is('admin/procurement-review*') => ['RIS', 'View only. The School Administrator accepts and decides.'],
+                request()->is('admin/digital-signatures/sign-ris*') => ['RIS', 'View only. The School Administrator signs and decides.'],
                 request()->is('admin/dashboard') => ['Dashboard', ''],
                 request()->is('admin/operations') && ! request()->is('admin/operations/*') => ['Command Center', ''],
                 request()->is('admin/operations/equipment*') => ['Equipment Monitor', ''],
                 request()->is('admin/operations/schedules*') => ['Maintenance Schedules', ''],
                 request()->is('admin/operations/reports*') => ['Equipment Reports', 'Monitor reports and override when needed.'],
-                request()->is('admin/operations/procurement*') => ['Procurement Monitor', ''],
+                request()->is('admin/operations/procurement*') => ['Procurement Monitor', 'Track each Request No. (PR) through the procurement pipeline.'],
                 request()->is('admin/operations/back-orders*') && request('payment') === 'rfc' => ['Back Order Monitor · Request for Check', 'Items delivered short or damaged.'],
                 request()->is('admin/operations/back-orders*') && request('payment') === 'ca' => ['Back Order Monitor · Cash Advance', 'Items delivered short or damaged.'],
                 request()->is('admin/operations/back-orders*') => ['Back Order Monitor', 'Items delivered short or damaged.'],
@@ -56,6 +59,8 @@
                 request()->is('admin/infrastructure*') => ['Building Rooms Layout', ''],
                 request()->is('admin/rooms*') => ['Rooms', ''],
                 request()->is('admin/departments*') => ['Departments', 'Offices that own equipment and group people.'],
+                request()->is('admin/persons*') => ['Faculty & Staff', 'Campus faculty and staff — identity source for other modules.'],
+                request()->is('admin/reports/make*') => ['Make Report', ''],
                 request()->is('admin/reports*') => ['System Reports', 'Maintenance, procurement, receiving, and approval history.'],
                 request()->is('admin/notifications*') => ['Notifications', ''],
                 request()->is('admin/profile*') => ['Profile Settings', ''],
@@ -64,7 +69,7 @@
                 request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', ''],
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slips.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', ''],
-                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to Accounting.'],
+                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to the School Administrator.'],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', ''],
                 request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', ''],
                 request()->is('purchaser/request-check*') => ['Request Fund', ''],
@@ -216,6 +221,7 @@
                 </div>
 
                 <div class="max-h-[290px] overflow-y-auto">
+                    @include('layouts.partials.module-importance-mute-panel')
                     @if ($attentionTotal > 0)
                         <button
                             type="button"
@@ -235,7 +241,9 @@
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-[11px] leading-4 text-slate-500">
-                                    {{ \App\Support\AdminPortal::canActOnRis() ? 'Open the daily summary of RIS review, cosign, and amendments.' : 'Open the daily summary of overdue borrows.' }}
+                                    {{ \App\Support\AdminPortal::canActOnRis()
+                                        ? 'Open the daily summary of RIS review, cosign, and amendments.'
+                                        : 'Open the daily summary of overdue schedules and borrows.' }}
                                 </p>
                             </div>
                         </button>
@@ -248,12 +256,18 @@
                                 'signature' => 'pen-tool',
                                 'user' => 'users',
                                 'report' => 'triangle-alert',
+                                'maintenance_overdue' => 'calendar-x-2',
+                                'maintenance_due_today' => 'calendar-clock',
+                                'maintenance_upcoming' => 'calendar',
                                 default => 'bell',
                             };
                             $iconStyle = match ($note->notification_category ?? null) {
                                 'Procurement' => 'bg-amber-50 text-amber-600',
                                 'Workflow' => 'bg-slate-100 text-slate-600',
                                 'Reports' => 'bg-rose-50 text-rose-600',
+                                'Maintenance' => ($note->notification_type ?? null) === 'maintenance_overdue'
+                                    ? 'bg-rose-50 text-rose-600'
+                                    : 'bg-amber-50 text-amber-600',
                                 default => 'bg-slate-100 text-slate-500',
                             };
                         @endphp
@@ -341,7 +355,11 @@
                     @endif
                 </div>
 
-                <div class="hidden min-w-0 sm:block">
+                {{-- Do not use Tailwind "hidden sm:block" here.
+                     accounting-modern.css / president-modern.css force
+                     .hidden { display:none !important }, which permanently
+                     hides the name/role/chevron on ATP & RFC pages. --}}
+                <div class="admin-topbar-profile-meta min-w-0">
                     <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
                         {{ $topbarUser->user_full_name }}
                     </p>
@@ -352,7 +370,7 @@
 
                 <i
                     data-lucide="chevron-down"
-                    class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
+                    class="admin-topbar-profile-chevron h-4 w-4 shrink-0 text-slate-400"
                 ></i>
             </button>
 
@@ -477,6 +495,25 @@
     .dashboard-icon-action:hover{
         background:#F1F5F9;
         color:#0F172A;
+    }
+
+    /* accounting/president CSS set .hidden { display:none !important },
+       so Tailwind "hidden sm:block" never shows on ATP/RFC. */
+    .admin-topbar-profile-meta,
+    .admin-topbar-profile-chevron,
+    svg.admin-topbar-profile-chevron {
+        display: none !important;
+    }
+
+    @media (min-width: 640px) {
+        .admin-topbar-profile-meta {
+            display: block !important;
+        }
+
+        .admin-topbar-profile-chevron,
+        svg.admin-topbar-profile-chevron {
+            display: block !important;
+        }
     }
 </style>
 

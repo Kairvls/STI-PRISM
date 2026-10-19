@@ -6,7 +6,7 @@
     $label = $raw;
     $cls = 'bg-slate-100 text-slate-700 ring-slate-200';
     if (in_array($raw, ['Pending', 'Submitted', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
-        if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released'], true)) {
+        if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released'], true)) {
             // keep approved
         } elseif (!in_array($raw, ['Rejected', 'Minor Revision'], true)) {
             // Distinct colors per state: Submitted = green, Under Review = gray, Pending = yellow
@@ -20,7 +20,7 @@
             if ($raw === 'Pending' && !empty($submitted)) { $label = 'Pending'; }
         }
     }
-    if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released'], true)) {
+    if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released'], true)) {
         $cls = 'bg-blue-50 text-blue-800 ring-blue-300';
     }
     if (in_array($raw, ['Minor Revision', 'Revision'], true) || ($raw === 'Pending' && empty($submitted) && !empty($revision))) {

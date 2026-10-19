@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Purchase Orders')
-@section('page-subtitle', 'Group draft ATPs and submit to Accounting.')
+@section('page-subtitle', 'Group draft ATPs and submit to the School Administrator.')
 
 @section('content')
 
@@ -39,7 +39,7 @@
             </a>
         </nav>
         <p class="text-sm text-gray-500">
-            {{ $minAtps }} to {{ $maxAtps }} ATPs per PO · a single ATP is submitted directly to Accounting
+            {{ $minAtps }} to {{ $maxAtps }} ATPs per PO · a single ATP is submitted directly to the School Administrator
         </p>
     </div>
 
@@ -62,10 +62,10 @@
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $orders->total() }}</span>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
-                        {{ $archiveView ? 'Restore orders when you need them again.' : 'Draft ATPs pack here — review, then submit to Accounting.' }}
+                        {{ $archiveView ? 'Restore orders when you need them again.' : 'Draft ATPs pack here — review, then submit to the School Administrator.' }}
                     </p>
                 </div>
-                <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <form data-auto-filter method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -100,6 +100,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">PO</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATPs</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
@@ -114,6 +115,11 @@
                             $label = \App\Support\PurchaseOrderBasket::displayNumber($order);
                             $st = $order->purchase_order_status ?? 'Draft';
                             $rowAtps = collect($order->linked_atps ?? [])->values();
+                            $poRequestNos = $rowAtps
+                                ->map(fn ($a) => trim((string) ($a->authority_purchase_request_no ?? '')))
+                                ->filter()
+                                ->unique()
+                                ->values();
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td class="px-5 py-4">
@@ -126,6 +132,17 @@
                                         @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Includes an ATP from an urgent RIS'])
                                     @endif
                                 </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                @if($poRequestNos->isNotEmpty())
+                                    <div class="flex flex-col gap-1">
+                                        @foreach($poRequestNos as $poRequestNo)
+                                            @include('partials.procurement-request-no', ['requestNo' => $poRequestNo, 'inline' => true, 'showLabel' => false])
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 @if($rowAtps->isNotEmpty())
@@ -269,7 +286,13 @@
                                             'currentReviewerId' => $order->purchase_order_assigned_reviewer_id ?? null,
                                         ])
                                     @endif
-                                    @if(!$archiveView && in_array($st, ['Approved','Rejected','Cancelled'], true))
+                                    @php
+                                        $poNeedsFunding = $st === 'Approved'
+                                            && (empty($order->funding_path) || ! empty($order->funding_open_groups));
+                                        $canArchivePo = in_array($st, ['Approved', 'Rejected', 'Cancelled'], true)
+                                            && ! $poNeedsFunding;
+                                    @endphp
+                                    @if(!$archiveView && $canArchivePo)
                                         <form
                                             method="POST"
                                             action="{{ route($pp.'.purchase-orders.archive', $order->purchase_order_id) }}"
@@ -306,7 +329,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="shopping-bag" class="h-5 w-5"></i>
                                 </div>
@@ -418,7 +441,7 @@
                         <div>
                             <p class="text-sm font-semibold text-gray-900">Funding</p>
                             <p class="mt-0.5 text-xs text-gray-500">
-                                Cash Advance: one request for the whole Purchase Order. Request for Check: one request per supplier.
+                                Cash Advance: one request for the whole Purchase Order. Direct Payment / Cash Installment: one request per supplier (ends at Receiving Report).
                             </p>
                         </div>
 
@@ -426,15 +449,23 @@
                             <div class="flex flex-wrap gap-2">
                                 <form method="POST" action="{{ route($pp.'.purchase-orders.payment-path', $order->purchase_order_id) }}">
                                     @csrf
-                                    <input type="hidden" name="payment_path" value="request_for_check">
+                                    <input type="hidden" name="payment_path" value="{{ \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
                                     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 transition hover:bg-blue-100">
-                                        <i data-lucide="file-check-2" class="h-4 w-4"></i>
-                                        Request for Check
+                                        <i data-lucide="badge-check" class="h-4 w-4"></i>
+                                        Direct Payment
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ route($pp.'.purchase-orders.payment-path', $order->purchase_order_id) }}">
                                     @csrf
-                                    <input type="hidden" name="payment_path" value="cash_advance">
+                                    <input type="hidden" name="payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
+                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-100">
+                                        <i data-lucide="calendar-clock" class="h-4 w-4"></i>
+                                        Cash Installment
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ route($pp.'.purchase-orders.payment-path', $order->purchase_order_id) }}">
+                                    @csrf
+                                    <input type="hidden" name="payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_ADVANCE }}">
                                     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-100">
                                         <i data-lucide="banknote" class="h-4 w-4"></i>
                                         Cash Advance
@@ -447,15 +478,15 @@
                             @foreach($openGroups as $group)
                                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-3">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-900">{{ $fundingPath === 'cash_advance' ? 'Whole Purchase Order' : $group['supplier_name'] }}</p>
+                                        <p class="text-sm font-medium text-gray-900">{{ \App\Support\ProcurementPaymentPath::requiresLiquidation($fundingPath) ? 'Whole Purchase Order' : $group['supplier_name'] }}</p>
                                         <p class="mt-0.5 text-xs text-gray-500">{{ implode(', ', $group['atp_labels']) }} · ₱{{ number_format((float) $group['amount'], 2) }}</p>
                                     </div>
                                     <a
-                                        href="{{ route($pp.'.rfc.index', ['funding_type' => $fundingPath, 'selected_source' => $group['key']]) }}"
+                                        href="{{ route($pp.'.rfc.index', ['funding_type' => \App\Support\ProcurementPaymentPath::normalize($fundingPath) ?? $fundingPath, 'fund' => \App\Support\ProcurementPaymentPath::normalize($fundingPath) ?? $fundingPath, 'selected_source' => $group['key']]) }}"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#001db3]"
                                     >
                                         <i data-lucide="file-plus-2" class="h-3.5 w-3.5"></i>
-                                        Create {{ $fundingPath === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                        Create {{ \App\Support\ProcurementPaymentPath::label($fundingPath) }}
                                     </a>
                                 </div>
                             @endforeach
@@ -588,7 +619,7 @@
                                 title="{{ $linked->count() < $minAtps ? 'A Purchase Order needs at least '.$minAtps.' ATPs' : '' }}"
                             >
                                 <i data-lucide="send" class="h-4 w-4"></i>
-                                Submit to Accounting
+                                Submit to the School Administrator
                             </button>
                         </div>
                     </div>
@@ -618,7 +649,7 @@
                         <i data-lucide="send" class="h-5 w-5"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold tracking-tight text-gray-950">Submit to Accounting</h3>
+                        <h3 class="text-lg font-semibold tracking-tight text-gray-950">Submit to the School Administrator</h3>
                         <p class="mt-1 text-sm text-gray-600">Choose who should review this Purchase Order.</p>
                     </div>
                 </div>
@@ -627,18 +658,18 @@
                         Submit <span class="font-semibold text-gray-900" x-text="submitConfirm?.number"></span> with its linked ATPs?
                     </p>
                     <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to Accounting <span class="text-red-500">*</span></label>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to the School Administrator <span class="text-red-500">*</span></label>
                         <select
                             name="assigned_reviewer_id"
                             required
                             class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
                         >
-                            <option value="">Select Accounting…</option>
-                            @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_ACCOUNTING) as $reviewer)
+                            <option value="">Select School Administrator…</option>
+                            @foreach(\App\Support\ReviewerAssignment::options(\App\Support\ProcurementReviewPortal::ROLE) as $reviewer)
                                 <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1.5 text-xs text-gray-400">Only the selected Accounting user will receive this PO for review.</p>
+                        <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this PO for review.</p>
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">

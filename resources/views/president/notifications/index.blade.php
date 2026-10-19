@@ -25,26 +25,6 @@
         @endif
     </div>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Unread Alerts',
-                'hint' => ($unreadCount ?? 0) > 0 ? 'Requires your attention' : 'All caught up',
-                'value' => number_format((int) ($unreadCount ?? 0)),
-            ],
-            [
-                'label' => 'Inbox',
-                'hint' => 'Showing latest President alerts',
-                'value' => number_format(($notifications ?? collect())->count()),
-            ],
-            [
-                'label' => 'RIS Approvals',
-                'hint' => 'Review forwarded RIS documents',
-                'value' => 'Open queue',
-                'href' => '/president/approvals',
-            ],
-        ],
-    ])
 
     <section class="pm-card p-5">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

@@ -41,7 +41,7 @@
     $transferLabel = $transferNeedsApproval ? 'Send for approval' : 'Transfer';
     $disposalNeedsApproval = $disposalNeedsApproval ?? false;
     $pendingDisposalCount = $pendingDisposalCount ?? 0;
-    $selectClass = 'box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white';
+    $selectClass = 'box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white';
 @endphp
 
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -75,24 +75,22 @@
         </div>
     @endif
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            ['label' => 'Rooms with equipment', 'hint' => 'Rooms currently holding deployed units', 'value' => number_format($roomsWithStock)],
-            ['label' => 'Total deployed qty', 'hint' => 'Combined quantity of every deployed unit', 'value' => number_format($totalDeployedQty)],
-            ['label' => 'On floor', 'hint' => 'Excluding holding / storage staging', 'value' => number_format($onFloorQty)],
-            ['label' => 'Transfers this month', 'hint' => number_format($transfersLastMonth).' last month', 'value' => number_format($transfersThisMonth)],
-        ],
-    ])
 
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                         <h2 class="text-base font-semibold text-gray-950">Deployed equipment</h2>
-                        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
-                            {{ number_format($equipmentTotal) }}
-                        </span>
+                        <div
+                            class="inline-flex w-fit items-center gap-2
+                                rounded-lg border border-slate-200
+                                bg-slate-50 px-3 py-2
+                                text-xs font-medium text-slate-500"
+                        >
+                            <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                            {{ number_format($equipmentTotal) }} total
+                        </div>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
                         Equipment in classrooms, labs and offices. View details, transfer units, or check their transfer logs.
@@ -160,12 +158,12 @@
                 </div>
             @endif
 
-            <form
+            <form data-auto-filter
                 method="GET"
                 action="{{ $deployedUrl }}"
-                class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+                class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center"
             >
-                <div class="relative">
+                <div class="relative min-w-0 flex-1">
                     <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
                     </svg>
@@ -174,7 +172,7 @@
                         name="search"
                         value="{{ $filters['search'] }}"
                         placeholder="Search name, tag, serial, room..."
-                        class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                        class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
                     >
                 </div>
 

@@ -4,6 +4,7 @@
     $availableUrgentReports = (int) ($attention['availableUrgentReports'] ?? 0);
     $risReadyForAtp = (int) ($attention['risReadyForAtp'] ?? 0);
     $atpReadyForRfc = (int) ($attention['atpReadyForRfc'] ?? 0);
+    $checkReady = (int) ($attention['checkReady'] ?? 0);
     $rfcReadyForRr = (int) ($attention['rfcReadyForRr'] ?? 0);
     $rrReadyForLiq = (int) ($attention['rrReadyForLiq'] ?? 0);
     $attentionTotal = (int) ($attention['attentionTotal'] ?? 0);
@@ -129,6 +130,26 @@
                     </a>
                 @endif
 
+                @if ($checkReady > 0)
+                    <a
+                        href="{{ route('purchaser.rfc.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_CHECK_READY]) }}"
+                        class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                    >
+                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover:bg-emerald-100">
+                            <i data-lucide="hand-coins" class="h-5 w-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ $checkReady }} {{ \Illuminate\Support\Str::plural('check', $checkReady) }} ready for pickup
+                            </p>
+                            <p class="mt-0.5 text-xs leading-5 text-slate-500">
+                                Collect at the office, then buy and file Receiving Report.
+                            </p>
+                        </div>
+                        <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-emerald-400"></i>
+                    </a>
+                @endif
+
                 @if ($rfcReadyForRr > 0)
                     <a
                         href="{{ route('purchaser.rfc.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR]) }}"
@@ -206,6 +227,13 @@
                         class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                     >
                         Open ATP ready for RFC
+                    </a>
+                @elseif ($checkReady > 0)
+                    <a
+                        href="{{ route('purchaser.rfc.index', ['focus' => \App\Support\PurchaserAttentionSummary::FOCUS_CHECK_READY]) }}"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
+                    >
+                        Open checks ready for pickup
                     </a>
                 @elseif ($rfcReadyForRr > 0)
                     <a

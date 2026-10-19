@@ -1,4 +1,4 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'Purchase Order')
 
@@ -13,7 +13,7 @@
 <div class="acc-page acc-content-fill fade-in">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-            <a href="/accounting/purchase-orders?status=incoming" class="text-sm font-medium text-blue-700 hover:underline">← Back to Purchase Orders</a>
+            <a href="/school-admin/purchase-orders?status=incoming" class="text-sm font-medium text-blue-700 hover:underline">← Back to Purchase Orders</a>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-xl font-semibold text-slate-900">{{ $label }}</h1>
                 @if(\App\Support\DocumentUrgency::isUrgent('PO', $order->purchase_order_id))
@@ -29,7 +29,7 @@
             Previous revision note: {{ $order->purchase_order_revision_reason }}
             @include('partials.ris-revision-images', [
                 'revision' => \App\Support\DocumentRevisionNotes::latest('PO', $order->purchase_order_id),
-                'routeName' => 'accounting.document-revision-image',
+                'routeName' => 'school-admin.document-revision-image',
                 'size' => 'sm',
             ])
         </div>
@@ -60,7 +60,7 @@
                         <div class="flex items-center gap-3">
                             <span class="text-sm font-medium tabular-nums text-slate-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</span>
                             <a
-                                href="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}?from_po={{ $order->purchase_order_id }}"
+                                href="/school-admin/authority-to-purchase/{{ $atp->authority_purchase_id }}?from_po={{ $order->purchase_order_id }}"
                                 onclick="event.stopPropagation()"
                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             >
@@ -108,14 +108,14 @@
 
     @if($reviewable)
         <div class="grid gap-4 lg:grid-cols-2">
-            <form method="POST" action="/accounting/purchase-orders/{{ $order->purchase_order_id }}/approve" class="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
+            <form method="POST" action="/school-admin/purchase-orders/{{ $order->purchase_order_id }}/approve" class="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
                 @csrf
                 <h3 class="text-sm font-semibold text-emerald-900">Approve Purchase Order</h3>
                 <p class="mt-1 text-xs text-emerald-800">Approves this PO and all linked ATPs.</p>
                 <button type="submit" class="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Approve PO</button>
             </form>
 
-            <form method="POST" action="/accounting/purchase-orders/{{ $order->purchase_order_id }}/revise" enctype="multipart/form-data" class="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
+            <form method="POST" action="/school-admin/purchase-orders/{{ $order->purchase_order_id }}/revise" enctype="multipart/form-data" class="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
                 @csrf
                 <h3 class="text-sm font-semibold text-amber-900">Request revision</h3>
                 <p class="mt-1 text-xs text-amber-800">Returns the PO and linked ATPs to the purchaser.</p>

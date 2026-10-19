@@ -24,25 +24,6 @@
     <div class="space-y-6">
         {{-- QR TOOLS DASHBOARD --}}
         <div class="mb-6 mt-6">
-            @include('layouts.partials.maintenance-stat-cards', [
-                'cards' => [
-                    [
-                        'label' => 'Total Equipment',
-                        'hint' => number_format($generatedQrCodes) . ' QR codes generated',
-                        'value' => number_format($totalQrEquipment),
-                    ],
-                    [
-                        'label' => 'Generated',
-                        'hint' => number_format($generatedQrPercentage, 2) . '% of all equipment',
-                        'value' => number_format($generatedQrCodes),
-                    ],
-                    [
-                        'label' => 'Not Generated',
-                        'hint' => number_format($notGeneratedQrPercentage, 2) . '% of all equipment',
-                        'value' => number_format($notGeneratedQrCodes),
-                    ],
-                ],
-            ])
         </div>
 
         {{-- ========================================================= --}}
@@ -132,9 +113,7 @@
             {{-- ADD BETWEEN HEADER AND TABLE --}}
             {{-- ===================================================== --}}
 
-            <form
-                method="GET"
-                action="{{ url()->current() }}"
+            <form method="GET" action="{{ url()->current() }}" data-auto-filter
                 class="border-b border-slate-200 px-5 py-4"
             >
 

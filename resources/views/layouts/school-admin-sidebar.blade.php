@@ -159,20 +159,49 @@
 
         </div>
 
+        @php
+            $risSidebarBadge = (int) ($adminSidebarPendingRis ?? 0) + (int) ($adminSidebarAwaitingCosign ?? 0);
+            $risSidebarActive = request()->is('school-admin/procurement-review*')
+                || request()->is('school-admin/digital-signatures/sign-ris*');
+        @endphp
         <a
-            href="{{ route('school-admin.procurement-review') }}"
-            class="menu-item {{ request()->is('school-admin/procurement-review*') ? 'active' : '' }}"
+            href="{{ route('school-admin.procurement-review', ['filter' => 'pending']) }}"
+            class="menu-item {{ $risSidebarActive ? 'active' : '' }}"
         >
 
             <span class="menu-icon-wrap">
                 <i data-lucide="clipboard-check"></i>
-                @if(($adminSidebarPendingRis ?? 0) > 0)
-                    <span class="menu-notif-dot" title="{{ $adminSidebarPendingRis }} pending accept"></span>
+                @if($risSidebarBadge > 0)
+                    <span class="menu-notif-dot" title="{{ $risSidebarBadge }} RIS needing accept or sign"></span>
                 @endif
             </span>
 
-            <span>RIS Requests</span>
+            <span>RIS</span>
 
+        </a>
+
+        <a
+            href="{{ route('school-admin.atp.index', ['status' => 'incoming']) }}"
+            class="menu-item {{ request()->is('school-admin/authority-to-purchase*') ? 'active' : '' }}"
+        >
+            <i data-lucide="file-check"></i>
+            <span>ATP Requests</span>
+        </a>
+
+        <a
+            href="{{ route('school-admin.rfc.index', ['status' => 'incoming']) }}"
+            class="menu-item {{ request()->is('school-admin/request-check*') ? 'active' : '' }}"
+        >
+            <i data-lucide="clipboard-list"></i>
+            <span>Check Approval Requests</span>
+        </a>
+
+        <a
+            href="{{ route('school-admin.dv.index', ['status' => 'incoming']) }}"
+            class="menu-item {{ request()->is('school-admin/disbursement-vouchers*') ? 'active' : '' }}"
+        >
+            <i data-lucide="file-spreadsheet"></i>
+            <span>DV Requests</span>
         </a>
 
         {{-- ====================================== --}}
@@ -184,22 +213,6 @@
             DIGITAL SIGNATURES
 
         </div>
-
-        <a
-            href="{{ route('school-admin.digital-signatures.sign-ris') }}"
-            class="menu-item {{ request()->is('school-admin/digital-signatures/sign-ris*') ? 'active' : '' }}"
-        >
-
-            <span class="menu-icon-wrap">
-                <i data-lucide="pen-tool"></i>
-                @if(($adminSidebarAwaitingCosign ?? 0) > 0)
-                    <span class="menu-notif-dot" title="{{ $adminSidebarAwaitingCosign }} awaiting Sign RIS action"></span>
-                @endif
-            </span>
-
-            <span>Sign RIS</span>
-
-        </a>
 
         <a
             href="{{ route('school-admin.digital-signatures.history') }}"
@@ -228,6 +241,14 @@
         >
             <i data-lucide="git-branch"></i>
             <span>Procurement Monitoring</span>
+        </a>
+
+        <a
+            href="{{ route('school-admin.departments.index') }}"
+            class="menu-item {{ request()->is('school-admin/departments*') ? 'active' : '' }}"
+        >
+            <i data-lucide="building-2"></i>
+            <span>Departments</span>
         </a>
 
         @php

@@ -66,7 +66,7 @@
             >
                 <i data-lucide="triangle-alert"></i>
 
-                <span>Urgent Reports</span>
+                <span>Critical &amp; High Reports</span>
             </a>
 
 

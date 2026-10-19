@@ -13,7 +13,9 @@ class MaintenanceAttentionSummary
 
     public const FOCUS_OVERDUE = 'overdue';
 
-    /** @var array<int, array<string, int>> */
+    public const FOCUS_REPORTER_SPAM = 'reporter-spam';
+
+    /** @var array<int, array<string, mixed>> */
     private static array $cached = [];
 
     /**
@@ -24,6 +26,8 @@ class MaintenanceAttentionSummary
      *     urgentReportsNeedingAction: int,
      *     nonUrgentReportsNeedingAction: int,
      *     overdueMaintenance: int,
+     *     reporterSpamAlerts: int,
+     *     reporterSpamReporters: list<array{employee_id: string, name: string, count: int}>,
      *     attentionTotal: int
      * }
      */
@@ -48,13 +52,19 @@ class MaintenanceAttentionSummary
             DB::table('maintenance_schedules_table')
         )->count();
 
+        $spamReporters = ReporterReportMail::activeSpamReporters();
+        $reporterSpamAlerts = count($spamReporters);
+
         return self::$cached[$userId] = [
             'urgentReportsNeedingAction' => $urgentReportsNeedingAction,
             'nonUrgentReportsNeedingAction' => $nonUrgentReportsNeedingAction,
             'overdueMaintenance' => $overdueMaintenance,
+            'reporterSpamAlerts' => $reporterSpamAlerts,
+            'reporterSpamReporters' => $spamReporters,
             'attentionTotal' => $urgentReportsNeedingAction
                 + $nonUrgentReportsNeedingAction
-                + $overdueMaintenance,
+                + $overdueMaintenance
+                + $reporterSpamAlerts,
         ];
     }
 

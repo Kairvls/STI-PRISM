@@ -20,28 +20,6 @@
         <p class="mt-1 text-sm text-gray-600">Sign as Administrator after Accounting has verified the request.</p>
     </div>
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Pending signature',
-                'value' => number_format($counts['pending']),
-                'href' => route('admin.rfc.index', ['status' => 'pending']),
-                'active' => $filter === 'pending',
-            ],
-            [
-                'label' => 'Approved',
-                'value' => number_format($counts['approved']),
-                'href' => route('admin.rfc.index', ['status' => 'approved']),
-                'active' => $filter === 'approved',
-            ],
-            [
-                'label' => 'Rejected',
-                'value' => number_format($counts['rejected']),
-                'href' => route('admin.rfc.index', ['status' => 'rejected']),
-                'active' => $filter === 'rejected',
-            ],
-        ],
-    ])
 
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <table class="w-full min-w-[900px] text-sm">

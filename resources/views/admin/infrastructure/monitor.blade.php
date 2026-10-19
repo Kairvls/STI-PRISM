@@ -20,7 +20,17 @@
                     "name" => $room->room_name,
                     "type" => $room->room_type ?: "Room",
                     "color" => $room->room_color ?: "#60A5FA",
-                    "status" => $room->room_status,
+                    "layoutColor" => $room->room_color ?: "#60A5FA",
+                    "statusColor" => $room->status_color ?: \App\Support\BuildingLayout3D::COLOR_NORMAL,
+                    "status" => $room->layout_label ?: ($room->room_status ?: "Normal"),
+                    "layoutStatus" => $room->layout_status ?: "normal",
+                    "departments" => $room->departments ?? [],
+                    "reportCount" => (int) ($room->report_count ?? 0),
+                    "criticalReportCount" => (int) ($room->critical_report_count ?? 0),
+                    "highReportCount" => (int) ($room->high_report_count ?? 0),
+                    "mediumReportCount" => (int) ($room->medium_report_count ?? 0),
+                    "lowReportCount" => (int) ($room->low_report_count ?? 0),
+                    "underMaintenanceScheduled" => (bool) ($room->under_maintenance_scheduled ?? false),
                     "layout_mode" => $room->room_layout_mode ?: "loose_equipment",
                     "x" => (int) $room->room_x,
                     "y" => (int) $room->room_y,
@@ -37,6 +47,7 @@
             )
             ->values();
         $roomCountsByFloor = $rooms->countBy("room_floor_id");
+        $buildingStatusUrl = $buildingStatusUrl ?? route('admin.infrastructure.status');
     @endphp
 
     <div
@@ -89,14 +100,37 @@
         <div class="mt-6 mb-5 shrink-0">
             <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 
-                {{-- LEFT: LEGEND --}}
-                <div class="flex min-w-0 flex-1 items-center gap-2">
+                {{-- LEFT: LEGEND + STATUS PERIOD --}}
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
 
-                    {{-- CONDITION LEGEND --}}
                     <div class="hidden items-center gap-3 text-[11px] font-medium text-slate-500 sm:flex">
-                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Good</span>
-                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Maint.</span>
+                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-500"></span>Normal</span>
+                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Under Maintenance</span>
                         <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span>Critical</span>
+                    </div>
+
+                    <div class="inline-flex flex-nowrap items-center gap-1.5">
+                        <label for="blueprintStatusPeriod" class="text-[11px] font-semibold text-slate-500">Status</label>
+                        <select
+                            id="blueprintStatusPeriod"
+                            x-model="statusPeriodPreset"
+                            @change="onStatusPeriodChange()"
+                            class="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-sm outline-none focus:border-slate-400"
+                        >
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom date</option>
+                        </select>
+                        <input
+                            type="date"
+                            x-show="statusPeriodPreset === 'custom'"
+                            x-cloak
+                            x-model="statusPeriodDate"
+                            @change="onStatusPeriodChange()"
+                            class="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-sm outline-none focus:border-slate-400"
+                        >
                     </div>
 
                 </div>
@@ -676,17 +710,17 @@
                             >
                                 @forelse ($rooms->where("room_floor_id", $floor->floor_id) as $room)
                                     @php
-                                        $statusColor = match ($room->room_status) {
-                                            "Critical" => "#EF4444",
-                                            "Maintenance Needed" => "#F59E0B",
-                                            default => "#10B981",
-                                        };
+                                        $statusColor = $room->status_color
+                                            ?: \App\Support\BuildingLayout3D::COLOR_NORMAL;
+                                        $layoutStatus = (string) ($room->layout_status ?? 'normal');
+                                        $statusLabel = (string) ($room->layout_label ?? 'Normal');
                                         $labelOrientation = (int) $room->room_height > (int) $room->room_width
                                             ? "vertical"
                                             : "horizontal";
-                                        $roomColor = $room->room_color ?: "#60A5FA";
+                                        $layoutColor = $room->room_color ?: "#60A5FA";
+                                        $displayColor = $statusColor;
                                         $labelTextColor = "#0f172a";
-                                        $hex = ltrim((string) $roomColor, "#");
+                                        $hex = ltrim((string) $displayColor, "#");
                                         if (strlen($hex) === 3) {
                                             $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
                                         }
@@ -697,14 +731,25 @@
                                             $yiq = ($r * 299 + $g * 587 + $b * 114) / 1000;
                                             $labelTextColor = $yiq >= 150 ? "#0f172a" : "#ffffff";
                                         }
+                                        $deptNames = collect($room->departments ?? [])
+                                            ->map(fn ($d) => is_array($d) ? ($d['name'] ?? null) : $d)
+                                            ->filter()
+                                            ->values()
+                                            ->all();
+                                        $deptLabel = count($deptNames)
+                                            ? implode(', ', $deptNames)
+                                            : 'No departments';
+                                        $reportCount = (int) ($room->report_count ?? 0);
+                                        $reportLabel = $reportCount === 1 ? '1 report' : "{$reportCount} reports";
+                                        $hoverTitle = "{$room->room_name} · {$statusLabel}\nDepartments: {$deptLabel}\n{$reportLabel}";
                                     @endphp
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
                                         @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } selectRoom({{ $room->room_id }})"
                                         @dblclick.stop="openRoomInspector({{ $room->room_id }})"
-                                        
-                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        title="{{ e($hoverTitle) }}"
+                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $layoutStatus === 'critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
                                         data-label-orientation="{{ $labelOrientation }}"
@@ -717,10 +762,13 @@
                                         data-rotation="{{ data_get($room->room_metadata, 'rotation', 0) }}"
                                         data-name="{{ e($room->room_name) }}"
                                         data-type="{{ e($room->room_type ?: 'Room') }}"
-                                        data-color="{{ $room->room_color ?: '#60A5FA' }}"
+                                        data-color="{{ $layoutColor }}"
+                                        data-status-color="{{ $statusColor }}"
+                                        data-status-label="{{ e($statusLabel) }}"
+                                        data-layout-status="{{ e($layoutStatus) }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
-                                        data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};--room-label-color:{{ $labelTextColor }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
+                                        data-active-reports="{{ $reportCount }}"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $displayColor }};--room-depth:{{ $displayColor }};--room-label-color:{{ $labelTextColor }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
                                     >
                                         <span
                                             class="relative z-10 flex h-full flex-col justify-between"
@@ -2632,6 +2680,10 @@
                     rotationDisplayAngle: 0,
                     rotationHandleOffset: 90,
                     rotateHandleSide: "bottom",
+                    buildingStatusUrl: @js($buildingStatusUrl),
+                    statusPeriodPreset: 'today',
+                    statusPeriodDate: '',
+                    statusRefreshing: false,
                     roomCatalog: @js ($roomCatalog),
 
                     workstationLayout: {
@@ -2838,7 +2890,7 @@
                             return "critical";
                         }
 
-                        if (value === "Maintenance Needed") {
+                        if (value === "Under Maintenance") {
                             return "maintenance";
                         }
 
@@ -2992,7 +3044,7 @@
 
                         if (status === "Critical") {
                             pct = Math.min(pct, 40);
-                        } else if (status === "Maintenance Needed") {
+                        } else if (status === "Under Maintenance") {
                             pct = Math.min(pct, 72);
                         }
 
@@ -3005,7 +3057,7 @@
                             .map((room) => ({
                                 id: room.id,
                                 name: room.name,
-                                color: room.color || "#60A5FA",
+                                color: room.statusColor || room.color || "#3B82F6",
                                 health: this.roomHealthPercent(room),
                             }))
                             .sort((a, b) => b.health - a.health)
@@ -3283,13 +3335,21 @@
                                 const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
 
                                 if (room) {
-                                    this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                                    this.roomPaintColor =
+                                        room.layoutColor ||
+                                        room.color ||
+                                        this.defaultRoomColor(room.type);
                                 }
                             }
                         });
 
                         this.$watch("editMode", () => {
                             this.$nextTick(() => this.updateRotateHandlePlacement());
+                            this.syncAllRoomBlockVisuals();
+                        });
+
+                        this.$watch("roomPaintMode", () => {
+                            this.syncAllRoomBlockVisuals();
                         });
 
                         this.$watch("roomPaintColor", (value) => {
@@ -5196,8 +5256,6 @@
                             room.style.top = original.y + "px";
                             room.style.width = original.width + "px";
                             room.style.height = original.height + "px";
-                            room.style.background = original.color;
-                            room.style.setProperty("--room-depth", original.color);
                             room.style.transform = `rotate(${original.rotation || 0}deg)`;
                             room.style.transformOrigin = "center center";
                             this.syncRoomLabel(room);
@@ -5208,11 +5266,14 @@
 
                             if (catalogRoom) {
                                 catalogRoom.color = original.color;
+                                catalogRoom.layoutColor = original.color;
                                 catalogRoom.x = original.x;
                                 catalogRoom.y = original.y;
                                 catalogRoom.width = original.width;
                                 catalogRoom.height = original.height;
                             }
+
+                            this.syncRoomBlockVisual(original.id);
                         });
 
                         this.syncSelectedRoomControl();
@@ -5303,12 +5364,14 @@
                         if (!this.roomPaintMode) {
                             this.roomPaintPanel.dragging = false;
                             this.roomPaintPanel.pointerId = null;
+                            this.syncAllRoomBlockVisuals();
                             return;
                         }
 
                         this.placeRoomPaintPanelDefault();
                         this.$nextTick(() => {
                             this.clampRoomPaintPanelPosition();
+                            this.syncAllRoomBlockVisuals();
                             if (window.lucide) {
                                 lucide.createIcons();
                             }
@@ -5317,7 +5380,7 @@
                         if (this.selectedRoom) {
                             const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
                             if (room) {
-                                this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                                this.roomPaintColor = room.layoutColor || room.color || this.defaultRoomColor(room.type);
                                 return;
                             }
                         }
@@ -5327,6 +5390,203 @@
 
                         if (fallbackRoom) {
                             this.selectRoomForPaint(fallbackRoom.id);
+                        }
+                    },
+                    showingLayoutPaintColors() {
+                        return !!(this.editMode && this.roomPaintMode);
+                    },
+                    formatDepartmentsLabel(departments) {
+                        if (!Array.isArray(departments) || departments.length === 0) {
+                            return "No departments";
+                        }
+
+                        const names = departments
+                            .map((entry) => (typeof entry === "string" ? entry : entry?.name))
+                            .filter(Boolean);
+
+                        return names.length ? names.join(", ") : "No departments";
+                    },
+                    roomHoverTitle(room) {
+                        if (!room) {
+                            return "";
+                        }
+
+                        const status = room.status || "Normal";
+                        const reports = Number(room.reportCount || 0);
+                        const reportLabel = reports === 1 ? "1 report" : `${reports} reports`;
+
+                        return `${room.name || "Room"} · ${status}\nDepartments: ${this.formatDepartmentsLabel(room.departments)}\n${reportLabel}`;
+                    },
+                    statusColorForLabel(status) {
+                        const value = String(status || "").toLowerCase();
+
+                        if (value === "critical") {
+                            return "#EF4444";
+                        }
+
+                        if (value === "under maintenance" || value === "under-maintenance") {
+                            return "#F59E0B";
+                        }
+
+                        return "#3B82F6";
+                    },
+                    applyRoomBlockFill(node, color) {
+                        if (!node || !color) {
+                            return;
+                        }
+
+                        node.style.background = color;
+                        node.style.setProperty("--room-depth", color);
+                        node.style.setProperty(
+                            "--room-label-color",
+                            this.getContrastingTextColor(color),
+                        );
+                    },
+                    syncRoomBlockVisual(roomId) {
+                        const normalizedRoomId = Number(roomId);
+                        const room = this.roomCatalog.find((item) => item.id === normalizedRoomId);
+                        const node = document.querySelector(
+                            `.room-block[data-id="${normalizedRoomId}"]`,
+                        );
+
+                        if (!room || !node) {
+                            return;
+                        }
+
+                        const layoutColor =
+                            room.layoutColor || room.color || this.defaultRoomColor(room.type);
+                        const statusColor =
+                            room.statusColor || this.statusColorForLabel(room.status);
+                        const fillColor = this.showingLayoutPaintColors()
+                            ? layoutColor
+                            : statusColor;
+
+                        room.color = layoutColor;
+                        room.layoutColor = layoutColor;
+                        node.dataset.color = layoutColor;
+                        node.dataset.statusColor = statusColor;
+                        node.dataset.statusLabel = room.status || "Normal";
+                        node.dataset.layoutStatus = room.layoutStatus || "normal";
+                        node.dataset.activeReports = String(Number(room.reportCount || 0));
+                        node.title = this.roomHoverTitle(room);
+                        node.classList.toggle(
+                            "critical-room",
+                            String(room.layoutStatus || "").toLowerCase() === "critical" ||
+                                String(room.status || "").toLowerCase() === "critical",
+                        );
+
+                        this.applyRoomBlockFill(node, fillColor);
+
+                        const statusDot = node.querySelector(".room-status");
+                        if (statusDot) {
+                            statusDot.style.background = statusColor;
+                        }
+                    },
+                    syncAllRoomBlockVisuals() {
+                        (this.roomCatalog || []).forEach((room) => {
+                            this.syncRoomBlockVisual(room.id);
+                        });
+                    },
+                    async onStatusPeriodChange() {
+                        const preset = this.statusPeriodPreset || "today";
+
+                        if (preset === "custom") {
+                            if (!this.statusPeriodDate) {
+                                this.statusPeriodDate = new Date().toISOString().slice(0, 10);
+                            }
+
+                            await this.refreshBuildingStatus({
+                                preset: "custom",
+                                from: this.statusPeriodDate,
+                                to: this.statusPeriodDate,
+                            });
+                            return;
+                        }
+
+                        await this.refreshBuildingStatus({
+                            preset,
+                            from: "",
+                            to: "",
+                        });
+                    },
+                    async refreshBuildingStatus(period = {}) {
+                        if (!this.buildingStatusUrl || this.statusRefreshing) {
+                            return;
+                        }
+
+                        const params = new URLSearchParams();
+                        const preset = period.preset || this.statusPeriodPreset || "today";
+                        params.set("preset", preset);
+
+                        if (preset === "custom") {
+                            const date =
+                                period.from ||
+                                period.to ||
+                                this.statusPeriodDate ||
+                                new Date().toISOString().slice(0, 10);
+                            params.set("from", date);
+                            params.set("to", date);
+                        }
+
+                        this.statusRefreshing = true;
+
+                        try {
+                            const response = await fetch(
+                                `${this.buildingStatusUrl}?${params.toString()}`,
+                                { headers: { Accept: "application/json" } },
+                            );
+
+                            if (!response.ok) {
+                                throw new Error("Could not refresh room status");
+                            }
+
+                            const payload = await response.json();
+                            const byId = new Map(
+                                (payload.rooms || []).map((room) => [Number(room.id), room]),
+                            );
+
+                            (this.roomCatalog || []).forEach((room) => {
+                                const next = byId.get(Number(room.id));
+                                if (!next) {
+                                    return;
+                                }
+
+                                room.layoutStatus = next.status || "normal";
+                                room.status = next.label || "Normal";
+                                room.statusColor =
+                                    next.color || this.statusColorForLabel(next.status);
+                                room.departments = next.departments || [];
+                                room.reportCount = Number(next.reportCount || 0);
+                                room.criticalReportCount = Number(next.criticalReportCount || 0);
+                                room.highReportCount = Number(next.highReportCount || 0);
+                                room.mediumReportCount = Number(next.mediumReportCount || 0);
+                                room.lowReportCount = Number(next.lowReportCount || 0);
+                                room.underMaintenanceScheduled = !!next.underMaintenanceScheduled;
+
+                                if (room.monitoring) {
+                                    room.monitoring.active_reports = room.reportCount;
+                                    room.monitoring.critical_reports = room.criticalReportCount;
+                                    room.monitoring.high_reports = room.highReportCount;
+                                    room.monitoring.medium_reports = room.mediumReportCount;
+                                    room.monitoring.low_reports = room.lowReportCount;
+
+                                    if (room.monitoring.room_information) {
+                                        room.monitoring.room_information.status = room.status;
+                                        room.monitoring.room_information.layout_status =
+                                            room.layoutStatus;
+                                        room.monitoring.room_information.status_color =
+                                            room.statusColor;
+                                    }
+                                }
+
+                                this.syncRoomBlockVisual(room.id);
+                            });
+                        } catch (error) {
+                            console.error(error);
+                            this.toast = "Could not refresh room status.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                        } finally {
+                            this.statusRefreshing = false;
                         }
                     },
                     roomPaintPanelWidth() {
@@ -5450,7 +5710,8 @@
 
                         this.selectedRoom = normalizedRoomId;
                         this.roomTapStamp = { id: null, at: 0 };
-                        this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                        this.roomPaintColor =
+                            room.layoutColor || room.color || this.defaultRoomColor(room.type);
                     },
                     defaultRoomColor(type) {
                         switch (String(type || '').trim()) {
@@ -5500,6 +5761,7 @@
                         const node = document.querySelector(`.room-block[data-id="${normalizedRoomId}"]`);
 
                         if (
+                            room.layoutColor === resolvedColor &&
                             room.color === resolvedColor &&
                             (!node || node.dataset.color === resolvedColor)
                         ) {
@@ -5508,12 +5770,13 @@
 
                         this.captureLayoutUndo();
                         room.color = resolvedColor;
+                        room.layoutColor = resolvedColor;
 
                         if (node) {
                             node.dataset.color = resolvedColor;
-                            node.style.background = resolvedColor;
-                            node.style.setProperty("--room-depth", resolvedColor);
-                            this.applyRoomLabelContrast(node);
+                            if (this.showingLayoutPaintColors()) {
+                                this.applyRoomBlockFill(node, resolvedColor);
+                            }
                         }
 
                         if (this.selectedRoom === normalizedRoomId) {
@@ -7345,9 +7608,19 @@
                             }
                             if (typeof updates.color === "string") {
                                 room.color = updates.color;
+                                room.layoutColor = updates.color;
                             }
                             if (typeof updates.status === "string") {
                                 room.status = updates.status;
+                                room.statusColor = this.statusColorForLabel(updates.status);
+                                room.layoutStatus =
+                                    String(updates.status).toLowerCase() === "critical"
+                                        ? "critical"
+                                        : String(updates.status)
+                                                .toLowerCase()
+                                                .includes("maintenance")
+                                          ? "under-maintenance"
+                                          : "normal";
                             }
                         }
 
@@ -7383,25 +7656,37 @@
                         }
 
                         if (typeof updates.color === "string") {
+                            const room = this.roomCatalog.find(
+                                (item) => item.id === normalizedRoomId,
+                            );
+                            if (room) {
+                                room.color = updates.color;
+                                room.layoutColor = updates.color;
+                            }
                             node.dataset.color = updates.color;
-                            node.style.background = updates.color;
-                            node.style.setProperty("--room-depth", updates.color);
-                            this.applyRoomLabelContrast(node);
+                            if (this.showingLayoutPaintColors()) {
+                                this.applyRoomBlockFill(node, updates.color);
+                            }
                         }
 
                         if (typeof updates.status === "string") {
-                            node.classList.toggle("critical-room", updates.status === "Critical");
-                            const statusDot = node.querySelector(".room-status");
-                            if (statusDot) {
-                                const statusColor =
-                                    updates.status === "Critical"
-                                        ? "#EF4444"
-                                        : updates.status === "Maintenance Needed"
-                                          ? "#F59E0B"
-                                          : "#10B981";
-
-                                statusDot.style.background = statusColor;
+                            const room = this.roomCatalog.find(
+                                (item) => item.id === normalizedRoomId,
+                            );
+                            const statusColor = this.statusColorForLabel(updates.status);
+                            if (room) {
+                                room.status = updates.status;
+                                room.statusColor = statusColor;
+                                room.layoutStatus =
+                                    String(updates.status).toLowerCase() === "critical"
+                                        ? "critical"
+                                        : String(updates.status)
+                                                .toLowerCase()
+                                                .includes("maintenance")
+                                          ? "under-maintenance"
+                                          : "normal";
                             }
+                            this.syncRoomBlockVisual(normalizedRoomId);
                         }
                     },
 
@@ -9256,7 +9541,11 @@
                             return;
                         }
 
-                        const color = el.dataset.color || el.style.backgroundColor || "#60A5FA";
+                        const color =
+                            el.style.background ||
+                            el.dataset.statusColor ||
+                            el.dataset.color ||
+                            "#3B82F6";
                         el.style.setProperty("--room-label-color", this.getContrastingTextColor(color));
                     },
                     getContrastingTextColor(color) {

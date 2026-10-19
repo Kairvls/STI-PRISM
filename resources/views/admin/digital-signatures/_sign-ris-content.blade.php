@@ -42,8 +42,6 @@
         ];
     @endphp
 
-    {{-- Metric strip --}}
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $signRisCards])
 
     {{-- Records card --}}
     <div class="pur-card">
@@ -53,7 +51,7 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Sign RIS</h2>
+                        <h2 class="text-base font-semibold text-gray-950">Ready to Sign</h2>
                         <span
                             id="signRisTotalCount"
                             class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500"
@@ -62,9 +60,9 @@
                     </div>
                     <p class="mt-1 text-xs text-gray-400">
                         @if (\App\Support\AdminPortal::canActOnRis())
-                            Forward to President, approve directly, return for revision, or sign Issued by after the President approves.
+                            Direct Approve, Pass to President, return for revision, or sign Issued by after the President approves.
                         @else
-                            View only. The School Administrator forwards, approves, returns, and signs Issued by on these RIS.
+                            View only. The School Administrator Direct Approves, Passes to President, returns, and signs Issued by.
                         @endif
                     </p>
                 </div>
@@ -126,7 +124,7 @@
                         type="search"
                         name="search"
                         value="{{ $search }}"
-                        placeholder="Search RIS, requester, equipment…"
+                        placeholder="Search RIS, Request No., requester, equipment…"
                         autocomplete="off"
                         title="Search RIS records"
                         class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"

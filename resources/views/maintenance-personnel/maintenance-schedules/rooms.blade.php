@@ -19,7 +19,10 @@
     };
 @endphp
 
-<div x-data="roomInspectionPage(@js($rooms ?? []))" @keydown.escape.window="closeAll()">
+<div
+    x-data="roomInspectionPage(@js($rooms ?? []), @js($frequencies ?? \App\Support\RoomInspections::FREQUENCIES), @js($defaultNextDate ?? today()->toDateString()))"
+    @keydown.escape.window="closeAll()"
+>
 <div class="space-y-6">
     @include('maintenance-personnel.maintenance-schedules.partials.type-tabs')
 
@@ -39,21 +42,13 @@
             </div>
         @endif
 
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Scheduled rooms', 'hint' => 'Active and overdue schedules', 'value' => number_format($stats['active'])],
-                ['label' => 'Due within 7 days', 'hint' => '', 'value' => number_format($stats['dueWeek']), 'href' => $roomsUrl.'?status=due_week', 'active' => $status === 'due_week'],
-                ['label' => 'Overdue', 'hint' => '', 'value' => number_format($stats['overdue']), 'href' => $roomsUrl.'?status=Overdue', 'active' => $status === 'Overdue'],
-                ['label' => 'Inspected this month', 'hint' => '', 'value' => number_format($stats['inspectedMonth'])],
-            ],
-        ])
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Room inspection schedules</h2>
                     <p class="mt-0.5 text-sm text-slate-400">
-                        Recurring checks of a whole room: lights, outlets, ventilation, doors, cleanliness and safety.
+                        Recurring room checks by department: lights, outlets, ventilation, doors, cleanliness and safety.
                     </p>
                 </div>
                 <button
@@ -66,7 +61,7 @@
                 </button>
             </div>
 
-            <form method="GET" action="{{ $roomsUrl }}" class="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center">
+            <form data-auto-filter method="GET" action="{{ $roomsUrl }}" class="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center">
                 <div class="relative min-w-0 lg:flex-[1.6]">
                     <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                     <input
@@ -97,10 +92,11 @@
             </form>
 
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[860px] text-left">
+                <table class="w-full min-w-[980px] text-left">
                     <thead class="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                         <tr>
                             <th class="px-5 py-3">Room</th>
+                            <th class="px-4 py-3">Department</th>
                             <th class="px-4 py-3">Inspection</th>
                             <th class="px-4 py-3">Frequency</th>
                             <th class="px-4 py-3">Next inspection</th>
@@ -130,6 +126,9 @@
                                 <td class="px-5 py-4">
                                     <p class="text-sm font-semibold text-slate-900">{{ $schedule->room_name }}</p>
                                     <p class="mt-0.5 text-xs text-slate-400">{{ $schedule->room_type ?: 'Room' }}</p>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <p class="text-sm text-slate-800">{{ $schedule->department_name ?: 'Entire room' }}</p>
                                 </td>
                                 <td class="px-4 py-4">
                                     <p class="text-sm text-slate-800">{{ $schedule->room_inspection_schedule_title }}</p>
@@ -279,73 +278,180 @@
     @unless ($tablesMissing)
         {{-- Schedule room inspection --}}
         <div x-show="modal === 'create'" x-cloak class="fixed inset-0 z-[1300] flex items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4" @click.self="closeAll()">
-            <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div class="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div>
-                        <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Room Inspection</h2>
-                        <!--<p class="mt-1 text-sm text-slate-500">Pick one or more rooms. Each room gets its own recurring schedule.</p>-->
-                        <p class="mt-1 text-sm text-slate-500">Pick one or more rooms.</p>
+                        <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Room Maintenance</h2>
+                        <p class="mt-1 text-sm text-slate-500">Pick rooms, choose departments inside each, then set a schedule per room.</p>
                     </div>
                     <button type="button" @click="closeAll()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
 
-                <form action="{{ $roomsUrl }}" method="POST" class="flex min-h-0 flex-1 flex-col" @submit="if (!picked.length) { $event.preventDefault(); roomError = 'Pick at least one room.'; }">
+                <form action="{{ $roomsUrl }}" method="POST" class="flex min-h-0 flex-1 flex-col" @submit="if (!validateCreate($event)) $event.preventDefault()">
                     @csrf
                     <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
                         <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rooms <span class="text-red-500">*</span></p>
-                                <div class="flex items-center gap-2 text-xs">
-                                    <span class="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="picked.length ? picked.length + ' selected' : 'None selected'"></span>
-                                    <button type="button" @click="pickAllShown()" class="font-semibold text-[#0025cc] hover:underline">Select shown</button>
-                                    <button type="button" x-show="picked.length" @click="picked = []" class="font-medium text-slate-500 hover:underline">Clear</button>
+                                <div>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rooms &amp; departments <span class="text-red-500">*</span></p>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs">
+                                    <button type="button" @click="pickAllShownRooms()" class="inline-flex items-center gap-1 font-semibold text-slate-500 hover:text-slate-900">
+                                        <i data-lucide="list-checks" class="h-3.5 w-3.5"></i>
+                                        <span x-text="isAllShownRoomsSelected() ? 'Unselect shown' : 'Select shown rooms'"></span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="relative">
                                 <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" x-model="roomQuery" placeholder="Search room name or type" class="h-10 w-full rounded-xl border-0 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900/10" autocomplete="off">
+                                <input type="text" x-model="roomQuery" placeholder="Search room, type or department" class="h-10 w-full rounded-xl border-0 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900/10" autocomplete="off">
                             </div>
-                            <div class="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl bg-white ring-1 ring-slate-200/80">
-                                <template x-for="room in shownRooms()" :key="room.id">
-                                    <label class="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50">
-                                        <input type="checkbox" name="room_ids[]" :value="room.id" x-model.number="picked" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]">
-                                        <span class="min-w-0 flex-1">
-                                            <span class="block truncate text-sm font-medium text-slate-900" x-text="room.name"></span>
-                                            <span class="block truncate text-xs text-slate-400" x-text="room.type || 'Room'"></span>
-                                        </span>
-                                    </label>
-                                </template>
-                                <p x-show="!shownRooms().length" class="px-4 py-6 text-center text-sm text-slate-400">No rooms match.</p>
+                            <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                                <div class="max-h-64 overflow-y-auto">
+                                    <ul class="divide-y divide-slate-100" x-show="shownRooms().length">
+                                        <template x-for="room in shownRooms()" :key="'room-' + room.id">
+                                            <li>
+                                                <div class="flex items-center">
+                                                    <label class="flex shrink-0 items-center self-stretch pl-3 cursor-pointer" :title="'Select departments in ' + room.name">
+                                                        <input
+                                                            type="checkbox"
+                                                            class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30"
+                                                            :checked="isRoomFullySelected(room)"
+                                                            x-effect="$el.indeterminate = isRoomPartiallySelected(room)"
+                                                            @change="toggleRoomSelection(room)"
+                                                            :aria-label="'Select departments in ' + room.name"
+                                                        >
+                                                    </label>
+                                                    <button
+                                                        type="button"
+                                                        class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                                        :aria-expanded="isRoomOpen(room) ? 'true' : 'false'"
+                                                        @click="toggleRoomOpen(room)"
+                                                    >
+                                                        <span class="inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="isRoomOpen(room) ? 'rotate-90' : ''">
+                                                            <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                                                        </span>
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="truncate text-sm font-semibold text-slate-900">
+                                                                <span x-text="room.name"></span>
+                                                                <span class="ml-1 text-xs font-normal text-slate-400" x-text="(room.departments?.length || 0) + ' option' + ((room.departments?.length || 0) === 1 ? '' : 's')"></span>
+                                                            </p>
+                                                            <p class="mt-0.5 truncate text-[11px] text-slate-500" x-text="room.type || 'Room'"></p>
+                                                        </div>
+                                                        <span
+                                                            class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                                            :class="selectedDeptCount(room) ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'"
+                                                            x-text="selectedDeptCount(room) ? (selectedDeptCount(room) + ' selected') : 'None selected'"
+                                                        ></span>
+                                                    </button>
+                                                </div>
+                                                <ul x-show="isRoomOpen(room)" x-cloak class="border-t border-slate-100 bg-slate-50/60 pl-8">
+                                                    <template x-for="dept in (room.departments || [])" :key="'dept-' + room.id + '-' + dept.id">
+                                                        <li class="border-l border-slate-200/90">
+                                                            <label
+                                                                class="flex w-full cursor-pointer items-start gap-3 py-2 pl-3 pr-3 text-left transition"
+                                                                :class="isDeptSelected(room.id, dept.id) ? 'bg-[#0025cc]/5 ring-inset ring-1 ring-[#0025cc]/20' : 'hover:bg-white'"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30"
+                                                                    :checked="isDeptSelected(room.id, dept.id)"
+                                                                    @change="toggleDept(room, dept)"
+                                                                    :aria-label="'Select ' + dept.name + ' in ' + room.name"
+                                                                >
+                                                                <div class="min-w-0 flex-1">
+                                                                    <p class="truncate text-sm font-medium text-slate-900" x-text="dept.name"></p>
+                                                                    <p x-show="dept.id > 0 && dept.equipment_count > 0" class="mt-0.5 text-[11px] text-slate-400">
+                                                                        <span x-text="dept.equipment_count"></span> equipment in this room
+                                                                    </p>
+                                                                    <p x-show="dept.id === 0" class="mt-0.5 text-[11px] text-slate-400">Inspect the whole room (no department scope)</p>
+                                                                </div>
+                                                                <span
+                                                                    x-show="dept.id > 0"
+                                                                    class="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                                                    :class="isDeptSelected(room.id, dept.id) ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'"
+                                                                    x-text="isDeptSelected(room.id, dept.id) ? 'Selected' : 'Available'"
+                                                                ></span>
+                                                            </label>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                    <p x-show="!shownRooms().length" class="px-4 py-6 text-center text-sm text-slate-400">No rooms match.</p>
+                                </div>
                             </div>
-                            <p x-show="roomError" x-cloak class="text-xs font-medium text-rose-600" x-text="roomError"></p>
+
+                            <div>
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                        Selected rooms <span class="text-red-500">*</span>
+                                        <span x-show="selectedLines.length" x-cloak class="ml-1 font-normal normal-case tracking-normal text-slate-500" x-text="'(' + selectedLines.length + ' room' + (selectedLines.length === 1 ? '' : 's') + ', ' + totalSelectedDepts() + ' department' + (totalSelectedDepts() === 1 ? '' : 's') + ')'"></span>
+                                    </p>
+                                    <button type="button" x-show="selectedLines.length" x-cloak class="text-[11px] font-semibold text-slate-500 hover:text-slate-800" @click="clearSelection()">Clear</button>
+                                </div>
+                                <div class="mt-1.5 overflow-hidden rounded-xl bg-white ring-1" :class="roomError ? 'ring-2 ring-rose-400' : 'ring-slate-200/80'">
+                                    <p x-show="!selectedLines.length" class="px-3 py-3 text-xs text-slate-400">Nothing selected yet. Expand a room and tick departments above.</p>
+                                    <ul x-show="selectedLines.length" x-cloak class="divide-y divide-slate-100 overflow-y-auto max-h-72">
+                                        <template x-for="(line, index) in selectedLines" :key="'line-' + line.roomId">
+                                            <li class="space-y-3 px-3 py-3">
+                                                <input type="hidden" :name="'lines[' + index + '][room_id]'" :value="line.roomId">
+                                                <template x-for="deptId in line.departmentIds" :key="'hid-' + line.roomId + '-' + deptId">
+                                                    <input type="hidden" :name="'lines[' + index + '][department_ids][]'" :value="deptId">
+                                                </template>
+                                                <div class="flex items-start gap-3">
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="truncate text-sm font-medium text-slate-900" x-text="line.roomName"></p>
+                                                        <p class="mt-0.5 truncate text-[11px] text-slate-500" x-text="line.roomType || 'Room'"></p>
+                                                        <div class="mt-1.5 flex flex-wrap gap-1">
+                                                            <template x-for="deptId in line.departmentIds" :key="'chip-' + line.roomId + '-' + deptId">
+                                                                <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                                                    <span x-text="deptLabel(line.roomId, deptId)"></span>
+                                                                    <button type="button" class="text-slate-400 hover:text-slate-700" @click="removeDept(line.roomId, deptId)" :aria-label="'Remove ' + deptLabel(line.roomId, deptId)">
+                                                                        <i data-lucide="x" class="h-3 w-3"></i>
+                                                                    </button>
+                                                                </span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" @click="removeRoom(line.roomId)" :aria-label="'Remove ' + line.roomName">
+                                                        <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <div>
+                                                        <label class="mb-1 block text-[11px] font-medium text-slate-500">Frequency <span class="text-red-500">*</span></label>
+                                                        <select :name="'lines[' + index + '][frequency]'" x-model="line.frequency" class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                                                            <template x-for="option in frequencies" :key="'freq-' + line.roomId + '-' + option">
+                                                                <option :value="option" x-text="option"></option>
+                                                            </template>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label class="mb-1 block text-[11px] font-medium text-slate-500">First inspection <span class="text-red-500">*</span></label>
+                                                        <input type="date" :name="'lines[' + index + '][next_date]'" x-model="line.nextDate" required class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                                <p x-show="roomError" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="roomError"></p>
+                            </div>
                         </div>
 
                         <div>
                             <label for="roomInspectionTitle" class="mb-1.5 block text-sm text-slate-600">Schedule Name <span class="text-slate-400">(Title)</span> <span class="text-red-500">*</span></label>
                             <input id="roomInspectionTitle" type="text" name="title" value="Room inspection" required maxlength="255" class="{{ $fieldClass }}">
-                        </div>
-
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <label for="roomInspectionFrequency" class="mb-1.5 block text-sm text-slate-600">Frequency <span class="text-red-500">*</span></label>
-                                <select id="roomInspectionFrequency" name="frequency" class="{{ $fieldClass }}">
-                                    @foreach (RoomInspections::FREQUENCIES as $option)
-                                        <option value="{{ $option }}" @selected($option === 'Monthly')>{{ $option }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="roomInspectionDate" class="mb-1.5 block text-sm text-slate-600">First inspection <span class="text-red-500">*</span></label>
-                                <input id="roomInspectionDate" type="date" name="next_date" value="{{ today()->toDateString() }}" required class="{{ $fieldClass }}">
-                            </div>
+                            <p class="mt-1.5 text-xs text-slate-400">Department name is appended automatically when a department is selected.</p>
                         </div>
 
                         <div>
-                            <label for="roomInspectionChecklist" class="mb-1.5 block text-sm text-slate-600">Checklist <!--<span class="text-slate-400">(one item per line)</span>--></label>
+                            <label for="roomInspectionChecklist" class="mb-1.5 block text-sm text-slate-600">Checklist</label>
                             <textarea id="roomInspectionChecklist" name="checklist" rows="8" class="{{ $areaClass }}">{{ implode("\n", RoomInspections::DEFAULT_CHECKLIST) }}</textarea>
-                            <!--<p class="mt-1.5 text-xs text-slate-400">Each item is marked Pass, Issue or N/A when the room is inspected.</p>-->
                         </div>
 
                         <div>
@@ -356,7 +462,7 @@
 
                     <div class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
                         <button type="button" @click="closeAll()" class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">Cancel</button>
-                        <button type="submit" class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]" x-text="picked.length > 1 ? 'Schedule ' + picked.length + ' rooms' : 'Schedule inspection'"></button>
+                        <button type="submit" class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]" x-text="submitLabel()"></button>
                     </div>
                 </form>
             </div>
@@ -555,13 +661,16 @@
 </div>
 
 <script>
-    function roomInspectionPage(rooms) {
+    function roomInspectionPage(rooms, frequencies, defaultNextDate) {
         return {
-            rooms,
+            rooms: rooms || [],
+            frequencies: frequencies || [],
+            defaultNextDate: defaultNextDate || '',
             modal: null,
             current: null,
             roomQuery: '',
-            picked: [],
+            openRoomIds: [],
+            selectedLines: [],
             roomError: '',
             checks: [],
             result: @js(RoomInspections::RESULT_GOOD),
@@ -578,16 +687,170 @@
             shownRooms() {
                 const q = this.roomQuery.trim().toLowerCase();
                 if (!q) return this.rooms;
-                return this.rooms.filter((room) => (room.name + ' ' + room.type).toLowerCase().includes(q));
+                return this.rooms.filter((room) => {
+                    const hay = [room.name, room.type, ...(room.departments || []).map((d) => d.name)].join(' ').toLowerCase();
+                    return hay.includes(q);
+                });
             },
-            pickAllShown() {
-                const ids = new Set(this.picked);
-                this.shownRooms().forEach((room) => ids.add(room.id));
-                this.picked = [...ids];
+            findRoom(roomId) {
+                return this.rooms.find((room) => room.id === roomId) || null;
+            },
+            findLine(roomId) {
+                return this.selectedLines.find((line) => line.roomId === roomId) || null;
+            },
+            isRoomOpen(room) {
+                return this.openRoomIds.includes(room.id);
+            },
+            toggleRoomOpen(room) {
+                if (this.isRoomOpen(room)) {
+                    this.openRoomIds = this.openRoomIds.filter((id) => id !== room.id);
+                } else {
+                    this.openRoomIds = [...this.openRoomIds, room.id];
+                }
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            },
+            ensureLine(room) {
+                let line = this.findLine(room.id);
+                if (line) return line;
+                line = {
+                    roomId: room.id,
+                    roomName: room.name,
+                    roomType: room.type || '',
+                    departmentIds: [],
+                    frequency: 'Monthly',
+                    nextDate: this.defaultNextDate,
+                };
+                this.selectedLines = [...this.selectedLines, line];
                 this.roomError = '';
+                return line;
+            },
+            isDeptSelected(roomId, deptId) {
+                const line = this.findLine(roomId);
+                return !!(line && line.departmentIds.includes(deptId));
+            },
+            selectedDeptCount(room) {
+                const line = this.findLine(room.id);
+                return line ? line.departmentIds.length : 0;
+            },
+            roomSelectableDeptIds(room) {
+                const depts = room.departments || [];
+                const real = depts.filter((dept) => dept.id > 0).map((dept) => dept.id);
+                return real.length ? real : depts.map((dept) => dept.id);
+            },
+            isRoomFullySelected(room) {
+                const targets = this.roomSelectableDeptIds(room);
+                if (!targets.length) return false;
+                const line = this.findLine(room.id);
+                if (!line) return false;
+                return targets.every((id) => line.departmentIds.includes(id));
+            },
+            isRoomPartiallySelected(room) {
+                const count = this.selectedDeptCount(room);
+                if (!count) return false;
+                return !this.isRoomFullySelected(room);
+            },
+            toggleDept(room, dept) {
+                const line = this.ensureLine(room);
+                if (line.departmentIds.includes(dept.id)) {
+                    line.departmentIds = line.departmentIds.filter((id) => id !== dept.id);
+                    if (!line.departmentIds.length) {
+                        this.selectedLines = this.selectedLines.filter((item) => item.roomId !== room.id);
+                    }
+                } else if (dept.id === 0) {
+                    line.departmentIds = [0];
+                    if (!this.isRoomOpen(room)) {
+                        this.openRoomIds = [...this.openRoomIds, room.id];
+                    }
+                } else {
+                    line.departmentIds = [...line.departmentIds.filter((id) => id !== 0), dept.id];
+                    if (!this.isRoomOpen(room)) {
+                        this.openRoomIds = [...this.openRoomIds, room.id];
+                    }
+                }
+                this.roomError = '';
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            },
+            toggleRoomSelection(room) {
+                if (this.isRoomFullySelected(room)) {
+                    this.selectedLines = this.selectedLines.filter((item) => item.roomId !== room.id);
+                } else {
+                    const line = this.ensureLine(room);
+                    line.departmentIds = this.roomSelectableDeptIds(room);
+                    if (!this.isRoomOpen(room)) {
+                        this.openRoomIds = [...this.openRoomIds, room.id];
+                    }
+                }
+                this.roomError = '';
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            },
+            isAllShownRoomsSelected() {
+                const shown = this.shownRooms();
+                return shown.length > 0 && shown.every((room) => this.isRoomFullySelected(room));
+            },
+            pickAllShownRooms() {
+                if (this.isAllShownRoomsSelected()) {
+                    const shownIds = new Set(this.shownRooms().map((room) => room.id));
+                    this.selectedLines = this.selectedLines.filter((line) => !shownIds.has(line.roomId));
+                } else {
+                    this.shownRooms().forEach((room) => {
+                        const line = this.ensureLine(room);
+                        line.departmentIds = this.roomSelectableDeptIds(room);
+                        if (!this.isRoomOpen(room)) {
+                            this.openRoomIds = [...this.openRoomIds, room.id];
+                        }
+                    });
+                }
+                this.roomError = '';
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            },
+            clearSelection() {
+                this.selectedLines = [];
+                this.roomError = '';
+            },
+            removeRoom(roomId) {
+                this.selectedLines = this.selectedLines.filter((line) => line.roomId !== roomId);
+            },
+            removeDept(roomId, deptId) {
+                const line = this.findLine(roomId);
+                if (!line) return;
+                line.departmentIds = line.departmentIds.filter((id) => id !== deptId);
+                if (!line.departmentIds.length) {
+                    this.removeRoom(roomId);
+                }
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            },
+            deptLabel(roomId, deptId) {
+                const room = this.findRoom(roomId);
+                const dept = (room?.departments || []).find((item) => item.id === deptId);
+                return dept?.name || (deptId === 0 ? 'Entire room' : 'Department');
+            },
+            totalSelectedDepts() {
+                return this.selectedLines.reduce((sum, line) => sum + line.departmentIds.length, 0);
+            },
+            submitLabel() {
+                const count = this.totalSelectedDepts();
+                if (count > 1) return 'Schedule ' + count + ' inspections';
+                return 'Schedule inspection';
+            },
+            validateCreate(event) {
+                if (!this.selectedLines.length) {
+                    this.roomError = 'Pick at least one room and department.';
+                    return false;
+                }
+                for (const line of this.selectedLines) {
+                    if (!line.departmentIds.length || !line.frequency || !line.nextDate) {
+                        this.roomError = 'Set frequency and first inspection for every selected room.';
+                        return false;
+                    }
+                }
+                this.roomError = '';
+                return true;
             },
             openCreate() {
                 this.roomError = '';
+                this.roomQuery = '';
+                this.openRoomIds = [];
+                this.selectedLines = [];
                 this.show('create');
             },
             openInspect(schedule) {

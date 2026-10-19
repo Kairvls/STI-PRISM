@@ -40,15 +40,6 @@
             ? 'New activity vs last month'
             : (($reportsMonthlyPercentage > 0 ? '+' : '') . number_format($reportsMonthlyPercentage, 2) . '% vs last month');
     @endphp
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Reports', 'hint' => $reportsMonthlyHint, 'value' => number_format($totalReports)],
-                ['label' => 'With History', 'hint' => number_format($equipmentWithReportsPercentage, 2) . '% of all equipment', 'value' => number_format($equipmentWithReports)],
-                ['label' => 'Open Reports', 'hint' => number_format($openReportsPercentage, 2) . '% of all reports', 'value' => number_format($openReports)],
-            ],
-        ])
-    </div>
 
     {{-- Table --}}
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -59,7 +50,7 @@
                 </div>
             </div>
 
-            <form
+            <form data-auto-filter
                 method="GET"
                 action="{{ $historyUrl }}"
                 class="mt-5 space-y-4"

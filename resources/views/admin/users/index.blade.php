@@ -444,22 +444,6 @@
         </div>
     @endif
 
-    @include('layouts.partials.maintenance-stat-cards', [
-        'cards' => [
-            [
-                'label' => 'Total users',
-                'value' => number_format($totalUsers),
-            ],
-            [
-                'label' => 'Recently active',
-                'value' => number_format($activeUsers),
-            ],
-            [
-                'label' => 'Roles in use',
-                'value' => number_format($roleCount),
-            ],
-        ],
-    ])
 
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
@@ -531,6 +515,12 @@
                             $canProcurement = (bool) ($user->user_can_procurement ?? false) || $isPurchaser;
                             $extraNames = $roleMeta['extra_names'] ?? [];
                             $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
+                            $isStaffUser = \App\Support\RoleAccess::isStaffEmploymentType((string) ($user->person_employment_type ?? ''))
+                                || (
+                                    empty($user->person_employment_type)
+                                    && \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''))
+                                );
+                            $isItDepartmentUser = \App\Support\RoleAccess::isItDepartmentName((string) ($user->person_department_name ?? ''));
                             $profilePictureUrl = null;
                             $rawPicture = trim((string) ($user->user_profile_picture ?? ''));
                             if ($rawPicture !== '') {
@@ -610,6 +600,8 @@
                                         data-role-ids="{{ implode(',', $allRoleIds) }}"
                                         data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
                                         data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
+                                        data-is-staff="{{ $isStaffUser ? '1' : '0' }}"
+                                        data-is-it-department="{{ $isItDepartmentUser ? '1' : '0' }}"
                                     >
                                         <i data-lucide="shield" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
@@ -810,9 +802,19 @@
                     </button>
                 </div>
             </div>
-            <form method="POST" action="/admin/users/store">
+            <form method="POST" action="/admin/users/store" @if (\App\Support\Persons::tableReady()) x-data="createUserPersonPicker()" @endif>
                 @csrf
                 <div class="pur-modal-body space-y-4 overflow-y-auto" style="max-height: calc(100vh - 220px);">
+                    @if (\App\Support\Persons::tableReady())
+                        <div>
+                            @include('admin.partials.person-picker', [
+                                'label' => 'From Faculty & Staff',
+                                'required' => false,
+                                'hint' => 'Optional — pick faculty/staff to auto-fill the form',
+                                'searchUrl' => route('admin.persons.search'),
+                            ])
+                        </div>
+                    @endif
                     <div class="flex flex-col gap-4 sm:flex-row">
                         <div class="min-w-0 flex-1">
                             <label class="pur-label" for="createUserType">Type <span class="text-red-500">*</span></label>
@@ -901,50 +903,10 @@
                                 ])
                             </div>
                         </div>
-                        <div class="flex flex-col gap-4 sm:flex-row">
-                            <div class="min-w-0 flex-1">
-                                <label class="pur-label">Email <span class="text-red-500">*</span></label>
-                                <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center justify-between gap-2">
-                                    <label class="pur-label" for="createUserPassword">Password <span class="text-red-500">*</span></label>
-                                    <button
-                                        type="button"
-                                        id="createUserPasswordGenerate"
-                                        class="shrink-0 text-xs font-semibold text-[#0025cc] transition hover:text-[#001fa8]"
-                                        onclick="regenerateCreateUserPassword()"
-                                    >
-                                        Generate new
-                                    </button>
-                                </div>
-                                <div class="relative mt-1.5">
-                                    <input
-                                        type="text"
-                                        name="password"
-                                        id="createUserPassword"
-                                        class="pur-input w-full pr-11"
-                                        value="{{ old('password') }}"
-                                        required
-                                        autocomplete="new-password"
-                                        spellcheck="false"
-                                    />
-                                    <button
-                                        type="button"
-                                        id="createUserPasswordToggle"
-                                        class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-gray-400 transition hover:text-gray-700"
-                                        aria-label="Hide password"
-                                        aria-pressed="true"
-                                        onclick="toggleCreateUserPassword()"
-                                    >
-                                        <i data-lucide="eye" class="create-password-icon-show hidden h-4 w-4 pointer-events-none"></i>
-                                        <i data-lucide="eye-off" class="create-password-icon-hide h-4 w-4 pointer-events-none"></i>
-                                    </button>
-                                </div>
-                                <p class="mt-1.5 text-xs leading-relaxed text-gray-500">
-                                    Auto-generated temporary password — edit anytime, then share it with the user so they can change it after signing in.
-                                </p>
-                            </div>
+                        <div>
+                            <label class="pur-label">Email <span class="text-red-500">*</span></label>
+                            <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
+                            <p class="mt-1.5 text-xs text-gray-500">Must match the Microsoft 365 sign-in email. Local password is not used for login.</p>
                         </div>
                     </div>
                     <div>
@@ -956,11 +918,11 @@
                             @endforeach
                         </select>
                     </div>
-                    <div>
+                    <div id="createAdditionalRolesSection">
                         <label class="pur-label">Additional roles <span class="font-normal text-gray-400">(optional)</span></label>
-                        <div class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                        <div id="createAdditionalRolesList" class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
-                                @if((int) $role->role_id !== 1)
+                                @if(in_array((int) $role->role_id, [2, 3], true))
                                     <label class="create-additional-role-row flex items-center gap-2 text-sm text-gray-700" data-role-id="{{ $role->role_id }}">
                                         <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="create-additional-role h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                                         <span>{{ $role->role_name }}</span>
@@ -968,16 +930,7 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p class="mt-1.5 text-xs text-gray-500">Primary role is always included. Extra roles unlock those portals without changing login destination.</p>
-                    </div>
-                    <div id="createProcurementAccessWrap" class="hidden rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <label class="flex cursor-pointer items-start gap-3">
-                            <input type="checkbox" name="user_can_procurement" value="1" class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
-                            <span>
-                                <span class="block text-sm font-semibold text-gray-950">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Assigns Purchaser access. Use the portal switcher to create and drive RIS → ATP → RFC/CA → RR → Liquidation. Administrator portal stays accept/sign + monitor only.</span>
-                            </span>
-                        </label>
+                        <p id="createAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Only Staff in IT Department with Purchaser or Maintenance primary may add the other role.</p>
                     </div>
                 </div>
                 <div class="pur-modal-footer">
@@ -1015,13 +968,13 @@
                                 <option value="{{ $role->role_id }}" class="edit-primary-role-option" data-role-id="{{ $role->role_id }}">{{ $role->role_name }}</option>
                             @endforeach
                         </select>
-                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary role is locked. Add Purchaser below or enable procurement workflow to perform docs via portal switch.</p>
+                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary role is locked and cannot have additional roles.</p>
                     </div>
-                    <div>
+                    <div id="editAdditionalRolesSection">
                         <label class="pur-label">Additional roles</label>
-                        <div class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                        <div id="editAdditionalRolesList" class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
-                                @if((int) $role->role_id !== 1)
+                                @if(in_array((int) $role->role_id, [2, 3], true))
                                     <label class="edit-additional-role-row flex items-center gap-2 text-sm text-gray-700" data-role-id="{{ $role->role_id }}">
                                         <input type="checkbox" name="additional_roles[]" value="{{ $role->role_id }}" class="edit-additional-role h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
                                         <span>{{ $role->role_name }}</span>
@@ -1029,15 +982,7 @@
                                 @endif
                             @endforeach
                         </div>
-                    </div>
-                    <div id="editProcurementAccessWrap" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <label class="flex cursor-pointer items-start gap-3">
-                            <input type="checkbox" name="user_can_procurement" value="1" id="editCanProcurement" class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]">
-                            <span>
-                                <span class="block text-sm font-semibold text-gray-950">Enable procurement workflow</span>
-                                <span class="mt-0.5 block text-xs leading-relaxed text-gray-500">Grants Purchaser access. Open Purchaser via the portal switcher to create RIS → ATP → RFC/CA → RR → Liquidation. Accounting/Receiving approvals stay with those portals.</span>
-                            </span>
-                        </label>
+                        <p id="editAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Only Staff in IT Department with Purchaser or Maintenance primary may add the other role.</p>
                     </div>
                 </div>
                 <div class="pur-modal-footer">
@@ -1331,46 +1276,52 @@
         if (modal) modal.classList.remove('hidden');
     };
 
-    window.generateCreateUserPassword = function () {
-        var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-        var lower = 'abcdefghijkmnopqrstuvwxyz';
-        var digits = '23456789';
-        var symbols = '@#$%&*!';
-        var all = upper + lower + digits + symbols;
-        var pick = function (chars) {
-            return chars.charAt(Math.floor(Math.random() * chars.length));
-        };
-        var chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
-        for (var i = chars.length; i < 10; i += 1) {
-            chars.push(pick(all));
-        }
-        for (var j = chars.length - 1; j > 0; j -= 1) {
-            var k = Math.floor(Math.random() * (j + 1));
-            var tmp = chars[j];
-            chars[j] = chars[k];
-            chars[k] = tmp;
-        }
-        return chars.join('');
-    };
+    var createUserItDepartment = false;
+    var editUserIsStaff = false;
+    var editUserItDepartment = false;
 
-    window.regenerateCreateUserPassword = function () {
-        var input = document.getElementById('createUserPassword');
-        if (!input) return;
-        input.value = window.generateCreateUserPassword();
-        input.type = 'text';
-        var toggle = document.getElementById('createUserPasswordToggle');
-        if (toggle) {
-            toggle.setAttribute('aria-pressed', 'true');
-            toggle.setAttribute('aria-label', 'Hide password');
-            var showIcon = toggle.querySelector('.create-password-icon-show');
-            var hideIcon = toggle.querySelector('.create-password-icon-hide');
-            if (showIcon) showIcon.classList.add('hidden');
-            if (hideIcon) hideIcon.classList.remove('hidden');
+    function isItDepartmentName(name) {
+        return String(name || '').trim().toLowerCase() === 'it department';
+    }
+
+    function allowedAdditionalRoleId(primaryId, isStaff, isItDepartment) {
+        if (!isStaff || !isItDepartment) return null;
+        if (primaryId === '3') return '2';
+        if (primaryId === '2') return '3';
+        return null;
+    }
+
+    function syncRoleMatrixVisibility(options) {
+        var primarySelect = document.getElementById(options.primarySelectId);
+        var section = document.getElementById(options.sectionId);
+        var list = document.getElementById(options.listId);
+        var hint = document.getElementById(options.hintId);
+        var rowSelector = options.rowSelector;
+        var checkboxSelector = options.checkboxSelector;
+        var isStaff = !!options.isStaff;
+        var isItDepartment = !!options.isItDepartment;
+        var primaryId = primarySelect ? String(primarySelect.value || '') : '';
+        var allowedId = allowedAdditionalRoleId(primaryId, isStaff, isItDepartment);
+        var eligible = allowedId !== null;
+
+        if (section) section.classList.toggle('hidden', !eligible);
+        if (list) list.classList.toggle('hidden', !eligible);
+        if (hint) {
+            hint.textContent = eligible
+                ? 'Staff in IT Department may add only the counterpart role (Purchaser ↔ Maintenance).'
+                : 'Additional roles are only for Staff in IT Department when primary is Purchaser or Maintenance.';
         }
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
-        }
-    };
+
+        document.querySelectorAll(rowSelector).forEach(function (row) {
+            var roleId = String(row.getAttribute('data-role-id') || '');
+            var show = eligible && roleId === allowedId;
+            row.classList.toggle('hidden', !show);
+            if (!show) {
+                var cb = row.querySelector(checkboxSelector);
+                if (cb) cb.checked = false;
+            }
+        });
+    }
 
     window.syncCreateUserTypeHint = function () {
         var typeSelect = document.getElementById('createUserType');
@@ -1403,18 +1354,16 @@
         }
 
         fullInput.value = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';
+        if (typeof window.syncCreateAdditionalRolesVisibility === 'function') {
+            window.syncCreateAdditionalRolesVisibility();
+        }
     };
 
     window.openCreateUserModal = function() {
         var modal = mountUserModal(document.getElementById('createUserModal'));
         if (modal) modal.classList.remove('hidden');
         syncCreateAdditionalRolesVisibility();
-        syncCreateProcurementAccess();
         syncCreateUserTypeHint();
-        var passwordInput = document.getElementById('createUserPassword');
-        if (!passwordInput || !String(passwordInput.value || '').trim()) {
-            regenerateCreateUserPassword();
-        }
         // Phone widget must init while visible so the country dropdown positions correctly.
         var phone = modal && modal.querySelector('[data-phone-input]');
         if (phone && typeof window.refreshPrismPhoneInput === 'function') {
@@ -1433,37 +1382,8 @@
         }
         var modal = document.getElementById('createUserModal');
         if (modal) modal.classList.add('hidden');
-        var input = document.getElementById('createUserPassword');
-        var toggle = document.getElementById('createUserPasswordToggle');
-        if (input) {
-            input.type = 'text';
-            input.value = '';
-        }
-        if (toggle) {
-            toggle.setAttribute('aria-pressed', 'true');
-            toggle.setAttribute('aria-label', 'Hide password');
-            var showIcon = toggle.querySelector('.create-password-icon-show');
-            var hideIcon = toggle.querySelector('.create-password-icon-hide');
-            if (showIcon) showIcon.classList.add('hidden');
-            if (hideIcon) hideIcon.classList.remove('hidden');
-        }
-    };
-
-    window.toggleCreateUserPassword = function() {
-        var input = document.getElementById('createUserPassword');
-        var toggle = document.getElementById('createUserPasswordToggle');
-        if (!input || !toggle) return;
-        var showing = input.type === 'text';
-        input.type = showing ? 'password' : 'text';
-        toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
-        toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
-        var showIcon = toggle.querySelector('.create-password-icon-show');
-        var hideIcon = toggle.querySelector('.create-password-icon-hide');
-        if (showIcon) showIcon.classList.toggle('hidden', !showing);
-        if (hideIcon) hideIcon.classList.toggle('hidden', showing);
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
-        }
+        createUserItDepartment = false;
+        setCreateUserIdentityLocked(false);
     };
 
     window.closeEditRolesModal = function() {
@@ -1528,65 +1448,45 @@
         }
         var hint = document.getElementById('editAdminPrimaryHint');
         if (hint) hint.classList.toggle('hidden', !isAdminTarget);
+        editUserIsStaff = btn.getAttribute('data-is-staff') === '1';
+        editUserItDepartment = btn.getAttribute('data-is-it-department') === '1';
         var ids = (btn.getAttribute('data-role-ids') || '').split(',').filter(Boolean);
         document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
             var roleId = cb.value;
             cb.checked = ids.indexOf(roleId) !== -1 && roleId !== (primary ? primary.value : '');
         });
-        var canProc = document.getElementById('editCanProcurement');
-        if (canProc) canProc.checked = btn.getAttribute('data-can-procurement') === '1';
         syncEditAdditionalRolesVisibility();
-        syncEditProcurementAccess();
         var modal = mountUserModal(document.getElementById('editRolesModal'));
         if (modal) modal.classList.remove('hidden');
     };
 
-    function syncAdditionalRolesVisibility(primarySelectId, rowSelector, checkboxSelector) {
-        var primarySelect = document.getElementById(primarySelectId);
-        var primaryId = primarySelect ? String(primarySelect.value || '') : '';
-        document.querySelectorAll(rowSelector).forEach(function (row) {
-            var roleId = String(row.getAttribute('data-role-id') || '');
-            var isPrimary = primaryId !== '' && roleId === primaryId;
-            row.classList.toggle('hidden', isPrimary);
-            if (isPrimary) {
-                var cb = row.querySelector(checkboxSelector);
-                if (cb) cb.checked = false;
-            }
+    window.syncCreateAdditionalRolesVisibility = function () {
+        var typeSelect = document.getElementById('createUserType');
+        var isStaff = typeSelect && String(typeSelect.value || '') === 'Staff';
+        syncRoleMatrixVisibility({
+            primarySelectId: 'createUserRole',
+            sectionId: 'createAdditionalRolesSection',
+            listId: 'createAdditionalRolesList',
+            hintId: 'createAdditionalRolesHint',
+            rowSelector: '.create-additional-role-row',
+            checkboxSelector: '.create-additional-role',
+            isStaff: isStaff,
+            isItDepartment: createUserItDepartment
         });
-    }
+    };
 
-    function syncCreateAdditionalRolesVisibility() {
-        syncAdditionalRolesVisibility('createUserRole', '.create-additional-role-row', '.create-additional-role');
-    }
-
-    function syncEditAdditionalRolesVisibility() {
-        syncAdditionalRolesVisibility('editPrimaryRole', '.edit-additional-role-row', '.edit-additional-role');
-    }
-
-    function hasProcurementEligibleSelected(primarySelect, additionalSelector) {
-        var primary = primarySelect ? primarySelect.value : '';
-        // Administrator (1) or Maintenance (2) — Decision A + existing Maintenance path
-        if (primary === '1' || primary === '2') return true;
-        var found = false;
-        document.querySelectorAll(additionalSelector).forEach(function (cb) {
-            if (cb.checked && (cb.value === '1' || cb.value === '2') && !cb.closest('.hidden')) found = true;
+    window.syncEditAdditionalRolesVisibility = function () {
+        syncRoleMatrixVisibility({
+            primarySelectId: 'editPrimaryRole',
+            sectionId: 'editAdditionalRolesSection',
+            listId: 'editAdditionalRolesList',
+            hintId: 'editAdditionalRolesHint',
+            rowSelector: '.edit-additional-role-row',
+            checkboxSelector: '.edit-additional-role',
+            isStaff: editUserIsStaff,
+            isItDepartment: editUserItDepartment
         });
-        return found;
-    }
-
-    function syncCreateProcurementAccess() {
-        var roleSelect = document.getElementById('createUserRole');
-        var wrap = document.getElementById('createProcurementAccessWrap');
-        if (!roleSelect || !wrap) return;
-        wrap.classList.toggle('hidden', !hasProcurementEligibleSelected(roleSelect, '.create-additional-role'));
-    }
-
-    function syncEditProcurementAccess() {
-        var roleSelect = document.getElementById('editPrimaryRole');
-        var wrap = document.getElementById('editProcurementAccessWrap');
-        if (!roleSelect || !wrap) return;
-        wrap.classList.toggle('hidden', !hasProcurementEligibleSelected(roleSelect, '.edit-additional-role'));
-    }
+    };
 
     function updateUserFilterSlider(activeFilter, animate) {
         var track = document.getElementById('userFilterSlider');
@@ -1753,10 +1653,7 @@
 
         var roleSelect = document.getElementById('createUserRole');
         if (roleSelect) {
-            roleSelect.addEventListener('change', function () {
-                syncCreateAdditionalRolesVisibility();
-                syncCreateProcurementAccess();
-            });
+            roleSelect.addEventListener('change', syncCreateAdditionalRolesVisibility);
         }
 
         var typeSelect = document.getElementById('createUserType');
@@ -1772,21 +1669,11 @@
             });
         }
         syncCreateUserTypeHint();
-        document.querySelectorAll('.create-additional-role').forEach(function (cb) {
-            cb.addEventListener('change', syncCreateProcurementAccess);
-        });
         var editPrimary = document.getElementById('editPrimaryRole');
         if (editPrimary) {
-            editPrimary.addEventListener('change', function () {
-                syncEditAdditionalRolesVisibility();
-                syncEditProcurementAccess();
-            });
+            editPrimary.addEventListener('change', syncEditAdditionalRolesVisibility);
         }
-        document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
-            cb.addEventListener('change', syncEditProcurementAccess);
-        });
         syncCreateAdditionalRolesVisibility();
-        syncCreateProcurementAccess();
 
         bindAdminUsersCsrfForm('editEmailForm');
         bindAdminUsersCsrfForm('editRolesForm');
@@ -1819,6 +1706,221 @@
         }
         @endif
     });
+
+    function setCreateUserIdentityLocked(locked) {
+        var form = document.querySelector('#createUserModal form');
+        var typeEl = document.getElementById('createUserType');
+        var digitsEl = document.getElementById('createUserEmployeeIdDigits');
+        var lockedType = document.getElementById('createUserTypeLocked');
+
+        if (typeEl) {
+            typeEl.disabled = !!locked;
+            // Disabled selects are omitted from POST — mirror value while locked.
+            if (form && locked) {
+                if (!lockedType) {
+                    lockedType = document.createElement('input');
+                    lockedType.type = 'hidden';
+                    lockedType.name = 'user_type';
+                    lockedType.id = 'createUserTypeLocked';
+                    form.appendChild(lockedType);
+                }
+                lockedType.value = typeEl.value || '';
+                lockedType.disabled = false;
+            } else if (lockedType) {
+                lockedType.disabled = true;
+                lockedType.value = '';
+            }
+        }
+        if (digitsEl) {
+            if (locked) {
+                digitsEl.setAttribute('readonly', 'readonly');
+            } else if (typeEl && typeEl.value) {
+                digitsEl.removeAttribute('readonly');
+            }
+        }
+        ['first_name', 'middle_name', 'last_name', 'email'].forEach(function (name) {
+            var input = document.querySelector('#createUserModal [name="' + name + '"]');
+            if (input) input.readOnly = !!locked;
+        });
+    }
+
+    function getCreateUserPhoneInput() {
+        return document.querySelector('#createUserModal [data-phone-input]');
+    }
+
+    function setCreateUserPhone(value) {
+        var input = getCreateUserPhoneInput();
+        if (!input) return;
+
+        var raw = value == null ? '' : String(value).trim();
+        if (typeof window.writePrismPhoneStorage === 'function') {
+            window.writePrismPhoneStorage(input, raw);
+        }
+
+        var iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+        if (iti && typeof iti.setNumber === 'function') {
+            try {
+                if (raw) {
+                    iti.setNumber(raw);
+                } else {
+                    iti.setNumber('');
+                    input.value = '';
+                }
+            } catch (e) {
+                input.value = raw ? raw.replace(/^\+?63/, '').replace(/^0/, '').trim() : '';
+            }
+            return;
+        }
+
+        input.value = raw;
+        if (typeof window.initPrismPhoneInput === 'function') {
+            window.initPrismPhoneInput(input);
+            iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+            if (iti && raw && typeof iti.setNumber === 'function') {
+                try { iti.setNumber(raw); } catch (e) { /* keep raw */ }
+            }
+        }
+    }
+
+    function clearCreateUserAutofill() {
+        createUserItDepartment = false;
+        setCreateUserIdentityLocked(false);
+
+        var typeEl = document.getElementById('createUserType');
+        if (typeEl) {
+            typeEl.disabled = false;
+            typeEl.value = '';
+        }
+
+        var digitsEl = document.getElementById('createUserEmployeeIdDigits');
+        if (digitsEl) {
+            digitsEl.value = '';
+            digitsEl.setAttribute('readonly', 'readonly');
+        }
+
+        var fullId = document.getElementById('createUserEmployeeId');
+        if (fullId) fullId.value = '';
+
+        ['first_name', 'middle_name', 'last_name', 'email'].forEach(function (name) {
+            var input = document.querySelector('#createUserModal [name="' + name + '"]');
+            if (input) {
+                input.readOnly = false;
+                input.value = '';
+            }
+        });
+
+        setCreateUserPhone('');
+
+        var roleEl = document.getElementById('createUserRole');
+        if (roleEl) roleEl.value = '';
+
+        document.querySelectorAll('#createUserModal .create-additional-role').forEach(function (cb) {
+            cb.checked = false;
+        });
+
+        if (typeof window.syncCreateUserTypeHint === 'function') {
+            window.syncCreateUserTypeHint();
+        }
+        if (typeof window.syncCreateAdditionalRolesVisibility === 'function') {
+            window.syncCreateAdditionalRolesVisibility();
+        }
+    }
+
+    function fillCreateUserFromPerson(row) {
+        if (!row) return;
+        createUserItDepartment = isItDepartmentName(row.department_name);
+
+        var typeEl = document.getElementById('createUserType');
+        var employmentType = String(row.person_employment_type || '').trim();
+        if (typeEl && (employmentType === 'Staff' || employmentType === 'Faculty')) {
+            typeEl.disabled = false;
+            typeEl.value = employmentType;
+        }
+
+        var digitsEl = document.getElementById('createUserEmployeeIdDigits');
+        var empMatch = String(row.person_employee_id || '').replace(/\s+/g, '').match(/^OMC(\d{5})([FS])$/i);
+        if (digitsEl && empMatch) {
+            digitsEl.removeAttribute('readonly');
+            digitsEl.value = empMatch[1];
+        }
+
+        // Rebuild OMC#####F/S before locking fields.
+        if (typeof window.syncCreateUserTypeHint === 'function') {
+            window.syncCreateUserTypeHint();
+        }
+
+        var first = String(row.person_first_name || '').trim();
+        var middle = String(row.person_middle_name || '').trim();
+        var last = String(row.person_last_name || '').trim();
+        if ((!first || !last) && row.person_full_name) {
+            var parts = String(row.person_full_name).trim().split(/\s+/);
+            if (!last && parts.length) last = parts.pop();
+            if (!first && parts.length) first = parts.shift();
+            if (!middle && parts.length) middle = parts.join(' ');
+        }
+
+        var map = {
+            first_name: first,
+            middle_name: middle,
+            last_name: last,
+            email: row.person_email_address
+        };
+        Object.keys(map).forEach(function (name) {
+            var input = document.querySelector('#createUserModal [name="' + name + '"]');
+            var value = map[name];
+            if (input && value != null && String(value).trim() !== '') {
+                input.value = String(value).trim();
+            }
+        });
+
+        // Always target the visible tel field — never the hidden storage (name=contact_number).
+        setCreateUserPhone(row.person_contact_number || '');
+
+        setCreateUserIdentityLocked(true);
+        if (typeof window.syncCreateAdditionalRolesVisibility === 'function') {
+            window.syncCreateAdditionalRolesVisibility();
+        }
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    }
+
+    window.createUserPersonPicker = function () {
+        return {
+            personId: '',
+            personQuery: '',
+            personOpen: false,
+            personResults: [],
+            personLabel: '',
+            async searchPersons(url) {
+                try {
+                    const endpoint = url || @js(route('admin.persons.search'));
+                    const res = await fetch(`${endpoint}?q=${encodeURIComponent(this.personQuery || '')}`);
+                    this.personResults = await res.json();
+                } catch (e) {
+                    this.personResults = [];
+                }
+            },
+            pickPerson(row) {
+                this.personId = String(row.person_id);
+                var name = String(row.person_full_name || '').trim();
+                var meta = String(row.label || '').trim();
+                this.personLabel = name && meta ? (name + ' · ' + meta) : (name || meta || 'Selected person');
+                this.personOpen = false;
+                fillCreateUserFromPerson(row);
+            },
+            clearPerson() {
+                this.personId = '';
+                this.personLabel = '';
+                this.personOpen = false;
+                clearCreateUserAutofill();
+            },
+        };
+    };
+    // Keep legacy global for x-data="createUserPersonPicker()"
+    function createUserPersonPicker() {
+        return window.createUserPersonPicker();
+    }
 </script>
 @endpush
 

@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'purchaser' => \App\Http\Middleware\PurchaserMiddleware::class,
             'president' => \App\Http\Middleware\PresidentMiddleware::class,
             'school_admin' => \App\Http\Middleware\SchoolAdminMiddleware::class,
+            'supply_officer' => \App\Http\Middleware\SupplyOfficerMiddleware::class,
 
             'accounting' => \App\Http\Middleware\AccountingMiddleware::class,
 

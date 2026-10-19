@@ -1,4 +1,4 @@
-@extends('layouts.accounting-layout')
+@extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
 @section('title', 'View RIS')
 
@@ -80,6 +80,11 @@
                 <h1 class="acc-page-title">{{ \App\Support\RisWorkflow::formNumber($ris) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::statusLabel($ris)])
             </div>
+            @if(!blank($ris->ris_request_no ?? null))
+                <div class="mt-2">
+                    @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no, 'inline' => true, 'size' => 'md'])
+                </div>
+            @endif
             <p class="acc-page-subtitle">Read-only for Accounting.</p>
         </div>
         <div class="acc-actions">
@@ -108,11 +113,11 @@
                 </div>
                 @if ($attachments->isNotEmpty())
                     <div class="acc-attachments">
-                        <h3>Supporting documents</h3>
+                        <h3>Canvas</h3>
                         <ul>
                             @foreach ($attachments as $file)
                                 <li>
-                                    <a href="{{ route('accounting.ris.attachment', [$ris->ris_id, $file->ris_attachment_id]) }}">
+                                    <a href="{{ route('school-admin.ris.attachment', [$ris->ris_id, $file->ris_attachment_id]) }}">
                                         {{ $file->ris_attachment_original_name }}
                                     </a>
                                 </li>
@@ -121,8 +126,8 @@
                     </div>
                 @else
                     <div class="acc-attachments">
-                        <h3>Supporting documents</h3>
-                        <p class="text-sm text-slate-500">No supporting documents attached to this RIS.</p>
+                        <h3>Canvas</h3>
+                        <p class="text-sm text-slate-500">No Canvas attached to this RIS.</p>
                     </div>
                 @endif
             </div>

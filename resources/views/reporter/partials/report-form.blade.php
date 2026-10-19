@@ -3849,12 +3849,14 @@
                         >Employee ID not recognized.</p>
                     </div>
 
-                    {{-- REPORTER INFO BOX --}}
+                    {{-- REPORTER INFO BOX + PROPERTY-ASSIGNED EQUIPMENT --}}
                     <div id="reporterInfoBox" class="hidden">
-                        <div id="assignedEquipmentBox" class="mb-5 hidden rounded-xl bg-[#f3f6ff] px-3 py-3">
-                            <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                Equipment assigned to you
-                                <span class="normal-case tracking-normal font-normal text-slate-400">· tap one to report it</span>
+                        <div id="assignedEquipmentBox" class="mb-5 hidden rounded-xl border border-[#2947f0]/15 bg-[#f3f6ff] px-3.5 py-3">
+                            <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2947f0]">
+                                Your assigned equipment
+                            </p>
+                            <p class="mb-2.5 text-[11px] leading-snug text-slate-500">
+                                Detected from your employee ID’s property assignment (including computer sets). Tap one to report it — these units stay out of the shared location list.
                             </p>
                             <div id="assignedEquipmentList" class="flex flex-wrap gap-2"></div>
                         </div>
@@ -5541,6 +5543,18 @@ toggleRoomBtn.addEventListener('click', function () {
             option.dataset.categoryName = String(
                 equipment.equipment_category_name || "",
             );
+            option.dataset.computerSetId = String(
+                equipment.computer_set_id || "",
+            );
+            option.dataset.computerSetTag = String(
+                equipment.computer_set_tag || "",
+            );
+            option.dataset.computerSetName = String(
+                equipment.computer_set_name || "",
+            );
+            option.dataset.computerSetRole = String(
+                equipment.computer_set_member_role || "",
+            );
             equipmentSelect.appendChild(option);
         });
 
@@ -5562,6 +5576,7 @@ toggleRoomBtn.addEventListener('click', function () {
         const name = String(equipment.equipment_name || "Equipment").trim();
         const parts = [];
 
+        const setTag = String(equipment.computer_set_tag || "").trim();
         const assetTag = String(equipment.equipment_asset_tag || "").trim();
         const serial = String(equipment.equipment_serial_number || "").trim();
         const brandModel = [equipment.equipment_brand_name, equipment.equipment_model]
@@ -5569,6 +5584,10 @@ toggleRoomBtn.addEventListener('click', function () {
             .filter(Boolean)
             .join(" ");
         const zone = String(equipment.equipment_placement_zone || "").trim();
+
+        if (setTag) {
+            parts.push(setTag);
+        }
 
         if (assetTag) {
             parts.push("Tag: " + assetTag);
@@ -5594,8 +5613,13 @@ toggleRoomBtn.addEventListener('click', function () {
     function formatEquipmentSearchText(equipment) {
         const primary = formatEquipmentPrimaryLabel(equipment);
         const openReport = String(equipment.open_report_ticket_code || "").trim();
+        const setTag = String(equipment.computer_set_tag || "").trim();
+        const setName = String(equipment.computer_set_name || "").trim();
+        const extras = [setTag, setName, openReport ? "Open report: " + openReport : ""]
+            .filter(Boolean)
+            .join(" ");
 
-        return openReport ? primary + " Open report: " + openReport : primary;
+        return extras ? primary + " " + extras : primary;
     }
 
     function formatEquipmentLabel(equipment) {
@@ -6668,6 +6692,7 @@ toggleRoomBtn.addEventListener('click', function () {
         const dropdownSearchEl = document.getElementById("rfDropdownSearch");
         const optionTip = document.getElementById("rfOptionTip");
         let activeCategoryFilter = "";
+        let activeFilterMode = "category";
         if (!overlay || !dropdownMenu || !dropdownList) return;
 
         // Mount outside #reportModal so overflow:hidden and transforms don't clip fixed pickers.
@@ -6791,6 +6816,11 @@ toggleRoomBtn.addEventListener('click', function () {
             overlay.hidden = true;
             if (searchEl) searchEl.value = "";
             activeCategoryFilter = "";
+            activeFilterMode = "category";
+            if (hintEl) {
+                hintEl.hidden = true;
+                hintEl.textContent = "";
+            }
             if (categoriesEl) {
                 categoriesEl.innerHTML = "";
                 categoriesEl.hidden = true;
@@ -6834,13 +6864,86 @@ toggleRoomBtn.addEventListener('click', function () {
             });
         }
 
+        function collectComputerSets(select) {
+            const map = new Map();
+            let hasUnassigned = false;
+            Array.from(select.options).forEach(function (option) {
+                if (!option.value) return;
+                const setId = String(option.dataset.computerSetId || "").trim();
+                const setTag = String(option.dataset.computerSetTag || "").trim();
+                if (!setId || !setTag) {
+                    hasUnassigned = true;
+                    return;
+                }
+                if (!map.has(setId)) {
+                    map.set(setId, {
+                        id: setId,
+                        tag: setTag,
+                        name: String(option.dataset.computerSetName || "").trim(),
+                        label: setTag,
+                    });
+                }
+            });
+            const sets = Array.from(map.values()).sort(function (a, b) {
+                return a.tag.localeCompare(b.tag);
+            });
+            return { sets: sets, hasUnassigned: hasUnassigned };
+        }
+
         function renderCategoryChips(select) {
             if (!categoriesEl) return;
             categoriesEl.innerHTML = "";
             activeCategoryFilter = "";
+            activeFilterMode = "category";
 
             if (!selectIsEquipment(select)) {
                 categoriesEl.hidden = true;
+                return;
+            }
+
+            const setInfo = collectComputerSets(select);
+            if (setInfo.sets.length > 0) {
+                activeFilterMode = "computer_set";
+                categoriesEl.hidden = false;
+
+                function makeSetChip(label, value) {
+                    const chip = document.createElement("button");
+                    chip.type = "button";
+                    chip.className = "rf-picker-chip" + (activeCategoryFilter === value ? " is-active" : "");
+                    chip.textContent = label;
+                    chip.dataset.category = value;
+                    chip.title = label;
+                    chip.addEventListener("click", function () {
+                        activeCategoryFilter = value;
+                        categoriesEl.querySelectorAll(".rf-picker-chip").forEach(function (btn) {
+                            btn.classList.toggle("is-active", btn.dataset.category === value);
+                        });
+                        if (hintEl) {
+                            if (value && value !== "__other__") {
+                                hintEl.hidden = false;
+                                hintEl.textContent = "Showing equipment inside " + label;
+                            } else if (value === "__other__") {
+                                hintEl.hidden = false;
+                                hintEl.textContent = "Equipment not in a computer set";
+                            } else {
+                                hintEl.hidden = true;
+                                hintEl.textContent = "";
+                            }
+                        }
+                        renderSheetList(select, searchEl ? searchEl.value : "");
+                    });
+                    return chip;
+                }
+
+                categoriesEl.appendChild(makeSetChip("All", ""));
+                setInfo.sets.forEach(function (set) {
+                    categoriesEl.appendChild(makeSetChip(set.label, "set:" + set.id));
+                });
+                if (setInfo.hasUnassigned) {
+                    categoriesEl.appendChild(makeSetChip("Other", "__other__"));
+                }
+                const allChip = categoriesEl.querySelector('.rf-picker-chip[data-category=""]');
+                if (allChip) allChip.classList.add("is-active");
                 return;
             }
 
@@ -6881,10 +6984,20 @@ toggleRoomBtn.addEventListener('click', function () {
             return Array.from(select.options).filter(function (option) {
                 if (option.value === "") return false;
                 if (selectIsEquipment(select) && activeCategoryFilter) {
-                    const catId = String(option.dataset.categoryId || "").trim();
-                    const catName = String(option.dataset.categoryName || "").trim();
-                    if (catId !== activeCategoryFilter && catName !== activeCategoryFilter) {
-                        return false;
+                    if (activeFilterMode === "computer_set") {
+                        const setId = String(option.dataset.computerSetId || "").trim();
+                        if (activeCategoryFilter === "__other__") {
+                            if (setId) return false;
+                        } else if (activeCategoryFilter.indexOf("set:") === 0) {
+                            const want = activeCategoryFilter.slice(4);
+                            if (setId !== want) return false;
+                        }
+                    } else {
+                        const catId = String(option.dataset.categoryId || "").trim();
+                        const catName = String(option.dataset.categoryName || "").trim();
+                        if (catId !== activeCategoryFilter && catName !== activeCategoryFilter) {
+                            return false;
+                        }
                     }
                 }
                 const text = (
@@ -6946,7 +7059,11 @@ toggleRoomBtn.addEventListener('click', function () {
             if (options.length === 0) {
                 let emptyMsg = "No matches. Try another search.";
                 if (selectIsEquipment(select) && activeCategoryFilter && !(query || "").trim()) {
-                    emptyMsg = "No equipment in this category.";
+                    emptyMsg = activeFilterMode === "computer_set"
+                        ? (activeCategoryFilter === "__other__"
+                            ? "No equipment outside a computer set."
+                            : "No equipment inside this computer set.")
+                        : "No equipment in this category.";
                 }
                 listEl.innerHTML = '<div class="rf-picker-empty">' + emptyMsg + "</div>";
             }
@@ -7557,7 +7674,10 @@ toggleRoomBtn.addEventListener('click', function () {
 
             list.innerHTML = "";
             const roomIds = new Set(Array.from(roomSelect.options).map((option) => option.value));
-            const pickable = items.filter((item) => roomIds.has(String(item.room_id)));
+            const pickable = items.filter((item) => {
+                const roomId = String(item.room_id || "");
+                return roomId !== "" && (roomIds.has(roomId) || roomIds.size === 0);
+            });
 
             pickable.forEach((item) => {
                 const chip = document.createElement("button");
@@ -7567,7 +7687,10 @@ toggleRoomBtn.addEventListener('click', function () {
 
                 const name = document.createElement("span");
                 name.className = "truncate font-semibold";
-                name.textContent = item.equipment_name || "Equipment";
+                const setTag = String(item.computer_set_tag || "").trim();
+                name.textContent = setTag
+                    ? `${item.equipment_name || "Equipment"} · ${setTag}`
+                    : (item.equipment_name || "Equipment");
 
                 const room = document.createElement("span");
                 room.className = "truncate text-slate-400";
@@ -7590,6 +7713,37 @@ toggleRoomBtn.addEventListener('click', function () {
             trigger.classList.toggle("is-placeholder", !roomSelect.value);
         }
 
+        function ensureAssignedEquipmentInSelect(item) {
+            const equipmentId = String(item.equipment_id || "");
+            if (!equipmentId || !equipSelect) return false;
+
+            if (Array.from(equipSelect.options).some((option) => option.value === equipmentId)) {
+                return true;
+            }
+
+            const cached = Array.isArray(roomEquipmentCache) ? roomEquipmentCache : [];
+            if (!cached.some((row) => String(row.equipment_id) === equipmentId)) {
+                roomEquipmentCache = cached.concat([{
+                    equipment_id: item.equipment_id,
+                    equipment_name: item.equipment_name,
+                    equipment_asset_tag: item.equipment_asset_tag || "",
+                    equipment_serial_number: item.equipment_serial_number || "",
+                    equipment_category_id: item.equipment_category_id || "",
+                    computer_set_id: item.computer_set_id || null,
+                    computer_set_tag: item.computer_set_tag || "",
+                    computer_set_name: item.computer_set_name || "",
+                    computer_set_member_role: item.computer_set_member_role || "",
+                    open_report_ticket_code: "",
+                }]);
+            }
+
+            if (typeof rebuildEquipmentSelect === "function") {
+                rebuildEquipmentSelect();
+            }
+
+            return Array.from(equipSelect.options).some((option) => option.value === equipmentId);
+        }
+
         function pickAssignedEquipment(item) {
             const roomId = String(item.room_id);
             const equipmentId = String(item.equipment_id);
@@ -7608,8 +7762,19 @@ toggleRoomBtn.addEventListener('click', function () {
                 setEquipmentManualMode(false);
             }
 
+            // Person-held units are omitted from the shared room list — inject them when picking from property assignment.
+            if (!Array.from(roomSelect.options).some((option) => option.value === roomId)) {
+                const opt = document.createElement("option");
+                opt.value = roomId;
+                opt.textContent = item.room_name || ("Location #" + roomId);
+                roomSelect.appendChild(opt);
+                if (typeof syncRoomSelectTrigger === "function") {
+                    // trigger label sync after value set below
+                }
+            }
+
             const selectEquipment = () => {
-                if (!Array.from(equipSelect.options).some((option) => option.value === equipmentId)) {
+                if (!ensureAssignedEquipmentInSelect(item)) {
                     return false;
                 }
                 equipSelect.value = equipmentId;
@@ -7628,8 +7793,12 @@ toggleRoomBtn.addEventListener('click', function () {
             let attempts = 0;
             const timer = setInterval(() => {
                 attempts += 1;
+                // Room fetch overwrites cache — re-inject after load settles.
                 if (selectEquipment() || attempts >= 40 || roomSelect.value !== roomId) {
                     clearInterval(timer);
+                    if (roomSelect.value === roomId) {
+                        selectEquipment();
+                    }
                 }
             }, 100);
         }

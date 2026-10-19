@@ -73,7 +73,7 @@ class PurchaseOrderFunding
     public static function setPaymentPath(int $poId, string $path): ?string
     {
         if (! ProcurementPaymentPath::isValid($path)) {
-            return 'Choose Request for Check or Cash Advance.';
+            return 'Choose Direct Payment, Cash Installment, or Cash Advance.';
         }
 
         $order = DB::table('purchase_orders_table')->where('purchase_order_id', $poId)->first();
@@ -160,6 +160,8 @@ class PurchaseOrderFunding
         $requester = (string) (Auth::user()->user_full_name ?? '');
         $groups = [];
 
+        $pathValues = ProcurementPaymentPath::storedValuesForFilter($fundingType);
+
         foreach ($orders as $order) {
             $poLabel = PurchaseOrderBasket::displayNumber($order);
             $candidates = collect($links->get($order->purchase_order_id, []))
@@ -167,7 +169,7 @@ class PurchaseOrderFunding
                 ->filter(fn ($atp) => $atp
                     && $atp->authority_purchase_status === 'Approved'
                     && empty($atp->authority_purchase_is_archived)
-                    && ($atp->authority_purchase_payment_path ?? null) === $fundingType
+                    && in_array($atp->authority_purchase_payment_path ?? null, $pathValues, true)
                     && ! isset($funded[(int) $atp->authority_purchase_id]))
                 ->values();
 
@@ -175,7 +177,8 @@ class PurchaseOrderFunding
                 continue;
             }
 
-            $buckets = $fundingType === ProcurementPaymentPath::CASH_ADVANCE
+            $isCashAdvance = ProcurementPaymentPath::requiresLiquidation($fundingType);
+            $buckets = $isCashAdvance
                 ? ['' => $candidates]
                 : $candidates->groupBy(fn ($atp) => (string) ($atp->authority_purchase_supplier_id ?? ''))->all();
 
@@ -185,7 +188,7 @@ class PurchaseOrderFunding
                 $supplierName = PurchaseOrderBasket::supplierDisplay($bucket->first());
                 $amount = round($bucket->sum(fn ($atp) => (float) ($totals[$atp->authority_purchase_id] ?? 0)), 2);
                 $key = self::KEY_PREFIX.$order->purchase_order_id
-                    .($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? '' : ':s:'.($supplierId === '' ? '0' : $supplierId));
+                    .($isCashAdvance ? '' : ':s:'.($supplierId === '' ? '0' : $supplierId));
 
                 $atpLabels = $bucket->map(fn ($atp) => PurchaseOrderBasket::atpListLabel($atp))->all();
                 $purposes = $bucket
@@ -204,9 +207,9 @@ class PurchaseOrderFunding
                     'atp_ids' => $atpIds,
                     'atp_labels' => $atpLabels,
                     'label' => $poLabel
-                        .($fundingType === ProcurementPaymentPath::CASH_ADVANCE ? ' · whole PO' : ' · '.$supplierName)
+                        .($isCashAdvance ? ' · whole PO' : ' · '.$supplierName)
                         .' · '.count($atpIds).' ATP'.(count($atpIds) === 1 ? '' : 's'),
-                    'payee' => $fundingType === ProcurementPaymentPath::CASH_ADVANCE ? $requester : $supplierName,
+                    'payee' => $isCashAdvance ? $requester : $supplierName,
                     'amount' => $amount,
                     'purpose' => mb_substr(
                         $poLabel.' ('.implode(', ', $atpLabels).')'.($purposes !== [] ? ': '.implode('; ', $purposes) : ''),
@@ -332,14 +335,14 @@ class PurchaseOrderFunding
             return 'All ATPs on one funding request must belong to the same approved Purchase Order.';
         }
 
-        if ($fundingType === ProcurementPaymentPath::REQUEST_FOR_CHECK) {
+        if (ProcurementPaymentPath::endsAtReceivingReport($fundingType)) {
             $suppliers = DB::table('authority_to_purchase_table')
                 ->whereIn('authority_purchase_id', $atpIds)
                 ->pluck('authority_purchase_supplier_id')
                 ->map(fn ($id) => (int) $id)
                 ->unique();
             if ($suppliers->count() > 1) {
-                return 'A Request for Check pays one supplier. Create one Request for Check per supplier on this Purchase Order.';
+                return ProcurementPaymentPath::label($fundingType).' pays one supplier. Create one funding request per supplier on this Purchase Order.';
             }
         }
 

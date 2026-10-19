@@ -86,6 +86,15 @@ class Equipment extends Model
         );
     }
 
+    public function computerSetMembership()
+    {
+        return $this->hasOne(
+            \App\Models\ComputerSetMember::class,
+            'equipment_id',
+            'equipment_id'
+        );
+    }
+
     protected static function booted()
     {
         static::created(function (self $equipment) {

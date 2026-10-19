@@ -54,13 +54,6 @@
             : (($borrowingMonthlyPercentage > 0 ? '+' : '') . number_format($borrowingMonthlyPercentage, 2) . '% vs last month');
     @endphp
     <div class="mb-6 mt-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                ['label' => 'Total Borrowing Records', 'hint' => $borrowingMonthlyHint, 'value' => number_format($totalBorrowingRecords)],
-                ['label' => 'On Loan', 'hint' => number_format($onLoanPercentage, 2) . '% of all borrowing records', 'value' => number_format($onLoanBorrowings)],
-                ['label' => 'Overdue', 'hint' => number_format($overduePercentage, 2) . '% of all borrowing records', 'value' => number_format($overdueBorrowings)],
-            ],
-        ])
     </div>
 
     @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
@@ -140,9 +133,7 @@
             {{-- ADD BETWEEN TABLE HEADER INFORMATION AND TABLE --}}
             {{-- ===================================================== --}}
 
-            <form
-                method="GET"
-                action="{{ url()->current() }}"
+            <form method="GET" action="{{ url()->current() }}" data-auto-filter
                 class="border-b border-slate-200 px-5 py-4"
             >
 

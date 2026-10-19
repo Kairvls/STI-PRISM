@@ -625,7 +625,8 @@ class PropertyAssignments
     }
 
     /**
-     * Read-only list for the public report form: item names and rooms only.
+     * Read-only list for the public report form: units held by this reporter
+     * via property assignment (including computer-set members).
      */
     public static function reportableForEmployee(string $employeeId): Collection
     {
@@ -642,18 +643,44 @@ class PropertyAssignments
             ->join('property_assignments_table as pa', 'pa.assignment_equipment_id', '=', 'equipment_table.equipment_id')
             ->join('rooms_table as room', 'room.room_id', '=', 'equipment_table.equipment_room_id')
             ->where('pa.assignment_custodian_id', $custodianId)
-            ->where('pa.assignment_status', PropertyAssignment::STATUS_ACTIVE);
+            ->where('pa.assignment_status', PropertyAssignment::STATUS_ACTIVE)
+            ->where('room.room_type', '!=', RoomCategories::STORAGE_TYPE);
 
-        return ReportGrouping::applyReporterEquipmentFilters($query)
+        if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+            $query->where('room.room_is_archived', false);
+        }
+
+        $select = [
+            'equipment_table.equipment_id',
+            'equipment_table.equipment_name',
+            'room.room_id',
+            'room.room_name',
+        ];
+        foreach (['equipment_asset_tag', 'equipment_serial_number', 'equipment_category_id'] as $column) {
+            if (Schema::hasColumn('equipment_table', $column)) {
+                $select[] = 'equipment_table.'.$column;
+            }
+        }
+
+        $rows = ReportGrouping::applyReporterEquipmentFilters($query)
             ->orderBy('room.room_name')
             ->orderBy('equipment_table.equipment_name')
             ->limit(50)
-            ->get([
-                'equipment_table.equipment_id',
-                'equipment_table.equipment_name',
-                'room.room_id',
-                'room.room_name',
-            ]);
+            ->get($select);
+
+        $membership = ComputerSets::membershipMapForEquipmentIds(
+            $rows->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        return $rows->map(function ($row) use ($membership) {
+            $set = $membership[(int) $row->equipment_id] ?? null;
+            $row->computer_set_id = $set->computer_set_id ?? null;
+            $row->computer_set_tag = $set->computer_set_tag ?? null;
+            $row->computer_set_name = $set->computer_set_name ?? null;
+            $row->computer_set_member_role = $set->member_role ?? null;
+
+            return $row;
+        })->values();
     }
 
     public static function history(int $equipmentId, int $limit = 20): Collection

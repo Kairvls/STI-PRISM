@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use App\Support\AdminAttentionSummary;
@@ -1328,16 +1329,31 @@ class AdminController extends Controller
                     '%' . $search . '%'
                 );
 
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                $searchQuery->orWhere(
+                    'requisition_issue_slip_table.ris_request_no',
+                    'like',
+                    '%' . $search . '%'
+                );
+            }
+
         });
     }
 
 
     // =====================================================
-    // SORTING — urgent first, then latest activity / date first (LIFO)
+    // SORTING — urgent first; pending queue = oldest waiting; else latest activity
     // =====================================================
 
-    $risRecords = $this->applyRisLatestActivityOrder(RisWorkflow::orderUrgentFirst($query))
+    $useOldestWaiting = $filter === 'pending'
+        || $focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW;
 
+    $risRecords = RisWorkflow::orderUrgentFirst($query);
+    $risRecords = $useOldestWaiting
+        ? $this->applyRisOldestWaitingOrder($risRecords)
+        : $this->applyRisLatestActivityOrder($risRecords);
+
+    $risRecords = $risRecords
         // Exactly 10 RIS requests per page.
         ->paginate(10)
 
@@ -1634,16 +1650,28 @@ class AdminController extends Controller
                     '%' . $search . '%'
                 );
 
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                $searchQuery->orWhere(
+                    'requisition_issue_slip_table.ris_request_no',
+                    'like',
+                    '%' . $search . '%'
+                );
+            }
+
         });
     }
 
 
     // =====================================================
-    // SORTING — urgent first, then latest activity / date first (LIFO)
+    // SORTING — urgent first; pending signature queue = oldest waiting
     // =====================================================
 
-    $signableRisRecords = $this->applyRisLatestActivityOrder(RisWorkflow::orderUrgentFirst($query))
+    $signableRisRecords = RisWorkflow::orderUrgentFirst($query);
+    $signableRisRecords = ($filter === 'pending' || $focus === AdminAttentionSummary::FOCUS_AWAITING_COSIGN)
+        ? $this->applyRisOldestWaitingOrder($signableRisRecords)
+        : $this->applyRisLatestActivityOrder($signableRisRecords);
 
+    $signableRisRecords = $signableRisRecords
         ->paginate(10)
 
         ->appends(array_filter([
@@ -1884,6 +1912,14 @@ class AdminController extends Controller
                         'like',
                         '%' . $search . '%'
                     );
+
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $searchQuery->orWhere(
+                        'requisition_issue_slip_table.ris_request_no',
+                        'like',
+                        '%' . $search . '%'
+                    );
+                }
 
             });
         }
@@ -2217,6 +2253,24 @@ class AdminController extends Controller
             $query->addSelect('users_table.last_active_at');
         }
 
+        if (Schema::hasColumn('users_table', 'person_id') && \App\Support\Persons::tableReady()) {
+            $query->leftJoin('persons_table as person_for_user', 'person_for_user.person_id', '=', 'users_table.person_id');
+            $query->addSelect(
+                'users_table.person_id',
+                'person_for_user.person_employment_type',
+                'person_for_user.person_department_id'
+            );
+            if (Schema::hasTable('departments_table')) {
+                $query->leftJoin(
+                    'departments_table as dept_for_user',
+                    'dept_for_user.department_id',
+                    '=',
+                    'person_for_user.person_department_id'
+                );
+                $query->addSelect('dept_for_user.department_name as person_department_name');
+            }
+        }
+
         $users = $query->get();
         $roles = Schema::hasTable('roles_table')
             ? DB::table('roles_table')->orderBy('role_id')->get()
@@ -2391,17 +2445,32 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
+        if ($request->filled('person_id') && \App\Support\Persons::tableReady()) {
+            $person = \App\Support\Persons::find((int) $request->input('person_id'));
+            if ($person) {
+                $request->merge([
+                    'user_type' => $person->person_employment_type ?: $request->input('user_type'),
+                    'employee_id' => $person->person_employee_id,
+                    'first_name' => $person->person_first_name,
+                    'middle_name' => $person->person_middle_name,
+                    'last_name' => $person->person_last_name,
+                    'email' => $person->person_email_address ?: $request->input('email'),
+                    'contact_number' => $person->person_contact_number ?: $request->input('contact_number'),
+                ]);
+            }
+        }
+
         PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
 
         $request->validate([
+            'person_id' => 'nullable|integer|min:1',
             'user_type' => 'required|in:Faculty,Staff',
             'employee_id' => ['required', 'string', 'max:50', 'regex:/^OMC[0-9]{5}[FS]$/i'],
             'first_name' => PersonNames::rules(),
             'middle_name' => PersonNames::rules(false),
             'last_name' => PersonNames::rules(),
             'email' => 'required|email|max:255',
-            'password' => 'required|string|min:6',
-            'contact_number' => 'nullable|string|max:50',
+            'contact_number' => \App\Support\PhoneNumber::rules(),
             'primary_role' => 'nullable|integer',
             'role' => 'nullable|integer',
         ], [
@@ -2423,34 +2492,26 @@ class AdminController extends Controller
         }
 
         $primaryRoleId = (int) $request->input('primary_role', $request->input('role'));
-        $additionalRoles = collect($request->input('additional_roles', []))
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0 && $id !== 1)
-            ->unique()
-            ->values()
-            ->all();
-
         if ($primaryRoleId <= 0) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         }
 
-        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
-        $hasPurchaser = in_array(3, $allRoles, true);
-        $hasMaintenance = in_array(2, $allRoles, true);
-        $hasAdmin = in_array(1, $allRoles, true);
-
-        $canProcurement = $hasPurchaser
-            || (($hasMaintenance || $hasAdmin) && $request->boolean('user_can_procurement'));
-
-        // Selecting Purchaser as an additional role also grants procurement.
-        if ($hasPurchaser && ! in_array(3, $additionalRoles, true) && $primaryRoleId !== 3) {
-            // primary is purchaser
-        } elseif ($canProcurement && ($hasMaintenance || $hasAdmin) && ! $hasPurchaser) {
-            $additionalRoles[] = 3;
-            $allRoles[] = 3;
-            $allRoles = array_values(array_unique($allRoles));
-            $hasPurchaser = true;
+        $person = null;
+        if ($request->filled('person_id') && \App\Support\Persons::tableReady()) {
+            $person = \App\Support\Persons::find((int) $request->input('person_id'));
         }
+
+        $isStaff = \App\Support\RoleAccess::isStaffEmploymentType((string) $request->user_type);
+        $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
+        $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
+            $primaryRoleId,
+            (array) $request->input('additional_roles', []),
+            $isStaff,
+            $isItDepartment
+        );
+
+        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
+        $hasPurchaser = in_array(\App\Support\RoleAccess::PURCHASER, $allRoles, true);
 
         $first = trim((string) $request->first_name);
         $middle = trim((string) $request->middle_name);
@@ -2470,12 +2531,31 @@ class AdminController extends Controller
             'user_username' => $username,
             'user_full_name' => $fullName,
             'user_email_address' => $request->email,
-            'user_contact_number' => $request->contact_number,
-            'user_password' => Hash::make($request->password),
+            'user_contact_number' => \App\Support\PhoneNumber::normalizeForStorage($request->contact_number),
+            // Login is Office 365; store an unusable local hash (not shown to admins).
+            'user_password' => Hash::make(Str::password(32)),
         ];
 
         if (Schema::hasColumn('users_table', 'user_can_procurement')) {
-            $payload['user_can_procurement'] = $canProcurement;
+            $payload['user_can_procurement'] = $hasPurchaser;
+        }
+
+        if (Schema::hasColumn('users_table', 'person_id') && \App\Support\Persons::tableReady()) {
+            try {
+                $payload['person_id'] = $request->filled('person_id')
+                    ? (int) $request->input('person_id')
+                    : \App\Support\Persons::ensureFromIdentity([
+                        'employee_id' => $employeeId,
+                        'type' => $request->user_type,
+                        'first_name' => $first,
+                        'middle_name' => $middle,
+                        'last_name' => $last,
+                        'email' => $request->email,
+                        'contact' => $request->contact_number,
+                    ]);
+            } catch (\Throwable $e) {
+                // Continue without person link if ensure fails.
+            }
         }
 
         $user = User::create($payload);
@@ -2490,36 +2570,39 @@ class AdminController extends Controller
         $targetIsAdmin = (int) $user->user_role_id === 1 || \App\Support\RoleAccess::isAdmin($user);
 
         $primaryRoleId = (int) $request->input('primary_role');
-        $additionalRoles = collect($request->input('additional_roles', []))
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0 && $id !== 1)
-            ->unique()
-            ->values()
-            ->all();
 
-        // Decision A: Admin accounts keep Administrator as primary; only additional roles (e.g. Purchaser) may change.
+        // Admin accounts keep Administrator as primary and never get additional roles.
         if ($targetIsAdmin) {
             $primaryRoleId = 1;
         } elseif ($primaryRoleId <= 0 || $primaryRoleId === 1) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         }
 
-        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
-        $hasPurchaser = in_array(3, $allRoles, true);
-        $hasMaintenance = in_array(2, $allRoles, true);
-        $hasAdmin = in_array(1, $allRoles, true);
-        $canProcurement = $hasPurchaser
-            || (($hasMaintenance || $hasAdmin) && $request->boolean('user_can_procurement'));
-
-        if ($canProcurement && ($hasMaintenance || $hasAdmin) && ! $hasPurchaser) {
-            $allRoles[] = 3;
-            $allRoles = array_values(array_unique($allRoles));
-            $hasPurchaser = true;
+        $person = null;
+        if (Schema::hasColumn('users_table', 'person_id')
+            && ! empty($user->person_id)
+            && \App\Support\Persons::tableReady()) {
+            $person = \App\Support\Persons::find((int) $user->person_id);
         }
+
+        $isStaff = $person
+            ? \App\Support\RoleAccess::isStaffEmploymentType((string) ($person->person_employment_type ?? ''))
+            : \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''));
+        $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
+
+        $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
+            $primaryRoleId,
+            (array) $request->input('additional_roles', []),
+            $isStaff,
+            $isItDepartment
+        );
+
+        $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
+        $hasPurchaser = in_array(\App\Support\RoleAccess::PURCHASER, $allRoles, true);
 
         $user->user_role_id = $primaryRoleId;
         if (Schema::hasColumn('users_table', 'user_can_procurement')) {
-            $user->user_can_procurement = $canProcurement;
+            $user->user_can_procurement = $hasPurchaser;
         }
         $user->save();
 
@@ -2655,13 +2738,8 @@ class AdminController extends Controller
             'prefillEmployeeId' => $employeeId,
             'reportLayout' => 'layouts.admin-layout',
             'reportPageTitle' => 'Make Report',
-            'reportBackUrl' => route('admin.operations.reports'),
-            'reportBackLabel' => 'Back to Equipment Reports',
-            'reportCancelUrl' => route('admin.operations.reports'),
             'reportStoreUrl' => route('admin.reports.make.store'),
             'reportSubmitLabel' => 'Submit report',
-            'reportIntro' => 'File a campus maintenance report while staying signed in as administrator. Use your employee ID or log one for another registered faculty/staff reporter.',
-            'reportBanner' => 'this form records you as the administrator who logged the report, while keeping the selected person as the reporter.',
             'reportLogTitle' => 'Reports you logged',
             'reportLogIntro' => 'Maintenance reports submitted from this admin Make Report page.',
             'reportDetailsBase' => '/maintenance/reports/details/',
@@ -2676,31 +2754,6 @@ class AdminController extends Controller
             return back()
                 ->withErrors($result['errors'] ?? ['general' => $result['message'] ?? 'Unable to submit report.'])
                 ->withInput();
-        }
-
-        $reportId = (int) ($result['report_id'] ?? 0);
-        $isUrgent = ($result['urgency'] ?? null) === 'Urgent';
-        $merged = (bool) ($result['merged'] ?? false);
-
-        if ($reportId > 0 && ! $merged && Schema::hasTable('notifications_table')) {
-            DB::table('notifications_table')
-                ->insertOrIgnore([
-                    'notification_user_id' => null,
-                    'notification_target_role' => 'Maintenance Personnel',
-                    'notification_title' => $isUrgent
-                        ? 'Urgent Report Requires Attention'
-                        : 'New Report Submitted',
-                    'notification_message' => $isUrgent
-                        ? 'Admin-logged urgent Report #'.$reportId.' requires immediate attention.'
-                        : 'Admin-logged maintenance Report #'.$reportId.' was submitted.',
-                    'notification_type' => $isUrgent ? 'urgent_report' : 'new_report',
-                    'notification_category' => 'Reports',
-                    'notification_reference_type' => 'report',
-                    'notification_reference_id' => $reportId,
-                    'notification_url' => '/maintenance/reports/details/'.$reportId,
-                    'notification_event_key' => 'report_submitted_'.$reportId,
-                    'notification_created_at' => now(),
-                ]);
         }
 
         return redirect()
@@ -3549,7 +3602,7 @@ class AdminController extends Controller
 
         return redirect()
             ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']))
-            ->with('success', 'Procurement request accepted. Continue on Sign RIS.');
+            ->with('success', 'RIS accepted. Continue on Ready to Sign.');
     }
 
     public function bulkAcceptRis(Request $request)
@@ -3593,8 +3646,8 @@ class AdminController extends Controller
         }
 
         $message = $accepted === 1
-            ? '1 procurement request accepted. Continue on Sign RIS.'
-            : $accepted . ' procurement requests accepted. Continue on Sign RIS.';
+            ? '1 RIS accepted. Continue on Ready to Sign.'
+            : $accepted . ' RIS accepted. Continue on Ready to Sign.';
 
         if ($skipped > 0) {
             $message .= ' ' . $skipped . ' selected item' . ($skipped === 1 ? ' was' : 's were') . ' skipped.';
@@ -3649,7 +3702,7 @@ class AdminController extends Controller
                 'approval_log_level' => 'Admin',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Accepted',
-                'approval_log_approval_remarks' => 'Procurement request accepted by ' . $adminName . '. Ready for Sign RIS decision.',
+                'approval_log_approval_remarks' => 'RIS accepted by ' . $adminName . '. Ready for Ready to Sign decision.',
                 'approval_log_approved_at' => now(),
             ]);
         } catch (\Throwable $e) {
@@ -4958,6 +5011,24 @@ public function rejectRis(Request $request, $risId)
         }
 
         return $query->orderByDesc($table . '.ris_id');
+    }
+
+    /**
+     * Review queue fairness: oldest submitted / requested first, then ris_id.
+     */
+    private function applyRisOldestWaitingOrder($query)
+    {
+        $table = 'requisition_issue_slip_table';
+
+        foreach (['ris_submitted_at', 'ris_requested_by_date', 'ris_created_at'] as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                return $query
+                    ->orderByRaw("IFNULL({$table}.{$column}, '1970-01-01 00:00:00') ASC")
+                    ->orderBy($table.'.ris_id');
+            }
+        }
+
+        return $query->orderBy($table.'.ris_id');
     }
 
     private function resolveIssuedBySignature(Request $request, string $typedName): string

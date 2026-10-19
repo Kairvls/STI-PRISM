@@ -36,33 +36,6 @@
     </div>
 
     {{-- SUMMARY CARDS --}}
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Active',
-                    'hint' => 'Available for procurement',
-                    'value' => number_format($supplierSummary['active'] ?? 0),
-                    'href' => route(($pp ?? 'purchaser').'.suppliers.index', ['status' => 'Active']),
-                    'active' => request('status') === 'Active',
-                ],
-                [
-                    'label' => 'Inactive',
-                    'hint' => 'Temporarily unavailable',
-                    'value' => number_format($supplierSummary['inactive'] ?? 0),
-                    'href' => route(($pp ?? 'purchaser').'.suppliers.index', ['status' => 'Inactive']),
-                    'active' => request('status') === 'Inactive',
-                ],
-                [
-                    'label' => 'Blacklisted',
-                    'hint' => 'Flagged with caution',
-                    'value' => number_format($supplierSummary['blacklisted'] ?? 0),
-                    'href' => route(($pp ?? 'purchaser').'.suppliers.index', ['blacklisted' => 'Yes']),
-                    'active' => request('blacklisted') === 'Yes',
-                ],
-            ],
-        ])
-    </div>
 
     {{-- SUPPLIER RECORDS --}}
     <div class="pur-card">
@@ -77,7 +50,7 @@
                     </div>
                 </div>
 
-                <form
+                <form data-auto-filter
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -489,7 +462,6 @@
                                                             'name' => 'contact_number',
                                                             'value' => $editContactNumber,
                                                             'id' => 'edit-modal-contact-'.$supplier->supplier_id,
-                                                            'placeholder' => '9XX XXX XXXX',
                                                         ])
                                                     </div>
                                                     <div>
@@ -535,7 +507,6 @@
                                                             'name' => 'contact_number',
                                                             'value' => $editContactNumber,
                                                             'id' => 'edit-modal-contact-'.$supplier->supplier_id,
-                                                            'placeholder' => '9XX XXX XXXX',
                                                         ])
                                                     </div>
                                                 </div>
@@ -768,7 +739,6 @@
                                         'name' => 'contact_number',
                                         'value' => old('contact_number'),
                                         'id' => 'supplier-contact-number',
-                                        'placeholder' => '9XX XXX XXXX',
                                     ])
                                 </div>
 

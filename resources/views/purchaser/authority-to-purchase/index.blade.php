@@ -1,7 +1,12 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
-@section('page-title', 'Authority to Purchase')
-@section('page-subtitle', 'Create, manage, print, and archive Authority to Purchase records.')
+@php
+    $atpIsSupplyPortal = \App\Support\ProcurementPortal::isSupplyOfficerContext();
+@endphp
+@section('page-title', $atpIsSupplyPortal ? 'Authority to Purchase' : 'Released ATPs')
+@section('page-subtitle', $atpIsSupplyPortal
+    ? 'Create ATP from Incoming RIS, submit to School Administrator, then release approved ATP back to the Purchaser.'
+    : 'ATP released by the Supply Officer — choose Direct Payment, Cash Installment, or Cash Advance to continue.')
 
 @section('content')
 @include('partials.floating-menu-script')
@@ -192,66 +197,44 @@
         </nav>
 
         @unless($archiveView)
-            <div class="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    @click="emptyOpen = true; modalFullscreen = false; $nextTick(() => window.lucide && window.lucide.createIcons())"
-                    class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
-                >
-                    <i data-lucide="printer" class="h-4 w-4"></i>
-                    Print Empty ATP
-                </button>
-                <button
-                    type="button"
-                    @click="openCreate()"
-                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                >
-                    <i data-lucide="plus" class="h-4 w-4"></i>
-                    Create ATP
-                </button>
-            </div>
+            @if(\App\Support\ProcurementPortal::isSupplyOfficerContext())
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        @click="emptyOpen = true; modalFullscreen = false; $nextTick(() => window.lucide && window.lucide.createIcons())"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                        <i data-lucide="printer" class="h-4 w-4"></i>
+                        Print Empty ATP
+                    </button>
+                    <button
+                        type="button"
+                        @click="openCreate()"
+                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Create ATP
+                    </button>
+                </div>
+            @endif
         @endunless
     </div>
 
     @unless($archiveView)
-        @include('partials.draft-handover', ['type' => 'atp'])
+        @if(\App\Support\ProcurementPortal::isSupplyOfficerContext())
+            @include('partials.draft-handover', ['type' => 'atp'])
+        @endif
     @endunless
     @php
         $handoverOutgoing = \App\Support\DraftHandover::outgoing('atp');
         $handoverDeclined = \App\Support\DraftHandover::declinedForSender('atp');
         $atpFormLabel = fn ($atp) => $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id);
-        $rfcPathConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Request for Check? Accounting will prepare a check paid to the supplier, and the RFC form will open next. This can\'t be changed once the RFC is created.';
-        $cashAdvanceConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Cash Advance? Accounting will release cash to you, and you must liquidate it with receipts after receiving. This can\'t be changed once the cash advance request is created.';
+        $directPaymentConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through Direct Payment? Accounting will process payment to the supplier. Pipeline ends at Receiving Report — no liquidation. This can\'t be changed once the funding request is created.';
+        $cashInstallmentConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through Cash Installment? Accounting will process installment payments to the supplier. Pipeline ends at Receiving Report — no liquidation. This can\'t be changed once the funding request is created.';
+        $cashAdvanceConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Cash Advance? Accounting will release cash to you, and you must liquidate it with receipts after receiving. Pipeline ends at Liquidation Report. This can\'t be changed once the cash advance request is created.';
     @endphp
 
     {{-- SUMMARY CARDS --}}
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Draft',
-                    'hint' => 'Incomplete drafts awaiting submit',
-                    'value' => number_format($atpSummary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Draft']),
-                    'active' => request('status') === 'Draft',
-                ],
-                [
-                    'label' => 'Submitted',
-                    'hint' => 'Waiting for accounting review',
-                    'value' => number_format($atpSummary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Submitted']),
-                    'active' => request('status') === 'Submitted',
-                ],
-                [
-                    'label' => 'Approved',
-                    'hint' => 'Ready for purchasing workflow',
-                    'value' => number_format($atpSummary['approved']),
-                    'href' => route(($pp ?? 'purchaser').'.atp.index', ['status' => 'Approved']),
-                    'active' => request('status') === 'Approved',
-                ],
-            ],
-        ])
-    </div>
 
     {{-- ATP RECORDS --}}
     <div class="pur-card">
@@ -276,7 +259,7 @@
                     </p>
                 </div>
 
-                <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <form data-auto-filter method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -339,6 +322,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Supplier</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
@@ -366,6 +350,12 @@
                                         <p class="mt-0.5 text-xs text-gray-400">Record #{{ $atp->authority_purchase_id }}</p>
                                     </div>
                                 </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                @include('partials.procurement-request-no', ['requestNo' => $atp->authority_purchase_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                                @if(blank($atp->authority_purchase_request_no ?? null))
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 <p class="text-sm text-gray-700">{{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
@@ -405,10 +395,17 @@
                                     'revision' => $atp->authority_purchase_rejection_reason,
                                 ])
                                 @if(!empty($atp->purchase_order_id) && !empty($atp->purchase_order_label))
-                                    <a
-                                        href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
-                                        class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
-                                    >In {{ $atp->purchase_order_label }}</a>
+                                    @php
+                                        $poIndexRoute = ($pp ?? 'purchaser').'.purchase-orders.index';
+                                    @endphp
+                                    @if(\Illuminate\Support\Facades\Route::has($poIndexRoute))
+                                        <a
+                                            href="{{ route($poIndexRoute, ['edit_po' => $atp->purchase_order_id]) }}"
+                                            class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
+                                        >In {{ $atp->purchase_order_label }}</a>
+                                    @else
+                                        <span class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">In {{ $atp->purchase_order_label }}</span>
+                                    @endif
                                 @endif
                                 @if($pendingHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
                                     <p class="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
@@ -483,7 +480,7 @@
                                                 @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
                                                 class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                             >
-                                                @if(!empty($atp->submits_via_po))
+                                                @if(!empty($atp->submits_via_po) && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index'))
                                                     <a
                                                         href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
@@ -498,7 +495,7 @@
                                                         data-pur-confirm="Submit this Authority to Purchase for review?"
                                                         data-pur-confirm-title="Submit ATP"
                                                         data-pur-confirm-ok="Submit"
-                                                        data-pur-confirm-reviewer-role="Accounting"
+                                                        data-pur-confirm-reviewer-role="School Administrator"
                                                     >
                                                         @csrf
                                                         <button
@@ -506,7 +503,7 @@
                                                             class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                         >
                                                             <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Submit to Accounting
+                                                            Submit to School Administrator
                                                         </button>
                                                     </form>
                                                 @endif
@@ -548,8 +545,23 @@
                                         ])
                                     @endif
 
-                                    @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
-                                        @if(!empty($atp->funds_via_po) && !$atp->has_rfc)
+                                    @if(!$archiveView && !empty($atp->can_release_to_purchaser))
+                                        <form method="POST" action="{{ route('supply-officer.atp.release-purchaser', $atp->authority_purchase_id) }}" class="inline">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                data-pur-confirm="Release {{ $atp->authority_purchase_form_number ?: 'ATP #'.$atp->authority_purchase_id }} (with approved Canvas + RIS) back to the Purchaser for Request for Check?"
+                                                data-pur-confirm-title="Release to Purchaser"
+                                                data-pur-confirm-ok="Release"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700"
+                                                title="Release to Purchaser"
+                                                aria-label="Release to Purchaser"
+                                            >
+                                                <i data-lucide="send" class="h-4 w-4"></i>
+                                            </button>
+                                        </form>
+                                    @elseif(!$archiveView && $atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser) && empty($atp->has_rfc) && !\App\Support\ProcurementPortal::isSupplyOfficerContext())
+                                        @if(false && !empty($atp->funds_via_po) && !$atp->has_rfc && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index'))
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['view_po' => $atp->purchase_order_id]) }}"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
@@ -565,22 +577,44 @@
                                                         method="POST"
                                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
                                                         class="inline"
-                                                        data-pur-confirm="{{ $rfcPathConfirm($atp) }}"
-                                                        data-pur-confirm-title="Use Request for Check?"
-                                                        data-pur-confirm-ok="Use Request for Check"
+                                                        data-pur-confirm="{{ $directPaymentConfirm($atp) }}"
+                                                        data-pur-confirm-title="Use Direct Payment?"
+                                                        data-pur-confirm-ok="Use Direct Payment"
                                                     >
                                                         @csrf
-                                                        <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
+                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
                                                         <button
                                                             type="submit"
                                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-800 transition hover:bg-blue-100"
-                                                            aria-label="Request for Check"
-                                                            data-pur-tip-title="Request for Check"
-                                                            data-pur-tip="Accounting prepares a check paid to the supplier. Opens the RFC form for this ATP."
-                                                            data-pur-tip-note="No liquidation needed afterwards."
+                                                            aria-label="Direct Payment"
+                                                            data-pur-tip-title="Direct Payment"
+                                                            data-pur-tip="Accounting pays the supplier directly. Opens the funding request form for this ATP."
+                                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
                                                             data-pur-tip-accent="#60a5fa"
                                                         >
-                                                            <i data-lucide="file-check-2" class="h-4 w-4"></i>
+                                                            <i data-lucide="badge-check" class="h-4 w-4"></i>
+                                                        </button>
+                                                    </form>
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                                        class="inline"
+                                                        data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
+                                                        data-pur-confirm-title="Use Cash Installment?"
+                                                        data-pur-confirm-ok="Use Cash Installment"
+                                                    >
+                                                        @csrf
+                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
+                                                        <button
+                                                            type="submit"
+                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
+                                                            aria-label="Cash Installment"
+                                                            data-pur-tip-title="Cash Installment"
+                                                            data-pur-tip="Accounting pays the supplier in installments. Opens the funding request form for this ATP."
+                                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
+                                                            data-pur-tip-accent="#a78bfa"
+                                                        >
+                                                            <i data-lucide="calendar-clock" class="h-4 w-4"></i>
                                                         </button>
                                                     </form>
                                                     <form
@@ -592,14 +626,14 @@
                                                         data-pur-confirm-ok="Use Cash Advance"
                                                     >
                                                         @csrf
-                                                        <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
+                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_ADVANCE }}">
                                                         <button
                                                             type="submit"
                                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
                                                             aria-label="Cash Advance"
                                                             data-pur-tip-title="Cash Advance"
                                                             data-pur-tip="Accounting releases cash to you to buy the items. Opens the cash advance form for this ATP."
-                                                            data-pur-tip-note="You must liquidate with receipts after receiving."
+                                                            data-pur-tip-note="Ends at Liquidation Report — liquidate with receipts."
                                                             data-pur-tip-accent="#38bdf8"
                                                         >
                                                             <i data-lucide="banknote" class="h-4 w-4"></i>
@@ -607,11 +641,16 @@
                                                     </form>
                                                 </div>
                                             @else
+                                                @php
+                                                    $pathLabel = \App\Support\ProcurementPaymentPath::label($atp->authority_purchase_payment_path);
+                                                    $pathKey = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path)
+                                                        ?? $atp->authority_purchase_payment_path;
+                                                @endphp
                                                 <a
-                                                    href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                                    href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $pathKey, 'fund' => $pathKey]) }}"
                                                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                    title="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
-                                                    aria-label="Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}"
+                                                    title="Create {{ $pathLabel }}"
+                                                    aria-label="Create {{ $pathLabel }}"
                                                 >
                                                     <i data-lucide="file-plus-2" class="h-4 w-4"></i>
                                                 </a>
@@ -623,6 +662,21 @@
                                         @endif
                                     @endif
 
+                                    @php
+                                        // Hide archive while Supply must release, or Purchaser must create funding.
+                                        $atpNeedsHandoff = ! empty($atp->can_release_to_purchaser)
+                                            || (
+                                                $atp->authority_purchase_status === 'Approved'
+                                                && ! empty($atp->released_to_purchaser)
+                                                && empty($atp->has_rfc)
+                                            );
+                                        $canArchiveAtp = ! $atp->authority_purchase_is_archived
+                                            && ! $atpNeedsHandoff
+                                            && (
+                                                $atp->authority_purchase_status === 'Rejected'
+                                                || ($atp->authority_purchase_status === 'Approved' && ! empty($atp->has_rfc))
+                                            );
+                                    @endphp
                                     @if($archiveView)
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}">
                                             @csrf
@@ -635,7 +689,7 @@
                                                 <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
                                         </form>
-                                    @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
+                                    @elseif($canArchiveAtp)
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"
@@ -660,7 +714,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
                                     <i data-lucide="file-check-2" class="h-5 w-5"></i>
                                 </div>
@@ -706,7 +760,7 @@
             <div
                 @click.stop
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -725,16 +779,31 @@
                     </div>
                 </div>
 
+                @if(empty($risOptions))
+                    <div class="space-y-2 p-6 text-sm text-gray-600">
+                        @if(!empty($selectedRisId))
+                            <p>
+                                This Canvas + RIS already has an Authority to Purchase (or is no longer available for a new ATP).
+                                Open it from the ATP list, or go back to <strong>Incoming RIS</strong> for RIS that still need an ATP.
+                            </p>
+                        @else
+                            <p>
+                                No approved Canvas + RIS is waiting for ATP.
+                                Use <strong>Incoming RIS</strong> after the Purchaser sends an approved request, or use <strong>Print Empty ATP</strong> for a blank paper form.
+                            </p>
+                        @endif
+                    </div>
+                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                            Close
+                        </button>
+                    </div>
+                @else
                 <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.store') }}" x-ref="createForm">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
 
                     <div class="bg-slate-100 p-3 md:p-5">
-                        @if(empty($risOptions))
-                            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                No approved RIS is currently available. You can still fill out and save this ATP as a draft, then link an approved RIS later before submitting.
-                            </div>
-                        @else
                             @php
                                 $oldRisId = old('authority_purchase_ris_id');
                                 $oldSupplierId = old('authority_purchase_supplier_id');
@@ -758,11 +827,12 @@
                             <div class="mb-4">
                                 <label class="text-xs font-medium text-gray-500">
                                     Approved RIS <span class="text-red-500">*</span>
-                                    <span class="font-normal text-gray-400">(required to submit · optional for draft)</span>
+                                    <span class="font-normal text-gray-400">(required to create)</span>
                                 </label>
                                 <select
                                     name="authority_purchase_ris_id"
                                     x-ref="risSelect"
+                                    required
                                     x-on:change="applyRisPrefill($event.target.selectedOptions[0]?.dataset.key || '')"
                                     class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
                                 >
@@ -780,7 +850,6 @@
                                     This RIS buys from more than one supplier, so each supplier gets its own ATP. This ATP covers only the selected supplier's lines. Create another ATP for each remaining supplier.
                                 </p>
                             </div>
-                        @endif
 
                         @include('partials.authority-to-purchase-paper', [
                             'editable' => true,
@@ -804,6 +873,7 @@
                         </button>
                     </div>
                 </form>
+                @endif
             </div>
         </div>
     </div>
@@ -841,7 +911,7 @@
                 <div
                     @click.stop
                     class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                    :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                 >
                     {{-- Header --}}
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
@@ -981,7 +1051,7 @@
                                             data-pur-confirm="Submit this Authority to Purchase for review?"
                                             data-pur-confirm-title="Submit ATP"
                                             data-pur-confirm-ok="Submit"
-                                            data-pur-confirm-reviewer-role="Accounting"
+                                            data-pur-confirm-reviewer-role="School Administrator"
                             >
                                 @csrf
                                 <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
@@ -990,33 +1060,59 @@
                             </form>
                         @endif
 
-                        @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
-                            @if(!empty($atp->funds_via_po) && !$atp->has_rfc)
-                                <a
-                                    href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['view_po' => $atp->purchase_order_id]) }}"
-                                    class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                        @if(!$archiveView && !empty($atp->can_release_to_purchaser))
+                            <form method="POST" action="{{ route('supply-officer.atp.release-purchaser', $atp->authority_purchase_id) }}">
+                                @csrf
+                                <button
+                                    type="submit"
+                                    data-pur-confirm="Release {{ $atp->authority_purchase_form_number ?: 'ATP #'.$atp->authority_purchase_id }} (with approved Canvas + RIS) back to the Purchaser for Request for Check?"
+                                    data-pur-confirm-title="Release to Purchaser"
+                                    data-pur-confirm-ok="Release"
+                                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                                 >
-                                    Fund via {{ $atp->purchase_order_label ?? 'Purchase Order' }}
-                                </a>
+                                    Release to Purchaser
+                                </button>
+                            </form>
+                        @elseif(!$archiveView && $atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser) && !$atp->has_rfc && !\App\Support\ProcurementPortal::isSupplyOfficerContext())
+                            @if(false)
+                                <a href="#" class="hidden">PO</a>
                             @elseif(!$atp->has_rfc)
                                 @if(empty($atp->authority_purchase_payment_path))
                                     <form
                                         method="POST"
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
-                                        data-pur-confirm="{{ $rfcPathConfirm($atp) }}"
-                                        data-pur-confirm-title="Use Request for Check?"
-                                        data-pur-confirm-ok="Use Request for Check"
+                                        data-pur-confirm="{{ $directPaymentConfirm($atp) }}"
+                                        data-pur-confirm-title="Use Direct Payment?"
+                                        data-pur-confirm-ok="Use Direct Payment"
                                     >
                                         @csrf
-                                        <input type="hidden" name="authority_purchase_payment_path" value="request_for_check">
+                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
                                         <button
                                             type="submit"
                                             class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 transition hover:bg-blue-100"
-                                            data-pur-tip-title="Request for Check"
-                                            data-pur-tip="Accounting prepares a check paid to the supplier. Opens the RFC form for this ATP."
-                                            data-pur-tip-note="No liquidation needed afterwards."
+                                            data-pur-tip-title="Direct Payment"
+                                            data-pur-tip="Accounting pays the supplier directly. Opens the funding request form for this ATP."
+                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
                                             data-pur-tip-accent="#60a5fa"
-                                        >Request for Check</button>
+                                        >Direct Payment</button>
+                                    </form>
+                                    <form
+                                        method="POST"
+                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                        data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
+                                        data-pur-confirm-title="Use Cash Installment?"
+                                        data-pur-confirm-ok="Use Cash Installment"
+                                    >
+                                        @csrf
+                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-100"
+                                            data-pur-tip-title="Cash Installment"
+                                            data-pur-tip="Accounting pays the supplier in installments. Opens the funding request form for this ATP."
+                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
+                                            data-pur-tip-accent="#a78bfa"
+                                        >Cash Installment</button>
                                     </form>
                                     <form
                                         method="POST"
@@ -1026,22 +1122,27 @@
                                         data-pur-confirm-ok="Use Cash Advance"
                                     >
                                         @csrf
-                                        <input type="hidden" name="authority_purchase_payment_path" value="cash_advance">
+                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_ADVANCE }}">
                                         <button
                                             type="submit"
                                             class="inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-100"
                                             data-pur-tip-title="Cash Advance"
                                             data-pur-tip="Accounting releases cash to you to buy the items. Opens the cash advance form for this ATP."
-                                            data-pur-tip-note="You must liquidate with receipts after receiving."
+                                            data-pur-tip-note="Ends at Liquidation Report — liquidate with receipts."
                                             data-pur-tip-accent="#38bdf8"
                                         >Cash Advance</button>
                                     </form>
                                 @else
+                                    @php
+                                        $pathLabel = \App\Support\ProcurementPaymentPath::label($atp->authority_purchase_payment_path);
+                                        $pathKey = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path)
+                                            ?? $atp->authority_purchase_payment_path;
+                                    @endphp
                                     <a
-                                        href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $atp->authority_purchase_payment_path]) }}"
+                                        href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $pathKey, 'fund' => $pathKey]) }}"
                                         class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                     >
-                                        Create {{ $atp->authority_purchase_payment_path === 'cash_advance' ? 'Cash Advance' : 'RFC' }}
+                                        Create {{ $pathLabel }}
                                     </a>
                                 @endif
                             @else
@@ -1078,7 +1179,7 @@
         >
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
 
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
@@ -1086,6 +1187,7 @@
                         <h3 id="atp-empty-title" class="text-lg font-semibold text-gray-900">
                             Print Empty ATP
                         </h3>
+                        <p class="mt-0.5 text-xs text-gray-500">Blank paper only. System ATPs must link an approved RIS.</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')
@@ -1192,7 +1294,7 @@
                     <div
                         @click.stop
                         class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-full max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                        :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <div>
@@ -1233,7 +1335,7 @@
 
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">
-                                    Save your changes here (including signature), then use <strong>⋮ → Submit to Accounting</strong> in the list.
+                                    Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
                                 </p>
                                 <button
                                     type="button"

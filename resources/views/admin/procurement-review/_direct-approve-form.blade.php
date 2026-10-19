@@ -200,7 +200,7 @@
                 </svg>
                 <p class="text-xs leading-relaxed {{ $isForward ? 'text-sky-950/80' : ($isCosign ? 'text-slate-700' : 'text-emerald-950/80') }}">
                     @if ($isForward)
-                        All RIS details are locked. You may add optional <strong>supporting details</strong> and an attachment for the President. Confirming forwards this RIS without an Issued by signature. After the President approves, sign Issued by here on Sign RIS.
+                        All RIS details are locked. You may add optional <strong>supporting details</strong> and an attachment for the President. Confirming Passes to President without an Issued by signature. After the President approves, sign Issued by here on Ready to Sign.
                     @elseif ($isCosign)
                         The President has already signed <strong>Approved by</strong>. <strong>Sign Issued by</strong> (required) and set its <strong>Date</strong>. Confirming returns this RIS to the Purchaser.
                     @else
@@ -268,7 +268,7 @@
                             School Administrator supporting details
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Optional note and attachment for the President explaining why this RIS should be approved. Separate from Purchaser supporting documents below.
+                            Optional note and attachment for the President explaining why this RIS should be approved. Separate from the Canvas below.
                         </p>
                     </div>
                 </div>
@@ -640,13 +640,13 @@
                 </label>
             </div>
 
-            {{-- Supporting documents already attached to this RIS --}}
+            {{-- Canvas already attached to this RIS --}}
             @php $risSupportingDocs = $supportingDocuments ?? collect(); @endphp
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            Supporting documents
+                            Canvas
                         </h4>
                     </div>
                     <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
@@ -671,7 +671,7 @@
                                         </svg>
                                     </span>
                                     <span class="min-w-0 flex-1">
-                                        <span class="block truncate text-xs font-medium text-slate-800">
+                                        <span class="block truncate text-[15px] font-semibold text-[#0025cc]">
                                             {{ $file->ris_attachment_original_name }}
                                         </span>
                                         @if (!empty($file->ris_attachment_size))
@@ -687,7 +687,7 @@
                     </ul>
                 @else
                     <div class="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 text-xs text-slate-500">
-                        No supporting documents were attached to this RIS.
+                        No Canvas was attached to this RIS.
                     </div>
                 @endif
             </div>

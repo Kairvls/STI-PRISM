@@ -4,13 +4,8 @@
 
 @php
     $reportPageTitle = $reportPageTitle ?? 'Log Walk-in Report';
-    $reportBackUrl = $reportBackUrl ?? '/maintenance/reports';
-    $reportBackLabel = $reportBackLabel ?? 'Back to Reports';
     $reportStoreUrl = $reportStoreUrl ?? route('maintenance.reports.log.store');
-    $reportCancelUrl = $reportCancelUrl ?? '/maintenance/reports';
     $reportSubmitLabel = $reportSubmitLabel ?? 'Log report';
-    $reportIntro = $reportIntro ?? 'Enter a concern on behalf of a faculty or staff reporter who walked in or cannot use the online form. The reporter must already be registered and active.';
-    $reportBanner = $reportBanner ?? 'this form records you as the staff member who logged the report, while keeping the walk-in person as the reporter.';
     $reportLogTitle = $reportLogTitle ?? 'Walk-in report log';
     $reportLogIntro = $reportLogIntro ?? 'Reports entered through this page, with who logged them and who reported the concern.';
     $reportDetailsBase = $reportDetailsBase ?? '/maintenance/reports/details/';
@@ -481,7 +476,11 @@
 @endpush
 
 @section('content')
-    <div class="mx-auto max-w-3xl space-y-6">
+    @php
+        $openWalkInModal = $errors->any() || filled(old('report_reporter_employee_id')) || request()->boolean('open');
+    @endphp
+
+    <div class="space-y-6">
         @if (session('success'))
             <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                 {{ session('success') }}
@@ -493,29 +492,168 @@
             </div>
         @endif
 
-        <div>
-            <a href="{{ $reportBackUrl }}" class="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-slate-800">
-                <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                {{ $reportBackLabel }}
-            </a>
-            <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{{ $reportPageTitle }}</h1>
-            <p class="mt-1 text-sm text-slate-500">
-                {{ $reportIntro }}
-            </p>
+        <div class="flex justify-end">
+            <button
+                type="button"
+                id="openWalkInReportModalBtn"
+                onclick="openWalkInReportModal()"
+                class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#001fa8]"
+            >
+                <i data-lucide="clipboard-pen" class="h-4 w-4"></i>
+                {{ $reportPageTitle }}
+            </button>
         </div>
 
-        <div class="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
-            <strong>Audit trail:</strong> {{ $reportBanner }}
-        </div>
+        <section class="pb-2">
+            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-bold tracking-tight text-slate-900">{{ $reportLogTitle }}</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        {{ $reportLogIntro }}
+                    </p>
+                </div>
+                @if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {{ $walkInReports->total() }} record{{ $walkInReports->total() === 1 ? '' : 's' }}
+                    </p>
+                @endif
+            </div>
 
-        <form
-            method="POST"
-            action="{{ $reportStoreUrl }}"
-            enctype="multipart/form-data"
-            id="walkInReportForm"
-            class="space-y-5"
-        >
-            @csrf
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                @if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator && $walkInReports->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Report No</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Logged</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Reporter</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Equipment</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Logged by</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach ($walkInReports as $report)
+                                    @php
+                                        $statusClasses = match ($report->report_current_status) {
+                                            'Pending' => 'bg-orange-50 text-orange-700',
+                                            'Processing' => 'bg-sky-50 text-sky-700',
+                                            'Resolved' => 'bg-emerald-50 text-emerald-700',
+                                            'Rejected' => 'bg-rose-50 text-rose-700',
+                                            'For Replacement' => 'bg-amber-50 text-amber-700',
+                                            default => 'bg-slate-100 text-slate-600',
+                                        };
+                                        $severityLevel = \App\Support\ReportSeverity::forReport($report);
+                                        $urgencyClasses = \App\Support\ReportSeverity::meta($severityLevel)['pill'];
+                                        $equipmentLabel = $report->equipment_display
+                                            ?? $report->equipment_name
+                                            ?? $report->report_unlisted_equipment_name
+                                            ?? 'Unlisted equipment';
+                                        $locationLabel = trim(collect([
+                                            $report->floor_level ?? null,
+                                            $report->room_name ?? null,
+                                        ])->filter()->implode(' · ')) ?: '—';
+                                    @endphp
+                                    <tr class="hover:bg-slate-50/80">
+                                        <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
+                                        </td>
+                                        <td class="whitespace-nowrap px-4 py-3 text-slate-600">
+                                            {{ $report->report_submitted_at ? \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y g:i A') : '—' }}
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="font-medium text-slate-800">{{ $report->reporter_full_name ?? 'Unknown' }}</p>
+                                            <p class="text-xs text-slate-500">{{ $report->report_reporter_employee_id ?? '—' }}</p>
+                                        </td>
+                                        <td class="px-4 py-3 text-slate-700">{{ $locationLabel }}</td>
+                                        <td class="max-w-[220px] truncate px-4 py-3 text-slate-700" title="{{ $equipmentLabel }}">
+                                            {{ $equipmentLabel }}
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $urgencyClasses }}" title="{{ $report->report_severity_reason ?? '' }}">
+                                                {{ $severityLevel }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusClasses }}">
+                                                {{ $report->report_current_status ?? '—' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-slate-700">
+                                            {{ $report->report_logged_by_name ?? '—' }}
+                                        </td>
+                                        <td class="whitespace-nowrap px-4 py-3 text-right">
+                                            <x-view-action-button
+                                                :href="url(rtrim($reportDetailsBase, '/').'/'.$report->report_id)"
+                                                label="View"
+                                            />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if ($walkInReports->hasPages())
+                        <div class="border-t border-slate-200 px-4 py-3">
+                            {{ $walkInReports->links() }}
+                        </div>
+                    @endif
+                @else
+                    <div class="px-6 py-12 text-center">
+                        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                            <i data-lucide="clipboard-list" class="h-5 w-5"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700">No walk-in reports logged yet</p>
+                        <p class="mt-1 text-sm text-slate-500">Submitted walk-in reports will appear here with the audit trail.</p>
+                        <button
+                            type="button"
+                            onclick="openWalkInReportModal()"
+                            class="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fa8]"
+                        >
+                            <i data-lucide="plus" class="h-4 w-4"></i>
+                            {{ $reportPageTitle }}
+                        </button>
+                    </div>
+                @endif
+            </div>
+        </section>
+    </div>
+
+    <div
+        id="walkInReportModal"
+        class="{{ $openWalkInModal ? '' : 'hidden ' }}fixed inset-0 z-[80] flex items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6"
+        style="background: rgba(11, 18, 32, 0.7);"
+        aria-hidden="{{ $openWalkInModal ? 'false' : 'true' }}"
+    >
+        <div class="walk-in-report-modal-wrap relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">{{ $reportPageTitle }}</h2>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeWalkInReportModal()"
+                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                <form
+                    method="POST"
+                    action="{{ $reportStoreUrl }}"
+                    enctype="multipart/form-data"
+                    id="walkInReportForm"
+                    class="space-y-5"
+                >
+                    @csrf
 
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Reporter</h2>
@@ -758,127 +896,63 @@
                 </div>
             </section>
 
-            <div class="flex flex-wrap items-center justify-end gap-3">
-                <a href="{{ $reportCancelUrl }}" class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                    type="button"
+                    onclick="closeWalkInReportModal()"
+                    class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
                     Cancel
-                </a>
+                </button>
                 <button type="submit" class="inline-flex h-11 items-center rounded-xl bg-[#0025cc] px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#001fa8]">
                     {{ $reportSubmitLabel }}
                 </button>
             </div>
-        </form>
+                </form>
+            </div>
+        </div>
     </div>
 
-        <section class="mt-10 pb-8">
-            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 class="text-lg font-bold tracking-tight text-slate-900">{{ $reportLogTitle }}</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        {{ $reportLogIntro }}
-                    </p>
-                </div>
-                @if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        {{ $walkInReports->total() }} record{{ $walkInReports->total() === 1 ? '' : 's' }}
-                    </p>
-                @endif
-            </div>
+    <script>
+        (function () {
+            const modal = document.getElementById('walkInReportModal');
 
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                @if ($walkInReports instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator && $walkInReports->count() > 0)
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-200 text-sm">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Report No</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Logged</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Reporter</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Equipment</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Logged by</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                @foreach ($walkInReports as $report)
-                                    @php
-                                        $statusClasses = match ($report->report_current_status) {
-                                            'Pending' => 'bg-orange-50 text-orange-700',
-                                            'Processing' => 'bg-sky-50 text-sky-700',
-                                            'Resolved' => 'bg-emerald-50 text-emerald-700',
-                                            'Rejected' => 'bg-rose-50 text-rose-700',
-                                            'For Replacement' => 'bg-amber-50 text-amber-700',
-                                            default => 'bg-slate-100 text-slate-600',
-                                        };
-                                        $severityLevel = \App\Support\ReportSeverity::forReport($report);
-                                        $urgencyClasses = \App\Support\ReportSeverity::meta($severityLevel)['pill'];
-                                        $equipmentLabel = $report->equipment_display
-                                            ?? $report->equipment_name
-                                            ?? $report->report_unlisted_equipment_name
-                                            ?? 'Unlisted equipment';
-                                        $locationLabel = trim(collect([
-                                            $report->floor_level ?? null,
-                                            $report->room_name ?? null,
-                                        ])->filter()->implode(' · ')) ?: '—';
-                                    @endphp
-                                    <tr class="hover:bg-slate-50/80">
-                                        <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
-                                            {{ \App\Support\ReportGrouping::ticketCode($report) }}
-                                        </td>
-                                        <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-                                            {{ $report->report_submitted_at ? \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y g:i A') : '—' }}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <p class="font-medium text-slate-800">{{ $report->reporter_full_name ?? 'Unknown' }}</p>
-                                            <p class="text-xs text-slate-500">{{ $report->report_reporter_employee_id ?? '—' }}</p>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $locationLabel }}</td>
-                                        <td class="max-w-[220px] truncate px-4 py-3 text-slate-700" title="{{ $equipmentLabel }}">
-                                            {{ $equipmentLabel }}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $urgencyClasses }}" title="{{ $report->report_severity_reason ?? '' }}">
-                                                {{ $severityLevel }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusClasses }}">
-                                                {{ $report->report_current_status ?? '—' }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-700">
-                                            {{ $report->report_logged_by_name ?? '—' }}
-                                        </td>
-                                        <td class="whitespace-nowrap px-4 py-3 text-right">
-                                            <x-view-action-button
-                                                :href="url(rtrim($reportDetailsBase, '/').'/'.$report->report_id)"
-                                                label="View"
-                                            />
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+            window.openWalkInReportModal = function () {
+                if (!modal) return;
+                modal.classList.remove('hidden');
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('overflow-hidden');
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            };
 
-                    @if ($walkInReports->hasPages())
-                        <div class="border-t border-slate-200 px-4 py-3">
-                            {{ $walkInReports->links() }}
-                        </div>
-                    @endif
-                @else
-                    <div class="px-6 py-12 text-center">
-                        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                            <i data-lucide="clipboard-list" class="h-5 w-5"></i>
-                        </div>
-                        <p class="text-sm font-semibold text-slate-700">No walk-in reports logged yet</p>
-                        <p class="mt-1 text-sm text-slate-500">Submitted walk-in reports will appear here with the audit trail.</p>
-                    </div>
-                @endif
-            </div>
-        </section>
+            window.closeWalkInReportModal = function () {
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('overflow-hidden');
+            };
+
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) window.closeWalkInReportModal();
+                });
+            }
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                    window.closeWalkInReportModal();
+                }
+            });
+
+            @if ($openWalkInModal)
+                document.addEventListener('DOMContentLoaded', function () {
+                    window.openWalkInReportModal();
+                });
+            @endif
+        })();
+    </script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {

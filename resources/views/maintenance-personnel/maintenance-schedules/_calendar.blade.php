@@ -18,6 +18,10 @@
         return $schedule->maintenance_schedule_status ?? "Active";
     };
 
+    $canMarkComplete = function ($schedule) {
+        return \App\Support\EquipmentSchedules::canMarkComplete($schedule);
+    };
+
     // =====================================================
     // BUILD CALENDAR DATA FROM ALL SCHEDULES
     // DO NOT USE PAGINATED TABLE DATA HERE
@@ -99,6 +103,9 @@
 
                 "status" =>
                     $effectiveStatus($schedule),
+
+                "can_complete" =>
+                    $canMarkComplete($schedule),
 
                 "description" =>
                     $schedule->maintenance_schedule_description
@@ -182,6 +189,7 @@
         sidebarOverdueLimit: 2,
         sidebarUpcomingLimit: 2,
         sidebarLimitsObserver: null,
+        sidebarListModal: null,
         toggleWide() {
             this.wide = !this.wide;
             localStorage.setItem('prism-schedule-wide', this.wide ? '1' : '0');
@@ -246,6 +254,27 @@
         },
         visibleUpcoming() {
             return this.upcomingAll.slice(0, this.sidebarUpcomingLimit);
+        },
+        openSidebarList(type) {
+            this.sidebarListModal = type === 'upcoming' ? 'upcoming' : 'overdue';
+            this.$nextTick(() => {
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
+        },
+        closeSidebarList() {
+            this.sidebarListModal = null;
+        },
+        sidebarListItems() {
+            return this.sidebarListModal === 'upcoming'
+                ? this.upcomingAll
+                : this.overdueAll;
+        },
+        sidebarListTitle() {
+            return this.sidebarListModal === 'upcoming'
+                ? 'Upcoming schedules'
+                : 'Overdue schedules';
         },
         updateSidebarLimits() {
             const section = document.getElementById('scheduleListSection');
@@ -1056,7 +1085,8 @@
                                         </button>
 
 
-                                        {{-- COMPLETE --}}
+                                        {{-- COMPLETE (only within 7 days of next date / overdue) --}}
+                                        @if ($canMarkComplete($schedule))
                                         <button
                                             type="button"
                                             @click="
@@ -1085,6 +1115,7 @@
 
                                             Mark complete
                                         </button>
+                                        @endif
 
 
                                         {{-- RESCHEDULE --}}
@@ -1450,11 +1481,13 @@
                     </div>
                 </template>
             </div>
-            <p
-                class="mt-3 text-[11px] font-medium text-rose-500"
+            <button
+                type="button"
+                class="mt-3 text-[11px] font-medium text-rose-500 transition hover:text-rose-700 hover:underline"
                 x-show="overdueAll.length > sidebarOverdueLimit"
                 x-text="`+${overdueAll.length - sidebarOverdueLimit} more overdue`"
-            ></p>
+                @click="openSidebarList('overdue')"
+            ></button>
         </div>
 
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1490,15 +1523,97 @@
                     </div>
                 </template>
             </div>
-            <p
-                class="mt-3 text-[11px] font-medium text-sky-600"
+            <button
+                type="button"
+                class="mt-3 text-[11px] font-medium text-sky-600 transition hover:text-sky-800 hover:underline"
                 x-show="upcomingAll.length > sidebarUpcomingLimit"
                 x-text="`+${upcomingAll.length - sidebarUpcomingLimit} more upcoming`"
-            ></p>
+                @click="openSidebarList('upcoming')"
+            ></button>
         </div>
         </div>
     </aside>
     </div>
+
+    {{-- Full overdue / upcoming list modal (teleport so fixed covers full viewport) --}}
+    <template x-teleport="body">
+        <div
+            x-show="sidebarListModal"
+            x-cloak
+            class="fixed inset-0 z-[1200] flex items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
+            @keydown.escape.window="if (sidebarListModal) closeSidebarList()"
+            @click.self="closeSidebarList()"
+        >
+            <div
+                class="my-auto flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                @click.stop
+            >
+                <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-slate-900" x-text="sidebarListTitle()"></h2>
+                        <p class="mt-0.5 text-xs text-slate-500">
+                            <span x-text="sidebarListItems().length"></span>
+                            <span x-text="sidebarListItems().length === 1 ? ' schedule' : ' schedules'"></span>
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeSidebarList()"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                    <template x-if="sidebarListItems().length === 0">
+                        <p class="text-sm text-slate-400">No schedules in this list.</p>
+                    </template>
+                    <div class="space-y-0">
+                        <template x-for="(item, index) in sidebarListItems()" :key="`sidebar-modal-${sidebarListModal}-${item.id}`">
+                            <button
+                                type="button"
+                                class="relative flex w-full gap-3 pb-4 text-left last:pb-0"
+                                @click="closeSidebarList(); viewScheduleById(item.id)"
+                            >
+                                <span
+                                    class="absolute left-[5px] top-3 h-full w-px bg-slate-200"
+                                    x-show="index < sidebarListItems().length - 1"
+                                ></span>
+                                <span
+                                    class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1"
+                                    :class="sidebarListModal === 'overdue'
+                                        ? 'bg-rose-400 ring-rose-100'
+                                        : 'bg-sky-400 ring-sky-100'"
+                                ></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="text-[11px] font-medium text-slate-400" x-text="formatSidebarDate(item.date)"></p>
+                                        <span
+                                            class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                            :class="sidebarListModal === 'overdue'
+                                                ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-100'
+                                                : 'bg-sky-50 text-sky-700 ring-1 ring-sky-100'"
+                                            x-text="item.status || (sidebarListModal === 'overdue' ? 'Overdue' : 'Upcoming')"
+                                        ></span>
+                                    </div>
+                                    <p class="mt-0.5 truncate text-sm font-medium text-slate-800" x-text="item.title"></p>
+                                    <p class="truncate text-xs text-slate-500">
+                                        <span x-text="item.equipment"></span>
+                                        <template x-if="item.equipment_identifier">
+                                            <span x-text="` · ${item.equipment_identifier}`"></span>
+                                        </template>
+                                    </p>
+                                    <p class="truncate text-[11px] text-slate-400" x-text="item.room || 'No room assigned'"></p>
+                                </div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
 
     {{-- ========================================================= --}}
     {{-- MINIMALIST MAINTENANCE CALENDAR --}}
@@ -1766,6 +1881,7 @@
 
         <button
             type="button"
+            id="popoverCompleteBtn"
             onclick="completeSelectedSchedule()"
             class="rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[#001fa8] focus:outline-none focus:ring-4 focus:ring-[#0025cc]/20"
         >
@@ -2908,6 +3024,10 @@
         const status = document.getElementById("popoverStatus");
         status.textContent = schedule.status;
         status.className = `mb-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${getCalendarPopoverStatusClass(schedule.status)}`;
+        const completeBtn = document.getElementById("popoverCompleteBtn");
+        if (completeBtn) {
+            completeBtn.classList.toggle("hidden", schedule.can_complete === false);
+        }
         popover.classList.remove("hidden");
         const rect = eventElement.getBoundingClientRect(),
             pop = popover.getBoundingClientRect();
@@ -3436,7 +3556,7 @@
 
         const primaryAction = document.getElementById("scheduleDrawer_primary_action");
         if (primaryAction) {
-            if (String(status).toLowerCase() === "completed") {
+            if (schedule.can_complete === false) {
                 primaryAction.innerHTML =
                     '<i data-lucide="x" class="h-4 w-4"></i> Close';
                 primaryAction.onclick = closeViewModal;
@@ -3601,6 +3721,10 @@
     }
     function completeSelectedSchedule() {
         if (!calendarSelectedSchedule) return;
+        if (calendarSelectedSchedule.can_complete === false) {
+            closeEventPopover();
+            return;
+        }
         openCompleteModal(
             calendarSelectedSchedule.id,
             calendarSelectedSchedule.equipment,

@@ -85,7 +85,7 @@
                 <button
                     type="button"
                     onclick="openAcceptRisModal('{{ $ris->ris_id }}', @js($acceptRef), @js($acceptDetail))"
-                    title="Accept and send to Sign RIS"
+                    title="Accept and continue to Ready to Sign"
                     aria-label="Accept procurement request"
                     class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-sky-600 px-2.5 text-xs font-semibold text-white transition hover:bg-sky-700"
                 >

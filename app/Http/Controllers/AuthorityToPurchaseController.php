@@ -23,9 +23,17 @@ use App\Support\WorkflowNotifier;
 use App\Services\AtpFormExporter;
 use App\Services\DocumentWorkflowService;
 use App\Support\ProcurementPortal;
+use App\Support\SupplyHandoff;
 
 class AuthorityToPurchaseController extends Controller
 {
+    private function assertSupplyOfficerMutatesAtp(): void
+    {
+        if (! ProcurementPortal::isSupplyOfficerContext() || ! ProcurementPortal::userCanAccessAtpWorkflow()) {
+            abort(403, 'Only the School Supply / Material Officer may create or submit Authority to Purchase records.');
+        }
+    }
+
     public function index(Request $request)
     {
         $archiveView = $request->query('view') === 'archive';
@@ -105,6 +113,9 @@ class AuthorityToPurchaseController extends Controller
                     ->orWhere('online_suppliers_table.shop_name', 'LIKE', $search)
                     ->orWhere('equipment_table.equipment_name', 'LIKE', $search)
                     ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', $search);
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
+                    $q->orWhere('authority_to_purchase_table.authority_purchase_request_no', 'LIKE', $search);
+                }
             });
         }
 
@@ -132,7 +143,11 @@ class AuthorityToPurchaseController extends Controller
 
         DocumentUrgency::select($query, 'ATP');
         $spotlightQuery = clone $query;
-        $atps = $query
+        $atps = DocumentWorkflowService::orderSoftDraftFirst(
+            $query,
+            'authority_to_purchase_table.authority_purchase_status',
+            'authority_to_purchase_table.authority_purchase_submitted_at'
+        )
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
             ->paginate(10)
             ->withQueryString();
@@ -159,6 +174,33 @@ class AuthorityToPurchaseController extends Controller
         $risChoices = $this->buildRisOptions($this->eligibleRisQuery()->limit(200)->get());
         $risOptions = $risChoices['options'];
         $risPrefill = $risChoices['prefill'];
+
+        // Create ATP from Incoming RIS, but that RIS already has a live ATP → open it instead.
+        if (
+            filled($selectedRisId)
+            && empty($risOptions)
+            && ! $request->filled('view_atp')
+            && ! $request->filled('edit_atp')
+        ) {
+            $existingAtpId = $this->liveAtpIdForRis((int) $selectedRisId);
+            if ($existingAtpId) {
+                $isDraft = DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $existingAtpId)
+                    ->where('authority_purchase_status', 'Pending')
+                    ->whereNull('authority_purchase_submitted_at')
+                    ->exists();
+
+                return redirect()
+                    ->route(ProcurementPortal::routeName('atp.index'), array_filter([
+                        $isDraft ? 'edit_atp' : 'view_atp' => $existingAtpId,
+                    ]))
+                    ->with(
+                        'success',
+                        'This Canvas + RIS already has an Authority to Purchase. Opening that record instead of creating a duplicate.'
+                    );
+            }
+        }
+
         $suppliers = $this->activeSuppliersQuery()->get();
         $uomNames = Schema::hasTable('uom_table')
             ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
@@ -207,11 +249,11 @@ class AuthorityToPurchaseController extends Controller
                 $atp->purchase_order_status = null;
                 $atp->purchase_order_atp_count = 0;
             }
-            $atp->submits_via_po = $atp->purchase_order_id
-                && ! (
-                    $atp->purchase_order_status === PurchaseOrderBasket::STATUS_DRAFT
-                    && $atp->purchase_order_atp_count < PurchaseOrderBasket::MIN_ATPS
-                );
+            $atp->submits_via_po = false; // PO workflow retired
+            $atp->released_to_purchaser = SupplyHandoff::atpIsReleasedToPurchaser($atp);
+            $atp->can_release_to_purchaser = ($atp->authority_purchase_status ?? null) === 'Approved'
+                && ! $atp->released_to_purchaser
+                && ProcurementPortal::isSupplyOfficerContext();
         }
 
         $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
@@ -249,13 +291,16 @@ class AuthorityToPurchaseController extends Controller
 
     public function store(Request $request)
     {
+        $this->assertSupplyOfficerMutatesAtp();
+
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
 
         $validated = $request->validate([
             'save_action' => ['required', 'in:draft,submit'],
+            // Real ATP records always link an approved RIS — blank paper is Print Empty only.
             'authority_purchase_ris_id' => [
-                $isDraft ? 'nullable' : 'required',
+                'required',
                 'integer',
                 'exists:requisition_issue_slip_table,ris_id',
             ],
@@ -287,9 +332,9 @@ class AuthorityToPurchaseController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
-            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
+            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
-            'authority_purchase_ris_id.required' => 'Select an approved RIS before submitting.',
+            'authority_purchase_ris_id.required' => 'Select an approved RIS before creating an ATP.',
         ]);
 
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
@@ -299,31 +344,24 @@ class AuthorityToPurchaseController extends Controller
             ]);
         }
 
-        $risId = isset($validated['authority_purchase_ris_id'])
-            ? (int) $validated['authority_purchase_ris_id']
-            : null;
+        $risId = (int) $validated['authority_purchase_ris_id'];
 
-        $supplierSplit = false;
-        if ($risId) {
-            $ris = DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->first();
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
 
-            if (!$ris || !$this->risIsEligibleForAtp($ris)) {
-                return back()->withInput()->with('error', 'Only approved RIS records may be used to create ATP.');
-            }
-
-            $check = AtpRisSuppliers::checkSupplierForRis(
-                $risId,
-                isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null
-            );
-            if ($check['error']) {
-                return back()->withInput()->with('error', $check['error']);
-            }
-            $supplierSplit = $check['split'];
-        } elseif (!$isDraft) {
-            return back()->withInput()->with('error', 'Select an approved RIS before submitting.');
+        if (!$ris || !$this->risIsEligibleForAtp($ris)) {
+            return back()->withInput()->with('error', 'Only approved RIS records sent by the Purchaser may be used to create ATP.');
         }
+
+        $check = AtpRisSuppliers::checkSupplierForRis(
+            $risId,
+            isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null
+        );
+        if ($check['error']) {
+            return back()->withInput()->with('error', $check['error']);
+        }
+        $supplierSplit = $check['split'];
 
         $items = $this->filterItemRows($validated['items'] ?? []);
 
@@ -335,7 +373,7 @@ class AuthorityToPurchaseController extends Controller
             $now = now();
             $reviewerId = $isDraft
                 ? null
-                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+                : ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
             // System-assigned on submit only — ignore client-posted No. (multi-purchaser safe).
             $formNumber = $isDraft ? null : AtpFormNumber::next();
@@ -364,14 +402,19 @@ class AuthorityToPurchaseController extends Controller
             if (! $isDraft && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
                 $payload['authority_purchase_assigned_reviewer_id'] = $reviewerId;
             }
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no') && $risId) {
+                $requestNo = \App\Support\ProcurementRequestNumber::resolveFromRis((int) $risId);
+                if ($requestNo) {
+                    $payload['authority_purchase_request_no'] = $requestNo;
+                }
+            }
 
             $authorityPurchaseId = DB::table('authority_to_purchase_table')->insertGetId($payload);
 
             $this->replaceAtpItems($authorityPurchaseId, $items);
 
-            if ($isDraft) {
-                PurchaseOrderBasket::groupDraftAtp((int) $authorityPurchaseId, (int) auth()->id());
-            } else {
+            // Purchase Orders removed from active workflow — ATP submits directly to School Administrator.
+            if (! $isDraft) {
                 $this->notifyAccountingAtp($authorityPurchaseId, $formNumber, $reviewerId);
             }
 
@@ -413,7 +456,7 @@ class AuthorityToPurchaseController extends Controller
         $validated = $request->validate([
             'authority_purchase_payment_path' => [
                 'required',
-                Rule::in([ProcurementPaymentPath::REQUEST_FOR_CHECK, ProcurementPaymentPath::CASH_ADVANCE]),
+                Rule::in(ProcurementPaymentPath::choices()),
             ],
         ]);
 
@@ -428,9 +471,8 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Payment path can only be chosen after ATP is approved.');
         }
 
-        if ($poId = PurchaseOrderFunding::approvedPoIdForAtp((int) $id)) {
-            return redirect(ProcurementPortal::route('purchase-orders.index', ['view_po' => $poId]))
-                ->with('error', 'This ATP was approved through a Purchase Order. Choose the payment path for the whole Purchase Order.');
+        if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
+            return back()->with('error', 'Wait until the School Supply / Material Officer releases this ATP before choosing a payment path.');
         }
 
         if (
@@ -440,24 +482,29 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Payment path cannot be changed after a funding request has been created.');
         }
 
+        $path = $validated['authority_purchase_payment_path'];
+
         DB::table('authority_to_purchase_table')
             ->where('authority_purchase_id', $id)
             ->update([
-                'authority_purchase_payment_path' => $validated['authority_purchase_payment_path'],
+                'authority_purchase_payment_path' => $path,
                 'authority_purchase_payment_path_chosen_at' => now(),
                 'authority_purchase_updated_at' => now(),
             ]);
 
-        $label = ProcurementPaymentPath::label($validated['authority_purchase_payment_path']);
-        $route = $validated['authority_purchase_payment_path'] === ProcurementPaymentPath::CASH_ADVANCE
-            ? ProcurementPortal::route('rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::CASH_ADVANCE])
-            : ProcurementPortal::route('rfc.index', ['selected_atp' => $id, 'funding_type' => ProcurementPaymentPath::REQUEST_FOR_CHECK]);
+        $label = ProcurementPaymentPath::label($path);
 
-        return redirect($route)->with('success', "Payment path set to {$label}. You may now create the funding request.");
+        return redirect(ProcurementPortal::route('rfc.index', [
+            'selected_atp' => $id,
+            'funding_type' => $path,
+            'fund' => $path,
+        ]))->with('success', "Payment path set to {$label}. You may now create the funding request.");
     }
 
     public function update(Request $request, $id)
     {
+        $this->assertSupplyOfficerMutatesAtp();
+
         $atp = DB::table('authority_to_purchase_table')
             ->where('authority_purchase_id', $id)
             ->first();
@@ -505,7 +552,7 @@ class AuthorityToPurchaseController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
-            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMM-0001.',
+            'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
         ]);
 
@@ -537,16 +584,15 @@ class AuthorityToPurchaseController extends Controller
         }
 
         return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp, $receivedSig) {
-            if (!$isDraft && $this->linkedPoIdAfterReleasingSolo((int) $id)) {
-                return back()
-                    ->withInput()
-                    ->with('error', 'This ATP is on a Purchase Order. Submit it from Purchase Orders instead.');
+            // PO workflow retired — always allow direct ATP submit to School Administrator.
+            if (! $isDraft) {
+                $this->linkedPoIdAfterReleasingSolo((int) $id);
             }
 
             $now = now();
             $reviewerId = $isDraft
                 ? null
-                : ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+                : ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
             // System-assigned on submit only — drafts stay null; keep existing if already assigned.
             $formNumber = $isDraft
@@ -598,7 +644,9 @@ class AuthorityToPurchaseController extends Controller
 
     public function submit($id)
     {
-        $reviewerId = ReviewerAssignment::resolve(request(), WorkflowNotifier::ROLE_ACCOUNTING);
+        $this->assertSupplyOfficerMutatesAtp();
+
+        $reviewerId = ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
         return DB::transaction(function () use ($id, $reviewerId) {
             $atp = DB::table('authority_to_purchase_table')
@@ -616,7 +664,18 @@ class AuthorityToPurchaseController extends Controller
                 return back()->with('error', 'Only draft ATP records can be submitted.');
             }
 
-            $linkedPoId = $this->linkedPoIdAfterReleasingSolo((int) $id);
+            if (blank($atp->authority_purchase_ris_id)) {
+                return back()->with('error', 'Link an approved RIS before submitting this ATP.');
+            }
+
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', (int) $atp->authority_purchase_ris_id)
+                ->first();
+            if (!$ris || !$this->risIsEligibleForAtp($ris)) {
+                return back()->with('error', 'Only approved RIS records sent by the Purchaser may be used to submit ATP.');
+            }
+
+            $linkedPoId = null; // PO workflow retired — always submit ATP directly
             if ($linkedPoId) {
                 return redirect()
                     ->route(ProcurementPortal::routeName('purchase-orders.index'), ['edit_po' => $linkedPoId])
@@ -705,8 +764,50 @@ class AuthorityToPurchaseController extends Controller
         });
     }
 
+    public function releaseToPurchaser(Request $request, $id)
+    {
+        $this->assertSupplyOfficerMutatesAtp();
+
+        $validated = $request->validate([
+            'purchaser_user_id' => ['nullable', 'integer'],
+        ]);
+
+        $atp = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $id)
+            ->first();
+
+        if (! $atp) {
+            return back()->with('error', 'Authority to Purchase not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        $purchaserId = isset($validated['purchaser_user_id']) && (int) $validated['purchaser_user_id'] > 0
+            ? (int) $validated['purchaser_user_id']
+            : SupplyHandoff::defaultPurchaserForAtp($atp);
+
+        if (! $purchaserId) {
+            return back()->with('error', 'Could not determine which Purchaser should receive this ATP.');
+        }
+
+        try {
+            SupplyHandoff::releaseAtpToPurchaser($atp, $purchaserId, (int) auth()->id());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $form = $atp->authority_purchase_form_number ?: ('ATP #'.$id);
+
+        return back()->with(
+            'success',
+            $form.' (with approved Canvas + RIS) was released to the Purchaser for Request for Check.'
+        );
+    }
+
     public function archive($id)
     {
+        $this->assertSupplyOfficerMutatesAtp();
+
         $atp = DB::table('authority_to_purchase_table')
             ->where('authority_purchase_id', $id)
             ->first();
@@ -719,6 +820,19 @@ class AuthorityToPurchaseController extends Controller
 
         if (!in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true)) {
             return back()->with('error', 'Only approved or rejected ATP records can be archived.');
+        }
+
+        if ($atp->authority_purchase_status === 'Approved') {
+            if (
+                SupplyHandoff::atpReleaseColumnsReady()
+                && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)
+            ) {
+                return back()->with('error', 'Release this ATP to the Purchaser before archiving.');
+            }
+            $hasRfc = RfcAtpLinks::fundedAtpIds([(int) $id]) !== [];
+            if (! $hasRfc) {
+                return back()->with('error', 'Create the funding request (RFC) before archiving this ATP.');
+            }
         }
 
         DocumentWorkflowService::setArchived(
@@ -760,20 +874,20 @@ class AuthorityToPurchaseController extends Controller
     private function notifyAccountingAtp($id, ?string $formNumber, ?int $reviewerId = null): void
     {
         DocumentWorkflowService::notifySubmitted(
-            WorkflowNotifier::ROLE_ACCOUNTING,
+            \App\Support\ProcurementReviewPortal::ROLE,
             'ATP submitted for review',
-            ($formNumber ?: ('ATP #' . $id)) . ' is waiting for Accounting review.',
+            ($formNumber ?: ('ATP #' . $id)) . ' is waiting for School Administrator review.',
             'atp_submitted',
             'ATP',
             (int) $id,
-            '/accounting/authority-to-purchase/' . $id,
+            \App\Support\ProcurementReviewPortal::atp((int) $id),
             $reviewerId
         );
     }
 
     /**
      * PO id that still blocks a direct submit, or null. An ATP that is alone in
-     * a draft PO is released from it first so it can go straight to Accounting.
+     * a draft PO is released from it first so it can go straight to the School Administrator.
      */
     private function linkedPoIdAfterReleasingSolo(int $atpId): ?int
     {
@@ -1156,7 +1270,19 @@ class AuthorityToPurchaseController extends Controller
      */
     private function applyAtpEligibleRisScope($query)
     {
-        return RisWorkflow::applyEligibleForAtpScope($query);
+        RisWorkflow::applyEligibleForAtpScope($query);
+
+        // Supply Officer may only build ATP from RIS the Purchaser explicitly sent.
+        if (SupplyHandoff::risHandoffColumnsReady()) {
+            $query->whereNotNull('requisition_issue_slip_table.ris_sent_to_supply_at');
+            $officerId = (int) auth()->id();
+            $query->where(function ($q) use ($officerId) {
+                $q->whereNull('requisition_issue_slip_table.ris_supply_officer_user_id')
+                    ->orWhere('requisition_issue_slip_table.ris_supply_officer_user_id', $officerId);
+            });
+        }
+
+        return $query;
     }
 
     private function atpFormNumberRules(bool $required, $ignoreAtpId = null): array
@@ -1177,7 +1303,43 @@ class AuthorityToPurchaseController extends Controller
 
     private function risIsEligibleForAtp(object $ris): bool
     {
-        return RisWorkflow::isEligibleForAtp($ris);
+        if (! RisWorkflow::isEligibleForAtp($ris)) {
+            return false;
+        }
+
+        if (! SupplyHandoff::risHandoffColumnsReady()) {
+            return true;
+        }
+
+        if (! SupplyHandoff::risIsSentToSupply($ris)) {
+            return false;
+        }
+
+        $assigned = (int) ($ris->ris_supply_officer_user_id ?? 0);
+
+        return $assigned === 0 || $assigned === (int) auth()->id();
+    }
+
+    /**
+     * Latest live (non-rejected, non-archived) ATP linked to an RIS, if any.
+     */
+    private function liveAtpIdForRis(int $risId): ?int
+    {
+        if ($risId <= 0 || ! Schema::hasTable('authority_to_purchase_table')) {
+            return null;
+        }
+
+        $id = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $risId)
+            ->where(function ($q) {
+                $q->whereNull('authority_purchase_is_archived')
+                    ->orWhere('authority_purchase_is_archived', 0);
+            })
+            ->where('authority_purchase_status', '!=', 'Rejected')
+            ->orderByDesc('authority_purchase_id')
+            ->value('authority_purchase_id');
+
+        return $id ? (int) $id : null;
     }
 
     public function exportBlankExcel(AtpFormExporter $exporter)

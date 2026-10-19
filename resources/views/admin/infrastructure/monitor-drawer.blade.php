@@ -1167,12 +1167,12 @@
                                 <p class="text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Current status</p>
                                 <div class="mt-1.5 flex items-center gap-2">
                                     <span
-                                        class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#005EA6] ring-4 ring-blue-50"
+                                        class="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500 ring-4 ring-blue-50"
                                         :class="currentRoom?.monitoring?.room_information?.status === 'Critical'
-                                            ? 'bg-slate-500 ring-slate-100'
-                                            : currentRoom?.monitoring?.room_information?.status === 'Maintenance Needed'
-                                                ? 'bg-blue-400 ring-blue-50'
-                                                : 'bg-[#005EA6] ring-blue-50'"
+                                            ? 'bg-red-500 ring-red-50'
+                                            : currentRoom?.monitoring?.room_information?.status === 'Under Maintenance'
+                                                ? 'bg-amber-400 ring-amber-50'
+                                                : 'bg-blue-500 ring-blue-50'"
                                     ></span>
                                     <p
                                         class="truncate text-lg font-black text-slate-900"
@@ -2121,7 +2121,7 @@
                                             </option>
 
                                             <option>
-                                                Maintenance Needed
+                                                Under Maintenance
                                             </option>
 
                                             <option>

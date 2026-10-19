@@ -495,7 +495,7 @@
                                                     class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                 >
                                                     <option>Normal</option>
-                                                    <option>Maintenance Needed</option>
+                                                    <option>Under Maintenance</option>
                                                     <option>Critical</option>
                                                 </select>
                                             </label>
@@ -624,7 +624,7 @@
                                                     class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                 >
                                                     <option>Normal</option>
-                                                    <option>Maintenance Needed</option>
+                                                    <option>Under Maintenance</option>
                                                     <option>Critical</option>
                                                 </select>
                                             </label>

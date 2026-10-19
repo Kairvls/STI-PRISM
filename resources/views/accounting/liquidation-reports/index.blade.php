@@ -47,45 +47,11 @@
         'revision' => 'Revision',
         'approved' => 'Approved',
     ];
-    $searchQuery = request('search') ? '&search='.urlencode(request('search')) : '';
     // Overdue is a subset of Needs review, so no tab total matches it.
     $activeFilter = ($attentionFocus['key'] ?? null) === 'overdue' ? null : $filter;
-    $statCards = [
-        [
-            'label' => 'Needs review',
-            'hint' => 'Pending Accounting review',
-            'value' => number_format($counts['incoming'] ?? 0),
-            'href' => '/accounting/liquidation-reports?status=incoming'.$searchQuery,
-            'filterKey' => 'incoming',
-            'active' => $activeFilter === 'incoming',
-        ],
-        [
-            'label' => 'Revision',
-            'hint' => 'Sent back to Purchaser',
-            'value' => number_format($counts['revision'] ?? 0),
-            'href' => '/accounting/liquidation-reports?status=revision'.$searchQuery,
-            'filterKey' => 'revision',
-            'active' => $activeFilter === 'revision',
-        ],
-        [
-            'label' => 'Approved',
-            'hint' => 'Completed liquidations',
-            'value' => number_format($counts['approved'] ?? 0),
-            'href' => '/accounting/liquidation-reports?status=approved'.$searchQuery,
-            'filterKey' => 'approved',
-            'active' => $activeFilter === 'approved',
-        ],
-    ];
-    $filterLabels = [
-        'all' => 'All liquidation report records',
-        'incoming' => 'Liquidations awaiting your review',
-        'revision' => 'Liquidations sent back for revision',
-        'approved' => 'Liquidations cleared by Accounting',
-    ];
 @endphp
 
 <div class="acc-page acc-liq-page acc-content-fill space-y-6 fade-in">
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $statCards])
 
     @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $records->total()])
 
@@ -116,7 +82,7 @@
             'filters' => $filters,
             'activeFilter' => $activeFilter,
             'baseUrl' => '/accounting/liquidation-reports',
-            'searchPlaceholder' => 'Search liquidation or employee...',
+            'searchPlaceholder' => 'Search liquidation, Request No., or employee...',
             'formId' => 'liqSearchForm',
             'searchId' => 'liqSearch',
             'extraHidden' => !empty($deadlineFilter) ? ['deadline' => $deadlineFilter] : [],
@@ -127,6 +93,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RR</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Employee</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>

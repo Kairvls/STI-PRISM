@@ -6,12 +6,13 @@
 
     <thead>
         <tr>
-            <th class="w-[13%]">RIS Number</th>
-            <th class="w-[24%]">Equipment</th>
-            <th class="w-[15%]">Requested By</th>
-            <th class="w-[26%]">Status</th>
-            <th class="w-[12%] text-right">Amount</th>
-            <th class="w-[10%] text-center">Actions</th>
+            <th class="w-[12%]">RIS Number</th>
+            <th class="w-[12%]">Request No.</th>
+            <th class="w-[20%]">Equipment</th>
+            <th class="w-[13%]">Requested By</th>
+            <th class="w-[23%]">Status</th>
+            <th class="w-[11%] text-right">Amount</th>
+            <th class="w-[9%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -29,6 +30,13 @@
                     >
                         {{ \App\Support\RisWorkflow::formNumber($history) }}
                     </div>
+                </td>
+
+                <td>
+                    @include('partials.procurement-request-no', ['requestNo' => $history->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                    @if(blank($history->ris_request_no ?? null))
+                        <span class="text-xs text-gray-400">—</span>
+                    @endif
                 </td>
 
                 <td>
@@ -122,7 +130,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="6" class="pur-empty">No history records found.</td>
+                <td colspan="7" class="pur-empty">No history records found.</td>
             </tr>
         @endforelse
     </tbody>

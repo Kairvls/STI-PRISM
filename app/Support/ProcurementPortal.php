@@ -8,12 +8,12 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Resolves procurement portal context (prefix, layout, routes).
- * Workflow UI lives in the Purchaser portal.
  *
- * Administrators drive RIS → ATP → RFC/CA → RR → Liquidation straight from the admin
- * sidebar: the Purchaser pages render inside the admin shell (RoleAccess::adminShell()).
- * Maintenance with Purchaser access still uses multi-role portal switching.
- * Accounting still approves money docs; Receiving still reviews RR.
+ * Purchaser: RIS → RFC → RR → Liquidation
+ * Supply Officer: ATP create/submit (from Purchaser-sent RIS)
+ * Administrators may still open Purchaser pages in the admin shell.
+ * School Administrator approves ATP / RFC; Accounting reviews Liquidation;
+ * Receiving still reviews RR.
  */
 class ProcurementPortal
 {
@@ -21,18 +21,20 @@ class ProcurementPortal
 
     public const MAINTENANCE = 'maintenance';
 
-    public const ACTOR_ROLE_IDS = [2, 3];
+    public const SUPPLY_OFFICER = 'supply-officer';
+
+    public const ACTOR_ROLE_IDS = [2, 3, 8];
 
     public const MAINTENANCE_ROLE_ID = 2;
 
     public const PURCHASER_ROLE_ID = 3;
 
+    public const SUPPLY_OFFICER_ROLE_ID = 8;
+
     public const ADMIN_ROLE_ID = 1;
 
     /**
-     * Whether the user may use procurement workflow routes/UI.
-     * Purchaser role (primary or additional) and Administrators: always.
-     * Maintenance with user_can_procurement: also granted (syncs Purchaser role).
+     * Whether the user may use Purchaser procurement workflow routes/UI.
      */
     public static function userCanAccessProcurement(?object $user = null): bool
     {
@@ -41,12 +43,12 @@ class ProcurementPortal
             return false;
         }
 
-        if (\App\Support\RoleAccess::hasRole(self::PURCHASER_ROLE_ID, $user)
-            || \App\Support\RoleAccess::isAdmin($user)) {
+        if (RoleAccess::hasRole(self::PURCHASER_ROLE_ID, $user)
+            || RoleAccess::isAdmin($user)) {
             return true;
         }
 
-        if (! \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)) {
+        if (! RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)) {
             return false;
         }
 
@@ -57,8 +59,34 @@ class ProcurementPortal
         return (bool) ($user->user_can_procurement ?? false);
     }
 
+    public static function userCanAccessAtpWorkflow(?object $user = null): bool
+    {
+        $user = $user ?? Auth::user();
+        if (! $user) {
+            return false;
+        }
+
+        return RoleAccess::hasRole(self::SUPPLY_OFFICER_ROLE_ID, $user)
+            || RoleAccess::isAdmin($user);
+    }
+
+    public static function isSupplyOfficerContext(): bool
+    {
+        if (request()->is('supply-officer') || request()->is('supply-officer/*')) {
+            return true;
+        }
+
+        $route = request()->route();
+
+        return $route && str_starts_with((string) $route->getName(), 'supply-officer.');
+    }
+
     public static function isMaintenance(?object $user = null): bool
     {
+        if (self::isSupplyOfficerContext()) {
+            return false;
+        }
+
         if (request()->is('maintenance') || request()->is('maintenance/*')) {
             return true;
         }
@@ -71,17 +99,25 @@ class ProcurementPortal
         $user = $user ?? Auth::user();
 
         return $user
-            && \App\Support\RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)
+            && RoleAccess::hasRole(self::MAINTENANCE_ROLE_ID, $user)
             && ! (request()->is('purchaser') || request()->is('purchaser/*'));
     }
 
     public static function prefix(): string
     {
+        if (self::isSupplyOfficerContext()) {
+            return self::SUPPLY_OFFICER;
+        }
+
         return self::isMaintenance() ? self::MAINTENANCE : self::PURCHASER;
     }
 
     public static function layout(): string
     {
+        if (self::isSupplyOfficerContext()) {
+            return 'layouts.supply-officer-layout';
+        }
+
         return self::isMaintenance()
             ? 'layouts.maintenance-layout'
             : 'layouts.purchaser-layout';
@@ -89,7 +125,7 @@ class ProcurementPortal
 
     public static function isActor(?object $user = null): bool
     {
-        return self::userCanAccessProcurement($user);
+        return self::userCanAccessProcurement($user) || self::userCanAccessAtpWorkflow($user);
     }
 
     public static function routeName(string $suffix): string
@@ -123,6 +159,10 @@ class ProcurementPortal
 
     public static function needsPurchaserStyles(): bool
     {
+        if (self::isSupplyOfficerContext()) {
+            return true;
+        }
+
         return self::isMaintenance() && (
             request()->is('maintenance/procurement*')
             || request()->is('maintenance/ris*')

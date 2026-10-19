@@ -60,7 +60,13 @@ class LiquidationReportController extends Controller
 
         DocumentUrgency::select($query, 'LIQ');
         $spotlightQuery = clone $query;
-        $reports = $query->orderByDesc('liquidation_reports_table.liquidation_report_created_at')->paginate(10)->withQueryString();
+        $reports = DocumentWorkflowService::orderOwnUnfinishedFirst(
+            $query,
+            'liquidation_reports_table.liquidation_report_status'
+        )
+            ->orderByDesc('liquidation_reports_table.liquidation_report_created_at')
+            ->paginate(10)
+            ->withQueryString();
 
         $viewLiqId = (int) ($request->query('view_liq') ?: 0);
         if (
@@ -408,6 +414,18 @@ class LiquidationReportController extends Controller
         if (!$existing) {
             $row['liquidation_report_created_by'] = auth()->id();
             $row['liquidation_report_created_at'] = $now;
+            if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_request_no')) {
+                $rrId = (int) ($row['liquidation_report_receiving_report_id'] ?? 0);
+                $rfcId = $rrId > 0
+                    ? (int) DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->value('receiving_report_request_check_id')
+                    : 0;
+                $requestNo = $rfcId > 0
+                    ? \App\Support\ProcurementRequestNumber::resolveFromRfc($rfcId)
+                    : null;
+                if ($requestNo) {
+                    $row['liquidation_report_request_no'] = $requestNo;
+                }
+            }
         }
 
         return $row;
@@ -698,10 +716,24 @@ class LiquidationReportController extends Controller
                 ? 'Return unused cash ₱'.number_format($shortfall, 2).' (undelivered or refunded items)'
                 : '';
 
+            // Prefer OR amount from RR when recorded (actual spend); else check / ATP share.
+            $orAmount = isset($rr->receiving_report_or_amount) && $rr->receiving_report_or_amount !== null
+                ? round((float) $rr->receiving_report_or_amount, 2)
+                : null;
+            $changeFromOr = isset($rr->receiving_report_change_amount) && $rr->receiving_report_change_amount !== null
+                ? round((float) $rr->receiving_report_change_amount, 2)
+                : null;
+
             // One funding request can cover several ATPs; each RR liquidates only its ATP's budget share.
-            $amount = $isShare
-                ? round((float) $atp->sum(fn ($row) => (float) ($row->atp_amount ?? 0)), 2)
-                : ($rr->request_check_amount_figures ?? '');
+            $amount = $orAmount !== null
+                ? $orAmount
+                : ($isShare
+                    ? round((float) $atp->sum(fn ($row) => (float) ($row->atp_amount ?? 0)), 2)
+                    : ($rr->request_check_amount_figures ?? ''));
+            if ($changeFromOr !== null && $changeFromOr > 0) {
+                $shortfall = max($shortfall, $changeFromOr);
+                $notes[] = 'Change returned to cashier ₱'.number_format($changeFromOr, 2).' (check vs OR)';
+            }
             $purpose = (string) ($rr->request_check_particulars_purpose ?? '');
             if ($isShare && filled($rr->authority_purchase_form_number ?? null)) {
                 $purpose = $purpose !== ''
@@ -789,10 +821,12 @@ class LiquidationReportController extends Controller
             return 'Only a completed Receiving Report can be used for a Liquidation Report.';
         }
 
-        $path = $rr->authority_purchase_payment_path
-            ?? ($rr->request_check_funding_type ?? ProcurementPaymentPath::REQUEST_FOR_CHECK);
-        if ($path !== ProcurementPaymentPath::CASH_ADVANCE) {
-            return 'Liquidation Reports apply only to Cash Advance workflows. Request for Check ends after the Receiving Report.';
+        $path = ProcurementPaymentPath::normalize(
+            $rr->authority_purchase_payment_path
+                ?? ($rr->request_check_funding_type ?? null)
+        );
+        if (! ProcurementPaymentPath::requiresLiquidation($path)) {
+            return 'Liquidation Reports apply only to Cash Advance workflows. Direct Payment and Cash Installment end after the Receiving Report.';
         }
 
         if ($required && ($open = BackOrders::unresolvedCounts([(int) $rrId])[(int) $rrId] ?? 0) > 0) {

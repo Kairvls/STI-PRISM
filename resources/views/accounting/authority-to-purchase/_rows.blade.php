@@ -19,6 +19,12 @@
             </div>
         </td>
         <td class="px-5 py-4">
+            @include('partials.procurement-request-no', ['requestNo' => $row->authority_purchase_request_no ?? null, 'inline' => true, 'showLabel' => false])
+            @if(blank($row->authority_purchase_request_no ?? null))
+                <span class="text-xs text-gray-400">—</span>
+            @endif
+        </td>
+        <td class="px-5 py-4">
             <p class="text-sm text-gray-700">{{ $row->ris_form_number ?? '—' }}</p>
         </td>
         <td class="px-5 py-4 text-gray-600">
@@ -39,17 +45,17 @@
         </td>
         <td class="px-5 py-4 text-right">
             <x-view-action-button
-                :href="'/accounting/authority-to-purchase/'.$row->authority_purchase_id.'?return_status='.urlencode($filter ?? 'incoming')"
-                label="View"
-                title="Review ATP"
+                :href="'/school-admin/authority-to-purchase/'.$row->authority_purchase_id.'?return_status='.urlencode($filter ?? 'incoming')"
+                label="Review"
+                title="Review ATP — form and pipeline"
                 aria-label="Review ATP"
-                data-tip="Review ATP"
+                data-tip="Review ATP — form and pipeline"
             />
         </td>
     </tr>
 @empty
     <tr>
-        <td colspan="7">
+        <td colspan="8">
             <div class="pur-empty my-2">No ATP records in this queue.</div>
         </td>
     </tr>

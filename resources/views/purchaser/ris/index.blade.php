@@ -14,7 +14,7 @@
     $sourceItems = !empty($oldRisItems)
         ? $oldRisItems
         : (($copyPrefill['items'] ?? []) ?: []);
-    $risDefaultRows = 11;
+    $risDefaultRows = 8;
     $risMaxRows = \App\Support\RisWorkflow::MAX_ITEMS;
     $sourceItems = array_values($sourceItems);
     $createRowCount = !empty($oldRisItems)
@@ -994,33 +994,6 @@
         $handoverDeclined = \App\Support\DraftHandover::declinedForSender('ris');
     @endphp
 
-    <div class="mb-6">
-        @include('layouts.partials.maintenance-stat-cards', [
-            'cards' => [
-                [
-                    'label' => 'Draft',
-                    'hint' => 'Incomplete drafts awaiting submit',
-                    'value' => number_format($risSummary['draft']),
-                    'href' => route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Draft']),
-                    'active' => request('status') === 'Draft',
-                ],
-                [
-                    'label' => 'In Review',
-                    'hint' => 'Submitted and under admin review',
-                    'value' => number_format($risSummary['submitted']),
-                    'href' => route(($pp ?? 'purchaser').'.ris.index', ['status' => 'In Review']),
-                    'active' => request('status') === 'In Review',
-                ],
-                [
-                    'label' => 'Approved',
-                    'hint' => 'Approved and ready for ATP',
-                    'value' => number_format($risSummary['approved']),
-                    'href' => route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Approved']),
-                    'active' => request('status') === 'Approved',
-                ],
-            ],
-        ])
-    </div>
 
     {{-- PRINT EMPTY RIS MODAL --}}
 
@@ -1044,7 +1017,7 @@
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
                 x-bind:class="emptyRisFullscreen
-                    ? 'my-0 min-h-full max-w-none rounded-none shadow-none'
+                    ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none'
                     : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
 
@@ -1931,19 +1904,26 @@
             min-height: 31px;
         }
 
-        /* Edit RIS fullscreen: form grows with the viewport */
+        /* Edit RIS fullscreen: form grows with the viewport (width + height) */
         .ris-edit-form.is-fullscreen,
         .ris-original-form.is-fullscreen {
             max-width: none;
             width: 100%;
+            min-height: calc(100dvh - 14rem);
+            flex: 1 1 auto;
+        }
+
+        .pur-modal-is-fullscreen .ris-edit-form.is-fullscreen,
+        .pur-modal-is-fullscreen .ris-original-form.is-fullscreen {
+            min-height: calc(100dvh - 14rem);
         }
 
         .ris-edit-form {
-            transition: max-width 0.2s ease;
+            transition: max-width 0.2s ease, min-height 0.2s ease;
         }
 
         .ris-original-form {
-            transition: max-width 0.2s ease;
+            transition: max-width 0.2s ease, min-height 0.2s ease;
         }
 
     </style>
@@ -1969,7 +1949,7 @@
             <div
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
                 x-bind:class="createRisFullscreen
-                    ? 'my-0 min-h-full max-w-none rounded-none shadow-none'
+                    ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none'
                     : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
             >
                 <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.store') }}" enctype="multipart/form-data" x-ref="createRisForm" x-on:submit.prevent="saveCreateRis()">
@@ -2531,30 +2511,27 @@
                         <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-950">Supporting Documents <span class="text-red-500">*</span></p>
-                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file at a time · Word/Excel</p>
+                                    <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word/Excel</p>
                                 </div>
-                                <button
-                                    type="button"
-                                    x-show="createAttachmentName"
-                                    x-on:click="clearCreateAttachments()"
-                                    class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
-                                >
-                                    Clear
-                                </button>
                             </div>
 
                             <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
                                 <div x-show="createAttachmentName" class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5" style="display: none;">
-                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
+                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
                                         <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
                                     </div>
                                     <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="createAttachmentName"></p>
+                                    <button
+                                        type="button"
+                                        x-on:click="clearCreateAttachments()"
+                                        class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
+                                    >Remove</button>
                                 </div>
 
                                 <label
                                     x-show="!createAttachmentName"
-                                    class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50"
+                                    class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
                                 >
                                     <input
                                         type="file"
@@ -2564,12 +2541,12 @@
                                         x-ref="createAttachmentsInput"
                                         x-on:change="onCreateAttachmentsChange($event)"
                                     >
-                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-500 transition group-hover:border-slate-400 group-hover:text-slate-800">
                                         <i data-lucide="upload" class="h-3.5 w-3.5"></i>
                                     </div>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-xs font-medium text-slate-800">Add file</p>
-                                        <p class="truncate text-[10px] text-slate-500">Choose 1 Word or Excel file</p>
+                                        <p class="text-xs font-medium text-slate-800">Upload file</p>
+                                        <p class="truncate text-[10px] text-slate-500">One file only · Word or Excel</p>
                                     </div>
                                 </label>
                             </div>
@@ -2750,7 +2727,7 @@
                     </div>
                 </div>
 
-                <form
+                <form data-auto-filter
                     id="ris-filter-form"
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.ris.index') }}"
@@ -2835,7 +2812,15 @@
                                     <button
                                         type="button"
                                         role="option"
-                                        x-on:click="value = key; open = false"
+                                        x-on:click="
+                                            value = key;
+                                            open = false;
+                                            $nextTick(() => {
+                                                const form = $el.closest('form');
+                                                if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+                                                else if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                                            });
+                                        "
                                         class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
                                         :class="value === key ? 'bg-slate-50 font-medium text-slate-950' : 'text-slate-600'"
                                         :aria-selected="(value === key).toString()"
@@ -2889,6 +2874,7 @@
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
                         <th class="py-3 pl-5 pr-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS No.</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
@@ -2909,9 +2895,20 @@
                                     </div>
                                     <div>
                                         <p class="whitespace-nowrap font-semibold text-gray-900">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
-                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $ris->ris_id }}</p>
+                                        @if(!empty($ris->ris_request_no))
+                                            <p class="mt-0.5 text-[11px] font-semibold tabular-nums text-indigo-700">{{ $ris->ris_request_no }}</p>
+                                        @else
+                                            <p class="mt-0.5 text-xs text-gray-400">Record #{{ $ris->ris_id }}</p>
+                                        @endif
                                     </div>
                                 </div>
+                            </td>
+
+                            <td class="px-3 py-3.5">
+                                @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                                @if(blank($ris->ris_request_no ?? null))
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
                             </td>
 
                             <td class="px-3 py-3.5">
@@ -3007,17 +3004,26 @@
                                     $risSubmitSignature = $showRisActionsMenu
                                         ? \App\Support\RisWorkflow::requestedByDrawnSignature($ris)
                                         : '';
-                                    $canCreateAtp = empty($archiveView) && !empty($ris->can_create_atp);
+                                    $canCreateAtp = false;
+                                    $canSendToSupply = empty($archiveView) && !empty($ris->can_send_to_supply);
+                                    $sentToSupply = !empty($ris->sent_to_supply);
+                                    $isRejectedRis = in_array($ris->ris_status, [
+                                        'Rejected',
+                                        'Rejected by President',
+                                        'Rejected by the President',
+                                    ], true);
+                                    $isApprovedRis = in_array($ris->ris_status, [
+                                        'Approved',
+                                        'Approved by the President',
+                                        'Directly Approved',
+                                    ], true);
+                                    // Hide archive while send/pass is still required, or while waiting on ATP.
+                                    $waitingOnAtp = $sentToSupply && empty($ris->has_atp);
                                     $canArchiveRis = empty($archiveView)
                                         && empty($ris->ris_is_archived)
-                                        && in_array($ris->ris_status, [
-                                            'Approved',
-                                            'Approved by the President',
-                                            'Directly Approved',
-                                            'Rejected',
-                                            'Rejected by President',
-                                            'Rejected by the President',
-                                        ], true);
+                                        && ! $canSendToSupply
+                                        && ! $waitingOnAtp
+                                        && ($isRejectedRis || ($isApprovedRis && ! empty($ris->has_atp)));
                                 @endphp
                                 <div class="inline-flex items-center justify-end gap-1">
                                     <button
@@ -3042,34 +3048,38 @@
                                         </button>
                                     @endif
 
-                                    @if($canCreateAtp)
-                                        @if(!$ris->has_atp)
-                                            @php
-                                                $atpPartial = ($ris->atp_suppliers_total ?? 0) > 1 && ($ris->atp_suppliers_open ?? 0) < $ris->atp_suppliers_total;
-                                                $atpButtonTitle = $atpPartial
-                                                    ? 'Create ATP ('.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers left)'
-                                                    : 'Create ATP';
-                                            @endphp
-                                            <a
-                                                href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected.{{ $atpPartial ? ' '.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers on this RIS still need an ATP.' : '' }}"
-                                                data-pur-confirm-title="Create ATP"
-                                                data-pur-confirm-ok="Create ATP"
+                                    @if($canSendToSupply)
+                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}" class="inline">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                                                data-pur-confirm-title="Send to Supply Officer"
+                                                data-pur-confirm-ok="Send"
+                                                data-pur-confirm-reviewer-role="School Supply / Material Officer"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                title="{{ $atpButtonTitle }}"
-                                                aria-label="{{ $atpButtonTitle }}"
+                                                title="Send to School Supply / Material Officer"
+                                                aria-label="Send to School Supply / Material Officer"
                                             >
-                                                <i data-lucide="file-plus" class="h-4 w-4"></i>
-                                            </a>
-                                        @else
-                                            <span
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700"
-                                                title="ATP Created"
-                                                aria-label="ATP Created"
-                                            >
-                                                <i data-lucide="file-check" class="h-4 w-4"></i>
-                                            </span>
-                                        @endif
+                                                <i data-lucide="send" class="h-4 w-4"></i>
+                                            </button>
+                                        </form>
+                                    @elseif($sentToSupply && !$ris->has_atp)
+                                        <span
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700"
+                                            title="Waiting for Supply Officer ATP"
+                                            aria-label="Waiting for Supply Officer ATP"
+                                        >
+                                            <i data-lucide="hourglass" class="h-4 w-4"></i>
+                                        </span>
+                                    @elseif($ris->has_atp)
+                                        <span
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700"
+                                            title="ATP Created"
+                                            aria-label="ATP Created"
+                                        >
+                                            <i data-lucide="file-check" class="h-4 w-4"></i>
+                                        </span>
                                     @endif
 
                                     @if($showRisActionsMenu)
@@ -3218,7 +3228,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-16 text-center">
+                            <td colspan="8" class="px-6 py-16 text-center">
                                 <p class="font-medium text-gray-700">No RIS records found</p>
                                 <p class="mt-1 text-sm text-gray-400">Try changing your search or filters.</p>
                             </td>
@@ -3512,7 +3522,7 @@
                     <div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
                         <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
                             <div>
-                                <p class="text-sm font-semibold text-slate-950">Supporting Documents</p>
+                                <p class="text-sm font-semibold text-slate-950">Canvas</p>
                                 <p class="mt-0.5 text-xs text-slate-500">
                                     @if($ris->risAttachments->isNotEmpty())
                                         {{ $ris->risAttachments->count() }} {{ $ris->risAttachments->count() === 1 ? 'file' : 'files' }} attached
@@ -3573,7 +3583,7 @@
                                     <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
                                         <i data-lucide="folder-open" class="h-5 w-5"></i>
                                     </div>
-                                    <p class="mt-3 text-sm font-medium text-slate-800">No supporting documents</p>
+                                    <p class="mt-3 text-sm font-medium text-slate-800">No Canvas attached</p>
                                     <p class="mt-1 text-xs text-slate-500">Nothing has been attached to this RIS yet.</p>
                                 </div>
                             @endif
@@ -3624,26 +3634,29 @@
                         Close
                     </button>
 
-                    {{-- CREATE ATP --}}
-                    @if(!empty($ris->can_create_atp))
-                        @if(!$ris->has_atp)
-                            @php
-                                $atpPartial = ($ris->atp_suppliers_total ?? 0) > 1 && ($ris->atp_suppliers_open ?? 0) < $ris->atp_suppliers_total;
-                            @endphp
-                            <a
-                                href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                data-pur-confirm="Create an Authority to Purchase for {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }}? The ATP form will open with this RIS already selected.{{ $atpPartial ? ' '.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers on this RIS still need an ATP.' : '' }}"
-                                data-pur-confirm-title="Create ATP"
-                                data-pur-confirm-ok="Create ATP"
+                    {{-- SEND TO SUPPLY OFFICER --}}
+                    @if(!empty($ris->can_send_to_supply))
+                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}">
+                            @csrf
+                            <button
+                                type="submit"
+                                data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                                data-pur-confirm-title="Send to Supply Officer"
+                                data-pur-confirm-ok="Send"
+                                data-pur-confirm-reviewer-role="School Supply / Material Officer"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
-                                {{ $atpPartial ? 'Create ATP ('.$ris->atp_suppliers_open.' of '.$ris->atp_suppliers_total.' suppliers left)' : 'Create ATP' }}
-                            </a>
-                        @else
-                            <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
-                                ATP Created
-                            </span>
-                        @endif
+                                Send to Supply Officer
+                            </button>
+                        </form>
+                    @elseif(!empty($ris->sent_to_supply) && empty($ris->has_atp))
+                        <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
+                            Waiting for Supply Officer ATP
+                        </span>
+                    @elseif(!empty($ris->has_atp))
+                        <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+                            ATP Created
+                        </span>
                     @elseif(in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted'], true))
                         <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
                             Waiting for Admin review
@@ -3999,7 +4012,7 @@
                 }"
                     class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
                     x-bind:class="editRisFullscreen
-                        ? 'my-0 min-h-full max-w-none rounded-none shadow-none'
+                        ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none'
                         : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     role="dialog"
                     aria-modal="true"
@@ -4439,28 +4452,19 @@
                             >
                                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-slate-950">Supporting Documents <span class="text-red-500">*</span></p>
+                                        <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
-                                                {{ $ris->risAttachments->count() }} existing · 1 file at a time · Word/Excel
+                                                Current file on file · replace by uploading a new one
                                             @else
-                                                Required to submit · 1 file at a time · Word/Excel
+                                                Required to submit · 1 file · Word/Excel
                                             @endif
                                         </p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        x-show="editAttachmentName"
-                                        x-cloak
-                                        x-on:click="clearEditAttachments()"
-                                        class="shrink-0 text-xs font-medium text-slate-500 transition hover:text-slate-950"
-                                    >
-                                        Clear
-                                    </button>
                                 </div>
 
                                 <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                    @forelse($ris->risAttachments as $attachment)
+                                    @forelse($ris->risAttachments->take(1) as $attachment)
                                         @php
                                             $ext = strtolower(pathinfo($attachment->ris_attachment_original_name, PATHINFO_EXTENSION));
                                             $isExcel = in_array($ext, ['xls', 'xlsx'], true);
@@ -4470,38 +4474,39 @@
                                                 : ($isWord ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-500');
                                             $fileIcon = $isExcel ? 'file-spreadsheet' : ($isWord ? 'file-text' : 'paperclip');
                                         @endphp
-                                        <div class="flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-slate-50">
+                                        <div
+                                            class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5"
+                                            x-show="!editAttachmentName"
+                                        >
                                             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md {{ $fileIconClass }}">
                                                 <i data-lucide="{{ $fileIcon }}" class="h-3.5 w-3.5"></i>
                                             </div>
                                             <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800">{{ $attachment->ris_attachment_original_name }}</p>
-                                            @if($attachment->ris_attachment_size)
-                                                <span class="shrink-0 text-[10px] text-slate-400">{{ number_format($attachment->ris_attachment_size / 1024, 1) }} KB</span>
-                                            @endif
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                                data-tooltip="Download"
                                                 aria-label="Download {{ $attachment->ris_attachment_original_name }}"
-                                                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white hover:text-slate-950"
-                                            >
-                                                <i data-lucide="download" class="h-3.5 w-3.5"></i>
-                                            </a>
+                                                class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
+                                            >Open</a>
                                         </div>
                                     @empty
                                     @endforelse
 
-                                    <div x-show="editAttachmentName" x-cloak class="flex items-center gap-2 rounded-lg bg-emerald-50/60 px-1.5 py-1.5">
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
+                                    <div x-show="editAttachmentName" x-cloak class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
                                             <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
                                         </div>
                                         <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="editAttachmentName"></p>
-                                        <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">New</span>
+                                        <button
+                                            type="button"
+                                            x-on:click="clearEditAttachments()"
+                                            class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
+                                        >Remove</button>
                                     </div>
 
                                     <label
                                         x-show="!editAttachmentName"
                                         x-cloak
-                                        class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2 transition hover:border-slate-400 hover:bg-slate-50"
+                                        class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
                                     >
                                         <input
                                             type="file"
@@ -4511,12 +4516,12 @@
                                             x-ref="editAttachmentsInput"
                                             x-on:change="onEditAttachmentsChange($event)"
                                         >
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200 transition group-hover:text-slate-800">
-                                            <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-500 transition group-hover:border-slate-400 group-hover:text-slate-800">
+                                            <i data-lucide="{{ $ris->risAttachments->isNotEmpty() ? 'refresh-cw' : 'upload' }}" class="h-3.5 w-3.5"></i>
                                         </div>
                                         <div class="min-w-0 flex-1">
-                                            <p class="text-xs font-medium text-slate-800">Add file</p>
-                                            <p class="truncate text-[10px] text-slate-500">1 file only · existing files stay</p>
+                                            <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Replace file' : 'Upload file' }}</p>
+                                            <p class="truncate text-[10px] text-slate-500">One file only · Word or Excel</p>
                                         </div>
                                     </label>
                                 </div>

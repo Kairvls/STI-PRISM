@@ -15,6 +15,7 @@
             <thead>
                 <tr>
                     <th class="col-ref">RIS Number</th>
+                    <th class="col-reqno">Request No.</th>
                     <th class="col-req">Requester</th>
                     <th class="col-purpose">Purpose</th>
                     <th class="col-amount">Amount</th>
@@ -41,6 +42,12 @@
                     >
                         <td class="col-ref">
                             <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
+                        </td>
+                        <td class="col-reqno">
+                            @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                            @if(blank($ris->ris_request_no ?? null))
+                                <span class="text-xs text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="col-req">
                             <span class="truncate-cell">{{ \App\Support\RisWorkflow::requesterName($ris) }}</span>
@@ -90,6 +97,12 @@
                     >
                         <td class="col-ref">
                             <span class="ref-text">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
+                        </td>
+                        <td class="col-reqno">
+                            @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
+                            @if(blank($ris->ris_request_no ?? null))
+                                <span class="text-xs text-gray-400">—</span>
+                            @endif
                         </td>
                         <td class="col-req">
                             <span class="truncate-cell">{{ \App\Support\RisWorkflow::requesterName($ris) }}</span>

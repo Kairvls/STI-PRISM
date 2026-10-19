@@ -51,7 +51,7 @@ class SupplierRequest extends FormRequest
                 'company_name' => ['required', 'string', 'max:255'],
                 'contact_person' => ['nullable', 'string', 'max:255'],
                 'email_address' => ['nullable', 'email', 'max:255'],
-                'contact_number' => ['nullable', 'string', 'max:50'],
+                'contact_number' => PhoneNumber::rules(),
                 'landline_number' => ['nullable', 'string', 'max:50'],
                 'company_address' => ['nullable', 'string', 'max:2000'],
             ]);
@@ -62,7 +62,7 @@ class SupplierRequest extends FormRequest
             'shop_name' => ['required', 'string', 'max:255'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'email_address' => ['nullable', 'email', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:50'],
+            'contact_number' => PhoneNumber::rules(),
             'store_url' => ['nullable', 'string', 'max:500'],
             'seller_id' => ['nullable', 'string', 'max:100'],
             'order_id' => ['nullable', 'string', 'max:255'],
